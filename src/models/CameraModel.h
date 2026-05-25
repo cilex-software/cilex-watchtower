@@ -6,6 +6,7 @@
 #include <QVariantMap>
 #include <QVector>
 #include "Types.h"
+#include "CameraStore.h"
 
 // Flat list of all cameras, exposed to QML. Group/status filtering and paging
 // for the Live Monitor are layered on top later (proxy/QML); this model is the
@@ -62,9 +63,14 @@ public:
                                   const QString &sortMode, int pageNum, int pageSize) const;
     Q_INVOKABLE int countFiltered(const QString &groupId, const QString &statusFilter) const;
 
-    // Replace the camera set with cameras imported from a Cilex Vision
-    // Provisioner export. Returns false (model unchanged) on failure.
-    Q_INVOKABLE bool loadProvisioning(const QString &path);
+    // Import a Cilex Vision Provisioner export into the persistent store, then
+    // reload (upserts by MAC; preserves user name/group/favorite). False on error.
+    Q_INVOKABLE bool importProvisioning(const QString &path);
+
+    // Persisted operator edits (by row). Watchtower never invents names — these
+    // set what the user chooses; they survive restarts and re-imports.
+    Q_INVOKABLE void setCameraName(int row, const QString &name);
+    Q_INVOKABLE void setCameraGroup(int row, const QString &groupId);
 
     int total() const { return int(m_all.size()); }
     int onlineCount() const { return m_online; }
@@ -82,10 +88,12 @@ signals:
 
 private:
     void recompute();
+    void reload();
     bool matches(const wt::CameraData &c, const QString &groupId, const QString &statusFilter) const;
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
 
+    CameraStore m_store;
     QVector<wt::CameraData> m_all;
     int m_online = 0;
     int m_offline = 0;

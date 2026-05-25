@@ -5,7 +5,11 @@
 EventModel::EventModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_all = wt::mock::events();
+    // Real operational events will come from the cameras / cilex-vision; until
+    // that feed exists, the list is empty (no invented events). WT_DEMO shows
+    // the mock event stream for development.
+    if (qEnvironmentVariableIsSet("WT_DEMO"))
+        m_all = wt::mock::events();
 }
 
 int EventModel::rowCount(const QModelIndex &parent) const

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic as C
+import QtQuick.Dialogs
 import Watchtower
 
 // Live Monitor (design §14): grid of live tiles with a layout segmented control,
@@ -40,6 +41,13 @@ Item {
     }
 
     readonly property var sortLabels: ({ "default": "Layout order", "status": "Status first", "alpha": "Alphabetical" })
+
+    FileDialog {
+        id: importDialog
+        title: "Import cameras — Cilex Provisioner export"
+        nameFilters: ["Provisioning JSON (*.json)", "All files (*)"]
+        onAccepted: { if (root.cameraModel) root.cameraModel.importProvisioning(importDialog.selectedFile); }
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -261,6 +269,7 @@ Item {
                 anchors.topMargin: root.fullscreen ? 4 : 14
                 anchors.bottomMargin: root.fullscreen ? 4 : 14
                 color: Theme.line2
+                visible: root.total > 0
 
                 GridLayout {
                     anchors.fill: parent
@@ -298,6 +307,19 @@ Item {
                         }
                     }
                 }
+            }
+
+            // No cameras yet — first-run import.
+            EmptyState {
+                anchors.fill: parent
+                anchors.margins: 24
+                visible: root.total === 0 && !root.fullscreen
+                icon: "monitor"
+                title: "No cameras yet"
+                subtitle: "Import your cameras from a Cilex Vision Provisioner export "
+                          + "(cilex-provisioning-*.json) to start monitoring."
+                actionLabel: "Import cameras…"
+                onAction: importDialog.open()
             }
 
             // floating exit button in full-screen

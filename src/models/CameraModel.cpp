@@ -5,39 +5,68 @@
 #include "ProvisioningImport.h"
 
 #include <QDebug>
+#include <QUrl>
 #include <algorithm>
 
 CameraModel::CameraModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    // Load a Cilex Vision Provisioner export if WT_CAMERAS points at one;
-    // otherwise fall back to the mock dataset.
-    const QString prov = qEnvironmentVariable("WT_CAMERAS");
-    if (!prov.isEmpty()) {
-        const wt::ProvisioningResult res = wt::importProvisioning(prov);
-        if (res.ok && !res.cameras.isEmpty()) {
-            m_all = res.cameras;
-            recompute();
-            return;
-        }
-        qWarning() << "Watchtower: provisioning import failed —" << res.error;
+    // WT_DEMO shows the mock dataset (development only). Otherwise the persistent
+    // store is the source of truth — the operator's real cameras.
+    if (qEnvironmentVariableIsSet("WT_DEMO")) {
+        m_all = wt::mock::cameras();
+        recompute();
+        return;
     }
-    m_all = wt::mock::cameras();
+    if (m_store.open()) {
+        // Bootstrap: if the store is empty and WT_CAMERAS points at an export,
+        // import it once; thereafter the store loads directly (no env var).
+        const QString prov = qEnvironmentVariable("WT_CAMERAS");
+        if (m_store.isEmpty() && !prov.isEmpty())
+            m_store.importProvisioning(prov);
+        m_all = m_store.cameras();
+    } else {
+        qWarning() << "Watchtower: camera store unavailable; starting with no cameras";
+    }
     recompute();
 }
 
-bool CameraModel::loadProvisioning(const QString &path)
+bool CameraModel::importProvisioning(const QString &path)
 {
-    const wt::ProvisioningResult res = wt::importProvisioning(path);
-    if (!res.ok || res.cameras.isEmpty()) {
-        qWarning() << "Watchtower: provisioning import failed —" << res.error;
+    // Accept a file:// URL (from the QML FileDialog) or a plain path.
+    const QString local = path.startsWith(QLatin1String("file:")) ? QUrl(path).toLocalFile() : path;
+    QString err;
+    if (m_store.importProvisioning(local, &err) < 0) {
+        qWarning() << "Watchtower: provisioning import failed —" << err;
         return false;
     }
+    reload();
+    return true;
+}
+
+void CameraModel::reload()
+{
     beginResetModel();
-    m_all = res.cameras;
+    m_all = m_store.cameras();
     endResetModel();
     recompute();
-    return true;
+}
+
+void CameraModel::setCameraName(int row, const QString &name)
+{
+    if (row < 0 || row >= m_all.size())
+        return;
+    m_store.setName(m_all[row].mac, name);
+    m_all[row].name = name;
+    emit dataChanged(index(row), index(row), { NameRole });
+}
+
+void CameraModel::setCameraGroup(int row, const QString &groupId)
+{
+    if (row < 0 || row >= m_all.size())
+        return;
+    m_store.setGroup(m_all[row].mac, groupId);
+    reload();   // refresh resolved group names
 }
 
 int CameraModel::rowCount(const QModelIndex &parent) const
@@ -204,6 +233,7 @@ void CameraModel::toggleFavorite(int row)
     if (row < 0 || row >= m_all.size())
         return;
     m_all[row].favorite = !m_all[row].favorite;
+    m_store.setFavorite(m_all[row].mac, m_all[row].favorite);
     emit dataChanged(index(row), index(row), { FavoriteRole });
 }
 
