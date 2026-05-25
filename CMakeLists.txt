@@ -72,6 +72,8 @@ qt_add_qml_module(watchtower
         src/models/Artifacts.cpp
         src/models/CameraStore.h
         src/models/CameraStore.cpp
+        src/models/Settings.h
+        src/models/Settings.cpp
         src/models/GroupModel.h
         src/models/GroupModel.cpp
         src/models/EventModel.h

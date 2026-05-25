@@ -29,7 +29,8 @@ Item {
     property string rtspUrl: ""       // main stream (on-demand HD only)
     property string rtspSubUrl: ""    // substream — the default for monitoring
     property bool videoActive: false
-    property bool useMainStream: false
+    // Defaults to the global SD/HD preference; the per-tile toggle overrides it.
+    property bool useMainStream: Settings.defaultStreamHd
     readonly property string streamUrl: (useMainStream && rtspUrl !== "")
         ? rtspUrl
         : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
@@ -256,6 +257,32 @@ Item {
                 hoverBg: Theme.accent
                 hoverBorder: Theme.accent
                 hoverIcon: Theme.bg
+            }
+
+            // Per-camera SD/HD stream toggle (defaults to the global setting; SD =
+            // substream/responsive, HD = main stream). Switches the live feed.
+            Rectangle {
+                visible: root.rtspUrl !== ""
+                width: 30
+                height: 30
+                color: hdMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.85)
+                border.width: 1
+                border.color: hdMa.containsMouse ? Theme.accent : Theme.line2
+                Text {
+                    anchors.centerIn: parent
+                    text: root.useMainStream ? "HD" : "SD"
+                    color: hdMa.containsMouse ? Theme.bg : (root.useMainStream ? Theme.accent : Theme.ink)
+                    font.family: Theme.fontMono
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                }
+                MouseArea {
+                    id: hdMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.useMainStream = !root.useMainStream
+                }
             }
 
             TileAction { name: "clip"; tip: "Open playback"; onClicked: root.played() }
