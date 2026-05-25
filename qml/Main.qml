@@ -60,6 +60,7 @@ Window {
                 cameraModel: cameraModel
                 statusFilter: win.statusFilter
                 onStatusChipClicked: (which) => win.toggleStatusChip(which)
+                onAvatarClicked: win.section = "preferences"
             }
 
             RowLayout {
@@ -104,10 +105,17 @@ Window {
                     }
                 }
 
+                PreferencesScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "preferences"
+                    onClosed: win.section = "live"
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences"].indexOf(win.section) < 0
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"

@@ -93,10 +93,19 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     model: root.groupsData
-                    delegate: GroupRow {
+                    delegate: Rectangle {
                         required property var modelData
                         width: ListView.view.width
-                        gid: modelData.id; gname: modelData.name; gcount: modelData.total
+                        height: 40
+                        color: root.selectedGroup === modelData.id ? Theme.accentSoft : (grpRowMa.containsMouse ? Theme.panel2 : "transparent")
+                        Rectangle { visible: root.selectedGroup === modelData.id; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 3; color: Theme.accent }
+                        RowLayout {
+                            anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 14; spacing: 8
+                            Icon { name: "layers"; size: 14; color: root.selectedGroup === modelData.id ? Theme.accent : Theme.ink3 }
+                            Text { Layout.fillWidth: true; text: modelData.name; color: root.selectedGroup === modelData.id ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: root.selectedGroup === modelData.id ? Font.DemiBold : Font.Normal; elide: Text.ElideRight }
+                            Text { text: modelData.total; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                        }
+                        MouseArea { id: grpRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.selectedGroup = modelData.id; root.selectedGroupName = modelData.name; } }
                     }
                 }
 
@@ -167,6 +176,21 @@ Item {
                         label: "Delete group"; danger: true
                         onClicked: { root.cameraModel.removeGroup(root.selectedGroup); root.selectedGroup = ""; root.selectedGroupName = "All cameras"; }
                     }
+                }
+            }
+
+            // how-to hint
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                color: Theme.bg
+                Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
+                Text {
+                    anchors { left: parent.left; leftMargin: 20; verticalCenter: parent.verticalCenter }
+                    text: "Click a camera's name to rename it  ·  use the group dropdown on the right to move it into a group"
+                    color: Theme.ink3
+                    font.family: Theme.fontSans
+                    font.pixelSize: 11
                 }
             }
 

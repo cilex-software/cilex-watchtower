@@ -4,20 +4,41 @@
 #include <QDir>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QUrl>
 
 Artifacts::Artifacts(QObject *parent)
     : QObject(parent)
 {
 }
 
-QString Artifacts::snapshotDir() const
+QString Artifacts::defaultSnapshotDir() const
 {
     QString base = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
     if (base.isEmpty())
         base = QDir::homePath();
-    const QString dir = base + QStringLiteral("/Watchtower");
+    return base + QStringLiteral("/Watchtower");
+}
+
+QString Artifacts::snapshotDir() const
+{
+    QString dir = m_settings.value(QStringLiteral("snapshots/dir")).toString();
+    if (dir.isEmpty())
+        dir = defaultSnapshotDir();
     QDir().mkpath(dir);
     return dir;
+}
+
+void Artifacts::setSnapshotDir(const QString &dir)
+{
+    QString d = dir;
+    if (d.startsWith(QLatin1String("file:")))   // from the QML FolderDialog
+        d = QUrl(d).toLocalFile();
+    if (d == m_settings.value(QStringLiteral("snapshots/dir")).toString())
+        return;
+    m_settings.setValue(QStringLiteral("snapshots/dir"), d);
+    if (!d.isEmpty())
+        QDir().mkpath(d);
+    emit snapshotDirChanged();
 }
 
 QString Artifacts::newSnapshotPath(const QString &camId) const

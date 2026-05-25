@@ -43,7 +43,7 @@ Item {
                 ColumnLayout {
                     spacing: 2
                     Text {
-                        text: "VMS Operator"
+                        text: "Cilex Vision"
                         color: Theme.ink3
                         font.family: Theme.fontMono
                         font.pixelSize: 10
@@ -51,7 +51,7 @@ Item {
                         font.capitalization: Font.AllUppercase
                     }
                     Text {
-                        text: root.operatorName
+                        text: "Watchtower"
                         color: Theme.ink
                         font.family: Theme.fontSans
                         font.pixelSize: 16
@@ -183,20 +183,18 @@ Item {
                 MouseArea { id: bellMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.bellClicked() }
             }
 
-            // avatar
-            Rectangle {
+            // settings / account access (Preferences live here, design §11)
+            Item {
                 Layout.preferredWidth: 34
                 Layout.preferredHeight: 34
-                color: Theme.accent
-                Text {
-                    anchors.centerIn: parent
-                    text: root.initials
-                    color: Theme.bg
-                    font.family: Theme.fontMono
-                    font.pixelSize: 12
-                    font.weight: Font.Bold
+                Rectangle {
+                    anchors.fill: parent
+                    color: avMa.containsMouse ? Theme.panel : "transparent"
+                    border.width: avMa.containsMouse ? 1 : 0
+                    border.color: Theme.line2
                 }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.avatarClicked() }
+                Icon { anchors.centerIn: parent; name: "gear"; size: 18; color: avMa.containsMouse ? Theme.ink : Theme.ink2 }
+                MouseArea { id: avMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.avatarClicked() }
             }
         }
     }

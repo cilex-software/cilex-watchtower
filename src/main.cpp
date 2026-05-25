@@ -63,6 +63,10 @@ int main(int argc, char *argv[])
     // through the scene graph; pin the OpenGL RHI backend before any window.
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 
+    // Native (FreeType-hinted) text rendering — crisper for this dense UI than
+    // the default distance-field rendering, which can look soft at small sizes.
+    QQuickWindow::setTextRenderType(QQuickWindow::NativeTextRendering);
+
     // Unstyled "Basic" Controls style so our design tokens fully dictate the look.
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
