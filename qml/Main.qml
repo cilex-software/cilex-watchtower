@@ -13,11 +13,13 @@ Window {
     color: Theme.bg
     title: qsTr("Watchtower")
 
-    property string section: "live"
+    property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
     property int gridLayout: 16          // cameras per page
     property int gridPage: 1
     property string statusFilter: ""
     property string sortMode: "default"
+    property string groupFilter: ""
+    property string groupLabel: "All cameras"
     property bool fullscreen: false
 
     function setLayout(n) { gridLayout = n; gridPage = 1 }
@@ -69,11 +71,14 @@ Window {
                     id: liveMonitor
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    visible: win.section === "live"
                     cameraModel: cameraModel
                     layoutSize: win.gridLayout
                     page: win.gridPage
                     statusFilter: win.statusFilter
                     sortMode: win.sortMode
+                    groupId: win.groupFilter
+                    groupLabel: win.groupLabel
                     fullscreen: win.fullscreen
                     onLayoutRequested: (size) => win.setLayout(size)
                     onPageRequested: (p) => win.gridPage = Math.max(1, Math.min(p, liveMonitor.pageCount))
@@ -84,6 +89,31 @@ Window {
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
+                }
+
+                CameraGroups {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "groups"
+                    cameraModel: cameraModel
+                    onOpenInLive: (gid, label) => {
+                        win.groupFilter = gid;
+                        win.groupLabel = label;
+                        win.gridPage = 1;
+                        win.section = "live";
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: ["live", "groups"].indexOf(win.section) < 0
+                    EmptyState {
+                        anchors.centerIn: parent
+                        icon: "pulse"
+                        title: "Coming soon"
+                        subtitle: win.section + " is part of a later phase."
+                    }
                 }
 
                 OpsSidebar {

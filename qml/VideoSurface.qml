@@ -39,4 +39,7 @@ Item {
     onActiveChanged: root.active ? maybePlay() : player.stop()
     onUrlChanged: maybePlay()
     Component.onCompleted: maybePlay()
+    // Stop the pipeline before teardown so it reaches NULL cleanly (avoids a
+    // GStreamer-backend crash when many players are destroyed at once).
+    Component.onDestruction: player.stop()
 }

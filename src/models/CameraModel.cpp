@@ -6,6 +6,7 @@
 
 #include <QDebug>
 #include <QUrl>
+#include <QUuid>
 #include <algorithm>
 
 CameraModel::CameraModel(QObject *parent)
@@ -52,21 +53,67 @@ void CameraModel::reload()
     recompute();
 }
 
-void CameraModel::setCameraName(int row, const QString &name)
+void CameraModel::setCameraName(const QString &mac, const QString &name)
 {
-    if (row < 0 || row >= m_all.size())
-        return;
-    m_store.setName(m_all[row].mac, name);
-    m_all[row].name = name;
-    emit dataChanged(index(row), index(row), { NameRole });
+    m_store.setName(mac, name);
+    for (int i = 0; i < m_all.size(); ++i) {
+        if (m_all[i].mac == mac) {
+            m_all[i].name = name;
+            emit dataChanged(index(i), index(i), { NameRole });
+            return;
+        }
+    }
 }
 
-void CameraModel::setCameraGroup(int row, const QString &groupId)
+void CameraModel::setCameraGroup(const QString &mac, const QString &groupId)
 {
-    if (row < 0 || row >= m_all.size())
-        return;
-    m_store.setGroup(m_all[row].mac, groupId);
-    reload();   // refresh resolved group names
+    m_store.setGroup(mac, groupId);
+    reload();   // refresh resolved group names + counts
+    emit groupsChanged();
+}
+
+QVariantList CameraModel::groupList() const
+{
+    QVariantList out;
+    const QVector<wt::GroupData> gs = m_store.groups();
+    for (const wt::GroupData &g : gs) {
+        QVariantMap m;
+        m["id"] = g.id;
+        m["name"] = g.name;
+        m["parentId"] = g.parentId;
+        m["total"] = countFiltered(g.id, QString());
+        m["online"] = countFiltered(g.id, QStringLiteral("online"));
+        m["offline"] = countFiltered(g.id, QStringLiteral("offline"));
+        m["notRec"] = countFiltered(g.id, QStringLiteral("notrec"));
+        out.push_back(m);
+    }
+    return out;
+}
+
+QString CameraModel::createGroup(const QString &name)
+{
+    wt::GroupData g;
+    g.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    g.name = name;
+    m_store.upsertGroup(g);
+    emit groupsChanged();
+    return g.id;
+}
+
+void CameraModel::renameGroup(const QString &id, const QString &name)
+{
+    wt::GroupData g;
+    g.id = id;
+    g.name = name;
+    m_store.upsertGroup(g);
+    emit groupsChanged();
+}
+
+void CameraModel::removeGroup(const QString &id)
+{
+    m_store.removeGroup(id);
+    reload();
+    emit groupsChanged();
 }
 
 int CameraModel::rowCount(const QModelIndex &parent) const

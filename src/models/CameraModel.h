@@ -69,8 +69,15 @@ public:
 
     // Persisted operator edits (by row). Watchtower never invents names — these
     // set what the user chooses; they survive restarts and re-imports.
-    Q_INVOKABLE void setCameraName(int row, const QString &name);
-    Q_INVOKABLE void setCameraGroup(int row, const QString &groupId);
+    Q_INVOKABLE void setCameraName(const QString &mac, const QString &name);
+    Q_INVOKABLE void setCameraGroup(const QString &mac, const QString &groupId);
+
+    // User-defined groups (persisted). groupList() returns each group with its
+    // live camera counts. Groups are flat in MVP (no nesting yet).
+    Q_INVOKABLE QVariantList groupList() const;
+    Q_INVOKABLE QString createGroup(const QString &name);
+    Q_INVOKABLE void renameGroup(const QString &id, const QString &name);
+    Q_INVOKABLE void removeGroup(const QString &id);
 
     int total() const { return int(m_all.size()); }
     int onlineCount() const { return m_online; }
@@ -85,6 +92,7 @@ public:
 
 signals:
     void countsChanged();
+    void groupsChanged();
 
 private:
     void recompute();

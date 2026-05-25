@@ -76,6 +76,8 @@ int main(int argc, char *argv[])
 
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
+    // Optional initial section (dev: WT_SECTION=groups|live|...).
+    engine.rootContext()->setContextProperty("wtSection", qEnvironmentVariable("WT_SECTION"));
 
     // WT_VIDEOTEST loads the single-stream video test instead of the app shell.
     const QString entry = qEnvironmentVariableIsSet("WT_VIDEOTEST")
