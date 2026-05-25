@@ -30,7 +30,8 @@ struct CameraData {
     int pattern = 0;     // 0..3 placeholder video pattern (fallback when no stream)
 
     // Real-camera metadata (populated by the provisioning importer; empty for mock).
-    QString rtspUrl;     // full rtsp:// URL incl. credentials
+    QString rtspUrl;     // main stream URL (higher res; on-demand HD only)
+    QString rtspSubUrl;  // substream URL — the DEFAULT for monitoring (lighter)
     QString ip;
     QString mac;
     QString model;

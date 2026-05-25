@@ -40,7 +40,8 @@ Window {
             id: surf
             anchors.fill: parent
             anchors.margins: 1
-            url: win.cam0 ? win.cam0.rtspUrl : ""
+            // substream by default (matches app-wide default)
+            url: win.cam0 ? (win.cam0.rtspSubUrl !== "" ? win.cam0.rtspSubUrl : win.cam0.rtspUrl) : ""
         }
 
         Text {

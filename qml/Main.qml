@@ -81,6 +81,9 @@ Window {
                     onSortRequested: (s) => win.sortMode = s
                     onFullscreenToggled: win.fullscreen = !win.fullscreen
                     onSaveViewRequested: { /* Save Current View modal (O03) — later phase */ }
+                    onSnapshotSaved: (path, camName) => toastHost.show(
+                        "Snapshot captured", camName + " · saved to Pictures/Watchtower",
+                        "accent", "Open", "file://" + path)
                 }
 
                 OpsSidebar {
@@ -92,4 +95,7 @@ Window {
             }
         }
     }
+
+    // Toast stack overlay (snapshot feedback now; alerts later).
+    ToastHost { id: toastHost }
 }

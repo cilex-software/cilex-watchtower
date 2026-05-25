@@ -43,6 +43,12 @@ ProvisioningResult wt::importProvisioning(const QString &path)
         cam.firmware = c.value(QStringLiteral("firmware")).toString();
         cam.serial = c.value(QStringLiteral("serial")).toString();
         cam.rtspUrl = c.value(QStringLiteral("rtsp_url")).toString();
+        // Substream is the default for monitoring (lower bitrate/res — lighter on
+        // PC + network). Hikvision/HiWatch: channel 101 = main, 102 = sub. Falls
+        // back to the main URL if the pattern isn't present.
+        cam.rtspSubUrl = cam.rtspUrl;
+        cam.rtspSubUrl.replace(QStringLiteral("/Streaming/Channels/101"),
+                               QStringLiteral("/Streaming/Channels/102"));
 
         // Derive id/name (the export has no friendly name). Use the IP's last
         // octet for a short, stable label.

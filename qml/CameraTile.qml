@@ -26,11 +26,13 @@ Item {
     // it; a Loader instantiates the player only then, so paged-out/offline tiles
     // stay cheap. The grid uses the substream (Hikvision channel 102) to keep
     // many simultaneous decodes light; focused views can use the main stream.
-    property string rtspUrl: ""
+    property string rtspUrl: ""       // main stream (on-demand HD only)
+    property string rtspSubUrl: ""    // substream — the default for monitoring
     property bool videoActive: false
-    readonly property string streamUrl: (rtspUrl !== "" && rtspUrl.indexOf("/Streaming/Channels/101") >= 0)
-        ? rtspUrl.replace("/Streaming/Channels/101", "/Streaming/Channels/102")
-        : rtspUrl
+    property bool useMainStream: false
+    readonly property string streamUrl: (useMainStream && rtspUrl !== "")
+        ? rtspUrl
+        : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
     readonly property bool hasStream: streamUrl !== "" && videoActive && !isOffline
     readonly property bool streamPlaying: videoLoader.item ? videoLoader.item.playing : false
     readonly property bool streamErrored: videoLoader.item ? videoLoader.item.errored : false
@@ -47,10 +49,22 @@ Item {
     signal opened()
     signal played()
     signal snapshotRequested()
+    signal snapshotSaved(string path, string camName)
     signal bookmarkRequested()
     signal favoriteToggled()
     signal openedNewTab()
     signal issueRequested()
+
+    // Capture the current frame (the live surface if playing, else the tile) to a
+    // PNG and announce it. Phase 1 snapshot stub (full library = S07 later).
+    function captureSnapshot() {
+        var target = (streamPlaying && videoLoader.item) ? videoLoader.item : base;
+        target.grabToImage(function(result) {
+            var path = Artifacts.newSnapshotPath(root.camId);
+            if (result.saveToFile(path))
+                root.snapshotSaved(path, root.camName);
+        });
+    }
 
     Rectangle {
         id: base
@@ -113,6 +127,24 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "last seen " + root.lastSeen; color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 10
+                }
+            }
+        }
+
+        // Stream failed (reachable per the system, but this client can't get the
+        // feed — e.g. auth/network). Distinct from offline (design §32).
+        Rectangle {
+            anchors.fill: parent
+            visible: root.streamErrored && !root.isOffline
+            color: "#0a0d11"
+            Column {
+                anchors.centerIn: parent
+                spacing: 4
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "alert"; size: 26; color: Theme.warn }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "STREAM UNAVAILABLE"; color: Theme.warn
+                    font.family: Theme.fontMono; font.pixelSize: 12; font.letterSpacing: 1.0
                 }
             }
         }
@@ -227,7 +259,7 @@ Item {
             }
 
             TileAction { name: "clip"; tip: "Open playback"; onClicked: root.played() }
-            TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.snapshotRequested() }
+            TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
             TileAction { name: "bookmark"; tip: "Add bookmark"; onClicked: root.bookmarkRequested() }
             TileAction {
                 name: "star"

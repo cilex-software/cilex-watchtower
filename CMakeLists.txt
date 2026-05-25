@@ -57,6 +57,8 @@ qt_add_qml_module(watchtower
         qml/LiveMonitor.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml
+        qml/Toast.qml
+        qml/ToastHost.qml
     SOURCES
         src/models/CameraStatus.h
         src/models/Types.h
@@ -66,6 +68,8 @@ qt_add_qml_module(watchtower
         src/models/ProvisioningImport.cpp
         src/models/CameraModel.h
         src/models/CameraModel.cpp
+        src/models/Artifacts.h
+        src/models/Artifacts.cpp
         src/models/GroupModel.h
         src/models/GroupModel.cpp
         src/models/EventModel.h

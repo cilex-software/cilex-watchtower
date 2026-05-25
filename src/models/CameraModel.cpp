@@ -65,8 +65,9 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case TimestampRole: return c.timestamp;
     case LastSeenRole:  return c.lastSeen;
     case PatternRole:   return c.pattern;
-    case RtspUrlRole:   return c.rtspUrl;
-    case IpRole:        return c.ip;
+    case RtspUrlRole:    return c.rtspUrl;
+    case RtspSubUrlRole: return c.rtspSubUrl;
+    case IpRole:         return c.ip;
     case MacRole:       return c.mac;
     case ModelRole:     return c.model;
     case VendorRole:    return c.vendor;
@@ -90,8 +91,9 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { TimestampRole, "timestamp" },
         { LastSeenRole,  "lastSeen" },
         { PatternRole,   "pattern" },
-        { RtspUrlRole,   "rtspUrl" },
-        { IpRole,        "ip" },
+        { RtspUrlRole,    "rtspUrl" },
+        { RtspSubUrlRole, "rtspSubUrl" },
+        { IpRole,         "ip" },
         { MacRole,       "mac" },
         { ModelRole,     "model" },
         { VendorRole,    "vendor" },
@@ -117,6 +119,7 @@ QVariantMap CameraModel::get(int row) const
     m["lastSeen"] = c.lastSeen;
     m["pattern"] = c.pattern;
     m["rtspUrl"] = c.rtspUrl;
+    m["rtspSubUrl"] = c.rtspSubUrl;
     m["ip"] = c.ip;
     m["mac"] = c.mac;
     m["model"] = c.model;

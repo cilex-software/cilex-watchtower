@@ -37,6 +37,7 @@ public:
         LastSeenRole,
         PatternRole,
         RtspUrlRole,
+        RtspSubUrlRole,
         IpRole,
         MacRole,
         ModelRole,

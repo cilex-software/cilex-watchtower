@@ -24,6 +24,7 @@ Item {
     signal sortRequested(string s)
     signal fullscreenToggled()
     signal saveViewRequested()
+    signal snapshotSaved(string path, string camName)
 
     readonly property int cols: Math.round(Math.sqrt(layoutSize))
     readonly property int total: cameraModel ? cameraModel.countFiltered(groupId, statusFilter) : 0
@@ -269,6 +270,7 @@ Item {
                     columnSpacing: 1
 
                     Repeater {
+                        id: gridRepeater
                         model: root.pagedCameras
                         delegate: CameraTile {
                             required property var modelData
@@ -286,11 +288,13 @@ Item {
                             lastSeen: modelData.lastSeen
                             pattern: modelData.pattern
                             rtspUrl: modelData.rtspUrl
+                            rtspSubUrl: modelData.rtspSubUrl
                             // Grid tiles are the current page, so they play. When
                             // WT_TEST_IP is set (dev), only that camera streams —
                             // avoids hitting other cameras during testing.
                             videoActive: (typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                 ? (modelData.ip === wtTestIp) : true
+                            onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
                         }
                     }
                 }
