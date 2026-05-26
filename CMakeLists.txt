@@ -56,6 +56,7 @@ qt_add_qml_module(watchtower
         qml/OpsSidebar.qml
         qml/LiveMonitor.qml
         qml/CameraGroups.qml
+        qml/SingleCameraDetail.qml
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml

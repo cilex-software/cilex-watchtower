@@ -26,6 +26,7 @@ Item {
     signal fullscreenToggled()
     signal saveViewRequested()
     signal snapshotSaved(string path, string camName)
+    signal cameraOpened(var cam)
 
     readonly property int cols: Math.round(Math.sqrt(layoutSize))
     readonly property int total: cameraModel ? cameraModel.countFiltered(groupId, statusFilter) : 0
@@ -305,6 +306,7 @@ Item {
                                 && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                     ? (modelData.ip === wtTestIp) : true)
                             onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
+                            onOpened: root.cameraOpened(modelData)
                         }
                     }
                 }

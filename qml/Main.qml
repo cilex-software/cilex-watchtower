@@ -21,6 +21,7 @@ Window {
     property string groupFilter: ""
     property string groupLabel: "All cameras"
     property bool fullscreen: false
+    property var focusedCamera: null    // shows Single Camera Detail when non-null
 
     function setLayout(n) { gridLayout = n; gridPage = 1 }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
@@ -28,6 +29,18 @@ Window {
 
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
+
+    // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
+    // camera (deferred so the shell finishes its first layout pass, matching the
+    // real flow where the user clicks a tile after the grid has settled).
+    Timer {
+        interval: 400; running: typeof wtFocusIp !== "undefined" && wtFocusIp !== ""
+        onTriggered: {
+            var all = cameraModel.page("", "", "default", 1, 50);
+            for (var i = 0; i < all.length; i++)
+                if (all[i].ip === wtFocusIp) { win.focusedCamera = all[i]; break; }
+        }
+    }
 
     // keyboard shortcuts (design §30)
     Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }
@@ -72,7 +85,7 @@ Window {
                     id: liveMonitor
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "live"
+                    visible: win.section === "live" && win.focusedCamera === null
                     cameraModel: cameraModel
                     layoutSize: win.gridLayout
                     page: win.gridPage
@@ -90,12 +103,13 @@ Window {
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
+                    onCameraOpened: (cam) => win.focusedCamera = cam
                 }
 
                 CameraGroups {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "groups"
+                    visible: win.section === "groups" && win.focusedCamera === null
                     cameraModel: cameraModel
                     onOpenInLive: (gid, label) => {
                         win.groupFilter = gid;
@@ -103,6 +117,21 @@ Window {
                         win.gridPage = 1;
                         win.section = "live";
                     }
+                    onOpenCamera: (cam) => win.focusedCamera = cam
+                }
+
+                SingleCameraDetail {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.focusedCamera !== null
+                    cameraModel: cameraModel
+                    camera: win.focusedCamera
+                    onClosed: win.focusedCamera = null
+                    onSwitchCamera: (cam) => win.focusedCamera = cam
+                    onOpenPlayback: (mac) => { /* Playback (S06) — task 14 */ }
+                    onSnapshotSaved: (path, camName) => toastHost.show(
+                        "Snapshot captured", camName + " · saved to Pictures/Watchtower",
+                        "accent", "Open", "file://" + path)
                 }
 
                 PreferencesScreen {
@@ -126,7 +155,7 @@ Window {
 
                 OpsSidebar {
                     Layout.fillHeight: true
-                    visible: win.section === "live" && !win.fullscreen
+                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null
                     cameraModel: cameraModel
                     eventModel: eventModel
                 }

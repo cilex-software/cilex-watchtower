@@ -15,6 +15,7 @@ Item {
     property int rev: 0                            // bump to refresh derived lists
 
     signal openInLive(string groupId, string label)
+    signal openCamera(var cam)
 
     Connections {
         target: root.cameraModel
@@ -296,7 +297,7 @@ Item {
                         }
 
                         IconButton { name: "monitor"; tip: "Open live"; iconColor: Theme.ink2; hoverIcon: Theme.accent
-                            onClicked: root.openInLive("", camRow.modelData.name) }
+                            onClicked: root.openCamera(camRow.modelData) }
                     }
 
                     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
