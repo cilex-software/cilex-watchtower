@@ -22,6 +22,7 @@ Window {
     property string groupLabel: "All cameras"
     property bool fullscreen: false
     property var focusedCamera: null    // shows Single Camera Detail when non-null
+    property var playbackCamera: null   // shows Playback (S06) when non-null
 
     function setLayout(n) { gridLayout = n; gridPage = 1 }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
@@ -29,6 +30,7 @@ Window {
 
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
+    PlaybackClient { id: playbackClient }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
     // camera (deferred so the shell finishes its first layout pass, matching the
@@ -39,6 +41,20 @@ Window {
             var all = cameraModel.page("", "", "default", 1, 50);
             for (var i = 0; i < all.length; i++)
                 if (all[i].ip === wtFocusIp) { win.focusedCamera = all[i]; break; }
+        }
+    }
+    // Dev hook: WT_PLAYBACK_IP boots straight into Playback (S06) for that camera.
+    Timer {
+        interval: 500; running: typeof wtPlaybackIp !== "undefined" && wtPlaybackIp !== ""
+        onTriggered: {
+            var all = cameraModel.page("", "", "default", 1, 50);
+            for (var i = 0; i < all.length; i++)
+                if (all[i].ip === wtPlaybackIp) {
+                    win.focusedCamera = all[i];
+                    win.playbackCamera = all[i];
+                    playbackScreen.openFor(all[i], 60);
+                    break;
+                }
         }
     }
 
@@ -123,12 +139,30 @@ Window {
                 SingleCameraDetail {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.focusedCamera !== null
+                    visible: win.focusedCamera !== null && win.playbackCamera === null
                     cameraModel: cameraModel
                     camera: win.focusedCamera
                     onClosed: win.focusedCamera = null
                     onSwitchCamera: (cam) => win.focusedCamera = cam
-                    onOpenPlayback: (mac) => { /* Playback (S06) — task 14 */ }
+                    onOpenPlayback: (mac) => {
+                        win.playbackCamera = win.focusedCamera;
+                        playbackScreen.openFor(win.focusedCamera, 60);
+                    }
+                    onSnapshotSaved: (path, camName) => toastHost.show(
+                        "Snapshot captured", camName + " · saved to Pictures/Watchtower",
+                        "accent", "Open", "file://" + path)
+                }
+
+                PlaybackScreen {
+                    id: playbackScreen
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.playbackCamera !== null
+                    client: playbackClient
+                    cameraModel: cameraModel
+                    onClosed: win.playbackCamera = null
+                    onReturnToLive: { win.playbackCamera = null; win.focusedCamera = null }
+                    onFullscreenRequested: win.fullscreen = true
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
@@ -160,6 +194,20 @@ Window {
                     eventModel: eventModel
                 }
             }
+        }
+    }
+
+    // Clip-export feedback from the playback backend.
+    Connections {
+        target: playbackClient
+        function onExportStarted(jobId) {
+            toastHost.show("Export started", "Preparing clip on cilex-vision…", "accent", "", "")
+        }
+        function onExportReady(jobId, url) {
+            toastHost.show("Clip ready", "Exported clip is available", "good", "Download", url)
+        }
+        function onExportFailed(jobId, err) {
+            toastHost.show("Export failed", err === "" ? "The clip could not be exported" : err, "bad", "", "")
         }
     }
 

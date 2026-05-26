@@ -13,7 +13,7 @@ set(CMAKE_AUTOMOC ON)
 # qt_add_qml_module flow. GStreamer / Multimedia / Sql get linked in later
 # phases (video pipeline, persistence) — kept out of the first build to keep
 # the dependency surface minimal until those features land.
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network)
 
 # Video is played through QtMultimedia (QML MediaPlayer + VideoOutput), which on
 # Linux uses the GStreamer backend with VA-API hardware decode. The QML module
@@ -57,6 +57,7 @@ qt_add_qml_module(watchtower
         qml/LiveMonitor.qml
         qml/CameraGroups.qml
         qml/SingleCameraDetail.qml
+        qml/PlaybackScreen.qml
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml
@@ -83,6 +84,10 @@ qt_add_qml_module(watchtower
         src/models/EventModel.cpp
         src/models/SavedViewModel.h
         src/models/SavedViewModel.cpp
+        src/models/HlsProxy.h
+        src/models/HlsProxy.cpp
+        src/models/PlaybackClient.h
+        src/models/PlaybackClient.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.
@@ -106,4 +111,5 @@ target_link_libraries(watchtower PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Sql
+    Qt6::Network
 )
