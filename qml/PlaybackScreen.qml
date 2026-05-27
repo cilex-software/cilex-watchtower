@@ -225,7 +225,7 @@ Item {
                             implicitWidth: expTxt.implicitWidth + 16; implicitHeight: 22; color: Theme.accent
                             Text { id: expTxt; anchors.centerIn: parent; text: "Export Clip"; color: Theme.bg
                                 font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.exportClip() }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openExportDrawer() }
                         }
                     }
                 }
@@ -456,9 +456,22 @@ Item {
             if (res.saveToFile(p)) root.snapshotSaved(p, root.camera ? root.camera.name : "");
         });
     }
-    function exportClip() {
+    // Open the export drawer for the current selection, seeding it with a grabbed
+    // preview frame. The drawer collects the full export form and emits confirmed()
+    // with the fields cilex-vision's API supports today (range + mode).
+    function openExportDrawer() {
         if (!hasSelection || !client) return;
-        client.createExport(camId, new Date(selStartMs).toISOString(),
-                            new Date(selEndMs).toISOString(), "continuous");
+        exportDrawer.openWith(camera, camId, selStartMs, selEndMs, frags, playheadMs);
+        vout.grabToImage(function(res) { if (res) exportDrawer.previewSource = res.url; });
+    }
+
+    ExportDrawer {
+        id: exportDrawer
+        z: 50
+        onConfirmed: (s, e, mode) => {
+            if (root.client)
+                root.client.createExport(root.camId, new Date(s).toISOString(),
+                                         new Date(e).toISOString(), mode);
+        }
     }
 }
