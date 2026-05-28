@@ -97,6 +97,7 @@ Window {
     Shortcut { sequence: "2"; onActivated: win.setLayout(4) }
     Shortcut { sequence: "3"; onActivated: win.setLayout(9) }
     Shortcut { sequence: "4"; onActivated: win.setLayout(16) }
+    Shortcut { sequence: "Ctrl+K"; onActivated: commandPalette.open() }
 
     RowLayout {
         anchors.fill: parent
@@ -122,6 +123,7 @@ Window {
                 statusFilter: win.statusFilter
                 onStatusChipClicked: (which) => win.toggleStatusChip(which)
                 onAvatarClicked: win.section = "preferences"
+                onSearchActivated: commandPalette.open()
             }
 
             RowLayout {
@@ -297,5 +299,22 @@ Window {
                                        win.sortMode, win.groupFilter, win.groupLabel);
             toastHost.show("View saved", name + " · " + (shared ? "Shared" : "Mine"), "good", "", "");
         }
+    }
+
+    // Command palette (Ctrl+K) — global quick-jump across cameras/groups/views/events.
+    CommandPalette {
+        id: commandPalette
+        cameraModel: cameraModel
+        savedViewModel: savedViewModel
+        eventModel: eventModel
+        onOpenCamera: (cam) => { win.section = "live"; win.focusedCamera = cam }
+        onOpenGroup: (gid, label) => { win.focusedCamera = null; win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.section = "live" }
+        onOpenView: (view) => {
+            win.focusedCamera = null;
+            win.gridLayout = view.layoutSize; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
+            win.groupFilter = view.groupId; win.groupLabel = view.groupLabel; win.gridPage = 1; win.section = "live";
+            savedViewModel.touch(view.viewId);
+        }
+        onOpenEvents: { win.focusedCamera = null; win.playbackCamera = null; win.section = "events" }
     }
 }
