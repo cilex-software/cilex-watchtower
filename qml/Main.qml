@@ -62,6 +62,7 @@ Window {
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
     SavedViewModel { id: savedViewModel }
+    SnapshotModel { id: snapshotModel; dir: Artifacts.snapshotDir }
     PlaybackClient { id: playbackClient }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
@@ -252,10 +253,18 @@ Window {
                     }
                 }
 
+                ClipsScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "clips" && win.focusedCamera === null && win.playbackCamera === null
+                    snapshotModel: snapshotModel
+                    cameraModel: cameraModel
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences", "health", "events", "views"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences", "health", "events", "views", "clips"].indexOf(win.section) < 0
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"
@@ -307,7 +316,9 @@ Window {
         cameraModel: cameraModel
         savedViewModel: savedViewModel
         eventModel: eventModel
+        snapshotModel: snapshotModel
         onOpenCamera: (cam) => { win.section = "live"; win.focusedCamera = cam }
+        onOpenClips: { win.focusedCamera = null; win.playbackCamera = null; win.section = "clips" }
         onOpenGroup: (gid, label) => { win.focusedCamera = null; win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.section = "live" }
         onOpenView: (view) => {
             win.focusedCamera = null;

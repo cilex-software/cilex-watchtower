@@ -64,6 +64,7 @@ qt_add_qml_module(watchtower
         qml/SavedViewsScreen.qml
         qml/SaveViewModal.qml
         qml/CommandPalette.qml
+        qml/ClipsScreen.qml
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml
@@ -94,6 +95,8 @@ qt_add_qml_module(watchtower
         src/models/HlsProxy.cpp
         src/models/PlaybackClient.h
         src/models/PlaybackClient.cpp
+        src/models/SnapshotModel.h
+        src/models/SnapshotModel.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.

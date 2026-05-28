@@ -16,11 +16,13 @@ Item {
     property var cameraModel: null
     property var savedViewModel: null
     property var eventModel: null
+    property var snapshotModel: null
 
     signal openCamera(var cam)
     signal openGroup(string groupId, string label)
     signal openView(var view)
     signal openEvents()
+    signal openClips()
 
     property string query: ""
     property int sel: -1                  // display index of the selected row
@@ -72,6 +74,15 @@ Item {
             }
             if (er.length) groups.push({ label: "Events", count: er.length, rows: er.slice(0, 5) });
         }
+        if (snapshotModel) {
+            var ss = snapshotModel.all(), sr = [];
+            for (var p = 0; p < ss.length; p++) {
+                var s = ss[p];
+                if (mm(s.title) || mm(s.camera) || mm("snapshot"))
+                    sr.push({ type: "clip", title: s.title, subtitle: "Snapshot · " + (s.camera || ""), glyph: "shot", glyphColor: Theme.ink2, data: s });
+            }
+            if (sr.length) groups.push({ label: "Clips & Snapshots", count: sr.length, rows: sr.slice(0, 5) });
+        }
         var flat = [], display = [];
         for (var gi = 0; gi < groups.length; gi++) {
             display.push({ header: true, label: groups[gi].label, count: groups[gi].count });
@@ -101,6 +112,7 @@ Item {
         else if (row.type === "group") root.openGroup(row.data.id, row.data.name);
         else if (row.type === "view") root.openView(row.data);
         else if (row.type === "event") root.openEvents();
+        else if (row.type === "clip") root.openClips();
     }
     function activateSel() {
         if (sel < 0 || sel >= built.display.length || built.display[sel].header) return;

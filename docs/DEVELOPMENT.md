@@ -55,8 +55,8 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
 - **Auth**: cookie-only. `POST /auth/login {username,password}` (from `WT_CV_USER`/`WT_CV_PASS`) → session cookie in the shared cookie jar, sent on every request incl. HLS segments.
 - **Playback**: `POST /review/sessions {camera_id, wall_start, wall_end, hevc_capable:true}` → inline `manifest` (fragments with wall/compact times, codec/resolution/tier, availability). HLS `playlist.m3u8` + `seg/{idx}.ts`. `camera_id = "hiwatch-" + mac_hex`.
   - **`HlsProxy`**: Qt 6.4 `QMediaPlayer` can't attach auth headers, so a loopback proxy injects the cookie, rewrites `/api/review/`→`/review/`, **strips `#EXT-X-GAP`** placeholder segments (v1 `hlsdemux` 404s on `gap-N.ts`), keeps `#EXT-X-DISCONTINUITY`, and retries `503` (cold fragment remuxing sub-second).
-- **Export**: `POST /review/exports {camera_id, wall_start, wall_end, mode}` → poll `GET /review/exports/{id}` → `download_url` (proxied). _Only those 4 fields accepted — see export letter._
-- **Events**: `GET /events` (rich filters) → `EventListResponse{events,total,offset,limit}`; `EventResponse{event_id, event_type, camera_id, start_time, state, clip_url, metadata, …}`. _No acknowledge endpoint; feed currently empty — see events letter._
+- **Export**: `POST /review/exports {camera_id, wall_start, wall_end, mode}` → poll `GET /review/exports/{id}` → `download_url` (proxied). _Only those 4 fields accepted; no list endpoint — see `docs/letters/watchtower-to-cilex-vision-api-requests.md` (§A)._
+- **Events**: `GET /events` (rich filters) → `EventListResponse{events,total,offset,limit}`; `EventResponse{event_id, event_type, camera_id, start_time, state, clip_url, metadata, …}`. _No acknowledge endpoint; feed currently empty — see the API-requests letter (§B)._
 
 ## Gotchas & caveats (don't regress)
 
