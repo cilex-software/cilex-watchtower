@@ -31,20 +31,15 @@ Cameras have **no on-camera storage**; recorded footage and events come from cil
 - **Health (P5)**: `HealthScreen.qml` — 6 stat cards over `CameraModel` counts + filtered camera table + 380px detail panel, plus a storage-subsystem status strip (`StorageHealth` → `GET /health/storage`).
 - **Events (P5)**: `EventsScreen.qml` (filter pills + table + detail panel) + `EventModel` wired to the live `GET /events` feed; locally-persisted acknowledge.
 
-## cilex-vision backend gaps (tracked in letters)
+## Open backlog
 
-The backend is missing fields/endpoints the design needs. We build the full UI, send
-only what the API supports, mark the rest "pending," and file functional-spec letters.
-See the single living backlog **`docs/letters/watchtower-to-cilex-vision-api-requests.md`** (sections: A Export & Clips, B Events, C misc):
-
-- **Export & Clips** — export accepts only `{camera_id, wall_start, wall_end, mode}`; needs `purpose`, overlay burn-in (a server re-encode path — exports are stream-copy), a typed job response (size/resolution/expiry), documented `mode`, audio, and a **LIST endpoint for the Clips library** (no way to enumerate past exports today).
-- **Events** — **no acknowledge endpoint** (ack is client-local for now); the **`/events` feed is empty** (`total: 0` — is the pipeline producing?); `GET /detections` 500s; needs authoritative `event_type`/`state` vocabularies.
-
-## Deferred (not backend-blocked — more client work; no fake controls shipped)
-
-- **Playback**: mid-playback **codec switch** (H.264 720p ↔ H.265 1440p across `#EXT-X-DISCONTINUITY`) is **unverified** — only happens across the 3-day hot→warm boundary; a static GStreamer pipeline broke at the switch; needs the synthesized multi-day mixed timeline cilex offered. Same-group camera switch in the playback aside.
-- **Events**: the mock's Today / All-cameras / +Filter pills, Bookmark / Export actions in the event drawer, "−15s" precise seek on Open-playback. Server-side shared ack pending the letter.
-- **Latent (don't manifest with today's data)**: `"hydrating"` fragments are dropped (`availability !== "ready"`) — fine while all footage is hot-tier; `resolution` inferred from codec rather than read.
+Prioritized — with blocked-status, owners, and what unblocks each — in
+**[BACKLOG.md](BACKLOG.md)**. Backend contracts (our asks + Cilex Vision's
+point-by-point responses) are in the API-requests letter. In short: every **P1**
+item is backend-gated (Events pipeline B2, real export/clips metadata A1/A3/A6,
+shared ack B1); the **🟢 actionable-now** items are client-side polish (theme
+switching, same-group playback switch, `compact` mode toggle, event-drawer
+export/filters).
 
 ## P6 progress
 
