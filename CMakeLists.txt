@@ -97,6 +97,8 @@ qt_add_qml_module(watchtower
         src/models/PlaybackClient.cpp
         src/models/SnapshotModel.h
         src/models/SnapshotModel.cpp
+        src/models/StorageHealth.h
+        src/models/StorageHealth.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.

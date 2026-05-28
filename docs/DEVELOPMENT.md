@@ -43,7 +43,7 @@ cmake -G Ninja -B build -S . && cmake --build build   # -> build/watchtower
   - `CameraModel` — `QAbstractListModel` over the store; live status counts (`onlineCount`/`offlineCount`/`degradedCount`/`notRecordingCount`/`recordingGapCount`), `page(group,statusFilter,sort,…)`, `cameraByBackendId(camera_id)` (resolve cilex-vision id → local camera by MAC). Status filters: `online/offline/degraded/recording/notrec/gap/favorites/issues/recent`.
   - `EventModel` — events feed: live `GET /events` (own authenticated session) or `WT_DEMO` mock; roles for the ops sidebar; `all()` (maps for the Events screen); acknowledge persisted locally in `QSettings["eventAcks"]`.
   - `PlaybackClient` + `HlsProxy` — cilex-vision recorded playback (see below).
-  - `GroupModel`, `SavedViewModel`, `Settings`, `Artifacts` (snapshot dir), `MockData` (WT_DEMO).
+  - `GroupModel`, `SavedViewModel` (persisted views), `SnapshotModel` (lists the local snapshot dir for the Clips library), `StorageHealth` (authenticated poll of `GET /health/storage`), `Settings`, `Artifacts` (snapshot dir), `MockData` (WT_DEMO).
 - **`qml/`** — screens (`Main`, `LiveMonitor`, `SingleCameraDetail`, `PlaybackScreen`, `ExportDrawer`, `HealthScreen`, `EventsScreen`, `PreferencesScreen`, `CameraGroups`) + components (`Theme` singleton tokens, `Icon`, `IconButton`, status badges, `PlaceholderVid`, `VideoSurface`, `Toast`/`ToastHost`).
 - **`Theme.qml`** — design tokens (warm graphite palette, amber accent, Space Grotesk + JetBrains Mono, 4px spacing, 0-radius geometry). Match the handoff exactly.
 

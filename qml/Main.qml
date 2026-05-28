@@ -63,6 +63,7 @@ Window {
     EventModel { id: eventModel }
     SavedViewModel { id: savedViewModel }
     SnapshotModel { id: snapshotModel; dir: Artifacts.snapshotDir }
+    StorageHealth { id: storageHealth }
     PlaybackClient { id: playbackClient }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
@@ -217,6 +218,7 @@ Window {
                     Layout.fillHeight: true
                     visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null
                     cameraModel: cameraModel
+                    storageHealth: storageHealth
                     onOpenLive: (cam) => { win.section = "live"; win.focusedCamera = cam }
                     onOpenPlayback: (cam) => { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
                     onOpenEvents: (cam) => win.section = "events"

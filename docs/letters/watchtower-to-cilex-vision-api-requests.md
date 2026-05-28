@@ -43,8 +43,9 @@ Status per item:
   C2 denormalized cam . ACCEPTED, cheap, low priority.
 
 Newly live (unsolicited): GET /health/storage → { status, degraded,
-storage_agent_reachable, circuit_open, last_error, reason } (ok now). Available to
-wire as a storage-subsystem indicator — NOT yet done on our side.
+storage_agent_reachable, circuit_open, last_error, reason } (ok now). WIRED on our
+side — a storage-subsystem status strip on the Health screen (StorageHealth client,
+refreshed while the screen is visible; shows Operational/Degraded/Unreachable).
 
 Their sequencing: [done] B3 + A4 → first batch A1+A3+A6 + B1 → B2 investigation →
 A2 (after playback transcode infra) → A5 → C1/C2. (Contract + order, not dates —

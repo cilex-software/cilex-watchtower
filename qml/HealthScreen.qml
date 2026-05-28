@@ -13,6 +13,7 @@ Item {
     id: root
 
     property var cameraModel: null
+    property var storageHealth: null
 
     signal openLive(var cam)
     signal openPlayback(var cam)
@@ -20,6 +21,11 @@ Item {
 
     property string activeFilter: ""           // default to Visible (all) — real fleets are mostly healthy, so an Offline default (per the mock) would open empty
     property var sel: null                     // selected camera map -> detail panel
+
+    // Storage subsystem health (cilex-vision /health/storage), refreshed while visible.
+    onVisibleChanged: if (visible && storageHealth) storageHealth.refresh()
+    Component.onCompleted: if (storageHealth) storageHealth.refresh()
+    Timer { interval: 30000; running: root.visible && root.storageHealth !== null; repeat: true; onTriggered: root.storageHealth.refresh() }
 
     // table rows for the active filter (status-sorted; all of them — the table scrolls)
     readonly property var rows: cameraModel
@@ -115,6 +121,51 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+
+        // ===== storage subsystem status =====
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            color: Theme.bg
+            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
+            readonly property var sh: root.storageHealth
+            Row {
+                anchors.left: parent.left; anchors.leftMargin: 18; anchors.right: parent.right; anchors.rightMargin: 18
+                anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 4
+                    color: (!parent.parent.sh || !parent.parent.sh.loaded) ? Theme.ink3
+                         : (parent.parent.sh.ok ? Theme.good
+                         : ((!parent.parent.sh.reachable || parent.parent.sh.circuitOpen) ? Theme.bad : Theme.warn))
+                }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: "STORAGE SUBSYSTEM"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2 }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        var sh = parent.parent.sh;
+                        if (!sh || !sh.loaded) return "Status unknown";
+                        if (sh.ok) return "Operational";
+                        if (!sh.reachable || sh.circuitOpen) return "Unreachable";
+                        if (sh.degraded) return "Degraded";
+                        return sh.status ? sh.status : "Unknown";
+                    }
+                    color: {
+                        var sh = parent.parent.sh;
+                        if (!sh || !sh.loaded) return Theme.ink3;
+                        if (sh.ok) return Theme.ink2;
+                        if (!sh.reachable || sh.circuitOpen) return Theme.bad;
+                        return Theme.warn;
+                    }
+                    font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: parent.parent.sh && parent.parent.sh.reason !== ""
+                    text: parent.parent.sh ? ("· " + parent.parent.sh.reason) : ""
+                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight
+                }
+            }
+        }
 
         // ===== stat cards strip =====
         Rectangle {
