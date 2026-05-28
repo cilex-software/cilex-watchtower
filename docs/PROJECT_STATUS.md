@@ -1,0 +1,57 @@
+# Cilex Watchtower — Project Status
+
+_Last updated: 2026-05-28. This file is the durable, crash-recoverable snapshot of
+where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
+the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## What this is
+
+A **native Ubuntu Qt6/QML/C++ surveillance VMS operator client** (not a browser app),
+a client of the **cilex-vision** platform. The hard requirement is smooth GPU
+decode/compositing of up to 16 live RTSP H.264/H.265 streams plus playback scrubbing.
+Cameras have **no on-camera storage**; recorded footage and events come from cilex-vision.
+
+## Phase status
+
+| Phase | Scope | State | Key commit(s) |
+|-------|-------|-------|---------------|
+| P1 | Foundation + Live Monitor (16-stream wall, app shell, models) | ✅ done | (early history) |
+| P2 | Single Camera Detail (S05) | ✅ done | `04abd30` |
+| P3 | Playback + timeline (S06) | ✅ done | `e340c30` |
+| P4 | Export + snapshots (export drawer + confirm modal) | ✅ done | `a3b567e` |
+| P5 | Events + Health | ✅ done | `d1ad10f` (Health), `9d22db6` (Events) |
+| P6 | Saved Views / Clips / Prefs / polish | ⬜ next | — |
+
+## Done — highlights
+
+- **Live Monitor**: 1/4/9/16 grids, paging, filters, status-first sort, tile hover actions, fullscreen. Real HW-decoded video via QtMultimedia (VA-API).
+- **Single Camera Detail (S05)**, **Camera Groups (S03)**, **Preferences (snapshot folder, default stream quality)**.
+- **Playback (S06)**: `PlaybackClient` + `HlsProxy` + `PlaybackScreen.qml`. Real recorded HLS from cilex-vision plays through a local auth proxy; manifest-driven timeline (footage/gap coverage), transport, zoom presets.
+- **Export (P4)**: full `ExportDrawer.qml` (440px drawer + centered confirm modal) — preview, KV facts, `HH:MM:SS.mmm` range editors, options, required Purpose, gap-warning ribbon.
+- **Health (P5)**: `HealthScreen.qml` — 6 stat cards over `CameraModel` counts + filtered camera table + 380px detail panel. Pure view over existing data.
+- **Events (P5)**: `EventsScreen.qml` (filter pills + table + detail panel) + `EventModel` wired to the live `GET /events` feed; locally-persisted acknowledge.
+
+## cilex-vision backend gaps (tracked in letters)
+
+The backend is missing fields/endpoints the design needs. We build the full UI, send
+only what the API supports, mark the rest "pending," and file functional-spec letters.
+See `docs/letters/`:
+
+- **`2026-05-27-…-export-api.md`** — export accepts only `{camera_id, wall_start, wall_end, mode}`; needs `purpose`, overlay options (requires a server re-encode path — exports are stream-copy), a typed job response (size/resolution/expiry), documented `mode`, audio.
+- **`2026-05-28-…-events-api.md`** — **no acknowledge endpoint** (ack is client-local for now); the **`/events` feed is empty** (`total: 0` everywhere — is the pipeline producing?); `GET /detections` 500s; requests authoritative `event_type`/`state` vocabularies.
+
+## Deferred (not backend-blocked — more client work; no fake controls shipped)
+
+- **Playback**: mid-playback **codec switch** (H.264 720p ↔ H.265 1440p across `#EXT-X-DISCONTINUITY`) is **unverified** — only happens across the 3-day hot→warm boundary; a static GStreamer pipeline broke at the switch; needs the synthesized multi-day mixed timeline cilex offered. Same-group camera switch in the playback aside.
+- **Events**: the mock's Today / All-cameras / +Filter pills, Bookmark / Export actions in the event drawer, "−15s" precise seek on Open-playback. Server-side shared ack pending the letter.
+- **Latent (don't manifest with today's data)**: `"hydrating"` fragments are dropped (`availability !== "ready"`) — fine while all footage is hot-tier; `resolution` inferred from codec rather than read.
+
+## Next: P6
+
+Saved Views, the **Clips & Snapshots artifact library** (design §296–304, parked here during P4), Preferences completion, and polish. Command palette (Ctrl+K) is also still to come.
+
+## Recovery pointers
+
+- Build/run/verify, dev hooks, architecture, API contract, gotchas → [DEVELOPMENT.md](DEVELOPMENT.md).
+- Each commit message is written as a context-restoration anchor (`git log` reads like a build journal).
+- Design spec of record: `designs/design_handoff_watchtower/README.md` + `design/watchtower.html`.
