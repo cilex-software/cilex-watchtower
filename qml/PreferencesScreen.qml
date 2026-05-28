@@ -1,14 +1,33 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQuick.Controls.Basic as QC
 import Watchtower
 
-// Preferences (S10): personal UI preferences only (no system admin). Phase 2:
-// default stream quality + snapshot folder; more (theme, time format, alerts)
-// land later. Left-aligned stack of panel sections (design §28).
+// Preferences (S10 / design §9): personal UI preferences only (no system admin).
+// Sections: Video, Snapshots, Workspace (default landing), Time & language (time
+// format), Alerts (sound + desktop notifications). Light/Dark theme switching is
+// deferred (Theme is a static singleton — a larger refactor). Left-aligned stack.
 Item {
     id: root
     signal closed()
+
+    property var savedViewModel: null
+    property var cameraModel: null
+
+    // Default-landing options: Live Monitor + each saved view + each group.
+    function landingOptions() {
+        var opts = [{ value: "live", label: "Live Monitor" }];
+        if (root.savedViewModel) {
+            var vs = root.savedViewModel.list();
+            for (var i = 0; i < vs.length; i++) opts.push({ value: "view:" + vs[i].viewId, label: "View · " + vs[i].name });
+        }
+        if (root.cameraModel) {
+            var gs = root.cameraModel.groupList();
+            for (var j = 0; j < gs.length; j++) opts.push({ value: "group:" + gs[j].id, label: "Group · " + gs[j].name });
+        }
+        return opts;
+    }
 
     FolderDialog {
         id: dirDialog
@@ -60,6 +79,70 @@ Item {
         }
     }
 
+    // segmented option control (used for Time format + Alerts toggles)
+    component Segmented: Rectangle {
+        id: seg
+        property var opts: []        // [{ k: label, v: value }]
+        property var value: undefined
+        property int segW: 80
+        signal picked(var v)
+        Layout.preferredHeight: 32
+        implicitWidth: seg.opts.length * seg.segW + 2
+        implicitHeight: 32
+        color: Theme.bg
+        border.width: 1; border.color: Theme.line2
+        Row {
+            Repeater {
+                model: seg.opts
+                delegate: Rectangle {
+                    required property var modelData
+                    required property int index
+                    width: seg.segW; height: 30; y: 1; x: 1 + index * seg.segW
+                    color: seg.value === modelData.v ? Theme.accent : "transparent"
+                    Text { anchors.centerIn: parent; text: modelData.k; color: seg.value === modelData.v ? Theme.bg : Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: seg.picked(modelData.v) }
+                }
+            }
+        }
+    }
+
+    // dropdown (used for Default landing)
+    component PrefDropdown: Rectangle {
+        id: dd
+        property var options: []
+        property string currentValue: ""
+        signal pickedValue(string value)
+        function currentLabel() {
+            for (var i = 0; i < dd.options.length; i++) if (dd.options[i].value === dd.currentValue) return dd.options[i].label;
+            return dd.options.length ? dd.options[0].label : "";
+        }
+        Layout.preferredHeight: 34
+        implicitWidth: 260
+        color: Theme.bg
+        border.width: 1; border.color: ddPop.visible ? Theme.accent : (ddMa.containsMouse ? Theme.line2 : Theme.line2)
+        Text { anchors.left: parent.left; anchors.leftMargin: 12; anchors.right: ddCh.left; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; text: dd.currentLabel(); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13 }
+        Icon { id: ddCh; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; name: "chev"; size: 12; color: Theme.ink3 }
+        MouseArea { id: ddMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ddPop.visible ? ddPop.close() : ddPop.open() }
+        QC.Popup {
+            id: ddPop
+            y: parent.height + 2; x: 0; width: parent.width
+            padding: 1
+            background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
+            contentItem: Column {
+                Repeater {
+                    model: dd.options
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: ddPop.width - 2; height: 30
+                        color: oMa.containsMouse ? Theme.accentSoft : (modelData.value === dd.currentValue ? Theme.bg : "transparent")
+                        Text { anchors.left: parent.left; anchors.leftMargin: 11; anchors.right: parent.right; anchors.rightMargin: 11; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; text: modelData.label; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13 }
+                        MouseArea { id: oMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { dd.pickedValue(modelData.value); ddPop.close() } }
+                    }
+                }
+            }
+        }
+    }
+
     Flickable {
         anchors.fill: parent
         contentHeight: page.implicitHeight + 48
@@ -81,6 +164,24 @@ Item {
                     border.width: 1; border.color: backMa.containsMouse ? Theme.accent : Theme.line2
                     Text { id: backT; anchors.centerIn: parent; text: "Back to monitoring"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     MouseArea { id: backMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closed() }
+                }
+            }
+
+            PrefSection {
+                title: "Workspace"
+                PrefRow {
+                    label: "Default landing screen"
+                    desc: "Where Watchtower opens on launch."
+                    PrefDropdown {
+                        options: root.landingOptions()
+                        currentValue: Settings.defaultLanding
+                        onPickedValue: (val) => Settings.defaultLanding = val
+                    }
+                }
+                PrefRow {
+                    label: "Theme"
+                    desc: "Light and System themes are planned for a later phase."
+                    Text { text: "Dark"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
                 }
             }
 
@@ -110,6 +211,49 @@ Item {
                             }
                         }
                     }
+                }
+            }
+
+            PrefSection {
+                title: "Time & language"
+                PrefRow {
+                    label: "Time format"
+                    desc: "How clocks are shown across the app."
+                    Segmented {
+                        opts: [{ k: "24-hour", v: true }, { k: "12-hour", v: false }]
+                        value: Settings.time24h
+                        segW: 80
+                        onPicked: (v) => Settings.time24h = v
+                    }
+                }
+            }
+
+            PrefSection {
+                title: "Alerts"
+                PrefRow {
+                    label: "Alert sound"
+                    desc: "Play a sound when a camera raises an alert."
+                    Segmented {
+                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        value: Settings.alertSound
+                        segW: 56
+                        onPicked: (v) => Settings.alertSound = v
+                    }
+                }
+                PrefRow {
+                    label: "Desktop notifications"
+                    desc: "Show an OS notification for alerts even when Watchtower isn't focused."
+                    Segmented {
+                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        value: Settings.desktopNotifications
+                        segW: 56
+                        onPicked: (v) => Settings.desktopNotifications = v
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.bottomMargin: 12
+                    text: "Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive."
+                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
             }
 

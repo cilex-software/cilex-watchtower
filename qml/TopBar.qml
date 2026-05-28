@@ -10,8 +10,7 @@ Item {
     property var cameraModel: null
     property string operatorName: "m.osei"
     property string initials: "MO"
-    property string clockTime: "17:42"
-    property string tz: "UTC+1"
+    property double now: Date.now()
     property bool hasAlerts: true
     property string statusFilter: ""   // "online" | "offline" | "notrec" | ""
 
@@ -21,6 +20,15 @@ Item {
     signal avatarClicked()
 
     implicitHeight: Theme.topBarHeight
+
+    // Live, format-aware clock (replaces the old static "17:42" placeholder).
+    Timer { interval: 10000; running: true; repeat: true; onTriggered: root.now = Date.now() }
+    function tzLabel() {
+        var off = -(new Date(root.now).getTimezoneOffset());
+        var sign = off >= 0 ? "+" : "−"; off = Math.abs(off);
+        var h = Math.floor(off / 60), m = off % 60;
+        return "UTC" + sign + h + (m ? (":" + (m < 10 ? "0" : "") + m) : "");
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -148,13 +156,13 @@ Item {
                 spacing: 0
                 Rectangle { width: 1; Layout.preferredHeight: 24; color: Theme.line; Layout.rightMargin: 16 }
                 Text {
-                    text: root.clockTime + " · "
+                    text: Settings.clock(root.now, false) + " · "
                     color: Theme.ink2
                     font.family: Theme.fontMono
                     font.pixelSize: 12
                 }
                 Text {
-                    text: root.tz
+                    text: root.tzLabel()
                     color: Theme.ink
                     font.family: Theme.fontMono
                     font.pixelSize: 12

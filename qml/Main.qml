@@ -34,6 +34,30 @@ Window {
         saveViewModal.groupLabel = win.groupLabel;
         saveViewModal.open();
     }
+    // Apply the user's default landing screen on launch (Live / a saved view / a
+    // group). A dev WT_SECTION override wins. Models are ready by onCompleted.
+    function applyDefaultLanding() {
+        var dl = Settings.defaultLanding;
+        if (!dl || dl === "live") return;
+        if (dl.indexOf("group:") === 0) {
+            var gid = dl.substring(6);
+            var groups = cameraModel.groupList();
+            for (var i = 0; i < groups.length; i++)
+                if (groups[i].id === gid) { win.groupFilter = gid; win.groupLabel = groups[i].name; break; }
+            win.gridPage = 1; win.section = "live";
+        } else if (dl.indexOf("view:") === 0) {
+            var vid = dl.substring(5);
+            var views = savedViewModel.list();
+            for (var j = 0; j < views.length; j++)
+                if (views[j].viewId === vid) {
+                    var v = views[j];
+                    win.gridLayout = v.layoutSize; win.statusFilter = v.statusFilter; win.sortMode = v.sortMode;
+                    win.groupFilter = v.groupId; win.groupLabel = v.groupLabel; win.gridPage = 1; win.section = "live";
+                    break;
+                }
+        }
+    }
+    Component.onCompleted: if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding()
 
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
@@ -180,6 +204,8 @@ Window {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     visible: win.section === "preferences"
+                    savedViewModel: savedViewModel
+                    cameraModel: cameraModel
                     onClosed: win.section = "live"
                 }
 

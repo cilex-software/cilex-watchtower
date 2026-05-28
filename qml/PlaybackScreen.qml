@@ -40,8 +40,7 @@ Item {
     function pad(n) { return (n < 10 ? "0" : "") + n }
     function fmtClock(ms) {
         if (!ms || isNaN(ms)) return "—";
-        var d = new Date(ms);
-        return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+        return Settings.clock(ms, true);   // honors the Time-format preference
     }
     function fmtDur(sec) {
         sec = Math.max(0, Math.round(sec));
