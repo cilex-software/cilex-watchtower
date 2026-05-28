@@ -175,10 +175,20 @@ Window {
                     onClosed: win.section = "live"
                 }
 
+                HealthScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null
+                    cameraModel: cameraModel
+                    onOpenLive: (cam) => { win.section = "live"; win.focusedCamera = cam }
+                    onOpenPlayback: (cam) => { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
+                    onOpenEvents: (cam) => win.section = "events"
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences", "health"].indexOf(win.section) < 0
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"

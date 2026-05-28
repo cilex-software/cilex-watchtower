@@ -215,6 +215,7 @@ bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const
     if (f == QLatin1String("degraded"))  return c.live == CameraStatus::Degraded;
     if (f == QLatin1String("recording")) return c.recording == CameraStatus::Recording;
     if (f == QLatin1String("notrec"))    return c.recording == CameraStatus::NotRecording;
+    if (f == QLatin1String("gap"))       return c.recording == CameraStatus::RecordingGap;
     if (f == QLatin1String("favorites")) return c.favorite;
     if (f == QLatin1String("issues") || f == QLatin1String("recent"))
         return c.live == CameraStatus::Offline || c.live == CameraStatus::Degraded

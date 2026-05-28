@@ -59,6 +59,7 @@ qt_add_qml_module(watchtower
         qml/SingleCameraDetail.qml
         qml/PlaybackScreen.qml
         qml/ExportDrawer.qml
+        qml/HealthScreen.qml
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml
