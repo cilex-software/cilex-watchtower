@@ -564,7 +564,7 @@ Item {
                         Text { id: okT; anchors.centerIn: parent; text: "Confirm export"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.confirmed(root.startMs, root.endMs, "continuous"); root.close(); }
+                            onClicked: { root.confirmed(root.startMs, root.endMs, "wallclock"); root.close(); }
                         }
                     }
                 }

@@ -116,20 +116,22 @@ QVector<CameraData> mock::cameras()
 QVector<EventData> mock::events()
 {
     return {
-        { "e1", "motion",   "P-G01", "Parking Gate N", "Parking",     "17:38:12",
-          "Motion detected — vehicle entering", false, {}, {} },
-        { "e2", "offline",  "A-107", "Stair B",        "Lobby",       "17:31:02",
-          "Camera went offline", false, {}, {} },
-        { "e3", "gap",      "X-P02", "Perimeter NE",   "Perimeter",   "17:14:00 – 17:18:23",
-          "Recording gap (4m 23s)", true, "m.osei", "17:19" },
-        { "e4", "bookmark", "A-201", "F1 Corridor N",  "First Floor", "16:58:45",
-          "Bookmark: Visitor without badge", false, {}, {} },
-        { "e5", "motion",   "P-G05", "Loading Dock",   "Parking",     "16:42:11",
-          "Motion detected — after hours", true, "j.chen", "16:44" },
-        { "e6", "online",   "A-204", "F1 Meeting 4A",  "First Floor", "15:51:09",
-          "Camera back online", true, "m.osei", "15:52" },
-        { "e7", "motion",   "X-P03", "Perimeter SW",   "Perimeter",   "15:22:48",
-          "Motion detected — fence line", false, {}, {} },
+        // Types use cilex-vision's authoritative EventType vocab (entered_scene,
+        // exited_scene, stopped, loitering, motion_started, motion_ended).
+        { "e1", "motion_started", "P-G01", "Parking Gate N", "Parking",     "17:38:12",
+          "Motion started — vehicle entering", false, {}, {} },
+        { "e2", "loitering",      "A-107", "Stair B",        "Lobby",       "17:31:02",
+          "Loitering detected — stairwell", false, {}, {} },
+        { "e3", "exited_scene",   "X-P02", "Perimeter NE",   "Perimeter",   "17:14:00",
+          "Object exited scene", true, "m.osei", "17:19" },
+        { "e4", "entered_scene",  "A-201", "F1 Corridor N",  "First Floor", "16:58:45",
+          "Person entered — corridor", false, {}, {} },
+        { "e5", "motion_started", "P-G05", "Loading Dock",   "Parking",     "16:42:11",
+          "Motion started — after hours", true, "j.chen", "16:44" },
+        { "e6", "stopped",        "A-204", "F1 Meeting 4A",  "First Floor", "15:51:09",
+          "Object stopped — meeting room", true, "m.osei", "15:52" },
+        { "e7", "motion_ended",   "X-P03", "Perimeter SW",   "Perimeter",   "15:22:48",
+          "Motion ended — fence line", false, {}, {} },
     };
 }
 

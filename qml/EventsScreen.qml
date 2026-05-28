@@ -31,20 +31,15 @@ Item {
 
     function eventIcon(type) {
         switch (type) {
-        case "motion": return "motion";
-        case "offline": return "off";
-        case "online": return "check";
-        case "gap": return "alert";
-        case "bookmark": return "bookmark";
-        default: return "alert";
+        case "loitering":
+        case "stopped": return "alert";
+        default: return "motion";   // entered/exited_scene, motion_started/ended
         }
     }
     function eventColor(type) {
         switch (type) {
-        case "offline": return Theme.bad;
-        case "online": return Theme.good;
-        case "bookmark": return Theme.violet;
-        default: return Theme.accent;   // motion, gap
+        case "loitering": return Theme.bad;
+        default: return Theme.accent;
         }
     }
     function camDisplay(ev) {

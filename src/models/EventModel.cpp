@@ -13,19 +13,23 @@
 #include <QDateTime>
 
 namespace {
-// Human description from the event type (+ duration for gaps). Unknown types
-// fall back to the type itself, capitalized — we never invent a description.
+// Human description from cilex-vision's authoritative EventType vocab
+// (entered_scene | exited_scene | stopped | loitering | motion_started |
+// motion_ended). Unknown types are humanized (snake_case -> Sentence case) —
+// we never invent a description. (offline/online are NOT events; they'd be a
+// separate camera-status feed.)
 QString descForType(const QString &type, qint64 durMs)
 {
-    if (type == "motion")   return QStringLiteral("Motion detected");
-    if (type == "offline")  return QStringLiteral("Camera went offline");
-    if (type == "online")   return QStringLiteral("Camera back online");
-    if (type == "bookmark") return QStringLiteral("Bookmark");
-    if (type == "gap")
-        return durMs > 0 ? QStringLiteral("Recording gap (%1s)").arg(durMs / 1000)
-                         : QStringLiteral("Recording gap");
+    Q_UNUSED(durMs);
+    if (type == "entered_scene")  return QStringLiteral("Object entered scene");
+    if (type == "exited_scene")   return QStringLiteral("Object exited scene");
+    if (type == "stopped")        return QStringLiteral("Object stopped");
+    if (type == "loitering")      return QStringLiteral("Loitering detected");
+    if (type == "motion_started") return QStringLiteral("Motion started");
+    if (type == "motion_ended")   return QStringLiteral("Motion ended");
     if (type.isEmpty()) return QStringLiteral("Event");
-    return type.left(1).toUpper() + type.mid(1);
+    QString s = type; s.replace('_', ' ');
+    return s.left(1).toUpper() + s.mid(1);
 }
 }
 

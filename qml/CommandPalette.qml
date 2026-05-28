@@ -30,10 +30,10 @@ Item {
 
     function layoutLabel(n) { return n === 1 ? "1×1" : n === 4 ? "2×2" : n === 9 ? "3×3" : n === 16 ? "4×4" : (n + " cams"); }
     function eventGlyph(t) {
-        switch (t) { case "motion": return "motion"; case "offline": return "off"; case "online": return "check"; case "gap": return "alert"; case "bookmark": return "bookmark"; default: return "alert"; }
+        switch (t) { case "loitering": case "stopped": return "alert"; default: return "motion"; }
     }
     function eventColor(t) {
-        switch (t) { case "offline": return Theme.bad; case "online": return Theme.good; case "bookmark": return Theme.violet; default: return Theme.accent; }
+        switch (t) { case "loitering": return Theme.bad; default: return Theme.accent; }
     }
 
     function build() {

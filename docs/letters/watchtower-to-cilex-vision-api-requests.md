@@ -8,6 +8,48 @@ honestly (never silent no-ops), and track the contract here. Updated as we build
 supersedes the separate export-API (2026-05-27) and events-API (2026-05-28)
 letters. Changelog at the bottom.
 
+════════════════════════════════════════════════════════════════════════════
+BACKEND RESPONSE — Cilex Vision, 2026-05-28  (statuses below are their reply)
+════════════════════════════════════════════════════════════════════════════
+Two corrections we were building to a bad contract on — fixed on our side now:
+  • `mode` is an ENUM {compact, wallclock}, NOT free text — "continuous" was being
+    400'd. Fixed: the export drawer sends "wallclock" (preserve timeline, gaps as
+    freeze — matches our gap-warning). "compact" = drop gaps (future option).
+  • event_type vocab corrected to the authoritative enum: entered_scene |
+    exited_scene | stopped | loitering | motion_started | motion_ended (EventState:
+    new|active|stopped|exited|closed). offline/online are NOT events (separate
+    camera-status feed if needed). Updated our descriptions + icon/colour mapping.
+
+Status per item:
+  A1 purpose .......... ACCEPTED (free-text server-side; 422 on empty; echoed in A3/A6)
+  A2 overlays/render .. ACCEPTED; biggest lift, sequenced last. Shape is an
+                        orthogonal `overlays:{timestamp,camera_name}` (NOT via mode);
+                        overlays + stream_copy ⇒ 422. Gated on playback transcode infra.
+  A3 typed job resp ... PARTIAL — endpoint already returns most fields (the "{}" was a
+                        missing response_model); they'll declare the schema + add
+                        purpose/created_by/progress/codec/resolution/duration_s.
+                        (bytes=output_bytes, expires_at=download_expires_at exist.)
+  A4 mode semantics ... RESOLVED (correction above) — done on our side.
+  A5 audio ............ DEFERRED (no audio path yet) — agreed.
+  A6 exports LIST ..... ACCEPTED; ships with A1/A3 (one schema) — unblocks the library.
+  B1 acknowledge ...... ACCEPTED (POST /events/{id}/acknowledge + acknowledged* +
+                        filter). Switch our ack off local-per-machine once it lands.
+  B2 empty feed ....... CONFIRMED — real pipeline gap on their side (detections=0 ⇒ no
+                        tracklets ⇒ no events; recording is a separate, working
+                        pipeline). Keep our honest empty state.
+  B3 /detections 500 .. ✅ FIXED + DEPLOYED (commit 079d0b7). Re-tested from our side:
+                        GET /detections now 200 (was 500). CLOSED.
+  C1 manifest schema .. ACCEPTED, lower priority.
+  C2 denormalized cam . ACCEPTED, cheap, low priority.
+
+Newly live (unsolicited): GET /health/storage → { status, degraded,
+storage_agent_reachable, circuit_open, last_error, reason } (ok now). Available to
+wire as a storage-subsystem indicator — NOT yet done on our side.
+
+Their sequencing: [done] B3 + A4 → first batch A1+A3+A6 + B1 → B2 investigation →
+A2 (after playback transcode infra) → A5 → C1/C2. (Contract + order, not dates —
+backend is mid-incident-recovery.)
+
 ────────────────────────────────────────────────────────────────────────────
 Open asks, by priority (across domains)
 ────────────────────────────────────────────────────────────────────────────
@@ -68,12 +110,11 @@ A3. Formalize the job response (size + expiry) · MEDIUM
       purpose, created_by, created_at }
   Optional pre-flight size estimate (POST ...?dry_run=1) would drop our guess.
 
-A4. Document `mode` + gap semantics · MEDIUM, doc-only
-  `mode` is a free string with no enum; we send "continuous" on faith. Document
-  the accepted values + gap behaviour. The drawer warns when a selection crosses
-  a recording gap ("freeze frame for HH:MM:SS – HH:MM:SS"); we assumed
-  "continuous" = preserve wall-clock + freeze gaps. Confirm, and name the
-  alternative (e.g. "compact" drops gaps) so our warning text matches.
+A4. Document `mode` + gap semantics · RESOLVED (2026-05-28)
+  `mode` ∈ {wallclock, compact} (enforced server-side; "continuous" was 400'd).
+  wallclock = preserve the wall-clock timeline, gaps as freeze (our gap-warning text
+  matches); compact = concatenate recorded segments, gaps dropped. We now send
+  "wallclock"; "compact" is a future drawer option. Closed.
 
 A5. Audio · LOW (video-first right now)
   Disabled "Include audio" today. When an audio path exists we'll want:
@@ -150,5 +191,8 @@ Changelog
   2026-05-27  Raised export asks A1–A5 (+ C1 aside).
   2026-05-28  Raised events asks B1–B3 (+ C2); added Clips list endpoint A6;
               consolidated the two dated letters into this living doc.
+  2026-05-28  Cilex Vision responded (see BACKEND RESPONSE). Applied corrections:
+              export mode → "wallclock"; event_type vocab → authoritative enum.
+              B3 verified fixed (200 from our side). /health/storage now live.
 
 — Cilex Watchtower
