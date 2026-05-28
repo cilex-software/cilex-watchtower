@@ -20,7 +20,7 @@ Cameras have **no on-camera storage**; recorded footage and events come from cil
 | P3 | Playback + timeline (S06) | ✅ done | `e340c30` |
 | P4 | Export + snapshots (export drawer + confirm modal) | ✅ done | `a3b567e` |
 | P5 | Events + Health | ✅ done | `d1ad10f` (Health), `9d22db6` (Events) |
-| P6 | Saved Views / Clips / Prefs / polish | ⬜ next | — |
+| P6 | Saved Views / Clips / Prefs / polish | 🟡 in progress | Saved Views done; Clips / Prefs / palette remain |
 
 ## Done — highlights
 
@@ -46,9 +46,12 @@ See `docs/letters/`:
 - **Events**: the mock's Today / All-cameras / +Filter pills, Bookmark / Export actions in the event drawer, "−15s" precise seek on Open-playback. Server-side shared ack pending the letter.
 - **Latent (don't manifest with today's data)**: `"hydrating"` fragments are dropped (`availability !== "ready"`) — fine while all footage is hot-tier; `resolution` inferred from codec rather than read.
 
-## Next: P6
+## P6 progress
 
-Saved Views, the **Clips & Snapshots artifact library** (design §296–304, parked here during P4), Preferences completion, and polish. Command palette (Ctrl+K) is also still to come.
+- ✅ **Saved Views** — `SavedViewsScreen.qml` (3-col card grid + filter pills) + `SaveViewModal.qml`. `SavedViewModel` now persists views in QSettings (restorable layout/filter/group), with `saveCurrent`/`remove`/`touch`/`toggleFavorite`; mock gated behind `WT_DEMO` (was unconditional). Card counts computed live via `CameraModel.countFiltered`. "Save current view" wired from Live Monitor + the screen; Open applies a view to the Live Monitor.
+- ⬜ **Clips & Snapshots library** (§296–304) — backend has no clips/exports list endpoint; will list local snapshots + a letter.
+- ⬜ **Preferences completion** (§9) — default landing, time format, alerts; light/dark theme switching is a larger refactor (`Theme` is static).
+- ⬜ **Command palette (Ctrl+K)** (§10) + general polish.
 
 ## Recovery pointers
 

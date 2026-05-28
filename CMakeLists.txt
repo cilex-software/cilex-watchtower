@@ -61,6 +61,8 @@ qt_add_qml_module(watchtower
         qml/ExportDrawer.qml
         qml/HealthScreen.qml
         qml/EventsScreen.qml
+        qml/SavedViewsScreen.qml
+        qml/SaveViewModal.qml
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml

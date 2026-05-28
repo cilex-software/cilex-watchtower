@@ -1,6 +1,7 @@
 #include "MockData.h"
 
 #include <QStringList>
+#include <QDateTime>
 
 using namespace wt;
 
@@ -134,12 +135,15 @@ QVector<EventData> mock::events()
 
 QVector<SavedViewData> mock::savedViews()
 {
+    const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    auto ago = [](int days) { return QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODate); };
+    // id, name, shared, favorite, layoutSize, statusFilter, sortMode, groupId, groupLabel, lastUsedIso
     return {
-        { "v1", "Lobby Wall",            false, 16, "4×4", 14, 2, "Today" },
-        { "v2", "Parking + Perimeter",   true,  12, "4×3", 11, 1, "Today" },
-        { "v3", "Night Shift — Critical", true,  9,  "3×3", 9,  0, "Yesterday" },
-        { "v4", "My Favorites",          false, 4,  "2×2", 4,  0, "3 days ago" },
-        { "v5", "Warehouse C",           true,  9,  "3×3", 8,  1, "Mon" },
-        { "v6", "After Hours Patrol",    true,  16, "4×4", 13, 3, "Last week" },
+        { "v1", "Lobby Wall",             false, true,  16, "",          "default", "", "All cameras", now },
+        { "v2", "Parking + Perimeter",    true,  false, 16, "",          "status",  "", "All cameras", now },
+        { "v3", "Night Shift — Critical", true,  true,  9,  "issues",    "status",  "", "All cameras", ago(1) },
+        { "v4", "My Favorites",           false, true,  4,  "favorites", "default", "", "All cameras", ago(3) },
+        { "v5", "Warehouse C",            true,  false, 9,  "",          "default", "", "All cameras", ago(2) },
+        { "v6", "After Hours Patrol",     true,  false, 16, "offline",   "status",  "", "All cameras", ago(6) },
     };
 }

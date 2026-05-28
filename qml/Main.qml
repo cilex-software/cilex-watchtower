@@ -27,9 +27,17 @@ Window {
     function setLayout(n) { gridLayout = n; gridPage = 1 }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
     function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
+    // Open the Save-current-view modal, capturing the current Live Monitor state.
+    function openSaveView() {
+        saveViewModal.layoutSize = win.gridLayout;
+        saveViewModal.statusFilter = win.statusFilter;
+        saveViewModal.groupLabel = win.groupLabel;
+        saveViewModal.open();
+    }
 
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
+    SavedViewModel { id: savedViewModel }
     PlaybackClient { id: playbackClient }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
@@ -115,7 +123,7 @@ Window {
                     onStatusFilterRequested: (f) => win.setStatusFilter(f)
                     onSortRequested: (s) => win.sortMode = s
                     onFullscreenToggled: win.fullscreen = !win.fullscreen
-                    onSaveViewRequested: { /* Save Current View modal (O03) — later phase */ }
+                    onSaveViewRequested: win.openSaveView()
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
@@ -197,10 +205,29 @@ Window {
                     }
                 }
 
+                SavedViewsScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "views" && win.focusedCamera === null && win.playbackCamera === null
+                    savedViewModel: savedViewModel
+                    cameraModel: cameraModel
+                    onSaveCurrentRequested: win.openSaveView()
+                    onOpenView: (view) => {
+                        win.gridLayout = view.layoutSize;
+                        win.statusFilter = view.statusFilter;
+                        win.sortMode = view.sortMode;
+                        win.groupFilter = view.groupId;
+                        win.groupLabel = view.groupLabel;
+                        win.gridPage = 1;
+                        win.section = "live";
+                        savedViewModel.touch(view.viewId);
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences", "health", "events"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences", "health", "events", "views"].indexOf(win.section) < 0
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"
@@ -235,4 +262,14 @@ Window {
 
     // Toast stack overlay (snapshot feedback now; alerts later).
     ToastHost { id: toastHost }
+
+    // Save-current-view modal (O03) — opened from Live Monitor or Saved Views.
+    SaveViewModal {
+        id: saveViewModal
+        onSaved: (name, shared) => {
+            savedViewModel.saveCurrent(name, shared, win.gridLayout, win.statusFilter,
+                                       win.sortMode, win.groupFilter, win.groupLabel);
+            toastHost.show("View saved", name + " · " + (shared ? "Shared" : "Mine"), "good", "", "");
+        }
+    }
 }

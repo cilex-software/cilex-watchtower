@@ -53,15 +53,20 @@ struct EventData {
     QString ackTime;
 };
 
+// A reusable Live Monitor layout. Stores the *restorable* state (so opening a
+// view reapplies it); per-view camera counts are computed live from CameraModel,
+// not stored. lastUsedIso is an ISO timestamp; the screen shows it relatively.
 struct SavedViewData {
     QString id;
     QString name;
     bool shared = false;
-    int count = 0;
-    QString layout;      // e.g. "4×4"
-    int okCount = 0;
-    int issueCount = 0;
-    QString lastUsed;
+    bool favorite = false;
+    int layoutSize = 16;                          // 1 / 4 / 9 / 16
+    QString statusFilter;                         // "" | "online" | "offline" | ...
+    QString sortMode = QStringLiteral("default"); // "default" | "status" | "alpha"
+    QString groupId;                              // "" = all cameras
+    QString groupLabel = QStringLiteral("All cameras");
+    QString lastUsedIso;
 };
 
 } // namespace wt
