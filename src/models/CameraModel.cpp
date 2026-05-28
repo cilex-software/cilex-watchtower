@@ -204,6 +204,23 @@ QVariantMap CameraModel::get(int row) const
     return m;
 }
 
+QVariantMap CameraModel::cameraByBackendId(const QString &cameraId) const
+{
+    // Backend camera_id is "<vendor-slug>-<machex>"; match the trailing MAC hex
+    // against a local camera's MAC (normalized: lowercase, no separators).
+    const int dash = cameraId.lastIndexOf('-');
+    QString hex = (dash >= 0 ? cameraId.mid(dash + 1) : cameraId).toLower();
+    if (hex.isEmpty())
+        return {};
+    for (int i = 0; i < m_all.size(); ++i) {
+        QString mac = m_all.at(i).mac.toLower();
+        mac.remove(':').remove('-');
+        if (!mac.isEmpty() && mac == hex)
+            return get(i);
+    }
+    return {};
+}
+
 bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const QString &f) const
 {
     if (!groupId.isEmpty() && c.groupId != groupId)

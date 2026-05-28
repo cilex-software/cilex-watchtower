@@ -185,10 +185,22 @@ Window {
                     onOpenEvents: (cam) => win.section = "events"
                 }
 
+                EventsScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    eventModel: eventModel
+                    cameraModel: cameraModel
+                    onOpenPlayback: (camId) => {
+                        var cam = cameraModel.cameraByBackendId(camId);
+                        if (cam && cam.camId) { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences", "health"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences", "health", "events"].indexOf(win.section) < 0
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"

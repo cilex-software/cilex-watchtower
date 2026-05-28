@@ -56,6 +56,10 @@ public:
     // same names as the roles).
     Q_INVOKABLE QVariantMap get(int row) const;
 
+    // Resolve a cilex-vision backend camera_id ("<slug>-<machex>") to the local
+    // camera (matched by MAC). Returns the camera map (like get()) or empty.
+    Q_INVOKABLE QVariantMap cameraByBackendId(const QString &cameraId) const;
+
     // Live Monitor view: filter by group + status, sort, and slice to one page.
     // statusFilter: ""|"online"|"offline"|"degraded"|"recording"|"notrec"|
     //               "favorites"|"issues"|"recent". sortMode: "default"|"status"|"alpha".
