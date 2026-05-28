@@ -7,7 +7,7 @@ class QNetworkAccessManager;
 
 // Storage-subsystem health from cilex-vision's GET /health/storage
 // { status, degraded, storage_agent_reachable, circuit_open, last_error, reason }.
-// Authenticated (own session, WT_CV_* creds; lazy login). Polled by the Health
+// Uses the shared session (AuthController) — no own login. Polled by the Health
 // screen while it's visible. `loaded` is false until the first successful fetch
 // (so the UI can show "status unknown" honestly when the backend is unreachable).
 class StorageHealth : public QObject
@@ -39,12 +39,10 @@ signals:
     void changed();
 
 private:
-    void login();
     void fetch();
 
     QNetworkAccessManager *m_nam = nullptr;
-    QString m_baseUrl, m_user, m_pass;
-    bool m_loggedIn = false;
+    QString m_baseUrl;
     bool m_loading = false;
     bool m_loaded = false;
     QString m_status, m_reason;

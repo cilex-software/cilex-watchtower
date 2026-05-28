@@ -14,7 +14,7 @@ Window {
     title: qsTr("Watchtower")
 
     property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
-    property int gridLayout: 16          // cameras per page
+    property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
     property int gridPage: 1
     property string statusFilter: ""
     property string sortMode: "default"
@@ -29,7 +29,7 @@ Window {
     function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
     // Open the Save-current-view modal, capturing the current Live Monitor state.
     function openSaveView() {
-        saveViewModal.layoutSize = win.gridLayout;
+        saveViewModal.layout = win.gridLayout;
         saveViewModal.statusFilter = win.statusFilter;
         saveViewModal.groupLabel = win.groupLabel;
         saveViewModal.open();
@@ -51,13 +51,16 @@ Window {
             for (var j = 0; j < views.length; j++)
                 if (views[j].viewId === vid) {
                     var v = views[j];
-                    win.gridLayout = v.layoutSize; win.statusFilter = v.statusFilter; win.sortMode = v.sortMode;
+                    win.gridLayout = v.layout; win.statusFilter = v.statusFilter; win.sortMode = v.sortMode;
                     win.groupFilter = v.groupId; win.groupLabel = v.groupLabel; win.gridPage = 1; win.section = "live";
                     break;
                 }
         }
     }
-    Component.onCompleted: if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding()
+    Component.onCompleted: {
+        cameraModel.setCameraScope(AuthController.cameraScope);
+        if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding();
+    }
 
     CameraModel { id: cameraModel }
     EventModel { id: eventModel }
@@ -65,6 +68,13 @@ Window {
     SnapshotModel { id: snapshotModel; dir: Artifacts.snapshotDir }
     StorageHealth { id: storageHealth }
     PlaybackClient { id: playbackClient }
+
+    // Apply the signed-in operator's camera scope (empty = all cameras). Fires on
+    // login, token restore, and sign-out as the JWT claims change.
+    Connections {
+        target: AuthController
+        function onIdentityChanged() { cameraModel.setCameraScope(AuthController.cameraScope) }
+    }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
     // camera (deferred so the shell finishes its first layout pass, matching the
@@ -95,15 +105,16 @@ Window {
     // keyboard shortcuts (design §30)
     Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }
     Shortcut { sequence: "Escape"; onActivated: if (win.fullscreen) win.fullscreen = false }
-    Shortcut { sequence: "1"; onActivated: win.setLayout(1) }
-    Shortcut { sequence: "2"; onActivated: win.setLayout(4) }
-    Shortcut { sequence: "3"; onActivated: win.setLayout(9) }
-    Shortcut { sequence: "4"; onActivated: win.setLayout(16) }
+    Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
+    Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
+    Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
+    Shortcut { sequence: "4"; onActivated: win.setLayout("16") }
     Shortcut { sequence: "Ctrl+K"; onActivated: commandPalette.open() }
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
+        visible: AuthController.authenticated   // shell hidden until signed in
 
         NavRail {
             Layout.fillHeight: true
@@ -122,9 +133,14 @@ Window {
                 Layout.fillWidth: true
                 visible: !win.fullscreen
                 cameraModel: cameraModel
+                eventModel: eventModel
                 statusFilter: win.statusFilter
+                initials: AuthController.initials
+                operatorName: AuthController.username
+                hasAlerts: eventModel.unacknowledgedCount > 0
                 onStatusChipClicked: (which) => win.toggleStatusChip(which)
-                onAvatarClicked: win.section = "preferences"
+                onPreferencesRequested: win.section = "preferences"
+                onAlertsViewAllRequested: { win.focusedCamera = null; win.playbackCamera = null; win.section = "events" }
                 onSearchActivated: commandPalette.open()
             }
 
@@ -139,14 +155,14 @@ Window {
                     Layout.fillHeight: true
                     visible: win.section === "live" && win.focusedCamera === null
                     cameraModel: cameraModel
-                    layoutSize: win.gridLayout
+                    layout: win.gridLayout
                     page: win.gridPage
                     statusFilter: win.statusFilter
                     sortMode: win.sortMode
                     groupId: win.groupFilter
                     groupLabel: win.groupLabel
                     fullscreen: win.fullscreen
-                    onLayoutRequested: (size) => win.setLayout(size)
+                    onLayoutRequested: (id) => win.setLayout(id)
                     onPageRequested: (p) => win.gridPage = Math.max(1, Math.min(p, liveMonitor.pageCount))
                     onStatusFilterRequested: (f) => win.setStatusFilter(f)
                     onSortRequested: (s) => win.sortMode = s
@@ -244,7 +260,7 @@ Window {
                     cameraModel: cameraModel
                     onSaveCurrentRequested: win.openSaveView()
                     onOpenView: (view) => {
-                        win.gridLayout = view.layoutSize;
+                        win.gridLayout = view.layout;
                         win.statusFilter = view.statusFilter;
                         win.sortMode = view.sortMode;
                         win.groupFilter = view.groupId;
@@ -283,6 +299,13 @@ Window {
                 }
             }
         }
+    }
+
+    // Login gate — covers the shell until a valid session is held.
+    LoginScreen {
+        anchors.fill: parent
+        visible: !AuthController.authenticated
+        z: 1000
     }
 
     // Clip-export feedback from the playback backend.
@@ -324,7 +347,7 @@ Window {
         onOpenGroup: (gid, label) => { win.focusedCamera = null; win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.section = "live" }
         onOpenView: (view) => {
             win.focusedCamera = null;
-            win.gridLayout = view.layoutSize; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
+            win.gridLayout = view.layout; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
             win.groupFilter = view.groupId; win.groupLabel = view.groupLabel; win.gridPage = 1; win.section = "live";
             savedViewModel.touch(view.viewId);
         }

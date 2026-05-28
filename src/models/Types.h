@@ -61,7 +61,7 @@ struct SavedViewData {
     QString name;
     bool shared = false;
     bool favorite = false;
-    int layoutSize = 16;                          // 1 / 4 / 9 / 16
+    QString layout = QStringLiteral("16");        // "1"/"4"/"9"/"16"/"25"/"plus4"/"center13"/"NxM"
     QString statusFilter;                         // "" | "online" | "offline" | ...
     QString sortMode = QStringLiteral("default"); // "default" | "status" | "alpha"
     QString groupId;                              // "" = all cameras

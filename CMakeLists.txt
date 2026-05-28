@@ -25,9 +25,10 @@ qt_add_executable(watchtower
     src/main.cpp
 )
 
-# Theme.qml is a QML singleton (design tokens). This MUST be set BEFORE
-# qt_add_qml_module so the generated qmldir records it as `singleton Theme`.
-set_source_files_properties(qml/Theme.qml PROPERTIES
+# Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
+# This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
+# as `singleton`.
+set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(watchtower
@@ -38,7 +39,11 @@ qt_add_qml_module(watchtower
     RESOURCE_PREFIX "/qt/qml"
     QML_FILES
         qml/Main.qml
+        qml/LoginScreen.qml
+        qml/AlertsDropdown.qml
         qml/Theme.qml
+        qml/LayoutSpec.qml
+        qml/NetIcon.qml
         qml/Icon.qml
         qml/StatusBadge.qml
         qml/LiveStatusBadge.qml
@@ -73,6 +78,8 @@ qt_add_qml_module(watchtower
     SOURCES
         src/models/CameraStatus.h
         src/models/Types.h
+        src/models/AuthController.h
+        src/models/AuthController.cpp
         src/models/MockData.h
         src/models/MockData.cpp
         src/models/ProvisioningImport.h

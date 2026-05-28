@@ -24,7 +24,7 @@ public:
         NameRole,
         SharedRole,
         FavoriteRole,
-        LayoutSizeRole,
+        LayoutRole,
         StatusFilterRole,
         SortModeRole,
         GroupIdRole,
@@ -43,7 +43,7 @@ public:
     // All views as maps (for the screen, which filters in QML).
     Q_INVOKABLE QVariantList list() const;
     // Capture the current Live Monitor state as a new view (prepended).
-    Q_INVOKABLE void saveCurrent(const QString &name, bool shared, int layoutSize,
+    Q_INVOKABLE void saveCurrent(const QString &name, bool shared, const QString &layout,
                                  const QString &statusFilter, const QString &sortMode,
                                  const QString &groupId, const QString &groupLabel);
     Q_INVOKABLE void remove(const QString &id);

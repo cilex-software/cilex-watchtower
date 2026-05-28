@@ -8,6 +8,10 @@
 #include <QImage>
 #include <QTimer>
 #include <QDebug>
+#include <QtQml/qqml.h>
+#include <QProcessEnvironment>
+
+#include "AuthController.h"
 
 namespace {
 
@@ -72,11 +76,29 @@ int main(int argc, char *argv[])
 
     loadBundledFonts();
 
+    // Session owner + the one shared network manager every model uses. Created
+    // before the engine loads so AuthController::instance() is valid when the
+    // QML-instantiated models are constructed.
+    auto *auth = new AuthController(&app);
+    auth->restoreSession();
+    // Opt-in dev convenience: WT_CV_AUTOLOGIN skips the login screen using the
+    // WT_CV_USER/WT_CV_PASS service creds (previous always-on behaviour).
+    if (qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN") && !auth->authenticated()) {
+        const auto env = QProcessEnvironment::systemEnvironment();
+        auth->loginWithPassword(env.value("WT_CV_URL"),
+                                env.value("WT_CV_USER", "admin"),
+                                env.value("WT_CV_PASS", "admin"));
+    }
+
     QQmlApplicationEngine engine;
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
+
+    // Exposed to QML as a context property (not a module type) so it does not
+    // interfere with the qt_add_qml_module type registry.
+    engine.rootContext()->setContextProperty("AuthController", auth);
 
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));

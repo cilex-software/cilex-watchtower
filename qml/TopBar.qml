@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic as C
 import Watchtower
 
 // Top bar (64px): operator card · global search · site status strip · clock ·
@@ -8,16 +9,17 @@ Item {
     id: root
 
     property var cameraModel: null
-    property string operatorName: "m.osei"
-    property string initials: "MO"
+    property var eventModel: null       // drives the alerts dropdown
+    property string operatorName: ""    // signed-in operator (from AuthController)
+    property string initials: ""        // monogram (from AuthController)
     property double now: Date.now()
     property bool hasAlerts: true
     property string statusFilter: ""   // "online" | "offline" | "notrec" | ""
 
     signal searchActivated()
     signal statusChipClicked(string which)
-    signal bellClicked()
-    signal avatarClicked()
+    signal alertsViewAllRequested()
+    signal preferencesRequested()
 
     implicitHeight: Theme.topBarHeight
 
@@ -172,6 +174,7 @@ Item {
 
             // alerts bell
             Item {
+                id: bellBox
                 Layout.preferredWidth: 36
                 Layout.preferredHeight: 36
                 Rectangle {
@@ -188,21 +191,95 @@ Item {
                     color: Theme.bad
                     border.width: 2; border.color: Theme.bg
                 }
-                MouseArea { id: bellMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.bellClicked() }
+                MouseArea { id: bellMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: alertsPopup.open() }
+
+                AlertsDropdown {
+                    id: alertsPopup
+                    eventModel: root.eventModel
+                    y: bellBox.height + 6
+                    x: bellBox.width - width    // right-aligned to the bell
+                    onViewAllRequested: root.alertsViewAllRequested()
+                }
             }
 
-            // settings / account access (Preferences live here, design §11)
+            // account / avatar — operator initials monogram; opens the user menu
+            // (account, preferences, sign out). Design §10, §13.
             Item {
+                id: avatarBox
                 Layout.preferredWidth: 34
                 Layout.preferredHeight: 34
                 Rectangle {
                     anchors.fill: parent
-                    color: avMa.containsMouse ? Theme.panel : "transparent"
-                    border.width: avMa.containsMouse ? 1 : 0
-                    border.color: Theme.line2
+                    color: Theme.accent
                 }
-                Icon { anchors.centerIn: parent; name: "gear"; size: 18; color: avMa.containsMouse ? Theme.ink : Theme.ink2 }
-                MouseArea { id: avMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.avatarClicked() }
+                Text {
+                    anchors.centerIn: parent
+                    text: root.initials
+                    color: Theme.bg
+                    font.family: Theme.fontMono
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+                MouseArea { id: avMa; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: userMenu.open() }
+
+                C.Popup {
+                    id: userMenu
+                    y: avatarBox.height + 6
+                    x: avatarBox.width - width      // right-aligned to the avatar
+                    width: 220
+                    padding: 0
+                    background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                    contentItem: Column {
+                        // signed-in identity
+                        Item {
+                            width: parent.width; height: 52
+                            Column {
+                                anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
+                                spacing: 2
+                                Text {
+                                    text: AuthController.username
+                                    color: Theme.ink; font.family: Theme.fontSans
+                                    font.pixelSize: 13; font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    text: AuthController.role
+                                    color: Theme.ink3; font.family: Theme.fontMono
+                                    font.pixelSize: 10; font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 1.0
+                                }
+                            }
+                        }
+                        Rectangle { width: parent.width; height: 1; color: Theme.line }
+                        Rectangle {
+                            width: parent.width; height: 40
+                            color: prefMa.containsMouse ? Theme.panel2 : "transparent"
+                            Text {
+                                anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
+                                text: "Preferences"; color: Theme.ink
+                                font.family: Theme.fontSans; font.pixelSize: 13
+                            }
+                            MouseArea {
+                                id: prefMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { userMenu.close(); root.preferencesRequested() }
+                            }
+                        }
+                        Rectangle {
+                            width: parent.width; height: 40
+                            color: outMa.containsMouse ? Theme.panel2 : "transparent"
+                            Text {
+                                anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
+                                text: "Sign out"; color: Theme.bad
+                                font.family: Theme.fontSans; font.pixelSize: 13
+                            }
+                            MouseArea {
+                                id: outMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: { userMenu.close(); AuthController.logout() }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

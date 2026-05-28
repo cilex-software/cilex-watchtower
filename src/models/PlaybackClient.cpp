@@ -1,5 +1,6 @@
 #include "PlaybackClient.h"
 #include "HlsProxy.h"
+#include "AuthController.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -9,19 +10,29 @@
 #include <QJsonArray>
 #include <QTimer>
 #include <QUrl>
-#include <QProcessEnvironment>
 
 PlaybackClient::PlaybackClient(QObject *parent)
-    : QObject(parent), m_nam(new QNetworkAccessManager(this))
+    : QObject(parent)
 {
-    const auto env = QProcessEnvironment::systemEnvironment();
-    m_baseUrl = env.value("WT_CV_URL", "http://192.168.1.79:8000");
-    m_user = env.value("WT_CV_USER", "admin");
-    m_pass = env.value("WT_CV_PASS", "admin");
+    auto *auth = AuthController::instance();
+    m_nam = auth->nam();                      // shared, session-authenticated jar
+    m_baseUrl = auth->baseUrl();
 
-    m_proxy = new HlsProxy(m_nam, this);     // shares the cookie jar
+    m_proxy = new HlsProxy(m_nam, this);      // shares the authenticated cookie jar
     m_proxy->setUpstream(m_baseUrl);
     m_proxy->start();
+
+    connect(auth, &AuthController::baseUrlChanged, this, [this, auth]() {
+        m_baseUrl = auth->baseUrl();
+        m_proxy->setUpstream(m_baseUrl);
+    });
+    connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
+        if (!auth->authenticated()) {         // signed out — drop resolved state
+            m_loggedIn = false;
+            m_loggingIn = false;
+            emit loggedInChanged();
+        }
+    });
 }
 
 void PlaybackClient::setStatus(const QString &s)
@@ -36,30 +47,13 @@ void PlaybackClient::ensureReady()
 {
     if (m_loggedIn || m_loggingIn)
         return;
-    login();
-}
-
-void PlaybackClient::login()
-{
+    if (!AuthController::instance()->authenticated()) {
+        setStatus(QStringLiteral("Not signed in"));
+        return;
+    }
     m_loggingIn = true;
-    setStatus("Connecting to cilex-vision…");
-    QNetworkRequest req{QUrl(m_baseUrl + "/auth/login")};
-    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QJsonObject body{{"username", m_user}, {"password", m_pass}};
-    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
-        m_loggingIn = false;
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (reply->error() != QNetworkReply::NoError || code != 200) {
-            setStatus(QStringLiteral("Login failed (%1)").arg(code ? QString::number(code)
-                                                                    : reply->errorString()));
-            return;
-        }
-        m_loggedIn = true;                   // cookie now stored in the shared jar
-        emit loggedInChanged();
-        fetchStreams();
-    });
+    setStatus(QStringLiteral("Connecting to cilex-vision…"));
+    fetchStreams();
 }
 
 void PlaybackClient::fetchStreams()
@@ -67,6 +61,13 @@ void PlaybackClient::fetchStreams()
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
+        m_loggingIn = false;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) {
+            AuthController::instance()->noteUnauthorized();
+            setStatus(QStringLiteral("Not signed in"));
+            return;
+        }
         const auto arr = QJsonDocument::fromJson(reply->readAll())
                              .object().value("streams").toArray();
         m_ipToCamId.clear();
@@ -80,6 +81,8 @@ void PlaybackClient::fetchStreams()
             if (dash > 0)
                 m_macToCamId.insert(id.mid(dash + 1), id);
         }
+        m_loggedIn = true;                   // signed in + streams resolved = ready
+        emit loggedInChanged();
         setStatus(QString());
         emit camerasResolved();
         flushPendingSessions();
@@ -108,7 +111,11 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
         return;
     }
     if (!m_loggedIn) {
-        // queue: log in, then retry once ready.
+        if (!AuthController::instance()->authenticated()) {
+            emit sessionFailed(QStringLiteral("Not signed in to the recording backend."));
+            return;
+        }
+        // queue: resolve streams, then retry once ready.
         ensureReady();
         connect(this, &PlaybackClient::camerasResolved, this,
                 [this, cameraId, wallStartIso, wallEndIso, hevcCapable]() {

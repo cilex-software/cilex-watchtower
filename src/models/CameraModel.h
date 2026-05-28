@@ -5,6 +5,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
+#include <QSet>
+#include <QStringList>
 #include "Types.h"
 #include "CameraStore.h"
 
@@ -71,6 +73,12 @@ public:
     // reload (upserts by MAC; preserves user name/group/favorite). False on error.
     Q_INVOKABLE bool importProvisioning(const QString &path);
 
+    // Per-operator camera visibility. `cameraIds` are backend ids
+    // ("<vendor>-<machex>") from the signed-in user's JWT camera_scope; an empty
+    // list means "all cameras" (admin). Cameras outside the scope are filtered
+    // out of the model entirely (list, counts, paging, resolution).
+    Q_INVOKABLE void setCameraScope(const QStringList &cameraIds);
+
     // Persisted operator edits (by row). Watchtower never invents names — these
     // set what the user chooses; they survive restarts and re-imports.
     Q_INVOKABLE void setCameraName(const QString &mac, const QString &name);
@@ -101,12 +109,14 @@ signals:
 private:
     void recompute();
     void reload();
+    void loadFromStore();   // m_all <- store, filtered by m_scopeMacs (if any)
     bool matches(const wt::CameraData &c, const QString &groupId, const QString &statusFilter) const;
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
 
     CameraStore m_store;
     QVector<wt::CameraData> m_all;
+    QSet<QString> m_scopeMacs;   // normalized MAC hexes the operator may see; empty = all
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

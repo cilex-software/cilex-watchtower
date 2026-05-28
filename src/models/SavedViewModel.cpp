@@ -28,7 +28,9 @@ void SavedViewModel::load()
         d.name = o.value("name").toString();
         d.shared = o.value("shared").toBool();
         d.favorite = o.value("favorite").toBool();
-        d.layoutSize = o.value("layoutSize").toInt(16);
+        d.layout = o.value("layout").toString();
+        if (d.layout.isEmpty())  // legacy views stored an int "layoutSize"
+            d.layout = QString::number(o.value("layoutSize").toInt(16));
         d.statusFilter = o.value("statusFilter").toString();
         d.sortMode = o.value("sortMode").toString();
         if (d.sortMode.isEmpty()) d.sortMode = QStringLiteral("default");
@@ -55,7 +57,7 @@ void SavedViewModel::persist() const
         o["name"] = d.name;
         o["shared"] = d.shared;
         o["favorite"] = d.favorite;
-        o["layoutSize"] = d.layoutSize;
+        o["layout"] = d.layout;
         o["statusFilter"] = d.statusFilter;
         o["sortMode"] = d.sortMode;
         o["groupId"] = d.groupId;
@@ -92,7 +94,7 @@ QVariant SavedViewModel::data(const QModelIndex &index, int role) const
     case NameRole:         return v.name;
     case SharedRole:       return v.shared;
     case FavoriteRole:     return v.favorite;
-    case LayoutSizeRole:   return v.layoutSize;
+    case LayoutRole:       return v.layout;
     case StatusFilterRole: return v.statusFilter;
     case SortModeRole:     return v.sortMode;
     case GroupIdRole:      return v.groupId;
@@ -109,7 +111,7 @@ QHash<int, QByteArray> SavedViewModel::roleNames() const
         { NameRole,         "name" },
         { SharedRole,       "shared" },
         { FavoriteRole,     "favorite" },
-        { LayoutSizeRole,   "layoutSize" },
+        { LayoutRole,       "layout" },
         { StatusFilterRole, "statusFilter" },
         { SortModeRole,     "sortMode" },
         { GroupIdRole,      "groupId" },
@@ -125,7 +127,7 @@ QVariantMap SavedViewModel::toMap(const wt::SavedViewData &v) const
     m["name"] = v.name;
     m["shared"] = v.shared;
     m["favorite"] = v.favorite;
-    m["layoutSize"] = v.layoutSize;
+    m["layout"] = v.layout;
     m["statusFilter"] = v.statusFilter;
     m["sortMode"] = v.sortMode;
     m["groupId"] = v.groupId;
@@ -143,7 +145,7 @@ QVariantList SavedViewModel::list() const
     return out;
 }
 
-void SavedViewModel::saveCurrent(const QString &name, bool shared, int layoutSize,
+void SavedViewModel::saveCurrent(const QString &name, bool shared, const QString &layout,
                                  const QString &statusFilter, const QString &sortMode,
                                  const QString &groupId, const QString &groupLabel)
 {
@@ -152,7 +154,7 @@ void SavedViewModel::saveCurrent(const QString &name, bool shared, int layoutSiz
     d.name = name.trimmed().isEmpty() ? QStringLiteral("Untitled view") : name.trimmed();
     d.shared = shared;
     d.favorite = false;
-    d.layoutSize = layoutSize;
+    d.layout = layout;
     d.statusFilter = statusFilter;
     d.sortMode = sortMode.isEmpty() ? QStringLiteral("default") : sortMode;
     d.groupId = groupId;

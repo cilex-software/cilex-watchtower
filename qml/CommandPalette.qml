@@ -28,7 +28,6 @@ Item {
     property int sel: -1                  // display index of the selected row
     property var built: ({ display: [], flat: [], groups: [] })
 
-    function layoutLabel(n) { return n === 1 ? "1×1" : n === 4 ? "2×2" : n === 9 ? "3×3" : n === 16 ? "4×4" : (n + " cams"); }
     function eventGlyph(t) {
         switch (t) { case "loitering": case "stopped": return "alert"; default: return "motion"; }
     }
@@ -61,7 +60,7 @@ Item {
             var vs = savedViewModel.list(), vr = [];
             for (var k = 0; k < vs.length; k++) {
                 var v = vs[k];
-                if (mm(v.name)) vr.push({ type: "view", title: v.name, subtitle: (v.shared ? "Shared" : "Mine") + " · " + layoutLabel(v.layoutSize) + " layout", glyph: "grid", glyphColor: Theme.ink3, data: v });
+                if (mm(v.name)) vr.push({ type: "view", title: v.name, subtitle: (v.shared ? "Shared" : "Mine") + " · " + LayoutSpec.label(v.layout) + " layout", glyph: "grid", glyphColor: Theme.ink3, data: v });
             }
             if (vr.length) groups.push({ label: "Saved Views", count: vr.length, rows: vr.slice(0, 5) });
         }

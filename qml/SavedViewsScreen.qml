@@ -20,9 +20,6 @@ Item {
     property string pill: "all"      // all | mine | shared | favorites | issues
     property var rows: []
 
-    function layoutLabel(n) {
-        return n === 1 ? "1×1" : n === 4 ? "2×2" : n === 9 ? "3×3" : n === 16 ? "4×4" : (n + " cams");
-    }
     function countFor(v)  { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, v.statusFilter) : 0; }
     function onlineFor(v) { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, "online") : 0; }
     function issuesFor(v) { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, "issues") : 0; }
@@ -185,7 +182,7 @@ Item {
                             Row {
                                 spacing: 10
                                 Text { text: modelData.shared ? "Shared" : "Mine"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
-                                Text { text: root.layoutLabel(modelData.layoutSize); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                                Text { text: LayoutSpec.label(modelData.layout); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                                 Text { text: root.countFor(modelData) + " cams"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                             }
                             RowLayout {

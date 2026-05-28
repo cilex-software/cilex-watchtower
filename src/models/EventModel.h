@@ -60,7 +60,6 @@ signals:
     void changed();
 
 private:
-    void login();
     void fetchEvents();
     void applyAcks();
     void persistAck(const QString &id, const QString &by, const QString &time);
@@ -68,7 +67,6 @@ private:
 
     QVector<wt::EventData> m_all;
     QNetworkAccessManager *m_nam = nullptr;
-    QString m_baseUrl, m_user, m_pass;
-    bool m_loggedIn = false;
+    QString m_baseUrl;
     bool m_loading = false;
 };

@@ -13,7 +13,7 @@ Item {
     visible: false
 
     // captured state (set by the parent before open(), used in the summary)
-    property int layoutSize: 16
+    property string layout: "16"
     property string statusFilter: ""
     property string groupLabel: "All cameras"
 
@@ -30,7 +30,6 @@ Item {
     }
     function close() { visible = false; closed(); }
 
-    function layoutLabel(n) { return n === 1 ? "1×1" : n === 4 ? "2×2" : n === 9 ? "3×3" : n === 16 ? "4×4" : (n + " cams"); }
     function filterLabel(f) {
         switch (f) {
         case "": return "None";
@@ -141,7 +140,7 @@ Item {
                         textFormat: Text.StyledText
                         color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12
                     }
-                    Line { text: "<b>Layout:</b> " + root.layoutLabel(root.layoutSize) + " (" + root.layoutSize + " tiles)" }
+                    Line { text: "<b>Layout:</b> " + LayoutSpec.label(root.layout) + " tiles" }
                     Line { text: "<b>Group context:</b> " + root.groupLabel }
                     Line { text: "<b>Active filter:</b> " + root.filterLabel(root.statusFilter) }
                 }

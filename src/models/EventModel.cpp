@@ -1,6 +1,7 @@
 #include "EventModel.h"
 
 #include "MockData.h"
+#include "AuthController.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -36,20 +37,33 @@ QString descForType(const QString &type, qint64 durMs)
 EventModel::EventModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    const auto env = QProcessEnvironment::systemEnvironment();
-    m_baseUrl = env.value("WT_CV_URL", "http://192.168.1.79:8000");
-    m_user = env.value("WT_CV_USER", "admin");
-    m_pass = env.value("WT_CV_PASS", "admin");
-    m_nam = new QNetworkAccessManager(this);
+    auto *auth = AuthController::instance();
+    m_nam = auth->nam();
+    m_baseUrl = auth->baseUrl();
+    connect(auth, &AuthController::baseUrlChanged, this,
+            [this, auth]() { m_baseUrl = auth->baseUrl(); });
 
     if (qEnvironmentVariableIsSet("WT_DEMO")) {
         m_all = wt::mock::events();
         applyAcks();
-    } else {
-        // Live events from cilex-vision; the list stays empty (honest) until the
-        // feed has events or until login/fetch completes. Fully async.
-        refresh();
+        return;
     }
+
+    // Live events from cilex-vision. Fetch once signed in; clear on sign-out so
+    // we never show a previous operator's feed. The list stays empty (honest)
+    // until the backend feed actually has events.
+    connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
+        if (auth->authenticated()) {
+            refresh();
+        } else {
+            beginResetModel();
+            m_all.clear();
+            endResetModel();
+            emit changed();
+        }
+    });
+    if (auth->authenticated())
+        refresh();
 }
 
 int EventModel::rowCount(const QModelIndex &parent) const
@@ -109,31 +123,11 @@ void EventModel::refresh()
 {
     if (qEnvironmentVariableIsSet("WT_DEMO") || m_loading)
         return;
+    if (!AuthController::instance()->authenticated())
+        return;                            // not signed in — leave the list empty
     m_loading = true;
     emit changed();
-    if (m_loggedIn)
-        fetchEvents();
-    else
-        login();
-}
-
-void EventModel::login()
-{
-    QNetworkRequest req{QUrl(m_baseUrl + "/auth/login")};
-    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QJsonObject body{{"username", m_user}, {"password", m_pass}};
-    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (reply->error() != QNetworkReply::NoError || code != 200) {
-            m_loading = false;             // leave the list empty on failure (honest)
-            emit changed();
-            return;
-        }
-        m_loggedIn = true;                 // cookie stored in this model's jar
-        fetchEvents();
-    });
+    fetchEvents();
 }
 
 void EventModel::fetchEvents()
@@ -141,6 +135,9 @@ void EventModel::fetchEvents()
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/events?limit=200")});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401)
+            AuthController::instance()->noteUnauthorized();
         const auto arr = QJsonDocument::fromJson(reply->readAll())
                              .object().value("events").toArray();
         QVector<wt::EventData> out;
@@ -208,7 +205,7 @@ void EventModel::acknowledgeById(const QString &id)
 {
     for (int i = 0; i < m_all.size(); ++i)
         if (m_all[i].id == id) {
-            acknowledge(i, m_user);        // acknowledged by the logged-in operator
+            acknowledge(i, AuthController::instance()->username());  // by the signed-in operator
             return;
         }
 }

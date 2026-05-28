@@ -27,6 +27,7 @@ clears. Backend items map to the living letter
 | P3 | Typed manifest fragment schema + read real `resolution` (C1 + latent) | 🔴 Blocked — backend (mostly) | Cilex |
 | P3 | Denormalized event camera name/group (C2) | 🔴 Blocked — backend (cosmetic; local MAC lookup works) | Cilex |
 | P3 | `"hydrating"` fragments dropped (`availability !== "ready"`) | 🔴 Blocked — needs warm/cold-tier footage to exist before it manifests / can be tested | data condition |
+| P3 | GStreamer `hlsdemux2` `g_object_unref` CRITICAL during HLS playback (log spam) | 🟢 Ready — parked; cosmetic, playback unaffected (real refcount defect, non-fatal) | us — small (set element rank in `main.cpp`); see Parked detail below |
 
 ## Actionable now (🟢, no blocker) — quickest first
 1. `compact` export-mode toggle — quick.
@@ -41,6 +42,29 @@ clears. Backend items map to the living letter
 - **cilex's synthesized multi-day timeline** → unblocks the mixed-codec playback verification (the one real technical risk). Alternatively wait for natural hot→warm aging at 3 days. _Ask cilex to send it._
 - **Backend re-encode path (A2)**, **audio path (A5)**, **typed schemas (C1/C2)** → backend-sequenced; we wire when they land.
 - **Warm/cold-tier footage existing** → the latent "hydrating" fragment fix can be made + tested.
+
+## Parked (low-priority) — detail
+**GStreamer `hlsdemux2` GObject-unref CRITICAL** (logged 2026-05-28). During HLS
+playback the console repeats `GLib-GObject-CRITICAL g_object_unref: assertion
+'G_IS_OBJECT (object)' failed` every ~1.5–2.5 min (stream-event-driven, not a
+timer). It is a genuine refcount defect (unref of a non-/freed GObject) but
+**non-fatal — playback is unaffected**, hence parked. The other startup lines
+(`gst-plugin-scanner ... _dma_fmt_to_dma_drm_fmts`, libcamera `No IPA found`) are
+benign noise.
+- **Not our code:** `src/` contains zero GStreamer — it originates in Qt
+  Multimedia's GStreamer backend. On this host (GStreamer **1.24.2**, Ubuntu
+  24.04) both demuxers are registered and `hlsdemux2` (rank 257) outranks legacy
+  `hlsdemux` (256), so `decodebin` picks the newer `adaptivedemux2`-based
+  `hlsdemux2`, which had object-lifetime bugs in early 1.24.x. (Note: our
+  `HlsProxy` `EXT-X-GAP` workaround was written for **v1** behavior, but **v2** is
+  what actually runs now.)
+- **Confirm / repro:** `GST_PLUGIN_FEATURE_RANK=hlsdemux2:NONE ./build/watchtower`
+  forces legacy v1 — if the CRITICAL vanishes, it's the v2 bug. Exact call site:
+  `G_DEBUG=fatal-criticals gdb -batch -ex run -ex "bt full" --args ./build/watchtower`.
+- **Candidate fix (small, our side):** `qputenv("GST_PLUGIN_FEATURE_RANK",
+  "hlsdemux2:NONE")` early in `src/main.cpp`, before Qt Multimedia initialises the
+  GStreamer registry — also realigns the demuxer with the v1-targeted proxy
+  workaround. Heavier alternative: bump GStreamer past 1.24.2.
 
 ## Resolved since the roadmap (context)
 `mode` → `wallclock` (A4 closed); `/detections` 500 fixed + verified (B3 closed);

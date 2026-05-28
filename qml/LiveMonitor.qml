@@ -11,7 +11,7 @@ Item {
     id: root
 
     property var cameraModel: null
-    property int layoutSize: 16          // cameras per page (1 / 4 / 9 / 16)
+    property string layout: "16"         // canonical layout id (see LayoutSpec)
     property int page: 1
     property string statusFilter: ""
     property string sortMode: "default"
@@ -19,7 +19,7 @@ Item {
     property string groupLabel: "All cameras"
     property bool fullscreen: false
 
-    signal layoutRequested(int size)
+    signal layoutRequested(string id)
     signal pageRequested(int p)
     signal statusFilterRequested(string f)
     signal sortRequested(string s)
@@ -28,16 +28,34 @@ Item {
     signal snapshotSaved(string path, string camName)
     signal cameraOpened(var cam)
 
-    readonly property int cols: Math.round(Math.sqrt(layoutSize))
-    readonly property int total: cameraModel ? cameraModel.countFiltered(groupId, statusFilter) : 0
-    readonly property int pageCount: Math.max(1, Math.ceil(total / layoutSize))
-    readonly property var pagedCameras: cameraModel
-        ? cameraModel.page(groupId, statusFilter, sortMode, page, layoutSize) : []
+    // Layout geometry derived from the canonical id. lcells is the shared cell
+    // enumeration (big tile first, then row-major) that both the toolbar/preset
+    // pictograms and the live grid placement use, so a tile is always an exact
+    // net of the wall. perPage = number of camera tiles the layout shows.
+    readonly property var lspec: LayoutSpec.params(layout)
+    readonly property int cols: lspec.cols
+    readonly property int rows: lspec.rows
+    readonly property var lcells: LayoutSpec.cellRects(lspec.cols, lspec.rows, lspec.big)
+    readonly property int perPage: lcells.length
+    // countFiltered()/page() are imperative calls; read cameraModel.total (NOTIFY
+    // countsChanged) inside these bindings so they re-evaluate when the model data
+    // changes — camera scope applied, provisioning re-imported, or any reload.
+    readonly property int total: {
+        if (!cameraModel) return 0;
+        cameraModel.total;   // refresh dependency
+        return cameraModel.countFiltered(groupId, statusFilter);
+    }
+    readonly property int pageCount: Math.max(1, Math.ceil(total / perPage))
+    readonly property var pagedCameras: {
+        if (!cameraModel) return [];
+        cameraModel.total;   // refresh dependency
+        return cameraModel.page(groupId, statusFilter, sortMode, page, perPage);
+    }
     readonly property string rangeText: {
         if (total === 0)
             return "0 of 0";
-        const start = (page - 1) * layoutSize + 1;
-        const end = Math.min(page * layoutSize, total);
+        const start = (page - 1) * perPage + 1;
+        const end = Math.min(page * perPage, total);
         return start + "–" + end + " of " + total;
     }
 
@@ -71,8 +89,9 @@ Item {
                 anchors.rightMargin: 20
                 spacing: 12
 
-                // layout segmented control
+                // layout segmented control — NetIcon pictograms (2×2 / 3×3 / 4×4 / Other)
                 Rectangle {
+                    id: layoutSeg
                     Layout.preferredHeight: 38
                     implicitWidth: segRow.implicitWidth
                     color: Theme.panel
@@ -83,18 +102,22 @@ Item {
                         height: 38
                         Repeater {
                             model: [
-                                { lbl: "1",   n: 1 },
-                                { lbl: "2×2", n: 4 },
-                                { lbl: "3×3", n: 9 },
-                                { lbl: "4×4", n: 16 }
+                                { id: "4",     lbl: "2×2",   cols: 2, rows: 2, big: null, gap: 1.4, pad: 1.6, sw: 1.4  },
+                                { id: "9",     lbl: "3×3",   cols: 3, rows: 3, big: null, gap: 1.2, pad: 1.6, sw: 1.25 },
+                                { id: "16",    lbl: "4×4",   cols: 4, rows: 4, big: null, gap: 1.0, pad: 1.6, sw: 1.1  },
+                                { id: "other", lbl: "Other", cols: 3, rows: 3, big: { c: 0, r: 0, cw: 2, ch: 2 }, gap: 1.2, pad: 1.6, sw: 1.25 }
                             ]
                             delegate: Item {
                                 id: seg
                                 required property var modelData
                                 required property int index
-                                width: 46
+                                readonly property bool isOther: modelData.id === "other"
+                                // "Other" is active for any non-standard layout (not 1/4/9/16).
+                                readonly property bool active: isOther
+                                    ? (["1", "4", "9", "16"].indexOf(root.layout) < 0)
+                                    : (root.layout === modelData.id)
+                                width: segContent.implicitWidth + 22
                                 height: 38
-                                readonly property bool active: root.layoutSize === modelData.n
                                 Rectangle {
                                     anchors.fill: parent
                                     color: seg.active ? Theme.accent : (segMa.containsMouse ? Theme.panel2 : "transparent")
@@ -104,20 +127,163 @@ Item {
                                     anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                                     width: 1; color: Theme.line
                                 }
-                                Text {
+                                Row {
+                                    id: segContent
                                     anchors.centerIn: parent
-                                    text: seg.modelData.lbl
-                                    color: seg.active ? Theme.bg : (segMa.containsMouse ? Theme.ink : Theme.ink2)
-                                    font.family: Theme.fontMono
-                                    font.pixelSize: 12
-                                    font.weight: Font.DemiBold
+                                    spacing: 6
+                                    readonly property color fg: seg.active ? Theme.bg : (segMa.containsMouse ? Theme.ink : Theme.ink2)
+                                    NetIcon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 16; height: 16
+                                        cols: seg.modelData.cols; rows: seg.modelData.rows; big: seg.modelData.big
+                                        gap: seg.modelData.gap; pad: seg.modelData.pad; sw: seg.modelData.sw
+                                        color: segContent.fg
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: seg.modelData.lbl
+                                        color: segContent.fg
+                                        font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold
+                                    }
+                                    Icon {
+                                        visible: seg.isOther
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: "chev"; size: 12; color: segContent.fg
+                                    }
                                 }
                                 MouseArea {
                                     id: segMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.layoutRequested(seg.modelData.n)
+                                    onClicked: {
+                                        if (seg.isOther) otherPopup.open();
+                                        else root.layoutRequested(seg.modelData.id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // "Other layouts" dropdown — exact-net preset pictograms + custom N×M picker.
+                    C.Popup {
+                        id: otherPopup
+                        y: layoutSeg.height + 4
+                        x: 0
+                        width: 380
+                        padding: 16
+                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                        contentItem: ColumnLayout {
+                            spacing: 14
+
+                            Text {
+                                text: "OTHER LAYOUTS"
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: Theme.fsLabel
+                                font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold
+                            }
+                            Grid {
+                                Layout.fillWidth: true
+                                columns: 3
+                                rowSpacing: 8; columnSpacing: 8
+                                Repeater {
+                                    model: [
+                                        { id: "1",        cols: 1, rows: 1, big: null },
+                                        { id: "plus4",    cols: 3, rows: 3, big: { c: 0, r: 0, cw: 2, ch: 3 } },
+                                        { id: "plus6",    cols: 3, rows: 3, big: { c: 0, r: 0, cw: 2, ch: 2 } },
+                                        { id: "plus8",    cols: 4, rows: 4, big: { c: 0, r: 0, cw: 3, ch: 3 } },
+                                        { id: "center13", cols: 4, rows: 4, big: { c: 1, r: 1, cw: 2, ch: 2 } },
+                                        { id: "25",       cols: 5, rows: 5, big: null }
+                                    ]
+                                    delegate: Rectangle {
+                                        id: preset
+                                        required property var modelData
+                                        readonly property bool sel: root.layout === modelData.id
+                                        width: 108; height: 72
+                                        color: presetMa.containsMouse ? Theme.panel2 : Theme.bg
+                                        border.width: 1
+                                        border.color: preset.sel ? Theme.accent : Theme.line2
+                                        Column {
+                                            anchors.centerIn: parent
+                                            spacing: 8
+                                            NetIcon {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                width: 40; height: 30
+                                                cols: preset.modelData.cols; rows: preset.modelData.rows; big: preset.modelData.big
+                                                color: preset.sel ? Theme.accent : Theme.ink2
+                                            }
+                                            Text {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                text: LayoutSpec.label(preset.modelData.id)
+                                                color: preset.sel ? Theme.accent : Theme.ink2
+                                                font.family: Theme.fontMono; font.pixelSize: 10
+                                            }
+                                        }
+                                        MouseArea {
+                                            id: presetMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: { root.layoutRequested(preset.modelData.id); otherPopup.close() }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.line }
+
+                            // custom N×M picker — hover the top-left block, click to commit
+                            Text {
+                                text: picker.hc >= 0
+                                    ? (picker.hc + 1) + " × " + (picker.hr + 1) + " · " + ((picker.hc + 1) * (picker.hr + 1)) + " cameras"
+                                    : "CUSTOM — HOVER TO CHOOSE A GRID"
+                                color: picker.hc >= 0 ? Theme.accent : Theme.ink3
+                                font.family: Theme.fontMono
+                                font.pixelSize: picker.hc >= 0 ? 12 : Theme.fsLabel
+                                font.capitalization: picker.hc >= 0 ? Font.MixedCase : Font.AllUppercase
+                                font.letterSpacing: picker.hc >= 0 ? 0 : 1.2
+                                font.weight: Font.DemiBold
+                            }
+                            Item {
+                                id: picker
+                                Layout.alignment: Qt.AlignHCenter
+                                property int hc: -1
+                                property int hr: -1
+                                readonly property int cell: 15
+                                readonly property int gp: 2
+                                readonly property int pitch: cell + gp
+                                implicitWidth: 10 * cell + 9 * gp
+                                implicitHeight: 10 * cell + 9 * gp
+                                width: implicitWidth; height: implicitHeight
+                                Repeater {
+                                    model: 100
+                                    delegate: Rectangle {
+                                        required property int index
+                                        readonly property int cc: index % 10
+                                        readonly property int rr: Math.floor(index / 10)
+                                        readonly property bool on: cc <= picker.hc && rr <= picker.hr
+                                        x: cc * picker.pitch
+                                        y: rr * picker.pitch
+                                        width: picker.cell; height: picker.cell
+                                        color: on ? Theme.accent : Theme.bg
+                                        border.width: 1
+                                        border.color: on ? Theme.accent : Theme.line2
+                                    }
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onPositionChanged: (m) => {
+                                        picker.hc = Math.max(0, Math.min(9, Math.floor(m.x / picker.pitch)));
+                                        picker.hr = Math.max(0, Math.min(9, Math.floor(m.y / picker.pitch)));
+                                    }
+                                    onExited: { picker.hc = -1; picker.hr = -1 }
+                                    onClicked: {
+                                        if (picker.hc >= 0 && picker.hr >= 0) {
+                                            root.layoutRequested((picker.hc + 1) + "x" + (picker.hr + 1));
+                                            otherPopup.close();
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -276,6 +442,7 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 1
                     columns: root.cols
+                    rows: root.rows
                     rowSpacing: 1
                     columnSpacing: 1
 
@@ -284,6 +451,14 @@ Item {
                         model: root.pagedCameras
                         delegate: CameraTile {
                             required property var modelData
+                            required property int index
+                            // Place each tile in its net cell (big tile spans).
+                            readonly property var cell: index < root.lcells.length
+                                ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 })
+                            Layout.row: cell.r
+                            Layout.column: cell.c
+                            Layout.rowSpan: cell.ch
+                            Layout.columnSpan: cell.cw
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             gridMode: true

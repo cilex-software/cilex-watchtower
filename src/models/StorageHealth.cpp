@@ -1,48 +1,36 @@
 #include "StorageHealth.h"
+#include "AuthController.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QProcessEnvironment>
 
 StorageHealth::StorageHealth(QObject *parent)
-    : QObject(parent), m_nam(new QNetworkAccessManager(this))
+    : QObject(parent)
 {
-    const auto env = QProcessEnvironment::systemEnvironment();
-    m_baseUrl = env.value("WT_CV_URL", "http://192.168.1.79:8000");
-    m_user = env.value("WT_CV_USER", "admin");
-    m_pass = env.value("WT_CV_PASS", "admin");
+    auto *auth = AuthController::instance();
+    m_nam = auth->nam();
+    m_baseUrl = auth->baseUrl();
+    connect(auth, &AuthController::baseUrlChanged, this,
+            [this, auth]() { m_baseUrl = auth->baseUrl(); });
+    connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
+        if (!auth->authenticated()) {     // signed out — forget last-known health
+            m_loaded = false;
+            emit changed();
+        }
+    });
 }
 
 void StorageHealth::refresh()
 {
     if (qEnvironmentVariableIsSet("WT_DEMO") || m_loading)
         return;
+    if (!AuthController::instance()->authenticated())
+        return;                           // not signed in — leave status unknown
     m_loading = true;
-    if (m_loggedIn)
-        fetch();
-    else
-        login();
-}
-
-void StorageHealth::login()
-{
-    QNetworkRequest req{QUrl(m_baseUrl + "/auth/login")};
-    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QJsonObject body{{"username", m_user}, {"password", m_pass}};
-    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (reply->error() != QNetworkReply::NoError || code != 200) {
-            m_loading = false;            // unreachable; leave loaded=false (status unknown)
-            return;
-        }
-        m_loggedIn = true;
-        fetch();
-    });
+    fetch();
 }
 
 void StorageHealth::fetch()
@@ -51,6 +39,9 @@ void StorageHealth::fetch()
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         m_loading = false;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401)
+            AuthController::instance()->noteUnauthorized();
         if (reply->error() != QNetworkReply::NoError)
             return;                       // keep last-known; loaded stays as-is
         const auto o = QJsonDocument::fromJson(reply->readAll()).object();

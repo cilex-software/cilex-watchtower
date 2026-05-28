@@ -3,11 +3,28 @@
 #include "CameraStatus.h"
 #include "MockData.h"
 #include "ProvisioningImport.h"
+#include "AuthController.h"
 
 #include <QDebug>
 #include <QUrl>
 #include <QUuid>
 #include <algorithm>
+
+namespace {
+// Backend camera_ids ("<vendor>-<machex>") -> normalized MAC hex set.
+QSet<QString> macsFromScope(const QStringList &cameraIds)
+{
+    QSet<QString> macs;
+    for (const QString &id : cameraIds) {
+        const int dash = id.lastIndexOf('-');
+        QString hex = (dash >= 0 ? id.mid(dash + 1) : id).toLower();
+        hex.remove(':').remove('-');
+        if (!hex.isEmpty())
+            macs.insert(hex);
+    }
+    return macs;
+}
+}
 
 CameraModel::CameraModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -19,17 +36,48 @@ CameraModel::CameraModel(QObject *parent)
         recompute();
         return;
     }
+    // Seed the scope from the already-restored session so the grid loads filtered
+    // from the start (no 10->2 churn that would thrash video surfaces).
+    if (AuthController::instance())
+        m_scopeMacs = macsFromScope(AuthController::instance()->cameraScope());
+
     if (m_store.open()) {
         // Bootstrap: if the store is empty and WT_CAMERAS points at an export,
         // import it once; thereafter the store loads directly (no env var).
         const QString prov = qEnvironmentVariable("WT_CAMERAS");
         if (m_store.isEmpty() && !prov.isEmpty())
             m_store.importProvisioning(prov);
-        m_all = m_store.cameras();
+        loadFromStore();
     } else {
         qWarning() << "Watchtower: camera store unavailable; starting with no cameras";
     }
     recompute();
+}
+
+void CameraModel::loadFromStore()
+{
+    const QVector<wt::CameraData> all = m_store.cameras();
+    if (m_scopeMacs.isEmpty()) {           // admin / no scope — show everything
+        m_all = all;
+        return;
+    }
+    m_all.clear();
+    for (const wt::CameraData &c : all) {
+        QString mac = c.mac.toLower();
+        mac.remove(':').remove('-');
+        if (!mac.isEmpty() && m_scopeMacs.contains(mac))
+            m_all.push_back(c);
+    }
+}
+
+void CameraModel::setCameraScope(const QStringList &cameraIds)
+{
+    const QSet<QString> macs = macsFromScope(cameraIds);
+    if (macs == m_scopeMacs)
+        return;
+    m_scopeMacs = macs;
+    if (!qEnvironmentVariableIsSet("WT_DEMO"))
+        reload();
 }
 
 bool CameraModel::importProvisioning(const QString &path)
@@ -48,7 +96,7 @@ bool CameraModel::importProvisioning(const QString &path)
 void CameraModel::reload()
 {
     beginResetModel();
-    m_all = m_store.cameras();
+    loadFromStore();
     endResetModel();
     recompute();
 }

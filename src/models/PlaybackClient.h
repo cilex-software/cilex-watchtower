@@ -62,16 +62,13 @@ signals:
 
 private:
     void setStatus(const QString &s);
-    void login();
     void fetchStreams();
     void flushPendingSessions();
 
     QNetworkAccessManager *m_nam;
     HlsProxy *m_proxy;
     QString m_baseUrl;
-    QString m_user;
-    QString m_pass;
-    bool m_loggedIn = false;
+    bool m_loggedIn = false;      // ready: signed in AND /streams resolved
     bool m_loggingIn = false;
     QString m_status;
     QHash<QString, QString> m_ipToCamId;
