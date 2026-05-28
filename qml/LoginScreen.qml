@@ -10,6 +10,9 @@ Item {
     id: root
     property string tab: "password"   // "password" | "token"
 
+    // Start focus in the first credential field (classic login UX).
+    Component.onCompleted: userField.takeFocus()
+
     function submit() {
         if (AuthController.busy)
             return;
@@ -27,6 +30,7 @@ Item {
         property alias text: input.text
         property alias echoMode: input.echoMode
         property alias placeholder: ph.text
+        function takeFocus() { input.forceActiveFocus() }
         Layout.fillWidth: true
         spacing: 6
         Text {
@@ -49,6 +53,7 @@ Item {
                 font.family: Theme.fontSans; font.pixelSize: Theme.fsBody
                 selectionColor: Theme.accent
                 selectByMouse: true
+                activeFocusOnTab: true
                 clip: true
                 enabled: !AuthController.busy
                 onAccepted: root.submit()
@@ -105,24 +110,37 @@ Item {
                 Repeater {
                     model: [ { id: "password", lbl: "Password" }, { id: "token", lbl: "Token" } ]
                     delegate: Item {
+                        id: tabBtn
                         required property var modelData
                         Layout.fillWidth: true
                         implicitHeight: 36
+                        activeFocusOnTab: true
+                        function activate() { root.tab = tabBtn.modelData.id; AuthController.clearError() }
+                        Keys.onReturnPressed: tabBtn.activate()
+                        Keys.onEnterPressed: tabBtn.activate()
+                        Keys.onSpacePressed: tabBtn.activate()
                         Text {
                             anchors.centerIn: parent
-                            text: parent.modelData.lbl
-                            color: root.tab === parent.modelData.id ? Theme.ink : Theme.ink3
+                            text: tabBtn.modelData.lbl
+                            color: root.tab === tabBtn.modelData.id ? Theme.ink : Theme.ink3
                             font.family: Theme.fontSans; font.pixelSize: Theme.fsSmall
-                            font.weight: root.tab === parent.modelData.id ? Font.DemiBold : Font.Normal
+                            font.weight: root.tab === tabBtn.modelData.id ? Font.DemiBold : Font.Normal
+                        }
+                        // keyboard focus ring
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "transparent"
+                            border.width: 1; border.color: Theme.accent
+                            visible: tabBtn.activeFocus
                         }
                         Rectangle {
                             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
                             height: 2
-                            color: root.tab === parent.modelData.id ? Theme.accent : Theme.line
+                            color: root.tab === tabBtn.modelData.id ? Theme.accent : Theme.line
                         }
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.tab = parent.modelData.id; AuthController.clearError() }
+                            onClicked: tabBtn.activate()
                         }
                     }
                 }
@@ -173,6 +191,7 @@ Item {
                             font.family: Theme.fontMono; font.pixelSize: Theme.fsMono
                             selectionColor: Theme.accent
                             selectByMouse: true
+                            activeFocusOnTab: true
                             enabled: !AuthController.busy
                             onTextChanged: if (AuthController.errorString !== "") AuthController.clearError()
                         }
@@ -196,15 +215,21 @@ Item {
 
             // submit
             Rectangle {
+                id: signBtn
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.s4
                 height: 40
+                activeFocusOnTab: true
                 color: AuthController.busy ? Theme.accentDim
                                            : (btnMa.containsMouse ? Qt.lighter(Theme.accent, 1.06) : Theme.accent)
+                border.width: signBtn.activeFocus ? 2 : 0
+                border.color: Theme.ink
+                Keys.onReturnPressed: root.submit()
+                Keys.onEnterPressed: root.submit()
+                Keys.onSpacePressed: root.submit()
                 Text {
                     anchors.centerIn: parent
-                    text: AuthController.busy ? "Signing in…"
-                                              : (root.tab === "password" ? "Sign in" : "Use token")
+                    text: AuthController.busy ? "Signing in…" : "Sign in"
                     color: Theme.bg; font.family: Theme.fontSans
                     font.pixelSize: Theme.fsBody; font.weight: Font.DemiBold
                 }
