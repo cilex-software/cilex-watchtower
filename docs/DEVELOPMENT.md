@@ -7,7 +7,7 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 - **UI**: Qt 6.4.2 + Qt Quick / QML (GPU scene-graph compositing). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
 - **Core**: C++17.
 - **Video**: QtMultimedia `MediaPlayer` + `VideoOutput` (QML), GStreamer backend, **VA-API HW decode** (confirmed on Intel Alder Lake-S iGPU, iHD driver). See "qml6glsink" gotcha below.
-- **Persistence**: SQLite via `QSettings` (prefs, acks) and `CameraStore` (cameras/groups DB at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`).
+- **Persistence**: two stores — `QSettings` (INI) for small operator state (prefs, event acks, saved views), and **SQLite** via `CameraStore` for the local camera inventory at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`. Groups, events, and footage are not persisted locally — they come live from cilex-vision.
 - **Network**: `QNetworkAccessManager` (Qt6::Network) for cilex-vision auth + APIs.
 - **Build**: CMake + Ninja.
 
@@ -39,7 +39,7 @@ cmake -G Ninja -B build -S . && cmake --build build   # -> build/watchtower
 ## Architecture
 
 - **`src/models/`** — C++ models exposed to QML:
-  - `CameraStore` — SQLite-backed store; upserts by **MAC** (device fields refresh, operator-set name/group/favorite preserved across re-imports). `ProvisioningImport` parses a Cilex Provisioner JSON export.
+  - `CameraStore` — SQLite-backed camera inventory; upserts by **MAC** (device fields refresh, operator-set name/favorite/order preserved across re-imports). The `group_id` column is vestigial — group membership comes from the cilex-vision `/streams` API at runtime, not SQLite. `ProvisioningImport` parses a Cilex Provisioner JSON export.
   - `CameraModel` — `QAbstractListModel` over the store; live status counts (`onlineCount`/`offlineCount`/`degradedCount`/`notRecordingCount`/`recordingGapCount`), `page(group,statusFilter,sort,…)`, `cameraByBackendId(camera_id)` (resolve cilex-vision id → local camera by MAC). Status filters: `online/offline/degraded/recording/notrec/gap/favorites/issues/recent`.
   - `EventModel` — events feed: live `GET /events` (own authenticated session) or `WT_DEMO` mock; roles for the ops sidebar; `all()` (maps for the Events screen); acknowledge persisted locally in `QSettings["eventAcks"]`.
   - `PlaybackClient` + `HlsProxy` — cilex-vision recorded playback (see below).
