@@ -188,8 +188,8 @@ Item {
             PrefSection {
                 title: "Video"
                 PrefRow {
-                    label: "Default stream quality"
-                    desc: "SD uses the camera substream (lighter, more responsive). HD uses the main stream. You can also toggle SD/HD per camera from the live tile."
+                    label: "Default stream quality (focused view)"
+                    desc: "Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile."
                     // SD / HD segmented toggle
                     Rectangle {
                         Layout.preferredHeight: 32

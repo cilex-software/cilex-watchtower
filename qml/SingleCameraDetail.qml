@@ -3,14 +3,15 @@ import QtQuick.Layouts
 import Watchtower
 
 // Single Camera Detail — Live (S05): focused live view of one camera. Large
-// player (HD/main by default, SD/HD toggle), identity + status aside, and
-// same-group cameras to switch. Back returns to where the user came from.
+// player (follows the global SD/HD preference, with a per-view SD/HD toggle),
+// identity + status aside, and same-group cameras to switch. Back returns to
+// where the user came from.
 Item {
     id: root
 
     property var camera: null      // camera map (name, camId, ip, rtspUrl, rtspSubUrl, live, recording, groupId, groupName, mac, model, vendor, firmware)
     property var cameraModel: null
-    property bool useMain: true    // focused view defaults to HD/main stream
+    property bool useMain: Settings.defaultStreamHd   // focused view follows the global SD/HD preference; the HD toggle overrides
 
     signal closed()
     signal openPlayback(string mac)

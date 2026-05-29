@@ -30,8 +30,11 @@ Item {
     property string rtspUrl: ""       // main stream (on-demand HD only)
     property string rtspSubUrl: ""    // substream — the default for monitoring
     property bool videoActive: false
-    // Defaults to the global SD/HD preference; the per-tile toggle overrides it.
-    property bool useMainStream: Settings.defaultStreamHd
+    // The live wall is ALWAYS SD (substream): many simultaneous decodes must stay
+    // light and near real-time, so the wall never follows the global HD preference.
+    // The per-tile HD button can still promote a single tile on demand. (gridMode
+    // is the wall — the only place CameraTile is used today.)
+    property bool useMainStream: gridMode ? false : Settings.defaultStreamHd
     readonly property string streamUrl: (useMainStream && rtspUrl !== "")
         ? rtspUrl
         : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
