@@ -4,19 +4,43 @@
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
 #include <QMetaObject>
+#include <QPointer>
 #include <QDebug>
 #include <cstring>
 #include <thread>
+#include <mutex>
+#include <unordered_set>
 #include <gst/video/video.h>
 #include <gst/app/gstappsink.h>
+
+namespace {
+// Tracks live RtspVideoSource instances so the GStreamer streaming-thread
+// callback can refuse to touch a destroyed `this`. The destructor erases under
+// the same lock and BEFORE letting the QObject base destruct, so the callback
+// either sees the instance and proceeds (under the lock) or skips it cleanly.
+std::mutex &aliveMutex() { static std::mutex m; return m; }
+std::unordered_set<RtspVideoSource *> &aliveSet()
+{
+    static std::unordered_set<RtspVideoSource *> s;
+    return s;
+}
+}
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
     : QObject(parent)
 {
+    std::lock_guard<std::mutex> lock(aliveMutex());
+    aliveSet().insert(this);
 }
 
 RtspVideoSource::~RtspVideoSource()
 {
+    // Remove from the alive set FIRST so any in-flight callback bails out
+    // before it can call QMetaObject::invokeMethod on us.
+    {
+        std::lock_guard<std::mutex> lock(aliveMutex());
+        aliveSet().erase(this);
+    }
     teardown();
 }
 
@@ -179,8 +203,22 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
     }
     gst_sample_unref(sample);
 
-    if (frame.isValid())
-        QMetaObject::invokeMethod(me, [me, frame]() { me->deliver(frame); }, Qt::QueuedConnection);
+    if (frame.isValid()) {
+        // Streaming-thread → GUI-thread hop. Two guards:
+        //   1) Under the alive-set lock, confirm `me` hasn't been destroyed
+        //      between sample-pull and this dispatch. Without this, the dtor
+        //      can race with a callback in flight on this thread.
+        //   2) Capture a QPointer so that even if the object dies after this
+        //      check but before the queued invocation runs, the lambda is a
+        //      no-op (QPointer goes null).
+        std::lock_guard<std::mutex> lock(aliveMutex());
+        if (aliveSet().count(me) == 0)
+            return GST_FLOW_OK;
+        QPointer<RtspVideoSource> guard(me);
+        QMetaObject::invokeMethod(me, [guard, frame]() {
+            if (guard) guard->deliver(frame);
+        }, Qt::QueuedConnection);
+    }
     return GST_FLOW_OK;
 }
 
