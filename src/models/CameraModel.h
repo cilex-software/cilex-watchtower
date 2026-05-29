@@ -6,9 +6,12 @@
 #include <QVariantMap>
 #include <QVector>
 #include <QSet>
+#include <QHash>
 #include <QStringList>
 #include "Types.h"
 #include "CameraStore.h"
+
+class QNetworkAccessManager;
 
 // Flat list of all cameras, exposed to QML. Group/status filtering and paging
 // for the Live Monitor are layered on top later (proxy/QML); this model is the
@@ -84,10 +87,13 @@ public:
     Q_INVOKABLE void setCameraName(const QString &mac, const QString &name);
     Q_INVOKABLE void setCameraGroup(const QString &mac, const QString &groupId);
 
-    // User-defined groups (persisted). groupList() returns each group with its
-    // live camera counts. Groups are flat in MVP (no nesting yet).
+    // Groups are owned by cilex-vision (the `/groups` API); this model fetches
+    // them and mirrors per-camera membership onto local rows by MAC (from
+    // /streams). groupList() returns each backend group with locally-computed
+    // counts. Mutations are async — completion is signalled via groupsChanged
+    // (and groupCreated for create, so the UI can select the new group).
     Q_INVOKABLE QVariantList groupList() const;
-    Q_INVOKABLE QString createGroup(const QString &name);
+    Q_INVOKABLE void createGroup(const QString &name);
     Q_INVOKABLE void renameGroup(const QString &id, const QString &name);
     Q_INVOKABLE void removeGroup(const QString &id);
 
@@ -105,6 +111,7 @@ public:
 signals:
     void countsChanged();
     void groupsChanged();
+    void groupCreated(const QString &groupId);
 
 private:
     void recompute();
@@ -113,10 +120,18 @@ private:
     bool matches(const wt::CameraData &c, const QString &groupId, const QString &statusFilter) const;
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
+    // Backend group integration (cilex-vision /groups + /streams).
+    void fetchGroups();        // GET /groups -> m_groups
+    void fetchMembership();    // GET /streams -> per-camera group_id/name (by MAC)
+    QString backendCameraIdForMac(const QString &mac) const;  // from the /streams map
 
     CameraStore m_store;
     QVector<wt::CameraData> m_all;
     QSet<QString> m_scopeMacs;   // normalized MAC hexes the operator may see; empty = all
+    QNetworkAccessManager *m_nam = nullptr;   // shared, from AuthController
+    QString m_baseUrl;
+    QVector<wt::GroupData> m_groups;          // backend group definitions
+    QHash<QString, QString> m_macToCamId;     // normalized MAC -> backend camera_id
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

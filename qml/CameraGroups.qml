@@ -13,6 +13,9 @@ Item {
     property string selectedGroup: ""             // "" = all cameras
     property string selectedGroupName: "All cameras"
     property int rev: 0                            // bump to refresh derived lists
+    // Group create/rename/delete/assign is admin/operator only (backend RBAC);
+    // viewers/engineers see groups read-only.
+    readonly property bool canEdit: AuthController.role === "admin" || AuthController.role === "operator"
 
     signal openInLive(string groupId, string label)
     signal openCamera(var cam)
@@ -21,6 +24,11 @@ Item {
         target: root.cameraModel
         function onCountsChanged() { root.rev++; }
         function onGroupsChanged() { root.rev++; }
+        // createGroup is async — select the new group once the backend confirms it.
+        function onGroupCreated(groupId) {
+            root.selectedGroup = groupId;
+            root.selectedGroupName = "New group";
+        }
     }
 
     readonly property var groupsData: (root.rev, root.cameraModel ? root.cameraModel.groupList() : [])
@@ -111,6 +119,7 @@ Item {
                 }
 
                 Rectangle {
+                    visible: root.canEdit
                     Layout.fillWidth: true; Layout.preferredHeight: 44
                     color: ngMa.containsMouse ? Theme.panel : "transparent"
                     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
@@ -122,11 +131,7 @@ Item {
                     }
                     MouseArea {
                         id: ngMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            var id = root.cameraModel.createGroup("New group");
-                            root.selectedGroup = id;
-                            root.selectedGroupName = "New group";
-                        }
+                        onClicked: root.cameraModel.createGroup("New group")  // selected via onGroupCreated
                     }
                 }
             }
@@ -151,6 +156,7 @@ Item {
                     C.TextField {
                         id: groupNameField
                         visible: root.selectedGroup !== ""
+                        readOnly: !root.canEdit
                         Layout.preferredWidth: Math.min(implicitWidth + 20, 320)
                         text: root.selectedGroupName
                         color: Theme.ink
@@ -173,7 +179,7 @@ Item {
                     Item { Layout.fillWidth: true }
                     GhostButton { label: "Open in Live Monitor"; onClicked: root.openInLive(root.selectedGroup, root.selectedGroupName) }
                     GhostButton {
-                        visible: root.selectedGroup !== ""
+                        visible: root.selectedGroup !== "" && root.canEdit
                         label: "Delete group"; danger: true
                         onClicked: { root.cameraModel.removeGroup(root.selectedGroup); root.selectedGroup = ""; root.selectedGroupName = "All cameras"; }
                     }
@@ -268,9 +274,9 @@ Item {
                             RowLayout {
                                 id: grpRow; anchors.centerIn: parent; spacing: 6
                                 Text { text: camRow.modelData.groupName !== "" ? camRow.modelData.groupName : "Ungrouped"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
-                                Icon { name: "chev"; size: 11; color: Theme.ink3 }
+                                Icon { visible: root.canEdit; name: "chev"; size: 11; color: Theme.ink3 }
                             }
-                            MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: grpPopup.open() }
+                            MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: root.canEdit ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: { if (root.canEdit) grpPopup.open() } }
                             C.Popup {
                                 id: grpPopup
                                 y: parent.height + 2

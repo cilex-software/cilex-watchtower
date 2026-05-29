@@ -465,6 +465,7 @@ Item {
                             camName: modelData.name
                             camId: modelData.camId
                             groupId: modelData.groupId
+                            groupName: modelData.groupName
                             live: modelData.live
                             recording: modelData.recording
                             favorite: modelData.favorite

@@ -8,6 +8,13 @@
 #include <QDebug>
 #include <QUrl>
 #include <QUuid>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QPair>
 #include <algorithm>
 
 namespace {
@@ -52,11 +59,39 @@ CameraModel::CameraModel(QObject *parent)
         qWarning() << "Watchtower: camera store unavailable; starting with no cameras";
     }
     recompute();
+
+    // Groups + membership are owned by cilex-vision. Use the shared session;
+    // load on auth and mirror each camera's group onto its local row by MAC.
+    auto *auth = AuthController::instance();
+    m_nam = auth->nam();
+    m_baseUrl = auth->baseUrl();
+    connect(auth, &AuthController::baseUrlChanged, this,
+            [this, auth]() { m_baseUrl = auth->baseUrl(); });
+    connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
+        if (auth->authenticated()) {
+            fetchGroups();
+            fetchMembership();
+        } else {
+            m_groups.clear();
+            m_macToCamId.clear();
+            emit groupsChanged();
+        }
+    });
+    if (auth->authenticated()) {
+        fetchGroups();
+        fetchMembership();
+    }
 }
 
 void CameraModel::loadFromStore()
 {
-    const QVector<wt::CameraData> all = m_store.cameras();
+    QVector<wt::CameraData> all = m_store.cameras();
+    // Group membership is backend-owned and applied from /streams; never trust
+    // the local store's group_id (kept only as a vestigial column).
+    for (wt::CameraData &c : all) {
+        c.groupId.clear();
+        c.groupName.clear();
+    }
     if (m_scopeMacs.isEmpty()) {           // admin / no scope — show everything
         m_all = all;
         return;
@@ -99,6 +134,9 @@ void CameraModel::reload()
     loadFromStore();
     endResetModel();
     recompute();
+    // loadFromStore cleared group membership — repopulate from the backend.
+    if (AuthController::instance() && AuthController::instance()->authenticated())
+        fetchMembership();
 }
 
 void CameraModel::setCameraName(const QString &mac, const QString &name)
@@ -113,22 +151,78 @@ void CameraModel::setCameraName(const QString &mac, const QString &name)
     }
 }
 
+QString CameraModel::backendCameraIdForMac(const QString &mac) const
+{
+    QString hex = mac.toLower();
+    hex.remove(':').remove('-');
+    return m_macToCamId.value(hex);   // empty if the backend doesn't know this camera
+}
+
 void CameraModel::setCameraGroup(const QString &mac, const QString &groupId)
 {
-    m_store.setGroup(mac, groupId);
-    reload();   // refresh resolved group names + counts
-    emit groupsChanged();
+    if (!m_nam)
+        return;
+    const QString camId = backendCameraIdForMac(mac);
+    if (camId.isEmpty()) {
+        qWarning() << "Watchtower: cannot set group — camera unknown to backend:" << mac;
+        return;
+    }
+
+    QString normMac = mac.toLower();
+    normMac.remove(':').remove('-');
+    QString currentGid;
+    for (const wt::CameraData &c : m_all) {
+        QString m = c.mac.toLower();
+        m.remove(':').remove('-');
+        if (m == normMac) { currentGid = c.groupId; break; }
+    }
+
+    QNetworkReply *reply = nullptr;
+    if (!groupId.isEmpty()) {
+        reply = m_nam->put(
+            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + groupId + "/cameras/" + camId)},
+            QByteArray());
+    } else if (!currentGid.isEmpty()) {
+        reply = m_nam->deleteResource(
+            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + currentGid + "/cameras/" + camId)});
+    } else {
+        return;   // already ungrouped
+    }
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, normMac, groupId]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Watchtower: group assignment failed" << code << reply->errorString();
+            return;
+        }
+        QString gname;
+        for (const wt::GroupData &g : m_groups)
+            if (g.id == groupId) { gname = g.name; break; }
+        for (int i = 0; i < m_all.size(); ++i) {
+            QString m = m_all[i].mac.toLower();
+            m.remove(':').remove('-');
+            if (m == normMac) {
+                m_all[i].groupId = groupId;
+                m_all[i].groupName = gname;
+                emit dataChanged(index(i), index(i), { GroupIdRole, GroupNameRole });
+                break;
+            }
+        }
+        emit groupsChanged();
+        emit countsChanged();   // refresh group-filtered grid/counts bindings
+    });
 }
 
 QVariantList CameraModel::groupList() const
 {
     QVariantList out;
-    const QVector<wt::GroupData> gs = m_store.groups();
-    for (const wt::GroupData &g : gs) {
+    for (const wt::GroupData &g : m_groups) {
         QVariantMap m;
         m["id"] = g.id;
         m["name"] = g.name;
-        m["parentId"] = g.parentId;
+        m["parentId"] = QString();
         m["total"] = countFiltered(g.id, QString());
         m["online"] = countFiltered(g.id, QStringLiteral("online"));
         m["offline"] = countFiltered(g.id, QStringLiteral("offline"));
@@ -138,30 +232,148 @@ QVariantList CameraModel::groupList() const
     return out;
 }
 
-QString CameraModel::createGroup(const QString &name)
+void CameraModel::createGroup(const QString &name)
 {
-    wt::GroupData g;
-    g.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    g.name = name;
-    m_store.upsertGroup(g);
-    emit groupsChanged();
-    return g.id;
+    if (!m_nam)
+        return;
+    QNetworkRequest req{QUrl(m_baseUrl + "/groups")};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    const QJsonObject body{{"name", name}};
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (code != 201) {
+            qWarning() << "Watchtower: create group failed" << code;
+            return;
+        }
+        const QString id =
+            QJsonDocument::fromJson(reply->readAll()).object().value("group_id").toString();
+        fetchGroups();           // refresh the list (emits groupsChanged)
+        emit groupCreated(id);
+    });
 }
 
 void CameraModel::renameGroup(const QString &id, const QString &name)
 {
-    wt::GroupData g;
-    g.id = id;
-    g.name = name;
-    m_store.upsertGroup(g);
-    emit groupsChanged();
+    if (!m_nam)
+        return;
+    QNetworkRequest req{QUrl(m_baseUrl + "/groups/" + id)};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    const QJsonObject body{{"name", name}};
+    QNetworkReply *reply =
+        m_nam->sendCustomRequest(req, "PATCH", QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Watchtower: rename group failed" << code;
+            return;
+        }
+        fetchGroups();
+    });
 }
 
 void CameraModel::removeGroup(const QString &id)
 {
-    m_store.removeGroup(id);
-    reload();
-    emit groupsChanged();
+    if (!m_nam)
+        return;
+    QNetworkReply *reply =
+        m_nam->deleteResource(QNetworkRequest{QUrl(m_baseUrl + "/groups/" + id)});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, id]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Watchtower: delete group failed" << code;
+            return;
+        }
+        // Backend SET NULL'd the members; mirror that locally.
+        for (int i = 0; i < m_all.size(); ++i) {
+            if (m_all[i].groupId == id) {
+                m_all[i].groupId.clear();
+                m_all[i].groupName.clear();
+                emit dataChanged(index(i), index(i), { GroupIdRole, GroupNameRole });
+            }
+        }
+        fetchGroups();
+        emit countsChanged();
+    });
+}
+
+void CameraModel::fetchGroups()
+{
+    if (!m_nam)
+        return;
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/groups")});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError)
+            return;
+        const auto arr =
+            QJsonDocument::fromJson(reply->readAll()).object().value("groups").toArray();
+        m_groups.clear();
+        for (const auto &v : arr) {
+            const auto o = v.toObject();
+            wt::GroupData g;
+            g.id = o.value("group_id").toString();
+            g.name = o.value("name").toString();
+            g.count = o.value("camera_count").toInt();
+            m_groups.push_back(g);
+        }
+        emit groupsChanged();
+    });
+}
+
+void CameraModel::fetchMembership()
+{
+    if (!m_nam)
+        return;
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError)
+            return;
+        const auto arr =
+            QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
+        // Index backend camera_id + group by normalized MAC (trailing hex).
+        QHash<QString, QPair<QString, QString>> macGroup;   // mac -> (groupId, groupName)
+        m_macToCamId.clear();
+        for (const auto &v : arr) {
+            const auto o = v.toObject();
+            const QString camId = o.value("camera_id").toString();
+            const int dash = camId.lastIndexOf('-');
+            QString hex = (dash >= 0 ? camId.mid(dash + 1) : camId).toLower();
+            if (hex.isEmpty())
+                continue;
+            m_macToCamId.insert(hex, camId);
+            macGroup.insert(hex, qMakePair(o.value("group_id").toString(),
+                                           o.value("group_name").toString()));
+        }
+        bool changed = false;
+        for (wt::CameraData &c : m_all) {
+            QString mac = c.mac.toLower();
+            mac.remove(':').remove('-');
+            const auto it = macGroup.constFind(mac);
+            const QString gid = (it != macGroup.constEnd()) ? it->first : QString();
+            const QString gname = (it != macGroup.constEnd()) ? it->second : QString();
+            if (c.groupId != gid || c.groupName != gname) {
+                c.groupId = gid;
+                c.groupName = gname;
+                changed = true;
+            }
+        }
+        if (changed && !m_all.isEmpty())
+            emit dataChanged(index(0), index(m_all.size() - 1), { GroupIdRole, GroupNameRole });
+        emit groupsChanged();
+        emit countsChanged();   // refresh group-filtered grid/counts bindings
+    });
 }
 
 int CameraModel::rowCount(const QModelIndex &parent) const

@@ -11,6 +11,7 @@ Item {
     property string camName: ""
     property string camId: ""
     property string groupId: ""
+    property string groupName: ""
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
     property bool favorite: false
@@ -44,8 +45,8 @@ Item {
     readonly property bool isGap: recording === CameraStatus.RecordingGap
     readonly property bool isFault: isOffline || isNotRec || isDegraded || isGap
 
-    readonly property string geom: groupId.indexOf("park") >= 0 ? "parking"
-                                  : (groupId.indexOf("lob") >= 0 ? "lobby" : "corridor")
+    readonly property string geom: groupName.toLowerCase().indexOf("park") >= 0 ? "parking"
+                                  : (groupName.toLowerCase().indexOf("lob") >= 0 ? "lobby" : "corridor")
 
     signal opened()
     signal played()

@@ -4,11 +4,12 @@
 #include <QVector>
 #include "Types.h"
 
-// Local persistence (SQLite) — the source of truth for the operator's cameras
-// and groups. Cameras come from a Cilex Provisioner import; the operator's
-// display names, group assignments, and favorites are stored here and preserved
-// across re-imports (keyed by the stable MAC). Watchtower is a client: it never
-// invents camera names — only the user (or a future cilex-vision name feed) does.
+// Local persistence (SQLite) for the operator's cameras. Cameras come from a
+// Cilex Provisioner import; the operator's display names and favorites are
+// stored here and preserved across re-imports (keyed by the stable MAC).
+// Groups are NOT stored here — they're owned by cilex-vision (the /groups API);
+// per-camera membership is applied at runtime from /streams. Watchtower never
+// invents camera names — only the user (or a cilex-vision name feed) does.
 class CameraStore : public QObject
 {
     Q_OBJECT
@@ -21,21 +22,15 @@ public:
     bool isEmpty() const; // no cameras stored yet
 
     QVector<wt::CameraData> cameras() const;
-    QVector<wt::GroupData> groups() const;
 
     // Import a provisioning export. Upserts by MAC: device fields (ip, rtsp,
-    // firmware, ...) are refreshed; user fields (name, group, favorite) are
-    // preserved if already set. Returns count imported, or -1 on error.
+    // firmware, ...) are refreshed; user fields (name, favorite) are preserved
+    // if already set. Returns count imported, or -1 on error.
     int importProvisioning(const QString &path, QString *error = nullptr);
 
     // User edits (keyed by MAC).
     void setName(const QString &mac, const QString &name);
-    void setGroup(const QString &mac, const QString &groupId);
     void setFavorite(const QString &mac, bool favorite);
-
-    // Group management.
-    void upsertGroup(const wt::GroupData &group);
-    void removeGroup(const QString &id);
 
 private:
     bool ensureSchema();

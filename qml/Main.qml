@@ -34,6 +34,18 @@ Window {
         saveViewModal.groupLabel = win.groupLabel;
         saveViewModal.open();
     }
+    // A saved view's group may be stale (a pre-backend local id, or a since-
+    // deleted group). Resolve it against the current backend group list; if it's
+    // gone, fall back to "all cameras". Kept as-is while groups are still loading.
+    function resolveGroup(gid, label) {
+        if (!gid) return { id: "", label: "All cameras" };
+        var gs = cameraModel.groupList();
+        if (gs.length === 0) return { id: gid, label: label };
+        for (var i = 0; i < gs.length; i++)
+            if (gs[i].id === gid) return { id: gid, label: gs[i].name };
+        return { id: "", label: "All cameras" };
+    }
+
     // Apply the user's default landing screen on launch (Live / a saved view / a
     // group). A dev WT_SECTION override wins. Models are ready by onCompleted.
     function applyDefaultLanding() {
@@ -51,8 +63,9 @@ Window {
             for (var j = 0; j < views.length; j++)
                 if (views[j].viewId === vid) {
                     var v = views[j];
+                    var dg = win.resolveGroup(v.groupId, v.groupLabel);
                     win.gridLayout = v.layout; win.statusFilter = v.statusFilter; win.sortMode = v.sortMode;
-                    win.groupFilter = v.groupId; win.groupLabel = v.groupLabel; win.gridPage = 1; win.section = "live";
+                    win.groupFilter = dg.id; win.groupLabel = dg.label; win.gridPage = 1; win.section = "live";
                     break;
                 }
         }
@@ -260,11 +273,12 @@ Window {
                     cameraModel: cameraModel
                     onSaveCurrentRequested: win.openSaveView()
                     onOpenView: (view) => {
+                        var vg = win.resolveGroup(view.groupId, view.groupLabel);
                         win.gridLayout = view.layout;
                         win.statusFilter = view.statusFilter;
                         win.sortMode = view.sortMode;
-                        win.groupFilter = view.groupId;
-                        win.groupLabel = view.groupLabel;
+                        win.groupFilter = vg.id;
+                        win.groupLabel = vg.label;
                         win.gridPage = 1;
                         win.section = "live";
                         savedViewModel.touch(view.viewId);
@@ -347,8 +361,9 @@ Window {
         onOpenGroup: (gid, label) => { win.focusedCamera = null; win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.section = "live" }
         onOpenView: (view) => {
             win.focusedCamera = null;
+            var cg = win.resolveGroup(view.groupId, view.groupLabel);
             win.gridLayout = view.layout; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
-            win.groupFilter = view.groupId; win.groupLabel = view.groupLabel; win.gridPage = 1; win.section = "live";
+            win.groupFilter = cg.id; win.groupLabel = cg.label; win.gridPage = 1; win.section = "live";
             savedViewModel.touch(view.viewId);
         }
         onOpenEvents: { win.focusedCamera = null; win.playbackCamera = null; win.section = "events" }
