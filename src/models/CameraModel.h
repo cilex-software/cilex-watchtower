@@ -85,6 +85,10 @@ public:
     // out of the model entirely (list, counts, paging, resolution).
     Q_INVOKABLE void setCameraScope(const QStringList &cameraIds);
 
+    // Re-fetch the camera list from /streams (e.g. after the admin switches the
+    // live-video transport, so the new stream URLs take effect immediately).
+    Q_INVOKABLE void refresh() { fetchCameras(); }
+
     // Per-operator edits keyed by the backend camera_id: a local display-name
     // override (layered over the backend name) and favorite.
     Q_INVOKABLE void setCameraName(const QString &cameraId, const QString &name);

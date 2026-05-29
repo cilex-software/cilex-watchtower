@@ -82,6 +82,13 @@ Window {
     StorageHealth { id: storageHealth }
     PlaybackClient { id: playbackClient }
 
+    // Admin switched the live-video transport (go2rtc ↔ direct RTSP): re-fetch
+    // /streams so the new stream URLs take effect on the wall.
+    Connections {
+        target: Settings
+        function onLiveTransportChanged() { cameraModel.refresh() }
+    }
+
     // Apply the signed-in operator's camera scope (empty = all cameras). Fires on
     // login, token restore, and sign-out as the JWT claims change.
     Connections {

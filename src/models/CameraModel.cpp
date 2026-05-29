@@ -16,6 +16,7 @@
 #include <QJsonArray>
 #include <QPair>
 #include <QStringList>
+#include <QSettings>
 #include <algorithm>
 
 namespace {
@@ -338,6 +339,10 @@ void CameraModel::fetchCameras()
         QVector<wt::CameraData> out;
         out.reserve(int(arr.size()));
         m_macToCamId.clear();
+        // Admin-selectable transport (default go2rtc); only an admin client ever
+        // receives the raw direct_rtsp_* fields, so non-admins always get go2rtc.
+        const QString liveTransport = QSettings().value(QStringLiteral("video/liveTransport"),
+                                                        QStringLiteral("go2rtc")).toString();
         for (const auto &v : arr) {
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
@@ -363,6 +368,28 @@ void CameraModel::fetchCameras()
                                                         ? CameraStatus::Degraded
                                                         : CameraStatus::LiveUnknown;
             c.recording = CameraStatus::RecUnknown;   // backend exposes no per-camera recording state
+
+            // D1/D5 (forward-compatible): prefer connection config from /streams over
+            // the local provisioning side-table when present. Default = go2rtc restream
+            // URLs; an admin client may receive raw direct_rtsp_* and select it via the
+            // liveTransport preference. Falls back to the local-store URLs (Track B) when
+            // /streams carries none — a no-op until the backend ships these fields.
+            const QString go2rtcUrl    = o.value("rtsp_url").toString();
+            const QString go2rtcSubUrl = o.value("rtsp_sub_url").toString();
+            const QString directUrl    = o.value("direct_rtsp_url").toString();
+            const QString directSubUrl = o.value("direct_rtsp_sub_url").toString();
+            if (liveTransport == QLatin1String("rtsp") && !directUrl.isEmpty()) {
+                c.rtspUrl = directUrl;
+                if (!directSubUrl.isEmpty()) c.rtspSubUrl = directSubUrl;
+            } else if (!go2rtcUrl.isEmpty()) {
+                c.rtspUrl = go2rtcUrl;
+                if (!go2rtcSubUrl.isEmpty()) c.rtspSubUrl = go2rtcSubUrl;
+            }
+            // D2: prefer backend-provided identity metadata when present.
+            { const QString s = o.value("mac").toString();      if (!s.isEmpty()) c.mac = s; }
+            { const QString s = o.value("vendor").toString();   if (!s.isEmpty()) c.vendor = s; }
+            { const QString s = o.value("model").toString();    if (!s.isEmpty()) c.model = s; }
+            { const QString s = o.value("firmware").toString(); if (!s.isEmpty()) c.firmware = s; }
 
             // Name: operator override (prefs) layered over the backend name.
             const auto pit = m_prefs.constFind(camId);
