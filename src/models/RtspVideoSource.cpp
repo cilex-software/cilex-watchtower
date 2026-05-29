@@ -9,6 +9,7 @@
 #include <cstring>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 #include <unordered_set>
 #include <gst/video/video.h>
 #include <gst/app/gstappsink.h>
@@ -24,6 +25,16 @@ std::unordered_set<RtspVideoSource *> &aliveSet()
     static std::unordered_set<RtspVideoSource *> s;
     return s;
 }
+
+// Cap concurrent in-flight pipeline teardowns. Each pipeline holds sockets +
+// pipe-pair fds + its own worker thread; without a cap, rapid layout cycling
+// stacks dozens of detached teardown threads, exhausting fds before GStreamer
+// can drain them ("GWakeup: Too many open files"). 8 is well under any sane
+// fd budget while still letting normal churn proceed without GUI blocking.
+constexpr int kMaxConcurrentTeardowns = 8;
+std::mutex &teardownMutex() { static std::mutex m; return m; }
+std::condition_variable &teardownCv() { static std::condition_variable cv; return cv; }
+int &teardownInflight() { static int n = 0; return n; }
 }
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
@@ -120,12 +131,27 @@ void RtspVideoSource::teardown()
         // gst_element_set_state(NULL) blocks while GStreamer tears down RTSP /
         // releases the decoder — under tile-destruction churn (layout switch,
         // page change) this stacked up on the GUI thread. Hand the pipeline to a
-        // detached worker so destruction returns immediately.
+        // detached worker so destruction returns immediately. The counting
+        // semaphore caps how many pipelines can be in flight at once: the GUI
+        // thread briefly waits if the cap is hit, which is the desired back-
+        // pressure (each in-flight pipeline holds RTSP sockets + GMainContext
+        // pipe-pair fds + a worker thread). Without it, mashing layouts piles
+        // up unbounded detached threads and exhausts fds.
         GstElement *p = m_pipeline;
         m_pipeline = nullptr;
+        {
+            std::unique_lock<std::mutex> lock(teardownMutex());
+            teardownCv().wait(lock, [] { return teardownInflight() < kMaxConcurrentTeardowns; });
+            ++teardownInflight();
+        }
         std::thread([p] {
             gst_element_set_state(p, GST_STATE_NULL);
             gst_object_unref(p);
+            {
+                std::lock_guard<std::mutex> lock(teardownMutex());
+                --teardownInflight();
+            }
+            teardownCv().notify_one();
         }).detach();
     }
     setPlaying(false);

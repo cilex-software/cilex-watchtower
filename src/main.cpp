@@ -11,6 +11,7 @@
 #include <QtQml/qqml.h>
 #include <QProcessEnvironment>
 #include <gst/gst.h>
+#include <sys/resource.h>
 
 #include "AuthController.h"
 
@@ -76,6 +77,19 @@ int main(int argc, char *argv[])
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     loadBundledFonts();
+
+    // Raise the file-descriptor soft limit to the hard limit so transient bursts
+    // of GStreamer pipeline create/destroy (rapid layout switches → many sockets
+    // + pipe pairs in flight) don't hit a 1024-fd default the launcher may have
+    // imposed. RtspVideoSource also caps concurrent teardowns; this is belt-
+    // and-suspenders against environment-imposed limits.
+    {
+        struct rlimit rl;
+        if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur < rl.rlim_max) {
+            rl.rlim_cur = rl.rlim_max;
+            setrlimit(RLIMIT_NOFILE, &rl);
+        }
+    }
 
     // Initialize GStreamer for the opt-in low-latency RTSP path (RtspVideoSource).
     // Idempotent — QtMultimedia's backend also inits it for the default path.
