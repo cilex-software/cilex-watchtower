@@ -52,11 +52,14 @@ Item {
         latencyMs: 150
     }
 
-    onActiveChanged: if (!root.lowLatency) (root.active ? maybePlay() : player.stop())
+    // Start (or resume) on becoming active; do NOT stop on going inactive — a
+    // synchronous MediaPlayer.stop() on live RTSP can block the GUI thread, and
+    // 16 of them at once (section nav) freezes the app. The pipeline keeps
+    // running quietly until the component is actually destroyed.
+    onActiveChanged: if (!root.lowLatency && root.active) maybePlay()
     onUrlChanged: maybePlay()
     Component.onCompleted: maybePlay()
-    // Stop the default pipeline before teardown so it reaches NULL cleanly (avoids a
-    // GStreamer-backend crash when many players are destroyed at once). The
-    // RtspVideoSource tears its own pipeline down in its destructor.
+    // Real teardown: stop before destruction so the pipeline reaches NULL cleanly
+    // (the only place we accept the TEARDOWN cost).
     Component.onDestruction: if (!root.lowLatency) player.stop()
 }

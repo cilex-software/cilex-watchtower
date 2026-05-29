@@ -112,29 +112,17 @@ Item {
             geom: root.geom
         }
 
-        // Live stream — instantiated only while active (paged-out tiles hold no player).
-        // When hasStream goes false (e.g. nav away from Live Monitor → 16 tiles
-        // deactivate at once), 16 simultaneous MediaPlayer.stop() calls on live
-        // RTSP can block the GUI on GStreamer's TEARDOWN. Hold each tile's
-        // VideoSurface alive for a per-tile random 50–250 ms grace, so the
-        // teardowns spread across frames instead of pinning the UI thread.
+        // Live stream — kept alive across short visibility changes.
+        // Tearing down 16 RTSP pipelines at once on a section nav (e.g. opening
+        // Preferences) freezes the GUI on GStreamer's TEARDOWN, so we hold the
+        // VideoSurface alive as long as the camera has a stream URL. Players
+        // keep running quietly in the background; the actual teardown happens
+        // only when the tile itself is destroyed (paging, sign-out).
         Loader {
             id: videoLoader
             anchors.fill: parent
-            readonly property bool wantActive: root.hasStream
-            property bool holdActive: false
-            active: holdActive
+            active: root.streamUrl !== "" && !root.isOffline
             visible: root.streamPlaying
-            Timer {
-                id: holdTimer
-                interval: 50 + Math.random() * 200   // 50–250 ms per tile
-                onTriggered: videoLoader.holdActive = false
-            }
-            onWantActiveChanged: {
-                if (wantActive) { holdActive = true; holdTimer.stop(); }
-                else holdTimer.restart();
-            }
-            Component.onCompleted: holdActive = wantActive
             sourceComponent: VideoSurface {
                 url: root.streamUrl
                 active: root.videoActive
