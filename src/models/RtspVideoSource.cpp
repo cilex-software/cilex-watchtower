@@ -6,7 +6,9 @@
 #include <QMetaObject>
 #include <QDebug>
 #include <cstring>
+#include <thread>
 #include <gst/video/video.h>
+#include <gst/app/gstappsink.h>
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
     : QObject(parent)
@@ -83,9 +85,24 @@ void RtspVideoSource::teardown()
         m_bus = nullptr;
     }
     if (m_pipeline) {
-        gst_element_set_state(m_pipeline, GST_STATE_NULL);
-        gst_object_unref(m_pipeline);
+        // Clear appsink callbacks so the streaming thread won't dereference us
+        // after we return. The thread that owns the pipeline below will still
+        // see this — the appsink is part of the pipeline.
+        if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
+            GstAppSinkCallbacks empty = {};
+            gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &empty, nullptr, nullptr);
+            gst_object_unref(sinkEl);
+        }
+        // gst_element_set_state(NULL) blocks while GStreamer tears down RTSP /
+        // releases the decoder — under tile-destruction churn (layout switch,
+        // page change) this stacked up on the GUI thread. Hand the pipeline to a
+        // detached worker so destruction returns immediately.
+        GstElement *p = m_pipeline;
         m_pipeline = nullptr;
+        std::thread([p] {
+            gst_element_set_state(p, GST_STATE_NULL);
+            gst_object_unref(p);
+        }).detach();
     }
     setPlaying(false);
 }
