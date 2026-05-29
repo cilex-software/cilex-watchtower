@@ -59,7 +59,10 @@ Item {
     onActiveChanged: if (!root.lowLatency && root.active) maybePlay()
     onUrlChanged: maybePlay()
     Component.onCompleted: maybePlay()
-    // Real teardown: stop before destruction so the pipeline reaches NULL cleanly
-    // (the only place we accept the TEARDOWN cost).
-    Component.onDestruction: if (!root.lowLatency) player.stop()
+    // Teardown: clear the source rather than calling stop(). MediaPlayer.stop()
+    // on a live RTSP pipeline blocks the GUI thread on GStreamer's TEARDOWN, and
+    // a layout shrink (16→4 tiles) destroys 12 surfaces at once — 12 blocking
+    // stops freezes the app. Assigning source = "" releases the pipeline
+    // asynchronously; the QObject then destructs without waiting.
+    Component.onDestruction: if (!root.lowLatency) player.source = ""
 }
