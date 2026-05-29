@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QtQml/qqml.h>
 #include <QProcessEnvironment>
+#include <gst/gst.h>
 
 #include "AuthController.h"
 
@@ -76,6 +77,10 @@ int main(int argc, char *argv[])
 
     loadBundledFonts();
 
+    // Initialize GStreamer for the opt-in low-latency RTSP path (RtspVideoSource).
+    // Idempotent — QtMultimedia's backend also inits it for the default path.
+    gst_init(nullptr, nullptr);
+
     // Session owner + the one shared network manager every model uses. Created
     // before the engine loads so AuthController::instance() is valid when the
     // QML-instantiated models are constructed.
@@ -108,6 +113,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
     // Optional camera to open in Playback on boot, by IP (dev: WT_PLAYBACK_IP=192.168.1.106).
     engine.rootContext()->setContextProperty("wtPlaybackIp", qEnvironmentVariable("WT_PLAYBACK_IP"));
+    // Opt-in low-latency live path (custom GStreamer pipeline → QVideoSink) instead
+    // of QMediaPlayer, so rtspsrc latency can be tuned. A/B switch: WT_LOWLATENCY=1.
+    engine.rootContext()->setContextProperty("wtLowLatency", qEnvironmentVariableIsSet("WT_LOWLATENCY"));
 
     // WT_VIDEOTEST loads the single-stream video test instead of the app shell.
     const QString entry = qEnvironmentVariableIsSet("WT_VIDEOTEST")
