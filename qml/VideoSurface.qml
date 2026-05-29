@@ -5,12 +5,13 @@ import Watchtower
 // One live video surface. Two mutually-exclusive backends — only the active one
 // is instantiated (via Loader) so the inert one never logs nullptr-disconnect
 // warnings from internal QtMultimedia / signal cleanup:
-//  • Default: QtMultimedia MediaPlayer (GStreamer + VA-API). rtspsrc's jitter
-//    buffer (latency, default 2000 ms) dominates live lag and QMediaPlayer 6.4
-//    exposes no knob for it.
-//  • WT_LOWLATENCY: RtspVideoSource — a small custom GStreamer pipeline
+//  • Default (lowLatency): RtspVideoSource — a small custom GStreamer pipeline
 //    (rtspsrc latency≈150 ms) pushing frames into this VideoOutput's sink, for
-//    near-real-time. Opt-in so we can A/B it against the default.
+//    near-real-time monitoring. The fix to QMediaPlayer 6.4's untuneable 2000 ms
+//    jitter buffer.
+//  • WT_LEGACY=1: QtMultimedia MediaPlayer (GStreamer + VA-API). Fallback path
+//    if the custom pipeline misbehaves; not usable for actual operator work
+//    because of the 2s default lag.
 Item {
     id: root
 

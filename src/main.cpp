@@ -127,9 +127,14 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
     // Optional camera to open in Playback on boot, by IP (dev: WT_PLAYBACK_IP=192.168.1.106).
     engine.rootContext()->setContextProperty("wtPlaybackIp", qEnvironmentVariable("WT_PLAYBACK_IP"));
-    // Opt-in low-latency live path (custom GStreamer pipeline → QVideoSink) instead
-    // of QMediaPlayer, so rtspsrc latency can be tuned. A/B switch: WT_LOWLATENCY=1.
-    engine.rootContext()->setContextProperty("wtLowLatency", qEnvironmentVariableIsSet("WT_LOWLATENCY"));
+    // Live RTSP path: low-latency by default (custom GStreamer pipeline →
+    // QVideoSink, rtspsrc latency≈150 ms). QMediaPlayer's default 2000 ms
+    // jitter buffer is unusable for monitoring — proven so during the spike.
+    // WT_LEGACY=1 falls back to the QMediaPlayer path for A/B comparison or
+    // emergency fallback if rtspsrc tuning misbehaves. WT_LOWLATENCY is still
+    // honored as a no-op for old muscle memory / scripts.
+    const bool useLegacy = qEnvironmentVariableIsSet("WT_LEGACY");
+    engine.rootContext()->setContextProperty("wtLowLatency", !useLegacy);
     // Build identifier (short git SHA), shown on the login screen so a relaunch
     // confirms which binary is running. Set via CMake compile definition.
 #ifdef WT_GIT_SHA
