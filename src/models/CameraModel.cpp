@@ -18,50 +18,41 @@
 #include <algorithm>
 
 namespace {
-// Backend camera_ids ("<vendor>-<machex>") -> normalized MAC hex set.
-QSet<QString> macsFromScope(const QStringList &cameraIds)
+// Backend camera_id "<vendor>-<machex>" -> normalized MAC hex (the Track-B join key).
+QString macHexFromId(const QString &cameraId)
 {
-    QSet<QString> macs;
-    for (const QString &id : cameraIds) {
-        const int dash = id.lastIndexOf('-');
-        QString hex = (dash >= 0 ? id.mid(dash + 1) : id).toLower();
-        hex.remove(':').remove('-');
-        if (!hex.isEmpty())
-            macs.insert(hex);
-    }
-    return macs;
+    const int dash = cameraId.lastIndexOf('-');
+    QString hex = (dash >= 0 ? cameraId.mid(dash + 1) : cameraId).toLower();
+    hex.remove(':').remove('-');
+    return hex;
 }
 }
 
 CameraModel::CameraModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    // WT_DEMO shows the mock dataset (development only). Otherwise the persistent
-    // store is the source of truth — the operator's real cameras.
+    // WT_DEMO shows the mock dataset (development only).
     if (qEnvironmentVariableIsSet("WT_DEMO")) {
         m_all = wt::mock::cameras();
         recompute();
         return;
     }
-    // Seed the scope from the already-restored session so the grid loads filtered
-    // from the start (no 10->2 churn that would thrash video surfaces).
-    if (AuthController::instance())
-        m_scopeMacs = macsFromScope(AuthController::instance()->cameraScope());
 
     if (m_store.open()) {
-        // Bootstrap: if the store is empty and WT_CAMERAS points at an export,
-        // import it once; thereafter the store loads directly (no env var).
+        // The local store is now only a Track-B URL/metadata side-table. Keep the
+        // one-time provisioning bootstrap so it can supply live RTSP URLs.
         const QString prov = qEnvironmentVariable("WT_CAMERAS");
         if (m_store.isEmpty() && !prov.isEmpty())
             m_store.importProvisioning(prov);
-        loadFromStore();
+        buildLocalLookup();
     } else {
-        qWarning() << "Watchtower: camera store unavailable; starting with no cameras";
+        qWarning() << "Watchtower: local camera store unavailable (no live RTSP)";
     }
-    recompute();
 
-    // Groups + membership are owned by cilex-vision. Use the shared session;
-    // load on auth and mirror each camera's group onto its local row by MAC.
+    // cilex-vision /streams is the AUTHORITATIVE camera list — server-scoped, with
+    // real online/offline + group membership, reached once the operator signs in.
+    // The wall stays empty (LoadingState) until the first fetch returns; the app
+    // is auth-gated so this gap is brief.
     auto *auth = AuthController::instance();
     m_nam = auth->nam();
     m_baseUrl = auth->baseUrl();
@@ -70,49 +61,49 @@ CameraModel::CameraModel(QObject *parent)
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
         if (auth->authenticated()) {
             fetchGroups();
-            fetchMembership();
+            fetchCameras();
         } else {
+            beginResetModel();
+            m_all.clear();
+            endResetModel();
             m_groups.clear();
             m_macToCamId.clear();
+            recompute();
             emit groupsChanged();
         }
     });
     if (auth->authenticated()) {
         fetchGroups();
-        fetchMembership();
+        fetchCameras();
     }
 }
 
-void CameraModel::loadFromStore()
+void CameraModel::buildLocalLookup()
 {
-    QVector<wt::CameraData> all = m_store.cameras();
-    // Group membership is backend-owned and applied from /streams; never trust
-    // the local store's group_id (kept only as a vestigial column).
-    for (wt::CameraData &c : all) {
-        c.groupId.clear();
-        c.groupName.clear();
-    }
-    if (m_scopeMacs.isEmpty()) {           // admin / no scope — show everything
-        m_all = all;
-        return;
-    }
-    m_all.clear();
-    for (const wt::CameraData &c : all) {
+    // Track-B side-table: normalized-MAC -> local row (rtsp/metadata + favorite seed).
+    m_localByMac.clear();
+    for (const wt::CameraData &c : m_store.cameras()) {
         QString mac = c.mac.toLower();
         mac.remove(':').remove('-');
-        if (!mac.isEmpty() && m_scopeMacs.contains(mac))
-            m_all.push_back(c);
+        if (!mac.isEmpty())
+            m_localByMac.insert(mac, c);
     }
+    m_prefs = m_store.prefs();   // camera_id -> {displayName, favorite}
 }
 
-void CameraModel::setCameraScope(const QStringList &cameraIds)
+void CameraModel::setLoading(bool v)
 {
-    const QSet<QString> macs = macsFromScope(cameraIds);
-    if (macs == m_scopeMacs)
+    if (m_loading == v)
         return;
-    m_scopeMacs = macs;
-    if (!qEnvironmentVariableIsSet("WT_DEMO"))
-        reload();
+    m_loading = v;
+    emit loadingChanged();
+}
+
+void CameraModel::setCameraScope(const QStringList &)
+{
+    // No-op: /streams is server-scoped, so the backend already returns exactly the
+    // operator's cameras. Kept for QML call-site compatibility; a scope change
+    // rides in on a fresh token (re-login triggers a refetch).
 }
 
 bool CameraModel::importProvisioning(const QString &path)
@@ -124,26 +115,24 @@ bool CameraModel::importProvisioning(const QString &path)
         qWarning() << "Watchtower: provisioning import failed —" << err;
         return false;
     }
-    reload();
+    reload();   // refresh the local lookup + re-fetch so new RTSP URLs attach
     return true;
 }
 
 void CameraModel::reload()
 {
-    beginResetModel();
-    loadFromStore();
-    endResetModel();
-    recompute();
-    // loadFromStore cleared group membership — repopulate from the backend.
+    buildLocalLookup();
     if (AuthController::instance() && AuthController::instance()->authenticated())
-        fetchMembership();
+        fetchCameras();
 }
 
-void CameraModel::setCameraName(const QString &mac, const QString &name)
+void CameraModel::setCameraName(const QString &cameraId, const QString &name)
 {
-    m_store.setName(mac, name);
+    // Local per-operator display-name override (layered over the backend name).
+    m_store.setDisplayName(cameraId, name);
+    m_prefs[cameraId].first = name;
     for (int i = 0; i < m_all.size(); ++i) {
-        if (m_all[i].mac == mac) {
+        if (m_all[i].id == cameraId) {
             m_all[i].name = name;
             emit dataChanged(index(i), index(i), { NameRole });
             return;
@@ -151,45 +140,27 @@ void CameraModel::setCameraName(const QString &mac, const QString &name)
     }
 }
 
-QString CameraModel::backendCameraIdForMac(const QString &mac) const
+void CameraModel::setCameraGroup(const QString &cameraId, const QString &groupId)
 {
-    QString hex = mac.toLower();
-    hex.remove(':').remove('-');
-    return m_macToCamId.value(hex);   // empty if the backend doesn't know this camera
-}
-
-void CameraModel::setCameraGroup(const QString &mac, const QString &groupId)
-{
-    if (!m_nam)
+    if (!m_nam || cameraId.isEmpty())
         return;
-    const QString camId = backendCameraIdForMac(mac);
-    if (camId.isEmpty()) {
-        qWarning() << "Watchtower: cannot set group — camera unknown to backend:" << mac;
-        return;
-    }
-
-    QString normMac = mac.toLower();
-    normMac.remove(':').remove('-');
     QString currentGid;
-    for (const wt::CameraData &c : m_all) {
-        QString m = c.mac.toLower();
-        m.remove(':').remove('-');
-        if (m == normMac) { currentGid = c.groupId; break; }
-    }
+    for (const wt::CameraData &c : m_all)
+        if (c.id == cameraId) { currentGid = c.groupId; break; }
 
     QNetworkReply *reply = nullptr;
     if (!groupId.isEmpty()) {
         reply = m_nam->put(
-            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + groupId + "/cameras/" + camId)},
+            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + groupId + "/cameras/" + cameraId)},
             QByteArray());
     } else if (!currentGid.isEmpty()) {
         reply = m_nam->deleteResource(
-            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + currentGid + "/cameras/" + camId)});
+            QNetworkRequest{QUrl(m_baseUrl + "/groups/" + currentGid + "/cameras/" + cameraId)});
     } else {
         return;   // already ungrouped
     }
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, normMac, groupId]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, groupId]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
@@ -201,9 +172,7 @@ void CameraModel::setCameraGroup(const QString &mac, const QString &groupId)
         for (const wt::GroupData &g : m_groups)
             if (g.id == groupId) { gname = g.name; break; }
         for (int i = 0; i < m_all.size(); ++i) {
-            QString m = m_all[i].mac.toLower();
-            m.remove(':').remove('-');
-            if (m == normMac) {
+            if (m_all[i].id == cameraId) {
                 m_all[i].groupId = groupId;
                 m_all[i].groupName = gname;
                 emit dataChanged(index(i), index(i), { GroupIdRole, GroupNameRole });
@@ -329,50 +298,69 @@ void CameraModel::fetchGroups()
     });
 }
 
-void CameraModel::fetchMembership()
+void CameraModel::fetchCameras()
 {
     if (!m_nam)
         return;
+    setLoading(true);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
+        setLoading(false);
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
-        if (reply->error() != QNetworkReply::NoError)
-            return;
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Watchtower: /streams fetch failed" << code << reply->errorString();
+            return;   // keep the last-known list
+        }
         const auto arr =
             QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
-        // Index backend camera_id + group by normalized MAC (trailing hex).
-        QHash<QString, QPair<QString, QString>> macGroup;   // mac -> (groupId, groupName)
+
+        QVector<wt::CameraData> out;
+        out.reserve(int(arr.size()));
         m_macToCamId.clear();
         for (const auto &v : arr) {
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
-            const int dash = camId.lastIndexOf('-');
-            QString hex = (dash >= 0 ? camId.mid(dash + 1) : camId).toLower();
-            if (hex.isEmpty())
+            if (camId.isEmpty())
                 continue;
-            m_macToCamId.insert(hex, camId);
-            macGroup.insert(hex, qMakePair(o.value("group_id").toString(),
-                                           o.value("group_name").toString()));
+            const QString macHex = macHexFromId(camId);
+            if (!macHex.isEmpty())
+                m_macToCamId.insert(macHex, camId);
+
+            wt::CameraData c;                       // Track B: start from the local row (rtsp/metadata) if known
+            const auto lit = m_localByMac.constFind(macHex);
+            if (lit != m_localByMac.constEnd())
+                c = lit.value();                    // rtspUrl/rtspSubUrl/vendor/model/firmware/serial/mac + favorite seed
+            c.id = camId;                           // identity = backend camera_id
+            c.ip = o.value("ip").toString();
+            c.groupId = o.value("group_id").toString();
+            c.groupName = o.value("group_name").toString();
+
+            const QString st = o.value("status").toString();
+            c.live = (st == QLatin1String("online"))  ? CameraStatus::Live
+                   : (st == QLatin1String("offline")) ? CameraStatus::Offline
+                   : (st == QLatin1String("maintenance") || st == QLatin1String("error"))
+                                                        ? CameraStatus::Degraded
+                                                        : CameraStatus::LiveUnknown;
+            c.recording = CameraStatus::RecUnknown;   // backend exposes no per-camera recording state
+
+            // Name: operator override (prefs) layered over the backend name.
+            const auto pit = m_prefs.constFind(camId);
+            const QString nameOverride = (pit != m_prefs.constEnd()) ? pit->first : QString();
+            c.name = !nameOverride.isEmpty() ? nameOverride : o.value("name").toString();
+            // Favorite: prefs if set, else the legacy local seed already on `c`.
+            if (pit != m_prefs.constEnd())
+                c.favorite = pit->second;
+
+            out.push_back(c);
         }
-        bool changed = false;
-        for (wt::CameraData &c : m_all) {
-            QString mac = c.mac.toLower();
-            mac.remove(':').remove('-');
-            const auto it = macGroup.constFind(mac);
-            const QString gid = (it != macGroup.constEnd()) ? it->first : QString();
-            const QString gname = (it != macGroup.constEnd()) ? it->second : QString();
-            if (c.groupId != gid || c.groupName != gname) {
-                c.groupId = gid;
-                c.groupName = gname;
-                changed = true;
-            }
-        }
-        if (changed && !m_all.isEmpty())
-            emit dataChanged(index(0), index(m_all.size() - 1), { GroupIdRole, GroupNameRole });
-        emit groupsChanged();
-        emit countsChanged();   // refresh group-filtered grid/counts bindings
+
+        beginResetModel();
+        m_all = out;
+        endResetModel();
+        recompute();
+        emit groupsChanged();   // group counts derive from the refreshed list
     });
 }
 
@@ -466,18 +454,10 @@ QVariantMap CameraModel::get(int row) const
 
 QVariantMap CameraModel::cameraByBackendId(const QString &cameraId) const
 {
-    // Backend camera_id is "<vendor-slug>-<machex>"; match the trailing MAC hex
-    // against a local camera's MAC (normalized: lowercase, no separators).
-    const int dash = cameraId.lastIndexOf('-');
-    QString hex = (dash >= 0 ? cameraId.mid(dash + 1) : cameraId).toLower();
-    if (hex.isEmpty())
-        return {};
-    for (int i = 0; i < m_all.size(); ++i) {
-        QString mac = m_all.at(i).mac.toLower();
-        mac.remove(':').remove('-');
-        if (!mac.isEmpty() && mac == hex)
+    // Identity is now the backend camera_id — direct match.
+    for (int i = 0; i < m_all.size(); ++i)
+        if (m_all.at(i).id == cameraId)
             return get(i);
-    }
     return {};
 }
 
@@ -558,7 +538,9 @@ void CameraModel::toggleFavorite(int row)
     if (row < 0 || row >= m_all.size())
         return;
     m_all[row].favorite = !m_all[row].favorite;
-    m_store.setFavorite(m_all[row].mac, m_all[row].favorite);
+    const QString camId = m_all[row].id;
+    m_store.setFavoritePref(camId, m_all[row].favorite);
+    m_prefs[camId].second = m_all[row].favorite;
     emit dataChanged(index(row), index(row), { FavoriteRole });
 }
 

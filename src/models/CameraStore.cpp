@@ -53,9 +53,12 @@ bool CameraStore::ensureSchema()
         "  rtsp_url TEXT, rtsp_sub_url TEXT,"
         "  name TEXT, group_id TEXT, favorite INTEGER DEFAULT 0,"
         "  live INTEGER, recording INTEGER, sort_order INTEGER)"));
-    // Groups are owned by cilex-vision (the /groups API) — no local groups table.
-    // The cameras.group_id column is kept but vestigial (membership comes from
-    // /streams at runtime).
+    // Per-operator prefs keyed by the backend camera_id: display-name override +
+    // favorite. (The cameras table above is now only a Track-B URL/metadata
+    // side-table; its name/group_id/favorite columns are legacy/vestigial.)
+    ok = ok && q.exec(QStringLiteral(
+        "CREATE TABLE IF NOT EXISTS prefs ("
+        "  camera_id TEXT PRIMARY KEY, display_name TEXT, favorite INTEGER DEFAULT 0)"));
     if (!ok)
         qWarning() << "CameraStore: schema error -" << q.lastError().text();
     return ok;
@@ -154,22 +157,38 @@ int CameraStore::importProvisioning(const QString &path, QString *error)
     return int(res.cameras.size());
 }
 
-void CameraStore::setName(const QString &mac, const QString &name)
+QHash<QString, QPair<QString, bool>> CameraStore::prefs() const
+{
+    QHash<QString, QPair<QString, bool>> out;
+    QSqlDatabase db = QSqlDatabase::database(m_conn);
+    QSqlQuery q(db);
+    q.exec(QStringLiteral("SELECT camera_id, display_name, favorite FROM prefs"));
+    while (q.next())
+        out.insert(q.value(0).toString(),
+                   qMakePair(q.value(1).toString(), q.value(2).toInt() != 0));
+    return out;
+}
+
+void CameraStore::setDisplayName(const QString &cameraId, const QString &name)
 {
     QSqlDatabase db = QSqlDatabase::database(m_conn);
     QSqlQuery q(db);
-    q.prepare(QStringLiteral("UPDATE cameras SET name=:n WHERE mac=:m"));
+    q.prepare(QStringLiteral(
+        "INSERT INTO prefs (camera_id, display_name, favorite) VALUES (:id,:n,0)"
+        " ON CONFLICT(camera_id) DO UPDATE SET display_name=excluded.display_name"));
+    q.bindValue(QStringLiteral(":id"), cameraId);
     q.bindValue(QStringLiteral(":n"), name);
-    q.bindValue(QStringLiteral(":m"), mac);
     q.exec();
 }
 
-void CameraStore::setFavorite(const QString &mac, bool favorite)
+void CameraStore::setFavoritePref(const QString &cameraId, bool favorite)
 {
     QSqlDatabase db = QSqlDatabase::database(m_conn);
     QSqlQuery q(db);
-    q.prepare(QStringLiteral("UPDATE cameras SET favorite=:f WHERE mac=:m"));
+    q.prepare(QStringLiteral(
+        "INSERT INTO prefs (camera_id, display_name, favorite) VALUES (:id,'',:f)"
+        " ON CONFLICT(camera_id) DO UPDATE SET favorite=excluded.favorite"));
+    q.bindValue(QStringLiteral(":id"), cameraId);
     q.bindValue(QStringLiteral(":f"), favorite ? 1 : 0);
-    q.bindValue(QStringLiteral(":m"), mac);
     q.exec();
 }

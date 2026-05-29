@@ -65,6 +65,10 @@ Open asks, by priority (across domains)
   BUG     B3  GET /detections 500
   BONUS   C1  Typed review-session manifest fragment schema
   NICE    C2  Denormalized camera_name/group on EventResponse
+  HIGH    D1  /streams: go2rtc RTSP restream url (rtsp_url + rtsp_sub_url)
+  MEDIUM  D2  /streams: surface mac/vendor/model/firmware (from config_json)
+  INFRA   D3  go2rtc: passthrough + on-demand config; RTSP reachable; tokenized url
+  CONFIRM D4  Playback HLS served from pre-segmented storage (no per-request transcode)
 
 ════════════════════════════════════════════════════════════════════════════
 A. Export & Clips  (/review/exports)
@@ -183,6 +187,53 @@ C2. Denormalized camera_name/group on EventResponse · NICE
   matching the trailing MAC against /streams (works); a denormalized
   camera_name/group would save every client the lookup. Not required.
 
+════════════════════════════════════════════════════════════════════════════
+D. Live streaming + camera source-of-truth  (/streams)  [added 2026-05-29]
+════════════════════════════════════════════════════════════════════════════
+Phase D makes cilex-vision the authoritative camera list: Watchtower now builds
+the wall from GET /streams (id/name/status/group), server-scoped. The one gap is
+that /streams carries no PLAYABLE URL, so we still keep a local provisioning
+side-table just to supply RTSP URLs (a MAC-join — temporary "Track B"). One field
+removes that side-table and makes the rest of the migration a deletion.
+
+Performance decides the transport and it points one way: **RTSP passthrough via
+go2rtc is simultaneously the lowest client latency AND the lowest backend memory.**
+HLS/WebRTC force go2rtc to repackage/transcode (CPU + hundreds of MB) and add
+0.5–6 s — wrong for a 16-tile near-real-time wall. "Use go2rtc" must mean its
+RTSP output, never HLS, for live.
+
+D1. rtsp_url + rtsp_sub_url on each /streams entry · HIGH
+  Per camera, go2rtc restream URLs: rtsp://<host>:8554/<stream_id> (main + sub).
+  This is NOT "expose raw camera RTSP" — it's go2rtc's restream, so no camera
+  passwords reach the client and there's one source connection per camera (also
+  retires the HiWatch IP-lockout problem). With this we delete the local
+  provisioning import, the MAC-join, and the SQLite cameras table.
+
+D2. Surface mac, vendor, model, firmware on /streams · MEDIUM
+  From cameras.config_json (provisioner block) — so dropping local provisioning
+  doesn't blank the camera identity panel (SingleCameraDetail).
+
+D3. go2rtc config requirements · INFRA (the memory gate)
+  - PASSTHROUGH only — forward H.264/H.265 RTSP→RTSP, never decode/encode
+    (transcode ≈ 50–200 MB RSS + a CPU core per stream; passthrough ≈ single-digit
+    MB). This is what keeps the wall affordable on the shared 16 GB host.
+  - ON-DEMAND sources + idle disconnect (memory scales with ACTIVE streams, not
+    total cameras; the wall is SD substream only).
+  - RTSP server reachable from operator clients; single shared credential or a
+    short-lived tokenized URL.
+  - Acceptance gate: under realistic operators × 16-tile SD wall, go2rtc RSS
+    < ~1 GB and no ffmpeg/transcode spawned for live. If it can't hold, we stay on
+    Track B (direct camera RTSP, zero backend video load).
+
+D4. Confirm playback HLS is pre-segmented · CONFIRM
+  Recorded-playback HLS should be served from pre-segmented storage (SeaweedFS),
+  never transcoded on request — memory = file I/O + small caches, not ffmpeg.
+
+Client-latency note (ours to own, for context): live glass-to-glass is dominated
+by GStreamer rtspsrc's 2000 ms jitter buffer, and QtMultimedia 6.4.2 exposes no
+knob for it — needs a custom GStreamer pipeline or a Qt ≥6.5 upgrade on our side.
+go2rtc RTSP (D1) does not change that client-side limit.
+
 ────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
@@ -195,5 +246,8 @@ Changelog
   2026-05-28  Cilex Vision responded (see BACKEND RESPONSE). Applied corrections:
               export mode → "wallclock"; event_type vocab → authoritative enum.
               B3 verified fixed (200 from our side). /health/storage now live.
+  2026-05-29  Raised live-streaming asks D1–D4 (Phase D: backend = camera source
+              of truth). The client already lists cameras from /streams; D1
+              (go2rtc RTSP restream url) lets us delete local provisioning entirely.
 
 — Cilex Watchtower

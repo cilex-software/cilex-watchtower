@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QSet>
 #include <QHash>
+#include <QPair>
 #include <QStringList>
 #include "Types.h"
 #include "CameraStore.h"
@@ -28,6 +29,8 @@ class CameraModel : public QAbstractListModel
     Q_PROPERTY(int notRecordingCount READ notRecordingCount NOTIFY countsChanged)
     Q_PROPERTY(int recUnknownCount READ recUnknownCount NOTIFY countsChanged)
     Q_PROPERTY(int recordingGapCount READ recordingGapCount NOTIFY countsChanged)
+    // True while the first /streams fetch is in flight (auth -> list arrives).
+    Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
 
 public:
     enum Roles {
@@ -82,10 +85,10 @@ public:
     // out of the model entirely (list, counts, paging, resolution).
     Q_INVOKABLE void setCameraScope(const QStringList &cameraIds);
 
-    // Persisted operator edits (by row). Watchtower never invents names — these
-    // set what the user chooses; they survive restarts and re-imports.
-    Q_INVOKABLE void setCameraName(const QString &mac, const QString &name);
-    Q_INVOKABLE void setCameraGroup(const QString &mac, const QString &groupId);
+    // Per-operator edits keyed by the backend camera_id: a local display-name
+    // override (layered over the backend name) and favorite.
+    Q_INVOKABLE void setCameraName(const QString &cameraId, const QString &name);
+    Q_INVOKABLE void setCameraGroup(const QString &cameraId, const QString &groupId);
 
     // Groups are owned by cilex-vision (the `/groups` API); this model fetches
     // them and mirrors per-camera membership onto local rows by MAC (from
@@ -105,6 +108,7 @@ public:
     int notRecordingCount() const { return m_notRecording; }
     int recUnknownCount() const { return m_recUnknown; }
     int recordingGapCount() const { return m_gap; }
+    bool loading() const { return m_loading; }
 
     Q_INVOKABLE void toggleFavorite(int row);
 
@@ -112,26 +116,32 @@ signals:
     void countsChanged();
     void groupsChanged();
     void groupCreated(const QString &groupId);
+    void loadingChanged();
 
 private:
     void recompute();
     void reload();
-    void loadFromStore();   // m_all <- store, filtered by m_scopeMacs (if any)
+    void buildLocalLookup();   // load the Track-B side-table (mac -> rtsp/metadata) + prefs
     bool matches(const wt::CameraData &c, const QString &groupId, const QString &statusFilter) const;
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
-    // Backend group integration (cilex-vision /groups + /streams).
-    void fetchGroups();        // GET /groups -> m_groups
-    void fetchMembership();    // GET /streams -> per-camera group_id/name (by MAC)
-    QString backendCameraIdForMac(const QString &mac) const;  // from the /streams map
+    // Backend camera integration (cilex-vision /streams is the authoritative list).
+    void fetchCameras();       // GET /streams -> m_all (enriched by the local lookup)
+    void fetchGroups();        // GET /groups  -> m_groups (definitions for groupList)
+    void setLoading(bool v);
 
     CameraStore m_store;
     QVector<wt::CameraData> m_all;
-    QSet<QString> m_scopeMacs;   // normalized MAC hexes the operator may see; empty = all
+    QSet<QString> m_scopeMacs;   // (vestigial — /streams is server-scoped)
     QNetworkAccessManager *m_nam = nullptr;   // shared, from AuthController
     QString m_baseUrl;
     QVector<wt::GroupData> m_groups;          // backend group definitions
     QHash<QString, QString> m_macToCamId;     // normalized MAC -> backend camera_id
+    // TRACK B (temporary): local RTSP/metadata side-table, keyed by normalized MAC,
+    // joined to the backend list. Retire when /streams carries rtsp_url (Track A).
+    QHash<QString, wt::CameraData> m_localByMac;
+    QHash<QString, QPair<QString, bool>> m_prefs;   // camera_id -> {displayName, favorite}
+    bool m_loading = false;
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

@@ -250,7 +250,7 @@ Item {
                                 background: Rectangle { color: Theme.bg; border.width: 1; border.color: Theme.accent }
                                 onEditingFinished: {
                                     if (text !== "")
-                                        root.cameraModel.setCameraName(camRow.modelData.mac, text);
+                                        root.cameraModel.setCameraName(camRow.modelData.camId, text);
                                     camRow.editing = false;
                                 }
                                 Keys.onEscapePressed: camRow.editing = false
@@ -295,7 +295,7 @@ Item {
                                                 color: camRow.modelData.groupId === modelData.id ? Theme.accent : Theme.ink
                                                 font.family: Theme.fontSans; font.pixelSize: 12 }
                                             MouseArea { id: optMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                onClicked: { root.cameraModel.setCameraGroup(camRow.modelData.mac, modelData.id); grpPopup.close(); } }
+                                                onClicked: { root.cameraModel.setCameraGroup(camRow.modelData.camId, modelData.id); grpPopup.close(); } }
                                         }
                                     }
                                 }

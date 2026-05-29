@@ -488,15 +488,26 @@ Item {
                 }
             }
 
-            // No cameras yet — first-run import.
+            // Brief gap between sign-in and the first /streams response.
+            LoadingState {
+                anchors.centerIn: parent
+                visible: root.total === 0 && !root.fullscreen
+                        && root.cameraModel && root.cameraModel.loading
+                label: "Loading cameras…"
+            }
+
+            // Backend returned no cameras for this operator. (Import a provisioning
+            // export to attach local RTSP for live video — the list itself is the
+            // backend's.)
             EmptyState {
                 anchors.fill: parent
                 anchors.margins: 24
                 visible: root.total === 0 && !root.fullscreen
+                        && !(root.cameraModel && root.cameraModel.loading)
                 icon: "monitor"
-                title: "No cameras yet"
-                subtitle: "Import your cameras from a Cilex Vision Provisioner export "
-                          + "(cilex-provisioning-*.json) to start monitoring."
+                title: "No cameras"
+                subtitle: "Cameras come from Cilex Vision. Import a Provisioner export "
+                          + "(cilex-provisioning-*.json) to enable live video."
                 actionLabel: "Import cameras…"
                 onAction: importDialog.open()
             }
