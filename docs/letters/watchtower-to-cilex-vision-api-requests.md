@@ -258,6 +258,33 @@ knob for it — needs a custom GStreamer pipeline or a Qt ≥6.5 upgrade on our 
 go2rtc RTSP (D1) does not change that client-side limit.
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-29  (statuses below are their reply)
+────────────────────────────────────────────────────────────────────────────
+  D1 rtsp urls ........ ✅ DELIVERED — GET /streams returns rtsp_url + rtsp_sub_url
+                        (go2rtc rtsp://<host>:8554/<camera_id> and …-sub). <host>
+                        is derived from the request, or pinned via GO2RTC_RTSP_URL.
+  D2 identity ......... ✅ DELIVERED — mac/vendor/model/firmware from
+                        config_json.provisioner on every entry (null when absent).
+  D5 scope + raw ...... ✅ DELIVERED — /streams stays per-user-scoped (admin = all);
+                        admin requests ALSO get direct_rtsp_url + direct_rtsp_sub_url
+                        (raw creds, ch 101/102). Never returned to scoped users,
+                        never logged.
+  D3 go2rtc ........... PARTIAL — the SD wall is already PASSTHROUGH (sub = raw
+                        channel-102 RTSP, no ffmpeg) and the main transcode is
+                        on-demand, so the wall meets the memory gate today.
+                        FAST-FOLLOW (tracked, not yet shipped): the MAIN/HD restream
+                        is still VA-API-transcoded because browser MSE needs H.264.
+                        To give native clients passthrough HD, register main as
+                        dual-source [raw rtsp, ffmpeg:…#hardware=vaapi] (mirrors the
+                        static go2rtc.yaml) — RTSP clients get passthrough H.265,
+                        browsers still get H.264. Gated on the live memory measurement.
+  D4 playback HLS ..... CONFIRMED (with nuance) — recording IS pre-segmented
+                        (video_segments in SeaweedFS) and the native H.265 hot-window
+                        path is served from those segments (no transcode); cold/
+                        non-native renditions use the playback-service QSV rendition
+                        CACHE (cached, not per-request-from-scratch).
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -276,5 +303,9 @@ Changelog
               admin = all), and an admin-only raw direct_rtsp_url+creds option so
               Watchtower's admin-selectable transport (default go2rtc) can do
               direct RTSP. Drove the architecture from an operator directive.
+  2026-05-29  Cilex Vision DELIVERED D1/D2/D5 on GET /streams (rtsp_url +
+              rtsp_sub_url, mac/vendor/model/firmware, admin-only direct_rtsp_*).
+              D3: SD wall already passthrough; main/HD passthrough logged as a
+              fast-follow. D4 confirmed (pre-segmented; cold renditions cached).
 
 — Cilex Watchtower
