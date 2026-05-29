@@ -2,7 +2,6 @@
 
 #include "CameraStatus.h"
 #include "MockData.h"
-#include "ProvisioningImport.h"
 #include "AuthController.h"
 
 #include <QDebug>
@@ -20,15 +19,6 @@
 #include <algorithm>
 
 namespace {
-// Backend camera_id "<vendor>-<machex>" -> normalized MAC hex (the Track-B join key).
-QString macHexFromId(const QString &cameraId)
-{
-    const int dash = cameraId.lastIndexOf('-');
-    QString hex = (dash >= 0 ? cameraId.mid(dash + 1) : cameraId).toLower();
-    hex.remove(':').remove('-');
-    return hex;
-}
-
 // Numeric sort key for an IPv4 string so 192.168.1.2 < 192.168.1.10 (octet-aware).
 // Invalid/empty addresses sort last.
 quint32 ipSortKey(const QString &ip)
@@ -59,14 +49,11 @@ CameraModel::CameraModel(QObject *parent)
     }
 
     if (m_store.open()) {
-        // The local store is now only a Track-B URL/metadata side-table. Keep the
-        // one-time provisioning bootstrap so it can supply live RTSP URLs.
-        const QString prov = qEnvironmentVariable("WT_CAMERAS");
-        if (m_store.isEmpty() && !prov.isEmpty())
-            m_store.importProvisioning(prov);
-        buildLocalLookup();
+        // The local store now holds only per-operator prefs (display-name override
+        // + favorite), keyed by the backend camera_id.
+        m_prefs = m_store.prefs();
     } else {
-        qWarning() << "Watchtower: local camera store unavailable (no live RTSP)";
+        qWarning() << "Watchtower: prefs store unavailable (name/favorite overrides won't persist)";
     }
 
     // cilex-vision /streams is the AUTHORITATIVE camera list — server-scoped, with
@@ -87,7 +74,6 @@ CameraModel::CameraModel(QObject *parent)
             m_all.clear();
             endResetModel();
             m_groups.clear();
-            m_macToCamId.clear();
             recompute();
             emit groupsChanged();
         }
@@ -96,19 +82,6 @@ CameraModel::CameraModel(QObject *parent)
         fetchGroups();
         fetchCameras();
     }
-}
-
-void CameraModel::buildLocalLookup()
-{
-    // Track-B side-table: normalized-MAC -> local row (rtsp/metadata + favorite seed).
-    m_localByMac.clear();
-    for (const wt::CameraData &c : m_store.cameras()) {
-        QString mac = c.mac.toLower();
-        mac.remove(':').remove('-');
-        if (!mac.isEmpty())
-            m_localByMac.insert(mac, c);
-    }
-    m_prefs = m_store.prefs();   // camera_id -> {displayName, favorite}
 }
 
 void CameraModel::setLoading(bool v)
@@ -124,26 +97,6 @@ void CameraModel::setCameraScope(const QStringList &)
     // No-op: /streams is server-scoped, so the backend already returns exactly the
     // operator's cameras. Kept for QML call-site compatibility; a scope change
     // rides in on a fresh token (re-login triggers a refetch).
-}
-
-bool CameraModel::importProvisioning(const QString &path)
-{
-    // Accept a file:// URL (from the QML FileDialog) or a plain path.
-    const QString local = path.startsWith(QLatin1String("file:")) ? QUrl(path).toLocalFile() : path;
-    QString err;
-    if (m_store.importProvisioning(local, &err) < 0) {
-        qWarning() << "Watchtower: provisioning import failed —" << err;
-        return false;
-    }
-    reload();   // refresh the local lookup + re-fetch so new RTSP URLs attach
-    return true;
-}
-
-void CameraModel::reload()
-{
-    buildLocalLookup();
-    if (AuthController::instance() && AuthController::instance()->authenticated())
-        fetchCameras();
 }
 
 void CameraModel::setCameraName(const QString &cameraId, const QString &name)
@@ -338,7 +291,6 @@ void CameraModel::fetchCameras()
 
         QVector<wt::CameraData> out;
         out.reserve(int(arr.size()));
-        m_macToCamId.clear();
         // Admin-selectable transport (default go2rtc); only an admin client ever
         // receives the raw direct_rtsp_* fields, so non-admins always get go2rtc.
         const QString liveTransport = QSettings().value(QStringLiteral("video/liveTransport"),
@@ -348,14 +300,8 @@ void CameraModel::fetchCameras()
             const QString camId = o.value("camera_id").toString();
             if (camId.isEmpty())
                 continue;
-            const QString macHex = macHexFromId(camId);
-            if (!macHex.isEmpty())
-                m_macToCamId.insert(macHex, camId);
 
-            wt::CameraData c;                       // Track B: start from the local row (rtsp/metadata) if known
-            const auto lit = m_localByMac.constFind(macHex);
-            if (lit != m_localByMac.constEnd())
-                c = lit.value();                    // rtspUrl/rtspSubUrl/vendor/model/firmware/serial/mac + favorite seed
+            wt::CameraData c;
             c.id = camId;                           // identity = backend camera_id
             c.ip = o.value("ip").toString();
             c.groupId = o.value("group_id").toString();
@@ -369,11 +315,9 @@ void CameraModel::fetchCameras()
                                                         : CameraStatus::LiveUnknown;
             c.recording = CameraStatus::RecUnknown;   // backend exposes no per-camera recording state
 
-            // D1/D5 (forward-compatible): prefer connection config from /streams over
-            // the local provisioning side-table when present. Default = go2rtc restream
-            // URLs; an admin client may receive raw direct_rtsp_* and select it via the
-            // liveTransport preference. Falls back to the local-store URLs (Track B) when
-            // /streams carries none — a no-op until the backend ships these fields.
+            // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
+            // an admin client may also receive raw direct_rtsp_* and select them via
+            // the liveTransport preference.
             const QString go2rtcUrl    = o.value("rtsp_url").toString();
             const QString go2rtcSubUrl = o.value("rtsp_sub_url").toString();
             const QString directUrl    = o.value("direct_rtsp_url").toString();
@@ -385,7 +329,7 @@ void CameraModel::fetchCameras()
                 c.rtspUrl = go2rtcUrl;
                 if (!go2rtcSubUrl.isEmpty()) c.rtspSubUrl = go2rtcSubUrl;
             }
-            // D2: prefer backend-provided identity metadata when present.
+            // D2: identity metadata from /streams.
             { const QString s = o.value("mac").toString();      if (!s.isEmpty()) c.mac = s; }
             { const QString s = o.value("vendor").toString();   if (!s.isEmpty()) c.vendor = s; }
             { const QString s = o.value("model").toString();    if (!s.isEmpty()) c.model = s; }

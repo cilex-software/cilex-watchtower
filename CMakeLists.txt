@@ -13,11 +13,16 @@ set(CMAKE_AUTOMOC ON)
 # qt_add_qml_module flow. GStreamer / Multimedia / Sql get linked in later
 # phases (video pipeline, persistence) — kept out of the first build to keep
 # the dependency surface minimal until those features land.
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Multimedia)
 
 # Video is played through QtMultimedia (QML MediaPlayer + VideoOutput), which on
-# Linux uses the GStreamer backend with VA-API hardware decode. The QML module
-# qml6-module-qtmultimedia provides those types at runtime — no C++ link needed.
+# Linux uses the GStreamer backend with VA-API hardware decode. The opt-in
+# low-latency path (RtspVideoSource, behind WT_LOWLATENCY) drives a small custom
+# GStreamer pipeline directly to control rtspsrc latency, so we link GStreamer +
+# Qt6::Multimedia (QVideoSink/QVideoFrame) for it.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GST REQUIRED IMPORTED_TARGET
+    gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 
 qt_standard_project_setup(REQUIRES 6.4)
 
@@ -82,8 +87,6 @@ qt_add_qml_module(watchtower
         src/models/AuthController.cpp
         src/models/MockData.h
         src/models/MockData.cpp
-        src/models/ProvisioningImport.h
-        src/models/ProvisioningImport.cpp
         src/models/CameraModel.h
         src/models/CameraModel.cpp
         src/models/Artifacts.h
@@ -106,6 +109,8 @@ qt_add_qml_module(watchtower
         src/models/SnapshotModel.cpp
         src/models/StorageHealth.h
         src/models/StorageHealth.cpp
+        src/models/RtspVideoSource.h
+        src/models/RtspVideoSource.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.
@@ -130,4 +135,6 @@ target_link_libraries(watchtower PRIVATE
     Qt6::QuickControls2
     Qt6::Sql
     Qt6::Network
+    Qt6::Multimedia
+    PkgConfig::GST
 )

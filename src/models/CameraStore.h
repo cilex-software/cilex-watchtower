@@ -1,16 +1,14 @@
 #pragma once
 
 #include <QObject>
-#include <QVector>
 #include <QHash>
 #include <QPair>
-#include "Types.h"
+#include <QString>
 
-// Local SQLite. Phase D: the cilex-vision backend (/streams) is the authoritative
-// camera LIST; this store is now (Track B) only a side-table providing stream
-// URLs + hardware metadata, MAC-keyed, joined to the backend list by MAC. It also
-// holds per-operator prefs (display-name override + favorite) keyed by the backend
-// camera_id. The camera list itself is no longer sourced from here.
+// Local SQLite — per-operator preferences only. The cilex-vision backend
+// (/streams) is the authoritative camera list, identity, and stream URLs; this
+// store holds no camera/provisioning data. It persists the operator's local
+// overrides keyed by the backend camera_id: a display-name override + favorite.
 class CameraStore : public QObject
 {
     Q_OBJECT
@@ -20,13 +18,6 @@ public:
     ~CameraStore() override;
 
     bool open();          // open/create the DB at the app data location + ensure schema
-    bool isEmpty() const; // no provisioning rows yet
-
-    // Track-B side-table: rtsp/metadata (+ a legacy favorite seed) keyed by MAC.
-    QVector<wt::CameraData> cameras() const;
-
-    // Import a provisioning export (Track B URL/metadata source). Upserts by MAC.
-    int importProvisioning(const QString &path, QString *error = nullptr);
 
     // Per-operator prefs keyed by the backend camera_id.
     QHash<QString, QPair<QString, bool>> prefs() const;   // camera_id -> {displayName, favorite}

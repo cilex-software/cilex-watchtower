@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic as C
-import QtQuick.Dialogs
 import Watchtower
 
 // Live Monitor (design §14): grid of live tiles with a layout segmented control,
@@ -39,7 +38,7 @@ Item {
     readonly property int perPage: lcells.length
     // countFiltered()/page() are imperative calls; read cameraModel.total (NOTIFY
     // countsChanged) inside these bindings so they re-evaluate when the model data
-    // changes — camera scope applied, provisioning re-imported, or any reload.
+    // changes — e.g. the /streams list is (re)fetched after sign-in or refresh.
     readonly property int total: {
         if (!cameraModel) return 0;
         cameraModel.total;   // refresh dependency
@@ -60,13 +59,6 @@ Item {
     }
 
     readonly property var sortLabels: ({ "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
-
-    FileDialog {
-        id: importDialog
-        title: "Import cameras — Cilex Provisioner export"
-        nameFilters: ["Provisioning JSON (*.json)", "All files (*)"]
-        onAccepted: { if (root.cameraModel) root.cameraModel.importProvisioning(importDialog.selectedFile); }
-    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -498,9 +490,8 @@ Item {
                 label: "Loading cameras…"
             }
 
-            // Backend returned no cameras for this operator. (Import a provisioning
-            // export to attach local RTSP for live video — the list itself is the
-            // backend's.)
+            // Backend returned no cameras for this operator — their /streams scope is
+            // empty. Cameras are provisioned and assigned in Cilex Vision.
             EmptyState {
                 anchors.fill: parent
                 anchors.margins: 24
@@ -508,10 +499,8 @@ Item {
                         && !(root.cameraModel && root.cameraModel.loading)
                 icon: "monitor"
                 title: "No cameras"
-                subtitle: "Cameras come from Cilex Vision. Import a Provisioner export "
-                          + "(cilex-provisioning-*.json) to enable live video."
-                actionLabel: "Import cameras…"
-                onAction: importDialog.open()
+                subtitle: "No cameras are assigned to your account. Ask an administrator "
+                          + "to grant camera access in Cilex Vision."
             }
 
             // floating exit button in full-screen
