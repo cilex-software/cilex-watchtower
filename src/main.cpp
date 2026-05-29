@@ -116,6 +116,13 @@ int main(int argc, char *argv[])
     // Opt-in low-latency live path (custom GStreamer pipeline → QVideoSink) instead
     // of QMediaPlayer, so rtspsrc latency can be tuned. A/B switch: WT_LOWLATENCY=1.
     engine.rootContext()->setContextProperty("wtLowLatency", qEnvironmentVariableIsSet("WT_LOWLATENCY"));
+    // Build identifier (short git SHA), shown on the login screen so a relaunch
+    // confirms which binary is running. Set via CMake compile definition.
+#ifdef WT_GIT_SHA
+    engine.rootContext()->setContextProperty("wtBuild", QStringLiteral(WT_GIT_SHA));
+#else
+    engine.rootContext()->setContextProperty("wtBuild", QStringLiteral("dev"));
+#endif
 
     // WT_VIDEOTEST loads the single-stream video test instead of the app shell.
     const QString entry = qEnvironmentVariableIsSet("WT_VIDEOTEST")

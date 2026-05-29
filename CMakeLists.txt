@@ -30,6 +30,20 @@ qt_add_executable(watchtower
     src/main.cpp
 )
 
+# Build identifier (short git SHA, captured at CMake configure time). Exposed
+# to QML as `wtBuild` and shown on the login screen so a relaunch confirms the
+# expected binary is running. Refreshes on any (re)configure.
+execute_process(
+    COMMAND git rev-parse --short=8 HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE WT_GIT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+if(NOT WT_GIT_SHA)
+    set(WT_GIT_SHA "dev")
+endif()
+target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
+
 # Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
 # This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
 # as `singleton`.

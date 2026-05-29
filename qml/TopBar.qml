@@ -60,13 +60,27 @@ Item {
                         font.letterSpacing: 1.6
                         font.capitalization: Font.AllUppercase
                     }
-                    Text {
-                        text: "Watchtower"
-                        color: Theme.ink
-                        font.family: Theme.fontSans
-                        font.pixelSize: 16
-                        font.weight: Font.DemiBold
-                        font.letterSpacing: -0.16
+                    RowLayout {
+                        spacing: 8
+                        Text {
+                            text: "Watchtower"
+                            color: Theme.ink
+                            font.family: Theme.fontSans
+                            font.pixelSize: 16
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: -0.16
+                        }
+                        // Build identifier (short git SHA) — visible at a glance
+                        // so a relaunch confirms which binary is running.
+                        Text {
+                            text: (typeof wtBuild !== "undefined") ? wtBuild : "dev"
+                            color: Theme.ink3
+                            font.family: Theme.fontMono
+                            font.pixelSize: 10
+                            font.letterSpacing: 0.8
+                            Layout.alignment: Qt.AlignBottom
+                            bottomPadding: 3
+                        }
                     }
                 }
                 Rectangle { Layout.leftMargin: 18; width: 1; Layout.preferredHeight: 36; color: Theme.line }

@@ -70,6 +70,18 @@ Item {
 
     Rectangle { anchors.fill: parent; color: Theme.bg }
 
+    // Build identifier (short git SHA from CMake), bottom-right corner. Lets a
+    // relaunch confirm at a glance that the expected binary is running.
+    Text {
+        anchors.right: parent.right; anchors.bottom: parent.bottom
+        anchors.rightMargin: Theme.s12; anchors.bottomMargin: Theme.s8
+        text: "build " + ((typeof wtBuild !== "undefined") ? wtBuild : "dev")
+        color: Theme.ink3
+        font.family: Theme.fontMono
+        font.pixelSize: Theme.fsLabel
+        font.letterSpacing: 1.0
+    }
+
     Rectangle {
         anchors.centerIn: parent
         width: 420
