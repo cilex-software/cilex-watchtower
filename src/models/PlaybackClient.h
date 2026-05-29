@@ -43,9 +43,12 @@ public:
     // Local proxy playlist URL for QMediaPlayer.
     Q_INVOKABLE QString playlistUrl(const QString &sessionId) const;
 
-    // Clip export: create -> poll -> emits exportReady(jobId, downloadUrl).
+    // Clip export: create -> poll -> download to destPath -> emits
+    // exportSaved(jobId, localPath). destPath is a local file path (the caller
+    // computes it via Artifacts.newExportPath).
     Q_INVOKABLE void createExport(const QString &cameraId, const QString &wallStartIso,
-                                  const QString &wallEndIso, const QString &mode);
+                                  const QString &wallEndIso, const QString &mode,
+                                  const QString &destPath);
     Q_INVOKABLE void pollExport(const QString &jobId);
 
 signals:
@@ -57,13 +60,14 @@ signals:
     void sessionFailed(const QString &error);
     void exportStarted(const QString &jobId);
     void exportProgress(const QString &jobId, const QString &state);
-    void exportReady(const QString &jobId, const QString &downloadUrl);
+    void exportSaved(const QString &jobId, const QString &localPath);
     void exportFailed(const QString &jobId, const QString &error);
 
 private:
     void setStatus(const QString &s);
     void fetchStreams();
     void flushPendingSessions();
+    void downloadExport(const QString &jobId, const QString &url, const QString &destPath);
 
     QNetworkAccessManager *m_nam;
     HlsProxy *m_proxy;
@@ -73,4 +77,5 @@ private:
     QString m_status;
     QHash<QString, QString> m_ipToCamId;
     QHash<QString, QString> m_macToCamId;
+    QHash<QString, QString> m_exportDest;   // jobId -> local file path
 };

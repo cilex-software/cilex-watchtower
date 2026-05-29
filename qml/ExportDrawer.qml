@@ -315,6 +315,8 @@ Item {
                         anchors.fill: parent; anchors.margins: 1
                         source: root.previewSource
                         fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        sourceSize.width: 800
                         visible: root.previewSource != ""
                     }
                     Text {
@@ -336,6 +338,7 @@ Item {
                 KV { k: "Timezone"; v: root.tzLabel }
                 KV { k: "Recording avail."; v: root.availLabel; vColor: root.availLabel === "Continuous" ? Theme.accent : (root.availLabel.indexOf("Partial") === 0 ? Theme.warn : Theme.ink) }
                 KV { k: "Est. size"; v: "~ " + Math.max(1, Math.round(root.estMb)) + " MB" }
+                KV { k: "Saves to"; v: Artifacts.exportDir }
 
                 // --- range ---
                 SecLabel { text: "Range" }

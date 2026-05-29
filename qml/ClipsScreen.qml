@@ -212,7 +212,7 @@ Item {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14
                                 Layout.preferredHeight: width * 9 / 16
                                 color: "#000"; border.width: 1; border.color: Theme.line2
-                                Image { anchors.fill: parent; anchors.margins: 1; source: root.sel ? root.sel.fileUrl : ""; fillMode: Image.PreserveAspectFit; asynchronous: true }
+                                Image { anchors.fill: parent; anchors.margins: 1; source: root.sel ? root.sel.fileUrl : ""; fillMode: Image.PreserveAspectFit; asynchronous: true; sourceSize.width: 800 }
                             }
                             component KV: RowLayout {
                                 id: kv; property string k: ""; property string v: ""

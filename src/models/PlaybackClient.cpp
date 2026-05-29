@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QTimer>
 #include <QUrl>
+#include <QFile>
 
 PlaybackClient::PlaybackClient(QObject *parent)
     : QObject(parent)
@@ -174,14 +175,15 @@ QString PlaybackClient::playlistUrl(const QString &sessionId) const
 }
 
 void PlaybackClient::createExport(const QString &cameraId, const QString &wallStartIso,
-                                  const QString &wallEndIso, const QString &mode)
+                                  const QString &wallEndIso, const QString &mode,
+                                  const QString &destPath)
 {
     QNetworkRequest req{QUrl(m_baseUrl + "/review/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"camera_id", cameraId}, {"wall_start", wallStartIso},
                      {"wall_end", wallEndIso}, {"mode", mode}};
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
         reply->deleteLater();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         const QString jobId = obj.value("job_id").toString();
@@ -189,6 +191,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
             emit exportFailed(QString(), "Export request rejected.");
             return;
         }
+        m_exportDest.insert(jobId, destPath);
         emit exportStarted(jobId);
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
     });
@@ -205,11 +208,49 @@ void PlaybackClient::pollExport(const QString &jobId)
         if (state == "ready") {
             QString dl = obj.value("download_url").toString();
             dl.replace("/api/review/", "/review/");      // route via the local proxy
-            emit exportReady(jobId, m_proxy->localBase() + dl);
+            downloadExport(jobId, m_proxy->localBase() + dl, m_exportDest.value(jobId));
         } else if (state == "failed" || state == "error") {
             emit exportFailed(jobId, obj.value("error_msg").toString());
         } else {
             QTimer::singleShot(2000, this, [this, jobId]() { pollExport(jobId); });
+        }
+    });
+}
+
+void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
+                                    const QString &destPath)
+{
+    if (destPath.isEmpty()) {
+        emit exportFailed(jobId, "No export destination set.");
+        return;
+    }
+    auto *file = new QFile(destPath);
+    if (!file->open(QIODevice::WriteOnly)) {
+        file->deleteLater();
+        emit exportFailed(jobId, "Cannot write to " + destPath);
+        return;
+    }
+    QNetworkRequest req{QUrl(url)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply = m_nam->get(req);
+    // Stream chunks straight to disk so a large clip never sits in memory.
+    connect(reply, &QNetworkReply::readyRead, file, [reply, file]() { file->write(reply->readAll()); });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, jobId, destPath]() {
+        reply->deleteLater();
+        file->write(reply->readAll());
+        file->flush();
+        const qint64 sz = file->size();
+        file->close();
+        file->deleteLater();
+        m_exportDest.remove(jobId);
+        if (reply->error() == QNetworkReply::NoError && sz > 0) {
+            emit exportSaved(jobId, destPath);
+        } else {
+            QFile::remove(destPath);   // don't leave a partial/empty file behind
+            emit exportFailed(jobId, reply->error() == QNetworkReply::NoError
+                                         ? QStringLiteral("Downloaded clip was empty.")
+                                         : reply->errorString());
         }
     });
 }

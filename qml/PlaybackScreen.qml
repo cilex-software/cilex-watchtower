@@ -371,6 +371,7 @@ Item {
                 readonly property double span: Math.max(1, root.winEndMs - root.winStartMs)
                 function xOf(ms) { return (ms - root.winStartMs) / span * width }
                 function msOf(x) { return root.winStartMs + (x / width) * span }
+                property double hoverMs: -1   // wall ms under the cursor (-1 = not hovering)
 
                 // gap backdrop (whole bar = red stripe), footage drawn on top
                 Rectangle {
@@ -414,18 +415,55 @@ Item {
                     Rectangle { anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; width: 7; height: 7; rotation: 45; color: "#fff" }
                 }
 
+                // window start / end time-axis labels
+                Text {
+                    visible: root.frags.length > 0
+                    anchors.left: parent.left; anchors.leftMargin: 4
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                    text: root.fmtClock(root.winStartMs)
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                }
+                Text {
+                    visible: root.frags.length > 0
+                    anchors.right: parent.right; anchors.rightMargin: 4
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
+                    text: root.fmtClock(root.winEndMs)
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                }
+
+                // hover guide + time tooltip — the wall-clock time under the cursor
+                Rectangle {
+                    visible: bar.hoverMs >= 0
+                    x: Math.max(0, Math.min(bar.width - 1, bar.xOf(bar.hoverMs)))
+                    y: 0; width: 1; height: parent.height
+                    color: Qt.rgba(1, 1, 1, 0.35)
+                }
+                Rectangle {
+                    visible: bar.hoverMs >= 0
+                    readonly property real hx: bar.xOf(bar.hoverMs)
+                    x: Math.max(0, Math.min(bar.width - width, hx - width / 2))
+                    y: 2
+                    implicitWidth: hoverT.implicitWidth + 10; height: 16
+                    color: Qt.rgba(0, 0, 0, 0.85); border.width: 1; border.color: Theme.line2
+                    Text { id: hoverT; anchors.centerIn: parent; text: root.fmtClock(bar.hoverMs)
+                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9 }
+                }
+
                 // click to seek, drag to select
                 MouseArea {
                     anchors.fill: parent
                     property double pressMs: -1
                     cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
                     onPressed: (m) => { pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1 }
                     onPositionChanged: (m) => {
+                        bar.hoverMs = bar.msOf(m.x);
                         if (pressMs < 0) return;
                         var cur = bar.msOf(m.x);
                         root.selStartMs = Math.min(pressMs, cur);
                         root.selEndMs = Math.max(pressMs, cur);
                     }
+                    onExited: bar.hoverMs = -1
                     onReleased: (m) => {
                         var cur = bar.msOf(m.x);
                         if (Math.abs(cur - pressMs) < bar.span / bar.width * 4) {  // a click, not a drag
@@ -468,9 +506,11 @@ Item {
         id: exportDrawer
         z: 50
         onConfirmed: (s, e, mode) => {
-            if (root.client)
-                root.client.createExport(root.camId, new Date(s).toISOString(),
-                                         new Date(e).toISOString(), mode);
+            if (!root.client) return;
+            var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
+            var dest = Artifacts.newExportPath(base, "mp4");
+            root.client.createExport(root.camId, new Date(s).toISOString(),
+                                     new Date(e).toISOString(), mode, dest);
         }
     }
 }

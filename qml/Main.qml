@@ -328,8 +328,8 @@ Window {
         function onExportStarted(jobId) {
             toastHost.show("Export started", "Preparing clip on cilex-vision…", "accent", "", "")
         }
-        function onExportReady(jobId, url) {
-            toastHost.show("Clip ready", "Exported clip is available", "good", "Download", url)
+        function onExportSaved(jobId, path) {
+            toastHost.show("Clip saved", "Saved to " + Artifacts.exportDir, "good", "Open folder", "file://" + Artifacts.exportDir)
         }
         function onExportFailed(jobId, err) {
             toastHost.show("Export failed", err === "" ? "The clip could not be exported" : err, "bad", "", "")

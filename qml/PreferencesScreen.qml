@@ -35,6 +35,12 @@ Item {
         onAccepted: Artifacts.snapshotDir = dirDialog.selectedFolder
     }
 
+    FolderDialog {
+        id: exportDirDialog
+        title: "Choose the clip export folder"
+        onAccepted: Artifacts.exportDir = exportDirDialog.selectedFolder
+    }
+
     // reusable section + row
     component PrefSection: Rectangle {
         default property alias content: inner.data
@@ -258,7 +264,7 @@ Item {
             }
 
             PrefSection {
-                title: "Snapshots"
+                title: "Snapshots & clips"
                 PrefRow {
                     label: "Snapshot folder"
                     desc: Artifacts.snapshotDir
@@ -269,6 +275,18 @@ Item {
                         border.width: 1; border.color: chMa.containsMouse ? Theme.accent : Theme.line2
                         Text { id: chT; anchors.centerIn: parent; text: "Change…"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: chMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: dirDialog.open() }
+                    }
+                }
+                PrefRow {
+                    label: "Clip export folder"
+                    desc: Artifacts.exportDir
+                    Rectangle {
+                        Layout.preferredHeight: 32
+                        implicitWidth: exT.implicitWidth + 24
+                        color: exMa.containsMouse ? Theme.panel2 : Theme.bg
+                        border.width: 1; border.color: exMa.containsMouse ? Theme.accent : Theme.line2
+                        Text { id: exT; anchors.centerIn: parent; text: "Change…"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        MouseArea { id: exMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: exportDirDialog.open() }
                     }
                 }
             }
