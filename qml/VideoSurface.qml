@@ -2,7 +2,9 @@ import QtQuick
 import QtMultimedia
 import Watchtower
 
-// One live video surface. Two paths, same API (url/active/playing/errored):
+// One live video surface. Two mutually-exclusive backends — only the active one
+// is instantiated (via Loader) so the inert one never logs nullptr-disconnect
+// warnings from internal QtMultimedia / signal cleanup:
 //  • Default: QtMultimedia MediaPlayer (GStreamer + VA-API). rtspsrc's jitter
 //    buffer (latency, default 2000 ms) dominates live lag and QMediaPlayer 6.4
 //    exposes no knob for it.
@@ -16,18 +18,9 @@ Item {
     property bool active: true   // play when true (e.g. tile visible / on current page)
     readonly property bool lowLatency: (typeof wtLowLatency !== "undefined" && wtLowLatency)
 
-    readonly property bool playing: root.lowLatency
-        ? rtsp.playing
-        : (player.playbackState === MediaPlayer.PlayingState && player.hasVideo)
-    readonly property bool errored: root.lowLatency
-        ? rtsp.errored
-        : (player.error !== MediaPlayer.NoError)
-    readonly property string errorText: root.lowLatency ? rtsp.errorText : player.errorString
-
-    function maybePlay() {
-        if (!root.lowLatency && root.active && root.url !== "")
-            player.play();
-    }
+    readonly property bool playing: backend.item ? backend.item.playing : false
+    readonly property bool errored: backend.item ? backend.item.errored : false
+    readonly property string errorText: backend.item ? backend.item.errorText : ""
 
     VideoOutput {
         id: videoOut
@@ -35,34 +28,67 @@ Item {
         fillMode: VideoOutput.PreserveAspectCrop
     }
 
-    // Default path.
-    MediaPlayer {
-        id: player
-        source: root.lowLatency ? "" : root.url
-        videoOutput: root.lowLatency ? null : videoOut
-        onErrorOccurred: (err, str) => console.warn("VideoSurface:", root.url, "-", str)
+    // Picks exactly one backend at construction. Bindings inside reference
+    // `root.url` / `root.active` / `videoOut` from the outer scope.
+    Loader {
+        id: backend
+        sourceComponent: root.lowLatency ? lowLatencyComp : qtmmComp
     }
 
-    // Opt-in low-latency path. Inert (no pipeline) unless lowLatency is on.
-    RtspVideoSource {
-        id: rtsp
-        url: root.lowLatency ? root.url : ""
-        active: root.lowLatency && root.active
-        videoSink: root.lowLatency ? videoOut.videoSink : null
-        latencyMs: 150
+    // Default (QtMultimedia) backend.
+    Component {
+        id: qtmmComp
+        Item {
+            readonly property bool playing: player.playbackState === MediaPlayer.PlayingState && player.hasVideo
+            readonly property bool errored: player.error !== MediaPlayer.NoError
+            readonly property string errorText: player.errorString
+
+            MediaPlayer {
+                id: player
+                source: root.url
+                videoOutput: videoOut
+                onErrorOccurred: (err, str) => console.warn("VideoSurface:", root.url, "-", str)
+            }
+
+            function maybePlay() {
+                if (root.active && root.url !== "")
+                    player.play();
+            }
+
+            // Start (or resume) on becoming active; do NOT stop on going inactive — a
+            // synchronous MediaPlayer.stop() on live RTSP can block the GUI thread, and
+            // 16 of them at once (section nav) freezes the app. The pipeline keeps
+            // running quietly until the component is actually destroyed.
+            Connections {
+                target: root
+                function onActiveChanged() { if (root.active) maybePlay() }
+                function onUrlChanged() { maybePlay() }
+            }
+            Component.onCompleted: maybePlay()
+            // Teardown: clear the source rather than calling stop(). MediaPlayer.stop()
+            // on a live RTSP pipeline blocks the GUI thread on GStreamer's TEARDOWN, and
+            // a layout shrink (16→4 tiles) destroys 12 surfaces at once — 12 blocking
+            // stops freezes the app. Assigning source = "" releases the pipeline
+            // asynchronously; the QObject then destructs without waiting.
+            Component.onDestruction: player.source = ""
+        }
     }
 
-    // Start (or resume) on becoming active; do NOT stop on going inactive — a
-    // synchronous MediaPlayer.stop() on live RTSP can block the GUI thread, and
-    // 16 of them at once (section nav) freezes the app. The pipeline keeps
-    // running quietly until the component is actually destroyed.
-    onActiveChanged: if (!root.lowLatency && root.active) maybePlay()
-    onUrlChanged: maybePlay()
-    Component.onCompleted: maybePlay()
-    // Teardown: clear the source rather than calling stop(). MediaPlayer.stop()
-    // on a live RTSP pipeline blocks the GUI thread on GStreamer's TEARDOWN, and
-    // a layout shrink (16→4 tiles) destroys 12 surfaces at once — 12 blocking
-    // stops freezes the app. Assigning source = "" releases the pipeline
-    // asynchronously; the QObject then destructs without waiting.
-    Component.onDestruction: if (!root.lowLatency) player.source = ""
+    // Opt-in low-latency backend (custom GStreamer pipeline → QVideoSink).
+    Component {
+        id: lowLatencyComp
+        Item {
+            readonly property bool playing: rtsp.playing
+            readonly property bool errored: rtsp.errored
+            readonly property string errorText: rtsp.errorText
+
+            RtspVideoSource {
+                id: rtsp
+                url: root.url
+                active: root.active
+                videoSink: videoOut.videoSink
+                latencyMs: 150
+            }
+        }
+    }
 }
