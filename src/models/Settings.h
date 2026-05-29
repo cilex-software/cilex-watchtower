@@ -23,6 +23,13 @@ class Settings : public QObject
     Q_PROPERTY(bool alertSound READ alertSound WRITE setAlertSound NOTIFY alertSoundChanged)
     // Show OS desktop notifications for alerts.
     Q_PROPERTY(bool desktopNotifications READ desktopNotifications WRITE setDesktopNotifications NOTIFY desktopNotificationsChanged)
+    // Live-tile overlay components (each toggleable to reduce clutter).
+    Q_PROPERTY(bool overlayShowName READ overlayShowName WRITE setOverlayShowName NOTIFY overlayShowNameChanged)
+    Q_PROPERTY(bool overlayShowIp READ overlayShowIp WRITE setOverlayShowIp NOTIFY overlayShowIpChanged)
+    Q_PROPERTY(bool overlayShowId READ overlayShowId WRITE setOverlayShowId NOTIFY overlayShowIdChanged)
+    // Live video transport, admin-only: "go2rtc" (default; camera creds stay
+    // server-side) or "rtsp" (direct RTSP using creds delivered by the API).
+    Q_PROPERTY(QString liveTransport READ liveTransport WRITE setLiveTransport NOTIFY liveTransportChanged)
 
 public:
     explicit Settings(QObject *parent = nullptr);
@@ -42,6 +49,18 @@ public:
     bool desktopNotifications() const { return m_desktopNotifications; }
     void setDesktopNotifications(bool v);
 
+    bool overlayShowName() const { return m_overlayShowName; }
+    void setOverlayShowName(bool v);
+
+    bool overlayShowIp() const { return m_overlayShowIp; }
+    void setOverlayShowIp(bool v);
+
+    bool overlayShowId() const { return m_overlayShowId; }
+    void setOverlayShowId(bool v);
+
+    QString liveTransport() const { return m_liveTransport; }
+    void setLiveTransport(const QString &v);
+
     // Format an epoch-ms timestamp for display, honoring time24h. The QML clock
     // displays call this so the Time-format preference takes effect app-wide.
     Q_INVOKABLE QString clock(double ms, bool seconds = false) const;
@@ -52,6 +71,10 @@ signals:
     void time24hChanged();
     void alertSoundChanged();
     void desktopNotificationsChanged();
+    void overlayShowNameChanged();
+    void overlayShowIpChanged();
+    void overlayShowIdChanged();
+    void liveTransportChanged();
 
 private:
     QSettings m_settings;
@@ -60,4 +83,8 @@ private:
     bool m_time24h = true;
     bool m_alertSound = true;
     bool m_desktopNotifications = false;
+    bool m_overlayShowName = true;
+    bool m_overlayShowIp = true;
+    bool m_overlayShowId = false;
+    QString m_liveTransport = QStringLiteral("go2rtc");
 };

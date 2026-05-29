@@ -218,6 +218,51 @@ Item {
                         }
                     }
                 }
+                PrefRow {
+                    visible: AuthController.isAdmin
+                    label: "Live video transport (admin)"
+                    desc: "How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision."
+                    Segmented {
+                        opts: [{ k: "go2rtc", v: "go2rtc" }, { k: "Direct RTSP", v: "rtsp" }]
+                        value: Settings.liveTransport
+                        segW: 96
+                        onPicked: (v) => Settings.liveTransport = v
+                    }
+                }
+            }
+
+            PrefSection {
+                title: "Live tile overlay"
+                PrefRow {
+                    label: "Camera name"
+                    desc: "Show the camera name/model on each live tile."
+                    Segmented {
+                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        value: Settings.overlayShowName
+                        segW: 56
+                        onPicked: (v) => Settings.overlayShowName = v
+                    }
+                }
+                PrefRow {
+                    label: "IP address"
+                    desc: "Show the camera's IP address on each live tile."
+                    Segmented {
+                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        value: Settings.overlayShowIp
+                        segW: 56
+                        onPicked: (v) => Settings.overlayShowIp = v
+                    }
+                }
+                PrefRow {
+                    label: "Camera ID"
+                    desc: "Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile."
+                    Segmented {
+                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        value: Settings.overlayShowId
+                        segW: 56
+                        onPicked: (v) => Settings.overlayShowId = v
+                    }
+                }
             }
 
             PrefSection {

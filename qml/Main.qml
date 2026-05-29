@@ -17,7 +17,7 @@ Window {
     property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
     property int gridPage: 1
     property string statusFilter: ""
-    property string sortMode: "default"
+    property string sortMode: "ip"
     property string groupFilter: ""
     property string groupLabel: "All cameras"
     property bool fullscreen: false
@@ -117,7 +117,7 @@ Window {
 
     // keyboard shortcuts (design §30)
     Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }
-    Shortcut { sequence: "Escape"; onActivated: if (win.fullscreen) win.fullscreen = false }
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }

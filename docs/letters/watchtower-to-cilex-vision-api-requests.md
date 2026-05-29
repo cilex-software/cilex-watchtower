@@ -69,6 +69,7 @@ Open asks, by priority (across domains)
   MEDIUM  D2  /streams: surface mac/vendor/model/firmware (from config_json)
   INFRA   D3  go2rtc: passthrough + on-demand config; RTSP reachable; tokenized url
   CONFIRM D4  Playback HLS served from pre-segmented storage (no per-request transcode)
+  HIGH    D5  /streams conn-config scoped per-user; admin-only direct_rtsp_url+creds
 
 ════════════════════════════════════════════════════════════════════════════
 A. Export & Clips  (/review/exports)
@@ -229,6 +230,28 @@ D4. Confirm playback HLS is pre-segmented · CONFIRM
   Recorded-playback HLS should be served from pre-segmented storage (SeaweedFS),
   never transcoded on request — memory = file I/O + small caches, not ffmpeg.
 
+D5. Per-user config scope + admin-only raw-RTSP option · HIGH  [added 2026-05-29]
+  Access model (operator requirement): Admin provisions cameras in the Cilex
+  Provisioner and uploads the config to cilex-vision; each user profile is granted
+  need-to-know access to specific cameras (Admin = all). So GET /streams — and the
+  connection config from D1/D2 — must be returned strictly per the authenticated
+  user's profile. Watchtower keeps NO local camera config: every client builds its
+  list + stream URLs from its own scoped /streams response on login, so no client
+  can see a camera (or its credentials) outside its profile. This is the
+  precondition to deleting local provisioning entirely (D1).
+
+  Transport is admin-selectable in Watchtower, default go2rtc:
+   • Default (ALL users): the go2rtc restream URLs from D1 (`rtsp_url` /
+     `rtsp_sub_url`) — camera passwords never leave the server.
+   • Optional (ADMIN ONLY): for an admin-authenticated request, ALSO include the
+     raw camera URLs WITH embedded credentials under distinct keys —
+     `direct_rtsp_url` / `direct_rtsp_sub_url` — so an admin operator can switch
+     Watchtower to direct-camera RTSP. NEVER return these raw-credential fields to
+     non-admin users.
+  Watchtower side (built now): a "Live video transport" preference (go2rtc |
+  Direct RTSP) is shown only to admin users and defaults to go2rtc; it selects
+  which of the above URLs the wall plays. See docs/plans/camera-config-from-backend.md.
+
 Client-latency note (ours to own, for context): live glass-to-glass is dominated
 by GStreamer rtspsrc's 2000 ms jitter buffer, and QtMultimedia 6.4.2 exposes no
 knob for it — needs a custom GStreamer pipeline or a Qt ≥6.5 upgrade on our side.
@@ -249,5 +272,9 @@ Changelog
   2026-05-29  Raised live-streaming asks D1–D4 (Phase D: backend = camera source
               of truth). The client already lists cameras from /streams; D1
               (go2rtc RTSP restream url) lets us delete local provisioning entirely.
+  2026-05-29  Added D5: connection config must be per-user-scoped (need-to-know;
+              admin = all), and an admin-only raw direct_rtsp_url+creds option so
+              Watchtower's admin-selectable transport (default go2rtc) can do
+              direct RTSP. Drove the architecture from an operator directive.
 
 — Cilex Watchtower

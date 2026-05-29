@@ -59,7 +59,7 @@ Item {
         return start + "–" + end + " of " + total;
     }
 
-    readonly property var sortLabels: ({ "default": "Layout order", "status": "Status first", "alpha": "Alphabetical" })
+    readonly property var sortLabels: ({ "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
 
     FileDialog {
         id: importDialog
@@ -379,7 +379,8 @@ Item {
                         contentItem: Column {
                             Repeater {
                                 model: [
-                                    { id: "default", lbl: "Layout order" },
+                                    { id: "ip",      lbl: "IP address" },
+                                    { id: "default", lbl: "Stream order" },
                                     { id: "status",  lbl: "Status first" },
                                     { id: "alpha",   lbl: "Alphabetical" }
                                 ]
@@ -464,6 +465,7 @@ Item {
                             gridMode: true
                             camName: modelData.name
                             camId: modelData.camId
+                            ip: modelData.ip
                             groupId: modelData.groupId
                             groupName: modelData.groupName
                             live: modelData.live

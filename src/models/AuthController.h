@@ -21,6 +21,7 @@ class AuthController : public QObject
     Q_PROPERTY(QString baseUrl READ baseUrl NOTIFY baseUrlChanged)
     Q_PROPERTY(QString username READ username NOTIFY identityChanged)
     Q_PROPERTY(QString role READ role NOTIFY identityChanged)
+    Q_PROPERTY(bool isAdmin READ isAdmin NOTIFY identityChanged)
     Q_PROPERTY(QString initials READ initials NOTIFY identityChanged)
     Q_PROPERTY(QStringList cameraScope READ cameraScope NOTIFY identityChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -35,6 +36,7 @@ public:
     QString baseUrl() const { return m_baseUrl; }
     QString username() const { return m_username; }
     QString role() const { return m_role; }
+    bool isAdmin() const { return m_role.compare(QStringLiteral("admin"), Qt::CaseInsensitive) == 0; }
     QString initials() const;
     QStringList cameraScope() const { return m_cameraScope; }
     bool busy() const { return m_busy; }
@@ -75,6 +77,10 @@ private:
     void setAuthenticated(bool a);
     void persist();
     void clearSession();
+    // Login attempts retry on transient network/server-not-ready failures
+    // (e.g. the backend still coming up at boot) before surfacing an error.
+    void attemptTokenLogin();
+    void attemptPasswordLogin();
     static bool decodeClaims(const QString &token, QString &username, QString &role,
                              QStringList &scope, qint64 &expSecs);
 
@@ -90,4 +96,7 @@ private:
     bool m_authenticated = false;
     bool m_busy = false;
     QString m_errorString;
+    int m_loginAttempt = 0;          // retry counter for the current login
+    QString m_pendingUser;           // held across password-login retries
+    QString m_pendingPassword;
 };

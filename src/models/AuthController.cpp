@@ -13,6 +13,16 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QUrl>
+#include <QTimer>
+
+namespace {
+// A login may be issued while the backend is still coming up (Watchtower and
+// cilex-vision boot together on the same host). Retry transient failures before
+// telling the operator the server is unreachable.
+constexpr int kMaxLoginAttempts = 4;
+constexpr int kLoginRetryMs = 1500;
+constexpr int kLoginTimeoutMs = 8000;
+}
 
 AuthController *AuthController::s_instance = nullptr;
 
@@ -137,37 +147,58 @@ void AuthController::loginWithPassword(const QString &baseUrl, const QString &us
 {
     setError(QString());
     setBaseUrl(baseUrl);
+    m_pendingUser = username;
+    m_pendingPassword = password;
+    m_loginAttempt = 0;
     setBusy(true);
+    attemptPasswordLogin();
+}
 
+void AuthController::attemptPasswordLogin()
+{
     QNetworkRequest req{QUrl(m_baseUrl + "/auth/login")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    const QJsonObject body{{"username", username}, {"password", password}};
+    req.setTransferTimeout(kLoginTimeoutMs);
+    const QJsonObject body{{"username", m_pendingUser}, {"password", m_pendingPassword}};
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        setBusy(false);
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
-        if (reply->error() != QNetworkReply::NoError || code != 200) {
+        if (reply->error() == QNetworkReply::NoError && code == 200) {
+            const QString token = QJsonDocument::fromJson(raw).object().value("access_token").toString();
+            setBusy(false);
+            m_pendingPassword.clear();
+            if (token.isEmpty()) {
+                setError(QStringLiteral("Login response did not include a token"));
+                emit loginFailed(m_errorString);
+                return;
+            }
+            applyToken(token);
+            persist();
+            setAuthenticated(true);
+            return;
+        }
+        // Hard rejection (bad credentials / bad request): don't retry.
+        if (code == 401 || code == 403 || code == 400) {
+            setBusy(false);
+            m_pendingPassword.clear();
             QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
             if (detail.isEmpty())
-                detail = (code == 401) ? QStringLiteral("Invalid username or password")
-                                       : (reply->errorString().isEmpty()
-                                              ? QStringLiteral("Login failed")
-                                              : reply->errorString());
+                detail = QStringLiteral("Invalid username or password");
             setError(detail);
             emit loginFailed(detail);
             return;
         }
-        const QString token = QJsonDocument::fromJson(raw).object().value("access_token").toString();
-        if (token.isEmpty()) {
-            setError(QStringLiteral("Login response did not include a token"));
-            emit loginFailed(m_errorString);
+        // Transient (server not ready / network): retry before giving up.
+        if (++m_loginAttempt < kMaxLoginAttempts) {
+            QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptPasswordLogin(); });
             return;
         }
-        applyToken(token);
-        persist();
-        setAuthenticated(true);
+        setBusy(false);
+        m_pendingPassword.clear();
+        setError(QStringLiteral("Could not reach the server"));
+        emit loginFailed(m_errorString);
     });
 }
 
@@ -190,21 +221,42 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
         return;
     }
     applyToken(tok);
+    m_loginAttempt = 0;
     setBusy(true);
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/auth/me")});
+    attemptTokenLogin();
+}
+
+void AuthController::attemptTokenLogin()
+{
+    QNetworkRequest req{QUrl(m_baseUrl + "/auth/me")};
+    req.setTransferTimeout(kLoginTimeoutMs);
+    QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        setBusy(false);
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (reply->error() != QNetworkReply::NoError || code != 200) {
+        if (reply->error() == QNetworkReply::NoError && code == 200) {
+            setBusy(false);
+            persist();
+            setAuthenticated(true);
+            return;
+        }
+        // Token actually rejected: don't retry.
+        if (code == 401 || code == 403) {
+            setBusy(false);
             clearSession();
-            setError(code == 401 ? QStringLiteral("Token rejected or expired")
-                                 : QStringLiteral("Could not reach the server"));
+            setError(QStringLiteral("Token rejected or expired"));
             emit loginFailed(m_errorString);
             return;
         }
-        persist();
-        setAuthenticated(true);
+        // Transient (server not ready / network): retry before giving up.
+        if (++m_loginAttempt < kMaxLoginAttempts) {
+            QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptTokenLogin(); });
+            return;
+        }
+        setBusy(false);
+        clearSession();
+        setError(QStringLiteral("Could not reach the server"));
+        emit loginFailed(m_errorString);
     });
 }
 

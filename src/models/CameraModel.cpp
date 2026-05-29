@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QPair>
+#include <QStringList>
 #include <algorithm>
 
 namespace {
@@ -25,6 +26,24 @@ QString macHexFromId(const QString &cameraId)
     QString hex = (dash >= 0 ? cameraId.mid(dash + 1) : cameraId).toLower();
     hex.remove(':').remove('-');
     return hex;
+}
+
+// Numeric sort key for an IPv4 string so 192.168.1.2 < 192.168.1.10 (octet-aware).
+// Invalid/empty addresses sort last.
+quint32 ipSortKey(const QString &ip)
+{
+    const QStringList parts = ip.split(QLatin1Char('.'));
+    if (parts.size() != 4)
+        return 0xFFFFFFFFu;
+    quint32 key = 0;
+    for (const QString &octet : parts) {
+        bool ok = false;
+        const uint v = octet.toUInt(&ok);
+        if (!ok || v > 255)
+            return 0xFFFFFFFFu;
+        key = (key << 8) | (v & 0xFFu);
+    }
+    return key;
 }
 }
 
@@ -508,6 +527,14 @@ QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &
             const int rb = statusRank(m_all.at(b));
             if (ra != rb)
                 return ra < rb;
+            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+        });
+    } else if (sortMode == QLatin1String("ip")) {
+        std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
+            const quint32 ka = ipSortKey(m_all.at(a).ip);
+            const quint32 kb = ipSortKey(m_all.at(b).ip);
+            if (ka != kb)
+                return ka < kb;
             return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
         });
     }

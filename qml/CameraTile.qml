@@ -10,7 +10,25 @@ Item {
 
     property string camName: ""
     property string camId: ""
+    property string ip: ""
     property string groupId: ""
+
+    // The backend name bakes the IP in ("HiWatch DS-… (192.168.1.104)"); strip it
+    // so the IP can be shown (or hidden) independently via the overlay toggle.
+    readonly property string displayName: {
+        var n = camName;
+        var suffix = ip !== "" ? (" (" + ip + ")") : "";
+        if (suffix !== "" && n.endsWith(suffix))
+            n = n.slice(0, n.length - suffix.length);
+        return n;
+    }
+    // Composed overlay meta line (IP and/or camId), per the Settings toggles.
+    readonly property string overlayMeta: {
+        var parts = [];
+        if (Settings.overlayShowIp && ip !== "") parts.push(ip);
+        if (Settings.overlayShowId && camId !== "") parts.push(camId);
+        return parts.join("  ·  ");
+    }
     property string groupName: ""
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
@@ -184,12 +202,15 @@ Item {
                 spacing: 1
                 Text {
                     width: parent.width
-                    text: root.camName; color: "#ffffff"; elide: Text.ElideRight
+                    visible: Settings.overlayShowName && text !== ""
+                    text: root.displayName; color: "#ffffff"; elide: Text.ElideRight
                     font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.DemiBold
                     style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.8)
                 }
                 Text {
-                    text: root.camId; color: Qt.rgba(1, 1, 1, 0.6)
+                    width: parent.width
+                    visible: text !== ""
+                    text: root.overlayMeta; color: Qt.rgba(1, 1, 1, 0.6); elide: Text.ElideRight
                     font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.4
                 }
             }
