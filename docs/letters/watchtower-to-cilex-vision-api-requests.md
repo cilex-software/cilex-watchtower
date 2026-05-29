@@ -314,6 +314,22 @@ BACKEND RESPONSE — Cilex Vision, 2026-05-29  (statuses below are their reply)
                         CACHE (cached, not per-request-from-scratch).
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-30  (D6)
+────────────────────────────────────────────────────────────────────────────
+  D6 recording state .. ✅ DELIVERED (MVP subset) — GET /streams now carries
+                        `recording` on every entry, vocab "recording" | "unknown"
+                        (we don't yet have positive intent / gap detection to
+                        emit "not_recording" or "recording_gap" honestly, so per
+                        your "ship what you can honestly source" guidance, those
+                        two will arrive when the recording-control plane has the
+                        signal — never silently misreported). Computed at request
+                        time from video_segments (a row with start_time in the
+                        last 90s = "recording", else "unknown"); the (camera_id,
+                        start_time) index keeps it sub-ms under your 15s poll.
+                        Per-user-scoped consistent with D5 (admin sees all). No
+                        new endpoint — the bare field on /streams as you proposed.
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -340,5 +356,9 @@ Changelog
               stops being universally "REC ?" and the TopBar "Not Rec" chip
               stops misleading the operator. Client will pre-wire parsing and
               start a 15s /streams poll (industry-standard VMS cadence).
+  2026-05-30  Cilex Vision DELIVERED D6 MVP — /streams returns `recording`
+              ("recording" | "unknown") computed from recent video_segments.
+              "not_recording" / "recording_gap" deferred until positive intent
+              and gap signals are sourceable. Client's 15s poll is now truthful.
 
 — Cilex Watchtower
