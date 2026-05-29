@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QPair>
 #include <QStringList>
+#include <QTimer>
 #include "Types.h"
 #include "CameraStore.h"
 
@@ -124,7 +125,8 @@ private:
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
     // Backend camera integration (cilex-vision /streams is the authoritative list).
-    void fetchCameras();       // GET /streams -> m_all (+ per-operator prefs)
+    void fetchCameras();       // GET /streams -> m_all full reset (login / manual refresh)
+    void pollStatuses();       // GET /streams -> in-place update of live + recording (15s poll)
     void fetchGroups();        // GET /groups  -> m_groups (definitions for groupList)
     void setLoading(bool v);
 
@@ -142,4 +144,5 @@ private:
     int m_notRecording = 0;
     int m_recUnknown = 0;
     int m_gap = 0;
+    QTimer *m_pollTimer = nullptr;   // periodic /streams refresh (recording + live status)
 };

@@ -70,6 +70,7 @@ Open asks, by priority (across domains)
   INFRA   D3  go2rtc: passthrough + on-demand config; RTSP reachable; tokenized url
   CONFIRM D4  Playback HLS served from pre-segmented storage (no per-request transcode)
   HIGH    D5  /streams conn-config scoped per-user; admin-only direct_rtsp_url+creds
+  HIGH    D6  /streams: per-camera recording state (so "REC ?" stops being universal)
 
 ════════════════════════════════════════════════════════════════════════════
 A. Export & Clips  (/review/exports)
@@ -252,6 +253,34 @@ D5. Per-user config scope + admin-only raw-RTSP option · HIGH  [added 2026-05-2
   Direct RTSP) is shown only to admin users and defaults to go2rtc; it selects
   which of the above URLs the wall plays. See docs/plans/camera-config-from-backend.md.
 
+D6. /streams: per-camera recording state · HIGH  [added 2026-05-30]
+  Each /streams entry today carries `status` (live: online/offline/maintenance/error)
+  but nothing about whether the camera is actually being recorded. So every Watchtower
+  tile renders a dim "REC ?" badge — and the TopBar "Not Rec: 0" chip is honestly 0
+  (no camera is *definitely* not recording) but reads to an operator as "all clear,
+  everything is recording", which is the opposite of what we're saying. We need a
+  recording signal so the badge can be truthful.
+
+  Add a `recording` field on each /streams entry. Suggested vocab (lines up with
+  Watchtower's CameraStatus::RecState enum):
+    "recording"        — actively writing segments
+    "not_recording"    — known not writing (operator stopped, schedule off, etc.)
+    "recording_gap"    — has been writing, but a recent gap was detected
+    "unknown" / null   — backend cannot determine (e.g. NVR / storage unreachable);
+                         render as "REC ?" — but per-camera, not universal.
+
+  Recording state changes slowly (operator action, fault transitions) so it's
+  natural to ride on /streams alongside `status`. We will pre-wire the client to
+  parse the field forward-compatibly: when /streams starts returning `recording`,
+  Watchtower picks it up with no further work and the badge becomes truthful.
+
+  Polling cadence: Watchtower will refresh /streams every 15s — industry-standard
+  for VMS status polling (fresh enough to spot a stoppage, not so frequent that it
+  hammers the backend). If you'd rather we hit a lighter shape than full /streams
+  for the poll (e.g. `GET /streams/status` returning just
+  `[{camera_id, status, recording}, …]`), call it out and we'll use that endpoint
+  when it exists. Otherwise polling /streams is fine for our scale.
+
 Client-latency note (ours to own, for context): live glass-to-glass is dominated
 by GStreamer rtspsrc's 2000 ms jitter buffer, and QtMultimedia 6.4.2 exposes no
 knob for it — needs a custom GStreamer pipeline or a Qt ≥6.5 upgrade on our side.
@@ -307,5 +336,9 @@ Changelog
               rtsp_sub_url, mac/vendor/model/firmware, admin-only direct_rtsp_*).
               D3: SD wall already passthrough; main/HD passthrough logged as a
               fast-follow. D4 confirmed (pre-segmented; cold renditions cached).
+  2026-05-30  Added D6: /streams `recording` field, so the per-tile REC badge
+              stops being universally "REC ?" and the TopBar "Not Rec" chip
+              stops misleading the operator. Client will pre-wire parsing and
+              start a 15s /streams poll (industry-standard VMS cadence).
 
 — Cilex Watchtower

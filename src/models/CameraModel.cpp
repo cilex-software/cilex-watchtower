@@ -65,11 +65,20 @@ CameraModel::CameraModel(QObject *parent)
     m_baseUrl = auth->baseUrl();
     connect(auth, &AuthController::baseUrlChanged, this,
             [this, auth]() { m_baseUrl = auth->baseUrl(); });
+    // Periodic /streams refresh — industry-standard VMS status cadence so the
+    // recording badge + online/offline reflect reality without flooding the
+    // backend. Started on authentication, stopped on logout.
+    m_pollTimer = new QTimer(this);
+    m_pollTimer->setInterval(15 * 1000);   // 15s
+    connect(m_pollTimer, &QTimer::timeout, this, [this]() { pollStatuses(); });
+
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
         if (auth->authenticated()) {
             fetchGroups();
             fetchCameras();
+            m_pollTimer->start();
         } else {
+            m_pollTimer->stop();
             beginResetModel();
             m_all.clear();
             endResetModel();
@@ -81,6 +90,7 @@ CameraModel::CameraModel(QObject *parent)
     if (auth->authenticated()) {
         fetchGroups();
         fetchCameras();
+        m_pollTimer->start();
     }
 }
 
@@ -313,7 +323,16 @@ void CameraModel::fetchCameras()
                    : (st == QLatin1String("maintenance") || st == QLatin1String("error"))
                                                         ? CameraStatus::Degraded
                                                         : CameraStatus::LiveUnknown;
-            c.recording = CameraStatus::RecUnknown;   // backend exposes no per-camera recording state
+            // D6 (pending backend): /streams will start carrying a `recording`
+            // field per camera. Parsed forward-compatibly here — when the field
+            // is absent (today) every tile stays "REC ?" (Unknown), but the
+            // moment the backend ships it the badges go truthful with no client
+            // change beyond this parse.
+            const QString rec = o.value(QStringLiteral("recording")).toString();
+            c.recording = (rec == QLatin1String("recording"))     ? CameraStatus::Recording
+                        : (rec == QLatin1String("not_recording")) ? CameraStatus::NotRecording
+                        : (rec == QLatin1String("recording_gap")) ? CameraStatus::RecordingGap
+                                                                  : CameraStatus::RecUnknown;
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
             // an admin client may also receive raw direct_rtsp_* and select them via
@@ -351,6 +370,67 @@ void CameraModel::fetchCameras()
         endResetModel();
         recompute();
         emit groupsChanged();   // group counts derive from the refreshed list
+    });
+}
+
+void CameraModel::pollStatuses()
+{
+    // Periodic refresh of live + recording status only. Crucial: this MUST NOT
+    // reset the model — beginResetModel() destroys every Repeater delegate,
+    // which destroys every CameraTile → VideoSurface → RTSP pipeline; doing
+    // that every 15s would flicker the wall and re-establish 16 RTSP sessions
+    // each tick. Instead, patch m_all in place and emit dataChanged for the
+    // affected rows + roles so QML bindings re-evaluate without delegate churn.
+    if (!m_nam)
+        return;
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (reply->error() != QNetworkReply::NoError)
+            return;   // transient — keep the last-known statuses
+        const auto arr =
+            QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
+
+        // Build {camera_id -> {live, recording}} from the response.
+        QHash<QString, QPair<CameraStatus::LiveState, CameraStatus::RecState>> incoming;
+        incoming.reserve(int(arr.size()));
+        for (const auto &v : arr) {
+            const auto o = v.toObject();
+            const QString camId = o.value("camera_id").toString();
+            if (camId.isEmpty()) continue;
+            const QString st = o.value("status").toString();
+            const auto live = (st == QLatin1String("online"))  ? CameraStatus::Live
+                            : (st == QLatin1String("offline")) ? CameraStatus::Offline
+                            : (st == QLatin1String("maintenance") || st == QLatin1String("error"))
+                                                                 ? CameraStatus::Degraded
+                                                                 : CameraStatus::LiveUnknown;
+            const QString rec = o.value(QStringLiteral("recording")).toString();
+            const auto recState = (rec == QLatin1String("recording"))     ? CameraStatus::Recording
+                                : (rec == QLatin1String("not_recording")) ? CameraStatus::NotRecording
+                                : (rec == QLatin1String("recording_gap")) ? CameraStatus::RecordingGap
+                                                                          : CameraStatus::RecUnknown;
+            incoming.insert(camId, { live, recState });
+        }
+
+        // Patch matched rows in place; emit dataChanged once per changed row so
+        // tile bindings (live badge, REC badge) refresh without delegate teardown.
+        bool anyChanged = false;
+        for (int i = 0; i < m_all.size(); ++i) {
+            const auto it = incoming.constFind(m_all[i].id);
+            if (it == incoming.constEnd()) continue;
+            const auto newLive = it->first;
+            const auto newRec  = it->second;
+            if (m_all[i].live == newLive && m_all[i].recording == newRec) continue;
+            m_all[i].live = newLive;
+            m_all[i].recording = newRec;
+            anyChanged = true;
+            const QModelIndex idx = index(i);
+            emit dataChanged(idx, idx, { LiveRole, RecordingRole });
+        }
+        if (anyChanged)
+            recompute();   // refresh TopBar counts (online / offline / not-rec)
     });
 }
 
