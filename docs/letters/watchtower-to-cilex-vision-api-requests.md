@@ -364,6 +364,40 @@ BACKEND RESPONSE — Cilex Vision, 2026-05-30  (§D3 fast-follow shipped)
                         natively — no transcode latency, no iGPU cost.
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-31  (E1–E5)
+────────────────────────────────────────────────────────────────────────────
+  E1 mosaic ........... ✅ ACCEPTED — building. ONE composited, time-synced grid
+                        HLS via POST /review/mosaic-sessions; client decodes one
+                        stream regardless of camera count. On-demand composite-
+                        and-cache ("composite-on-scrub") — a live 16-cell
+                        realtime composite isn't safe on the one shared iGPU.
+                        Cells composite from the SUB stream (uniform H.264, full
+                        30-day coverage, cheapest decode); single-codec output,
+                        so NO mid-timeline codec switch. Manifest is the SAME
+                        /review shape (compact_*/wall_*/clipped_to_finalized/
+                        live_gap_s) for the composited timeline + a cells[]
+                        mapping. Per-cell gaps render black; whole-grid gaps are
+                        #EXT-X-GAP. Operator-scoped (403 on any out-of-scope cam).
+  E2 grid export ...... ACCEPTED — export a window of the mosaic session via the
+                        existing export_jobs pipeline; sequenced after E1 core.
+  E3 poster frames .... ACCEPTED — GET /review/poster + sprite sheet (also your
+                        thumbnail-hybrid fallback); parallelizable, low-risk.
+  E4 coverage union ... ACCEPTED — A7 /review/coverage gains a batch ?camera_ids=
+                        returning per_camera + union (no client-side union).
+  E5 latent confirms .. resolution IS plumbed ("WxH"|null — stop inferring from
+                        codec); clipped_to_finalized + live_gap_s ARE the safe
+                        ceiling; mixed H.264/HEVC plays through single-camera but
+                        is moot for the mosaic (one codec). Hydrating fragments
+                        are REAL footage — don't drop them; today they 503 until
+                        rehydrated, so we'll warm-on-create + a non-stalling cold
+                        path (mosaic segments are always ready).
+  Status .............. E1 foundation built + unit-tested (contract, composited
+                        manifest, compositor logic; 48 tests). ffmpeg encode path
+                        gated on live stack/iGPU verification (recorder/playback
+                        paused behind a disk incident — never ✅ on code alone).
+                        Full reply: 2026-05-31-multicam-synchronized-review.reply.md.
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -401,6 +435,12 @@ Changelog
               ~6-conn NAM limit, decode/feed is the remaining wall). Hence E1:
               ask the backend to composite one synchronized grid HLS stream.
               Full spec: 2026-05-31-multicam-synchronized-review.md.
+  2026-05-31  Cilex Vision RESPONDED to E1–E5 (see BACKEND RESPONSE). E1
+              ACCEPTED — building on-demand composite-and-cache mosaic (sub-
+              stream cells, single-codec output); E1 foundation + 48 tests
+              landed, ffmpeg path gated on live stack verification. E2/E3/E4
+              accepted + sequenced; E5 confirmed/corrected.
+              Reply: 2026-05-31-multicam-synchronized-review.reply.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no
