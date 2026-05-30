@@ -26,5 +26,6 @@
 - [playback via cilex-vision](playback-via-cilex-vision.md) — detailed S06 contract: auth, sessions/manifest/HLS, export, the proxy approach, segment-500 fix history, go2rtc.
 - [cilex-vision playback API](cilex-vision-playback-api.md) — current contract incl. **export accepts only 4 fields** (confirmed via OpenAPI) + test windows/camera_ids; pairs with the export letter.
 - [S06 playback gaps](s06-playback-gaps.md) — tracked follow-ups (codec switch blocked on synth timeline; export drawer now done) + latent hydrating/resolution issues.
+- [multicam review architecture](multicam-review-architecture.md) — **synchronized wall playback**: client-side N-way HLS sync proven infeasible (~2–3 stream ceiling, measured); chose server-composited mosaic (backend E1). Don't re-attempt client-side. Client P1–P5 blocked on E1.
 
 _Note: product-rules overlaps design-fidelity-required + feedback-no-placeholder-content; cilex-vision-playback-api overlaps the richer playback-via-cilex-vision. Kept for cross-reference; prefer the "current"/canonical one per topic. The repo docs above supersede all for status + impl detail._
