@@ -15,6 +15,7 @@
 - [feedback: no placeholder content](feedback-no-placeholder-content.md) — real data or honest empty states; mock behind WT_DEMO; no fake identities/counts/names.
 - [handling design/backend gaps](handling-design-backend-gaps.md) — full UI + spec letter + honest "pending"; never silent no-op controls.
 - [feedback: long shell commands](feedback-long-shell-commands.md) — give long shell commands as a script file; user's terminal splits wrapped pastes; sudo needs the user's own terminal.
+- [feedback: letters are single-problem](feedback-letters-single-problem.md) — new backend asks go in their own dated file under `docs/letters/`, not bolted onto the master letter.
 
 ## Implementation details
 - [toolchain setup](toolchain-setup.md) — installed toolchain, build/run/offscreen-smoke/WT_SCREENSHOT commands, Qt 6.4 resource-prefix gotcha.

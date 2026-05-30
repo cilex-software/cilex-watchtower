@@ -12,11 +12,31 @@ metadata:
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
-## Where we are (2026-05-28)
+## Where we are (2026-05-30)
 **P1–P6 are ALL COMPLETE** (Foundation+Live, Single-Camera, Playback, Export,
-Events+Health, Saved Views/Clips/Prefs/palette). Latest commit **`623d660`** on
+Events+Health, Saved Views/Clips/Prefs/palette). Latest commit **`4170cb5`** on
 `main`, pushed to the **private** GitHub remote `origin`
-(github.com/romayankin/cilex-watchtower). Working tree clean, nothing in-flight.
+(github.com/romayankin/cilex-watchtower).
+
+**Since 2026-05-28 (post `623d660`):** Phase D landed (backend = camera source of
+truth via `/streams`: go2rtc rtsp urls D1/D2/D5, recording-state D6, §D3 main HD
+passthrough). A **live-streaming stability incident** drove RTSP-teardown fixes
+(staggered/bounded teardown, worker-thread GStreamer teardown, green-frame-reset
+fixes), low-latency RTSP path is now the **default** (`WT_LEGACY=1` opts out),
+`WT_NO_POLL=1` disables `/streams` polling. A **go2rtc OOM incident (§D3)** —
+clip-service's 20-camera rolling buffer opened 20 per-consumer VA-API transcodes —
+was fixed backend-side by making the main stream **dual-source** (raw RTSP H.265
+passthrough first, ffmpeg:vaapi only for browser HLS).
+
+**HD snapshot capture — DONE, committed `df5576e`.**
+`Artifacts::captureMainStreamSnapshot()` async-pulls a full-res JPEG from go2rtc
+`http://<host>:1984/api/frame.jpeg?src=<stream>` (derived from the MAIN rtsp url,
+not the substream the wall renders), saves `.jpg`, emits `snapshotCaptured`/
+`snapshotCaptureFailed`; `CameraTile.qml` prefers it, falls back to
+`captureFromTile()` on failure. Verified live: real 2560×1440 JPEG, pulls the raw
+H.265 passthrough producer (NOT the 1280 ffmpeg transcode), transient one-shot —
+no §D3 OOM risk. Open follow-up: port 1984 hard-coded (code TODO → backend ask to
+expose the frame url on `/streams` + per-user auth). Working tree clean.
 
 ## Canonical current state — read these in-repo docs (authoritative)
 - `docs/PROJECT_STATUS.md` — phase status + done-highlights.
