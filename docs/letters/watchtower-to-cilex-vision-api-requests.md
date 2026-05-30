@@ -74,6 +74,13 @@ Open asks, by priority (across domains)
   MED-HI  A7  GET /review/coverage: per-camera days-with-footage + retention_days
               (drives the new playback footage calendar; see dated letter
               2026-05-30-footage-coverage-calendar-api.md for the full spec)
+  HIGH    E1  Server-composited synchronized GRID MOSAIC stream (one HLS of the
+              whole wall, time-synced) — blocks synchronized multi-camera review.
+              Client-side N-way HLS sync was spiked and proven infeasible
+              (~2–3 stream ceiling on the iGPU). + E2 combined grid export,
+              E3 scrub poster frames, E4 coverage union, E5 latent confirms
+              (hydrating playable / resolution / live-edge / codec switch).
+              Full spec: 2026-05-31-multicam-synchronized-review.md.
 
 ════════════════════════════════════════════════════════════════════════════
 A. Export & Clips  (/review/exports)
@@ -387,6 +394,13 @@ Changelog
               ("recording" | "unknown") computed from recent video_segments.
               "not_recording" / "recording_gap" deferred until positive intent
               and gap signals are sourceable. Client's 15s poll is now truthful.
+  2026-05-31  Added E1–E5: synchronized multi-camera review. Spiked the
+              client-side approach (N sessions → N QMediaPlayers → one master
+              clock); sync logic works but streams cap at ~2–3 on the iGPU
+              (measured offscreen + real GPU; per-session-proxy fix cleared the
+              ~6-conn NAM limit, decode/feed is the remaining wall). Hence E1:
+              ask the backend to composite one synchronized grid HLS stream.
+              Full spec: 2026-05-31-multicam-synchronized-review.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no
