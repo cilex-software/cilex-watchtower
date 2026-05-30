@@ -3,6 +3,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPointer>
 #include <QTcpSocket>
 #include <QTimer>
 #include <QUrl>
@@ -65,16 +66,23 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     QNetworkReply *reply = m_nam->get(req);          // cookie auto-attached by shared jar
-    connect(reply, &QNetworkReply::finished, this, [this, reply, sock, path, attempt]() {
+    // Guard the socket with QPointer: the player (GStreamer hlsdemux) aborts and
+    // closes in-flight segment requests aggressively while scrubbing, which
+    // deleteLater()s the socket. By the time this reply finishes — or the 503
+    // retry timer fires 400ms later — sock may already be freed, so a raw
+    // pointer here is a use-after-free. QPointer nulls out on destruction.
+    QPointer<QTcpSocket> guardedSock(sock);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt]() {
         reply->deleteLater();
-        if (sock->state() != QAbstractSocket::ConnectedState)
+        if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
             return;
+        QTcpSocket *sock = guardedSock;
         const int code = reply->attribute(
             QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 503 && attempt < 8) {            // cold fragment still remuxing
-            QTimer::singleShot(400, this, [this, sock, path, attempt]() {
-                if (sock->state() == QAbstractSocket::ConnectedState)
-                    forward(sock, path, attempt + 1);
+            QTimer::singleShot(400, this, [this, guardedSock, path, attempt]() {
+                if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
+                    forward(guardedSock, path, attempt + 1);
             });
             return;
         }
