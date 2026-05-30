@@ -167,9 +167,17 @@ void RtspVideoSource::rebuild()
     // decodebin picks VA-API on the Intel iGPU. RGBA out for a simple single-plane
     // copy (NV12 + zero-copy is the follow-up optimization). The URL is set on the
     // element rather than baked into the parse string to avoid escaping the creds.
+    //
+    // Pipeline tuning notes:
+    //  - drop-on-latency is left at its default (false). When ON, rtspsrc drops
+    //    late packets aggressively against the jitter buffer; under 20 simultaneous
+    //    substreams that triggered repeated decoder resets ("green flash every few
+    //    seconds" — the decoder's no-keyframe placeholder until the next I-frame).
+    //  - do-retransmission=true asks the server for lost RTP packets (RFC 4588);
+    //    go2rtc supports it; reduces decoder resync triggers on transient loss.
     GError *err = nullptr;
     m_pipeline = gst_parse_launch(
-        "rtspsrc name=src drop-on-latency=true ! decodebin ! videoconvert "
+        "rtspsrc name=src do-retransmission=true ! decodebin ! videoconvert "
         "! video/x-raw,format=RGBA ! appsink name=sink sync=false max-buffers=2 drop=true",
         &err);
     if (!m_pipeline) {

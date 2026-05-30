@@ -135,6 +135,11 @@ int main(int argc, char *argv[])
     // honored as a no-op for old muscle memory / scripts.
     const bool useLegacy = qEnvironmentVariableIsSet("WT_LEGACY");
     engine.rootContext()->setContextProperty("wtLowLatency", !useLegacy);
+    // RTSP jitter-buffer override for the low-latency path. Default 500 ms (see
+    // VideoSurface.qml). Lower = fresher live, more prone to green-frame resets
+    // under packet loss; higher = steadier, more glass-to-glass lag.
+    engine.rootContext()->setContextProperty("wtRtspLatencyMs",
+        qEnvironmentVariableIntValue("WT_RTSP_LATENCY_MS"));
     // Build identifier (short git SHA), shown on the login screen so a relaunch
     // confirms which binary is running. Set via CMake compile definition.
 #ifdef WT_GIT_SHA
