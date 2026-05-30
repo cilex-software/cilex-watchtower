@@ -4,6 +4,8 @@
 #include <QSettings>
 #include <QtQml/qqmlregistration.h>
 
+class QNetworkAccessManager;
+
 // Where exported artifacts are saved. Both directories are persisted,
 // user-configurable settings (Preferences): snapshots default to
 // <Pictures>/Watchtower, exported clips to <Movies>/Watchtower.
@@ -29,10 +31,21 @@ public:
     Q_INVOKABLE QString defaultExportDir() const;
     Q_INVOKABLE QString newExportPath(const QString &camId, const QString &ext = QStringLiteral("mp4")) const;
 
+    // Async: fetches a full-resolution still from go2rtc's frame.jpeg endpoint
+    // on the main stream (so the saved snapshot is always best-quality, not the
+    // ~720p substream the wall renders). Emits snapshotCaptured on success or
+    // snapshotCaptureFailed on error — the caller falls back to a tile grab.
+    Q_INVOKABLE void captureMainStreamSnapshot(const QString &camId,
+                                               const QString &camName,
+                                               const QString &mainRtspUrl);
+
 signals:
     void snapshotDirChanged();
     void exportDirChanged();
+    void snapshotCaptured(const QString &path, const QString &camId, const QString &camName);
+    void snapshotCaptureFailed(const QString &camId, const QString &camName, const QString &reason);
 
 private:
     QSettings m_settings;
+    QNetworkAccessManager *m_nam = nullptr;
 };

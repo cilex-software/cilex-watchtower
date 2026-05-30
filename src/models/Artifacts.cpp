@@ -2,9 +2,14 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QUrlQuery>
 
 Artifacts::Artifacts(QObject *parent)
     : QObject(parent)
@@ -87,4 +92,62 @@ QString Artifacts::newExportPath(const QString &camId, const QString &ext) const
         safeId = QStringLiteral("clip");
     const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
     return exportDir() + QStringLiteral("/%1_%2.%3").arg(safeId, stamp, ext);
+}
+
+void Artifacts::captureMainStreamSnapshot(const QString &camId, const QString &camName,
+                                          const QString &mainRtspUrl)
+{
+    // mainRtspUrl looks like: rtsp://192.168.1.79:8554/hiwatch-<mac>
+    // go2rtc's HTTP API serves a JPEG of any registered stream at:
+    //   http://<host>:1984/api/frame.jpeg?src=<stream-name>
+    // Port 1984 is the go2rtc default and matches our current deployment.
+    // TODO: a proper backend ask to expose this URL on /streams would let us
+    // drop the hard-coded port and authenticate per user.
+    const QUrl rtsp(mainRtspUrl);
+    if (rtsp.scheme() != QLatin1String("rtsp") || rtsp.host().isEmpty() || rtsp.path().size() <= 1) {
+        emit snapshotCaptureFailed(camId, camName, QStringLiteral("invalid rtsp url"));
+        return;
+    }
+    const QString streamId = rtsp.path().mid(1);   // strip leading "/"
+
+    QUrl httpUrl;
+    httpUrl.setScheme(QStringLiteral("http"));
+    httpUrl.setHost(rtsp.host());
+    httpUrl.setPort(1984);
+    httpUrl.setPath(QStringLiteral("/api/frame.jpeg"));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("src"), streamId);
+    httpUrl.setQuery(q);
+
+    if (!m_nam)
+        m_nam = new QNetworkAccessManager(this);
+
+    QNetworkRequest req(httpUrl);
+    // First main-stream pull can take 1–3s if go2rtc has no live consumer
+    // (it opens the upstream RTSP on demand). Be patient.
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, camId, camName]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit snapshotCaptureFailed(camId, camName, reply->errorString());
+            return;
+        }
+        const QByteArray data = reply->readAll();
+        if (data.size() < 1024) {   // sanity: a real keyframe JPEG is much larger
+            emit snapshotCaptureFailed(camId, camName, QStringLiteral("empty snapshot response"));
+            return;
+        }
+        // Save as .jpg (the data is JPEG, not PNG — newSnapshotPath defaults to
+        // PNG so we swap the suffix here without touching that helper).
+        QString path = newSnapshotPath(camId);
+        if (path.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive))
+            path.chop(4), path.append(QStringLiteral(".jpg"));
+        QFile f(path);
+        if (!f.open(QIODevice::WriteOnly) || f.write(data) != data.size()) {
+            emit snapshotCaptureFailed(camId, camName, QStringLiteral("file write failed"));
+            return;
+        }
+        f.close();
+        emit snapshotCaptured(path, camId, camName);
+    });
 }

@@ -78,15 +78,40 @@ Item {
     signal openedNewTab()
     signal issueRequested()
 
-    // Capture the current frame (the live surface if playing, else the tile) to a
-    // PNG and announce it. Phase 1 snapshot stub (full library = S07 later).
+    // Capture a still and announce it. Prefer the main stream via go2rtc's
+    // frame.jpeg endpoint (always full-res, regardless of which stream the
+    // wall is rendering); fall back to grabbing the rendered tile if the HTTP
+    // request fails. The HD path is async — completion arrives via the
+    // Artifacts.snapshotCaptured/snapshotCaptureFailed signals below.
     function captureSnapshot() {
+        if (root.rtspUrl !== "") {
+            Artifacts.captureMainStreamSnapshot(root.camId, root.camName, root.rtspUrl);
+        } else {
+            captureFromTile();
+        }
+    }
+
+    function captureFromTile() {
         var target = (streamPlaying && videoLoader.item) ? videoLoader.item : base;
         target.grabToImage(function(result) {
             var path = Artifacts.newSnapshotPath(root.camId);
             if (result.saveToFile(path))
                 root.snapshotSaved(path, root.camName);
         });
+    }
+
+    Connections {
+        target: Artifacts
+        function onSnapshotCaptured(path, camId, camName) {
+            if (camId === root.camId)
+                root.snapshotSaved(path, camName);
+        }
+        function onSnapshotCaptureFailed(camId, camName, reason) {
+            if (camId !== root.camId)
+                return;
+            console.warn("HD snapshot failed for", camId, "—", reason, "; falling back to tile grab");
+            root.captureFromTile();
+        }
     }
 
     Rectangle {
