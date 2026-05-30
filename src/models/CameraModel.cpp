@@ -68,15 +68,20 @@ CameraModel::CameraModel(QObject *parent)
     // Periodic /streams refresh — industry-standard VMS status cadence so the
     // recording badge + online/offline reflect reality without flooding the
     // backend. Started on authentication, stopped on logout.
+    // WT_NO_POLL=1 disables it entirely (debug aid while we chase a regression
+    // suspected of being downstream of dataChanged emissions).
     m_pollTimer = new QTimer(this);
     m_pollTimer->setInterval(15 * 1000);   // 15s
     connect(m_pollTimer, &QTimer::timeout, this, [this]() { pollStatuses(); });
+    const bool pollDisabled = qEnvironmentVariableIsSet("WT_NO_POLL");
+    if (pollDisabled)
+        qInfo() << "Watchtower: WT_NO_POLL=1 — /streams status polling disabled";
 
-    connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
+    connect(auth, &AuthController::authenticatedChanged, this, [this, auth, pollDisabled]() {
         if (auth->authenticated()) {
             fetchGroups();
             fetchCameras();
-            m_pollTimer->start();
+            if (!pollDisabled) m_pollTimer->start();
         } else {
             m_pollTimer->stop();
             beginResetModel();
@@ -90,7 +95,7 @@ CameraModel::CameraModel(QObject *parent)
     if (auth->authenticated()) {
         fetchGroups();
         fetchCameras();
-        m_pollTimer->start();
+        if (!pollDisabled) m_pollTimer->start();
     }
 }
 
