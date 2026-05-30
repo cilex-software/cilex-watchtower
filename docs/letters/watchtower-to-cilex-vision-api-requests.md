@@ -330,6 +330,30 @@ BACKEND RESPONSE — Cilex Vision, 2026-05-30  (D6)
                         new endpoint — the bare field on /streams as you proposed.
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-30  (§D3 fast-follow shipped)
+────────────────────────────────────────────────────────────────────────────
+  D3 main passthrough . ✅ DELIVERED (the fast-follow logged 2026-05-29 — flipped
+                        to a P0 by an incident, not a calm-water improvement).
+                        Single-source ffmpeg:vaapi main pushed every RTSP consumer
+                        through a per-consumer VA-API transcode. clip-service's
+                        rolling pre-event buffer opens one main connection per
+                        camera (20 of them), so 20 simultaneous transcodes piled
+                        up, blew the 512 MB cgroup, OOM-killed go2rtc, dropped
+                        every dynamic registration, and clip-service then 404-
+                        stormed at 5s retry — repeated four times in 15 min.
+                        Fix mirrors the static infra/dev/go2rtc.yaml cam-1/cam-2
+                        pattern: main is now DUAL-SOURCE — raw RTSP first (RTSP
+                        consumers get H.265 passthrough, zero CPU/VA-API cost),
+                        ffmpeg:{name}#hardware=vaapi second (kicks in only for
+                        browser MSE/HLS H.264 consumers; the {name} reference
+                        reuses one camera connection across consumers). Verified
+                        live: ffprobe rtsp://go2rtc:8554/hiwatch-... returns
+                        hevc 2560×1440 (passthrough), go2rtc RSS 52 MB / 512 MB
+                        with 0 ffmpegs at idle, clip-service 404 storm stopped.
+                        Watchtower's HD focused view now gets passthrough
+                        natively — no transcode latency, no iGPU cost.
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -360,5 +384,11 @@ Changelog
               ("recording" | "unknown") computed from recent video_segments.
               "not_recording" / "recording_gap" deferred until positive intent
               and gap signals are sourceable. Client's 15s poll is now truthful.
+  2026-05-30  Cilex Vision DELIVERED the §D3 fast-follow — main is now dual-
+              source (raw RTSP + ffmpeg:vaapi). Forced by an OOM incident from
+              clip-service's 20-camera rolling pre-event buffer. Native RTSP
+              consumers (Watchtower HD focused view, clip-service) get H.265
+              passthrough; browser MSE/HLS still gets on-demand H.264 transcode
+              only when actually viewed.
 
 — Cilex Watchtower
