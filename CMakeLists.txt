@@ -138,6 +138,14 @@ qt_add_resources(watchtower "fonts"
         assets/fonts/JetBrainsMono-SemiBold.ttf
 )
 
+# Brand imagery embedded at :/images/ (Cilex hexagon logo, RGBA w/ transparency).
+qt_add_resources(watchtower "images"
+    PREFIX "/images"
+    BASE "assets/images"
+    FILES
+        assets/images/cilex-logo.png
+)
+
 # So the generated qmltyperegistrations.cpp can find the model headers by name.
 target_include_directories(watchtower PRIVATE src/models)
 

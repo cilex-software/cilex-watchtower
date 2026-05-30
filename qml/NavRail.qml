@@ -29,22 +29,19 @@ Item {
             anchors { top: parent.top; left: parent.left; right: parent.right }
             topPadding: 12
 
-            // logo
+            // logo — Cilex hexagon brand mark
             Item {
                 width: parent.width
                 height: 48
-                Rectangle {
-                    width: 36; height: 36
+                Image {
                     anchors.centerIn: parent
-                    color: Theme.accent
-                    Text {
-                        anchors.centerIn: parent
-                        text: "W"
-                        color: Theme.bg
-                        font.family: Theme.fontMono
-                        font.weight: Font.Bold
-                        font.pixelSize: 16
-                    }
+                    width: 36; height: 36
+                    source: "qrc:/images/cilex-logo.png"
+                    fillMode: Image.PreserveAspectFit
+                    sourceSize: Qt.size(72, 72)   // crisp downscale (2x for HiDPI)
+                    smooth: true
+                    mipmap: true
+                    antialiasing: true
                 }
             }
             Item { width: 1; height: 12 }
