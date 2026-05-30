@@ -88,13 +88,8 @@ Item {
                 url: root.url
                 active: root.active
                 videoSink: videoOut.videoSink
-                // 500 ms is the stability/freshness sweet spot under 20+ simultaneous
-                // substreams. 150 ms was too tight — any transient hiccup blew past
-                // the jitter buffer and reset the decoder (green flashes). Still ¼ of
-                // QMediaPlayer's untuneable 2000 ms default. Overridable via
-                // WT_RTSP_LATENCY_MS for A/B without rebuilding.
                 latencyMs: (typeof wtRtspLatencyMs !== "undefined" && wtRtspLatencyMs > 0)
-                           ? wtRtspLatencyMs : 500
+                           ? wtRtspLatencyMs : 150
             }
         }
     }
