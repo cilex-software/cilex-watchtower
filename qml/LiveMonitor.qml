@@ -26,6 +26,7 @@ Item {
     signal saveViewRequested()
     signal snapshotSaved(string path, string camName)
     signal cameraOpened(var cam)
+    signal wallPlaybackRequested()
 
     // Layout geometry derived from the canonical id. lcells is the shared cell
     // enumeration (big tile first, then row-major) that both the toolbar/preset
@@ -307,6 +308,28 @@ Item {
                 }
 
                 Item { Layout.fillWidth: true }
+
+                // go back in time (enter synchronized wall playback)
+                Rectangle {
+                    Layout.preferredHeight: 34
+                    implicitWidth: gbtRow.implicitWidth + 24
+                    color: gbtMa.containsMouse ? Theme.panel : "transparent"
+                    border.width: 1
+                    border.color: gbtMa.containsMouse ? Theme.accent : Theme.line2
+                    Row {
+                        id: gbtRow; anchors.centerIn: parent; spacing: 7
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "clip"; size: 14; color: Theme.ink2 }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Go back in time"; color: Theme.ink2
+                            font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
+                        }
+                    }
+                    MouseArea {
+                        id: gbtMa; anchors.fill: parent; hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor; onClicked: root.wallPlaybackRequested()
+                    }
+                }
 
                 // save current view (ghost)
                 Rectangle {

@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -58,6 +59,22 @@ public:
     // state instead of fabricating coverage. See docs/letters/ for the API ask.
     Q_INVOKABLE void fetchCoverage(const QString &cameraId);
 
+    // Synchronized multi-camera review (E1). Opens a SERVER-COMPOSITED grid
+    // session over [wallStartIso, wallEndIso]; the backend returns ONE HLS VOD
+    // of the whole grid + a cell↔camera mapping + a /review-shaped composited
+    // manifest. Emits mosaicSessionReady or mosaicSessionFailed (the latter on
+    // 404 until the endpoint ships → the wall shows an honest "pending" state).
+    Q_INVOKABLE void openMosaicSession(const QStringList &cameraIds,
+                                       const QString &wallStartIso, const QString &wallEndIso,
+                                       int cols, int rows);
+    // Proxied playlist URL for the composited mosaic stream.
+    Q_INVOKABLE QString mosaicPlaylistUrl(const QString &sessionId) const;
+
+    // Coverage union for the wall calendar (E4): GET /review/coverage?camera_ids=…
+    // → a day is "covered" if ANY camera has footage. Emits coverageUnionReady;
+    // available=false on 404/error (honest "pending" calendar).
+    Q_INVOKABLE void fetchCoverageUnion(const QStringList &cameraIds);
+
 signals:
     void loggedInChanged();
     void statusChanged();
@@ -71,6 +88,11 @@ signals:
     void exportFailed(const QString &jobId, const QString &error);
     void coverageReady(const QString &cameraId, bool available, int retentionDays,
                        const QVariantList &days);
+    void mosaicSessionReady(const QString &sessionId, const QVariantMap &grid,
+                            const QVariantList &cells, double compactDuration,
+                            const QVariantList &fragments, const QVariantMap &meta);
+    void mosaicSessionFailed(const QString &error, bool pending);   // pending=true ⇒ endpoint not shipped (404)
+    void coverageUnionReady(bool available, int retentionDays, const QVariantList &unionDays);
 
 private:
     void setStatus(const QString &s);

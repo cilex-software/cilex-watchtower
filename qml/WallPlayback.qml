@@ -1,0 +1,360 @@
+import QtQuick
+import QtQuick.Layouts
+import QtMultimedia
+import Watchtower
+
+// Synchronized wall playback (E1). The whole visible wall rewinds to one instant
+// and plays back in lock-step. Because the backend composites the grid into ONE
+// HLS stream (server-side, perfectly synced), the client renders a single video
+// surface (which visually *is* the grid) + per-cell label overlays placed from
+// the backend's cells[] mapping, plus a master timeline/transport and the
+// union-coverage calendar. One decode, one timeline — no client-side sync.
+//
+// Until the backend ships POST /review/mosaic-sessions this lands on an honest
+// "compositing pending" state (never a broken player, never fabricated frames).
+Item {
+    id: root
+
+    property var cameras: []          // the wall page's camera maps (≤16), in display order
+    property var client: null         // PlaybackClient
+    property var cameraModel: null
+
+    signal returnToLive()
+
+    // session/composited-timeline state
+    property string sessionId: ""
+    property var grid: ({})           // {cols,rows,cell_w,cell_h,width,height,fps,codec}
+    property var cells: []            // [{index,camera_id,row,col}]
+    property var frags: []            // composited fragments {cs,ce,ws,we,avail}
+    property double compactDuration: 0
+    property double winStartMs: 0
+    property double winEndMs: 0
+    property int zoomMin: 60          // 15 / 60 / 360 / 720 / 1440
+    property string selectedDay: ""
+    property bool loading: false
+    property string errorText: ""     // honest pending/error message
+    property bool pending: false      // true = backend compositing not available yet
+
+    // coverage (union) for the calendar
+    property int retentionDays: 35
+    property var footageDays: []
+    property bool coveragePending: true
+
+    function pad(n) { return (n < 10 ? "0" : "") + n }
+    function fmtClock(ms) { return (!ms || isNaN(ms)) ? "—" : Settings.clock(ms, true) }
+
+    function camIds() {
+        var out = [];
+        for (var i = 0; i < cameras.length && out.length < 16; i++) {
+            var id = client ? (client.cameraIdForIp(cameras[i].ip) || client.cameraIdForMac(cameras[i].mac || "")) : "";
+            if (id !== "") out.push(id);
+        }
+        return out;
+    }
+    function gridDims(n) {
+        var cols = Math.ceil(Math.sqrt(Math.max(1, n)));
+        var rows = Math.ceil(n / cols);
+        return { cols: cols, rows: rows };
+    }
+
+    // compact player-seconds → wall ms (via composited fragments)
+    function posToWall(sec) {
+        for (var i = 0; i < frags.length; i++) {
+            var f = frags[i];
+            if (sec >= f.cs && sec <= f.ce) {
+                var frac = (f.ce > f.cs) ? (sec - f.cs) / (f.ce - f.cs) : 0;
+                return f.ws + frac * (f.we - f.ws);
+            }
+        }
+        return frags.length ? frags[0].ws : winStartMs;
+    }
+    function wallToPos(ms) {
+        for (var i = 0; i < frags.length; i++) {
+            var f = frags[i];
+            if (ms >= f.ws && ms <= f.we) {
+                var frac = (f.we > f.ws) ? (ms - f.ws) / (f.we - f.ws) : 0;
+                return f.cs + frac * (f.ce - f.cs);
+            }
+        }
+        return 0;
+    }
+    readonly property double playheadMs: posToWall(player.position / 1000)
+    function seekToWall(ms) {
+        if (player.duration <= 0) return;
+        player.position = Math.round(wallToPos(ms) * 1000);
+    }
+
+    // ---- open / transport --------------------------------------------------
+    function _windowFor(spanMin) {
+        var end = Date.now();
+        var start = end - spanMin * 60000;
+        return { s: start, e: end };
+    }
+    function openFor(spanMin) {
+        zoomMin = spanMin || zoomMin;
+        selectedDay = "";
+        var w = _windowFor(zoomMin);
+        _open(w.s, w.e);
+    }
+    function openForDay(dateStr) {
+        selectedDay = dateStr;
+        var s = new Date(dateStr + "T00:00:00").getTime();
+        _open(s, Math.min(s + 86400000, Date.now()));
+        zoomMin = 1440;
+    }
+    function _open(startMs, endMs) {
+        if (!client || cameras.length === 0) return;
+        errorText = ""; pending = false; loading = true;
+        sessionId = ""; frags = []; grid = ({}); cells = [];
+        player.stop();
+        var ids = camIds();
+        if (ids.length === 0) { loading = false; errorText = "These cameras aren't in the recording backend."; return; }
+        var d = gridDims(ids.length);
+        client.ensureReady();
+        client.fetchCoverageUnion(ids);
+        client.openMosaicSession(ids, new Date(startMs).toISOString(), new Date(endMs).toISOString(), d.cols, d.rows);
+    }
+    function setZoom(spanMin) { openFor(spanMin); }
+
+    Connections {
+        target: root.client
+        enabled: root.client !== null
+        function onMosaicSessionReady(sid, g, c, dur, fragments, meta) {
+            root.loading = false; root.pending = false; root.errorText = "";
+            root.sessionId = sid; root.grid = g; root.cells = c; root.compactDuration = dur;
+            root.winStartMs = Date.parse(meta.wall_start);
+            root.winEndMs = Date.parse(meta.wall_end);
+            var out = [];
+            for (var i = 0; i < fragments.length; i++) {
+                var f = fragments[i];
+                if (f.availability === "no_recording") continue;   // whole-grid gap → shown as gap on the bar
+                out.push({ cs: f.compact_start, ce: f.compact_end,
+                           ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end), avail: f.availability });
+            }
+            root.frags = out;
+            if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
+            player.source = root.client.mosaicPlaylistUrl(sid);
+            player.play();
+        }
+        function onMosaicSessionFailed(err, pending) {
+            root.loading = false;
+            root.pending = pending;     // 404 ⇒ endpoint not shipped yet
+            root.errorText = err;
+        }
+        function onCoverageUnionReady(available, retDays, unionDays) {
+            root.coveragePending = !available;
+            if (available && retDays > 0) root.retentionDays = retDays;
+            root.footageDays = unionDays;
+        }
+    }
+    onVisibleChanged: if (!visible) player.stop()
+
+    // ======================================================================
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        RowLayout {
+            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
+
+            // ---- grid (single composited stream) + per-cell overlays --------
+            Rectangle {
+                id: playerArea
+                Layout.fillWidth: true; Layout.fillHeight: true
+                color: "#121110"; clip: true
+
+                VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
+                MediaPlayer {
+                    id: player
+                    videoOutput: vout
+                    audioOutput: null
+                    onErrorOccurred: (e, s) => { if (e !== MediaPlayer.NoError) root.errorText = s }
+                }
+
+                // Fitted video rect (PreserveAspectFit) for placing cell overlays.
+                readonly property real gAspect: (root.grid.width && root.grid.height)
+                    ? root.grid.width / root.grid.height : (16 / 9)
+                readonly property real boxAspect: width / Math.max(1, height)
+                readonly property real fitW: gAspect > boxAspect ? width : height * gAspect
+                readonly property real fitH: gAspect > boxAspect ? width / gAspect : height
+                readonly property real fitX: (width - fitW) / 2
+                readonly property real fitY: (height - fitH) / 2
+
+                // per-cell labels (the grid pixels come from the server; we only
+                // annotate each cell with its camera name)
+                Repeater {
+                    model: (root.sessionId !== "" && root.grid.cols) ? root.cells : []
+                    delegate: Item {
+                        readonly property int cols: root.grid.cols
+                        readonly property int rows: root.grid.rows
+                        x: playerArea.fitX + (modelData.col / cols) * playerArea.fitW
+                        y: playerArea.fitY + (modelData.row / rows) * playerArea.fitH
+                        width: playerArea.fitW / cols
+                        height: playerArea.fitH / rows
+                        Rectangle {   // name chip
+                            anchors { left: parent.left; top: parent.top; margins: 4 }
+                            width: nm.implicitWidth + 10; height: 16
+                            color: "#cc16140f"; radius: 2
+                            Text {
+                                id: nm; anchors.centerIn: parent
+                                text: {
+                                    var cam = root.cameraModel ? root.cameraModel.cameraByBackendId(modelData.camera_id) : null;
+                                    return cam && cam.name ? cam.name : modelData.camera_id;
+                                }
+                                color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
+                            }
+                        }
+                    }
+                }
+
+                LoadingState {
+                    anchors.centerIn: parent
+                    visible: root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia && root.errorText === "" && !root.pending)
+                    label: root.loading ? "Opening wall session…" : "Compositing…"
+                }
+                // honest pending / error / empty state
+                Column {
+                    anchors.centerIn: parent; spacing: 8; width: parent.width * 0.7
+                    visible: root.errorText !== ""
+                    Icon { anchors.horizontalCenter: parent.horizontalCenter; name: root.pending ? "pulse" : "off"; size: 30; color: Theme.ink3 }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter; horizontalAlignment: Text.AlignHCenter
+                        width: parent.width; wrapMode: Text.WordWrap
+                        text: root.pending ? "Synchronized wall playback — backend compositing pending"
+                                           : root.errorText
+                        color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter; horizontalAlignment: Text.AlignHCenter
+                        width: parent.width; wrapMode: Text.WordWrap
+                        visible: root.pending
+                        text: "The server-composited grid stream (E1) isn't live yet. Live tiles are unaffected — use Return to live."
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                    }
+                }
+            }
+
+            // ---- aside: wall info + footage calendar ------------------------
+            Rectangle {
+                Layout.preferredWidth: 320; Layout.fillHeight: true; color: Theme.panel
+                Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 1; color: Theme.line }
+                ColumnLayout {
+                    anchors.fill: parent; anchors.leftMargin: 1; spacing: 0
+                    component Hdr: Text {
+                        Layout.fillWidth: true; Layout.topMargin: 14; Layout.leftMargin: 16; Layout.bottomMargin: 8
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                        font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
+                        Text { text: "Wall playback"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Text { text: root.cameras.length + " cameras · synchronized"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                    }
+                    Hdr { text: "Status" }
+                    RowLayout {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                        Text { text: "Playhead"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 110 }
+                        Text { text: root.frags.length ? root.fmtClock(root.playheadMs) : "—"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                        Text { text: "Window"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 110 }
+                        Text {
+                            text: root.selectedDay !== "" ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")
+                                  : (root.zoomMin === 1440 ? "24 hours" : root.zoomMin === 720 ? "12 hours"
+                                     : root.zoomMin === 360 ? "6 hours" : root.zoomMin === 60 ? "1 hour" : root.zoomMin + " min")
+                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 10 }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 1; color: Theme.line }
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 14 }
+                    PlaybackCalendar {
+                        Layout.fillWidth: true
+                        retentionDays: root.retentionDays
+                        footageDays: root.footageDays
+                        pending: root.coveragePending
+                        selectedDate: root.selectedDay
+                        onDaySelected: (d) => root.openForDay(d)
+                    }
+                    Item { Layout.fillHeight: true }
+                }
+            }
+        }
+
+        // ---- master timeline + transport ---------------------------------
+        Rectangle {
+            Layout.fillWidth: true; Layout.preferredHeight: 124; color: Theme.bg
+            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
+
+            RowLayout {
+                id: tlControls
+                anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 16; rightMargin: 16; topMargin: 12 }
+                height: 24; spacing: 8
+                component Chip: Rectangle {
+                    property string label: ""; property bool active: false; signal clicked()
+                    implicitWidth: ct.implicitWidth + 18; implicitHeight: 24
+                    color: active ? Theme.accent : "transparent"; border.width: 1; border.color: active ? Theme.accent : Theme.line2
+                    Text { id: ct; anchors.centerIn: parent; text: parent.label; color: parent.active ? Theme.bg : Theme.ink2
+                        font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8; font.capitalization: Font.AllUppercase }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+                }
+                Chip {
+                    label: player.playbackState === MediaPlayer.PlayingState ? "❚❚" : "▶"
+                    onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play()
+                }
+                Chip { label: "−10s"; onClicked: player.position = Math.max(0, player.position - 10000) }
+                Chip { label: "+10s"; onClicked: player.position = Math.min(player.duration, player.position + 10000) }
+                Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
+                Item { Layout.fillWidth: true }
+                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setZoom(15) }
+                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setZoom(60) }
+                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setZoom(360) }
+                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
+                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
+                Chip { label: "Return to live"; onClicked: root.returnToLive() }
+            }
+
+            // scrub bar — composited footage vs whole-grid gaps + playhead
+            Rectangle {
+                id: bar
+                anchors { left: parent.left; right: parent.right; top: tlControls.bottom; topMargin: 10; leftMargin: 16; rightMargin: 16 }
+                height: 60
+                color: "#16140f"; border.width: 1; border.color: Theme.line
+
+                readonly property double span: Math.max(1, root.winEndMs - root.winStartMs)
+                function xOf(ms) { return (ms - root.winStartMs) / span * width }
+                function msOf(x) { return root.winStartMs + (x / width) * span }
+
+                // footage segments (olive); gaps are the bare track
+                Repeater {
+                    model: root.frags
+                    delegate: Rectangle {
+                        x: bar.xOf(modelData.ws); width: Math.max(1, bar.xOf(modelData.we) - bar.xOf(modelData.ws))
+                        y: 0; height: parent.height
+                        color: modelData.avail === "ready" ? "#3f5a2a" : "#4a4327"   // ready vs warming
+                    }
+                }
+                // playhead
+                Rectangle {
+                    visible: root.frags.length > 0
+                    width: 2; height: parent.height; color: "#fff"
+                    x: bar.xOf(root.playheadMs)
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: root.frags.length > 0
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: (m) => root.seekToWall(bar.msOf(m.x))
+                }
+                Text {
+                    anchors { left: parent.left; bottom: parent.bottom; margins: 6 }
+                    text: root.frags.length ? "FOOTAGE" : ""
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1
+                }
+            }
+        }
+    }
+}

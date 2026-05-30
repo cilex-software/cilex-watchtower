@@ -23,6 +23,15 @@ Window {
     property bool fullscreen: false
     property var focusedCamera: null    // shows Single Camera Detail when non-null
     property var playbackCamera: null   // shows Playback (S06) when non-null
+    property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
+
+    // Enter synchronized wall playback for the cameras currently on the wall page.
+    function enterWallPlayback() {
+        var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
+        wallPlayback.cameras = cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per);
+        wallMode = "playback";
+        wallPlayback.openFor(60);
+    }
 
     function setLayout(n) { gridLayout = n; gridPage = 1 }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
@@ -70,6 +79,9 @@ Window {
                 }
         }
     }
+    // Leaving the Live section drops wall-playback back to live (and stops its player via visibility).
+    onSectionChanged: if (section !== "live") wallMode = "live"
+
     Component.onCompleted: {
         cameraModel.setCameraScope(AuthController.cameraScope);
         if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding();
@@ -173,7 +185,7 @@ Window {
                     id: liveMonitor
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "live" && win.focusedCamera === null
+                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "live"
                     cameraModel: cameraModel
                     layout: win.gridLayout
                     page: win.gridPage
@@ -192,6 +204,17 @@ Window {
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
                     onCameraOpened: (cam) => win.focusedCamera = cam
+                    onWallPlaybackRequested: win.enterWallPlayback()
+                }
+
+                WallPlayback {
+                    id: wallPlayback
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "playback"
+                    client: playbackClient
+                    cameraModel: cameraModel
+                    onReturnToLive: win.wallMode = "live"
                 }
 
                 CameraGroups {
@@ -314,7 +337,7 @@ Window {
 
                 OpsSidebar {
                     Layout.fillHeight: true
-                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null
+                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live"
                     cameraModel: cameraModel
                     eventModel: eventModel
                 }

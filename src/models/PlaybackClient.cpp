@@ -203,11 +203,119 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     });
 }
 
+void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QString &wallStartIso,
+                                       const QString &wallEndIso, int cols, int rows)
+{
+    if (cameraIds.isEmpty()) {
+        emit mosaicSessionFailed(QStringLiteral("No cameras selected for the wall."), false);
+        return;
+    }
+    if (!m_loggedIn) {
+        if (!AuthController::instance()->authenticated()) {
+            emit mosaicSessionFailed(QStringLiteral("Not signed in to the recording backend."), false);
+            return;
+        }
+        ensureReady();
+        connect(this, &PlaybackClient::camerasResolved, this,
+                [this, cameraIds, wallStartIso, wallEndIso, cols, rows]() {
+                    openMosaicSession(cameraIds, wallStartIso, wallEndIso, cols, rows);
+                }, Qt::SingleShotConnection);
+        return;
+    }
+    setStatus(QStringLiteral("Opening wall session…"));
+    QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions")};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonArray ids;
+    for (const QString &id : cameraIds) ids.append(id);
+    QJsonObject body{{"camera_ids", ids}, {"wall_start", wallStartIso}, {"wall_end", wallEndIso}};
+    if (cols > 0 && rows > 0)
+        body.insert("layout", QJsonObject{{"cols", cols}, {"rows", rows}});
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray raw = reply->readAll();
+        setStatus(QString());
+        if (code != 200) {
+            // 404 = the mosaic endpoint isn't deployed yet → honest "pending"
+            // (not an error). Any other code is a real failure to surface.
+            const bool pending = (code == 404);
+            QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
+            emit mosaicSessionFailed(
+                pending ? QStringLiteral("backend compositing pending")
+                        : (detail.isEmpty() ? QStringLiteral("Wall session error (%1).").arg(code) : detail),
+                pending);
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(raw).object();
+        const QString sid = obj.value("session_id").toString();
+        const auto grid = obj.value("grid").toObject().toVariantMap();
+        QVariantList cells;
+        for (const auto &cv : obj.value("cells").toArray())
+            cells.append(cv.toObject().toVariantMap());
+        const auto man = obj.value("manifest").toObject();
+        QVariantList frags;
+        double compactDuration = 0.0;
+        for (const auto &fv : man.value("fragments").toArray()) {
+            const auto fo = fv.toObject();
+            frags.append(fo.toVariantMap());
+            if (fo.value("availability").toString() == "ready")
+                compactDuration = qMax(compactDuration, fo.value("compact_end").toDouble());
+        }
+        QVariantMap meta;
+        meta["wall_start"] = man.value("wall_start").toString();
+        meta["wall_end"] = man.value("wall_end").toString();
+        meta["clipped_to_finalized"] = man.value("clipped_to_finalized").toBool();
+        meta["live_gap_s"] = man.value("live_gap_s").toDouble();
+        emit mosaicSessionReady(sid, grid, cells, compactDuration, frags, meta);
+    });
+}
+
+void PlaybackClient::fetchCoverageUnion(const QStringList &cameraIds)
+{
+    if (cameraIds.isEmpty())
+        return;
+    if (!m_loggedIn) {
+        if (!AuthController::instance()->authenticated()) {
+            emit coverageUnionReady(false, 0, {});
+            return;
+        }
+        ensureReady();
+        connect(this, &PlaybackClient::camerasResolved, this,
+                [this, cameraIds]() { fetchCoverageUnion(cameraIds); }, Qt::SingleShotConnection);
+        return;
+    }
+    QUrl url(m_baseUrl + "/review/coverage");
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("camera_ids"), cameraIds.join(','));
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200) {
+            emit coverageUnionReady(false, 0, {});   // endpoint not shipped → honest pending
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const int retentionDays = obj.value("retention_days").toInt();
+        QVariantList unionDays;
+        for (const auto &dv : obj.value("union").toArray())
+            unionDays.append(dv.toString());
+        emit coverageUnionReady(true, retentionDays, unionDays);
+    });
+}
+
 void PlaybackClient::flushPendingSessions() { /* queued via SingleShotConnection */ }
 
 QString PlaybackClient::playlistUrl(const QString &sessionId) const
 {
     return m_proxy->localBase() + "/review/sessions/" + sessionId + "/playlist.m3u8";
+}
+
+QString PlaybackClient::mosaicPlaylistUrl(const QString &sessionId) const
+{
+    return m_proxy->localBase() + "/review/mosaic-sessions/" + sessionId + "/playlist.m3u8";
 }
 
 void PlaybackClient::createExport(const QString &cameraId, const QString &wallStartIso,
