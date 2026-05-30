@@ -51,6 +51,13 @@ public:
                                   const QString &destPath);
     Q_INVOKABLE void pollExport(const QString &jobId);
 
+    // Footage calendar: which days have recorded footage within the retention
+    // window. Calls GET /review/coverage?camera_id=… and emits coverageReady.
+    // `available` is false (with empty days) when the backend hasn't shipped the
+    // endpoint yet (404) or on error, so the calendar shows an honest "pending"
+    // state instead of fabricating coverage. See docs/letters/ for the API ask.
+    Q_INVOKABLE void fetchCoverage(const QString &cameraId);
+
 signals:
     void loggedInChanged();
     void statusChanged();
@@ -62,6 +69,8 @@ signals:
     void exportProgress(const QString &jobId, const QString &state);
     void exportSaved(const QString &jobId, const QString &localPath);
     void exportFailed(const QString &jobId, const QString &error);
+    void coverageReady(const QString &cameraId, bool available, int retentionDays,
+                       const QVariantList &days);
 
 private:
     void setStatus(const QString &s);

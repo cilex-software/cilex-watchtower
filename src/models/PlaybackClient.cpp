@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QTimer>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QFile>
 
 PlaybackClient::PlaybackClient(QObject *parent)
@@ -164,6 +165,41 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
         meta["events"] = man.value("events").toArray().toVariantList();
         setStatus(QString());
         emit sessionReady(sid, compactDuration, frags, meta);
+    });
+}
+
+void PlaybackClient::fetchCoverage(const QString &cameraId)
+{
+    if (cameraId.isEmpty())
+        return;
+    if (!m_loggedIn) {
+        if (!AuthController::instance()->authenticated())
+            return;
+        ensureReady();
+        connect(this, &PlaybackClient::camerasResolved, this,
+                [this, cameraId]() { fetchCoverage(cameraId); },
+                Qt::SingleShotConnection);
+        return;
+    }
+    QUrl url(m_baseUrl + "/review/coverage");
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("camera_id"), cameraId);
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200) {
+            // Endpoint not shipped yet (404) or error: honest pending state.
+            emit coverageReady(cameraId, false, 0, {});
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const int retentionDays = obj.value("retention_days").toInt();
+        QVariantList days;
+        for (const auto &dv : obj.value("days").toArray())
+            days.append(dv.toObject().toVariantMap());
+        emit coverageReady(cameraId, true, retentionDays, days);
     });
 }
 

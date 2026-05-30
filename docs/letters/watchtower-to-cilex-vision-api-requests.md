@@ -71,6 +71,9 @@ Open asks, by priority (across domains)
   CONFIRM D4  Playback HLS served from pre-segmented storage (no per-request transcode)
   HIGH    D5  /streams conn-config scoped per-user; admin-only direct_rtsp_url+creds
   HIGH    D6  /streams: per-camera recording state (so "REC ?" stops being universal)
+  MED-HI  A7  GET /review/coverage: per-camera days-with-footage + retention_days
+              (drives the new playback footage calendar; see dated letter
+              2026-05-30-footage-coverage-calendar-api.md for the full spec)
 
 ════════════════════════════════════════════════════════════════════════════
 A. Export & Clips  (/review/exports)
@@ -384,6 +387,12 @@ Changelog
               ("recording" | "unknown") computed from recent video_segments.
               "not_recording" / "recording_gap" deferred until positive intent
               and gap signals are sourceable. Client's 15s poll is now truthful.
+  2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
+              retention_days) to drive the new playback footage calendar.
+              /recording/segments can't enumerate the window (limit≤1000, no
+              paging) and retention_days is admin-only — hence a new
+              operator-readable summary endpoint. Client UI shipped + waiting;
+              full spec in 2026-05-30-footage-coverage-calendar-api.md.
   2026-05-30  Cilex Vision DELIVERED the §D3 fast-follow — main is now dual-
               source (raw RTSP + ffmpeg:vaapi). Forced by an OOM incident from
               clip-service's 20-camera rolling pre-event buffer. Native RTSP

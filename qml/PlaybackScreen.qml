@@ -82,9 +82,38 @@ Item {
 
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
+    // When >= 0, tryOpen() uses this explicit wall window (a calendar day)
+    // instead of the rolling "last zoomMin minutes" window.
+    property double _explicitStart: -1
+    property double _explicitEnd: -1
+    property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
+
+    // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
+    property int retentionDays: 35         // longest tier retention = calendar span
+    property var footageDays: []           // dates with recorded footage
+    property bool coveragePending: true    // coverage API not yet answered/available
+
     function openFor(cam, spanMin) {
         camera = cam;
         zoomMin = spanMin || zoomMin;
+        _explicitStart = -1; _explicitEnd = -1; selectedDay = "";
+        coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
+        errorText = ""; selStartMs = -1; selEndMs = -1;
+        if (!client) return;
+        client.ensureReady();
+        if (root.camId !== "") client.fetchCoverage(root.camId);
+        _pendingOpen = true;
+        tryOpen();
+    }
+    // Load a single calendar day's full 24h (gaps included), clamped to now.
+    function openForDay(dateStr) {
+        if (!camera) return;
+        var startD = new Date(dateStr + "T00:00:00");   // local midnight
+        var s = startD.getTime();
+        _explicitStart = s;
+        _explicitEnd = Math.min(s + 86400000, Date.now());
+        selectedDay = dateStr;
+        zoomMin = 1440;
         errorText = ""; selStartMs = -1; selEndMs = -1;
         if (!client) return;
         client.ensureReady();
@@ -103,12 +132,13 @@ Item {
         _pendingOpen = false;
         loading = true;
         player.stop();
-        var end = Date.now();
-        var start = end - zoomMin * 60000;
+        var start, end;
+        if (_explicitStart >= 0) { start = _explicitStart; end = _explicitEnd; }
+        else { end = Date.now(); start = end - zoomMin * 60000; }
         client.openSession(id, new Date(start).toISOString(),
                            new Date(end).toISOString(), true);
     }
-    function setZoom(spanMin) { selStartMs = -1; selEndMs = -1; openFor(camera, spanMin); }
+    function setZoom(spanMin) { openFor(camera, spanMin); }
 
     Connections {
         target: root.client
@@ -134,7 +164,21 @@ Item {
             player.play();
         }
         function onSessionFailed(err) { root.loading = false; root.errorText = err; }
-        function onCamerasResolved() { root.tryOpen(); }
+        function onCamerasResolved() {
+            root.tryOpen();
+            if (root.camId !== "") root.client.fetchCoverage(root.camId);
+        }
+        function onCoverageReady(cameraId, available, retentionDays, days) {
+            if (cameraId !== root.camId) return;
+            root.coveragePending = !available;
+            if (available && retentionDays > 0) root.retentionDays = retentionDays;
+            var out = [];
+            for (var i = 0; i < days.length; i++) {
+                var d = days[i];
+                if (d.has_footage === undefined || d.has_footage) out.push(d.date);
+            }
+            root.footageDays = out;
+        }
     }
 
     // pause streams when hidden; tidy player on hide
@@ -316,7 +360,25 @@ Item {
                     KV { k: "Playhead"; v: root.frags.length ? root.fmtClock(root.playheadMs) : "—" }
                     KV { k: "Quality"; v: { var f = root.fragAt(player.position/1000); return f ? (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)") : "—" } }
                     KV { k: "Coverage"; v: root.frags.length + " segments" }
-                    KV { k: "Window"; v: root.zoomMin === 1440 ? "24 hours" : (root.zoomMin === 60 ? "1 hour" : root.zoomMin + " min") }
+                    KV { k: "Window"; v: root.selectedDay !== ""
+                            ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")
+                            : (root.zoomMin === 1440 ? "24 hours" : root.zoomMin === 720 ? "12 hours"
+                               : root.zoomMin === 360 ? "6 hours" : root.zoomMin === 60 ? "1 hour"
+                               : root.zoomMin + " min") }
+
+                    // footage calendar — pick a day to load its full 24h
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 10 }
+                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 1; color: Theme.line }
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 14 }
+                    PlaybackCalendar {
+                        Layout.fillWidth: true
+                        retentionDays: root.retentionDays
+                        footageDays: root.footageDays
+                        pending: root.coveragePending
+                        selectedDate: root.selectedDay
+                        onDaySelected: (d) => root.openForDay(d)
+                    }
+
                     Hdr { text: "Recent events" }
                     Text { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
                         text: "No events in this range."; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
@@ -354,9 +416,11 @@ Item {
                 Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
-                Chip { label: "15m"; active: root.zoomMin === 15; onClicked: root.setZoom(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60; onClicked: root.setZoom(60) }
-                Chip { label: "24h"; active: root.zoomMin === 1440; onClicked: root.setZoom(1440) }
+                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setZoom(15) }
+                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setZoom(60) }
+                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setZoom(360) }
+                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
+                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
             }
 
             // bar
