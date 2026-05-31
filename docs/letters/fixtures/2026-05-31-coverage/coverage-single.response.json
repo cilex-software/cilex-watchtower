@@ -1,0 +1,43 @@
+{
+  "camera_id": "hiwatch-aa11bb22cc33",
+  "tz": "Europe/Moscow",
+  "retention_days": 35,
+  "generated_at": "2026-05-31T17:17:50.377541+00:00",
+  "days": [
+    {
+      "date": "2026-05-28",
+      "has_footage": true,
+      "seconds": 81200.0,
+      "coverage_ratio": 0.9398,
+      "tiers": [
+        "hot",
+        "warm"
+      ],
+      "first": "2026-05-28T00:02:10+03:00",
+      "last": "2026-05-28T23:58:40+03:00"
+    },
+    {
+      "date": "2026-05-30",
+      "has_footage": true,
+      "seconds": 60000.0,
+      "coverage_ratio": 0.6944,
+      "tiers": [
+        "warm"
+      ],
+      "first": "2026-05-30T06:15:00+03:00",
+      "last": "2026-05-30T22:40:00+03:00"
+    },
+    {
+      "date": "2026-05-31",
+      "has_footage": true,
+      "seconds": 12500.0,
+      "coverage_ratio": 0.1447,
+      "tiers": [
+        "hot",
+        "warm"
+      ],
+      "first": "2026-05-31T08:00:00+03:00",
+      "last": "2026-05-31T11:20:00+03:00"
+    }
+  ]
+}

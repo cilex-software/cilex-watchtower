@@ -43,6 +43,7 @@ Decisions baked in, all from your spec:
 - **The "nice later" fields are already in** — `seconds`, `coverage_ratio` (de-double-counted: `max(sub, main)` per day, never summed), `tiers`, `first`/`last` — so your coverage-heatmap shading works the day you wire it, no second trip.
 - `days` is **dense** (ordered footage days with `has_footage`); `union` drives your wall day-dots; `per_camera` carries the dense per-camera days for a future multi-cam heatmap (you can keep ignoring it).
 - *Code:* `services/query-api/routers/coverage.py`; one `GROUP BY date(...)` per camera, on the `(camera_id, start_time)` index, computed at request time (not frozen).
+- **Offline fixtures committed** — so you can parse-verify now, before it deploys: `docs/letters/fixtures/2026-05-31-coverage/` → `coverage-single.response.json` (A7) + `coverage-batch-union.response.json` (E4), generated from the **real** `get_coverage` endpoint. Notes: `days` is **sparse** (only footage days appear; `has_footage` always `true`; absent days = no footage). The extra fields (`seconds`/`coverage_ratio`/`tiers`/`first`/`last`, and `per_camera`) are additive — ignore what you don't read. And **send `?tz=<operator IANA tz>`** (pilot = `Europe/Moscow`) or buckets default to UTC.
 
 ### B2 — mosaic prewarm, N = 2, anchored at the first READY fragment
 

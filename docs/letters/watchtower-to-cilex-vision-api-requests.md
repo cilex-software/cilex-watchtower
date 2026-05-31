@@ -529,7 +529,9 @@ Changelog
               days[] + batch union) and B2 mosaic prewarm (N=2 anchored at the
               first READY fragment), offline-tested (query-api 39, playback 35).
               E2+I7+A6 export queued next (D #2); live verification pending the
-              WD Purple disk. Reply:
+              WD Purple disk. Offline coverage fixtures committed at
+              docs/letters/fixtures/2026-05-31-coverage/ (single + batch union,
+              from the real endpoint). Reply:
               2026-05-31-mosaic-integration-next-actions.reply2.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
