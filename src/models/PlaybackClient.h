@@ -52,6 +52,13 @@ public:
                                   const QString &destPath);
     Q_INVOKABLE void pollExport(const QString &jobId);
 
+    // Combined synchronized-grid export (E2): render a window of a mosaic session
+    // to one file. Reuses the export_jobs poll/download flow. 404 until E2 ships →
+    // an honest exportFailed("…pending…"); per-camera /review/exports work today.
+    Q_INVOKABLE void createMosaicExport(const QString &sessionId, const QString &wallStartIso,
+                                        const QString &wallEndIso, const QString &mode,
+                                        const QString &destPath);
+
     // Footage calendar: which days have recorded footage within the retention
     // window. Calls GET /review/coverage?camera_id=… and emits coverageReady.
     // `available` is false (with empty days) when the backend hasn't shipped the

@@ -35,6 +35,15 @@ Item {
     property string errorText: ""     // honest pending/error message
     property bool pending: false      // true = backend compositing not available yet
 
+    // In/Out clip selection on the master timeline (wall ms; -1 = none)
+    property double selStartMs: -1
+    property double selEndMs: -1
+    readonly property bool hasSelection: selStartMs >= 0 && selEndMs > selStartMs
+    // timeline view window (a zoomable subset of [winStartMs, winEndMs])
+    property double viewStartMs: 0
+    property double viewEndMs: 0
+    function resetView() { viewStartMs = winStartMs; viewEndMs = winEndMs; selStartMs = -1; selEndMs = -1; }
+
     // coverage (union) for the calendar
     property int retentionDays: 35
     property var footageDays: []
@@ -116,6 +125,20 @@ Item {
     }
     function setZoom(spanMin) { openFor(spanMin); }
 
+    // Export the In→Out moment across the wall (dual-archive): a per-camera clip
+    // for each tile (live today) + one combined synchronized-grid clip (E2 —
+    // honest failure until the backend ships the mosaic export). Feedback rides
+    // the existing playbackClient export toasts in Main.
+    function exportSelection() {
+        if (!hasSelection || !client) return;
+        var s = new Date(selStartMs).toISOString(), e = new Date(selEndMs).toISOString();
+        var ids = camIds();
+        for (var i = 0; i < ids.length; i++)
+            client.createExport(ids[i], s, e, "wallclock", Artifacts.newExportPath(ids[i]));
+        if (sessionId !== "")
+            client.createMosaicExport(sessionId, s, e, "wallclock", Artifacts.newExportPath("wall"));
+    }
+
     Connections {
         target: root.client
         enabled: root.client !== null
@@ -124,6 +147,7 @@ Item {
             root.sessionId = sid; root.grid = g; root.cells = c; root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
+            root.resetView();
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
@@ -147,7 +171,22 @@ Item {
             root.footageDays = unionDays;
         }
     }
-    onVisibleChanged: if (!visible) player.stop()
+    focus: true
+    onVisibleChanged: { if (visible) forceActiveFocus(); else player.stop(); }
+    // keyboard transport: space = play/pause, ←/→ = ∓10s (Shift = ∓60s)
+    Keys.onPressed: (e) => {
+        if (player.duration <= 0) return;
+        if (e.key === Qt.Key_Space) {
+            player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play();
+            e.accepted = true;
+        } else if (e.key === Qt.Key_Left) {
+            player.position = Math.max(0, player.position - ((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000));
+            e.accepted = true;
+        } else if (e.key === Qt.Key_Right) {
+            player.position = Math.min(player.duration, player.position + ((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000));
+            e.accepted = true;
+        }
+    }
 
     // ======================================================================
     ColumnLayout {
@@ -314,6 +353,7 @@ Item {
                 Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
                 Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
+                Chip { visible: root.hasSelection; label: "Export selection"; active: true; onClicked: root.exportSelection() }
                 Chip { label: "Return to live"; onClicked: root.returnToLive() }
             }
 
@@ -324,9 +364,12 @@ Item {
                 height: 60
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
-                readonly property double span: Math.max(1, root.winEndMs - root.winStartMs)
-                function xOf(ms) { return (ms - root.winStartMs) / span * width }
-                function msOf(x) { return root.winStartMs + (x / width) * span }
+                // span/x↔ms use the (zoomable) VIEW window, not the full session window
+                readonly property double span: Math.max(1, root.viewEndMs - root.viewStartMs)
+                function xOf(ms) { return (ms - root.viewStartMs) / span * width }
+                function msOf(x) { return root.viewStartMs + (x / width) * span }
+                property double pressMs: -1
+                property double hoverMs: -1
 
                 // footage segments (olive); gaps are the bare track
                 Repeater {
@@ -337,21 +380,69 @@ Item {
                         color: modelData.avail === "ready" ? "#3f5a2a" : "#4a4327"   // ready vs warming
                     }
                 }
+                // In/Out selection
+                Rectangle {
+                    visible: root.hasSelection
+                    x: bar.xOf(root.selStartMs); width: Math.max(1, bar.xOf(root.selEndMs) - bar.xOf(root.selStartMs))
+                    y: 0; height: parent.height
+                    color: Theme.accentSoft; border.width: 1; border.color: Theme.accent
+                }
                 // playhead
                 Rectangle {
                     visible: root.frags.length > 0
                     width: 2; height: parent.height; color: "#fff"
                     x: bar.xOf(root.playheadMs)
                 }
+                // hover scrub guide
+                Rectangle {
+                    visible: bar.hoverMs >= 0 && root.frags.length > 0
+                    width: 1; height: parent.height; color: Theme.ink3
+                    x: bar.xOf(bar.hoverMs)
+                }
+
                 MouseArea {
                     anchors.fill: parent
                     enabled: root.frags.length > 0
+                    hoverEnabled: true
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: (m) => root.seekToWall(bar.msOf(m.x))
+                    onPositionChanged: (m) => {
+                        bar.hoverMs = bar.msOf(m.x);
+                        if (pressed && bar.pressMs >= 0) {     // dragging → tentative selection
+                            var a = Math.min(bar.pressMs, bar.hoverMs), b = Math.max(bar.pressMs, bar.hoverMs);
+                            root.selStartMs = a; root.selEndMs = b;
+                        }
+                    }
+                    onExited: bar.hoverMs = -1
+                    onPressed: (m) => { bar.pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1; }
+                    onReleased: (m) => {
+                        var cur = bar.msOf(m.x);
+                        // small movement = a click (seek); a real drag = clip selection
+                        if (Math.abs(cur - bar.pressMs) < bar.span / bar.width * 4) {
+                            root.selStartMs = -1; root.selEndMs = -1;
+                            root.seekToWall(cur);
+                        }
+                        bar.pressMs = -1;
+                    }
+                    // mouse-wheel zoom (days→seconds) within the session window, around the cursor
+                    onWheel: (w) => {
+                        var atMs = bar.msOf(w.x);
+                        var factor = w.angleDelta.y > 0 ? 0.8 : 1.25;   // up = zoom in
+                        var newSpan = Math.max(5000, Math.min(root.winEndMs - root.winStartMs, bar.span * factor));
+                        var leftFrac = (atMs - root.viewStartMs) / bar.span;
+                        var ns = atMs - leftFrac * newSpan;
+                        var ne = ns + newSpan;
+                        if (ns < root.winStartMs) { ns = root.winStartMs; ne = ns + newSpan; }
+                        if (ne > root.winEndMs) { ne = root.winEndMs; ns = ne - newSpan; }
+                        root.viewStartMs = Math.max(root.winStartMs, ns);
+                        root.viewEndMs = Math.min(root.winEndMs, ne);
+                    }
                 }
                 Text {
                     anchors { left: parent.left; bottom: parent.bottom; margins: 6 }
-                    text: root.frags.length ? "FOOTAGE" : ""
+                    text: root.frags.length ? (root.hasSelection
+                            ? ("IN " + root.fmtClock(root.selStartMs) + "  →  OUT " + root.fmtClock(root.selEndMs))
+                            : "FOOTAGE · scroll to zoom · drag to select")
+                          : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1
                 }
             }

@@ -341,6 +341,32 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
     });
 }
 
+void PlaybackClient::createMosaicExport(const QString &sessionId, const QString &wallStartIso,
+                                        const QString &wallEndIso, const QString &mode,
+                                        const QString &destPath)
+{
+    QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions/" + sessionId + "/exports")};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject body{{"wall_start", wallStartIso}, {"wall_end", wallEndIso}, {"mode", mode}};
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200) {
+            emit exportFailed(QString(), code == 404
+                ? QStringLiteral("Combined-grid export isn't available yet (backend E2 pending).")
+                : QStringLiteral("Combined-grid export rejected (%1).").arg(code));
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString jobId = obj.value("job_id").toString();
+        if (jobId.isEmpty()) { emit exportFailed(QString(), "Combined-grid export rejected."); return; }
+        m_exportDest.insert(jobId, destPath);
+        emit exportStarted(jobId);
+        QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
+    });
+}
+
 void PlaybackClient::pollExport(const QString &jobId)
 {
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/review/exports/" + jobId)});
