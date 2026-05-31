@@ -155,7 +155,7 @@ Item {
                 if (f.availability !== "ready") continue;
                 out.push({ cs: f.compact_start, ce: f.compact_end,
                            ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
-                           codec: f.codec, tier: f.tier });
+                           codec: f.codec, tier: f.tier, resolution: f.resolution });
             }
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
@@ -358,7 +358,13 @@ Item {
                     }
                     Hdr { text: "Status" }
                     KV { k: "Playhead"; v: root.frags.length ? root.fmtClock(root.playheadMs) : "—" }
-                    KV { k: "Quality"; v: { var f = root.fragAt(player.position/1000); return f ? (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)") : "—" } }
+                    KV { k: "Quality"; v: { var f = root.fragAt(player.position/1000);
+                            if (!f) return "—";
+                            var c = f.codec === "hevc" ? "HEVC" : "H.264";
+                            // E5: read the real resolution field; fall back to codec inference
+                            // only for old rows where resolution is null.
+                            return (f.resolution && f.resolution !== "") ? (f.resolution + " (" + c + ")")
+                                   : (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)"); } }
                     KV { k: "Coverage"; v: root.frags.length + " segments" }
                     KV { k: "Window"; v: root.selectedDay !== ""
                             ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")

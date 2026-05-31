@@ -492,6 +492,15 @@ Changelog
               and rank the pending build order (E2+I7+A6 vs A7+E4). Action letter:
               2026-05-31-mosaic-integration-next-actions.md (awaiting Watchtower
               reply + the post-disk live verification).
+  2026-05-31  Watchtower ACTIONED it. Fixtures A1/A2/A3 all PASS offline (parse →
+              zero field mismatches; proxy → gap-strip + #EXT-X-DISCONTINUITY kept
+              + seg/3 index-skip OK; decode → single h264 960x540 stream, 2x2
+              row-major crop-to-fill, overlays align). Decisions: B1 honor
+              Retry-After + 12 retries (~12s budget, hard max ~24s) — IMPLEMENTED
+              in HlsProxy; B2 prewarm N=2 anchored at the first READY fragment.
+              C1-C4 confirmed (C3 resolution-read IMPLEMENTED in PlaybackScreen).
+              Build order: A7+E4 coverage FIRST, then E2+I7+A6 export. Reply:
+              2026-05-31-mosaic-integration-next-actions.reply.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no

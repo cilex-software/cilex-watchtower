@@ -79,8 +79,18 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         QTcpSocket *sock = guardedSock;
         const int code = reply->attribute(
             QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code == 503 && attempt < 8) {            // cold fragment still remuxing
-            QTimer::singleShot(400, this, [this, guardedSock, path, attempt]() {
+        if (code == 503 && attempt < 12) {           // cold fragment remux / cold mosaic render
+            // Honor the server's Retry-After (seconds). The mosaic cold path sends
+            // 503 + Retry-After: 1 + X-Cilex-Mosaic-State: rendering while it
+            // composites, then 200 on retry; a cold 16-cell render can exceed the
+            // old fixed 3.2s. Default 400ms (single-camera remux is sub-second);
+            // clamp so one header can't stall us. 12 retries ⇒ ~12s budget at
+            // Retry-After:1 (hard max ~24s); see docs/letters mosaic integration.
+            int delayMs = 400;
+            bool ok = false;
+            const int ra = reply->rawHeader("Retry-After").toInt(&ok);
+            if (ok && ra > 0) delayMs = qBound(400, ra * 1000, 2000);
+            QTimer::singleShot(delayMs, this, [this, guardedSock, path, attempt]() {
                 if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
                     forward(guardedSock, path, attempt + 1);
             });
