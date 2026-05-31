@@ -435,6 +435,30 @@ BACKEND RESPONSE — Cilex Vision, 2026-05-31  (E1 integration alignment + fixtu
                         Full reply: 2026-05-31-mosaic-integration-alignment.reply.md.
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-31  (A7+E4 coverage + B2 prewarm built)
+────────────────────────────────────────────────────────────────────────────
+  A7 coverage ......... ✅ BUILT (pending live-verify) — GET /review/coverage?
+                        camera_id= → {camera_id, tz, retention_days, generated_at,
+                        days:[{date, has_footage, seconds, coverage_ratio, tiers,
+                        first, last}]}. Operator-readable + per-user scoped (D5),
+                        tz day-bucketing (default UTC, echoed), retention_days from
+                        storage_tier_config (sub-stream span). The "nice later"
+                        fields are already included.
+  E4 union ............ ✅ BUILT — ?camera_ids=X,Y → {tz, retention_days,
+                        generated_at, per_camera, union}; union = sorted distinct
+                        days ANY camera has footage (drives the wall calendar).
+  B2 prewarm .......... ✅ BUILT — POST /review/mosaic-sessions fires a fire-and-
+                        forget warm of the first N=2 READY (non-gap) fragments,
+                        anchored at the first ready (not window start, so day-views
+                        on a leading gap still warm); lazy thereafter.
+  B1 retry budget ..... NOTED — you honor Retry-After (~12s); we keep cold renders
+                        well under it. X-Cilex-Mosaic-State unchanged.
+  Tests ............... query-api 39, playback 35 green; offline only. Live verify
+                        (coverage query + prewarm + iGPU encode) waits on the WD
+                        Purple disk. E2+I7+A6 export queued next (your D #2). Reply:
+                        2026-05-31-mosaic-integration-next-actions.reply2.md.
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -501,6 +525,12 @@ Changelog
               C1-C4 confirmed (C3 resolution-read IMPLEMENTED in PlaybackScreen).
               Build order: A7+E4 coverage FIRST, then E2+I7+A6 export. Reply:
               2026-05-31-mosaic-integration-next-actions.reply.md.
+  2026-05-31  Cilex Vision BUILT A7+E4 coverage (GET /review/coverage — single
+              days[] + batch union) and B2 mosaic prewarm (N=2 anchored at the
+              first READY fragment), offline-tested (query-api 39, playback 35).
+              E2+I7+A6 export queued next (D #2); live verification pending the
+              WD Purple disk. Reply:
+              2026-05-31-mosaic-integration-next-actions.reply2.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no
