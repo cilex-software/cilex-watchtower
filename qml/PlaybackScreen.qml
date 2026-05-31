@@ -243,8 +243,6 @@ Item {
                         }
                         Text { text: root.camera ? root.camera.name : ""; color: "#fff"
                             font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
-                        Text { text: root.camera ? root.camera.ip : ""; color: Qt.rgba(1,1,1,0.55)
-                            font.family: Theme.fontMono; font.pixelSize: 11 }
                         Item { Layout.fillWidth: true }
                         Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd") + " · " + root.fmtClock(root.playheadMs)
                             color: Qt.rgba(1,1,1,0.8); font.family: Theme.fontMono; font.pixelSize: 12; visible: root.frags.length > 0 }
@@ -350,7 +348,7 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
                         Text { text: root.camera ? root.camera.name : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Text { text: root.camera ? (root.camera.groupName + "  ·  " + root.camera.ip) : ""; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                        Text { text: root.camera ? root.camera.groupName : ""; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                         Row { spacing: 4; topPadding: 4
                             LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
                             RecordingStatusBadge { state: root.camera ? root.camera.recording : CameraStatus.RecUnknown }

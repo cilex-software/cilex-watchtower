@@ -89,7 +89,7 @@ Item {
                     ColumnLayout {
                         spacing: 0
                         Text { text: root.camName; color: "#ffffff"; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
-                        Text { text: root.camera ? (root.camera.groupName + "  ·  " + root.camera.ip) : ""; color: Qt.rgba(1, 1, 1, 0.6); font.family: Theme.fontMono; font.pixelSize: 11 }
+                        Text { text: root.camera ? root.camera.groupName : ""; color: Qt.rgba(1, 1, 1, 0.6); font.family: Theme.fontSans; font.pixelSize: 11 }
                     }
                     Item { Layout.fillWidth: true }
                     Row {
