@@ -113,6 +113,7 @@ Item {
     }
     function _open(startMs, endMs) {
         if (!client || cameras.length === 0) return;
+        renderGuard.stop();
         errorText = ""; pending = false; loading = true;
         sessionId = ""; frags = []; grid = ({}); cells = [];
         player.stop();
@@ -159,6 +160,7 @@ Item {
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             player.source = root.client.mosaicPlaylistUrl(sid);
             player.play();
+            renderGuard.restart();   // honest failure if the composite never produces frames
         }
         function onMosaicSessionFailed(err, pending) {
             root.loading = false;
@@ -169,6 +171,19 @@ Item {
             root.coveragePending = !available;
             if (available && retDays > 0) root.retentionDays = retDays;
             root.footageDays = unionDays;
+        }
+    }
+
+    // Render watchdog: the proxy honors Retry-After for ~12s while the backend
+    // composites cold cells, but if the grid never produces frames the HLS player
+    // re-requests forever — an endless "Compositing…". Past the budget, fail
+    // honestly instead of spinning (the file's contract: never a broken player).
+    Timer {
+        id: renderGuard
+        interval: 18000; repeat: false
+        onTriggered: {
+            if (root.sessionId !== "" && root.errorText === "" && player.position <= 0)
+                root.errorText = "Couldn't composite the synchronized grid for this window — the server didn't return frames in time. Try a different time, or Return to live.";
         }
     }
     focus: true
@@ -208,6 +223,7 @@ Item {
                     videoOutput: vout
                     audioOutput: null
                     onErrorOccurred: (e, s) => { if (e !== MediaPlayer.NoError) root.errorText = s }
+                    onPositionChanged: if (position > 0) renderGuard.stop()   // frames flowing → not stalled
                 }
 
                 // Fitted video rect (PreserveAspectFit) for placing cell overlays.
@@ -222,7 +238,7 @@ Item {
                 // per-cell labels (the grid pixels come from the server; we only
                 // annotate each cell with its camera name)
                 Repeater {
-                    model: (root.sessionId !== "" && root.grid.cols) ? root.cells : []
+                    model: (root.sessionId !== "" && root.grid.cols && root.errorText === "") ? root.cells : []
                     delegate: Item {
                         readonly property int cols: root.grid.cols
                         readonly property int rows: root.grid.rows

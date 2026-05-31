@@ -12,6 +12,19 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QFile>
+#include <QTimeZone>
+
+// The operator's IANA timezone (e.g. "Europe/Moscow"). The coverage calendar
+// buckets footage days with date(start_time AT TIME ZONE tz) on the backend, so
+// we must send the operator's local tz or day-dots bucket in UTC and land on the
+// wrong calendar day near midnight (pilot is UTC+3 — a 3h skew). Everything else
+// in the UI already renders in system-local time, so the system tz is the
+// operator's tz; fall back to UTC if the zone has no IANA id.
+static QString operatorTz()
+{
+    const QByteArray id = QTimeZone::systemTimeZone().id();
+    return id.isEmpty() ? QStringLiteral("UTC") : QString::fromUtf8(id);
+}
 
 PlaybackClient::PlaybackClient(QObject *parent)
     : QObject(parent)
@@ -184,6 +197,7 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     QUrl url(m_baseUrl + "/review/coverage");
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("camera_id"), cameraId);
+    q.addQueryItem(QStringLiteral("tz"), operatorTz());
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId]() {
@@ -288,6 +302,7 @@ void PlaybackClient::fetchCoverageUnion(const QStringList &cameraIds)
     QUrl url(m_baseUrl + "/review/coverage");
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("camera_ids"), cameraIds.join(','));
+    q.addQueryItem(QStringLiteral("tz"), operatorTz());
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
