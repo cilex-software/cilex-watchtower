@@ -486,6 +486,12 @@ Changelog
               X-Cilex-Mosaic-State), and backfilled the /review/sessions scope
               check. I6/I7/I8 design confirmed, pending E2/A6/A7+E4. Reply:
               2026-05-31-mosaic-integration-alignment.reply.md.
+  2026-05-31  Cilex Vision asked Watchtower to ACT: verify the 3 fixtures offline
+              (I1/I3/I4), decide the I2 cold-render retry budget (honor
+              Retry-After, >=8s) + lazy-vs-prewarm warming, confirm 4 small items,
+              and rank the pending build order (E2+I7+A6 vs A7+E4). Action letter:
+              2026-05-31-mosaic-integration-next-actions.md (awaiting Watchtower
+              reply + the post-disk live verification).
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no
