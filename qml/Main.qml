@@ -133,6 +133,18 @@ Window {
                 }
         }
     }
+    // Dev hook: WT_WALL_DAY boots into synchronized wall playback over the current
+    // live page's cameras — a given day (YYYY-MM-DD) or "live" for the last hour.
+    Timer {
+        interval: 3000; running: typeof wtWallDay !== "undefined" && wtWallDay !== ""
+        onTriggered: {
+            var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
+            wallPlayback.cameras = cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per);
+            wallMode = "playback";
+            if (wtWallDay === "live") wallPlayback.openFor(60);
+            else wallPlayback.openForDay(wtWallDay);
+        }
+    }
 
     // keyboard shortcuts (design §30)
     Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }

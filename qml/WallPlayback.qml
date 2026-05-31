@@ -223,7 +223,7 @@ Item {
                     videoOutput: vout
                     audioOutput: null
                     onErrorOccurred: (e, s) => { if (e !== MediaPlayer.NoError) root.errorText = s }
-                    onPositionChanged: if (position > 0) renderGuard.stop()   // frames flowing → not stalled
+                    onPositionChanged: if (player.position > 0) renderGuard.stop()   // frames flowing → not stalled
                 }
 
                 // Fitted video rect (PreserveAspectFit) for placing cell overlays.
