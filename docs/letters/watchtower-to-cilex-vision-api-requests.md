@@ -398,6 +398,43 @@ BACKEND RESPONSE — Cilex Vision, 2026-05-31  (E1–E5)
                         Full reply: 2026-05-31-multicam-synchronized-review.reply.md.
 
 ────────────────────────────────────────────────────────────────────────────
+BACKEND RESPONSE — Cilex Vision, 2026-05-31  (E1 integration alignment + fixtures)
+────────────────────────────────────────────────────────────────────────────
+  Fixtures ............ ✅ 3 committed at docs/letters/fixtures/2026-05-31-mosaic/
+                        (generated from real backend code; the .ts is the real
+                        h264_qsv path): mosaic-session.response.json (4 cams, 2x2,
+                        6 frags incl a no_recording gap), playlist.m3u8 (literal
+                        served bytes), mosaic-segment.ts (960x540, 12fps, 6s,
+                        single video stream, starts at PTS 0).
+  I1 fields ........... ✅ CONFIRMED verbatim (fixture #1 proves). Additive only:
+                        top-level expires_at + playlist_url; manifest echoes
+                        grid+cells; gap fragments carry only wall_*/availability.
+  I2 warming .......... ✅ DECIDED + BUILT — cold seg = 503 + Retry-After:1 +
+                        X-Cilex-Mosaic-State:rendering (background render, dedup);
+                        200 + …:ready on cache hit; qsv-unhealthy = 503 +
+                        X-Cilex-Degraded; forwarded through the query-api proxy.
+                        NOT a static manifest "warming" value (state is runtime,
+                        per-scrub). ASK: honor Retry-After + keep >=8 retries (a
+                        cold 16-cell render can exceed your 8x400ms=3.2s budget).
+  I3 layout ........... ✅ CORRECTED — cells are crop-to-fill (cover), not
+                        letterbox-pad: frame is exactly cols*cell_w x rows*cell_h,
+                        row-major, gap-free, fully filled → your overlays align.
+  I4 playlist ......... ✅ CONFIRMED — /api/review/… seg URIs (proxy-rewritable),
+                        #EXT-X-GAP gaps (single-cam shape), VOD+ENDLIST+PDT.
+  I5 no-footage ....... ✅ CONFIRMED — no-footage cell = black + 200; out-of-scope
+                        = 403; union coverage so a partial wall still plays.
+  I6 mosaic export .... ✅ design CONFIRMED, pending (404 today). session_id carries
+                        the grid; reuses export_jobs + the token download shape.
+  I7 group_id ......... ✅ CONFIRMED, ships with E2/A6 (the list that renders it);
+                        purpose/A1 can carry a shared label meanwhile.
+  I8 coverage ......... ✅ both shapes CONFIRMED (A7 days[] / E4 union), pending
+                        build; retention_days = sub-stream (~30d).
+  I9 window/tz ........ ✅ CONFIRMED — UTC …Z, <=24h, same rules as /review/sessions.
+  Also ................ /review/sessions scope-check backfill shipped (no single-
+                        cam regression); composite output now starts at PTS 0.
+                        Full reply: 2026-05-31-mosaic-integration-alignment.reply.md.
+
+────────────────────────────────────────────────────────────────────────────
 Most-unblocking, if you're prioritizing: A1 + A3 (export purpose + typed job
 response) unblock the export drawer and the library's server side together with
 A6; B1 turns acknowledge into a real shared-ops feature.
@@ -441,6 +478,14 @@ Changelog
               landed, ffmpeg path gated on live stack verification. E2/E3/E4
               accepted + sequenced; E5 confirmed/corrected.
               Reply: 2026-05-31-multicam-synchronized-review.reply.md.
+  2026-05-31  Watchtower filed E1 integration-alignment (I1–I9 + a fixtures ask +
+              canonical answers to the 6 questions). Cilex Vision DELIVERED 3
+              offline fixtures (docs/letters/fixtures/2026-05-31-mosaic/, real
+              h264_qsv), CONFIRMED I1/I4/I5/I9, CORRECTED I3 (crop-to-fill),
+              DECIDED+BUILT the I2 warming signal (503 + Retry-After +
+              X-Cilex-Mosaic-State), and backfilled the /review/sessions scope
+              check. I6/I7/I8 design confirmed, pending E2/A6/A7+E4. Reply:
+              2026-05-31-mosaic-integration-alignment.reply.md.
   2026-05-30  Added A7: GET /review/coverage (per-camera days-with-footage +
               retention_days) to drive the new playback footage calendar.
               /recording/segments can't enumerate the window (limit≤1000, no

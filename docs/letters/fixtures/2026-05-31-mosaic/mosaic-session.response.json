@@ -1,0 +1,140 @@
+{
+  "session_id": "8f3a2b1c-0000-4abc-8def-000000000001",
+  "expires_at": "2026-05-29T00:30:00+00:00",
+  "playlist_url": "/review/mosaic-sessions/8f3a2b1c-0000-4abc-8def-000000000001/playlist.m3u8",
+  "grid": {
+    "cols": 2,
+    "rows": 2,
+    "cell_w": 480,
+    "cell_h": 270,
+    "width": 960,
+    "height": 540,
+    "fps": 12,
+    "codec": "h264"
+  },
+  "cells": [
+    {
+      "index": 0,
+      "camera_id": "hiwatch-aa11bb22cc33",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "index": 1,
+      "camera_id": "hiwatch-dd44ee55ff66",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "index": 2,
+      "camera_id": "hiwatch-1122334455aa",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "index": 3,
+      "camera_id": "hiwatch-66778899bbcc",
+      "row": 1,
+      "col": 1
+    }
+  ],
+  "manifest": {
+    "wall_start": "2026-05-29T00:00:00+00:00",
+    "wall_end": "2026-05-29T00:00:36+00:00",
+    "clipped_to_finalized": false,
+    "live_gap_s": null,
+    "fragments": [
+      {
+        "wall_start": "2026-05-29T00:00:00+00:00",
+        "wall_end": "2026-05-29T00:00:06+00:00",
+        "compact_start": 0.0,
+        "compact_end": 6.0,
+        "codec": "h264",
+        "resolution": "960x540",
+        "tier": "composite",
+        "availability": "ready"
+      },
+      {
+        "wall_start": "2026-05-29T00:00:06+00:00",
+        "wall_end": "2026-05-29T00:00:12+00:00",
+        "compact_start": 6.0,
+        "compact_end": 12.0,
+        "codec": "h264",
+        "resolution": "960x540",
+        "tier": "composite",
+        "availability": "ready"
+      },
+      {
+        "wall_start": "2026-05-29T00:00:12+00:00",
+        "wall_end": "2026-05-29T00:00:18+00:00",
+        "availability": "no_recording"
+      },
+      {
+        "wall_start": "2026-05-29T00:00:18+00:00",
+        "wall_end": "2026-05-29T00:00:24+00:00",
+        "compact_start": 12.0,
+        "compact_end": 18.0,
+        "codec": "h264",
+        "resolution": "960x540",
+        "tier": "composite",
+        "availability": "ready"
+      },
+      {
+        "wall_start": "2026-05-29T00:00:24+00:00",
+        "wall_end": "2026-05-29T00:00:30+00:00",
+        "compact_start": 18.0,
+        "compact_end": 24.0,
+        "codec": "h264",
+        "resolution": "960x540",
+        "tier": "composite",
+        "availability": "ready"
+      },
+      {
+        "wall_start": "2026-05-29T00:00:30+00:00",
+        "wall_end": "2026-05-29T00:00:36+00:00",
+        "compact_start": 24.0,
+        "compact_end": 30.0,
+        "codec": "h264",
+        "resolution": "960x540",
+        "tier": "composite",
+        "availability": "ready"
+      }
+    ],
+    "grid": {
+      "cols": 2,
+      "rows": 2,
+      "cell_w": 480,
+      "cell_h": 270,
+      "width": 960,
+      "height": 540,
+      "fps": 12,
+      "codec": "h264"
+    },
+    "cells": [
+      {
+        "index": 0,
+        "camera_id": "hiwatch-aa11bb22cc33",
+        "row": 0,
+        "col": 0
+      },
+      {
+        "index": 1,
+        "camera_id": "hiwatch-dd44ee55ff66",
+        "row": 0,
+        "col": 1
+      },
+      {
+        "index": 2,
+        "camera_id": "hiwatch-1122334455aa",
+        "row": 1,
+        "col": 0
+      },
+      {
+        "index": 3,
+        "camera_id": "hiwatch-66778899bbcc",
+        "row": 1,
+        "col": 1
+      }
+    ]
+  }
+}
