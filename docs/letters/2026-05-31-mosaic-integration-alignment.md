@@ -20,6 +20,75 @@ With those three we can confirm everything below offline and be integration-read
 
 ---
 
+## Answers to your 6 questions (from your reply.md → "Questions back to Watchtower")
+
+Canonical, detailed answers now that the client is built (the summary versions
+were in `…reply2.md`; these supersede them). Three of the six tie directly to
+integration items below — cross-referenced.
+
+**Q1 — Sub-stream (720p H.264) cells: YES, commit to it. No full-HD-in-grid case.**
+Cells render at ~480×270, so 720p is already oversampled — main's 1440p HEVC would
+be downscaled away. The three wins are decisive for us:
+- **Coverage.** Our footage calendar is built around the retention window; sub is
+  retained the full ~30 days, main/hot only ~3. A multi-day wall *must* use sub.
+- **Codec uniformity.** Uniform H.264 in → one codec out removes the mixed-codec
+  `#EXT-X-DISCONTINUITY` switch, which was our single biggest playback risk (E5).
+- **Cost / non-contention.** Cheapest decode and it doesn't fight go2rtc's HD path.
+
+There is **no scenario where a cell inside the grid needs full-HD.** When an operator
+wants HD detail on one camera, the right tool is the **focused single-camera view**,
+which stays on the main/HEVC `/review` path — not a high-res cell embedded in the
+mosaic (that would defeat both the single-decode model and the uniform-codec win).
+If we later add a "1-up / zoom a cell" affordance, we'll open a *separate*
+single-camera `/review` session for it, never upgrade a mosaic cell. So: sub-stream
+cells, no exceptions in the grid.
+
+**Q2 — H.264 output + 12 fps: YES, perfect for the wall.** This is recorded review,
+not live monitoring — 12 fps is plenty for scrubbing, and H.264 is one universal
+client decode (the entire point of pushing compositing server-side). Please **keep
+the `codec` and `fps` request knobs** you exposed, for a possible future focused /
+high-motion case, but the wall default should stay **H.264 / 12 fps**. Our client
+reads `grid.fps` and `grid.codec` from the response and assumes neither, so whatever
+you echo, we render correctly — no need to expose anything further now.
+
+**Q3 — 16-cell cap: YES, enough for v1.** Our live wall's maximum layout is **4×4 =
+16** (the layouts are 1 / 4 / 9 / 16); there is no >16 wall in the product.
+`enterWallPlayback()` caps the set at 16 and packs `cols = ceil(√n)`. Please **don't
+spend iGPU measuring for >16** — if a larger review grid ever becomes a real product
+need we'll raise it against a measurement (your stance), not pre-build it.
+
+**Q4 — Cold first-segment latency: a few seconds is acceptable; and YES, we want the
+structured warming signal — emphatically.** Acceptable ceiling: **≤3–4 s ideal** for
+the first cold segment after a scrub; the property that matters most is that a
+**warmed re-scrub is a cache hit**. We do **not** want to just "consume the HLS as it
+becomes available" — on a surveillance wall a silent stall reads as a *freeze*, which
+we never ship. Our client already renders a "Compositing…" overlay and tints
+non-`ready` fragments; it just needs your signal to key off. **This is integration
+item I2 below** — please pin the concrete mechanism there (an `availability:"warming"`
+fragment value and/or a `503` + `Retry-After` on the cold segment). If you happen to
+expose render progress we'll show it; a spinner is the baseline.
+
+**Q5 — Export: firing separately (N per-camera + 1 mosaic) is fine — we already
+orchestrate one button.** Our "Export selection" action fires N `createExport`
+(`/review/exports`, live today) **plus** one `createMosaicExport`
+(`/review/mosaic-sessions/{id}/exports`, honest "E2 pending" until it ships) — built,
+commit `4de4555`. You do **not** need to bundle them server-side. The one thing we
+need so it reads as a *single* operator action in the Clips library (A6): a grouping
+key — **this is integration item I7** (an optional `group_id` echoed in the export
+list). Dual-archive (per-camera clips **and** the combined grid) is the operator
+expectation; we just need the N+1 jobs to collapse into one logical "wall export" row.
+
+**Q6 — E4 batch `?camera_ids=` shape: confirmed.** `{ retention_days, per_camera,
+union }` is exactly what the wall calendar needs — `union` drives the day-dots, and
+our `fetchCoverageUnion` reads `retention_days` + `union` (we ignore `per_camera` for
+now). **One pin — integration item I8:** please keep the single-`camera_id` form
+returning `{ retention_days, days:[{date, has_footage}] }` (A7), so our already-shipped
+single-camera playback calendar (`fetchCoverage`) and the wall calendar each parse one
+fixed shape without sniffing. And confirm `retention_days` reflects the **sub-stream**
+retention (~30), since cells composite from sub.
+
+---
+
 ## How our client consumes the contract — confirm/correct each
 
 ### I1 — `mosaicSessionReady` field names (we parse these literally)
