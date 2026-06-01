@@ -51,6 +51,7 @@ struct EventData {
     bool ack = false;
     QString ackBy;
     QString ackTime;
+    qint64 tsMs = 0;     // start_time as epoch ms — for chronological Time sort (0 = unknown/mock)
 };
 
 // A reusable Live Monitor layout. Stores the *restorable* state (so opening a

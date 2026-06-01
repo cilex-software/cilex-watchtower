@@ -152,6 +152,7 @@ void EventModel::fetchEvents()
             const QString iso = o.value("start_time").toString();
             const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
             e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : iso;
+            e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
             e.desc = descForType(e.type, o.value("duration_ms").toVariant().toLongLong());
             out.push_back(e);
         }
@@ -223,6 +224,7 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["ack"] = e.ack;
     m["ackBy"] = e.ackBy;
     m["ackTime"] = e.ackTime;
+    m["ts"] = static_cast<qlonglong>(e.tsMs);
     return m;
 }
 

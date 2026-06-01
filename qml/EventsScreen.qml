@@ -29,6 +29,28 @@ Item {
     property var sel: null              // selected event map -> detail panel
     property var rows: []
 
+    // per-column sort + Excel-style value filters (every data column)
+    property string sortKey: "time"     // "event" | "camera" | "group" | "time" | "status"
+    property int sortDir: -1            // 1 = ascending, -1 = descending (default: newest first)
+    property var colExcl: ({})          // columnKey -> [excluded display values] (empty = all shown)
+    property string openFilter: ""      // column whose dropdown is open ("" = none)
+    property real filterX: 0            // dropdown anchor (mapped to root)
+    property real filterY: 0
+    property string filterSearch: ""    // checklist search within the open dropdown
+    // Distinct values shown in the open dropdown's checklist (search-filtered).
+    // Touch root.rows so this re-evaluates when the event set changes (all() is a
+    // plain call, not a NOTIFYing property, so it wouldn't track loads on its own).
+    readonly property var filterVals: {
+        root.rows;
+        if (root.openFilter === "") return [];
+        var d = root.distinctVals(root.openFilter);
+        var s = root.filterSearch.toLowerCase();
+        return s === "" ? d : d.filter(function (v) { return ("" + v).toLowerCase().indexOf(s) >= 0; });
+    }
+    onSortKeyChanged: recompute()
+    onSortDirChanged: recompute()
+    onColExclChanged: recompute()
+
     function eventIcon(type) {
         switch (type) {
         case "loitering":
@@ -51,7 +73,26 @@ Item {
         return (r && r.groupName) ? r.groupName : (ev.group ? ev.group : "—");
     }
 
-    function filtered() {
+    function timeToSecs(t) { var p = ("" + t).split(":"); return (+p[0] || 0) * 3600 + (+p[1] || 0) * 60 + (+p[2] || 0); }
+    // Display value for a column — drives the filter checklist + alpha sort.
+    function cellVal(ev, key) {
+        switch (key) {
+        case "event":  return (ev.desc && ev.desc !== "") ? ev.desc : ("" + ev.type);
+        case "camera": return root.camDisplay(ev);
+        case "group":  return root.groupDisplay(ev);
+        case "time":   return ev.time;
+        case "status": return ev.ack ? "Acknowledged" : "New";
+        }
+        return "";
+    }
+    // Sort key for a column — Time sorts chronologically (epoch ms, falling back to
+    // same-day seconds for mock rows with no ts); the rest sort case-insensitively.
+    function sortVal(ev, key) {
+        if (key === "time") return (ev.ts && ev.ts > 0) ? ev.ts : root.timeToSecs(ev.time);
+        return ("" + root.cellVal(ev, key)).toLowerCase();
+    }
+    // Sub-bar pill filters (Unack/Motion/Offline/Bookmarks); column filters + sort layer on top.
+    function baseRows() {
         var all = root.eventModel ? root.eventModel.all() : [];
         var types = [];
         if (root.fMotion) types.push("motion");
@@ -65,6 +106,54 @@ Item {
             out.push(e);
         }
         return out;
+    }
+    // Distinct display values for a column (over the pill-filtered set), sorted.
+    function distinctVals(key) {
+        var seen = ({}), out = [], b = root.baseRows();
+        for (var i = 0; i < b.length; i++) {
+            var v = root.cellVal(b[i], key);
+            if (!seen[v]) { seen[v] = true; out.push(v); }
+        }
+        out.sort(function (a, c) {
+            if (key === "time") return root.timeToSecs(a) - root.timeToSecs(c);
+            return ("" + a).toLowerCase() < ("" + c).toLowerCase() ? -1 : 1;
+        });
+        return out;
+    }
+    function passesCols(ev) {
+        for (var key in root.colExcl) {
+            var ex = root.colExcl[key];
+            if (ex && ex.length && ex.indexOf(root.cellVal(ev, key)) >= 0) return false;
+        }
+        return true;
+    }
+    function filtered() {
+        var out = root.baseRows().filter(function (e) { return root.passesCols(e); });
+        var key = root.sortKey, dir = root.sortDir;
+        out.sort(function (a, c) {
+            var x = root.sortVal(a, key), y = root.sortVal(c, key);
+            return (x < y ? -1 : (x > y ? 1 : 0)) * dir;
+        });
+        return out;
+    }
+    function colActive(key) { return root.colExcl[key] && root.colExcl[key].length > 0; }
+    function isIncluded(key, val) { var ex = root.colExcl[key]; return !(ex && ex.indexOf(val) >= 0); }
+    function toggleVal(key, val) {
+        var ex = (root.colExcl[key] || []).slice();
+        var i = ex.indexOf(val);
+        if (i >= 0) ex.splice(i, 1); else ex.push(val);
+        var m = Object.assign({}, root.colExcl); m[key] = ex; root.colExcl = m;
+    }
+    function setColAll(key, include) {
+        var m = Object.assign({}, root.colExcl);
+        m[key] = include ? [] : root.distinctVals(key).slice();
+        root.colExcl = m;
+    }
+    function setSort(key, dir) { root.sortKey = key; root.sortDir = dir; }
+    function openColumnFilter(key, item) {
+        if (root.openFilter === key) { root.openFilter = ""; return; }
+        var p = item.mapToItem(root, 0, item.height);
+        root.filterX = p.x; root.filterY = p.y; root.filterSearch = ""; root.openFilter = key;
     }
     function recompute() {
         root.rows = filtered();
@@ -183,14 +272,46 @@ Item {
                         color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
                         font.weight: Font.DemiBold; font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
                     }
+                    // Clickable, sortable, Excel-filterable column header.
+                    component HCol: Item {
+                        id: hcol
+                        property string key: ""
+                        property string label: ""
+                        height: 38
+                        readonly property bool isSort: root.sortKey === hcol.key
+                        Row {
+                            anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; spacing: 5
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: hcol.label
+                                color: (root.colActive(hcol.key) || hcol.isSort || hma.containsMouse) ? Theme.ink2 : Theme.ink3
+                                font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold
+                                font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter; visible: hcol.isSort
+                                text: root.sortDir > 0 ? "▲" : "▼"; color: Theme.accent; font.pixelSize: 7
+                            }
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter; name: "funnel"; size: 11
+                                color: root.colActive(hcol.key) ? Theme.accent
+                                       : ((hma.containsMouse || root.openFilter === hcol.key) ? Theme.ink2 : Theme.ink3)
+                            }
+                        }
+                        MouseArea {
+                            id: hma; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openColumnFilter(hcol.key, hcol)
+                        }
+                    }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
                         Th { text: ""; Layout.preferredWidth: root.wIcon }
-                        Th { text: "Event"; Layout.fillWidth: true }
-                        Th { text: "Camera"; Layout.preferredWidth: root.wCam }
-                        Th { text: "Group"; Layout.preferredWidth: root.wGroup }
-                        Th { text: "Time"; Layout.preferredWidth: root.wTime }
-                        Th { text: "Status"; Layout.preferredWidth: root.wStatus }
+                        HCol { key: "event"; label: "Event"; Layout.fillWidth: true }
+                        HCol { key: "camera"; label: "Camera"; Layout.preferredWidth: root.wCam }
+                        HCol { key: "group"; label: "Group"; Layout.preferredWidth: root.wGroup }
+                        HCol { key: "time"; label: "Time"; Layout.preferredWidth: root.wTime }
+                        HCol { key: "status"; label: "Status"; Layout.preferredWidth: root.wStatus }
                         Th { text: ""; Layout.preferredWidth: root.wAct }
                     }
                 }
@@ -363,6 +484,117 @@ Item {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ===== Excel-style column sort/filter dropdown =====
+    // Dismiss on click outside the panel.
+    MouseArea {
+        anchors.fill: parent
+        visible: root.openFilter !== ""
+        z: 50
+        onClicked: root.openFilter = ""
+    }
+    Rectangle {
+        id: filterPanel
+        visible: root.openFilter !== ""
+        z: 51
+        width: 256
+        x: Math.max(8, Math.min(root.filterX, root.width - width - 8))
+        y: root.filterY
+        height: panelCol.implicitHeight + 16
+        color: Theme.panel2
+        border.width: 1; border.color: Theme.line2
+        // swallow clicks on empty panel area so the outside-catcher doesn't fire
+        MouseArea { anchors.fill: parent; hoverEnabled: true; onClicked: {} }
+
+        ColumnLayout {
+            id: panelCol
+            anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
+            spacing: 6
+
+            // sort
+            RowLayout {
+                Layout.fillWidth: true; spacing: 6
+                Repeater {
+                    model: [ { l: "Sort ↑ A–Z", d: 1 }, { l: "Sort ↓ Z–A", d: -1 } ]
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true; Layout.preferredHeight: 26
+                        readonly property bool on: root.sortKey === root.openFilter && root.sortDir === modelData.d
+                        color: on ? Theme.accentSoft : (sma.containsMouse ? Theme.panel : "transparent")
+                        border.width: 1; border.color: on ? Theme.accent : Theme.line2
+                        Text { anchors.centerIn: parent; text: parent.modelData.l; color: parent.on ? Theme.accent : Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
+                        MouseArea { id: sma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: { root.setSort(root.openFilter, parent.modelData.d); root.openFilter = "" } }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.line }
+
+            // search
+            Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 28
+                color: Theme.bg; border.width: 1; border.color: searchIn.activeFocus ? Theme.accent : Theme.line2
+                Row {
+                    anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; spacing: 6
+                    Icon { anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 12; color: Theme.ink3 }
+                    TextInput {
+                        id: searchIn
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 22
+                        text: root.filterSearch
+                        onTextChanged: root.filterSearch = text
+                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; clip: true
+                        Text { visible: parent.text === ""; text: "Search values…"; color: Theme.ink3; font: parent.font }
+                    }
+                }
+            }
+
+            // select all / clear
+            RowLayout {
+                Layout.fillWidth: true; spacing: 14
+                Text { text: "Select all"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11
+                    MouseArea { anchors.fill: parent; anchors.margins: -5; cursorShape: Qt.PointingHandCursor; onClicked: root.setColAll(root.openFilter, true) } }
+                Text { text: "Clear"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                    MouseArea { anchors.fill: parent; anchors.margins: -5; cursorShape: Qt.PointingHandCursor; onClicked: root.setColAll(root.openFilter, false) } }
+                Item { Layout.fillWidth: true }
+            }
+
+            // value checklist
+            ListView {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(root.filterVals.length * 28, 220)
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                QC.ScrollBar.vertical: QC.ScrollBar { }
+                model: root.filterVals
+                delegate: Rectangle {
+                    required property var modelData
+                    width: ListView.view.width; height: 28
+                    color: cma.containsMouse ? Theme.panel : "transparent"
+                    Row {
+                        anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4; spacing: 8
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 15; height: 15; radius: 2
+                            readonly property bool on: root.isIncluded(root.openFilter, parent.parent.modelData)
+                            color: on ? Theme.accent : "transparent"
+                            border.width: 1; border.color: on ? Theme.accent : Theme.line2
+                            Icon { visible: parent.on; anchors.centerIn: parent; name: "check"; size: 10; color: Theme.bg }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 27
+                            text: "" + parent.parent.modelData; color: Theme.ink2; elide: Text.ElideRight
+                            font.family: Theme.fontSans; font.pixelSize: 12
+                        }
+                    }
+                    MouseArea { id: cma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: root.toggleVal(root.openFilter, modelData) }
                 }
             }
         }

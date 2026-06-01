@@ -50,7 +50,8 @@ Item {
         "off":      { "p": "M4 12 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M6.3 6.3l11.4 11.4" },
         "rec":      { "p": "M6 12 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0", "f": true },
         "motion":   { "p": "M10 6 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M9 12l3-3 3 3-2 3v6 M9 21v-6" },
-        "check":    { "p": "M5 12l5 5L20 7", "w": 2 }
+        "check":    { "p": "M5 12l5 5L20 7", "w": 2 },
+        "funnel":   { "p": "M4 5h16l-6 7v6l-4-2v-4z" }
     })
 
     readonly property var _cur: _icons[name] ? _icons[name] : null
