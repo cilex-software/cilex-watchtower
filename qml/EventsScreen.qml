@@ -133,7 +133,7 @@ Item {
 
     // column widths (header + rows share these; Event column fills the rest)
     readonly property int wIcon: 36
-    readonly property int wCam: 200
+    readonly property int wCam: 240
     readonly property int wGroup: 150
     readonly property int wTime: 110
     readonly property int wStatus: 170
@@ -226,9 +226,16 @@ Item {
                                 Text { text: rowItem.modelData.desc; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Text { text: ("" + rowItem.modelData.type).toUpperCase(); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.6; Layout.fillWidth: true }
                             }
-                            // Camera (name + id)
+                            // Camera (name + id). Pin to exactly wCam — without a
+                            // max, the nested ColumnLayout's long text + inner
+                            // fillWidth Texts balloon past preferredWidth and steal
+                            // space from the fillWidth Event column, knocking this
+                            // cell out of line with the "Camera" header.
                             ColumnLayout {
-                                Layout.preferredWidth: root.wCam; spacing: 1
+                                Layout.preferredWidth: root.wCam
+                                Layout.minimumWidth: root.wCam
+                                Layout.maximumWidth: root.wCam
+                                spacing: 1
                                 Text { text: root.camDisplay(rowItem.modelData); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Text { text: rowItem.modelData.camId; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
                             }
