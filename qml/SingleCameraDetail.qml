@@ -177,7 +177,15 @@ Item {
 
                 AsideHeader { text: "Status" }
                 KV { k: "Stream"; v: vsurf.playing ? "Live" : (root.camera && root.camera.live === CameraStatus.Offline ? "Offline" : (vsurf.errored ? "Unavailable" : "Connecting…")) }
-                KV { k: "Recording"; v: root.camera ? (root.camera.recording === CameraStatus.Recording ? "Recording" : (root.camera.recording === CameraStatus.NotRecording ? "Not recording" : "Unknown")) : "—" }
+                KV { k: "Recording"; v: !root.camera ? "—"
+                        : root.camera.recording === CameraStatus.Recording ? "Recording"
+                        : root.camera.recording === CameraStatus.Stalled ? "Stalled"
+                        : root.camera.recording === CameraStatus.Armed ? "Motion armed"
+                        : root.camera.recording === CameraStatus.Disabled ? "Disabled"
+                        : root.camera.recording === CameraStatus.NotRecording ? "Not recording"
+                        : root.camera.recording === CameraStatus.RecordingGap ? "Recording gap" : "Unknown" }
+                KV { k: "Last recording"; v: (root.camera && root.camera.lastSegmentAt)
+                        ? Qt.formatDateTime(new Date(root.camera.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
                 KV { k: "Quality"; v: root.useMain ? "HD (main)" : "SD (substream)" }
                 Item { Layout.preferredHeight: 8 }
 

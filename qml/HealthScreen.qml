@@ -52,6 +52,9 @@ Item {
     function recText(s) {
         switch (s) {
         case CameraStatus.Recording: return "Recording";
+        case CameraStatus.Stalled: return "Stalled";
+        case CameraStatus.Armed: return "Motion armed";
+        case CameraStatus.Disabled: return "Disabled";
         case CameraStatus.NotRecording: return "Not recording";
         case CameraStatus.RecordingGap: return "Recording gap";
         default: return "Unknown";
@@ -59,6 +62,7 @@ Item {
     }
     function issueText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return "No signal";
+        if (cam.recording === CameraStatus.Stalled) return "Recording stalled";
         if (cam.recording === CameraStatus.RecordingGap) return "Recent recording gap";
         if (cam.live === CameraStatus.Degraded) return "Stream degraded";
         if (cam.recording === CameraStatus.NotRecording) return "Live but not recording";
@@ -67,27 +71,31 @@ Item {
     function issueColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
-            || cam.recording === CameraStatus.RecordingGap) return Theme.warn;
+            || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         return Theme.ink3;
     }
     function calloutColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
-            || cam.recording === CameraStatus.RecordingGap) return Theme.warn;
+            || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording) return Theme.accent;
-        if (cam.live === CameraStatus.Live) return Theme.good;   // live, recording not reported
+        if (cam.live === CameraStatus.Live) return Theme.good;   // live, recording not reported (incl. motion-armed)
         return Theme.ink3;
     }
     function calloutText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal)
             return "<b>Camera is offline.</b> " + (cam.lastSeen ? ("Last seen " + cam.lastSeen + ". ") : "")
                  + "Playback may still be available for footage recorded before the outage.";
+        if (cam.recording === CameraStatus.Stalled)
+            return "<b>Recording stalled.</b> The recorder stopped producing footage for this camera; it's being restarted automatically.";
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.NotRecording)
             return "<b>Camera is live but not recording.</b> Live monitoring works; no new footage is being saved.";
         if (cam.recording === CameraStatus.RecordingGap)
             return "<b>Recording gap detected.</b> Some footage in the recent window is missing.";
         if (cam.live === CameraStatus.Degraded)
             return "<b>Stream degraded.</b> Reduced bitrate due to network conditions; recording continues.";
+        if (cam.recording === CameraStatus.Armed)
+            return "<b>Motion-armed.</b> Recording on motion; idle between events — not a fault.";
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording)
             return "<b>Camera is live and recording.</b> No issues detected.";
         if (cam.live === CameraStatus.Live)
@@ -400,7 +408,7 @@ Item {
                             KV { k: "Live status"; v: root.sel ? root.liveText(root.sel.live) : "" }
                             KV { k: "Recording status"; v: root.sel ? root.recText(root.sel.recording) : "" }
                             KV { k: "Last seen"; v: root.sel ? (root.selOffline ? (root.sel.lastSeen ? root.sel.lastSeen : "—") : "now") : "" }
-                            KV { k: "Last available footage"; v: "—" }
+                            KV { k: "Last recording"; v: (root.sel && root.sel.lastSegmentAt) ? Qt.formatDateTime(new Date(root.sel.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
                             KV { k: "Group"; v: root.sel ? root.sel.groupName : "" }
 
                             // actions
