@@ -288,6 +288,14 @@ Item {
 
                 // filter pills
                 FilterPill {
+                    label: "Favorites"
+                    leadingStar: true
+                    active: root.statusFilter === "favorites"
+                    removable: root.statusFilter === "favorites"
+                    onClicked: root.statusFilterRequested(root.statusFilter === "favorites" ? "" : "favorites")
+                    onRemoved: root.statusFilterRequested("")
+                }
+                FilterPill {
                     label: "Online"
                     active: root.statusFilter === "online"
                     removable: root.statusFilter === "online"

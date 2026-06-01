@@ -10,6 +10,7 @@ Rectangle {
     property bool active: false
     property bool removable: false
     property bool leadingPlus: false
+    property bool leadingStar: false
 
     signal clicked()
     signal removed()
@@ -45,6 +46,11 @@ Rectangle {
             color: root.fgColor
             font.family: Theme.fontSans
             font.pixelSize: 13
+        }
+        Icon {
+            visible: root.leadingStar
+            anchors.verticalCenter: parent.verticalCenter
+            name: "star"; size: 12; color: root.fgColor
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
