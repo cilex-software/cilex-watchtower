@@ -155,6 +155,15 @@ Item {
         var p = item.mapToItem(root, 0, item.height);
         root.filterX = p.x; root.filterY = p.y; root.filterSearch = ""; root.openFilter = key;
     }
+    // Enter in the search box applies the typed text as the filter (keep only the
+    // matching values, exclude the rest) and closes the dropdown — Excel behavior.
+    function applySearch(key) {
+        var s = root.filterSearch.toLowerCase();
+        if (s === "") { root.openFilter = ""; return; }
+        var excl = root.distinctVals(key).filter(function (v) { return ("" + v).toLowerCase().indexOf(s) < 0; });
+        var m = Object.assign({}, root.colExcl); m[key] = excl; root.colExcl = m;
+        root.openFilter = "";
+    }
     function recompute() {
         root.rows = filtered();
         // keep the selected event in sync with the refreshed data (e.g. after ack)
@@ -220,13 +229,40 @@ Item {
         MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: p.toggled() }
     }
 
-    // column widths (header + rows share these; Event column fills the rest)
+    // column widths (header + rows share these; Event column fills the rest).
+    // wCam/wGroup/wTime/wStatus are drag-resizable from the header (see HCol grip);
+    // Event is the flex column and keeps at least minEvent.
     readonly property int wIcon: 36
-    readonly property int wCam: 240
-    readonly property int wGroup: 150
-    readonly property int wTime: 110
-    readonly property int wStatus: 170
+    property int wCam: 240
+    property int wGroup: 150
+    property int wTime: 110
+    property int wStatus: 170
     readonly property int wAct: 116
+    readonly property int minEvent: 120
+
+    // ---- column resize helpers (drag a header grip; Event flexes to absorb) ----
+    function othersW(key) {
+        var s = root.wIcon + root.wAct;
+        if (key !== "camera") s += root.wCam;
+        if (key !== "group")  s += root.wGroup;
+        if (key !== "time")   s += root.wTime;
+        if (key !== "status") s += root.wStatus;
+        return s;
+    }
+    function curColW(key) {
+        return key === "camera" ? root.wCam : key === "group" ? root.wGroup
+             : key === "time" ? root.wTime : key === "status" ? root.wStatus : 0;
+    }
+    // Apply a new width to a resizable column, clamped to [60, max] where max keeps
+    // the flex Event column >= minEvent (so nothing overflows the table width).
+    function resizeCol(key, w) {
+        var maxW = Math.max(60, (colHdr.width - 28) - root.minEvent - root.othersW(key));
+        w = Math.max(60, Math.min(w, maxW));
+        if (key === "camera") root.wCam = w;
+        else if (key === "group") root.wGroup = w;
+        else if (key === "time") root.wTime = w;
+        else if (key === "status") root.wStatus = w;
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -263,6 +299,7 @@ Item {
 
                 // header
                 Rectangle {
+                    id: colHdr
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
                     color: Theme.bg
@@ -277,6 +314,7 @@ Item {
                         id: hcol
                         property string key: ""
                         property string label: ""
+                        property bool resizable: false
                         height: 38
                         readonly property bool isSort: root.sortKey === hcol.key
                         Row {
@@ -303,15 +341,38 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.openColumnFilter(hcol.key, hcol)
                         }
+                        // drag grip on the right edge — resize the column (Excel-style)
+                        Item {
+                            visible: hcol.resizable
+                            anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
+                            width: 9
+                            Rectangle {
+                                anchors.centerIn: parent; width: 1; height: 18
+                                color: (rzMa.containsMouse || rzMa.pressed) ? Theme.accent : Theme.line2
+                            }
+                            MouseArea {
+                                id: rzMa
+                                anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.SizeHorCursor
+                                property real lastX: 0
+                                onPressed: (m) => { lastX = mapToItem(null, m.x, 0).x }
+                                onPositionChanged: (m) => {
+                                    if (!pressed) return;
+                                    var gx = mapToItem(null, m.x, 0).x;
+                                    root.resizeCol(hcol.key, root.curColW(hcol.key) + (gx - lastX));
+                                    lastX = gx;
+                                }
+                            }
+                        }
                     }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
                         Th { text: ""; Layout.preferredWidth: root.wIcon }
-                        HCol { key: "event"; label: "Event"; Layout.fillWidth: true }
-                        HCol { key: "camera"; label: "Camera"; Layout.preferredWidth: root.wCam }
-                        HCol { key: "group"; label: "Group"; Layout.preferredWidth: root.wGroup }
-                        HCol { key: "time"; label: "Time"; Layout.preferredWidth: root.wTime }
-                        HCol { key: "status"; label: "Status"; Layout.preferredWidth: root.wStatus }
+                        HCol { key: "event"; label: "Event"; Layout.fillWidth: true; Layout.minimumWidth: root.minEvent }
+                        HCol { key: "camera"; label: "Camera"; resizable: true; Layout.preferredWidth: root.wCam }
+                        HCol { key: "group"; label: "Group"; resizable: true; Layout.preferredWidth: root.wGroup }
+                        HCol { key: "time"; label: "Time"; resizable: true; Layout.preferredWidth: root.wTime }
+                        HCol { key: "status"; label: "Status"; resizable: true; Layout.preferredWidth: root.wStatus }
                         Th { text: ""; Layout.preferredWidth: root.wAct }
                     }
                 }
@@ -343,7 +404,7 @@ Item {
                                 Icon { anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; name: root.eventIcon(rowItem.modelData.type); size: 16; color: root.eventColor(rowItem.modelData.type) } }
                             // Event (desc + TYPE)
                             ColumnLayout {
-                                Layout.fillWidth: true; spacing: 1
+                                Layout.fillWidth: true; Layout.minimumWidth: root.minEvent; spacing: 1
                                 Text { text: rowItem.modelData.desc; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Text { text: ("" + rowItem.modelData.type).toUpperCase(); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.6; Layout.fillWidth: true }
                             }
@@ -548,6 +609,7 @@ Item {
                         width: parent.width - 22
                         text: root.filterSearch
                         onTextChanged: root.filterSearch = text
+                        onAccepted: root.applySearch(root.openFilter)   // Enter → apply + close
                         color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; clip: true
                         Text { visible: parent.text === ""; text: "Search values…"; color: Theme.ink3; font: parent.font }
                     }
