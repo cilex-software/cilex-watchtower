@@ -32,4 +32,17 @@ ships, build the mosaic client fresh: one stream rendered across the grid via th
 backend's `cells[]` mapping, `SharedPlaybackClock` driving the single stream's
 transport. **Do not re-attempt client-side N-way sync.**
 
+**Status 2026-06-01:** the **mosaic client IS built** (`qml/WallPlayback.qml` +
+`PlaybackClient::openMosaicSession`/`mosaicPlaylistUrl`; entry = LiveMonitor "Go back
+in time", reactive — no gate) and **E1 now WORKS at the 16-cam wall ✅.** It was briefly
+blocked: CV's first deploy (`965b091`) composited 2×2 but the 16-cam wall never produced
+a frame (thread/PID exhaustion → `503 rendering⇄error` loop, + 0-byte boundary segments).
+CV fixed both (`51c7b4d`: `pids_limit` 256→1024, `-threads 1`/input, render semaphore,
+seek-3s-early); re-verified end-to-end on the real iGPU — 16-cam 4×4 composites + plays,
+populated cells synced, empties black-filled, cold render ~1s. Full arc:
+`docs/letters/2026-05-31-disk-healthy-path-to-live.{reply2,reply3,reply4}.md`. The
+server-mosaic decision is **validated and live for operators**. Client shipped an 18s
+render watchdog (honest-fail a stuck composite) + a `WT_WALL_DAY` dev hook. See
+[[session-recovery]].
+
 Related: [[session-recovery]] · [[s06-playback-gaps]] · [[playback-via-cilex-vision]]

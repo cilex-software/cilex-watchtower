@@ -12,7 +12,90 @@ metadata:
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
-## Where we are (2026-05-30)
+## Latest session (2026-06-02) — READ FIRST
+Latest commit **`c18b5fa`** on `main` (pushed). The E1 wall is live; this session landed a
+large client-feature batch and **closed BOTH backend threads** (recorder stall + E2 export) —
+**no open backend asks** right now. For current truth read `docs/PROJECT_STATUS.md`,
+`docs/BACKLOG.md`, the `docs/letters/` thread, and [[multicam-review-architecture]].
+
+**✅ E1 16-cam synchronized wall DELIVERED + verified live.** (Earlier this arc it was blocked
+at scale; CV fixed it in `51c7b4d` — `pids_limit` 256→1024, `-threads 1`/input, render semaphore,
+seek-3s-early for 0-byte boundary segs — and I drove the real 4×4 wall on the iGPU: composites +
+plays, populated cells synced, empties black-filled, cold seg ~1s.) Full thread:
+`docs/letters/2026-05-31-disk-healthy-path-to-live.{md,reply…reply4}.md`. **Client facts:** wall
+entry = the LiveMonitor **"Go back in time"** button (the only entry; reactive — no gate, "pending"
+only on a 404); shipped an **18s render watchdog** (`WallPlayback.qml`, honest-fail a stuck composite)
++ a permanent **`WT_WALL_DAY=<YYYY-MM-DD|live>`** dev hook. Wall screenshots need the real **Wayland
+display + VA-API** (`/dev/dri/renderD128`). Coverage A7+E4 ✅ — both calls send `?tz=<system IANA tz>`.
+
+**Both backend threads CLOSED:**
+- **Recorder per-stream stall — FIXED + WIRED.** CV `0ab548f` (thread closed via
+  `…recorder-per-stream-stall.reply2.md`): per-stream **watchdog + auto-restart** (silent
+  "ffmpeg-alive-no-frames" stall → restart in ~50s) + **`/streams.recording` is now mode-aware**
+  (`recording`|`stalled`|`armed`|`disabled`|`offline`) + a new **`last_segment_at`**. *Correction:*
+  `.106`/`.120` weren't dead — they were switched to **motion-triggered** recording (so `armed`, not
+  stalled; `.106` reads ARMED live). **Wired client-side** (`10fffe1` + `1245699`): `CameraStatus::RecState`
+  gained **Stalled/Armed/Disabled**; `recStateFrom()` parses the vocab on full fetch + 15s poll;
+  `last_segment_at` → `CameraData` + a model role. **Counts: stalled→NOT REC, armed→recording, disabled→neutral.**
+  UI: red **STALLED** badge + "RECORDING STALLED · since <last_segment_at>" tile strip + fault edge;
+  neutral **ARMED** badge; **"Last recording"** row in single-cam + Health detail. Closes the old
+  **"NOT REC 0 looked green"** gap. (Verify recording from the state/`last_segment_at`, or segment
+  timestamps — NOT a bare `/streams` count.)
+- **Combined-grid export E2 + I7 + A6 — SHIPPED + WIRED.** CV `d724a20` (thread closed via
+  `…mosaic-export-e2.reply2.md`). E2 = `POST /review/mosaic-sessions/{id}/exports {wall_start,wall_end,mode}`
+  → `{job_id}` on the shared `export_jobs` flow. **Wired client-side** (`fec0374`): `createExport`/
+  `createMosaicExport` send optional **group_id+purpose**; `WallPlayback.exportSelection()` sends one
+  group_id across N per-cam + 1 mosaic (I7 dual-archive); **`PlaybackClient.fetchExports()`** consumes
+  **`GET /review/exports`** (A6); the **Clips & Snapshots library** (`ClipsScreen.qml`) now lists server
+  exports (per-cam = `clip` icon; mosaic = `layers` icon "Grid · <group_id>") merged with local
+  snapshots — purpose/state/resolution/group + Open via the proxied token download + a Refresh button.
+  Verified live (4 exports incl. the `grid-verify-1` single+mosaic set).
+
+**Other client features this session:**
+- **Events screen** (`EventsScreen.qml`): fixed Camera-column alignment (`b7b3ab7`); **per-column sort +
+  Excel-style autofilter on EVERY column** (`759d300`) — clickable headers (funnel + ▲▼), dropdown with
+  Sort↑/↓ + search + Select-all/Clear + a distinct-value checklist; **Enter-to-apply** + **drag-resizable
+  columns** (grips on Camera/Group/Time/Status; Event flexes) (`73f5ad2`). Added `EventData.tsMs` (epoch)
+  for chronological Time sort. **NOTE: the `/events` feed is LIVE now** (motion events flowing; was empty).
+- **Live Monitor**: **★ Favorites filter pill** (`a1080ae`) — camera-favorites filter was plumbed in the
+  model but had no UI; now the first pill shows only starred cameras. Tile **hover-action fixes** (`6e41c3a`):
+  unclipped dense grids (vertical Column → bottom-right Row), new **playback** icon (`Icon.qml` gained a
+  **`pf`** filled-overlay channel), wired the dead Open-Playback + Favorite buttons, toggle active states.
+  **bookmark stays visual-only (not persisted).**
+
+**NEXT (all optional — nothing backend-gated):** (1) wire the single-camera **ExportDrawer Purpose** onto
+`/review/exports` (A1 now accepts it; ~one line). (2) Latent: **fix the `availability !== "ready"` filter**
+(PlaybackScreen) that drops hydrating/cold fragments. (3) Optional UI: persist **bookmark**; a
+nav/command-palette entry for the wall (only entry today = "Go back in time").
+
+**Durable backend/disk facts (this machine):** WD Purple disk was re-cabled + host
+rebooted **21:09 MSK 2026-05-31** and is **solid** — `/health/storage` ok, `sda`
+(WDC WD43PURZ, fs_uuid `07fa7c7d…`, managed_id `f437216b…`) `assigned`/`role=video`,
+**zero `ata5`/`sda` resets even under full recording load**. The dev box **IS**
+`192.168.1.79` (backend + recorder run locally; shutting it down takes them offline).
+**Backend auth is COOKIE-based** (`-b "access_token=$T"` from `POST /auth/login`
+admin/admin), NOT a Bearer header — `/storage/*` 401s on a bearer header. Footage
+lives in **SeaweedFS** (`.dat`/`.idx` volumes under the mount); `/recording/segments`
++ `/admin/recordings` look empty without filters. **`/streams` lists 31 cameras**
+(192.168.1.101–.131, was 4). **Recorder** was undersized for the 31-cam fleet (a 768 MB cap → restart-loop); CV
+raised it to **2 GB / 512 pids** (`ad96216`) and later added a **per-stream watchdog**
+(`0ab548f`). `/streams.recording` is **mode-aware** now (recording/stalled/armed/disabled)
++ carries **`last_segment_at`** — judge recording health from those (or actual segment
+timestamps), NOT a bare `/streams` count. ("disk healthy" ≠ "recorder writing segments".)
+
+**Two heads-ups:** (1) `sda1` is **double-mounted** — canonical `/mnt/cilex-vision/disks/07fa7c7d…`
+*and* `/mnt/cilex-storage` — but CV confirmed this is an **intentional** reboot-persistent
+bind from their storage-recovery runbook, not a stray automount; migration `0029` (pure
+DDL) was unaffected. (2) **OS disk `/` ~91% (23 GB free as of 2026-06-02; was 97%/9 GB)** —
+watch it; build churn fills it.
+
+**Build reminder:** QML is byte-compiled into the binary — *no hot reload*; every QML edit
+needs rebuild (`cmake --build build`) + relaunch. (A7 coverage is deployed; the 2026-05-31
+IP-dedup fix is committed `0d04757`.) Offscreen smoke: `QT_QPA_PLATFORM=offscreen timeout 6
+./build/watchtower` (exit 124 = ok). Screenshots: `WT_CV_AUTOLOGIN=1 [WT_SECTION=… | WT_FOCUS_IP=…
+| WT_WALL_DAY=…] WT_SCREENSHOT=/tmp/x.png WT_SCREENSHOT_MS=… [WT_DEMO=1]`.
+
+## Where we are (2026-05-30, earlier — for current status see PROJECT_STATUS.md + BACKLOG.md)
 **P1–P6 are ALL COMPLETE** (Foundation+Live, Single-Camera, Playback, Export,
 Events+Health, Saved Views/Clips/Prefs/palette). Latest commit **`4170cb5`** on
 `main`, pushed to the **private** GitHub remote `origin`
@@ -67,6 +150,9 @@ expose the frame url on `/streams` + per-user auth). Working tree clean.
 - Surface real decisions to the user (AskUserQuestion) rather than guessing scope.
 
 ## To resume
+**(2026-05-31: see "Latest session" at the top for current next steps + the WD Purple
+disk context. The list below is earlier background and may be partly stale.)**
+
 Read `docs/PROJECT_STATUS.md` then `docs/BACKLOG.md`. Nothing is broken or
 half-done. Next actionable (🟢, no blocker), quickest first: the `compact`
 export-mode toggle, "−15s" seek, same-group playback switch, event-drawer
