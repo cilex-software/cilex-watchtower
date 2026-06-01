@@ -27,6 +27,7 @@ struct CameraData {
     bool favorite = false;
     QString timestamp;   // live time label, e.g. "17:42:08"
     QString lastSeen;    // e.g. "14:22" (shown when offline)
+    QString lastSegmentAt;  // ISO instant of the last recorded segment from /streams ("" if none)
     int pattern = 0;     // 0..3 placeholder video pattern (fallback when no stream)
 
     // Real-camera metadata (populated by the provisioning importer; empty for mock).

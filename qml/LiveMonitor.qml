@@ -498,6 +498,7 @@ Item {
                             hasAudio: modelData.hasAudio
                             timestamp: modelData.timestamp
                             lastSeen: modelData.lastSeen
+                            lastSegmentAt: modelData.lastSegmentAt
                             pattern: modelData.pattern
                             rtspUrl: modelData.rtspUrl
                             rtspSubUrl: modelData.rtspSubUrl

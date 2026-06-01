@@ -39,6 +39,7 @@ Item {
     property bool hasAudio: false
     property string timestamp: ""
     property string lastSeen: ""
+    property string lastSegmentAt: ""   // ISO of the last recorded segment (for the stalled strip)
     property int pattern: 0
     // In the Live Monitor grid the hairline separator comes from the grid
     // container, so the tile drops its own border (design §14).
@@ -65,9 +66,11 @@ Item {
 
     readonly property bool isOffline: live === CameraStatus.Offline
     readonly property bool isNotRec: recording === CameraStatus.NotRecording
+    readonly property bool isStalled: recording === CameraStatus.Stalled
+    readonly property bool isArmed: recording === CameraStatus.Armed
     readonly property bool isDegraded: live === CameraStatus.Degraded
     readonly property bool isGap: recording === CameraStatus.RecordingGap
-    readonly property bool isFault: isOffline || isNotRec || isDegraded || isGap
+    readonly property bool isFault: isOffline || isNotRec || isDegraded || isGap || isStalled
 
     readonly property string geom: groupName.toLowerCase().indexOf("park") >= 0 ? "parking"
                                   : (groupName.toLowerCase().indexOf("lob") >= 0 ? "lobby" : "corridor")
@@ -125,7 +128,7 @@ Item {
         border.width: root.gridMode ? 0 : 1
         border.color: root.gridMode ? "transparent"
                       : (hover.hovered ? Theme.accent
-                      : (root.isOffline ? Theme.bad
+                      : ((root.isOffline || root.isStalled) ? Theme.bad
                       : ((root.isNotRec || root.isDegraded) ? Theme.accent : Theme.line2)))
 
         // ---- video / fallback ----
@@ -211,7 +214,7 @@ Item {
             height: 3
             z: 2
             visible: root.isFault
-            color: root.isOffline ? Theme.bad : Theme.accent
+            color: (root.isOffline || root.isStalled) ? Theme.bad : Theme.accent
         }
 
         // ---- header: name/id (left), badge stack (right) ----
@@ -257,9 +260,9 @@ Item {
             }
         }
 
-        // ---- inline issue strip (not-recording / degraded) ----
+        // ---- inline issue strip (stalled / not-recording / degraded) ----
         Rectangle {
-            visible: root.isNotRec || root.isDegraded
+            visible: root.isNotRec || root.isDegraded || root.isStalled
             anchors { left: parent.left; leftMargin: 8; bottom: parent.bottom; bottomMargin: 34 }
             implicitWidth: issueRow.implicitWidth + 20
             width: Math.min(implicitWidth, parent.width - 16)
@@ -269,7 +272,7 @@ Item {
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                 width: 3
-                color: root.isNotRec ? Theme.accent : Theme.warnDim
+                color: root.isStalled ? Theme.bad : (root.isNotRec ? Theme.accent : Theme.warnDim)
             }
 
             Row {
@@ -280,16 +283,19 @@ Item {
                 spacing: 8
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.isNotRec ? "⚠" : "~"; color: Theme.warn; font.pixelSize: 11
+                    text: (root.isStalled || root.isNotRec) ? "⚠" : "~"
+                    color: root.isStalled ? Theme.bad : Theme.warn; font.pixelSize: 11
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.isNotRec ? "LIVE, NO RECORDING" : "STREAM DEGRADED"
+                    text: root.isStalled
+                          ? ("RECORDING STALLED" + (root.lastSegmentAt !== "" ? "  ·  since " + Settings.clock(new Date(root.lastSegmentAt).getTime(), false) : ""))
+                          : (root.isNotRec ? "LIVE, NO RECORDING" : "STREAM DEGRADED")
                     color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 10
                     font.weight: Font.DemiBold; font.letterSpacing: 0.6
                 }
                 Text {
-                    visible: root.isNotRec
+                    visible: root.isNotRec || root.isStalled
                     anchors.verticalCenter: parent.verticalCenter
                     text: "VIEW ISSUE ›"; color: Theme.accent
                     font.family: Theme.fontMono; font.pixelSize: 10

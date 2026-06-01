@@ -36,6 +36,21 @@ quint32 ipSortKey(const QString &ip)
     }
     return key;
 }
+
+// Map cilex-vision's /streams `recording` vocab to a RecState. The backend is now
+// mode-aware: recording | stalled | armed | disabled | offline (+ legacy
+// not_recording | recording_gap). "offline"/unknown -> RecUnknown (the live status
+// already conveys an offline camera).
+CameraStatus::RecState recStateFrom(const QString &rec)
+{
+    if (rec == QLatin1String("recording"))     return CameraStatus::Recording;
+    if (rec == QLatin1String("stalled"))       return CameraStatus::Stalled;
+    if (rec == QLatin1String("armed"))         return CameraStatus::Armed;
+    if (rec == QLatin1String("disabled"))      return CameraStatus::Disabled;
+    if (rec == QLatin1String("not_recording")) return CameraStatus::NotRecording;
+    if (rec == QLatin1String("recording_gap")) return CameraStatus::RecordingGap;
+    return CameraStatus::RecUnknown;
+}
 }
 
 CameraModel::CameraModel(QObject *parent)
@@ -333,11 +348,8 @@ void CameraModel::fetchCameras()
             // is absent (today) every tile stays "REC ?" (Unknown), but the
             // moment the backend ships it the badges go truthful with no client
             // change beyond this parse.
-            const QString rec = o.value(QStringLiteral("recording")).toString();
-            c.recording = (rec == QLatin1String("recording"))     ? CameraStatus::Recording
-                        : (rec == QLatin1String("not_recording")) ? CameraStatus::NotRecording
-                        : (rec == QLatin1String("recording_gap")) ? CameraStatus::RecordingGap
-                                                                  : CameraStatus::RecUnknown;
+            c.recording = recStateFrom(o.value(QStringLiteral("recording")).toString());
+            c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
             // an admin client may also receive raw direct_rtsp_* and select them via
@@ -398,8 +410,9 @@ void CameraModel::pollStatuses()
         const auto arr =
             QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
 
-        // Build {camera_id -> {live, recording}} from the response.
-        QHash<QString, QPair<CameraStatus::LiveState, CameraStatus::RecState>> incoming;
+        // Build {camera_id -> {live, recording, lastSegmentAt}} from the response.
+        struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec; QString lastSeg; };
+        QHash<QString, Incoming> incoming;
         incoming.reserve(int(arr.size()));
         for (const auto &v : arr) {
             const auto o = v.toObject();
@@ -411,12 +424,8 @@ void CameraModel::pollStatuses()
                             : (st == QLatin1String("maintenance") || st == QLatin1String("error"))
                                                                  ? CameraStatus::Degraded
                                                                  : CameraStatus::LiveUnknown;
-            const QString rec = o.value(QStringLiteral("recording")).toString();
-            const auto recState = (rec == QLatin1String("recording"))     ? CameraStatus::Recording
-                                : (rec == QLatin1String("not_recording")) ? CameraStatus::NotRecording
-                                : (rec == QLatin1String("recording_gap")) ? CameraStatus::RecordingGap
-                                                                          : CameraStatus::RecUnknown;
-            incoming.insert(camId, { live, recState });
+            incoming.insert(camId, { live, recStateFrom(o.value(QStringLiteral("recording")).toString()),
+                                     o.value(QStringLiteral("last_segment_at")).toString() });
         }
 
         // Patch matched rows in place; emit dataChanged once per changed row so
@@ -425,14 +434,14 @@ void CameraModel::pollStatuses()
         for (int i = 0; i < m_all.size(); ++i) {
             const auto it = incoming.constFind(m_all[i].id);
             if (it == incoming.constEnd()) continue;
-            const auto newLive = it->first;
-            const auto newRec  = it->second;
-            if (m_all[i].live == newLive && m_all[i].recording == newRec) continue;
-            m_all[i].live = newLive;
-            m_all[i].recording = newRec;
+            if (m_all[i].live == it->live && m_all[i].recording == it->rec
+                && m_all[i].lastSegmentAt == it->lastSeg) continue;
+            m_all[i].live = it->live;
+            m_all[i].recording = it->rec;
+            m_all[i].lastSegmentAt = it->lastSeg;
             anyChanged = true;
             const QModelIndex idx = index(i);
-            emit dataChanged(idx, idx, { LiveRole, RecordingRole });
+            emit dataChanged(idx, idx, { LiveRole, RecordingRole, LastSegmentAtRole });
         }
         if (anyChanged)
             recompute();   // refresh TopBar counts (online / offline / not-rec)
@@ -463,6 +472,7 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case FavoriteRole:  return c.favorite;
     case TimestampRole: return c.timestamp;
     case LastSeenRole:  return c.lastSeen;
+    case LastSegmentAtRole: return c.lastSegmentAt;
     case PatternRole:   return c.pattern;
     case RtspUrlRole:    return c.rtspUrl;
     case RtspSubUrlRole: return c.rtspSubUrl;
@@ -489,6 +499,7 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { FavoriteRole,  "favorite" },
         { TimestampRole, "timestamp" },
         { LastSeenRole,  "lastSeen" },
+        { LastSegmentAtRole, "lastSegmentAt" },
         { PatternRole,   "pattern" },
         { RtspUrlRole,    "rtspUrl" },
         { RtspSubUrlRole, "rtspSubUrl" },
@@ -516,6 +527,7 @@ QVariantMap CameraModel::get(int row) const
     m["favorite"] = c.favorite;
     m["timestamp"] = c.timestamp;
     m["lastSeen"] = c.lastSeen;
+    m["lastSegmentAt"] = c.lastSegmentAt;
     m["pattern"] = c.pattern;
     m["rtspUrl"] = c.rtspUrl;
     m["rtspSubUrl"] = c.rtspSubUrl;
@@ -546,19 +558,21 @@ bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const
     if (f == QLatin1String("offline"))   return c.live == CameraStatus::Offline;
     if (f == QLatin1String("degraded"))  return c.live == CameraStatus::Degraded;
     if (f == QLatin1String("recording")) return c.recording == CameraStatus::Recording;
-    if (f == QLatin1String("notrec"))    return c.recording == CameraStatus::NotRecording;
+    if (f == QLatin1String("notrec"))    return c.recording == CameraStatus::NotRecording
+                                             || c.recording == CameraStatus::Stalled;
     if (f == QLatin1String("gap"))       return c.recording == CameraStatus::RecordingGap;
     if (f == QLatin1String("favorites")) return c.favorite;
     if (f == QLatin1String("issues") || f == QLatin1String("recent"))
         return c.live == CameraStatus::Offline || c.live == CameraStatus::Degraded
-            || c.recording == CameraStatus::NotRecording || c.recording == CameraStatus::RecordingGap;
+            || c.recording == CameraStatus::NotRecording || c.recording == CameraStatus::RecordingGap
+            || c.recording == CameraStatus::Stalled;
     return true;
 }
 
 static int statusRank(const wt::CameraData &c)
 {
     if (c.live == CameraStatus::Offline) return 0;
-    if (c.recording == CameraStatus::NotRecording) return 1;
+    if (c.recording == CameraStatus::NotRecording || c.recording == CameraStatus::Stalled) return 1;
     if (c.live == CameraStatus::Degraded) return 2;
     if (c.recording == CameraStatus::RecordingGap) return 3;
     return 4;
@@ -651,9 +665,12 @@ void CameraModel::recompute()
         }
         switch (c.recording) {
         case CameraStatus::Recording:    ++m_recording;    break;
+        case CameraStatus::Armed:        ++m_recording;    break;   // recording-on-motion = healthy
+        case CameraStatus::Stalled:      ++m_notRecording; break;   // a real failure → counts as NOT REC
         case CameraStatus::NotRecording: ++m_notRecording; break;
-        case CameraStatus::RecUnknown:   ++m_recUnknown;   break;
         case CameraStatus::RecordingGap: ++m_gap;          break;
+        case CameraStatus::Disabled:     ++m_recUnknown;   break;   // intentionally off, not a fault
+        case CameraStatus::RecUnknown:   ++m_recUnknown;   break;
         default: break;
         }
     }

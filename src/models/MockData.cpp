@@ -105,6 +105,19 @@ QVector<CameraData> mock::cameras()
     // Recording gap (2).
     set("X-P01", CameraStatus::Live, CameraStatus::RecordingGap);
     set("C-10",  CameraStatus::Live, CameraStatus::RecordingGap);
+    // Recording stalled (2) — online + enabled but the recorder stopped producing
+    // segments (the silent failure; counts as NOT REC).
+    set("A-105", CameraStatus::Live, CameraStatus::Stalled);
+    set("B-12",  CameraStatus::Live, CameraStatus::Stalled);
+    // Motion-armed (3) — records on motion, idle now (NOT a fault, not NOT-REC).
+    set("P-G02", CameraStatus::Live, CameraStatus::Armed);
+    set("B-10",  CameraStatus::Live, CameraStatus::Armed);
+    set("Y-08",  CameraStatus::Live, CameraStatus::Armed);
+    // last_segment_at for the stalled/armed demo rows (drives the "since …" strip).
+    for (CameraData &c : out) {
+        if (c.recording == CameraStatus::Stalled)      c.lastSegmentAt = QStringLiteral("2026-06-02T08:14:30");
+        else if (c.recording == CameraStatus::Armed)   c.lastSegmentAt = QStringLiteral("2026-06-02T07:50:00");
+    }
 
     const QStringList favs = { "A-101", "A-103", "P-G01", "X-P01" };
     for (CameraData &c : out)

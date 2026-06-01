@@ -45,6 +45,7 @@ public:
         FavoriteRole,
         TimestampRole,
         LastSeenRole,
+        LastSegmentAtRole,
         PatternRole,
         RtspUrlRole,
         RtspSubUrlRole,

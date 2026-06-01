@@ -28,6 +28,9 @@ public:
         Recording,
         NotRecording,
         RecordingGap,
+        Stalled,        // online + enabled + (effectively continuous) but no recent segment — a real failure
+        Armed,          // motion-enrolled, idle between motion — NOT a fault
+        Disabled,       // recording turned off for the camera — NOT a fault
     };
     Q_ENUM(RecState)
 };
