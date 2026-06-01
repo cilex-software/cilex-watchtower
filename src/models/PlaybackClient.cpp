@@ -335,12 +335,15 @@ QString PlaybackClient::mosaicPlaylistUrl(const QString &sessionId) const
 
 void PlaybackClient::createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
-                                  const QString &destPath)
+                                  const QString &destPath, const QString &groupId,
+                                  const QString &purpose)
 {
     QNetworkRequest req{QUrl(m_baseUrl + "/review/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"camera_id", cameraId}, {"wall_start", wallStartIso},
                      {"wall_end", wallEndIso}, {"mode", mode}};
+    if (!groupId.isEmpty()) body.insert("group_id", groupId);
+    if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
         reply->deleteLater();
@@ -358,11 +361,14 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
 
 void PlaybackClient::createMosaicExport(const QString &sessionId, const QString &wallStartIso,
                                         const QString &wallEndIso, const QString &mode,
-                                        const QString &destPath)
+                                        const QString &destPath, const QString &groupId,
+                                        const QString &purpose)
 {
     QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions/" + sessionId + "/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"wall_start", wallStartIso}, {"wall_end", wallEndIso}, {"mode", mode}};
+    if (!groupId.isEmpty()) body.insert("group_id", groupId);
+    if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
         reply->deleteLater();
@@ -379,6 +385,39 @@ void PlaybackClient::createMosaicExport(const QString &sessionId, const QString 
         m_exportDest.insert(jobId, destPath);
         emit exportStarted(jobId);
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
+    });
+}
+
+void PlaybackClient::fetchExports()
+{
+    if (!m_loggedIn) {
+        if (!AuthController::instance()->authenticated()) { emit exportsListReady({}); return; }
+        ensureReady();
+        connect(this, &PlaybackClient::camerasResolved, this,
+                [this]() { fetchExports(); }, Qt::SingleShotConnection);
+        return;
+    }
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/review/exports?limit=200")});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200) { emit exportsListReady({}); return; }   // endpoint absent / error → empty (honest)
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        QVariantList out;
+        for (const auto &v : obj.value("exports").toArray()) {
+            QVariantMap m = v.toObject().toVariantMap();
+            // Route the token download through the local proxy (same as pollExport's
+            // download), so "Open" works with the session.
+            QString dl = m.value("download_url").toString();
+            if (!dl.isEmpty()) {
+                dl.replace("/api/review/", "/review/");
+                m["downloadUrl"] = m_proxy->localBase() + dl;
+            } else {
+                m["downloadUrl"] = QString();
+            }
+            out.append(m);
+        }
+        emit exportsListReady(out);
     });
 }
 

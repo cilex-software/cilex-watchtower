@@ -47,17 +47,27 @@ public:
     // Clip export: create -> poll -> download to destPath -> emits
     // exportSaved(jobId, localPath). destPath is a local file path (the caller
     // computes it via Artifacts.newExportPath).
+    // groupId (I7) ties a dual-archive set (N per-camera + 1 mosaic of one wall
+    // moment) together in the exports list; purpose (A1) is the operator label.
+    // Both optional.
     Q_INVOKABLE void createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
-                                  const QString &destPath);
+                                  const QString &destPath,
+                                  const QString &groupId = QString(), const QString &purpose = QString());
     Q_INVOKABLE void pollExport(const QString &jobId);
 
     // Combined synchronized-grid export (E2): render a window of a mosaic session
-    // to one file. Reuses the export_jobs poll/download flow. 404 until E2 ships →
-    // an honest exportFailed("…pending…"); per-camera /review/exports work today.
+    // to one file. Reuses the export_jobs poll/download flow + token download.
     Q_INVOKABLE void createMosaicExport(const QString &sessionId, const QString &wallStartIso,
                                         const QString &wallEndIso, const QString &mode,
-                                        const QString &destPath);
+                                        const QString &destPath,
+                                        const QString &groupId = QString(), const QString &purpose = QString());
+
+    // Exports library (A6): GET /review/exports → the operator's server exports
+    // (single + mosaic), newest first, each with state/bytes/resolution/group_id/
+    // purpose/download_url. Emits exportsListReady. download_url is proxied so the
+    // local player/browser can fetch it with the session cookie.
+    Q_INVOKABLE void fetchExports();
 
     // Footage calendar: which days have recorded footage within the retention
     // window. Calls GET /review/coverage?camera_id=… and emits coverageReady.
@@ -100,6 +110,7 @@ signals:
                             const QVariantList &fragments, const QVariantMap &meta);
     void mosaicSessionFailed(const QString &error, bool pending);   // pending=true ⇒ endpoint not shipped (404)
     void coverageUnionReady(bool available, int retentionDays, const QVariantList &unionDays);
+    void exportsListReady(const QVariantList &exports);   // A6: the operator's server exports
 
 private:
     void setStatus(const QString &s);

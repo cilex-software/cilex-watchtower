@@ -134,10 +134,14 @@ Item {
         if (!hasSelection || !client) return;
         var s = new Date(selStartMs).toISOString(), e = new Date(selEndMs).toISOString();
         var ids = camIds();
+        // One group_id ties the dual-archive set (N per-camera clips + 1 combined
+        // grid) together so the exports list (A6) renders them as one wall moment.
+        var gid = "wall-" + Date.now();
+        var purpose = "Wall review · " + ids.length + " cams · " + fmtClock(selStartMs) + "–" + fmtClock(selEndMs);
         for (var i = 0; i < ids.length; i++)
-            client.createExport(ids[i], s, e, "wallclock", Artifacts.newExportPath(ids[i]));
+            client.createExport(ids[i], s, e, "wallclock", Artifacts.newExportPath(ids[i]), gid, purpose);
         if (sessionId !== "")
-            client.createMosaicExport(sessionId, s, e, "wallclock", Artifacts.newExportPath("wall"));
+            client.createMosaicExport(sessionId, s, e, "wallclock", Artifacts.newExportPath("wall"), gid, purpose);
     }
 
     Connections {

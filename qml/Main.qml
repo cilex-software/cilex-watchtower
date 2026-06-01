@@ -338,6 +338,7 @@ Window {
                     visible: win.section === "clips" && win.focusedCamera === null && win.playbackCamera === null
                     snapshotModel: snapshotModel
                     cameraModel: cameraModel
+                    playbackClient: playbackClient
                 }
 
                 Item {
