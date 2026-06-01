@@ -627,6 +627,16 @@ void CameraModel::toggleFavorite(int row)
     emit dataChanged(index(row), index(row), { FavoriteRole });
 }
 
+void CameraModel::toggleFavoriteById(const QString &cameraId)
+{
+    for (int i = 0; i < m_all.size(); ++i) {
+        if (m_all[i].id == cameraId) {
+            toggleFavorite(i);
+            return;
+        }
+    }
+}
+
 void CameraModel::recompute()
 {
     m_online = m_offline = m_degraded = 0;

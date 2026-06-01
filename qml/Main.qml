@@ -216,6 +216,11 @@ Window {
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
                     onCameraOpened: (cam) => win.focusedCamera = cam
+                    onCameraPlaybackRequested: (cam) => {
+                        win.focusedCamera = cam;
+                        win.playbackCamera = cam;
+                        playbackScreen.openFor(cam, 60);
+                    }
                     onWallPlaybackRequested: win.enterWallPlayback()
                 }
 

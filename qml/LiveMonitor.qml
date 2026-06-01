@@ -26,6 +26,7 @@ Item {
     signal saveViewRequested()
     signal snapshotSaved(string path, string camName)
     signal cameraOpened(var cam)
+    signal cameraPlaybackRequested(var cam)
     signal wallPlaybackRequested()
 
     // Layout geometry derived from the canonical id. lcells is the shared cell
@@ -500,6 +501,15 @@ Item {
                                     ? (modelData.ip === wtTestIp) : true)
                             onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
                             onOpened: root.cameraOpened(modelData)
+                            onPlayed: root.cameraPlaybackRequested(modelData)
+                            onOpenedNewTab: root.cameraOpened(modelData)
+                            // Favorite is persisted in CameraModel (keyed by camera_id);
+                            // flip the tile optimistically so it reflects instantly (the
+                            // paged snapshot won't re-fetch until the next page() call).
+                            onFavoriteToggled: {
+                                favorite = !favorite;
+                                if (root.cameraModel) root.cameraModel.toggleFavoriteById(modelData.camId);
+                            }
                         }
                     }
                 }

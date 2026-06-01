@@ -15,7 +15,9 @@ Item {
     implicitWidth: size
     implicitHeight: size
 
-    // name -> { p: SVG path data, f: filled (else stroked), w: stroke width (default 1.5) }
+    // name -> { p: SVG path data, f: filled (else stroked), w: stroke width (default
+    // 1.5), pf: optional filled overlay subpath drawn on top (e.g. a play triangle
+    // inside a stroked replay ring) }
     readonly property var _icons: ({
         "monitor":  { "p": "M3 4h18v13h-18z M9 20h6 M12 17v3" },
         "grid":     { "p": "M3 3h7v7h-7z M14 3h7v7h-7z M3 14h7v7h-7z M14 14h7v7h-7z" },
@@ -27,6 +29,9 @@ Item {
         "search":   { "p": "M4 11 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M21 21l-4.3-4.3" },
         "x":        { "p": "M6 6l12 12 M18 6L6 18" },
         "play":     { "p": "M6 4l14 8-14 8V4z", "f": true },
+        // Open playback: a counter-clockwise replay ring (stroked, gap + arrowhead
+        // at top pointing left) with a filled play triangle in the centre.
+        "playback": { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4", "pf": "M10.4 8.7 L15.6 12 L10.4 15.3 Z" },
         "pause":    { "p": "M6 4h4v16H6z M14 4h4v16h-4z", "f": true },
         "back":     { "p": "M15 6l-6 6 6 6" },
         "fwd":      { "p": "M9 6l6 6-6 6" },
@@ -66,6 +71,13 @@ Item {
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
             PathSvg { path: root._cur ? root._cur.p : "" }
+        }
+
+        // Optional filled overlay (e.g. the play triangle inside the replay ring).
+        ShapePath {
+            strokeColor: "transparent"
+            fillColor: root._cur && root._cur.pf ? root.color : "transparent"
+            PathSvg { path: root._cur && root._cur.pf ? root._cur.pf : "" }
         }
     }
 }

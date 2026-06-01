@@ -112,6 +112,9 @@ public:
     bool loading() const { return m_loading; }
 
     Q_INVOKABLE void toggleFavorite(int row);
+    // Toggle by backend camera_id — the Live Monitor tiles carry the camera_id
+    // (from the paged snapshot), not the model row.
+    Q_INVOKABLE void toggleFavoriteById(const QString &cameraId);
 
 signals:
     void countsChanged();

@@ -4,7 +4,9 @@ import Watchtower
 // The core reusable tile (design §15). Video fills the tile; a gradient header
 // carries the camera name/id and the dual status-badge stack; fault states get
 // a 3px top edge, an inline issue strip, or a NO SIGNAL fallback; a hover action
-// column exposes playback / snapshot / bookmark / favorite / open-in-new-tab.
+// row (bottom-right) exposes SD/HD / playback / snapshot / bookmark / favorite /
+// open-in-new-tab. A horizontal row fits short tiles in dense (4×4/5×5) grids
+// where a vertical column would overflow and clip.
 Item {
     id: root
 
@@ -33,6 +35,7 @@ Item {
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
     property bool favorite: false
+    property bool bookmarked: false
     property bool hasAudio: false
     property string timestamp: ""
     property string lastSeen: ""
@@ -296,10 +299,12 @@ Item {
             }
         }
 
-        // ---- hover action column ----
-        Column {
+        // ---- hover action row (bottom-right) ----
+        // A horizontal row so all actions fit even in dense grids where the tile is
+        // short (a vertical column overflowed and clipped — see 4×4 / 5×5).
+        Row {
             id: actions
-            anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+            anchors { right: parent.right; rightMargin: 8; bottom: parent.bottom; bottomMargin: 8 }
             spacing: 4
             visible: opacity > 0
             opacity: hover.hovered ? 1 : 0
@@ -313,20 +318,33 @@ Item {
                 hoverBorder: Theme.accent
                 hoverIcon: Theme.bg
             }
+            // A toggle action: when `on`, it stays filled (accent) so the operator
+            // sees the active state — and clicking again clears it.
+            component TileToggle: IconButton {
+                property bool on: false
+                bgColor: on ? Theme.accent : Qt.rgba(0, 0, 0, 0.85)
+                borderColor: on ? Theme.accent : Theme.line2
+                iconColor: on ? Theme.bg : Theme.ink
+                hoverBg: Theme.accent
+                hoverBorder: Theme.accent
+                hoverIcon: Theme.bg
+            }
 
             // Per-camera SD/HD stream toggle (defaults to the global setting; SD =
-            // substream/responsive, HD = main stream). Switches the live feed.
+            // substream/responsive, HD = main stream). Switches the live feed; HD
+            // stays filled-accent while active.
             Rectangle {
                 visible: root.rtspUrl !== ""
                 width: 30
                 height: 30
-                color: hdMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.85)
+                readonly property bool on: root.useMainStream
+                color: (hdMa.containsMouse || on) ? Theme.accent : Qt.rgba(0, 0, 0, 0.85)
                 border.width: 1
-                border.color: hdMa.containsMouse ? Theme.accent : Theme.line2
+                border.color: (hdMa.containsMouse || on) ? Theme.accent : Theme.line2
                 Text {
                     anchors.centerIn: parent
-                    text: root.useMainStream ? "HD" : "SD"
-                    color: hdMa.containsMouse ? Theme.bg : (root.useMainStream ? Theme.accent : Theme.ink)
+                    text: parent.on ? "HD" : "SD"
+                    color: (hdMa.containsMouse || parent.on) ? Theme.bg : Theme.ink
                     font.family: Theme.fontMono
                     font.pixelSize: 10
                     font.weight: Font.Bold
@@ -340,13 +358,18 @@ Item {
                 }
             }
 
-            TileAction { name: "clip"; tip: "Open playback"; onClicked: root.played() }
+            TileAction { name: "playback"; tip: "Open playback"; onClicked: root.played() }
             TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
-            TileAction { name: "bookmark"; tip: "Add bookmark"; onClicked: root.bookmarkRequested() }
-            TileAction {
+            TileToggle {
+                name: "bookmark"
+                on: root.bookmarked
+                tip: root.bookmarked ? "Remove bookmark" : "Add bookmark"
+                onClicked: { root.bookmarked = !root.bookmarked; root.bookmarkRequested() }
+            }
+            TileToggle {
                 name: "star"
+                on: root.favorite
                 tip: root.favorite ? "Remove from favorites" : "Add to favorites"
-                iconColor: root.favorite ? Theme.accent : Theme.ink
                 onClicked: root.favoriteToggled()
             }
             TileAction { name: "newtab"; tip: "Open in new tab"; onClicked: root.openedNewTab() }
