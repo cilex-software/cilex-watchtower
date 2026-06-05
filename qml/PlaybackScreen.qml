@@ -86,6 +86,7 @@ Item {
     // instead of the rolling "last zoomMin minutes" window.
     property double _explicitStart: -1
     property double _explicitEnd: -1
+    property double _pendingSeekMs: -1     // after the session loads, seek here (event open-at, −15s lead-in)
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
     // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
@@ -96,7 +97,7 @@ Item {
     function openFor(cam, spanMin) {
         camera = cam;
         zoomMin = spanMin || zoomMin;
-        _explicitStart = -1; _explicitEnd = -1; selectedDay = "";
+        _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1;
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         errorText = ""; selStartMs = -1; selEndMs = -1;
         if (!client) return;
@@ -114,11 +115,19 @@ Item {
         _explicitEnd = Math.min(s + 86400000, Date.now());
         selectedDay = dateStr;
         zoomMin = 1440;
-        errorText = ""; selStartMs = -1; selEndMs = -1;
+        errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1;
         if (!client) return;
         client.ensureReady();
         _pendingOpen = true;
         tryOpen();
+    }
+    // Open playback at a specific wall instant (e.g. from an event), loading that
+    // day and seeking to 15s before the moment so the operator sees the lead-up.
+    function openAt(cam, atMs) {
+        if (!cam || !atMs || atMs <= 0) { openFor(cam, 60); return; }
+        camera = cam;
+        openForDay(Qt.formatDate(new Date(atMs), "yyyy-MM-dd"));
+        _pendingSeekMs = atMs - 15000;     // set AFTER openForDay (which clears it); applied on session load
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
@@ -207,6 +216,10 @@ Item {
                     id: player
                     videoOutput: vout
                     audioOutput: null
+                    // Apply a deferred open-at seek once the media has loaded (seekable).
+                    onDurationChanged: if (duration > 0 && root._pendingSeekMs >= 0) {
+                        root.seekToWall(root._pendingSeekMs); root._pendingSeekMs = -1;
+                    }
                 }
 
                 LoadingState {

@@ -311,9 +311,9 @@ Window {
                     visible: win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
                     eventModel: eventModel
                     cameraModel: cameraModel
-                    onOpenPlayback: (camId) => {
+                    onOpenPlayback: (camId, atMs) => {
                         var cam = cameraModel.cameraByBackendId(camId);
-                        if (cam && cam.camId) { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
+                        if (cam && cam.camId) { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openAt(cam, atMs) }
                     }
                 }
 

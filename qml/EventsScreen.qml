@@ -18,7 +18,7 @@ Item {
     property var eventModel: null
     property var cameraModel: null
 
-    signal openPlayback(string camId)
+    signal openPlayback(string camId, double atMs)
 
     // active filters
     property bool fUnack: true          // default on (design)
@@ -447,7 +447,7 @@ Item {
                             }
                             // action
                             Item { Layout.preferredWidth: root.wAct; Layout.fillHeight: true
-                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "clip"; label: "Playback"; onClicked: root.openPlayback(rowItem.modelData.camId) } }
+                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "clip"; label: "Playback"; onClicked: root.openPlayback(rowItem.modelData.camId, rowItem.modelData.ts) } }
                         }
                     }
 
@@ -517,7 +517,7 @@ Item {
                                     color: Qt.rgba(11 / 255, 14 / 255, 18 / 255, 0.85)
                                     border.width: 1; border.color: Theme.line2
                                     Icon { anchors.centerIn: parent; name: "play"; size: 18; color: "#fff" }
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.sel) root.openPlayback(root.sel.camId) }
+                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
                                 }
                             }
 
@@ -540,7 +540,7 @@ Item {
                             Flow {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 14
                                 spacing: 6
-                                Btn { primary: true; icon: "clip"; label: "Open playback"; onClicked: if (root.sel) root.openPlayback(root.sel.camId) }
+                                Btn { primary: true; icon: "clip"; label: "Open playback"; onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
                                 Btn { icon: "check"; label: "Acknowledge"; visible: root.sel && !root.sel.ack; onClicked: if (root.sel && root.eventModel) root.eventModel.acknowledgeById(root.sel.eventId) }
                             }
                         }
