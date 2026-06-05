@@ -37,9 +37,10 @@ Item {
     property bool overlayTs: true
     property bool overlayName: true
     property bool audioOn: false
+    property string mode: "wallclock"   // wallclock = freeze gaps (timeline preserved); compact = drop gaps
     property bool confirming: false
 
-    signal confirmed(double startMs, double endMs, string mode)
+    signal confirmed(double startMs, double endMs, string mode, string purpose)
     signal closed()
 
     function openWith(cam, camId, sStart, sEnd, fragments, phMs) {
@@ -50,6 +51,7 @@ Item {
         playheadMs = phMs;
         previewSource = "";
         purpose = "Incident review"; customPurpose = "";
+        mode = "wallclock";
         overlayTs = true; overlayName = true; audioOn = false;
         confirming = false;
         visible = true;
@@ -412,8 +414,32 @@ Item {
                 OptCheck { label: "Include audio"; isOn: root.audioOn; active: false; hint: "(unavailable — video export only)" }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
-                    text: "Overlays & purpose travel with your request; server-side application is pending Cilex Vision support (exports are stream-copy today). Video export works now."
+                    text: "Purpose is saved with the export. Overlay burn-in is still pending Cilex Vision support (exports are stream-copy today); audio has no path yet. Video export works now."
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
+                }
+
+                // --- timeline mode: wallclock (freeze gaps) vs compact (drop gaps) ---
+                SecLabel { text: "Timeline" }
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: [ { m: "wallclock", l: "Keep gaps", h: "freeze-frame through gaps" },
+                                 { m: "compact", l: "Drop gaps", h: "shorter clip, gaps removed" } ]
+                        delegate: Rectangle {
+                            id: mb
+                            required property var modelData
+                            Layout.fillWidth: true; implicitHeight: 42
+                            readonly property bool on: root.mode === mb.modelData.m
+                            color: mb.on ? Theme.accentSoft : (mbMa.containsMouse ? Theme.panel2 : Theme.bg)
+                            border.width: 1; border.color: mb.on ? Theme.accent : Theme.line2
+                            Column {
+                                anchors.centerIn: parent; spacing: 1
+                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: mb.modelData.l; color: mb.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                                Text { anchors.horizontalCenter: parent.horizontalCenter; text: mb.modelData.h; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
+                            }
+                            MouseArea { id: mbMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.mode = mb.modelData.m }
+                        }
+                    }
                 }
 
                 // --- purpose (required) ---
@@ -477,7 +503,7 @@ Item {
                         spacing: 4
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
-                            text: "⚠ Selection spans " + (root.gapList.length === 1 ? "a recording gap" : root.gapList.length + " recording gaps") + ". The export will contain a freeze frame for:"
+                            text: "⚠ Selection spans " + (root.gapList.length === 1 ? "a recording gap" : root.gapList.length + " recording gaps") + ". " + (root.mode === "compact" ? "These gaps will be dropped from the clip:" : "The export will freeze-frame through:")
                             color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold; lineHeight: 1.3
                         }
                         Repeater {
@@ -567,7 +593,7 @@ Item {
                         Text { id: okT; anchors.centerIn: parent; text: "Confirm export"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.confirmed(root.startMs, root.endMs, "wallclock"); root.close(); }
+                            onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose); root.close(); }
                         }
                     }
                 }

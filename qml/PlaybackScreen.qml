@@ -573,12 +573,12 @@ Item {
     ExportDrawer {
         id: exportDrawer
         z: 50
-        onConfirmed: (s, e, mode) => {
+        onConfirmed: (s, e, mode, purpose) => {
             if (!root.client) return;
             var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
             var dest = Artifacts.newExportPath(base, "mp4");
             root.client.createExport(root.camId, new Date(s).toISOString(),
-                                     new Date(e).toISOString(), mode, dest);
+                                     new Date(e).toISOString(), mode, dest, "", purpose);
         }
     }
 }
