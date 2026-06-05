@@ -1,6 +1,6 @@
 # Cilex Watchtower — Backlog
 
-_Last updated: 2026-05-28. Outstanding work after P1–P6 (all phases shipped). This
+_Last updated: 2026-06-05. Outstanding work after P1–P6 (all phases shipped). This
 is the single prioritized list of open items._
 
 **Priority** = impact (P1 highest). **Status:** 🟢 ready (we can do now, no
@@ -12,36 +12,31 @@ clears. Backend items map to the living letter
 
 | Pri | Task | Status | Owner |
 |-----|------|--------|-------|
-| P1 | Events pipeline actually producing (B2) | 🔴 Blocked — backend bug (`detections=0` → no tracklets → no events) | Cilex Vision |
-| P1 | Export metadata + Clips server list — `purpose` (A1) + typed job response (A3) + exports LIST (A6) | 🔴 Blocked — backend "first batch" | Cilex → then us (wire, ~½ day) |
 | P1 | Shared acknowledge (B1) | 🔴 Blocked — backend endpoint | Cilex → then us (flip ack local→server) |
-| P2 | Mixed-codec playback switch — verify H.264 720p ↔ H.265 1440p across `#EXT-X-DISCONTINUITY` doesn't stall | 🔴 Blocked — needs cilex's synthesized multi-day timeline (test data) | Cilex (data) → then us |
+| P2 | Mixed-codec playback switch — H.264 720p ↔ H.265 1440p across `#EXT-X-DISCONTINUITY` | 🟡 Partially verified (both codecs decode independently; sustained switch un-runnable — codec boundary coincides with the 42h disk-down gap + 24h session cap) | us — re-test in ~1 day via `WT_PLAYBACK_DAY` as post-gap footage ages into warm |
 | P2 | Burn-in overlays in export (A2) | 🔴 Blocked — backend re-encode path (sequenced last) | Cilex |
 | P2 | Light / Dark theme switching | 🟢 Ready | us — largish (`Theme` is a static singleton; needs to become reactive) |
 | P2 | Same-group camera switch in the playback aside | 🟢 Ready | us — medium |
 | P2 | Events detail drawer: Export-clip action + camera/date filter pills | 🟢 Ready | us (Bookmark sub-item needs a backend/local decision) |
-| P3 | `compact` (drop-gaps) export-mode toggle in the drawer | 🟢 Ready | us — quick |
-| P3 | "−15s" precise seek on Open-playback (from events / clips) | 🟢 Ready | us — small (needs playback seek-to-wallclock) |
-| P3 | Alert-firing pipeline (toast / sound / desktop notification) | 🟡 Buildable, blocked-for-value on B2 (no events to fire yet) | us — after B2 |
+| P3 | Alert-firing pipeline (toast / sound / desktop notification) | 🟢 Ready — B2 now produces events, so this is worth building | us |
 | P3 | Audio export (A5) | 🔴 Blocked — backend (no audio path) | Cilex |
-| P3 | Typed manifest fragment schema + read real `resolution` (C1 + latent) | 🔴 Blocked — backend (mostly) | Cilex |
+| P3 | Typed manifest fragment schema + read real `resolution` (C1 + latent) | 🔴 Blocked — backend (mostly); `resolution` already read at the playhead | Cilex |
 | P3 | Denormalized event camera name/group (C2) | 🔴 Blocked — backend (cosmetic; local MAC lookup works) | Cilex |
 | P3 | `"hydrating"` fragments dropped (`availability !== "ready"`) | 🔴 Blocked — needs warm/cold-tier footage to exist before it manifests / can be tested | data condition |
-| P3 | GStreamer `hlsdemux2` `g_object_unref` CRITICAL during HLS playback (log spam) | 🟢 Ready — parked; cosmetic, playback unaffected (real refcount defect, non-fatal) | us — small (set element rank in `main.cpp`); see Parked detail below |
+| P3 | GStreamer `hlsdemux2` `g_object_unref` CRITICAL log-spam during HLS playback | 🟢 Ready — parked; cosmetic, playback unaffected (real refcount defect in v2, non-fatal) | us — small (force legacy v1 in `main.cpp`); see Parked detail below |
 
 ## Actionable now (🟢, no blocker) — quickest first
-1. `compact` export-mode toggle — quick.
-2. "−15s" precise seek on Open-playback — small.
-3. Same-group camera switch in the playback aside — medium.
-4. Events drawer Export-clip + filter pills — medium.
+1. Same-group camera switch in the playback aside — medium.
+2. Events drawer Export-clip + filter pills — medium.
+3. Alert-firing pipeline (B2 now produces events) — medium.
+4. Silence the `hlsdemux2` v2 log-spam by pinning legacy v1 — small (cosmetic; trade-off, see Parked).
 5. Light/Dark theme switching — largest (reactive `Theme` refactor).
 
 ## Blocked — what clears each
-- **Backend "first batch" (A1 + A3 + A6, B1)** → real export purpose/size, the Clips library's server exports, and shared server-backed acknowledge. Our side is then mostly wiring (no UI rework).
-- **Backend pipeline fix (B2)** → the Events feed populates (and the alert-firing pipeline becomes worth building/testing). Until then: honest empty state.
-- **cilex's synthesized multi-day timeline** → unblocks the mixed-codec playback verification (the one real technical risk). Alternatively wait for natural hot→warm aging at 3 days. _Ask cilex to send it._
+- **Backend shared-ack endpoint (B1)** → server-backed acknowledge (currently local-only).
 - **Backend re-encode path (A2)**, **audio path (A5)**, **typed schemas (C1/C2)** → backend-sequenced; we wire when they land.
-- **Warm/cold-tier footage existing** → the latent "hydrating" fragment fix can be made + tested.
+- **Post-gap footage aging into warm (~1 day)** → unblocks the sustained mixed-codec switch verification. The 42h disk-down gap + the 24h `/review/sessions` cap mean no single session currently spans both codecs. Both codecs already decode + render independently (warm H.264 and hot HEVC each verified).
+- **Warm/cold-tier footage existing** → the latent `"hydrating"` fragment fix can be made + tested.
 
 ## Parked (low-priority) — detail
 **GStreamer `hlsdemux2` GObject-unref CRITICAL** (logged 2026-05-28). During HLS
@@ -64,12 +59,30 @@ benign noise.
 - **Candidate fix (small, our side):** `qputenv("GST_PLUGIN_FEATURE_RANK",
   "hlsdemux2:NONE")` early in `src/main.cpp`, before Qt Multimedia initialises the
   GStreamer registry — also realigns the demuxer with the v1-targeted proxy
-  workaround. Heavier alternative: bump GStreamer past 1.24.2.
+  workaround. **Trade-off:** quieter logs + proxy-aligned, but forgoes the modern
+  `adaptivedemux2` engine (better discontinuity/codec-switch handling — relevant to
+  the mixed-codec item above). Heavier alternative: bump GStreamer past 1.24.2.
 
-## Resolved since the roadmap (context)
-`mode` → `wallclock` (A4 closed); `/detections` 500 fixed + verified (B3 closed);
-event_type vocab corrected to the authoritative enum; `GET /health/storage` wired
-(Health-screen storage strip).
+## Resolved since 2026-05-28 (context)
+- **Export metadata + Clips server list** — `purpose` (A1) sent on single-cam export
+  (`c5b4d98`); typed job response (A3) + exports LIST (A6) wired into the Clips &
+  Snapshots library (`fec0374`); verified live against `/review/exports`.
+- **Combined-grid export (E2 + I7)** — mosaic export returns `job_id`; one shared
+  `group_id` across the N+1 dual-archive jobs; grid clip grouped in the library
+  (`fec0374`).
+- **Mosaic wall (E1)** — server-composited 16-cam synchronized wall delivered +
+  re-verified end-to-end (client-side N-way HLS sync was proven infeasible).
+- **Events pipeline (B2)** — events now produce (backend `detections`/tracklets
+  fixed); Events screen shows real events, with per-column sort + Excel-style
+  autofilters and a Favorites filter pill.
+- **`compact` (drop-gaps) export-mode toggle** in the export drawer (`c5b4d98`).
+- **"−15s" precise seek** on Open-playback from events — opens the event's day and
+  seeks to event-time − 15s (`ee558bd`).
+- **Recording mode states** — `stalled` / `armed` / `disabled` + `last_segment_at`
+  wired across model, badge, tile, single-cam detail, and Health ("Last recording"),
+  with accurate NOT-REC counts.
+- Earlier: `mode` → `wallclock` (A4 closed); `/detections` 500 fixed (B3 closed);
+  event_type vocab corrected to the authoritative enum; `GET /health/storage` wired.
 
 ---
 See also: phase status → [PROJECT_STATUS.md](PROJECT_STATUS.md); backend contracts
