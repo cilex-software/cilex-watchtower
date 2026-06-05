@@ -127,6 +127,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
     // Optional camera to open in Playback on boot, by IP (dev: WT_PLAYBACK_IP=192.168.1.106).
     engine.rootContext()->setContextProperty("wtPlaybackIp", qEnvironmentVariable("WT_PLAYBACK_IP"));
+    // Optional: open WT_PLAYBACK_IP's playback on a specific day (dev: WT_PLAYBACK_DAY=2026-05-28).
+    engine.rootContext()->setContextProperty("wtPlaybackDay", qEnvironmentVariable("WT_PLAYBACK_DAY"));
     // Optional: open synchronized wall playback on boot over the live page's cameras
     // (dev: WT_WALL_DAY=2026-05-29, or WT_WALL_DAY=live for the last hour).
     engine.rootContext()->setContextProperty("wtWallDay", qEnvironmentVariable("WT_WALL_DAY"));

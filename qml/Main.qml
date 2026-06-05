@@ -128,7 +128,12 @@ Window {
                 if (all[i].ip === wtPlaybackIp) {
                     win.focusedCamera = all[i];
                     win.playbackCamera = all[i];
-                    playbackScreen.openFor(all[i], 60);
+                    if (typeof wtPlaybackDay !== "undefined" && wtPlaybackDay !== "") {
+                        playbackScreen.camera = all[i];                 // set camera, then open just the day
+                        playbackScreen.openForDay(wtPlaybackDay);       // dev: a specific day (warm/hot/mixed footage)
+                    } else {
+                        playbackScreen.openFor(all[i], 60);
+                    }
                     break;
                 }
         }
