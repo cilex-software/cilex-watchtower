@@ -395,7 +395,9 @@ Item {
                         readonly property bool isSel: root.sel && root.sel.eventId === modelData.eventId
                         color: isSel ? Theme.accentSoft : (rowMa.containsMouse ? Theme.panel : "transparent")
                         Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
-                        MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.sel = modelData }
+                        // Click anywhere on the row → jump straight to the footage at the
+                        // event moment (−15s lead-in). The "Details" button opens the drawer.
+                        MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPlayback(modelData.camId, modelData.ts) }
 
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
@@ -447,7 +449,7 @@ Item {
                             }
                             // action
                             Item { Layout.preferredWidth: root.wAct; Layout.fillHeight: true
-                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "clip"; label: "Playback"; onClicked: root.openPlayback(rowItem.modelData.camId, rowItem.modelData.ts) } }
+                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "chev"; label: "Details"; onClicked: root.sel = rowItem.modelData } }
                         }
                     }
 
