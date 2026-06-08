@@ -27,6 +27,21 @@ Item {
     property bool fBookmark: false
     // Time window for the server-side query (start/end on /events). "all" omits it.
     property string timeRange: "all"    // all | 30d | 7d | 24h | today
+    // Camera scope for the server-side query (camera_id on /events). "" = all.
+    property string qCameraId: ""
+    property string qCameraLabel: "All cameras"
+    // Roster for the camera-scope dropdown — sourced from the full CameraModel
+    // (rebuilds when cameras load), NOT the loaded events, so scoping to one
+    // camera never removes the others from the list.
+    property var cameraOpts: {
+        var out = [{ camId: "", name: "All cameras" }];
+        var n = root.cameraModel ? root.cameraModel.total : 0;
+        for (var i = 0; i < n; i++) {
+            var c = root.cameraModel.get(i);
+            if (c && c.camId) out.push({ camId: c.camId, name: c.name ? c.name : c.camId });
+        }
+        return out;
+    }
 
     property var sel: null              // selected event map -> detail panel
     property var rows: []
@@ -113,7 +128,7 @@ Item {
     // Re-run the database query with the current server-side filters (time + motion;
     // camera scope comes later). Pills/columns/sort still refine the loaded page set.
     function runQuery() {
-        if (root.eventModel) root.eventModel.search("", root.queryStart(), "", root.fMotion);
+        if (root.eventModel) root.eventModel.search(root.qCameraId, root.queryStart(), "", root.fMotion);
     }
     // Sub-bar pill filters (Unack/Motion/Offline/Bookmarks); column filters + sort layer on top.
     function baseRows() {
@@ -204,6 +219,7 @@ Item {
     onFUnackChanged: recompute()
     onFMotionChanged: runQuery()        // Motion drives the server query (has_clip)
     onTimeRangeChanged: runQuery()
+    onQCameraIdChanged: runQuery()      // camera scope drives the server query
     onFOfflineChanged: recompute()
     onFBookmarkChanged: recompute()
     Component.onCompleted: recompute()
@@ -308,6 +324,51 @@ Item {
                 Pill { label: "Offline"; on: root.fOffline; onToggled: root.fOffline = !root.fOffline }
                 Pill { label: "Bookmarks"; on: root.fBookmark; onToggled: root.fBookmark = !root.fBookmark }
                 Item { Layout.fillWidth: true }
+                // Camera scope for the database query (drives /events camera_id)
+                Rectangle {
+                    id: camBtn
+                    Layout.alignment: Qt.AlignVCenter
+                    implicitHeight: 30
+                    implicitWidth: 190
+                    color: camBtnMa.containsMouse ? Theme.panel2 : Theme.panel
+                    border.width: 1
+                    border.color: root.qCameraId !== "" ? Theme.accent : Theme.line2
+                    Icon { id: camIco; anchors.left: parent.left; anchors.leftMargin: 9; anchors.verticalCenter: parent.verticalCenter; name: "monitor"; size: 14; color: root.qCameraId !== "" ? Theme.accent : Theme.ink2 }
+                    Icon { id: camChev; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; name: "chev"; size: 12; color: Theme.ink3 }
+                    Text { anchors.left: camIco.right; anchors.leftMargin: 7; anchors.right: camChev.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                        text: root.qCameraLabel; elide: Text.ElideRight
+                        color: root.qCameraId !== "" ? Theme.accent : Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                    MouseArea { id: camBtnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: camPopup.opened ? camPopup.close() : camPopup.open() }
+                    QC.Popup {
+                        id: camPopup
+                        y: camBtn.height + 4
+                        x: 0
+                        width: 240
+                        implicitHeight: Math.min(root.cameraOpts.length * 30 + 12, 320)
+                        padding: 6
+                        closePolicy: QC.Popup.CloseOnEscape | QC.Popup.CloseOnPressOutside
+                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                        contentItem: ListView {
+                            id: camList
+                            clip: true
+                            model: root.cameraOpts
+                            QC.ScrollBar.vertical: QC.ScrollBar { }
+                            delegate: Rectangle {
+                                required property var modelData
+                                width: ListView.view ? ListView.view.width : 0
+                                height: 30
+                                readonly property bool on: root.qCameraId === modelData.camId
+                                color: on ? Theme.accentSoft : (cdma.containsMouse ? Theme.panel2 : "transparent")
+                                Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.name; elide: Text.ElideRight
+                                    color: on ? Theme.accent : Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                MouseArea { id: cdma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { root.qCameraId = modelData.camId; root.qCameraLabel = modelData.name; camPopup.close() } }
+                            }
+                        }
+                    }
+                }
                 // Time window for the database query (sets /events start/end)
                 Text { Layout.alignment: Qt.AlignVCenter; text: "Window"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                 Row {
@@ -328,7 +389,7 @@ Item {
                         }
                     }
                 }
-                Btn { ghost: true; label: "Clear all"; onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false; root.timeRange = "all" } }
+                Btn { ghost: true; label: "Clear all"; onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false; root.timeRange = "all"; root.qCameraLabel = "All cameras"; root.qCameraId = "" } }
             }
         }
 
