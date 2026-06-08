@@ -25,6 +25,8 @@ Item {
     property bool fMotion: false
     property bool fOffline: false
     property bool fBookmark: false
+    // Time window for the server-side query (start/end on /events). "all" omits it.
+    property string timeRange: "all"    // all | 30d | 7d | 24h | today
 
     property var sel: null              // selected event map -> detail panel
     property var rows: []
@@ -91,18 +93,42 @@ Item {
         if (key === "time") return (ev.ts && ev.ts > 0) ? ev.ts : root.timeToSecs(ev.time);
         return ("" + root.cellVal(ev, key)).toLowerCase();
     }
+    // A motion event by category — matches the real backend types (motion_detected/
+    // started/ended, entered/exited_scene) and the WT_DEMO mock's plain "motion".
+    function isMotionType(t) {
+        t = "" + t;
+        return t === "motion" || t.indexOf("motion_") === 0
+            || t === "entered_scene" || t === "exited_scene";
+    }
+    // Server-side query window: ISO start (end is always "now", so it's omitted).
+    function queryStart() {
+        if (root.timeRange === "all") return "";
+        var now = new Date();
+        if (root.timeRange === "today") { var d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+        var ms = root.timeRange === "24h" ? 86400000
+               : root.timeRange === "7d"  ? 7 * 86400000
+               : root.timeRange === "30d" ? 30 * 86400000 : 0;
+        return ms ? new Date(now.getTime() - ms).toISOString() : "";
+    }
+    // Re-run the database query with the current server-side filters (time + motion;
+    // camera scope comes later). Pills/columns/sort still refine the loaded page set.
+    function runQuery() {
+        if (root.eventModel) root.eventModel.search("", root.queryStart(), "", root.fMotion);
+    }
     // Sub-bar pill filters (Unack/Motion/Offline/Bookmarks); column filters + sort layer on top.
     function baseRows() {
         var all = root.eventModel ? root.eventModel.all() : [];
-        var types = [];
-        if (root.fMotion) types.push("motion");
-        if (root.fOffline) types.push("offline");
-        if (root.fBookmark) types.push("bookmark");
+        var anyType = root.fMotion || root.fOffline || root.fBookmark;
         var out = [];
         for (var i = 0; i < all.length; i++) {
             var e = all[i];
             if (root.fUnack && e.ack) continue;
-            if (types.length && types.indexOf(e.type) < 0) continue;
+            if (anyType) {
+                var ok = (root.fMotion && root.isMotionType(e.type))
+                      || (root.fOffline && e.type === "offline")
+                      || (root.fBookmark && e.type === "bookmark");
+                if (!ok) continue;
+            }
             out.push(e);
         }
         return out;
@@ -176,11 +202,12 @@ Item {
         }
     }
     onFUnackChanged: recompute()
-    onFMotionChanged: recompute()
+    onFMotionChanged: runQuery()        // Motion drives the server query (has_clip)
+    onTimeRangeChanged: runQuery()
     onFOfflineChanged: recompute()
     onFBookmarkChanged: recompute()
     Component.onCompleted: recompute()
-    onVisibleChanged: if (visible && root.eventModel) root.eventModel.refresh()
+    onVisibleChanged: if (visible) runQuery()
     Connections {
         target: root.eventModel
         enabled: root.eventModel !== null
@@ -281,7 +308,27 @@ Item {
                 Pill { label: "Offline"; on: root.fOffline; onToggled: root.fOffline = !root.fOffline }
                 Pill { label: "Bookmarks"; on: root.fBookmark; onToggled: root.fBookmark = !root.fBookmark }
                 Item { Layout.fillWidth: true }
-                Btn { ghost: true; label: "Clear all"; onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false } }
+                // Time window for the database query (sets /events start/end)
+                Text { Layout.alignment: Qt.AlignVCenter; text: "Window"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                Row {
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 4
+                    Repeater {
+                        model: [{ l: "All", v: "all" }, { l: "30d", v: "30d" }, { l: "7d", v: "7d" }, { l: "24h", v: "24h" }, { l: "Today", v: "today" }]
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool on: root.timeRange === modelData.v
+                            implicitHeight: 30
+                            implicitWidth: segtxt.implicitWidth + 18
+                            color: on ? Theme.accentSoft : (segma.containsMouse ? Theme.panel2 : Theme.panel)
+                            border.width: 1
+                            border.color: on ? Theme.accent : Theme.line2
+                            Text { id: segtxt; anchors.centerIn: parent; text: modelData.l; color: on ? Theme.accent : Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                            MouseArea { id: segma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.timeRange = modelData.v }
+                        }
+                    }
+                }
+                Btn { ghost: true; label: "Clear all"; onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false; root.timeRange = "all" } }
             }
         }
 
@@ -386,6 +433,21 @@ Item {
                     model: root.rows
                     boundsBehavior: Flickable.StopAtBounds
                     QC.ScrollBar.vertical: QC.ScrollBar { }
+
+                    // Pagination — fetch the next page from the database (server offset).
+                    footer: Item {
+                        width: list.width
+                        height: (root.eventModel && root.eventModel.hasMore) ? 56 : 0
+                        visible: height > 0
+                        Btn {
+                            anchors.centerIn: parent
+                            ghost: true
+                            label: (root.eventModel && root.eventModel.loading) ? "Loading…"
+                                 : ("Load more  ·  " + (root.eventModel ? root.eventModel.total : 0)
+                                    + " / " + (root.eventModel ? root.eventModel.serverTotal : 0))
+                            onClicked: if (root.eventModel) root.eventModel.loadMore()
+                        }
+                    }
 
                     delegate: Rectangle {
                         id: rowItem

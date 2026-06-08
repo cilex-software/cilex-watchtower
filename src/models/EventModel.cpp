@@ -12,6 +12,8 @@
 #include <QProcessEnvironment>
 #include <QSettings>
 #include <QDateTime>
+#include <QUrl>
+#include <QUrlQuery>
 
 namespace {
 // Human description from cilex-vision's authoritative EventType vocab
@@ -127,19 +129,62 @@ void EventModel::refresh()
         return;                            // not signed in — leave the list empty
     m_loading = true;
     emit changed();
-    fetchEvents();
+    fetchPage(false);                      // re-run the current query from page 0
 }
 
-void EventModel::fetchEvents()
+void EventModel::search(const QString &cameraId, const QString &startIso,
+                        const QString &endIso, bool motionOnly)
 {
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/events?limit=200")});
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    m_qCameraId = cameraId;
+    m_qStart = startIso;
+    m_qEnd = endIso;
+    m_qMotion = motionOnly;
+    if (qEnvironmentVariableIsSet("WT_DEMO"))
+        return;                            // demo feed is static
+    if (!AuthController::instance()->authenticated())
+        return;
+    // Note: not guarded on m_loading — a newer query supersedes any in-flight one
+    // via m_gen, so rapid filter changes always end on the latest result.
+    m_loading = true;
+    emit changed();
+    fetchPage(false);
+}
+
+void EventModel::loadMore()
+{
+    if (qEnvironmentVariableIsSet("WT_DEMO") || m_loading)
+        return;
+    if (int(m_all.size()) >= m_serverTotal)   // nothing more to fetch
+        return;
+    if (!AuthController::instance()->authenticated())
+        return;
+    m_loading = true;
+    emit changed();
+    fetchPage(true);
+}
+
+void EventModel::fetchPage(bool append)
+{
+    const int gen = ++m_gen;               // tag this request; newer ones supersede it
+    QUrl url(m_baseUrl + "/events");
+    QUrlQuery q;
+    q.addQueryItem("limit", QString::number(m_pageSize));
+    q.addQueryItem("offset", QString::number(append ? int(m_all.size()) : 0));
+    if (!m_qCameraId.isEmpty()) q.addQueryItem("camera_id", m_qCameraId);
+    if (!m_qStart.isEmpty())    q.addQueryItem("start", m_qStart);
+    if (!m_qEnd.isEmpty())      q.addQueryItem("end", m_qEnd);
+    if (m_qMotion)              q.addQueryItem("has_clip", "true");
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, append, gen]() {
         reply->deleteLater();
+        if (gen != m_gen)                  // a newer query started — drop this result
+            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401)
             AuthController::instance()->noteUnauthorized();
-        const auto arr = QJsonDocument::fromJson(reply->readAll())
-                             .object().value("events").toArray();
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const auto arr = obj.value("events").toArray();
         QVector<wt::EventData> out;
         out.reserve(arr.size());
         for (const auto &v : arr) {
@@ -156,10 +201,19 @@ void EventModel::fetchEvents()
             e.desc = descForType(e.type, o.value("duration_ms").toVariant().toLongLong());
             out.push_back(e);
         }
-        beginResetModel();
-        m_all = out;
-        applyAcks();                       // restore locally-persisted acknowledgements
-        endResetModel();
+        if (append && !out.isEmpty()) {
+            const int base = int(m_all.size());
+            beginInsertRows(QModelIndex(), base, base + int(out.size()) - 1);
+            m_all += out;
+            endInsertRows();
+            applyAcks();                   // restore acks on the appended rows
+        } else if (!append) {
+            beginResetModel();
+            m_all = out;
+            applyAcks();                   // restore locally-persisted acknowledgements
+            endResetModel();
+        }
+        m_serverTotal = obj.value("total").toInt(int(m_all.size()));
         m_loading = false;
         emit changed();
     });
