@@ -41,8 +41,20 @@ CV fixed both (`51c7b4d`: `pids_limit` 256→1024, `-threads 1`/input, render se
 seek-3s-early); re-verified end-to-end on the real iGPU — 16-cam 4×4 composites + plays,
 populated cells synced, empties black-filled, cold render ~1s. Full arc:
 `docs/letters/2026-05-31-disk-healthy-path-to-live.{reply2,reply3,reply4}.md`. The
-server-mosaic decision is **validated and live for operators**. Client shipped an 18s
+server-mosaic decision is **validated and live for operators**. Client shipped a
 render watchdog (honest-fail a stuck composite) + a `WT_WALL_DAY` dev hook. See
 [[session-recovery]].
+
+**Status 2026-06-12 — cold-render perf SOLVED (backend `3043dbe`).** The 2026-06-11
+seek-latency analysis found wall cold opens ~44-54s and cold seeks ~25-35s: NOT
+ffmpeg (~3.2s/seg) but 16 *sequential unbounded* per-cell hypertable lookups
+(~1.9s each) — same disease as the hevc_capable 500 (`131d1b6`). Backend shipped
+render *chase* (cold seg/N jumps the render head), batched bounded resolves,
+parallel deduped downloads, 2 frame-threads/decoder, fps-before-scale (~3.7×
+realtime), 48s render-ahead (`MOSAIC_RENDER_AHEAD=8`), create-time seeding.
+Verified client-side: create 0.19s, cold head ~6s, far seek ~3s, adjacent-next
+pre-rendered; **cold open-the-wall → moving grid ≈7.4s** (operator click ≈5-8s).
+Watchdog re-tightened 75s→25s. Letters: `2026-06-11-mosaic-cold-render-latency.*`;
+perf doc `docs/perf/2026-06-11-playback-seek-latency.md` (addendum 2).
 
 Related: [[session-recovery]] · [[s06-playback-gaps]] · [[playback-via-cilex-vision]]
