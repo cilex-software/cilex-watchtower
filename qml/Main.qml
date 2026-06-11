@@ -134,7 +134,10 @@ Window {
                     win.playbackCamera = all[i];
                     if (typeof wtPlaybackDay !== "undefined" && wtPlaybackDay !== "") {
                         playbackScreen.camera = all[i];                 // set camera, then open just the day
-                        playbackScreen.openForDay(wtPlaybackDay);       // dev: a specific day (warm/hot/mixed footage)
+                        if (wtPlaybackDay.indexOf("T") > 0)             // dev: a full local instant — open the
+                            playbackScreen.openAt(all[i], new Date(wtPlaybackDay).getTime());  // day + seek there (−15s)
+                        else
+                            playbackScreen.openForDay(wtPlaybackDay);   // dev: a specific day (warm/hot/mixed footage)
                     } else {
                         playbackScreen.openFor(all[i], 60);
                     }

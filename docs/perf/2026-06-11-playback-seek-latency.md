@@ -96,3 +96,24 @@ Backend-side (letters filed): fix `hevc_capable` 500; mosaic prewarm-at-seek +
 faster-than-realtime render + render-ahead; consider 4–6 s segments and a shared
 timestamp base (no per-segment discontinuity); slim the session-create response
 (2 MB/day manifest → paginate or compact encoding) to cut the 2–6 s open cost.
+
+## Addendum (2026-06-12) — cause #1 resolved, and two follow-on wins
+
+Cilex Vision fixed the `hevc_capable` 500 same-day (backend `131d1b6`): a
+correlated `NOT EXISTS` re-executed across every TimescaleDB chunk (40.9 s
+EXPLAIN) hit asyncpg's 30 s command_timeout. Re-verified here: the repro window
+returns **200 in ~0.5 s** (was 32 s + 500) with 2882 hot/HEVC/1440p fragments,
+and the day-open cost fell ~2.5 s → ~0.5 s for both `hevc_capable` values (the
+bounded query also enabled chunk exclusion). The client workaround is reverted —
+`hevc_capable: true` restored.
+
+Chasing the verification also surfaced a real client bug: the deferred open-at
+seek (event "−15 s jump", `WT_PLAYBACK_DAY` instant) was issued before the
+pipeline became seekable, so Qt silently dropped it and playback started at the
+day head. Fixed (apply on `seekable`), and used to run the **mixed-codec
+sustained-switch verification** end-to-end at the hot-expiry boundary: warm
+H.264 720p → `#EXT-X-DISCONTINUITY` → hot HEVC 1440p inside one session, playhead
+crossed live, no stall/error; aside Quality flipped to "2560x1440 (HEVC)"
+(screenshot 2026-06-12). The S06 mixed-codec risk is closed. Their reply also
+flags that the same unbounded-scan pattern exists in the mosaic session builder —
+tracked in the cold-render letter thread.

@@ -150,12 +150,12 @@ Item {
         var start, end;
         if (_explicitStart >= 0) { start = _explicitStart; end = _explicitEnd; }
         else { end = Date.now(); start = end - zoomMin * 60000; }
-        // WORKAROUND: hevc_capable=false. The `true` path 500s server-side after
-        // ~32s on every session open (isolated 2026-06-11; letter:
-        // docs/letters/2026-06-11-session-hevc-capable-500.md). No quality loss
-        // while all served footage is warm h264; restore `true` once fixed.
+        // hevc_capable=true: we decode HEVC, so prefer the hot 1440p main stream
+        // where it exists (backend serves sub/h264 elsewhere). The 2026-06-11
+        // hevc_capable 500 is fixed server-side (131d1b6) — see
+        // docs/letters/2026-06-11-session-hevc-capable-500.reply.md.
         client.openSession(id, new Date(start).toISOString(),
-                           new Date(end).toISOString(), false);
+                           new Date(end).toISOString(), true);
     }
     function setZoom(spanMin) { openFor(camera, spanMin); }
 
@@ -226,10 +226,18 @@ Item {
                     id: player
                     videoOutput: vout
                     audioOutput: null
-                    // Apply a deferred open-at seek once the media has loaded (seekable).
-                    onDurationChanged: if (duration > 0 && root._pendingSeekMs >= 0) {
-                        root.seekToWall(root._pendingSeekMs); root._pendingSeekMs = -1;
+                    // Apply a deferred open-at seek (event −15s jump / WT_PLAYBACK_DAY
+                    // instant). Must wait for `seekable` — a position set on
+                    // durationChanged is silently dropped by the not-yet-prerolled
+                    // pipeline (found 2026-06-12: event jumps landed at day start).
+                    function applyPendingSeek() {
+                        if (seekable && duration > 0 && root._pendingSeekMs >= 0) {
+                            root.seekToWall(root._pendingSeekMs);
+                            root._pendingSeekMs = -1;
+                        }
                     }
+                    onSeekableChanged: applyPendingSeek()
+                    onDurationChanged: applyPendingSeek()
                 }
 
                 LoadingState {
