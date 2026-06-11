@@ -25,10 +25,11 @@ Window {
     property var playbackCamera: null   // shows Playback (S06) when non-null
     property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
 
-    // Enter synchronized wall playback for the cameras currently on the wall page.
+    // Enter synchronized wall playback. Seeds from the operator's persisted wall
+    // layout when one exists, else from the cameras currently on the wall page.
     function enterWallPlayback() {
         var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
-        wallPlayback.cameras = cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per);
+        wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
         wallMode = "playback";
         wallPlayback.openFor(60);
     }
@@ -151,7 +152,7 @@ Window {
         interval: 3000; running: typeof wtWallDay !== "undefined" && wtWallDay !== ""
         onTriggered: {
             var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
-            wallPlayback.cameras = cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per);
+            wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
             wallMode = "playback";
             if (wtWallDay === "live") wallPlayback.openFor(60);
             else wallPlayback.openForDay(wtWallDay);
@@ -244,6 +245,13 @@ Window {
                     client: playbackClient
                     cameraModel: cameraModel
                     onReturnToLive: win.wallMode = "live"
+                    // Picker "Use live wall": saved layout cleared — reseed from the
+                    // live page and re-composite the same window.
+                    onResetToLiveRequested: {
+                        var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[win.gridLayout] || 16;
+                        wallPlayback.seedCameras(cameraModel.page(win.groupFilter, win.statusFilter, win.sortMode, win.gridPage, per));
+                        wallPlayback.reopenSameWindow();
+                    }
                 }
 
                 CameraGroups {

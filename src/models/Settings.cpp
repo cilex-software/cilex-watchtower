@@ -104,3 +104,18 @@ QString Settings::clock(double ms, bool seconds) const
                                   : (seconds ? QStringLiteral("h:mm:ss AP") : QStringLiteral("h:mm AP"));
     return dt.toString(fmt);
 }
+
+QStringList Settings::wallLayout() const
+{
+    return m_settings.value(QStringLiteral("wall/playbackLayout")).toStringList();
+}
+
+void Settings::setWallLayout(const QStringList &ids)
+{
+    m_settings.setValue(QStringLiteral("wall/playbackLayout"), ids);
+}
+
+void Settings::clearWallLayout()
+{
+    m_settings.remove(QStringLiteral("wall/playbackLayout"));
+}

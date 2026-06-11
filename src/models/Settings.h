@@ -65,6 +65,13 @@ public:
     // displays call this so the Time-format preference takes effect app-wide.
     Q_INVOKABLE QString clock(double ms, bool seconds = false) const;
 
+    // Persisted wall-playback layout: the ordered backend camera ids the
+    // operator assigned/arranged on the synchronized wall (empty = none saved;
+    // the wall then seeds from the live page). Order is the grid order.
+    Q_INVOKABLE QStringList wallLayout() const;
+    Q_INVOKABLE void setWallLayout(const QStringList &ids);
+    Q_INVOKABLE void clearWallLayout();
+
 signals:
     void defaultStreamHdChanged();
     void defaultLandingChanged();

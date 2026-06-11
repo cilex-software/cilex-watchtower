@@ -72,6 +72,37 @@ Item {
         }
         return out;
     }
+    signal resetToLiveRequested()        // picker "Use live wall" → Main reseeds from the live page
+
+    // Entry seeding: prefer the operator's persisted wall layout (assigned +
+    // arranged cameras, in grid order), falling back to the given live-page
+    // cameras. Ids that no longer resolve (camera removed) are skipped.
+    function seedCameras(liveCams) {
+        var saved = Settings.wallLayout();
+        if (saved && saved.length > 0 && cameraModel) {
+            var out = [];
+            for (var i = 0; i < saved.length && out.length < 16; i++) {
+                var c = cameraModel.cameraByBackendId(saved[i]);
+                if (c && c.camId) out.push(c);
+            }
+            if (out.length > 0) { cameras = out; return; }
+        }
+        cameras = liveCams;
+    }
+    function persistLayout() {
+        var ids = [];
+        for (var i = 0; i < cameras.length; i++)
+            if (cameras[i].camId) ids.push(cameras[i].camId);
+        Settings.setWallLayout(ids);
+    }
+    // Re-composite the same wall window over the (changed) camera set and
+    // restore the playhead once the new pipeline is seekable.
+    function reopenSameWindow() {
+        var keepMs = frags.length ? playheadMs : -1;
+        if (winEndMs > winStartMs && winStartMs > 0) _open(winStartMs, winEndMs);
+        else openFor(zoomMin || 60);
+        _pendingSeekMs = keepMs;         // set AFTER _open (which resets it)
+    }
     function openPicker() {
         var m = ({});
         for (var i = 0; i < cameras.length; i++)
@@ -94,11 +125,45 @@ Item {
         }
         if (out.length === 0) return;
         pickerOpen = false;
-        var keepMs = frags.length ? playheadMs : -1;
         cameras = out;
-        if (winEndMs > winStartMs && winStartMs > 0) _open(winStartMs, winEndMs);  // same wall window
-        else openFor(zoomMin || 60);
-        _pendingSeekMs = keepMs;         // set AFTER _open (which resets it)
+        persistLayout();
+        reopenSameWindow();
+    }
+
+    // ---- drag-and-drop cell arrangement -------------------------------------
+    // The grid is ONE composited stream, so a drop reorders cameras[] and the
+    // wall re-composites (debounced — consecutive swaps coalesce); the playhead
+    // is restored. Swaps are by camera id, so stale overlay positions during the
+    // debounce window still commit correctly.
+    property int dragFrom: -1            // grid slot index a drag started on (-1 = none)
+    property int dragOver: -1            // grid slot index under the cursor
+    property double dragX: 0
+    property double dragY: 0
+    property string dragName: ""
+    function cellAtSlot(slot) {
+        for (var i = 0; i < cells.length; i++)
+            if (cells[i].row * grid.cols + cells[i].col === slot) return cells[i];
+        return null;
+    }
+    function swapSlots(a, b) {
+        var ca = cellAtSlot(a), cb = cellAtSlot(b);
+        if (!ca || !cb || ca.camera_id === cb.camera_id) return;
+        var ia = -1, ib = -1;
+        for (var i = 0; i < cameras.length; i++) {
+            if (cameras[i].camId === ca.camera_id) ia = i;
+            if (cameras[i].camId === cb.camera_id) ib = i;
+        }
+        if (ia < 0 || ib < 0) return;
+        var next = cameras.slice();
+        var t = next[ia]; next[ia] = next[ib]; next[ib] = t;
+        cameras = next;
+        persistLayout();
+        recomposeDebounce.restart();
+    }
+    Timer {
+        id: recomposeDebounce
+        interval: 800; repeat: false
+        onTriggered: root.reopenSameWindow()
     }
 
     function pad(n) { return (n < 10 ? "0" : "") + n }
@@ -326,6 +391,7 @@ Item {
                     delegate: Item {
                         readonly property int cols: root.grid.cols
                         readonly property int rows: root.grid.rows
+                        readonly property int slot: modelData.row * cols + modelData.col
                         x: playerArea.fitX + (modelData.col / cols) * playerArea.fitW
                         y: playerArea.fitY + (modelData.row / rows) * playerArea.fitH
                         width: playerArea.fitW / cols
@@ -343,7 +409,67 @@ Item {
                                 color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
                             }
                         }
+                        // drag feedback: source cell dims, hovered target gets an accent frame
+                        Rectangle {
+                            anchors.fill: parent
+                            visible: root.dragFrom >= 0 && parent.slot === root.dragFrom
+                            color: Qt.rgba(0, 0, 0, 0.45)
+                            border.width: 1; border.color: Theme.line2
+                        }
+                        Rectangle {
+                            anchors.fill: parent; anchors.margins: 1
+                            visible: root.dragFrom >= 0 && parent.slot === root.dragOver && root.dragOver !== root.dragFrom
+                            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
+                            border.width: 2; border.color: Theme.accent
+                        }
                     }
+                }
+
+                // drag-to-rearrange: press a cell, drag onto another, release to swap.
+                MouseArea {
+                    anchors.fill: parent
+                    visible: root.sessionId !== "" && root.grid.cols > 0 && root.errorText === "" && !root.pickerOpen
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: root.dragFrom >= 0 ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    function slotAt(mx, my) {
+                        var c = root.grid.cols, r = root.grid.rows;
+                        if (!c || !r) return -1;
+                        var px = mx - playerArea.fitX, py = my - playerArea.fitY;
+                        if (px < 0 || py < 0 || px >= playerArea.fitW || py >= playerArea.fitH) return -1;
+                        return Math.floor(py / (playerArea.fitH / r)) * c + Math.floor(px / (playerArea.fitW / c));
+                    }
+                    onPressed: (m) => {
+                        var s = slotAt(m.x, m.y);
+                        if (s >= 0 && root.cellAtSlot(s)) {
+                            root.dragFrom = s; root.dragOver = s;
+                            root.dragX = m.x; root.dragY = m.y;
+                            var cell = root.cellAtSlot(s);
+                            var cam = root.cameraModel ? root.cameraModel.cameraByBackendId(cell.camera_id) : null;
+                            root.dragName = cam && cam.name ? cam.name : cell.camera_id;
+                        } else { m.accepted = false }
+                    }
+                    onPositionChanged: (m) => {
+                        if (root.dragFrom < 0) return;
+                        root.dragX = m.x; root.dragY = m.y;
+                        root.dragOver = slotAt(m.x, m.y);
+                    }
+                    onReleased: {
+                        if (root.dragFrom >= 0 && root.dragOver >= 0 && root.dragOver !== root.dragFrom)
+                            root.swapSlots(root.dragFrom, root.dragOver);
+                        root.dragFrom = -1; root.dragOver = -1; root.dragName = "";
+                    }
+                    onCanceled: { root.dragFrom = -1; root.dragOver = -1; root.dragName = "" }
+                }
+
+                // drag ghost: the camera name riding the cursor
+                Rectangle {
+                    visible: root.dragFrom >= 0
+                    x: root.dragX + 12; y: root.dragY + 10
+                    z: 10
+                    width: dgT.implicitWidth + 14; height: 20
+                    color: Theme.accent; radius: 2
+                    Text { id: dgT; anchors.centerIn: parent; text: root.dragName
+                        color: Theme.bg; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.Bold }
                 }
 
                 LoadingState {
@@ -642,6 +768,13 @@ Item {
                 // footer actions
                 RowLayout {
                     Layout.fillWidth: true; spacing: 8
+                    Rectangle {
+                        implicitWidth: plT.implicitWidth + 18; implicitHeight: 28
+                        color: "transparent"; border.width: 1; border.color: plMa.containsMouse ? Theme.ink3 : Theme.line2
+                        Text { id: plT; anchors.centerIn: parent; text: "Use live wall"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        MouseArea { id: plMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: { Settings.clearWallLayout(); root.pickerOpen = false; root.resetToLiveRequested() } }
+                    }
                     Text {
                         text: root.pickerCount === 0 ? "Pick at least one camera" : ""
                         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
