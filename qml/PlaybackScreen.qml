@@ -140,12 +140,22 @@ Item {
         }
         _pendingOpen = false;
         loading = true;
+        // Fully unload (not just stop) before switching sessions. Qt 6.4's stop()
+        // re-prerolls the OLD media at position 0 — it re-downloads its first
+        // segments through the proxy (observed in the 2026-06-11 seek bench) while
+        // the new session is being created. Clearing the source drops that wasted
+        // work and detaches the old pipeline cleanly.
         player.stop();
+        player.source = "";
         var start, end;
         if (_explicitStart >= 0) { start = _explicitStart; end = _explicitEnd; }
         else { end = Date.now(); start = end - zoomMin * 60000; }
+        // WORKAROUND: hevc_capable=false. The `true` path 500s server-side after
+        // ~32s on every session open (isolated 2026-06-11; letter:
+        // docs/letters/2026-06-11-session-hevc-capable-500.md). No quality loss
+        // while all served footage is warm h264; restore `true` once fixed.
         client.openSession(id, new Date(start).toISOString(),
-                           new Date(end).toISOString(), true);
+                           new Date(end).toISOString(), false);
     }
     function setZoom(spanMin) { openFor(camera, spanMin); }
 

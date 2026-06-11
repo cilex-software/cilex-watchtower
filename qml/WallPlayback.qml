@@ -116,7 +116,11 @@ Item {
         renderGuard.stop();
         errorText = ""; pending = false; loading = true;
         sessionId = ""; frags = []; grid = ({}); cells = [];
+        // Fully unload (not just stop): Qt 6.4's stop() re-prerolls the old media
+        // at position 0, re-downloading its first segments through the proxy while
+        // the new session is created (see PlaybackScreen's matching note).
         player.stop();
+        player.source = "";
         var ids = camIds();
         if (ids.length === 0) { loading = false; errorText = "These cameras aren't in the recording backend."; return; }
         var d = gridDims(ids.length);
@@ -178,16 +182,24 @@ Item {
         }
     }
 
-    // Render watchdog: the proxy honors Retry-After for ~12s while the backend
-    // composites cold cells, but if the grid never produces frames the HLS player
-    // re-requests forever — an endless "Compositing…". Past the budget, fail
-    // honestly instead of spinning (the file's contract: never a broken player).
+    // Render watchdog: a cold 16-cell composite takes the backend ~45-55s for the
+    // first segment (measured 2026-06-11; it renders ~0.36× realtime). Poll while
+    // "Compositing…" is up: if frames arrive, stand down; only fail honestly after
+    // a budget comfortably above the measured cold start (the file's contract:
+    // never a broken player — and never an error banner over video that IS playing).
     Timer {
         id: renderGuard
-        interval: 18000; repeat: false
+        interval: 5000; repeat: true
+        property int waitedMs: 0
+        onRunningChanged: if (running) waitedMs = 0
         onTriggered: {
-            if (root.sessionId !== "" && root.errorText === "" && player.position <= 0)
+            if (root.sessionId === "" || root.errorText !== "") { running = false; return; }
+            if (player.position > 0) { running = false; return; }   // frames arrived
+            waitedMs += interval;
+            if (waitedMs >= 75000) {
+                running = false;
                 root.errorText = "Couldn't composite the synchronized grid for this window — the server didn't return frames in time. Try a different time, or Return to live.";
+            }
         }
     }
     focus: true

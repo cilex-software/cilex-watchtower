@@ -1,5 +1,7 @@
 #include "HlsProxy.h"
 
+#include <QDebug>
+#include <QElapsedTimer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -7,6 +9,12 @@
 #include <QTcpSocket>
 #include <QTimer>
 #include <QUrl>
+
+namespace {
+// WT_HLS_LOG=1 — per-request upstream timing on stderr ("WTHLS …"), for
+// diagnosing playback/seek latency (segment fetch time, 503 remux retries).
+const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
+}
 
 HlsProxy::HlsProxy(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam)
@@ -66,26 +74,40 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     QNetworkReply *reply = m_nam->get(req);          // cookie auto-attached by shared jar
+    QElapsedTimer fetchTimer;
+    fetchTimer.start();
     // Guard the socket with QPointer: the player (GStreamer hlsdemux) aborts and
     // closes in-flight segment requests aggressively while scrubbing, which
     // deleteLater()s the socket. By the time this reply finishes — or the 503
     // retry timer fires 400ms later — sock may already be freed, so a raw
     // pointer here is a use-after-free. QPointer nulls out on destruction.
     QPointer<QTcpSocket> guardedSock(sock);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt, fetchTimer]() {
         reply->deleteLater();
+        if (s_hlsLog) {
+            const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 %4")
+                .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
+                .arg(path.section(QLatin1Char('/'), -3));
+        }
         if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
             return;
         QTcpSocket *sock = guardedSock;
         const int code = reply->attribute(
             QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code == 503 && attempt < 12) {           // cold fragment remux / cold mosaic render
+        // Cold fragment remux / cold mosaic render. A cold 16-cell mosaic takes the
+        // backend ~25-45s to produce the landed-on segment (measured 2026-06-11,
+        // ~0.36× realtime render) — far beyond any per-request budget we can hold:
+        // GStreamer's souphttpsrc aborts its HTTP request at ~15s, so the chain
+        // must answer BEFORE that. 12 retries ≈ 13s at Retry-After:1 stays just
+        // under it; the player then gets a clean 503 and its outer fragment-retry
+        // loop (patient, playlist refetch + re-request) paces the long render.
+        // Holding longer was measured WORSE (souphttpsrc timeout + socket churn).
+        if (code == 503 && attempt < 12) {
             // Honor the server's Retry-After (seconds). The mosaic cold path sends
             // 503 + Retry-After: 1 + X-Cilex-Mosaic-State: rendering while it
-            // composites, then 200 on retry; a cold 16-cell render can exceed the
-            // old fixed 3.2s. Default 400ms (single-camera remux is sub-second);
-            // clamp so one header can't stall us. 12 retries ⇒ ~12s budget at
-            // Retry-After:1 (hard max ~24s); see docs/letters mosaic integration.
+            // composites, then 200 on retry. Default 400ms (single-camera remux is
+            // sub-second); clamp so one header can't stall us.
             int delayMs = 400;
             bool ok = false;
             const int ra = reply->rawHeader("Retry-After").toInt(&ok);

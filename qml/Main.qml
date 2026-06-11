@@ -120,12 +120,16 @@ Window {
         }
     }
     // Dev hook: WT_PLAYBACK_IP boots straight into Playback (S06) for that camera.
+    // Repeats until the camera roster has loaded (one-shot raced the /streams fetch).
     Timer {
-        interval: 500; running: typeof wtPlaybackIp !== "undefined" && wtPlaybackIp !== ""
+        id: playbackBootHook
+        interval: 500; repeat: true
+        running: typeof wtPlaybackIp !== "undefined" && wtPlaybackIp !== ""
         onTriggered: {
             var all = cameraModel.page("", "", "default", 1, 50);
             for (var i = 0; i < all.length; i++)
                 if (all[i].ip === wtPlaybackIp) {
+                    playbackBootHook.running = false;
                     win.focusedCamera = all[i];
                     win.playbackCamera = all[i];
                     if (typeof wtPlaybackDay !== "undefined" && wtPlaybackDay !== "") {
