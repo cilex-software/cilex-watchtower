@@ -117,3 +117,22 @@ crossed live, no stall/error; aside Quality flipped to "2560x1440 (HEVC)"
 (screenshot 2026-06-12). The S06 mixed-codec risk is closed. Their reply also
 flags that the same unbounded-scan pattern exists in the mosaic session builder —
 tracked in the cold-render letter thread.
+
+## Addendum 2 (2026-06-12) — cause #2 (mosaic cold render) resolved
+
+Backend `3043dbe` closed the cold-render letter same-day. Corrected diagnosis:
+ffmpeg was only ~3.2 s of the ~16 s/segment — the dominant cost was 16
+*sequential, unbounded* per-cell source lookups (~1.9 s each ≈ 31 s/segment), the
+same hypertable pattern as the hevc bug. Fix: batched bounded resolve + parallel
+deduped downloads + 2 frame-threads/decoder + fps-before-scale (renderer now
+~3.7× realtime) + a render *chase* (cold seg/N jumps the render head to N) +
+48 s render-ahead horizon + session-create seeding.
+
+Verified independently and end-to-end: session create 0.19 s (was 6.7),
+cold head 6.1 s (was ~15–46), far seek +2 h **3.2 s** (was ~34.5), adjacent-next
+**already rendered** (was ~17 s), rendered re-fetch 20 ms. Client cold
+open-the-wall: **session-create → moving grid ≈ 7.4 s** (was ~44–54 s); sustained
+playback holds (6 segments buffered by t+20 s). Wall watchdog re-tightened
+75 s → 25 s. Both HIGH-severity backend causes from this analysis are now closed;
+remaining backend suggestions (4–6 s segments, shared timestamp base, slimmer
+session manifests) stay filed as nice-to-haves.

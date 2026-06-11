@@ -182,11 +182,12 @@ Item {
         }
     }
 
-    // Render watchdog: a cold 16-cell composite takes the backend ~45-55s for the
-    // first segment (measured 2026-06-11; it renders ~0.36× realtime). Poll while
-    // "Compositing…" is up: if frames arrive, stand down; only fail honestly after
-    // a budget comfortably above the measured cold start (the file's contract:
-    // never a broken player — and never an error banner over video that IS playing).
+    // Render watchdog: a cold 16-cell composite now takes the backend ~4-6s for
+    // the first segment (3043dbe: render chase + batched bounded resolves +
+    // ~3.7× realtime; was ~45-55s before 2026-06-12). Poll while "Compositing…"
+    // is up: if frames arrive, stand down; only fail honestly after a budget
+    // comfortably above the measured cold start (the file's contract: never a
+    // broken player — and never an error banner over video that IS playing).
     Timer {
         id: renderGuard
         interval: 5000; repeat: true
@@ -196,7 +197,7 @@ Item {
             if (root.sessionId === "" || root.errorText !== "") { running = false; return; }
             if (player.position > 0) { running = false; return; }   // frames arrived
             waitedMs += interval;
-            if (waitedMs >= 75000) {
+            if (waitedMs >= 25000) {
                 running = false;
                 root.errorText = "Couldn't composite the synchronized grid for this window — the server didn't return frames in time. Try a different time, or Return to live.";
             }
