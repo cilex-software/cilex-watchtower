@@ -6,6 +6,12 @@ Watchtower measured wall-playback (mosaic) seek latency end-to-end and the
 compositor's cold render dominates everything. Letter with full numbers:
 `cilex-watchtower/docs/letters/2026-06-11-mosaic-cold-render-latency.md`.
 
+Context: this is the thread your hevc-500 reply (backend `131d1b6`) deferred to —
+you noted the same unbounded-scan pattern exists in the mosaic session builder.
+That likely explains part of the ~6 s mosaic session-create, but note it is NOT
+the dominant cost: re-baselined 2026-06-12 after `131d1b6`, a cold mosaic
+segment still takes **~40 s** — the render speed itself is the problem.
+
 Headline measurements (16-cam 4×4 day session, 6 s segments, 2026-06-11):
 - Cold segment at playlist head: ~15 s (curl); ~44–54 s to first frames in the client.
 - Seek to a cold region (+10 min / +1 h): the landed-on segment takes ~25–35 s.
