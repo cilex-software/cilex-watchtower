@@ -49,6 +49,58 @@ Item {
     property var footageDays: []
     property bool coveragePending: true
 
+    // ---- user-assigned wall cameras (picker) -------------------------------
+    // The wall is seeded from the live page on entry, but the operator can
+    // assign any ≤16 cameras from the full roster; Apply re-composites the same
+    // wall window and restores the playhead.
+    property bool pickerOpen: false
+    property var pickIds: ({})           // camId -> true (picker working set)
+    property string pickSearch: ""
+    property double _pendingSeekMs: -1   // restore playhead after re-open (applied when seekable)
+    readonly property int pickerCount: { var n = 0; var m = pickIds; for (var k in m) n++; return n }
+    readonly property var pickerRows: {
+        var out = [];
+        var n = cameraModel ? cameraModel.total : 0;
+        var q = pickSearch.toLowerCase();
+        for (var i = 0; i < n; i++) {
+            var c = cameraModel.get(i);
+            if (!c || !c.camId) continue;
+            if (q !== "" && ("" + c.name).toLowerCase().indexOf(q) < 0
+                         && ("" + c.ip).indexOf(q) < 0
+                         && ("" + c.groupName).toLowerCase().indexOf(q) < 0) continue;
+            out.push(c);
+        }
+        return out;
+    }
+    function openPicker() {
+        var m = ({});
+        for (var i = 0; i < cameras.length; i++)
+            if (cameras[i].camId) m[cameras[i].camId] = true;
+        pickIds = m; pickSearch = ""; pickerOpen = true;
+    }
+    function togglePick(id) {
+        var m = ({});
+        for (var k in pickIds) m[k] = true;
+        if (m[id]) delete m[id];
+        else { if (pickerCount >= 16) return; m[id] = true; }   // hard cap: 16 cells
+        pickIds = m;
+    }
+    function applyPick() {
+        var out = [];
+        var n = cameraModel ? cameraModel.total : 0;
+        for (var i = 0; i < n && out.length < 16; i++) {
+            var c = cameraModel.get(i);
+            if (c && c.camId && pickIds[c.camId] === true) out.push(c);
+        }
+        if (out.length === 0) return;
+        pickerOpen = false;
+        var keepMs = frags.length ? playheadMs : -1;
+        cameras = out;
+        if (winEndMs > winStartMs && winStartMs > 0) _open(winStartMs, winEndMs);  // same wall window
+        else openFor(zoomMin || 60);
+        _pendingSeekMs = keepMs;         // set AFTER _open (which resets it)
+    }
+
     function pad(n) { return (n < 10 ? "0" : "") + n }
     function fmtClock(ms) { return (!ms || isNaN(ms)) ? "—" : Settings.clock(ms, true) }
 
@@ -115,7 +167,7 @@ Item {
         if (!client || cameras.length === 0) return;
         renderGuard.stop();
         errorText = ""; pending = false; loading = true;
-        sessionId = ""; frags = []; grid = ({}); cells = [];
+        sessionId = ""; frags = []; grid = ({}); cells = []; _pendingSeekMs = -1;
         // Fully unload (not just stop): Qt 6.4's stop() re-prerolls the old media
         // at position 0, re-downloading its first segments through the proxy while
         // the new session is created (see PlaybackScreen's matching note).
@@ -207,6 +259,10 @@ Item {
     onVisibleChanged: { if (visible) forceActiveFocus(); else player.stop(); }
     // keyboard transport: space = play/pause, ←/→ = ∓10s (Shift = ∓60s)
     Keys.onPressed: (e) => {
+        if (root.pickerOpen) {           // picker owns the keyboard while open
+            if (e.key === Qt.Key_Escape) { root.pickerOpen = false; e.accepted = true; }
+            return;
+        }
         if (player.duration <= 0) return;
         if (e.key === Qt.Key_Space) {
             player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play();
@@ -241,6 +297,17 @@ Item {
                     audioOutput: null
                     onErrorOccurred: (e, s) => { if (e !== MediaPlayer.NoError) root.errorText = s }
                     onPositionChanged: if (player.position > 0) renderGuard.stop()   // frames flowing → not stalled
+                    // Apply the deferred playhead restore (camera re-assign). Must
+                    // wait for `seekable` — a position set before the pipeline
+                    // prerolls is silently dropped (same fix as PlaybackScreen).
+                    function applyPendingSeek() {
+                        if (seekable && duration > 0 && root._pendingSeekMs >= 0) {
+                            root.seekToWall(root._pendingSeekMs);
+                            root._pendingSeekMs = -1;
+                        }
+                    }
+                    onSeekableChanged: applyPendingSeek()
+                    onDurationChanged: applyPendingSeek()
                 }
 
                 // Fitted video rect (PreserveAspectFit) for placing cell overlays.
@@ -320,7 +387,18 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
                         Text { text: "Wall playback"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Text { text: root.cameras.length + " cameras · synchronized"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            Text { text: root.cameras.length + " cameras · synchronized"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Rectangle {
+                                implicitWidth: ecT.implicitWidth + 16; implicitHeight: 20
+                                color: ecMa.containsMouse ? Theme.accent : "transparent"
+                                border.width: 1; border.color: ecMa.containsMouse ? Theme.accent : Theme.line2
+                                Text { id: ecT; anchors.centerIn: parent; text: "EDIT CAMERAS"; color: ecMa.containsMouse ? Theme.bg : Theme.ink2
+                                    font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.8 }
+                                MouseArea { id: ecMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPicker() }
+                            }
+                        }
                     }
                     Hdr { text: "Status" }
                     RowLayout {
@@ -477,6 +555,115 @@ Item {
                             : "FOOTAGE · scroll to zoom · drag to select")
                           : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1
+                }
+            }
+        }
+    }
+
+    // ---- camera picker: assign any ≤16 roster cameras to the wall ----------
+    Rectangle {
+        visible: root.pickerOpen
+        anchors.fill: parent
+        z: 60
+        color: Qt.rgba(0, 0, 0, 0.55)
+        MouseArea { anchors.fill: parent; onClicked: root.pickerOpen = false }
+        Rectangle {
+            anchors.centerIn: parent
+            width: 460; height: Math.min(600, parent.height - 60)
+            color: Theme.panel; border.width: 1; border.color: Theme.line2
+            MouseArea { anchors.fill: parent; onClicked: {} }    // swallow backdrop clicks
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 14; spacing: 10
+                RowLayout {
+                    Layout.fillWidth: true
+                    ColumnLayout {
+                        spacing: 1; Layout.fillWidth: true
+                        Text { text: "Assign cameras"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
+                        Text { text: "The wall re-composites at the current moment"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                    }
+                    Text { text: root.pickerCount + " / 16"; color: root.pickerCount >= 16 ? Theme.accent : Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 13; font.weight: Font.DemiBold }
+                }
+                // search
+                Rectangle {
+                    Layout.fillWidth: true; implicitHeight: 32
+                    color: Theme.bg; border.width: 1
+                    border.color: pickInput.activeFocus ? Theme.accent : Theme.line2
+                    TextInput {
+                        id: pickInput
+                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
+                        clip: true
+                        onTextChanged: root.pickSearch = text
+                        Connections { target: root; function onPickerOpenChanged() { if (root.pickerOpen) { pickInput.text = ""; pickInput.forceActiveFocus() } } }
+                    }
+                    Text {
+                        visible: pickInput.text === ""
+                        anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 10
+                        text: "Search name, IP or group…"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                    }
+                }
+                // roster checklist
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: root.pickerRows
+                    spacing: 2
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool on: root.pickIds[modelData.camId] === true
+                        width: ListView.view ? ListView.view.width : 0
+                        height: 42
+                        color: prMa.containsMouse ? Theme.panel2 : "transparent"
+                        Rectangle {   // checkbox
+                            id: prBox
+                            anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                            width: 14; height: 14
+                            color: parent.on ? Theme.accent : "transparent"
+                            border.width: 1; border.color: parent.on ? Theme.accent : Theme.ink3
+                            Text { anchors.centerIn: parent; visible: parent.parent.on; text: "✓"; color: Theme.bg; font.pixelSize: 10; font.weight: Font.Bold }
+                        }
+                        Column {
+                            anchors.left: prBox.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 1
+                            Text { text: modelData.name; color: parent.parent.on ? Theme.ink : Theme.ink2
+                                font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
+                                elide: Text.ElideRight; width: parent.width }
+                            Text { text: modelData.ip + (modelData.groupName ? "  ·  " + modelData.groupName : "")
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                                elide: Text.ElideRight; width: parent.width }
+                        }
+                        MouseArea { id: prMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: root.togglePick(modelData.camId) }
+                    }
+                }
+                // footer actions
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+                    Text {
+                        text: root.pickerCount === 0 ? "Pick at least one camera" : ""
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                        Layout.fillWidth: true
+                    }
+                    Rectangle {
+                        implicitWidth: pcT.implicitWidth + 22; implicitHeight: 28
+                        color: "transparent"; border.width: 1; border.color: pcMa.containsMouse ? Theme.ink3 : Theme.line2
+                        Text { id: pcT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        MouseArea { id: pcMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerOpen = false }
+                    }
+                    Rectangle {
+                        readonly property bool enabled: root.pickerCount > 0
+                        implicitWidth: paT.implicitWidth + 22; implicitHeight: 28
+                        color: enabled ? (paMa.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent) : Theme.panel2
+                        Text { id: paT; anchors.centerIn: parent
+                            text: "Apply · " + root.pickerCount + (root.pickerCount === 1 ? " camera" : " cameras")
+                            color: parent.enabled ? Theme.bg : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                        MouseArea { id: paMa; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: if (parent.enabled) root.applyPick() }
+                    }
                 }
             }
         }
