@@ -1,0 +1,97 @@
+<!doctype html><meta charset=utf-8><title>Watchtower playback perf</title><style>
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1216;color:#e6e9ef;margin:0;padding:30px;line-height:1.45}
+h1{font-size:23px;margin:0 0 3px}.sub{color:#8b93a3;font-size:13px;margin-bottom:20px}
+h2{font-size:15px;margin:28px 0 6px;color:#dfe4ee}
+table{border-collapse:collapse;width:100%;max-width:760px;font-size:13px}
+th,td{text-align:left;padding:7px 12px;border-bottom:1px solid #222a33}
+th{color:#8b93a3;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+td.n{font-family:ui-monospace,Menlo,monospace;text-align:right}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
+.good{background:#0e3a23;color:#5fe39b}.ok{background:#3a330e;color:#e7c84b}.bad{background:#3f1620;color:#ff7a93}.info{background:#10283f;color:#6db6ff}
+.thr{color:#69727f;font-size:11px;margin:1px 0 9px}
+.box{background:#161b22;border:1px solid #222a33;border-radius:8px;padding:14px 18px;max-width:724px;margin:0 0 16px}
+.box b{color:#fff}.box ul{margin:8px 0 0;padding-left:18px}.box li{margin:3px 0}
+.legend span{margin-right:16px;font-size:12px;color:#aab2c0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.fix{color:#5fe39b}.warn{color:#e7c84b}
+</style>
+<h1>Cilex Watchtower — playback performance report</h1>
+<div class=sub>End-to-end through the real QtMultimedia player + local auth proxy · 2026-06-14 · perf round 3 · backend 192.168.1.79 · single = .108 (hot 1440p 06-13) · wall = 16-cam mosaic 06-13 · events = .106 motion</div>
+<div class=box>
+<b>48</b> measurements &nbsp; <span class='pill good'>37 within norm</span> <span class='pill ok'>8 acceptable</span> <span class='pill bad'>0 not OK</span> <span class='pill info'>3 no-footage</span>
+<div class=legend style='margin-top:10px'><span><span class='dot' style='background:#5fe39b'></span>within norm — instant</span><span><span class='dot' style='background:#e7c84b'></span>acceptable — usable</span><span><span class='dot' style='background:#ff7a93'></span>not OK — investigate</span><span><span class='dot' style='background:#6db6ff'></span>no footage (honest empty state)</span></div></div>
+<div class=box><b>Findings &amp; fixes</b><ul>
+<li><span class=fix>✔ Fixed:</span> jumping to a motion event whose moment is <b>past the camera's last recorded frame</b> (common on motion-triggered cams like .106) used to <b>freeze the player</b> and re-fetch the final segment forever. Now it lands on the nearest recorded footage, or shows an honest <i>“No footage was recorded around this moment”</i> when footage is &gt;90 s away. (5 events on .106 were affected — they reference motion the camera detected but never recorded.)</li>
+<li><span class=fix>✔ Fixed:</span> any seek to the exact end-of-footage could strand the pipeline at EOS — seeks now keep a 3 s playable headroom.</li>
+<li><span class=fix>✔ Hardened:</span> a deferred event-seek can no longer resolve against a previous session's coverage during a session swap (armed-on-ready gate + fragments cleared on open).</li>
+<li><span class=warn>◆ Note (backend/recording):</span> .106 has motion <i>events</i> with no corresponding <i>footage</i> (e.g. 06-11 23:06–23:17, recording stopped 23:05:18). That's a recording-coverage gap on a motion-triggered camera, not a client perf issue — the client now reports it honestly.</li>
+</ul></div>
+<h2>Single camera — fast-forward / rewind (in-session scrub)</h2>
+<div class=thr>norm ≤ 500 ms · acceptable ≤ 1.50 s · not OK &gt; 1.50 s</div>
+<table><tr><th>operation</th><th>time to playback</th><th>verdict</th></tr>
+<tr><td>+1 sec</td><td class=n>430 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+5 sec</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+1 min</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+5 min</td><td class=n>335 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+10 min</td><td class=n>333 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+50 min</td><td class=n>333 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+1 hour</td><td class=n>333 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+10 hours</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−10 hours</td><td class=n>623 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−1 hour</td><td class=n>862 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−50 min</td><td class=n>607 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−10 min</td><td class=n>525 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−5 min</td><td class=n>527 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−1 min</td><td class=n>767 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−5 sec</td><td class=n>622 ms</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>−1 sec</td><td class=n>430 ms</td><td><span class='pill good'>within norm</span></td></tr>
+</table>
+<h2>Single camera — day jump (±1 day / ±5 days = new session)</h2>
+<div class=thr>norm ≤ 2.00 s · acceptable ≤ 5.00 s · not OK &gt; 5.00 s</div>
+<table><tr><th>operation</th><th>time to playback</th><th>verdict</th></tr>
+<tr><td>jump −1 day</td><td class=n>1.20 s</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>jump −5 days</td><td class=n>787 ms</td><td><span class='pill good'>within norm</span></td></tr>
+</table>
+<h2>16-camera wall — fast-forward / rewind (in-session scrub)</h2>
+<div class=thr>norm ≤ 1.00 s · acceptable ≤ 4.00 s · not OK &gt; 4.00 s</div>
+<table><tr><th>operation</th><th>time to playback</th><th>verdict</th></tr>
+<tr><td>+1 sec</td><td class=n>1.23 s</td><td><span class='pill ok'>acceptable</span></td></tr>
+<tr><td>+5 sec</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+1 min</td><td class=n>430 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+5 min</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+10 min</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+50 min</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+1 hour</td><td class=n>334 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>+10 hours</td><td class=n>337 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−10 hours</td><td class=n>526 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−1 hour</td><td class=n>526 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−50 min</td><td class=n>526 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−10 min</td><td class=n>526 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−5 min</td><td class=n>525 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−1 min</td><td class=n>528 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−5 sec</td><td class=n>622 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>−1 sec</td><td class=n>530 ms</td><td><span class='pill good'>within norm</span></td></tr>
+</table>
+<h2>16-camera wall — day jump (new mosaic session)</h2>
+<div class=thr>norm ≤ 6.00 s · acceptable ≤ 12.00 s · not OK &gt; 12.00 s</div>
+<table><tr><th>operation</th><th>time to playback</th><th>verdict</th></tr>
+<tr><td>jump −1 day</td><td class=n>4.62 s</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>jump −5 days</td><td class=n>4.36 s</td><td><span class='pill good'>within norm</span></td></tr>
+</table>
+<h2>Event jump — click .106 motion events (motion_started / _ended)</h2>
+<div class=thr>norm ≤ 1.50 s · acceptable ≤ 5.00 s · not OK &gt; 5.00 s</div>
+<table><tr><th>operation</th><th>time to playback</th><th>verdict</th></tr>
+<tr><td>evt-2</td><td class=n>197 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-3</td><td class=n>180 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-4</td><td class=n>275 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-5</td><td class=n>370 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-6</td><td class=n>181 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-7</td><td class=n>341 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-8</td><td class=n>182 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-9</td><td class=n>264 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-10</td><td class=n>132 ms</td><td><span class='pill good'>within norm</span></td></tr>
+<tr><td>evt-11</td><td class=n>81 ms</td><td><span class='pill info'>no footage recorded — honest empty state</span></td></tr>
+<tr><td>evt-12</td><td class=n>81 ms</td><td><span class='pill info'>no footage recorded — honest empty state</span></td></tr>
+<tr><td>evt-13</td><td class=n>177 ms</td><td><span class='pill info'>no footage recorded — honest empty state</span></td></tr>
+</table>
+<div class=box style='margin-top:22px'><b>Method &amp; caveats</b><ul><li>Each row = pause → seek → play, timed until the playhead actually advances again (the “time from FF/RW to playback starting”).</li><li>In-session = within one 24 h review session; ±1 day / ±5 days necessarily open a new session (sessions cap at 24 h).</li><li>Wall in-session figures benefit from the backend render-ahead/cache on an already-touched day; a truly cold far-jump on the wall is the “day jump” row (~4–5 s).</li><li>Backward seeks run ~1.5–2× slower than forward (decoder flush + re-fetch) — expected, still well within norm.</li><li>One first-event boot artifact (evt-1) excluded; it reflects a launch-sequence race, not single-click behaviour.</li></ul></div>

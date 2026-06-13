@@ -74,7 +74,13 @@ Item {
     }
     function seekToWall(ms) {
         if (!player.seekable && player.duration <= 0) return;
-        player.position = Math.round(wallToPos(ms) * 1000);
+        var pos = wallToPos(ms);
+        // Keep a little headroom before end-of-footage: seeking to the exact last
+        // instant strands the pipeline at EOS (frozen frame, endless re-fetch of
+        // the final segment). Found 2026-06-14 jumping to motion events whose time
+        // is past the camera's last recorded frame.
+        if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);
+        player.position = Math.round(Math.max(0, pos) * 1000);
     }
 
     // current playhead wall ms
@@ -87,6 +93,7 @@ Item {
     property double _explicitStart: -1
     property double _explicitEnd: -1
     property double _pendingSeekMs: -1     // after the session loads, seek here (event open-at, −15s lead-in)
+    property bool _pendingArmed: false     // true only once THIS open's session is ready (race-safe deferred seek)
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
     // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
@@ -128,6 +135,7 @@ Item {
         camera = cam;
         openForDay(Qt.formatDate(new Date(atMs), "yyyy-MM-dd"));
         _pendingSeekMs = atMs - 15000;     // set AFTER openForDay (which clears it); applied on session load
+        _pendingArmed = false;             // disarm until this day's session reports ready
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
@@ -140,6 +148,8 @@ Item {
         }
         _pendingOpen = false;
         loading = true;
+        frags = [];            // drop the prior session's fragments — a deferred seek or
+                               // overlay must never resolve against stale coverage mid-swap
         // Fully unload (not just stop) before switching sessions. Qt 6.4's stop()
         // re-prerolls the OLD media at position 0 — it re-downloads its first
         // segments through the proxy (observed in the 2026-06-11 seek bench) while
@@ -164,6 +174,7 @@ Item {
         enabled: root.client !== null
         function onSessionReady(sid, dur, fragments, meta) {
             root.loading = false;
+            root._pendingArmed = true;     // fragments below are now THIS session's — safe to apply a pending seek
             root.sessionId = sid;
             root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
@@ -231,10 +242,31 @@ Item {
                     // durationChanged is silently dropped by the not-yet-prerolled
                     // pipeline (found 2026-06-12: event jumps landed at day start).
                     function applyPendingSeek() {
-                        if (seekable && duration > 0 && root._pendingSeekMs >= 0) {
-                            root.seekToWall(root._pendingSeekMs);
-                            root._pendingSeekMs = -1;
+                        // _pendingArmed ensures frags belong to THIS session — a seekable/
+                        // duration signal from the prior session (or the source swap) must
+                        // not apply the pending seek against stale fragments.
+                        if (!root._pendingArmed || root.loading || !(seekable && duration > 0 && root._pendingSeekMs >= 0)) return;
+                        if (root.frags.length === 0) { root.seekToWall(root._pendingSeekMs); root._pendingSeekMs = -1; return; }
+                        // Event/open-at jump: land on the recorded footage CLOSEST to the
+                        // event, not a blind forward-snap (which can jump minutes across a
+                        // gap) or a freeze at EOS. Motion-triggered cams often detect motion
+                        // they never record; if the nearest footage is far, say so honestly.
+                        var evt = root._pendingSeekMs + 15000;     // pending = event − 15s lead-in
+                        var bestWall = -1, bestD = Infinity;
+                        for (var i = 0; i < root.frags.length; i++) {
+                            var f = root.frags[i], d, w;
+                            if (evt >= f.ws && evt <= f.we) { d = 0; w = root._pendingSeekMs; }   // inside → keep the −15s lead-in
+                            else if (evt > f.we) { d = evt - f.we; w = f.we - 3000; }             // gap after → this clip's tail
+                            else { d = f.ws - evt; w = f.ws; }                                    // gap before → this clip's head
+                            if (d < bestD) { bestD = d; bestWall = w; }
                         }
+                        if (bestD > 90000) {     // no footage within 90s of the event
+                            root.errorText = "No footage was recorded around this moment.";
+                            root._pendingSeekMs = -1;
+                            return;
+                        }
+                        root.seekToWall(bestWall);
+                        root._pendingSeekMs = -1;
                     }
                     onSeekableChanged: applyPendingSeek()
                     onDurationChanged: applyPendingSeek()

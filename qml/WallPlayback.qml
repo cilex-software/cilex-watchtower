@@ -207,7 +207,9 @@ Item {
     readonly property double playheadMs: posToWall(player.position / 1000)
     function seekToWall(ms) {
         if (player.duration <= 0) return;
-        player.position = Math.round(wallToPos(ms) * 1000);
+        var pos = wallToPos(ms);
+        if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);   // headroom — don't strand at EOS
+        player.position = Math.round(Math.max(0, pos) * 1000);
     }
 
     // ---- open / transport --------------------------------------------------
@@ -685,7 +687,6 @@ Item {
             }
         }
     }
-
     // ---- camera picker: assign any ≤16 roster cameras to the wall ----------
     Rectangle {
         visible: root.pickerOpen
