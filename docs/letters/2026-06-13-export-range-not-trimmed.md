@@ -1,5 +1,11 @@
 # Single-camera exports ignore the requested range — whole segments, no trim
 
+> **RESOLVED 2026-06-13** — backend `e78d0dc`. Trim now forces re-encode + output-side
+> `-ss`/`-t` (a stream-copy fast path with 60 s GOP made the original "just add -ss"
+> premise unsafe; CV caught it). Re-verified client-side: 5 s→4.95 s, 35 s→34.95 s,
+> 60 s→59.90 s, compact 35 s→34.90 s. See `.reply.md` / `.reply2.md`. Mosaic export
+> has the same shape at ≤6 s slop — left as a tracked low-priority follow-up.
+
 **To:** Cilex Vision
 **From:** Cilex Watchtower (operator client)
 **Date:** 2026-06-13
