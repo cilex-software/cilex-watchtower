@@ -149,6 +149,51 @@ Item {
         if (ne > winEndMs) { ne = winEndMs; ns = ne - span; }
         viewStartMs = ns; viewEndMs = ne;
     }
+    // Human span label for the "Custom" zoom chip, e.g. "2h 14m", "45m", "30s".
+    function fmtSpan(ms) {
+        var s = Math.round(ms / 1000);
+        if (s < 60) return s + "s";
+        var m = Math.round(s / 60);
+        if (m < 60) return m + "m";
+        var h = Math.floor(m / 60), mm = m % 60;
+        return mm ? (h + "h " + mm + "m") : (h + "h");
+    }
+
+    // ---- timeline ruler (adaptive tick marks, Premiere/FCP-style) -----------
+    // Nice major intervals, each with a clock-aligned minor subdivision, so ticks
+    // always land on round local times. Picked so a labeled tick is ~every 90px.
+    readonly property var _niceIntervals: [
+        { major: 1000, minor: 1 },     { major: 5000, minor: 5 },     { major: 10000, minor: 2 },
+        { major: 15000, minor: 3 },    { major: 30000, minor: 2 },    { major: 60000, minor: 4 },
+        { major: 120000, minor: 4 },   { major: 300000, minor: 5 },   { major: 600000, minor: 2 },
+        { major: 900000, minor: 3 },   { major: 1800000, minor: 2 },  { major: 3600000, minor: 4 },
+        { major: 7200000, minor: 4 },  { major: 10800000, minor: 3 }, { major: 21600000, minor: 6 },
+        { major: 43200000, minor: 2 }, { major: 86400000, minor: 4 }
+    ]
+    function _localMidnight(ms) { var d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); }
+    function _rulerLabel(ms, interval) {
+        var d = new Date(ms);
+        return interval < 60000 ? Qt.formatTime(d, "HH:mm:ss") : Qt.formatTime(d, "HH:mm");
+    }
+    // Tick marks for the visible [startMs,endMs] over widthPx: [{ms, major, lbl}].
+    function computeTicks(startMs, endMs, widthPx) {
+        var span = endMs - startMs;
+        if (span <= 0 || widthPx <= 0) return [];
+        var target = span * 90 / widthPx;            // aim for a labeled tick ~every 90px
+        var pick = _niceIntervals[_niceIntervals.length - 1];
+        for (var i = 0; i < _niceIntervals.length; i++)
+            if (_niceIntervals[i].major >= target) { pick = _niceIntervals[i]; break; }
+        var minorStep = pick.major / pick.minor;
+        var anchor = _localMidnight(startMs);        // align to local midnight (round local times)
+        var first = anchor + Math.ceil((startMs - anchor) / minorStep) * minorStep;
+        var out = [];
+        for (var t = first; t <= endMs && out.length < 600; t += minorStep) {
+            var rel = Math.round((t - anchor) / minorStep);
+            var isMajor = (rel % pick.minor) === 0;
+            out.push({ ms: t, major: isMajor, lbl: isMajor ? _rulerLabel(t, pick.major) : "" });
+        }
+        return out;
+    }
 
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
@@ -601,17 +646,17 @@ Item {
                 Chip { label: "Last 15 min"; onClicked: root.setZoom(15) }
                 Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
-                // timeline zoom state — visible range + Fit (scroll/±/0 to zoom; for precise export)
-                Text { visible: root.tlZoomed; Layout.leftMargin: 12
-                    text: "ZOOM " + root.fmtClock(root.viewStartMs) + "–" + root.fmtClock(root.viewEndMs)
-                    color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 10 }
-                Chip { visible: root.tlZoomed; label: "Fit"; onClicked: root.resetView() }
                 Item { Layout.fillWidth: true }
-                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setZoom(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setZoom(60) }
-                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setZoom(360) }
-                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
-                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
+                // Window presets re-open the session; they de-highlight once you
+                // wheel/±-zoom the scrubber into a custom range (then a Custom chip
+                // shows the visible span; scroll/±/0 to zoom, Fit to reset).
+                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(15) }
+                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(60) }
+                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(360) }
+                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(720) }
+                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(1440) }
+                Chip { visible: root.tlZoomed; active: true; label: root.fmtSpan(root.viewEndMs - root.viewStartMs); onClicked: root.resetView() }
+                Chip { visible: root.tlZoomed; label: "Fit"; onClicked: root.resetView() }
             }
 
             // bar
@@ -628,6 +673,7 @@ Item {
                 function xOf(ms) { return (ms - root.viewStartMs) / span * width }
                 function msOf(x) { return root.viewStartMs + (x / width) * span }
                 property double hoverMs: -1   // wall ms under the cursor (-1 = not hovering)
+                readonly property var rulerTicks: root.computeTicks(root.viewStartMs, root.viewEndMs, width)
 
                 // gap backdrop (whole bar = red stripe), footage drawn on top
                 Rectangle {
@@ -652,6 +698,29 @@ Item {
                 // footage label
                 Text { anchors.left: parent.left; anchors.leftMargin: 6; anchors.top: parent.top; anchors.topMargin: 30
                     text: "FOOTAGE"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+
+                // adaptive time ruler — major (labeled) + minor ticks at the bottom,
+                // intervals chosen from the visible span (re-evaluates on zoom/pan)
+                Repeater {
+                    model: bar.rulerTicks
+                    delegate: Item {
+                        required property var modelData
+                        readonly property real tx: bar.xOf(modelData.ms)
+                        visible: tx >= -1 && tx <= bar.width + 1
+                        Rectangle {
+                            x: parent.tx; width: 1
+                            height: parent.modelData.major ? 11 : 6
+                            y: bar.height - height - 1
+                            color: parent.modelData.major ? Qt.rgba(1, 1, 1, 0.40) : Qt.rgba(1, 1, 1, 0.16)
+                        }
+                        Text {
+                            visible: parent.modelData.major && parent.tx <= bar.width - implicitWidth - 2
+                            x: Math.round(parent.tx) + 3; y: bar.height - 25
+                            text: parent.modelData.lbl
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                        }
+                    }
+                }
 
                 // selection overlay
                 Rectangle {
