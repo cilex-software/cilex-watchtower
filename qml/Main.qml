@@ -34,6 +34,19 @@ Window {
         wallPlayback.openFor(60);
     }
 
+    // Left-rail navigation. Camera detail, single-camera playback, and wall
+    // playback are full-screen overlays that layer OVER a section (they gate on
+    // focusedCamera / playbackCamera / wallMode, not on `section`), so setting
+    // `section` alone leaves them up and the rail looks dead — e.g. clicking LIVE
+    // while already in wall playback (section is already "live") wouldn't exit it.
+    // Clear every overlay so a rail click always lands on that section's main view.
+    function goToSection(sid) {
+        focusedCamera = null;
+        playbackCamera = null;
+        wallMode = "live";
+        section = sid;
+    }
+
     function setLayout(n) { gridLayout = n; gridPage = 1 }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
     function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
@@ -178,7 +191,7 @@ Window {
             visible: !win.fullscreen
             section: win.section
             unackCount: eventModel.unacknowledgedCount
-            onSectionSelected: (sid) => win.section = sid
+            onSectionSelected: (sid) => win.goToSection(sid)
         }
 
         ColumnLayout {
@@ -196,8 +209,8 @@ Window {
                 operatorName: AuthController.username
                 hasAlerts: eventModel.unacknowledgedCount > 0
                 onStatusChipClicked: (which) => win.toggleStatusChip(which)
-                onPreferencesRequested: win.section = "preferences"
-                onAlertsViewAllRequested: { win.focusedCamera = null; win.playbackCamera = null; win.section = "events" }
+                onPreferencesRequested: win.goToSection("preferences")
+                onAlertsViewAllRequested: win.goToSection("events")
                 onSearchActivated: commandPalette.open()
             }
 
