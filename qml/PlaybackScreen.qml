@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic as C
 import QtMultimedia
 import Watchtower
 
@@ -80,11 +81,42 @@ Item {
         // the final segment). Found 2026-06-14 jumping to motion events whose time
         // is past the camera's last recorded frame.
         if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);
-        player.position = Math.round(Math.max(0, pos) * 1000);
+        var p = Math.round(Math.max(0, pos) * 1000);
+        player.position = p;
+        root._scanPos = p;        // keep the scan accumulator in step with manual seeks
     }
 
     // current playhead wall ms
     readonly property double playheadMs: posToWall(player.position / 1000)
+
+    // ---- playback speed / fast-forward ----------------------------------
+    // playbackRate carries low speeds, but the HEVC-1440p decoder caps near ~14×
+    // realtime on this hardware, so x20…x200 can't decode every frame. Above
+    // maxDecodeRate we "scan": the player keeps playing (so frames render) while
+    // a timer jumps the playhead forward by rate×interval — a true high-speed
+    // fast-forward (how VMS clients race through hours of footage).
+    readonly property var speeds: [1, 2, 4, 10, 20, 50, 100, 200]
+    readonly property real maxDecodeRate: 10
+    property real playSpeed: 1
+    property bool paused: false
+    property double _scanPos: -1          // scan accumulator (compact ms)
+    readonly property bool advancing: !paused && frags.length > 0
+    function applyTransport() {
+        if (paused || frags.length === 0) { scanTimer.stop(); player.pause(); return; }
+        if (playSpeed <= maxDecodeRate) {
+            scanTimer.stop();
+            player.playbackRate = playSpeed;
+            player.play();
+        } else {
+            scanTimer.stop();
+            player.playbackRate = 1;
+            _scanPos = player.position;
+            player.play();                // keep rendering frames between jumps
+            scanTimer.start();
+        }
+    }
+    function setSpeed(s) { playSpeed = s; paused = false; applyTransport(); }
+    function togglePlay() { paused = !paused; applyTransport(); }
 
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
@@ -190,6 +222,8 @@ Item {
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             root.errorText = "";
+            root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
+            scanTimer.stop(); player.playbackRate = 1;
             player.source = root.client.playlistUrl(sid);
             player.play();
         }
@@ -212,7 +246,27 @@ Item {
     }
 
     // pause streams when hidden; tidy player on hide
-    onVisibleChanged: if (!visible) player.stop()
+    onVisibleChanged: if (!visible) { player.stop(); scanTimer.stop() }
+
+    // Drives the playhead during high-speed scan (playSpeed > maxDecodeRate):
+    // accumulate rate×interval ms of footage per tick and seek there; stop at the
+    // end of footage. The player stays playing so frames render between jumps.
+    Timer {
+        id: scanTimer
+        interval: 200; repeat: true
+        onTriggered: {
+            if (root.playSpeed <= root.maxDecodeRate || root.frags.length === 0) { stop(); return; }
+            if (root._scanPos < 0) root._scanPos = player.position;
+            root._scanPos += root.playSpeed * interval;        // ms of footage advanced per tick
+            var endMs = Math.max(0, (root.compactDuration - 0.4) * 1000);
+            if (root.compactDuration > 0 && root._scanPos >= endMs) {
+                player.position = Math.round(endMs);
+                root.playSpeed = 1; root.paused = true; root.applyTransport();   // reached the end
+                return;
+            }
+            player.position = Math.round(root._scanPos);
+        }
+    }
 
     // ======================================================================
     ColumnLayout {
@@ -353,19 +407,41 @@ Item {
                         anchors.left: parent.left; anchors.leftMargin: 16
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
-                        Ctl { name: "jumpBack"; tip: "Back 10s"; onClicked: player.position = Math.max(0, player.position - 10000) }
-                        Ctl { name: player.playbackState === MediaPlayer.PlayingState ? "pause" : "play"
+                        Ctl { name: "jumpBack"; tip: "Back 10s"; onClicked: { var p = Math.max(0, player.position - 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: root.advancing ? "pause" : "play"
                             tip: "Play / pause"
-                            onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play() }
-                        Ctl { name: "jumpFwd"; tip: "Forward 10s"; onClicked: player.position = Math.min(player.duration, player.position + 10000) }
+                            onClicked: root.togglePlay() }
+                        Ctl { name: "jumpFwd"; tip: "Forward 10s"; onClicked: { var p = Math.min(player.duration, player.position + 10000); player.position = p; root._scanPos = p; } }
+                        // speed — popup of x1…x200 (x20+ scans, since the decoder caps ~14×)
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: 40; implicitHeight: 30; color: spdMa.containsMouse ? Theme.accent : Qt.rgba(0,0,0,0.5)
+                            implicitWidth: 48; implicitHeight: 30; color: spdMa.containsMouse ? Theme.accent : Qt.rgba(0,0,0,0.5)
                             border.width: 1; border.color: spdMa.containsMouse ? Theme.accent : Theme.line2
-                            Text { anchors.centerIn: parent; text: player.playbackRate + "×"; color: spdMa.containsMouse ? Theme.bg : "#fff"
+                            Text { anchors.centerIn: parent; text: root.playSpeed + "×"; color: spdMa.containsMouse ? Theme.bg : "#fff"
                                 font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
                             MouseArea { id: spdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: player.playbackRate = player.playbackRate >= 4 ? 1 : player.playbackRate * 2 }
+                                onClicked: spdPopup.open() }
+                            C.Popup {
+                                id: spdPopup
+                                y: -implicitHeight - 4          // open upward (controls sit at the bottom)
+                                x: 0; width: 66; padding: 0
+                                background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                                contentItem: Column {
+                                    Repeater {
+                                        model: root.speeds
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            width: 66; height: 30
+                                            color: spdOptMa.containsMouse ? Theme.panel2 : "transparent"
+                                            Text { anchors.centerIn: parent; text: modelData + "×"
+                                                color: root.playSpeed === modelData ? Theme.accent : Theme.ink
+                                                font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
+                                            MouseArea { id: spdOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                onClicked: { root.setSpeed(modelData); spdPopup.close() } }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     // right cluster
