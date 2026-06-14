@@ -548,8 +548,17 @@ Item {
                             }
                             // Group
                             Text { Layout.preferredWidth: root.wGroup; text: root.groupDisplay(rowItem.modelData); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
-                            // Time
-                            Text { Layout.preferredWidth: root.wTime; text: rowItem.modelData.time; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12 }
+                            // Time (clock + date — events can span days)
+                            ColumnLayout {
+                                Layout.preferredWidth: root.wTime
+                                Layout.minimumWidth: root.wTime
+                                Layout.maximumWidth: root.wTime
+                                spacing: 1
+                                Text { text: rowItem.modelData.time; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; Layout.fillWidth: true }
+                                Text { visible: (rowItem.modelData.ts || 0) > 0
+                                       text: Qt.formatDate(new Date(rowItem.modelData.ts), "ddd d MMM")
+                                       color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+                            }
                             // Status
                             Item { Layout.preferredWidth: root.wStatus; Layout.fillHeight: true
                                 // acknowledged

@@ -307,8 +307,10 @@ Item {
                         Text { text: root.camera ? root.camera.name : ""; color: "#fff"
                             font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
+                        // primary playhead readout — the main time reference while reviewing
                         Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd") + " · " + root.fmtClock(root.playheadMs)
-                            color: Qt.rgba(1,1,1,0.8); font.family: Theme.fontMono; font.pixelSize: 12; visible: root.frags.length > 0 }
+                            color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 22; font.weight: Font.DemiBold
+                            font.letterSpacing: 0.5; visible: root.frags.length > 0 }
                     }
                 }
 
@@ -546,21 +548,9 @@ Item {
                     Rectangle { anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; width: 7; height: 7; rotation: 45; color: "#fff" }
                 }
 
-                // window start / end time-axis labels
-                Text {
-                    visible: root.frags.length > 0
-                    anchors.left: parent.left; anchors.leftMargin: 4
-                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                    text: root.fmtClock(root.winStartMs)
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
-                }
-                Text {
-                    visible: root.frags.length > 0
-                    anchors.right: parent.right; anchors.rightMargin: 4
-                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                    text: root.fmtClock(root.winEndMs)
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
-                }
+                // (window start/end axis labels removed — the visible range is conveyed
+                // by the zoom buttons + calendar; the playhead readout above the video,
+                // the PLAYHEAD label, and the hover tooltip are the time references.)
 
                 // hover guide + time tooltip — the wall-clock time under the cursor
                 Rectangle {
