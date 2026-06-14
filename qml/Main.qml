@@ -236,6 +236,7 @@ Window {
                     onPageRequested: (p) => win.gridPage = Math.max(1, Math.min(p, liveMonitor.pageCount))
                     onStatusFilterRequested: (f) => win.setStatusFilter(f)
                     onSortRequested: (s) => win.sortMode = s
+                    onGroupRequested: (gid, label) => { win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1 }
                     onFullscreenToggled: win.fullscreen = !win.fullscreen
                     onSaveViewRequested: win.openSaveView()
                     onSnapshotSaved: (path, camName) => toastHost.show(

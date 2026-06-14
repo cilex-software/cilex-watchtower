@@ -28,6 +28,19 @@ Item {
     signal cameraOpened(var cam)
     signal cameraPlaybackRequested(var cam)
     signal wallPlaybackRequested()
+    signal groupRequested(string groupId, string label)   // quick group switch from the header
+
+    // "All cameras" + every backend group, for the header group switcher. Reads
+    // cameraModel.total so it re-evaluates when the roster/groups (re)load.
+    readonly property var groupOpts: {
+        var out = [{ id: "", name: "All cameras" }];
+        if (cameraModel) {
+            cameraModel.total;   // refresh dependency
+            var gs = cameraModel.groupList();
+            for (var i = 0; i < gs.length; i++) out.push({ id: gs[i].id, name: gs[i].name });
+        }
+        return out;
+    }
 
     // Layout geometry derived from the canonical id. lcells is the shared cell
     // enumeration (big tile first, then row-major) that both the toolbar/preset
@@ -277,6 +290,57 @@ Item {
                                             root.layoutRequested((picker.hc + 1) + "x" + (picker.hr + 1));
                                             otherPopup.close();
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 24; color: Theme.line2 }
+
+                // group scope switcher — re-scope the grid to a camera group in one click
+                Rectangle {
+                    id: groupControl
+                    Layout.preferredHeight: 38
+                    implicitWidth: groupRow.implicitWidth + 24
+                    color: Theme.panel
+                    border.width: 1
+                    border.color: grpMa.containsMouse ? Theme.accent : Theme.line2
+                    Row {
+                        id: groupRow; anchors.centerIn: parent; spacing: 8
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.groupLabel
+                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
+                            elide: Text.ElideRight; width: Math.min(implicitWidth, 180)
+                        }
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "chev"; size: 12; color: Theme.ink3 }
+                    }
+                    MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: groupPopup.open() }
+                    C.Popup {
+                        id: groupPopup
+                        y: groupControl.height + 4
+                        x: 0
+                        width: 220
+                        padding: 0
+                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                        contentItem: Column {
+                            Repeater {
+                                model: root.groupOpts
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: 220; height: 34
+                                    color: grpOptMa.containsMouse ? Theme.panel2 : "transparent"
+                                    Text {
+                                        anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                        text: modelData.name
+                                        color: root.groupId === modelData.id ? Theme.accent : Theme.ink
+                                        font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
+                                    }
+                                    MouseArea {
+                                        id: grpOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { root.groupRequested(modelData.id, modelData.name); groupPopup.close(); }
                                     }
                                 }
                             }
