@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic as C
 import QtMultimedia
 import Watchtower
 
@@ -74,6 +75,19 @@ Item {
     }
     signal resetToLiveRequested()        // picker "Use live wall" → Main reseeds from the live page
 
+    // Quick group switch: the wall holds an arbitrary ≤16 set (custom), or a
+    // camera group's cameras. wallGroupLabel shows the active group ("" = custom).
+    property string wallGroupLabel: ""
+    readonly property var groupOpts: {
+        var out = [{ id: "", name: "All cameras" }];
+        if (cameraModel) {
+            cameraModel.total;   // refresh dependency
+            var gs = cameraModel.groupList();
+            for (var i = 0; i < gs.length; i++) out.push({ id: gs[i].id, name: gs[i].name });
+        }
+        return out;
+    }
+
     // Entry seeding: prefer the operator's persisted wall layout (assigned +
     // arranged cameras, in grid order), falling back to the given live-page
     // cameras. Ids that no longer resolve (camera removed) are skipped.
@@ -126,6 +140,20 @@ Item {
         if (out.length === 0) return;
         pickerOpen = false;
         cameras = out;
+        wallGroupLabel = "";          // hand-picked set → no longer a named group
+        persistLayout();
+        reopenSameWindow();
+    }
+    // Load a camera group's cameras onto the wall (first 16 if the group is larger).
+    function loadGroup(groupId, label) {
+        if (!cameraModel) return;
+        var list = cameraModel.page(groupId, "", "default", 1, 16);
+        var out = [];
+        for (var i = 0; i < list.length && out.length < 16; i++)
+            if (list[i] && list[i].camId) out.push(list[i]);
+        if (out.length === 0) return;
+        cameras = out;
+        wallGroupLabel = label;
         persistLayout();
         reopenSameWindow();
     }
@@ -525,6 +553,41 @@ Item {
                                 Text { id: ecT; anchors.centerIn: parent; text: "EDIT CAMERAS"; color: ecMa.containsMouse ? Theme.bg : Theme.ink2
                                     font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.8 }
                                 MouseArea { id: ecMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPicker() }
+                            }
+                        }
+                        // quick group switch — load a camera group's cameras onto the wall
+                        RowLayout {
+                            Layout.fillWidth: true; Layout.topMargin: 6; spacing: 8
+                            Text { text: "GROUP"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1; Layout.alignment: Qt.AlignVCenter }
+                            Rectangle {
+                                id: wgCtl
+                                Layout.fillWidth: true; implicitHeight: 28
+                                color: Theme.bg; border.width: 1; border.color: wgMa.containsMouse ? Theme.accent : Theme.line2
+                                Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: wgChev.left; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
+                                    text: root.wallGroupLabel !== "" ? root.wallGroupLabel : "Custom selection"
+                                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
+                                Text { id: wgChev; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "▾"; color: Theme.ink3; font.pixelSize: 11 }
+                                MouseArea { id: wgMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: wgPopup.open() }
+                                C.Popup {
+                                    id: wgPopup
+                                    y: wgCtl.height + 2; x: 0; width: wgCtl.width; padding: 0
+                                    background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                                    contentItem: Column {
+                                        Repeater {
+                                            model: root.groupOpts
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                width: wgCtl.width; height: 30
+                                                color: wgoMa.containsMouse ? Theme.panel2 : "transparent"
+                                                Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                                    text: modelData.name; color: root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink
+                                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
+                                                MouseArea { id: wgoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                    onClicked: { root.loadGroup(modelData.id, modelData.name); wgPopup.close() } }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
