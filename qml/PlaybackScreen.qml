@@ -23,8 +23,15 @@ Item {
     property string sessionId: ""
     property var frags: []             // ready fragments (compact_start/end + wall_start/end ms)
     property double compactDuration: 0
-    property double winStartMs: 0      // visible wall-clock window
+    property double winStartMs: 0      // loaded wall-clock window (the whole session)
     property double winEndMs: 0
+    // Zoomable scrubber view — a subset of [winStartMs, winEndMs] so you can zoom
+    // in on a long (12h/24h) timeline to place an export In/Out precisely
+    // (Premiere-style: +/− keys around the playhead, scroll to zoom on the cursor,
+    // Shift+scroll to pan, 0/Fit to reset).
+    property double viewStartMs: 0
+    property double viewEndMs: 0
+    readonly property bool tlZoomed: (winEndMs - winStartMs) > 0 && (viewEndMs - viewStartMs) < (winEndMs - winStartMs) - 1
     property int zoomMin: 60           // 15 / 60 / 1440
     property bool loading: false
     property string errorText: ""
@@ -117,6 +124,31 @@ Item {
     }
     function setSpeed(s) { playSpeed = s; paused = false; applyTransport(); }
     function togglePlay() { paused = !paused; applyTransport(); }
+
+    // ---- timeline zoom (precise export selection on long windows) -----------
+    function resetView() { viewStartMs = winStartMs; viewEndMs = winEndMs; }
+    // Zoom the view by `factor` (<1 = in, >1 = out) keeping centerMs under the
+    // same x; clamp to the loaded window, 2s minimum span.
+    function zoomView(factor, centerMs) {
+        var full = winEndMs - winStartMs;
+        if (full <= 0) return;
+        var cur = viewEndMs - viewStartMs; if (cur <= 0) cur = full;
+        var span = Math.max(2000, Math.min(full, cur * factor));
+        if (centerMs < viewStartMs || centerMs > viewEndMs) centerMs = (viewStartMs + viewEndMs) / 2;
+        var frac = (centerMs - viewStartMs) / cur;
+        var ns = centerMs - frac * span, ne = ns + span;
+        if (ns < winStartMs) { ns = winStartMs; ne = ns + span; }
+        if (ne > winEndMs) { ne = winEndMs; ns = ne - span; }
+        viewStartMs = Math.max(winStartMs, ns);
+        viewEndMs = Math.min(winEndMs, ne);
+    }
+    function panView(deltaMs) {
+        var span = viewEndMs - viewStartMs;
+        var ns = viewStartMs + deltaMs, ne = viewEndMs + deltaMs;
+        if (ns < winStartMs) { ns = winStartMs; ne = ns + span; }
+        if (ne > winEndMs) { ne = winEndMs; ns = ne - span; }
+        viewStartMs = ns; viewEndMs = ne;
+    }
 
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
@@ -211,6 +243,7 @@ Item {
             root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
+            root.resetView();          // new session → scrubber shows the full window
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
@@ -246,7 +279,15 @@ Item {
     }
 
     // pause streams when hidden; tidy player on hide
-    onVisibleChanged: if (!visible) { player.stop(); scanTimer.stop() }
+    focus: true
+    onVisibleChanged: { if (visible) forceActiveFocus(); else { player.stop(); scanTimer.stop() } }
+    // Timeline zoom keys (Premiere-style): +/- around the playhead, 0 to fit.
+    Keys.onPressed: (e) => {
+        if (root.frags.length === 0) return;
+        if (e.key === Qt.Key_Plus || e.key === Qt.Key_Equal) { root.zoomView(0.5, root.playheadMs); e.accepted = true; }
+        else if (e.key === Qt.Key_Minus || e.key === Qt.Key_Underscore) { root.zoomView(2.0, root.playheadMs); e.accepted = true; }
+        else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) { root.resetView(); e.accepted = true; }
+    }
 
     // Drives the playhead during high-speed scan (playSpeed > maxDecodeRate):
     // accumulate rate×interval ms of footage per tick and seek there; stop at the
@@ -560,6 +601,11 @@ Item {
                 Chip { label: "Last 15 min"; onClicked: root.setZoom(15) }
                 Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
+                // timeline zoom state — visible range + Fit (scroll/±/0 to zoom; for precise export)
+                Text { visible: root.tlZoomed; Layout.leftMargin: 12
+                    text: "ZOOM " + root.fmtClock(root.viewStartMs) + "–" + root.fmtClock(root.viewEndMs)
+                    color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 10 }
+                Chip { visible: root.tlZoomed; label: "Fit"; onClicked: root.resetView() }
                 Item { Layout.fillWidth: true }
                 Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setZoom(15) }
                 Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setZoom(60) }
@@ -577,9 +623,10 @@ Item {
                 height: 64
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
-                readonly property double span: Math.max(1, root.winEndMs - root.winStartMs)
-                function xOf(ms) { return (ms - root.winStartMs) / span * width }
-                function msOf(x) { return root.winStartMs + (x / width) * span }
+                clip: true   // footage/selection outside the zoomed view are clipped
+                readonly property double span: Math.max(1, root.viewEndMs - root.viewStartMs)
+                function xOf(ms) { return (ms - root.viewStartMs) / span * width }
+                function msOf(x) { return root.viewStartMs + (x / width) * span }
                 property double hoverMs: -1   // wall ms under the cursor (-1 = not hovering)
 
                 // gap backdrop (whole bar = red stripe), footage drawn on top
@@ -668,6 +715,13 @@ Item {
                             root.seekToWall(cur);
                         }
                         pressMs = -1;
+                    }
+                    // scroll = zoom on the cursor; Shift+scroll = pan (Premiere-style)
+                    onWheel: (w) => {
+                        if (w.modifiers & Qt.ShiftModifier)
+                            root.panView(w.angleDelta.y > 0 ? -bar.span * 0.15 : bar.span * 0.15);
+                        else
+                            root.zoomView(w.angleDelta.y > 0 ? 0.8 : 1.25, bar.msOf(w.x));
                     }
                 }
             }
