@@ -216,7 +216,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         QByteArray body = reply->readAll();
         QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
         if (path.endsWith(QLatin1String(".m3u8")) || ct.contains("mpegurl")) {
-            body = rewritePlaylist(body, path.contains(QLatin1String("/mosaic-sessions/")));
+            body = rewritePlaylist(body);
             if (ct.isEmpty()) ct = "application/vnd.apple.mpegurl";
         } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
             cachePut(path, body, ct);   // warm the cache for re-seeks to this region
@@ -225,44 +225,67 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     });
 }
 
-// /api/review -> /review, drop #EXT-X-GAP placeholder segments, and (mosaic only)
-// inject #EXT-X-DISCONTINUITY before each segment.
+// /api/review -> /review, drop #EXT-X-GAP placeholder segments, and normalize
+// #EXT-X-DISCONTINUITY so EVERY media segment is preceded by exactly one.
 //
-// WORKAROUND (diagnosed 2026-06-14, backend letter filed): every mosaic segment
-// is rendered independently with reset timestamps (each starts at PTS 0), but the
-// mosaic playlist declares a continuous timeline with NO #EXT-X-DISCONTINUITY —
-// so the player plays seg0 (0–6 s) then freezes at the boundary when seg1's PTS
-// jumps back to 0 with no discontinuity to explain it (cold wall stalls after the
-// first 6 s). The single-camera playlist already carries discontinuities and
-// plays fine. We inject the missing tags so the player re-bases per segment.
-// Auto-disables the moment the backend emits its own discontinuities.
-QByteArray HlsProxy::rewritePlaylist(const QByteArray &in, bool injectDiscontinuities)
+// Why (diagnosed 2026-06-14): every review/mosaic segment is encoded
+// independently and RESETS its PTS (single-cam segments start at ~1.4 s, mosaic
+// at 0). hlsdemux2 only stays in sync across a PTS reset if a #EXT-X-DISCONTINUITY
+// announces it. Continuous 24/7 cameras get one per segment from the backend and
+// play fine; motion-triggered clips (and cold mosaics) DON'T get them between
+// in-clip segments, so the player decodes the first segment then freezes on the
+// backward PTS jump while the playhead clock free-runs — frozen frame, ticking
+// timer (reproduced on .106's motion clips: stalled after ~5 s of each clip).
+// We add the missing tags, deduped, so it's a no-op where the backend already
+// emits them (.108, mosaic post-0d71c0d). Backend letter filed; this is the
+// client safety net. Also strips #EXT-X-GAP dead-air so playback skips gaps.
+QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
 {
     QByteArray s = in;
     s.replace("/api/review/", "/review/");
-    const bool inject = injectDiscontinuities && !s.contains("#EXT-X-DISCONTINUITY");
     const QList<QByteArray> lines = s.split('\n');
+
+    // Pass 1 — strip #EXT-X-GAP blocks: remove the gap's #EXTINF (+ a preceding
+    // #EXT-X-PROGRAM-DATE-TIME) and the gap-N.ts URI, so playback skips dead air.
+    QList<QByteArray> kept;
+    kept.reserve(lines.size());
+    bool skipNextSeg = false;
+    for (const QByteArray &line : lines) {
+        const QByteArray t = line.trimmed();
+        if (skipNextSeg && t.endsWith(".ts")) { skipNextSeg = false; continue; }
+        if (t == "#EXT-X-GAP") {
+            while (!kept.isEmpty()) {
+                const QByteArray lt = kept.last().trimmed();
+                if (lt.startsWith("#EXTINF") || lt.startsWith("#EXT-X-PROGRAM-DATE-TIME"))
+                    kept.removeLast();
+                else break;
+            }
+            skipNextSeg = true;
+            continue;
+        }
+        kept.append(line);
+    }
+
+    // Pass 2 — ensure each real segment is preceded by exactly one discontinuity
+    // (inject before its metadata block; dedupe consecutive; drop leading ones —
+    // the first segment establishes the timeline and needs none).
     QList<QByteArray> out;
-    out.reserve(lines.size());
-    bool skipNextGapSeg = false;
-    bool sawFirstSeg = false;
-    for (QByteArray line : lines) {
-        const QByteArray trimmed = line.trimmed();
-        if (skipNextGapSeg && trimmed.startsWith("gap-")) {
-            skipNextGapSeg = false;
+    out.reserve(kept.size() + 16);
+    bool needDiscont = false;     // a segment was emitted; the next one needs a discontinuity
+    for (const QByteArray &line : kept) {
+        const QByteArray t = line.trimmed();
+        if (t == "#EXT-X-DISCONTINUITY") {
+            if (!needDiscont) continue;            // dedupe / drop leading
+            needDiscont = false;
+            out.append(line);
             continue;
         }
-        if (trimmed == "#EXT-X-GAP") {
-            if (!out.isEmpty() && out.last().trimmed().startsWith("#EXTINF"))
-                out.removeLast();
-            skipNextGapSeg = true;
-            continue;
-        }
-        if (inject && trimmed.startsWith("#EXTINF")) {
-            if (sawFirstSeg) out.append(QByteArrayLiteral("#EXT-X-DISCONTINUITY"));
-            sawFirstSeg = true;
+        if (needDiscont && (t.startsWith("#EXT-X-PROGRAM-DATE-TIME") || t.startsWith("#EXTINF"))) {
+            out.append(QByteArrayLiteral("#EXT-X-DISCONTINUITY"));
+            needDiscont = false;
         }
         out.append(line);
+        if (t.endsWith(".ts")) needDiscont = true;   // the NEXT segment needs one
     }
     return out.join('\n');
 }

@@ -644,4 +644,71 @@ Item {
                                      new Date(e).toISOString(), mode, dest, "", purpose);
         }
     }
+
+    // QA self-test (WT_SMOOTHTEST=<seconds>): verifies playback SMOOTHNESS (video
+    // frames keep arriving while the playhead advances — no frozen frame while the
+    // timer ticks) and FRAME/TIMER SYNC (the displayed frame's PTS tracks the
+    // playhead). Prints WTSMOOTH lines and quits after the window. A "freeze" =
+    // playing + position advancing + no new presented frame.
+    Item {
+        id: probe
+        property bool on: (typeof wtSmoothTest !== "undefined") && wtSmoothTest !== ""
+        property int runSec: probe.on ? (parseInt(wtSmoothTest) || 45) : 0
+        property int frames: 0
+        property double lastFrameMs: -1     // presented frame PTS (ms), if exposed
+        property int stalls: 0
+        property double maxStallMs: 0
+        property double maxDesyncMs: 0
+        property double lastPos: -1
+        property int lastFrames: 0
+        property double freezeStart: -1
+        Connections {
+            target: vout.videoSink
+            enabled: probe.on
+            function onVideoFrameChanged(frame) {
+                probe.frames++;
+                if (frame !== undefined && frame !== null && frame.startTime !== undefined && frame.startTime >= 0)
+                    probe.lastFrameMs = frame.startTime / 1000;
+            }
+        }
+        Timer {                       // 100ms sampler: freeze + desync detection
+            running: probe.on; interval: 100; repeat: true
+            onTriggered: {
+                if (player.playbackState !== MediaPlayer.PlayingState) {
+                    probe.lastPos = player.position; probe.lastFrames = probe.frames; probe.freezeStart = -1; return;
+                }
+                var now = Date.now(), pos = player.position;
+                var posAdv = probe.lastPos >= 0 && (pos - probe.lastPos) > 40;
+                var frmAdv = probe.frames > probe.lastFrames;
+                // ignore the initial open/preroll — only flag mid-playback freezes
+                if (posAdv && !frmAdv && probe.frames > 8) {
+                    if (probe.freezeStart < 0) probe.freezeStart = now;
+                    probe.maxStallMs = Math.max(probe.maxStallMs, now - probe.freezeStart);
+                } else if (frmAdv) {
+                    if (probe.freezeStart >= 0 && (now - probe.freezeStart) > 400) {
+                        probe.stalls++;
+                        console.log("WTSMOOTH STALL " + Math.round(now - probe.freezeStart) + "ms near playhead=" + root.fmtClock(root.playheadMs));
+                    }
+                    probe.freezeStart = -1;
+                }
+                if (probe.lastFrameMs >= 0)
+                    probe.maxDesyncMs = Math.max(probe.maxDesyncMs, Math.abs(pos - probe.lastFrameMs));
+                probe.lastPos = pos; probe.lastFrames = probe.frames;
+            }
+        }
+        Timer {                       // 1s heartbeat + final summary
+            running: probe.on; interval: 1000; repeat: true
+            property int sec: 0
+            onTriggered: {
+                sec++;
+                console.log("WTSMOOTH t=" + sec + "s frames=" + probe.frames + " pos=" + player.position
+                    + " playhead=" + root.fmtClock(root.playheadMs) + " status=" + player.mediaStatus + " state=" + player.playbackState);
+                if (sec >= probe.runSec) {
+                    console.log("WTSMOOTH SUMMARY stalls=" + probe.stalls + " maxStall=" + Math.round(probe.maxStallMs)
+                        + "ms maxDesync=" + Math.round(probe.maxDesyncMs) + "ms frames=" + probe.frames + " over=" + sec + "s");
+                    Qt.quit();
+                }
+            }
+        }
+    }
 }

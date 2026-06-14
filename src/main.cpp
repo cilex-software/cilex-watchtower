@@ -134,6 +134,10 @@ int main(int argc, char *argv[])
     // Optional: open synchronized wall playback on boot over the live page's cameras
     // (dev: WT_WALL_DAY=2026-05-29, or WT_WALL_DAY=live for the last hour).
     engine.rootContext()->setContextProperty("wtWallDay", qEnvironmentVariable("WT_WALL_DAY"));
+    // QA self-test: WT_SMOOTHTEST=<seconds> attaches a playback smoothness/sync
+    // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
+    // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.
+    engine.rootContext()->setContextProperty("wtSmoothTest", qEnvironmentVariable("WT_SMOOTHTEST"));
     // Live RTSP path: low-latency by default (custom GStreamer pipeline →
     // QVideoSink, rtspsrc latency≈150 ms). QMediaPlayer's default 2000 ms
     // jitter buffer is unusable for monitoring — proven so during the spike.

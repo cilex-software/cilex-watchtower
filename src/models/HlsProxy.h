@@ -39,7 +39,7 @@ private slots:
 private:
     void serveRequest(QTcpSocket *sock, const QString &path);
     void forward(QTcpSocket *sock, const QString &path, int attempt);
-    static QByteArray rewritePlaylist(const QByteArray &in, bool injectDiscontinuities = false);
+    static QByteArray rewritePlaylist(const QByteArray &in);
     void writeResponse(QTcpSocket *sock, int code, const QByteArray &contentType,
                        const QByteArray &body);
 
