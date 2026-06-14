@@ -65,7 +65,98 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
         writeResponse(sock, 404, "text/plain", "not found");
         return;
     }
+    if (isSegmentPath(path)) {
+        // Kick read-ahead in parallel with serving this one, so the demuxer's
+        // next (serial) request lands in cache instead of a fresh cold fetch.
+        prefetchAround(path);
+        if (cacheServe(sock, path))
+            return;
+    }
     forward(sock, path, 0);
+}
+
+bool HlsProxy::isSegmentPath(const QString &path)
+{
+    return path.endsWith(QLatin1String(".ts"));
+}
+
+bool HlsProxy::cacheServe(QTcpSocket *sock, const QString &path)
+{
+    auto it = m_segCache.find(path);
+    if (it == m_segCache.end())
+        return false;
+    m_segOrder.removeOne(path);      // touch → most-recently-used
+    m_segOrder.append(path);
+    if (s_hlsLog)
+        qInfo().noquote() << QStringLiteral("WTHLS cache=1 %1").arg(path.section(QLatin1Char('/'), -1));
+    writeResponse(sock, 200, it->ct.isEmpty() ? QByteArrayLiteral("video/mp2t") : it->ct, it->body);
+    return true;
+}
+
+void HlsProxy::cachePut(const QString &path, const QByteArray &body, const QByteArray &ct)
+{
+    if (body.isEmpty())
+        return;
+    auto it = m_segCache.find(path);
+    if (it != m_segCache.end()) {
+        m_segBytes -= it->body.size();
+        m_segOrder.removeOne(path);
+    }
+    m_segCache.insert(path, CachedSeg{body, ct});
+    m_segOrder.append(path);
+    m_segBytes += body.size();
+    // Evict oldest until under budget (keep at least the just-added entry).
+    while (m_segBytes > kCacheBudget && m_segOrder.size() > 1) {
+        const QString old = m_segOrder.takeFirst();
+        auto oi = m_segCache.find(old);
+        if (oi != m_segCache.end()) {
+            m_segBytes -= oi->body.size();
+            m_segCache.erase(oi);
+        }
+    }
+}
+
+// Prefetch the next kReadAhead segments after `path` (.../<n>.ts) into cache.
+void HlsProxy::prefetchAround(const QString &path)
+{
+    const int slash = path.lastIndexOf(QLatin1Char('/'));
+    if (slash < 0)
+        return;
+    const QString file = path.mid(slash + 1);          // "1235.ts"
+    if (!file.endsWith(QLatin1String(".ts")))
+        return;
+    bool ok = false;
+    const qlonglong n = file.left(file.size() - 3).toLongLong(&ok);   // strip ".ts"
+    if (!ok || n < 0)
+        return;
+    const QString prefix = path.left(slash + 1);
+    for (int k = 1; k <= kReadAhead; ++k) {
+        const QString next = prefix + QString::number(n + k) + QStringLiteral(".ts");
+        if (m_segCache.contains(next) || m_inflight.contains(next))
+            continue;
+        startPrefetch(next);
+    }
+}
+
+void HlsProxy::startPrefetch(const QString &path)
+{
+    m_inflight.insert(path);
+    QNetworkRequest req{QUrl(m_upstream + path)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, path]() {
+        reply->deleteLater();
+        m_inflight.remove(path);
+        // Best-effort: only cache a clean 200. A cold segment may 503 (still
+        // rendering) — drop it; the real request will retry and warm the cache.
+        if (reply->error() != QNetworkReply::NoError)
+            return;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200 && code != 0)
+            return;
+        cachePut(path, reply->readAll(), reply->header(QNetworkRequest::ContentTypeHeader).toByteArray());
+    });
 }
 
 void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
@@ -127,6 +218,8 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         if (path.endsWith(QLatin1String(".m3u8")) || ct.contains("mpegurl")) {
             body = rewritePlaylist(body, path.contains(QLatin1String("/mosaic-sessions/")));
             if (ct.isEmpty()) ct = "application/vnd.apple.mpegurl";
+        } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
+            cachePut(path, body, ct);   // warm the cache for re-seeks to this region
         }
         writeResponse(sock, code ? code : 200, ct.isEmpty() ? "application/octet-stream" : ct, body);
     });
