@@ -139,18 +139,35 @@ Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: width * 10 / 16
                             color: "#000"
-                            Grid {
+                            // Exact net of THIS view's saved layout (shared LayoutSpec —
+                            // same enumeration NetIcon draws), so e.g. "Center + 12" reads
+                            // as a big centre tile + 12-cell ring at a glance, not a generic
+                            // 4×4. The centre/big tile is accent-emphasised; cells tint to
+                            // reflect real issues in the view's scope.
+                            Item {
+                                id: net
                                 anchors.fill: parent; anchors.margins: 4
-                                columns: 4; rows: 4; spacing: 2
+                                readonly property var lp: LayoutSpec.params(modelData.layout)
+                                readonly property int cellCount: LayoutSpec.count(modelData.layout)
+                                readonly property real gap: 2
+                                readonly property real uw: (width - net.gap * (net.lp.cols - 1)) / net.lp.cols
+                                readonly property real uh: (height - net.gap * (net.lp.rows - 1)) / net.lp.rows
                                 Repeater {
-                                    model: 16
+                                    model: LayoutSpec.cells(modelData.layout)
                                     Rectangle {
                                         required property int index
-                                        width: (parent.width - 6) / 4
-                                        height: (parent.height - 6) / 4
-                                        // tint cells to reflect real issues in the view's scope
-                                        color: index < Math.min(card.parent.issues, 16) ? "#1c1011"
-                                             : (index === 9 && card.parent.issues > 0 ? "#1c1810" : "#14181d")
+                                        required property var modelData   // cell { c, r, cw, ch }
+                                        readonly property bool isBig: net.lp.big && index === 0
+                                        readonly property bool isIssue: index < Math.min(card.parent.issues, net.cellCount)
+                                        x: modelData.c * (net.uw + net.gap)
+                                        y: modelData.r * (net.uh + net.gap)
+                                        width: modelData.cw * net.uw + (modelData.cw - 1) * net.gap
+                                        height: modelData.ch * net.uh + (modelData.ch - 1) * net.gap
+                                        radius: 1
+                                        color: isIssue ? "#1c1011"
+                                             : (isBig ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12) : "#14181d")
+                                        border.width: isBig ? 1 : 0
+                                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
                                     }
                                 }
                             }
