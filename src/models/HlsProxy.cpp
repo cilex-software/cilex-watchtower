@@ -125,22 +125,34 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         QByteArray body = reply->readAll();
         QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
         if (path.endsWith(QLatin1String(".m3u8")) || ct.contains("mpegurl")) {
-            body = rewritePlaylist(body);
+            body = rewritePlaylist(body, path.contains(QLatin1String("/mosaic-sessions/")));
             if (ct.isEmpty()) ct = "application/vnd.apple.mpegurl";
         }
         writeResponse(sock, code ? code : 200, ct.isEmpty() ? "application/octet-stream" : ct, body);
     });
 }
 
-// /api/review -> /review, and drop #EXT-X-GAP placeholder segments.
-QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
+// /api/review -> /review, drop #EXT-X-GAP placeholder segments, and (mosaic only)
+// inject #EXT-X-DISCONTINUITY before each segment.
+//
+// WORKAROUND (diagnosed 2026-06-14, backend letter filed): every mosaic segment
+// is rendered independently with reset timestamps (each starts at PTS 0), but the
+// mosaic playlist declares a continuous timeline with NO #EXT-X-DISCONTINUITY —
+// so the player plays seg0 (0–6 s) then freezes at the boundary when seg1's PTS
+// jumps back to 0 with no discontinuity to explain it (cold wall stalls after the
+// first 6 s). The single-camera playlist already carries discontinuities and
+// plays fine. We inject the missing tags so the player re-bases per segment.
+// Auto-disables the moment the backend emits its own discontinuities.
+QByteArray HlsProxy::rewritePlaylist(const QByteArray &in, bool injectDiscontinuities)
 {
     QByteArray s = in;
     s.replace("/api/review/", "/review/");
+    const bool inject = injectDiscontinuities && !s.contains("#EXT-X-DISCONTINUITY");
     const QList<QByteArray> lines = s.split('\n');
     QList<QByteArray> out;
     out.reserve(lines.size());
     bool skipNextGapSeg = false;
+    bool sawFirstSeg = false;
     for (QByteArray line : lines) {
         const QByteArray trimmed = line.trimmed();
         if (skipNextGapSeg && trimmed.startsWith("gap-")) {
@@ -152,6 +164,10 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
                 out.removeLast();
             skipNextGapSeg = true;
             continue;
+        }
+        if (inject && trimmed.startsWith("#EXTINF")) {
+            if (sawFirstSeg) out.append(QByteArrayLiteral("#EXT-X-DISCONTINUITY"));
+            sawFirstSeg = true;
         }
         out.append(line);
     }
