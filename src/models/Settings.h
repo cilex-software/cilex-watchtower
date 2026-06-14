@@ -72,6 +72,15 @@ public:
     Q_INVOKABLE void setWallLayout(const QStringList &ids);
     Q_INVOKABLE void clearWallLayout();
 
+    // Persisted live-grid arrangement, per camera group: the ordered backend
+    // camera ids the operator pinned/arranged on the Live Monitor grid. When set
+    // it overrides the default sort for that group (cameras not listed append
+    // after, so new cameras still appear). Keyed by group id ("" = All cameras);
+    // empty list = none saved.
+    Q_INVOKABLE QStringList liveLayout(const QString &groupId) const;
+    Q_INVOKABLE void setLiveLayout(const QString &groupId, const QStringList &ids);
+    Q_INVOKABLE void clearLiveLayout(const QString &groupId);
+
 signals:
     void defaultStreamHdChanged();
     void defaultLandingChanged();

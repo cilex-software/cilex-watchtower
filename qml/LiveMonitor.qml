@@ -57,13 +57,60 @@ Item {
     readonly property int total: {
         if (!cameraModel) return 0;
         cameraModel.total;   // refresh dependency
-        return cameraModel.countFiltered(groupId, statusFilter);
+        return cameraModel.countFiltered(groupId, _effFilter);
     }
     readonly property int pageCount: Math.max(1, Math.ceil(total / perPage))
-    readonly property var pagedCameras: {
+    // ---- arrange mode: assign cameras to grid cells ------------------------
+    // The grid normally auto-fills cells from the sorted roster. In arrange mode
+    // the operator taps a cell and picks the camera that should occupy it; the
+    // chosen camera swaps into that slot and the per-group order is persisted
+    // (Settings.liveLayout), overriding the default sort for that group.
+    property bool arrangeMode: false
+    property int arrangeRev: 0            // bump to force arrangedFull re-eval after a save
+    property int pickerCell: -1          // page-tile index being assigned (-1 = picker closed)
+    property string pickerSearch: ""
+    // While arranging, ignore the status filter so the full group is shown and a
+    // saved order covers every camera (not just the currently-visible subset).
+    readonly property string _effFilter: arrangeMode ? "" : statusFilter
+
+    // Full filtered roster reordered by the saved per-group arrangement: saved
+    // ids first (in saved order), then any remaining cameras in default sort
+    // (so newly-added cameras still appear). Paging slices this.
+    readonly property var arrangedFull: {
+        arrangeRev;                       // refresh dep
         if (!cameraModel) return [];
-        cameraModel.total;   // refresh dependency
-        return cameraModel.page(groupId, statusFilter, sortMode, page, perPage);
+        cameraModel.total;                // refresh dep
+        var all = cameraModel.page(groupId, _effFilter, sortMode, 1, Math.max(1, total));
+        var saved = Settings.liveLayout(groupId);
+        if (!saved || saved.length === 0) return all;
+        var byId = ({});
+        for (var i = 0; i < all.length; i++) byId[all[i].camId] = all[i];
+        var out = [], used = ({});
+        for (var j = 0; j < saved.length; j++) {
+            var c = byId[saved[j]];
+            if (c && !used[saved[j]]) { out.push(c); used[saved[j]] = true; }
+        }
+        for (var k = 0; k < all.length; k++)
+            if (!used[all[k].camId]) out.push(all[k]);
+        return out;
+    }
+    readonly property bool hasArrangement: { arrangeRev; return cameraModel ? Settings.liveLayout(groupId).length > 0 : false; }
+    function _fullIds() { var a = arrangedFull, o = []; for (var i = 0; i < a.length; i++) o.push(a[i].camId); return o; }
+    function openCellPicker(tileIndex) { pickerSearch = ""; pickerCell = tileIndex; }
+    function assignToCell(tileIndex, camId) {
+        var ids = _fullIds();
+        var target = (page - 1) * perPage + tileIndex;
+        var cur = ids.indexOf(camId);
+        if (target >= ids.length || cur < 0) { pickerCell = -1; return; }
+        var t = ids[target]; ids[target] = ids[cur]; ids[cur] = t;   // swap the chosen camera into the cell
+        Settings.setLiveLayout(groupId, ids);
+        arrangeRev++; pickerCell = -1;
+    }
+    function resetArrangement() { Settings.clearLiveLayout(groupId); arrangeRev++; }
+
+    readonly property var pagedCameras: {
+        var s = (page - 1) * perPage;
+        return arrangedFull.slice(s, s + perPage);
     }
     readonly property string rangeText: {
         if (total === 0)
@@ -429,6 +476,35 @@ Item {
                     }
                 }
 
+                // arrange cells — tap a cell to choose its camera (e.g. the Center tile)
+                Rectangle {
+                    Layout.preferredHeight: 34
+                    implicitWidth: arrTxt.implicitWidth + 28
+                    color: root.arrangeMode ? Theme.accent : (arrMa.containsMouse ? Theme.panel : "transparent")
+                    border.width: 1
+                    border.color: root.arrangeMode ? Theme.accent : (arrMa.containsMouse ? Theme.accent : Theme.line2)
+                    Text {
+                        id: arrTxt; anchors.centerIn: parent
+                        text: root.arrangeMode ? "Done arranging" : "Arrange"
+                        color: root.arrangeMode ? Theme.bg : Theme.ink2
+                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
+                    }
+                    MouseArea {
+                        id: arrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1; }
+                    }
+                }
+                // reset this group's arrangement (only while arranging + a custom order exists)
+                Rectangle {
+                    visible: root.arrangeMode && root.hasArrangement
+                    Layout.preferredHeight: 34
+                    implicitWidth: resetTxt.implicitWidth + 24
+                    color: resetMa.containsMouse ? Theme.panel : "transparent"
+                    border.width: 1; border.color: resetMa.containsMouse ? Theme.accent : Theme.line2
+                    Text { id: resetTxt; anchors.centerIn: parent; text: "Reset"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                    MouseArea { id: resetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.resetArrangement() }
+                }
+
                 // sort dropdown
                 Rectangle {
                     id: sortControl
@@ -538,7 +614,8 @@ Item {
                     Repeater {
                         id: gridRepeater
                         model: root.pagedCameras
-                        delegate: CameraTile {
+                        delegate: Item {
+                            id: cellWrap
                             required property var modelData
                             required property int index
                             // Place each tile in its net cell (big tile spans).
@@ -550,38 +627,68 @@ Item {
                             Layout.columnSpan: cell.cw
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            gridMode: true
-                            camName: modelData.name
-                            camId: modelData.camId
-                            ip: modelData.ip
-                            groupId: modelData.groupId
-                            groupName: modelData.groupName
-                            live: modelData.live
-                            recording: modelData.recording
-                            favorite: modelData.favorite
-                            hasAudio: modelData.hasAudio
-                            timestamp: modelData.timestamp
-                            lastSeen: modelData.lastSeen
-                            lastSegmentAt: modelData.lastSegmentAt
-                            pattern: modelData.pattern
-                            rtspUrl: modelData.rtspUrl
-                            rtspSubUrl: modelData.rtspSubUrl
-                            // Only play when Live Monitor is the visible section (so other
-                            // screens don't hold open streams / hit cameras). WT_TEST_IP
-                            // (dev) further restricts streaming to a single camera.
-                            videoActive: root.visible
-                                && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
-                                    ? (modelData.ip === wtTestIp) : true)
-                            onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
-                            onOpened: root.cameraOpened(modelData)
-                            onPlayed: root.cameraPlaybackRequested(modelData)
-                            onOpenedNewTab: root.cameraOpened(modelData)
-                            // Favorite is persisted in CameraModel (keyed by camera_id);
-                            // flip the tile optimistically so it reflects instantly (the
-                            // paged snapshot won't re-fetch until the next page() call).
-                            onFavoriteToggled: {
-                                favorite = !favorite;
-                                if (root.cameraModel) root.cameraModel.toggleFavoriteById(modelData.camId);
+
+                            CameraTile {
+                                anchors.fill: parent
+                                gridMode: true
+                                camName: cellWrap.modelData.name
+                                camId: cellWrap.modelData.camId
+                                ip: cellWrap.modelData.ip
+                                groupId: cellWrap.modelData.groupId
+                                groupName: cellWrap.modelData.groupName
+                                live: cellWrap.modelData.live
+                                recording: cellWrap.modelData.recording
+                                favorite: cellWrap.modelData.favorite
+                                hasAudio: cellWrap.modelData.hasAudio
+                                timestamp: cellWrap.modelData.timestamp
+                                lastSeen: cellWrap.modelData.lastSeen
+                                lastSegmentAt: cellWrap.modelData.lastSegmentAt
+                                pattern: cellWrap.modelData.pattern
+                                rtspUrl: cellWrap.modelData.rtspUrl
+                                rtspSubUrl: cellWrap.modelData.rtspSubUrl
+                                // Only play when Live Monitor is the visible section (so other
+                                // screens don't hold open streams / hit cameras), and not while
+                                // arranging (the overlay covers it). WT_TEST_IP (dev) further
+                                // restricts streaming to a single camera.
+                                videoActive: root.visible && !root.arrangeMode
+                                    && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
+                                        ? (cellWrap.modelData.ip === wtTestIp) : true)
+                                onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
+                                onOpened: root.cameraOpened(cellWrap.modelData)
+                                onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)
+                                onOpenedNewTab: root.cameraOpened(cellWrap.modelData)
+                                // Favorite is persisted in CameraModel (keyed by camera_id);
+                                // flip the tile optimistically so it reflects instantly (the
+                                // paged snapshot won't re-fetch until the next page() call).
+                                onFavoriteToggled: {
+                                    favorite = !favorite;
+                                    if (root.cameraModel) root.cameraModel.toggleFavoriteById(cellWrap.modelData.camId);
+                                }
+                            }
+
+                            // arrange-mode overlay — tap to choose the camera for this cell
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: root.arrangeMode
+                                color: cellOvMa.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.58)
+                                border.width: 2
+                                border.color: Theme.accent
+                                Column {
+                                    anchors.centerIn: parent; spacing: 4; width: parent.width - 16
+                                    Text { anchors.horizontalCenter: parent.horizontalCenter
+                                        text: (cellWrap.index === 0 && root.lspec.big) ? "CENTER" : ("CELL " + (cellWrap.index + 1))
+                                        color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1 }
+                                    Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
+                                        text: cellWrap.modelData.name; color: "#fff"; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                    Text { anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "Tap to change"; color: Qt.rgba(1, 1, 1, 0.7); font.family: Theme.fontSans; font.pixelSize: 11 }
+                                }
+                                MouseArea {
+                                    id: cellOvMa
+                                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.openCellPicker(cellWrap.index)
+                                }
                             }
                         }
                     }
@@ -664,6 +771,82 @@ Item {
                     rangeText: root.rangeText
                     onPrev: root.pageRequested(root.page - 1)
                     onNext: root.pageRequested(root.page + 1)
+                }
+            }
+        }
+    }
+
+    // Camera picker for arrange mode: tap a cell → choose which camera occupies it.
+    Rectangle {
+        anchors.fill: parent
+        visible: root.pickerCell >= 0
+        z: 200
+        color: Qt.rgba(0, 0, 0, 0.6)
+        MouseArea { anchors.fill: parent; onClicked: root.pickerCell = -1 }   // tap-out closes
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 440
+            height: Math.min(parent.height - 80, 540)
+            color: Theme.panel; border.color: Theme.line2; border.width: 1
+            MouseArea { anchors.fill: parent }   // swallow clicks inside the panel
+
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 16; spacing: 12
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Camera for " + ((root.pickerCell === 0 && root.lspec.big) ? "the center cell" : ("cell " + (root.pickerCell + 1)))
+                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true; Layout.preferredHeight: 34
+                    color: Theme.bg; border.color: Theme.line2; border.width: 1
+                    C.TextField {
+                        anchors.fill: parent; anchors.margins: 1
+                        text: root.pickerSearch
+                        onTextChanged: root.pickerSearch = text
+                        placeholderText: "Search cameras…"
+                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13
+                        leftPadding: 10; verticalAlignment: TextInput.AlignVCenter
+                        background: Rectangle { color: "transparent" }
+                    }
+                }
+
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: {
+                        var q = root.pickerSearch.toLowerCase();
+                        var a = root.arrangedFull, out = [];
+                        for (var i = 0; i < a.length; i++) {
+                            var c = a[i];
+                            if (q === "" || ("" + c.name).toLowerCase().indexOf(q) >= 0 || ("" + c.ip).indexOf(q) >= 0)
+                                out.push(c);
+                        }
+                        return out;
+                    }
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: ListView.view ? ListView.view.width : 0
+                        height: 42
+                        color: pickRowMa.containsMouse ? Theme.panel2 : "transparent"
+                        RowLayout {
+                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
+                            Rectangle { width: 7; height: 7; radius: 4; color: modelData.live ? Theme.good : Theme.ink3 }
+                            Text { text: modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Text { text: modelData.ip; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                        }
+                        MouseArea { id: pickRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: root.assignToCell(root.pickerCell, modelData.camId) }
+                    }
+                }
+
+                Text {
+                    Layout.alignment: Qt.AlignRight
+                    text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
+                    MouseArea { anchors.fill: parent; anchors.margins: -10; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerCell = -1 }
                 }
             }
         }

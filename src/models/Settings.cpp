@@ -119,3 +119,25 @@ void Settings::clearWallLayout()
 {
     m_settings.remove(QStringLiteral("wall/playbackLayout"));
 }
+
+// Per-group live arrangement. Key the group id under a sub-group; "" (All
+// cameras) gets a stable sentinel. Slashes can't appear in QSettings leaf keys,
+// so swap any out (backend ids are UUID-like, but belt-and-suspenders).
+static QString liveLayoutKey(const QString &groupId)
+{
+    QString g = groupId.isEmpty() ? QStringLiteral("__all__") : groupId;
+    g.replace(QLatin1Char('/'), QLatin1Char('_'));
+    return QStringLiteral("live/layout/") + g;
+}
+QStringList Settings::liveLayout(const QString &groupId) const
+{
+    return m_settings.value(liveLayoutKey(groupId)).toStringList();
+}
+void Settings::setLiveLayout(const QString &groupId, const QStringList &ids)
+{
+    m_settings.setValue(liveLayoutKey(groupId), ids);
+}
+void Settings::clearLiveLayout(const QString &groupId)
+{
+    m_settings.remove(liveLayoutKey(groupId));
+}
