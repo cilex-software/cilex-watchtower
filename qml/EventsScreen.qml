@@ -9,9 +9,10 @@ import Watchtower
 // resolved via CameraModel. Acknowledge is a local, persisted operator action —
 // cilex-vision has no acknowledge endpoint yet (see docs/letters/).
 //
-// Functional filters: Unacknowledged + type (Motion/Offline/Bookmarks). The
-// mock's Today/All-cameras/+Filter chips are deferred — we don't fake controls
-// that have no data behind them (no per-event date scope, no camera picker yet).
+// Functional filters: Unacknowledged + type (Motion/Offline/Bookmarks) pills,
+// a camera-scope picker and a time-window selector (both drive the server-side
+// /events query), plus per-column Excel-style sort/value filters. The detail
+// drawer can export a clip of the event straight to the Clips library.
 Item {
     id: root
 
@@ -19,6 +20,9 @@ Item {
     property var cameraModel: null
 
     signal openPlayback(string camId, double atMs)
+    // Export a clip around an event straight to the Clips library (Main wires this
+    // to PlaybackClient.createExport with a fixed window — see the detail drawer).
+    signal exportClip(string camId, double atMs, string purpose)
 
     // active filters
     property bool fUnack: true          // default on (design)
@@ -88,6 +92,12 @@ Item {
     function groupDisplay(ev) {
         var r = root.cameraModel ? root.cameraModel.cameraByBackendId(ev.camId) : null;
         return (r && r.groupName) ? r.groupName : (ev.group ? ev.group : "—");
+    }
+    // Human label for an event-triggered export, shown in the Clips library.
+    function exportPurpose(ev) {
+        if (!ev) return "Event clip";
+        var d = (ev.desc && ev.desc !== "") ? ev.desc : ("" + ev.type);
+        return "Event · " + d;
     }
 
     function timeToSecs(t) { var p = ("" + t).split(":"); return (+p[0] || 0) * 3600 + (+p[1] || 0) * 60 + (+p[2] || 0); }
@@ -672,10 +682,24 @@ Item {
 
                             // actions
                             Flow {
-                                Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 14
+                                Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14
                                 spacing: 6
                                 Btn { primary: true; icon: "clip"; label: "Open playback"; onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
+                                // Export a clip around the event moment straight to the Clips
+                                // library — no scrubbing. Fixed window (15s before → 45s after);
+                                // Open playback → the export drawer covers custom ranges. Hidden
+                                // for events with no real timestamp (the window would be bogus).
+                                Btn { icon: "download"; label: "Export clip"
+                                    visible: root.sel && (root.sel.ts || 0) > 0
+                                    onClicked: if (root.sel) root.exportClip(root.sel.camId, root.sel.ts, root.exportPurpose(root.sel)) }
                                 Btn { icon: "check"; label: "Acknowledge"; visible: root.sel && !root.sel.ack; onClicked: if (root.sel && root.eventModel) root.eventModel.acknowledgeById(root.sel.eventId) }
+                            }
+                            // honest note about what "Export clip" grabs
+                            Text {
+                                visible: root.sel && (root.sel.ts || 0) > 0
+                                Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 8; Layout.bottomMargin: 14
+                                text: "“Export clip” saves a 1-minute clip — 15s before to 45s after the event."
+                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap
                             }
                         }
                     }

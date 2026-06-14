@@ -344,6 +344,19 @@ Window {
                         var cam = cameraModel.cameraByBackendId(camId);
                         if (cam && cam.camId) { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openAt(cam, atMs) }
                     }
+                    // Export a 1-minute clip around the event (15s lead-in → 45s after)
+                    // straight to the Clips library. The shared auth cookie is already
+                    // held (login gate), so createExport needs no session/priming; the
+                    // global export Connections below surface start/saved/failed toasts.
+                    onExportClip: (camId, atMs, purpose) => {
+                        var cam = cameraModel.cameraByBackendId(camId);
+                        var id = (cam && cam.camId) ? cam.camId : camId;
+                        var base = (cam && cam.name) ? cam.name : id;
+                        var dest = Artifacts.newExportPath(base, "mp4");
+                        playbackClient.createExport(id, new Date(atMs - 15000).toISOString(),
+                                                    new Date(atMs + 45000).toISOString(),
+                                                    "wallclock", dest, "", purpose);
+                    }
                 }
 
                 SavedViewsScreen {
