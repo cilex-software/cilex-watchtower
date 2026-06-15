@@ -757,6 +757,23 @@ Item {
                             }
                         }
                     }
+
+                    // Dark "empty slot" fillers — a partially-filled auto-fit grid shows
+                    // intentional empty cells (camera-tile background) rather than the gray
+                    // grid frame bleeding through. Feature layouts manage their own cells.
+                    Repeater {
+                        model: root.isFeatureLayout ? 0
+                             : Math.max(0, gridFrame.fitGrid.cols * gridFrame.fitGrid.rows - root.fillCount)
+                        delegate: Rectangle {
+                            required property int index
+                            readonly property int ci: root.fillCount + index
+                            Layout.row: Math.floor(ci / gridFrame.fitGrid.cols)
+                            Layout.column: ci % gridFrame.fitGrid.cols
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: Theme.tileBg
+                        }
+                    }
                 }
             }
 
