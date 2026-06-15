@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QStringList>
 #include "Types.h"
 
 class QNetworkAccessManager;
@@ -65,6 +66,9 @@ public:
     Q_INVOKABLE void loadMore();
     // All events as maps (for the Events screen, which filters in QML).
     Q_INVOKABLE QVariantList all() const;
+    // Backend camera_ids with an event within the last `windowMs` (over the loaded
+    // feed). Powers the Live screen's "Recent events" filter.
+    Q_INVOKABLE QStringList recentCameraIds(qint64 windowMs) const;
 
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);

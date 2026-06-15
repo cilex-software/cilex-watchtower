@@ -83,6 +83,10 @@ public:
     // out of the model entirely (list, counts, paging, resolution).
     Q_INVOKABLE void setCameraScope(const QStringList &cameraIds);
 
+    // Backend camera_ids with a recent event (fed from the Live screen's events
+    // feed). Drives the "recent" status filter; empty = nothing recent.
+    Q_INVOKABLE void setRecentCameras(const QStringList &ids);
+
     // Re-fetch the camera list from /streams (e.g. after the admin switches the
     // live-video transport, so the new stream URLs take effect immediately).
     Q_INVOKABLE void refresh() { fetchCameras(); }
@@ -140,6 +144,7 @@ private:
     QString m_baseUrl;
     QVector<wt::GroupData> m_groups;          // backend group definitions
     QHash<QString, QPair<QString, bool>> m_prefs;   // camera_id -> {displayName, favorite}
+    QSet<QString> m_recentCamIds;                   // cameras with a recent event ("recent" filter)
     bool m_loading = false;
     int m_online = 0;
     int m_offline = 0;

@@ -16,7 +16,7 @@ Window {
     property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
     property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
     property int gridPage: 1
-    property string statusFilter: ""
+    property string statusFilter: (typeof wtStatusFilter !== "undefined" && wtStatusFilter !== "") ? wtStatusFilter : ""
     property string sortMode: "ip"
     property string groupFilter: ""
     property string groupLabel: "All cameras"
@@ -225,6 +225,7 @@ Window {
                     Layout.fillHeight: true
                     visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "live"
                     cameraModel: cameraModel
+                    eventModel: eventModel
                     layout: win.gridLayout
                     page: win.gridPage
                     statusFilter: win.statusFilter

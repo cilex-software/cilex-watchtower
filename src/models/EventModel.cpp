@@ -14,6 +14,8 @@
 #include <QDateTime>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QSet>
+#include <QStringList>
 
 namespace {
 // Human description from cilex-vision's authoritative EventType vocab
@@ -131,6 +133,16 @@ int EventModel::unacknowledgedCount() const
         if (!e.ack)
             ++n;
     return n;
+}
+
+QStringList EventModel::recentCameraIds(qint64 windowMs) const
+{
+    const qint64 cutoff = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() - windowMs;
+    QSet<QString> ids;
+    for (const wt::EventData &e : m_all)
+        if (e.tsMs >= cutoff && !e.camId.isEmpty())
+            ids.insert(e.camId);
+    return QStringList(ids.begin(), ids.end());
 }
 
 void EventModel::refresh()

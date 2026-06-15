@@ -10,6 +10,7 @@ Item {
     id: root
 
     property var cameraModel: null
+    property var eventModel: null        // for the "Recent events" filter (recent activity)
     property string layout: "16"         // canonical layout id (see LayoutSpec)
     property int page: 1
     property string statusFilter: ""
@@ -113,6 +114,46 @@ Item {
     function escapeArrange() {
         if (pickerCell >= 0) { pickerCell = -1; return; }
         arrangeMode = false;
+    }
+
+    // ---- "Recent events" filter: cameras with activity in the last hour --------
+    property int recentWindowMs: 3600000
+    function refreshRecent() {
+        if (cameraModel && eventModel)
+            cameraModel.setRecentCameras(eventModel.recentCameraIds(recentWindowMs));
+    }
+    // While "Recent events" is the active filter and the screen is shown, pull the
+    // latest events and re-evaluate the window every 30s (also ages cameras out).
+    Timer {
+        interval: 30000; repeat: true; triggeredOnStart: true
+        running: root.visible && root.statusFilter === "recent"
+        onTriggered: { if (root.eventModel) root.eventModel.refresh(); root.refreshRecent(); }
+    }
+    Connections {
+        target: root.eventModel
+        enabled: root.eventModel !== null && root.statusFilter === "recent"
+        function onChanged() { root.refreshRecent(); }
+    }
+
+    // Empty-state copy: a genuinely empty roster (no camera access) vs a non-empty
+    // roster whose current filter/group simply matched nothing (honest "no matches").
+    function rosterEmpty() { return !cameraModel || cameraModel.total === 0; }
+    function emptyTitle() { return rosterEmpty() ? "No cameras" : "No matches"; }
+    function emptySubtitle() {
+        if (rosterEmpty())
+            return "No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.";
+        var where = (groupId === "" ? "" : " in " + groupLabel);
+        switch (statusFilter) {
+        case "recent":    return "No cameras have had an event in the last hour" + where + ".";
+        case "online":    return "No cameras are online" + where + " right now.";
+        case "offline":   return "No cameras are offline" + where + " — all good.";
+        case "degraded":  return "No cameras are degraded" + where + ".";
+        case "recording": return "No cameras are recording" + where + ".";
+        case "notrec":    return "All cameras are recording" + where + " — none stopped.";
+        case "favorites": return "No starred cameras" + where + " yet. Tap a tile's star to pin it here.";
+        case "issues":    return "No cameras have issues" + where + " — everything looks healthy.";
+        default:          return "No cameras" + where + ".";
+        }
     }
 
     readonly property var pagedCameras: {
@@ -710,17 +751,16 @@ Item {
                 label: "Loading cameras…"
             }
 
-            // Backend returned no cameras for this operator — their /streams scope is
-            // empty. Cameras are provisioned and assigned in Cilex Vision.
+            // Empty grid: distinguish an empty roster (no camera access — provisioned
+            // in Cilex Vision) from a filter/group that simply matched nothing.
             EmptyState {
                 anchors.fill: parent
                 anchors.margins: 24
                 visible: root.total === 0 && !root.fullscreen
                         && !(root.cameraModel && root.cameraModel.loading)
                 icon: "monitor"
-                title: "No cameras"
-                subtitle: "No cameras are assigned to your account. Ask an administrator "
-                          + "to grant camera access in Cilex Vision."
+                title: root.emptyTitle()
+                subtitle: root.emptySubtitle()
             }
 
             // floating exit button in full-screen

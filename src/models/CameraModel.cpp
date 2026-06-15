@@ -562,11 +562,22 @@ bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const
                                              || c.recording == CameraStatus::Stalled;
     if (f == QLatin1String("gap"))       return c.recording == CameraStatus::RecordingGap;
     if (f == QLatin1String("favorites")) return c.favorite;
-    if (f == QLatin1String("issues") || f == QLatin1String("recent"))
+    if (f == QLatin1String("issues"))
         return c.live == CameraStatus::Offline || c.live == CameraStatus::Degraded
             || c.recording == CameraStatus::NotRecording || c.recording == CameraStatus::RecordingGap
             || c.recording == CameraStatus::Stalled;
+    if (f == QLatin1String("recent"))
+        return m_recentCamIds.contains(c.id);
     return true;
+}
+
+void CameraModel::setRecentCameras(const QStringList &ids)
+{
+    QSet<QString> next(ids.begin(), ids.end());
+    if (next == m_recentCamIds)
+        return;                       // unchanged — don't churn the filtered views
+    m_recentCamIds = next;
+    emit countsChanged();             // re-evaluate the "recent" filter / counts
 }
 
 static int statusRank(const wt::CameraData &c)

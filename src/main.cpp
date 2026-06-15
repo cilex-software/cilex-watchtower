@@ -123,6 +123,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).
     engine.rootContext()->setContextProperty("wtSection", qEnvironmentVariable("WT_SECTION"));
+    // Optional initial Live status filter (dev: WT_STATUS_FILTER=recent|online|offline|...).
+    engine.rootContext()->setContextProperty("wtStatusFilter", qEnvironmentVariable("WT_STATUS_FILTER"));
     // Optional camera to open focused on boot, by IP (dev: WT_FOCUS_IP=192.168.1.108).
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
     // Optional camera to open in Playback on boot, by IP (dev: WT_PLAYBACK_IP=192.168.1.106).
