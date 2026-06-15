@@ -26,7 +26,9 @@ Item {
     VideoOutput {
         id: videoOut
         anchors.fill: parent
-        fillMode: VideoOutput.PreserveAspectCrop
+        // Fit (letterbox), never crop — the operator must always see the WHOLE
+        // frame. Tiles are auto-sized ~16:9 (see LiveMonitor) so bars stay minimal.
+        fillMode: VideoOutput.PreserveAspectFit
     }
 
     // Picks exactly one backend at construction. Bindings inside reference

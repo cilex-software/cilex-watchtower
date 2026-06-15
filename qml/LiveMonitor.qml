@@ -52,6 +52,12 @@ Item {
     readonly property int rows: lspec.rows
     readonly property var lcells: LayoutSpec.cellRects(lspec.cols, lspec.rows, lspec.big)
     readonly property int perPage: lcells.length
+    // Feature layouts (big-tile / center) keep their fixed cell geometry; symmetric
+    // and custom grids AUTO-FIT to the number of cameras on the page — largest tiles,
+    // aspect-correct, never stretched. perPage stays the page capacity (for paging).
+    readonly property bool isFeatureLayout: layout === "plus4" || layout === "plus6"
+        || layout === "plus8" || layout === "center13"
+    readonly property int fillCount: Math.min(perPage, Math.max(0, total - (page - 1) * perPage))
     // countFiltered()/page() are imperative calls; read cameraModel.total (NOTIFY
     // countsChanged) inside these bindings so they re-evaluate when the model data
     // changes — e.g. the /streams list is (re)fetched after sign-in or refresh.
@@ -643,6 +649,7 @@ Item {
             Layout.fillHeight: true
 
             Rectangle {
+                id: gridFrame
                 anchors.fill: parent
                 anchors.leftMargin: root.fullscreen ? 4 : 20
                 anchors.rightMargin: root.fullscreen ? 4 : 20
@@ -651,11 +658,18 @@ Item {
                 color: Theme.line2
                 visible: root.total > 0
 
+                // The grid the tiles actually render in: feature layouts keep their
+                // fixed cols×rows; everything else auto-fits to the cameras on the page
+                // (recomputes on resize via width/height).
+                readonly property var fitGrid: root.isFeatureLayout
+                    ? ({ cols: root.cols, rows: root.rows })
+                    : LayoutSpec.bestGrid(root.fillCount, width, height, 16 / 9)
+
                 GridLayout {
                     anchors.fill: parent
                     anchors.margins: 1
-                    columns: root.cols
-                    rows: root.rows
+                    columns: gridFrame.fitGrid.cols
+                    rows: gridFrame.fitGrid.rows
                     rowSpacing: 1
                     columnSpacing: 1
 
@@ -666,9 +680,12 @@ Item {
                             id: cellWrap
                             required property var modelData
                             required property int index
-                            // Place each tile in its net cell (big tile spans).
-                            readonly property var cell: index < root.lcells.length
-                                ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 })
+                            // Feature layouts place each tile in its fixed net cell
+                            // (big tile spans); auto-fit grids place tiles row-major.
+                            readonly property var cell: root.isFeatureLayout
+                                ? (index < root.lcells.length ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 }))
+                                : ({ c: index % gridFrame.fitGrid.cols,
+                                     r: Math.floor(index / gridFrame.fitGrid.cols), cw: 1, ch: 1 })
                             Layout.row: cell.r
                             Layout.column: cell.c
                             Layout.rowSpan: cell.ch

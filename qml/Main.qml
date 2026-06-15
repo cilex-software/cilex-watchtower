@@ -133,6 +133,19 @@ Window {
                 if (all[i].ip === wtFocusIp) { win.focusedCamera = all[i]; break; }
         }
     }
+    // Dev hook: WT_GROUP boots the Live grid filtered to that group (by name);
+    // repeats until the group roster has loaded.
+    Timer {
+        interval: 500; repeat: true
+        running: typeof wtGroup !== "undefined" && wtGroup !== "" && win.groupFilter === ""
+        onTriggered: {
+            var gs = cameraModel.groupList();
+            for (var i = 0; i < gs.length; i++)
+                if (("" + gs[i].name).toLowerCase() === ("" + wtGroup).toLowerCase()) {
+                    win.groupFilter = gs[i].id; win.groupLabel = gs[i].name; win.gridPage = 1; break;
+                }
+        }
+    }
     // Dev hook: WT_PLAYBACK_IP boots straight into Playback (S06) for that camera.
     // Repeats until the camera roster has loaded (one-shot raced the /streams fetch).
     Timer {
