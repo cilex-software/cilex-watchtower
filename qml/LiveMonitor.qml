@@ -107,6 +107,13 @@ Item {
         arrangeRev++; pickerCell = -1;
     }
     function resetArrangement() { Settings.clearLiveLayout(groupId); arrangeRev++; }
+    // Esc handling for arrange mode: close an open cell picker first, otherwise
+    // leave arrange mode and return to the normal Live view. Per-cell changes are
+    // already persisted (Settings.setLiveLayout), so exiting discards nothing.
+    function escapeArrange() {
+        if (pickerCell >= 0) { pickerCell = -1; return; }
+        arrangeMode = false;
+    }
 
     readonly property var pagedCameras: {
         var s = (page - 1) * perPage;
