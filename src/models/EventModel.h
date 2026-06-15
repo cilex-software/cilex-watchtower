@@ -48,18 +48,19 @@ public:
 
     int total() const { return int(m_all.size()); }            // loaded count
     int serverTotal() const { return m_serverTotal; }          // DB count for the query
-    bool hasMore() const { return int(m_all.size()) < m_serverTotal; }
+    bool hasMore() const { return m_fetched < m_serverTotal; }
     int unacknowledgedCount() const;
     bool loading() const { return m_loading; }
 
     // Re-fetch live events from cilex-vision (no-op under WT_DEMO). Re-runs the
-    // current server-side query (camera/time/motion) from page 0.
+    // current server-side query (camera/time) from page 0.
     Q_INVOKABLE void refresh();
-    // Server-side query against /events. Empty cameraId/start/end omit that filter;
-    // motionOnly adds has_clip=true (the motion events that have footage). Resets
-    // to page 0. start/end are ISO 8601 instants.
+    // Server-side query against /events. Empty cameraId/start/end omit that filter.
+    // Resets to page 0. start/end are ISO 8601 instants. (Motion is a client-side
+    // pill now — see EventsScreen; the feed already drops redundant motion_detected
+    // rows, so the old has_clip=true server filter no longer applies.)
     Q_INVOKABLE void search(const QString &cameraId, const QString &startIso,
-                            const QString &endIso, bool motionOnly);
+                            const QString &endIso);
     // Fetch and append the next page for the current query.
     Q_INVOKABLE void loadMore();
     // All events as maps (for the Events screen, which filters in QML).
@@ -83,8 +84,10 @@ private:
     bool m_loading = false;
     // server-side query state (see search()/loadMore())
     QString m_qCameraId, m_qStart, m_qEnd;
-    bool m_qMotion = false;
     int m_pageSize = 100;
-    int m_serverTotal = 0;
+    int m_serverTotal = 0;   // DB rows matching the query (raw count from /events)
+    int m_fetched = 0;       // rows received from the server so far = next page offset.
+                             // Distinct from m_all.size(): we drop motion_detected, so
+                             // kept rows can be fewer than rows fetched.
     int m_gen = 0;            // supersedes in-flight replies when a newer query starts
 };

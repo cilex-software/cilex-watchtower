@@ -34,6 +34,18 @@ QString descForType(const QString &type, qint64 durMs)
     QString s = type; s.replace('_', ' ');
     return s.left(1).toUpper() + s.mid(1);
 }
+
+// Event types hidden from the operator feed. motion_detected is the camera's VMD
+// "incident" row: it always coincides with a motion_started (same recording_id),
+// duplicates its timestamp, and the client never uses its clip_url (export and
+// playback are timestamp-based). Operators only want the motion_started /
+// motion_ended lifecycle, so we drop the redundant middle row. Safe because
+// motion_started/_ended fire for every episode while motion_detected is a strict
+// subset — hiding it can never drop a motion event.
+bool isSuppressedType(const QString &type)
+{
+    return type == QLatin1String("motion_detected");
+}
 }
 
 EventModel::EventModel(QObject *parent)
@@ -133,12 +145,11 @@ void EventModel::refresh()
 }
 
 void EventModel::search(const QString &cameraId, const QString &startIso,
-                        const QString &endIso, bool motionOnly)
+                        const QString &endIso)
 {
     m_qCameraId = cameraId;
     m_qStart = startIso;
     m_qEnd = endIso;
-    m_qMotion = motionOnly;
     if (qEnvironmentVariableIsSet("WT_DEMO"))
         return;                            // demo feed is static
     if (!AuthController::instance()->authenticated())
@@ -154,7 +165,7 @@ void EventModel::loadMore()
 {
     if (qEnvironmentVariableIsSet("WT_DEMO") || m_loading)
         return;
-    if (int(m_all.size()) >= m_serverTotal)   // nothing more to fetch
+    if (m_fetched >= m_serverTotal)   // nothing more to fetch (counts raw server rows)
         return;
     if (!AuthController::instance()->authenticated())
         return;
@@ -169,11 +180,10 @@ void EventModel::fetchPage(bool append)
     QUrl url(m_baseUrl + "/events");
     QUrlQuery q;
     q.addQueryItem("limit", QString::number(m_pageSize));
-    q.addQueryItem("offset", QString::number(append ? int(m_all.size()) : 0));
+    q.addQueryItem("offset", QString::number(append ? m_fetched : 0));
     if (!m_qCameraId.isEmpty()) q.addQueryItem("camera_id", m_qCameraId);
     if (!m_qStart.isEmpty())    q.addQueryItem("start", m_qStart);
     if (!m_qEnd.isEmpty())      q.addQueryItem("end", m_qEnd);
-    if (m_qMotion)              q.addQueryItem("has_clip", "true");
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply, append, gen]() {
@@ -185,13 +195,19 @@ void EventModel::fetchPage(bool append)
             AuthController::instance()->noteUnauthorized();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         const auto arr = obj.value("events").toArray();
+        if (!append)
+            m_fetched = 0;                 // fresh query — restart the server offset
+        m_fetched += int(arr.size());      // raw rows consumed (drives the next page offset)
         QVector<wt::EventData> out;
         out.reserve(arr.size());
         for (const auto &v : arr) {
             const auto o = v.toObject();
+            const QString type = o.value("event_type").toString().toLower();
+            if (isSuppressedType(type))    // drop motion_detected — see isSuppressedType()
+                continue;
             wt::EventData e;
             e.id = o.value("event_id").toString();
-            e.type = o.value("event_type").toString().toLower();
+            e.type = type;
             e.camId = o.value("camera_id").toString();
             e.camName = e.camId;           // Events screen resolves a friendly name via CameraModel
             const QString iso = o.value("start_time").toString();

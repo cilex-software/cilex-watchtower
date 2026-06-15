@@ -118,8 +118,9 @@ Item {
         if (key === "time") return (ev.ts && ev.ts > 0) ? ev.ts : root.timeToSecs(ev.time);
         return ("" + root.cellVal(ev, key)).toLowerCase();
     }
-    // A motion event by category — matches the real backend types (motion_detected/
-    // started/ended, entered/exited_scene) and the WT_DEMO mock's plain "motion".
+    // A motion event by category — matches the backend motion lifecycle types
+    // (motion_started/ended, entered/exited_scene) and the WT_DEMO mock's "motion".
+    // (motion_detected is dropped upstream in EventModel, so it never reaches here.)
     function isMotionType(t) {
         t = "" + t;
         return t === "motion" || t.indexOf("motion_") === 0
@@ -135,10 +136,10 @@ Item {
                : root.timeRange === "30d" ? 30 * 86400000 : 0;
         return ms ? new Date(now.getTime() - ms).toISOString() : "";
     }
-    // Re-run the database query with the current server-side filters (time + motion;
-    // camera scope comes later). Pills/columns/sort still refine the loaded page set.
+    // Re-run the database query with the current server-side filters (time + camera
+    // scope). Motion/Offline/Bookmark pills + columns/sort refine the loaded page set.
     function runQuery() {
-        if (root.eventModel) root.eventModel.search(root.qCameraId, root.queryStart(), "", root.fMotion);
+        if (root.eventModel) root.eventModel.search(root.qCameraId, root.queryStart(), "");
     }
     // Sub-bar pill filters (Unack/Motion/Offline/Bookmarks); column filters + sort layer on top.
     function baseRows() {
@@ -227,7 +228,7 @@ Item {
         }
     }
     onFUnackChanged: recompute()
-    onFMotionChanged: runQuery()        // Motion drives the server query (has_clip)
+    onFMotionChanged: recompute()       // Motion is a client-side pill (like Offline/Bookmark)
     onTimeRangeChanged: runQuery()
     onQCameraIdChanged: runQuery()      // camera scope drives the server query
     onFOfflineChanged: recompute()
