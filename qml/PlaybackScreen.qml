@@ -48,39 +48,34 @@ Item {
     // From /events (one dedicated EventModel, below): motion_started+motion_ended
     // pair by recording_id into motionEpisodes [{startMs,endMs}] drawn as amber
     // spans; every other type becomes a point tick in pointEvents [{ms,type}].
-    property var motionEpisodes: []
+    property var motionEpisodes: []      // motion spans from /events/timeline (episodes mode)
+    property var motionBuckets: []       // density bins from /events/timeline (buckets mode)
+    property bool bucketMode: false      // true when a very busy window switched to bucket rendering
+    readonly property int bucketThreshold: 2000   // episode count above which we switch to density buckets
     property var pointEvents: []
-    property var eventList: []       // [{type, ts}] for the aside list, newest-first (excl. motion_ended)
+    property var eventList: []           // [{type, ts}] for the aside list, newest-first (excl. motion_ended)
+    // Motion episodes come PRE-JOINED from the backend /events/timeline endpoint
+    // (server pairs motion_started↔motion_ended by recording_id) — no client paging
+    // or pairing. The EventModel below still supplies non-motion point events + the
+    // recent list (its first page is enough; those are rare/recent).
+    function loadTimeline() {
+        motionEpisodes = []; motionBuckets = []; bucketMode = false;
+        if (!client || camId === "" || winEndMs <= winStartMs) return;
+        client.fetchTimeline(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString(), 0);
+    }
     function loadMotionEvents() {
-        motionEpisodes = []; pointEvents = []; eventList = [];
+        pointEvents = []; eventList = [];
         if (camId === "" || winEndMs <= winStartMs) return;
         motionEvents.search(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString());
     }
     function rebuildEvents() {
-        var all = motionEvents.all(), byRec = ({}), pts = [], evl = [];
+        var all = motionEvents.all(), pts = [], evl = [];
         for (var i = 0; i < all.length; i++) {
             var ev = all[i];
             if (ev.camId !== camId) continue;                       // ignore the instance's initial global fetch
             if (ev.type !== "motion_ended") evl.push({ type: ev.type, ts: ev.ts });
-            if (EventStyle.isMotionSpan(ev.type)) {
-                var rid = ev.recordingId !== "" ? ev.recordingId : ("_" + ev.eventId);
-                var slot = byRec[rid] || (byRec[rid] = { s: -1, e: -1 });
-                if (ev.type === "motion_started") slot.s = ev.ts; else slot.e = ev.ts;
-            } else {
-                pts.push({ ms: ev.ts, type: ev.type });             // line-crossing, intrusion, …
-            }
+            if (!EventStyle.isMotionSpan(ev.type)) pts.push({ ms: ev.ts, type: ev.type });   // non-motion → tick
         }
-        var out = [];
-        for (var k in byRec) {
-            var s = byRec[k].s, e = byRec[k].e;
-            if (s < 0 && e < 0) continue;
-            if (s < 0) s = winStartMs;                              // ended; started before the window
-            if (e < 0) e = Math.min(Date.now(), winEndMs);          // ongoing; no end yet
-            if (e < s) { var t = s; s = e; e = t; }
-            out.push({ startMs: s, endMs: e });
-        }
-        out.sort(function (a, b) { return a.startMs - b.startMs; });
-        motionEpisodes = out;
         pts.sort(function (a, b) { return a.ms - b.ms; });
         pointEvents = pts;
         eventList = evl;
@@ -97,7 +92,7 @@ Item {
     // legend keys present in the window: "motion" (if any episodes) + each distinct point type
     readonly property var eventTypesPresent: {
         var seen = ({}), out = [];
-        if (motionEpisodes.length > 0) out.push("motion");
+        if (motionEpisodes.length > 0 || motionBuckets.length > 0) out.push("motion");
         for (var i = 0; i < pointEvents.length; i++) {
             var t = pointEvents[i].type;
             if (!seen[t]) { seen[t] = true; out.push(t); }
@@ -372,7 +367,8 @@ Item {
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             root.errorText = "";
-            root.loadMotionEvents();        // motion episodes for the scrubber's events lane
+            root.loadMotionEvents();        // point events + recent list (EventModel)
+            root.loadTimeline();            // motion episode spans from /events/timeline
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
             player.source = root.client.playlistUrl(sid);
@@ -394,20 +390,47 @@ Item {
             }
             root.footageDays = out;
         }
+        // Motion episode spans (or density buckets) from /events/timeline — the
+        // backend pairs motion_started↔motion_ended server-side, so no client paging.
+        function onTimelineReady(cid, mode, blocks) {
+            if (cid !== root.camId) return;
+            if (mode === "buckets") {
+                var bk = [];
+                for (var i = 0; i < blocks.length; i++) {
+                    var b = blocks[i];
+                    bk.push({ sMs: Date.parse(b.bucket_start), eMs: Date.parse(b.bucket_end),
+                              count: b.episode_count, seconds: b.motion_seconds });
+                }
+                root.motionBuckets = bk; root.bucketMode = true; root.motionEpisodes = [];
+                return;
+            }
+            var eps = [];
+            for (var j = 0; j < blocks.length; j++) {
+                var ep = blocks[j];
+                var st = Date.parse(ep.start_time);
+                var en = ep.end_time ? Date.parse(ep.end_time) : Math.min(Date.now(), root.winEndMs);
+                if (en < st) { var t = st; st = en; en = t; }
+                eps.push({ startMs: st, endMs: en });
+            }
+            if (eps.length > root.bucketThreshold) {     // very busy → bounded density buckets
+                root.motionEpisodes = []; root.bucketMode = true;
+                root.client.fetchTimeline(root.camId, new Date(root.winStartMs).toISOString(),
+                                          new Date(root.winEndMs).toISOString(), 600);
+                return;
+            }
+            eps.sort(function (a, b) { return a.startMs - b.startMs; });
+            root.motionEpisodes = eps; root.bucketMode = false;
+        }
     }
 
-    // Dedicated event feed for the playback scrubber's motion lane — a SEPARATE
-    // EventModel from the shared global one so scoping it to this camera+window
-    // doesn't clobber the Events screen / Live "recent" query.
+    // Dedicated event feed for the playback scrubber's NON-MOTION point events +
+    // the aside recent list — a SEPARATE EventModel from the shared global one so
+    // scoping it to this camera+window doesn't clobber the Events screen / Live
+    // "recent" query. (Motion spans come from /events/timeline; see onTimelineReady.)
     EventModel { id: motionEvents }
     Connections {
         target: motionEvents
-        function onChanged() {
-            root.rebuildEvents();
-            // page through the window (newest-first) up to a sane cap; the density
-            // merge keeps even a busy 24h window legible.
-            if (motionEvents.hasMore && motionEvents.total < 1500) motionEvents.loadMore();
-        }
+        function onChanged() { root.rebuildEvents(); }   // first page is enough for points + recent list
     }
 
     // pause streams when hidden; tidy player on hide
@@ -816,7 +839,7 @@ Item {
                 // 24h view collapses to legible density bands; zoom in and they resolve
                 // into discrete start→end spans). coveredMs/extent drives the intensity.
                 readonly property var visibleMotion: {
-                    if (!root.typeVisible("motion")) return [];
+                    if (root.bucketMode || !root.typeVisible("motion")) return [];
                     var eps = root.motionEpisodes, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
                     if (!eps || eps.length === 0 || sp <= 0 || w <= 0) return [];
                     var minGapMs = (3 / w) * sp, out = [], cur = null;
@@ -832,10 +855,28 @@ Item {
                         }
                     }
                     if (cur) out.push(cur);
+                    return out.map(function (b) {
+                        return { sMs: b.sMs, eMs: b.eMs, count: b.count,
+                                 intensity: Math.min(1, b.coveredMs / Math.max(1, b.eMs - b.sMs)) };
+                    });
+                }
+                // density-bucket band (server aggregation) — used instead of per-episode
+                // rendering for a very busy window. One segment per non-empty bin.
+                readonly property var bucketBand: {
+                    if (!root.bucketMode || !root.typeVisible("motion")) return [];
+                    var bk = root.motionBuckets, vs = root.viewStartMs, ve = root.viewEndMs, out = [];
+                    if (!bk || bk.length === 0) return [];
+                    for (var i = 0; i < bk.length; i++) {
+                        var b = bk[i];
+                        if (b.eMs < vs || b.sMs > ve || b.seconds <= 0) continue;
+                        var dur = Math.max(1, (b.eMs - b.sMs) / 1000);
+                        out.push({ sMs: b.sMs, eMs: b.eMs, count: b.count, intensity: Math.min(1, b.seconds / dur) });
+                    }
                     return out;
                 }
+                readonly property var motionBand: root.bucketMode ? bucketBand : visibleMotion
                 function motionAt(ms) {
-                    var v = visibleMotion;
+                    var v = motionBand;
                     for (var i = 0; i < v.length; i++) if (ms >= v[i].sMs && ms <= v[i].eMs) return v[i];
                     return null;
                 }
@@ -893,15 +934,14 @@ Item {
                 // merged into density bands at wide zoom (see bar.visibleMotion). Click a
                 // band to seek into it; hover for the time range / count.
                 Repeater {
-                    model: bar.visibleMotion
+                    model: bar.motionBand
                     Rectangle {
                         readonly property double bx0: bar.xOf(modelData.sMs)
                         readonly property double bx1: bar.xOf(modelData.eMs)
-                        readonly property double extent: Math.max(1, modelData.eMs - modelData.sMs)
                         x: Math.max(1, bx0); y: 28
                         width: Math.max(2, bx1 - bx0); height: 6
                         color: Theme.accent
-                        opacity: 0.45 + 0.45 * Math.min(1, modelData.coveredMs / extent)
+                        opacity: 0.45 + 0.45 * modelData.intensity
                     }
                 }
                 // lane labels

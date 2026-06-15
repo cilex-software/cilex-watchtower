@@ -76,6 +76,13 @@ public:
     // state instead of fabricating coverage. See docs/letters/ for the API ask.
     Q_INVOKABLE void fetchCoverage(const QString &cameraId);
 
+    // Motion timeline for the playback scrubber (S06 / 2026-06-15 letter): GET
+    // /events/timeline → server-joined motion episode SPANS (episodes mode), or
+    // density BINS when buckets>0. Emits timelineReady(cameraId, mode, blocks);
+    // mode is "episodes" | "buckets" | "error".
+    Q_INVOKABLE void fetchTimeline(const QString &cameraId, const QString &startIso,
+                                   const QString &endIso, int buckets = 0);
+
     // Synchronized multi-camera review (E1). Opens a SERVER-COMPOSITED grid
     // session over [wallStartIso, wallEndIso]; the backend returns ONE HLS VOD
     // of the whole grid + a cell↔camera mapping + a /review-shaped composited
@@ -105,6 +112,7 @@ signals:
     void exportFailed(const QString &jobId, const QString &error);
     void coverageReady(const QString &cameraId, bool available, int retentionDays,
                        const QVariantList &days);
+    void timelineReady(const QString &cameraId, const QString &mode, const QVariantList &blocks);
     void mosaicSessionReady(const QString &sessionId, const QVariantMap &grid,
                             const QVariantList &cells, double compactDuration,
                             const QVariantList &fragments, const QVariantMap &meta);

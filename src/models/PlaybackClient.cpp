@@ -321,6 +321,48 @@ void PlaybackClient::fetchCoverageUnion(const QStringList &cameraIds)
     });
 }
 
+void PlaybackClient::fetchTimeline(const QString &cameraId, const QString &startIso,
+                                   const QString &endIso, int buckets)
+{
+    if (cameraId.isEmpty() || startIso.isEmpty() || endIso.isEmpty())
+        return;
+    if (!m_loggedIn) {
+        if (!AuthController::instance()->authenticated())
+            return;
+        ensureReady();
+        connect(this, &PlaybackClient::camerasResolved, this,
+                [this, cameraId, startIso, endIso, buckets]() {
+                    fetchTimeline(cameraId, startIso, endIso, buckets);
+                }, Qt::SingleShotConnection);
+        return;
+    }
+    QUrl url(m_baseUrl + "/events/timeline");
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("start"), startIso);
+    q.addQueryItem(QStringLiteral("end"), endIso);
+    q.addQueryItem(QStringLiteral("camera_ids"), cameraId);
+    if (buckets > 0)
+        q.addQueryItem(QStringLiteral("buckets"), QString::number(buckets));
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401)
+            AuthController::instance()->noteUnauthorized();
+        if (code != 200) {
+            emit timelineReady(cameraId, QStringLiteral("error"), {});
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString mode = obj.value("mode").toString();
+        QVariantList blocks;
+        for (const auto &bv : obj.value("cameras").toObject().value(cameraId).toArray())
+            blocks.append(bv.toObject().toVariantMap());
+        emit timelineReady(cameraId, mode, blocks);
+    });
+}
+
 void PlaybackClient::flushPendingSessions() { /* queued via SingleShotConnection */ }
 
 QString PlaybackClient::playlistUrl(const QString &sessionId) const
