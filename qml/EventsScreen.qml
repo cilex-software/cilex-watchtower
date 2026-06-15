@@ -72,19 +72,8 @@ Item {
     onSortDirChanged: recompute()
     onColExclChanged: recompute()
 
-    function eventIcon(type) {
-        switch (type) {
-        case "loitering":
-        case "stopped": return "alert";
-        default: return "motion";   // entered/exited_scene, motion_started/ended
-        }
-    }
-    function eventColor(type) {
-        switch (type) {
-        case "loitering": return Theme.bad;
-        default: return Theme.accent;
-        }
-    }
+    function eventIcon(type) { return EventStyle.icon(type); }
+    function eventColor(type) { return EventStyle.color(type); }
     function camDisplay(ev) {
         var r = root.cameraModel ? root.cameraModel.cameraByBackendId(ev.camId) : null;
         return (r && r.name) ? r.name : (ev.camName ? ev.camName : ev.camId);

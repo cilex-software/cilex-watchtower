@@ -28,12 +28,8 @@ Item {
     property int sel: -1                  // display index of the selected row
     property var built: ({ display: [], flat: [], groups: [] })
 
-    function eventGlyph(t) {
-        switch (t) { case "loitering": case "stopped": return "alert"; default: return "motion"; }
-    }
-    function eventColor(t) {
-        switch (t) { case "loitering": return Theme.bad; default: return Theme.accent; }
-    }
+    function eventGlyph(t) { return EventStyle.icon(t); }
+    function eventColor(t) { return EventStyle.color(t); }
 
     function build() {
         var ql = query.toLowerCase().trim();

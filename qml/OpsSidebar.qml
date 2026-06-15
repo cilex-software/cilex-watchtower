@@ -15,19 +15,8 @@ Item {
 
     implicitWidth: Theme.opsSidebarWidth
 
-    function eventIcon(type) {
-        switch (type) {
-        case "loitering":
-        case "stopped": return "alert";
-        default: return "motion";   // entered/exited_scene, motion_started/ended
-        }
-    }
-    function eventColor(type) {
-        switch (type) {
-        case "loitering": return Theme.bad;
-        default: return Theme.accent;
-        }
-    }
+    function eventIcon(type) { return EventStyle.icon(type); }
+    function eventColor(type) { return EventStyle.color(type); }
 
     Rectangle {
         anchors.fill: parent

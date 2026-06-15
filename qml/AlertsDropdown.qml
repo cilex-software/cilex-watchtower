@@ -20,16 +20,8 @@ C.Popup {
 
     background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
 
-    function eventIcon(type) {
-        switch (type) {
-        case "loitering":
-        case "stopped": return "alert";
-        default: return "motion";   // entered/exited_scene, motion_started/ended
-        }
-    }
-    function eventColor(type) {
-        return type === "loitering" ? Theme.bad : Theme.accent;
-    }
+    function eventIcon(type) { return EventStyle.icon(type); }
+    function eventColor(type) { return EventStyle.color(type); }
 
     contentItem: ColumnLayout {
         spacing: 0
