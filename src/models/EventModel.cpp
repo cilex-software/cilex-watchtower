@@ -106,7 +106,6 @@ QVariant EventModel::data(const QModelIndex &index, int role) const
     case AckRole:     return e.ack;
     case AckByRole:   return e.ackBy;
     case AckTimeRole: return e.ackTime;
-    case RecordingIdRole: return e.recordingId;
     default:          return {};
     }
 }
@@ -124,7 +123,6 @@ QHash<int, QByteArray> EventModel::roleNames() const
         { AckRole,     "ack" },
         { AckByRole,   "ackBy" },
         { AckTimeRole, "ackTime" },
-        { RecordingIdRole, "recordingId" },
     };
 }
 
@@ -224,7 +222,6 @@ void EventModel::fetchPage(bool append)
             e.type = type;
             e.camId = o.value("camera_id").toString();
             e.camName = e.camId;           // Events screen resolves a friendly name via CameraModel
-            e.recordingId = o.value("metadata").toObject().value("recording_id").toString();
             const QString iso = o.value("start_time").toString();
             const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
             e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : iso;
@@ -310,7 +307,6 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["ackBy"] = e.ackBy;
     m["ackTime"] = e.ackTime;
     m["ts"] = static_cast<qlonglong>(e.tsMs);
-    m["recordingId"] = e.recordingId;
     return m;
 }
 

@@ -45,9 +45,9 @@ Item {
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
 
     // ---- events on the scrubber: motion episodes + point events ----------
-    // From /events (one dedicated EventModel, below): motion_started+motion_ended
-    // pair by recording_id into motionEpisodes [{startMs,endMs}] drawn as amber
-    // spans; every other type becomes a point tick in pointEvents [{ms,type}].
+    // Motion = amber spans; other event types = point ticks. Sources below:
+    // motionEpisodes/Buckets come from /events/timeline (see loadTimeline); the
+    // dedicated EventModel supplies non-motion point events + the recent list.
     property var motionEpisodes: []      // motion spans from /events/timeline (episodes mode)
     property var motionBuckets: []       // density bins from /events/timeline (buckets mode)
     property bool bucketMode: false      // true when a very busy window switched to bucket rendering
