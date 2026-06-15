@@ -44,25 +44,31 @@ Item {
     readonly property string camId: (client && camera)
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
 
-    // ---- motion event episodes on the scrubber --------------------------
-    // motion_started + motion_ended (from /events) paired by recording_id into
-    // [{startMs, endMs}] (ascending). The scrubber draws these as amber spans;
-    // bar.visibleMotion merges them per zoom level into legible density bands.
+    // ---- events on the scrubber: motion episodes + point events ----------
+    // From /events (one dedicated EventModel, below): motion_started+motion_ended
+    // pair by recording_id into motionEpisodes [{startMs,endMs}] drawn as amber
+    // spans; every other type becomes a point tick in pointEvents [{ms,type}].
     property var motionEpisodes: []
+    property var pointEvents: []
+    property var eventList: []       // [{type, ts}] for the aside list, newest-first (excl. motion_ended)
     function loadMotionEvents() {
-        motionEpisodes = [];
+        motionEpisodes = []; pointEvents = []; eventList = [];
         if (camId === "" || winEndMs <= winStartMs) return;
         motionEvents.search(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString());
     }
-    function rebuildEpisodes() {
-        var all = motionEvents.all(), byRec = ({});
+    function rebuildEvents() {
+        var all = motionEvents.all(), byRec = ({}), pts = [], evl = [];
         for (var i = 0; i < all.length; i++) {
             var ev = all[i];
             if (ev.camId !== camId) continue;                       // ignore the instance's initial global fetch
-            if (ev.type !== "motion_started" && ev.type !== "motion_ended") continue;
-            var rid = ev.recordingId !== "" ? ev.recordingId : ("_" + ev.eventId);
-            var slot = byRec[rid] || (byRec[rid] = { s: -1, e: -1 });
-            if (ev.type === "motion_started") slot.s = ev.ts; else slot.e = ev.ts;
+            if (ev.type !== "motion_ended") evl.push({ type: ev.type, ts: ev.ts });
+            if (EventStyle.isMotionSpan(ev.type)) {
+                var rid = ev.recordingId !== "" ? ev.recordingId : ("_" + ev.eventId);
+                var slot = byRec[rid] || (byRec[rid] = { s: -1, e: -1 });
+                if (ev.type === "motion_started") slot.s = ev.ts; else slot.e = ev.ts;
+            } else {
+                pts.push({ ms: ev.ts, type: ev.type });             // line-crossing, intrusion, …
+            }
         }
         var out = [];
         for (var k in byRec) {
@@ -75,6 +81,39 @@ Item {
         }
         out.sort(function (a, b) { return a.startMs - b.startMs; });
         motionEpisodes = out;
+        pts.sort(function (a, b) { return a.ms - b.ms; });
+        pointEvents = pts;
+        eventList = evl;
+    }
+    // per-type show/hide (legend keys: "motion" for the span lane, raw event_type
+    // for point ticks). Persisted in Settings.hiddenScrubberEventTypes.
+    function typeHidden(key) { return Settings.hiddenScrubberEventTypes.indexOf(key) >= 0; }
+    function typeVisible(key) { return Settings.eventsOnScrubber && !typeHidden(key); }
+    function toggleType(key) {
+        var h = Settings.hiddenScrubberEventTypes.slice(), i = h.indexOf(key);
+        if (i >= 0) h.splice(i, 1); else h.push(key);
+        Settings.hiddenScrubberEventTypes = h;
+    }
+    // legend keys present in the window: "motion" (if any episodes) + each distinct point type
+    readonly property var eventTypesPresent: {
+        var seen = ({}), out = [];
+        if (motionEpisodes.length > 0) out.push("motion");
+        for (var i = 0; i < pointEvents.length; i++) {
+            var t = pointEvents[i].type;
+            if (!seen[t]) { seen[t] = true; out.push(t); }
+        }
+        return out;
+    }
+    // most-recent events (visible types) for the aside list; motion_ended omitted
+    // (the start is the meaningful row).
+    readonly property var recentList: {
+        var src = eventList, out = [];
+        for (var i = 0; i < src.length && out.length < 12; i++) {
+            var key = EventStyle.isMotionSpan(src[i].type) ? "motion" : src[i].type;
+            if (!typeVisible(key)) continue;
+            out.push(src[i]);
+        }
+        return out;
     }
 
     // ---- helpers ---------------------------------------------------------
@@ -364,7 +403,7 @@ Item {
     Connections {
         target: motionEvents
         function onChanged() {
-            root.rebuildEpisodes();
+            root.rebuildEvents();
             // page through the window (newest-first) up to a sane cap; the density
             // merge keeps even a busy 24h window legible.
             if (motionEvents.hasMore && motionEvents.total < 1500) motionEvents.loadMore();
@@ -658,9 +697,58 @@ Item {
                         onDaySelected: (d) => root.openForDay(d)
                     }
 
-                    Hdr { text: "Recent events" }
-                    Text { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                    Hdr { text: "Events" }
+                    // legend / per-type show-hide — one toggle per type present in the
+                    // window; click to show/hide that type's markers on the scrubber.
+                    Flow {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                        spacing: 6; visible: root.eventTypesPresent.length > 0
+                        Repeater {
+                            model: root.eventTypesPresent
+                            Rectangle {
+                                id: lg
+                                required property var modelData
+                                readonly property string key: lg.modelData
+                                readonly property bool on: root.typeVisible(lg.key)
+                                implicitWidth: lgRow.implicitWidth + 14; implicitHeight: 22
+                                color: lgMa.containsMouse ? Theme.panel2 : "transparent"
+                                border.width: 1; border.color: Theme.line2
+                                Row { id: lgRow; anchors.centerIn: parent; spacing: 6
+                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7
+                                        color: EventStyle.color(lg.key); opacity: lg.on ? 1 : 0.3 }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: EventStyle.label(lg.key)
+                                        color: lg.on ? Theme.ink : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                                }
+                                MouseArea { id: lgMa; anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor; onClicked: root.toggleType(lg.key) }
+                            }
+                        }
+                    }
+                    Text { visible: root.eventTypesPresent.length === 0
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
                         text: "No events in this range."; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 8 }
+                    // recent list — most recent events (visible types); click to jump
+                    Repeater {
+                        model: root.recentList
+                        Rectangle {
+                            id: evrow
+                            required property var modelData
+                            Layout.fillWidth: true; Layout.preferredHeight: 26
+                            color: evMa.containsMouse ? Theme.panel2 : "transparent"
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 8
+                                Rectangle { Layout.preferredWidth: 6; Layout.preferredHeight: 6; Layout.alignment: Qt.AlignVCenter
+                                    color: EventStyle.color(evrow.modelData.type) }
+                                Text { Layout.fillWidth: true; text: EventStyle.label(evrow.modelData.type); color: Theme.ink
+                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
+                                Text { text: root.fmtClock(evrow.modelData.ts); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                            }
+                            MouseArea { id: evMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor; onClicked: root.seekToWall(evrow.modelData.ts) }
+                        }
+                    }
                     Item { Layout.fillHeight: true }
                 }
             }
@@ -728,7 +816,7 @@ Item {
                 // 24h view collapses to legible density bands; zoom in and they resolve
                 // into discrete start→end spans). coveredMs/extent drives the intensity.
                 readonly property var visibleMotion: {
-                    if (!Settings.eventsOnScrubber) return [];
+                    if (!root.typeVisible("motion")) return [];
                     var eps = root.motionEpisodes, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
                     if (!eps || eps.length === 0 || sp <= 0 || w <= 0) return [];
                     var minGapMs = (3 / w) * sp, out = [], cur = null;
@@ -752,6 +840,34 @@ Item {
                     return null;
                 }
                 readonly property var hoverMotion: hoverMs >= 0 ? motionAt(hoverMs) : null
+                // discrete (non-motion) events clipped to view + visible types, clustered
+                // by ~7px so dense runs collapse to one tick with a count.
+                readonly property var visiblePoints: {
+                    if (!Settings.eventsOnScrubber) return [];
+                    var pts = root.pointEvents, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
+                    if (!pts || pts.length === 0 || sp <= 0 || w <= 0) return [];
+                    var minGapMs = (7 / w) * sp, out = [], cur = null;
+                    for (var i = 0; i < pts.length; i++) {
+                        var p = pts[i];
+                        if (p.ms < vs || p.ms > ve || root.typeHidden(p.type)) continue;
+                        if (cur && p.ms - cur.lastMs <= minGapMs) {
+                            cur.count += 1; cur.lastMs = p.ms;
+                            if (cur.type !== p.type) cur.mixed = true;
+                        } else {
+                            if (cur) out.push(cur);
+                            cur = { ms: p.ms, lastMs: p.ms, count: 1, type: p.type, mixed: false };
+                        }
+                    }
+                    if (cur) out.push(cur);
+                    return out;
+                }
+                function pointAt(ms) {
+                    var v = visiblePoints, sp = root.viewEndMs - root.viewStartMs, tol = (6 / Math.max(1, width)) * sp;
+                    for (var i = 0; i < v.length; i++)
+                        if (Math.abs(ms - (v[i].ms + v[i].lastMs) / 2) <= tol) return v[i];
+                    return null;
+                }
+                readonly property var hoverPoint: hoverMs >= 0 ? pointAt(hoverMs) : null
 
                 // gap backdrop (whole bar = red stripe), footage drawn on top
                 Rectangle {
@@ -793,7 +909,24 @@ Item {
                     anchors.left: parent.left; anchors.leftMargin: 6; anchors.top: parent.top; anchors.topMargin: 39
                     spacing: 10
                     Text { text: "FOOTAGE"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
-                    Text { visible: Settings.eventsOnScrubber; text: "MOTION"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+                    Text { visible: root.typeVisible("motion"); text: "MOTION"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+                }
+
+                // discrete event ticks (non-motion types) — clustered pins colored by
+                // type (neutral when a cluster mixes types); count shown for clusters.
+                Repeater {
+                    model: bar.visiblePoints
+                    Item {
+                        id: pin
+                        readonly property double px: bar.xOf((modelData.ms + modelData.lastMs) / 2)
+                        readonly property color c: modelData.mixed ? Theme.ink2 : EventStyle.color(modelData.type)
+                        visible: px >= -2 && px <= bar.width + 2
+                        x: px; y: 0
+                        Rectangle { x: -2; y: 22; width: 5; height: 5; color: pin.c }                 // dot cap
+                        Rectangle { x: 0; y: 24; width: 2; height: 14; color: pin.c; opacity: 0.9 }    // pin
+                        Text { visible: modelData.count > 1; x: 4; y: 19; text: modelData.count
+                            color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8 }
+                    }
                 }
 
                 // adaptive time ruler — major (labeled) + minor ticks at the bottom,
@@ -856,10 +989,13 @@ Item {
                     implicitWidth: hoverT.implicitWidth + 10; height: 16
                     color: Qt.rgba(0, 0, 0, 0.85); border.width: 1; border.color: Theme.line2
                     Text { id: hoverT; anchors.centerIn: parent
-                        text: bar.hoverMotion
-                              ? ((bar.hoverMotion.count > 1 ? bar.hoverMotion.count + " motions · " : "Motion · ")
-                                 + root.fmtClock(bar.hoverMotion.sMs) + "–" + root.fmtClock(bar.hoverMotion.eMs))
-                              : root.fmtClock(bar.hoverMs)
+                        text: bar.hoverPoint
+                              ? ((bar.hoverPoint.count > 1 ? bar.hoverPoint.count + " events · " : EventStyle.label(bar.hoverPoint.type) + " · ")
+                                 + root.fmtClock((bar.hoverPoint.ms + bar.hoverPoint.lastMs) / 2))
+                              : bar.hoverMotion
+                                ? ((bar.hoverMotion.count > 1 ? bar.hoverMotion.count + " motions · " : "Motion · ")
+                                   + root.fmtClock(bar.hoverMotion.sMs) + "–" + root.fmtClock(bar.hoverMotion.eMs))
+                                : root.fmtClock(bar.hoverMs)
                         color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9 }
                 }
 

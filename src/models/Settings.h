@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QStringList>
 #include <QtQml/qqmlregistration.h>
 
 // Global, persisted user preferences (QSettings — ~/.config/Cilex Vision/
@@ -32,6 +33,9 @@ class Settings : public QObject
     Q_PROPERTY(QString liveTransport READ liveTransport WRITE setLiveTransport NOTIFY liveTransportChanged)
     // Show the motion/events lane on the playback scrubber (default on).
     Q_PROPERTY(bool eventsOnScrubber READ eventsOnScrubber WRITE setEventsOnScrubber NOTIFY eventsOnScrubberChanged)
+    // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
+    // event_type). Empty = all shown.
+    Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
 
 public:
     explicit Settings(QObject *parent = nullptr);
@@ -66,6 +70,9 @@ public:
     bool eventsOnScrubber() const { return m_eventsOnScrubber; }
     void setEventsOnScrubber(bool v);
 
+    QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
+    void setHiddenScrubberEventTypes(const QStringList &v);
+
     // Format an epoch-ms timestamp for display, honoring time24h. The QML clock
     // displays call this so the Time-format preference takes effect app-wide.
     Q_INVOKABLE QString clock(double ms, bool seconds = false) const;
@@ -97,6 +104,7 @@ signals:
     void overlayShowIdChanged();
     void liveTransportChanged();
     void eventsOnScrubberChanged();
+    void hiddenScrubberEventTypesChanged();
 
 private:
     QSettings m_settings;
@@ -110,4 +118,5 @@ private:
     bool m_overlayShowId = false;
     QString m_liveTransport = QStringLiteral("go2rtc");
     bool m_eventsOnScrubber = true;
+    QStringList m_hiddenScrubberEventTypes;
 };

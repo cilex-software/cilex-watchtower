@@ -15,6 +15,7 @@ Settings::Settings(QObject *parent)
     m_overlayShowId = m_settings.value(QStringLiteral("overlay/showId"), false).toBool();
     m_liveTransport = m_settings.value(QStringLiteral("video/liveTransport"), QStringLiteral("go2rtc")).toString();
     m_eventsOnScrubber = m_settings.value(QStringLiteral("playback/eventsOnScrubber"), true).toBool();
+    m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
 }
 
 void Settings::setDefaultStreamHd(bool v)
@@ -96,6 +97,15 @@ void Settings::setEventsOnScrubber(bool v)
     m_eventsOnScrubber = v;
     m_settings.setValue(QStringLiteral("playback/eventsOnScrubber"), v);
     emit eventsOnScrubberChanged();
+}
+
+void Settings::setHiddenScrubberEventTypes(const QStringList &v)
+{
+    if (m_hiddenScrubberEventTypes == v)
+        return;
+    m_hiddenScrubberEventTypes = v;
+    m_settings.setValue(QStringLiteral("playback/hiddenScrubberEventTypes"), v);
+    emit hiddenScrubberEventTypesChanged();
 }
 
 void Settings::setLiveTransport(const QString &v)
