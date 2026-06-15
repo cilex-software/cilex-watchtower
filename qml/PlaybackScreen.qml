@@ -44,6 +44,39 @@ Item {
     readonly property string camId: (client && camera)
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
 
+    // ---- motion event episodes on the scrubber --------------------------
+    // motion_started + motion_ended (from /events) paired by recording_id into
+    // [{startMs, endMs}] (ascending). The scrubber draws these as amber spans;
+    // bar.visibleMotion merges them per zoom level into legible density bands.
+    property var motionEpisodes: []
+    function loadMotionEvents() {
+        motionEpisodes = [];
+        if (camId === "" || winEndMs <= winStartMs) return;
+        motionEvents.search(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString());
+    }
+    function rebuildEpisodes() {
+        var all = motionEvents.all(), byRec = ({});
+        for (var i = 0; i < all.length; i++) {
+            var ev = all[i];
+            if (ev.camId !== camId) continue;                       // ignore the instance's initial global fetch
+            if (ev.type !== "motion_started" && ev.type !== "motion_ended") continue;
+            var rid = ev.recordingId !== "" ? ev.recordingId : ("_" + ev.eventId);
+            var slot = byRec[rid] || (byRec[rid] = { s: -1, e: -1 });
+            if (ev.type === "motion_started") slot.s = ev.ts; else slot.e = ev.ts;
+        }
+        var out = [];
+        for (var k in byRec) {
+            var s = byRec[k].s, e = byRec[k].e;
+            if (s < 0 && e < 0) continue;
+            if (s < 0) s = winStartMs;                              // ended; started before the window
+            if (e < 0) e = Math.min(Date.now(), winEndMs);          // ongoing; no end yet
+            if (e < s) { var t = s; s = e; e = t; }
+            out.push({ startMs: s, endMs: e });
+        }
+        out.sort(function (a, b) { return a.startMs - b.startMs; });
+        motionEpisodes = out;
+    }
+
     // ---- helpers ---------------------------------------------------------
     function pad(n) { return (n < 10 ? "0" : "") + n }
     function fmtClock(ms) {
@@ -300,6 +333,7 @@ Item {
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             root.errorText = "";
+            root.loadMotionEvents();        // motion episodes for the scrubber's events lane
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
             player.source = root.client.playlistUrl(sid);
@@ -320,6 +354,20 @@ Item {
                 if (d.has_footage === undefined || d.has_footage) out.push(d.date);
             }
             root.footageDays = out;
+        }
+    }
+
+    // Dedicated event feed for the playback scrubber's motion lane — a SEPARATE
+    // EventModel from the shared global one so scoping it to this camera+window
+    // doesn't clobber the Events screen / Live "recent" query.
+    EventModel { id: motionEvents }
+    Connections {
+        target: motionEvents
+        function onChanged() {
+            root.rebuildEpisodes();
+            // page through the window (newest-first) up to a sane cap; the density
+            // merge keeps even a busy 24h window legible.
+            if (motionEvents.hasMore && motionEvents.total < 1500) motionEvents.loadMore();
         }
     }
 
@@ -647,6 +695,7 @@ Item {
                 Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
+                Chip { label: "Events"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 // Window presets re-open the session; they de-highlight once you
                 // wheel/±-zoom the scrubber into a custom range (then a Custom chip
                 // shows the visible span; scroll/±/0 to zoom, Fit to reset).
@@ -665,7 +714,7 @@ Item {
                 anchors.left: parent.left; anchors.right: parent.right
                 anchors.top: tlControls.bottom; anchors.topMargin: 10
                 anchors.leftMargin: 16; anchors.rightMargin: 16
-                height: 64
+                height: 78
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
                 clip: true   // footage/selection outside the zoomed view are clipped
@@ -674,6 +723,35 @@ Item {
                 function msOf(x) { return root.viewStartMs + (x / width) * span }
                 property double hoverMs: -1   // wall ms under the cursor (-1 = not hovering)
                 readonly property var rulerTicks: root.computeTicks(root.viewStartMs, root.viewEndMs, width)
+                // Motion episodes clipped to the visible window and MERGED by zoom: two
+                // episodes whose on-screen gap is < ~3px fuse into one band (so a busy
+                // 24h view collapses to legible density bands; zoom in and they resolve
+                // into discrete start→end spans). coveredMs/extent drives the intensity.
+                readonly property var visibleMotion: {
+                    if (!Settings.eventsOnScrubber) return [];
+                    var eps = root.motionEpisodes, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
+                    if (!eps || eps.length === 0 || sp <= 0 || w <= 0) return [];
+                    var minGapMs = (3 / w) * sp, out = [], cur = null;
+                    for (var i = 0; i < eps.length; i++) {
+                        var e = eps[i];
+                        if (e.endMs < vs || e.startMs > ve) continue;
+                        var s = Math.max(e.startMs, vs), en = Math.min(e.endMs, ve);
+                        if (cur && s - cur.eMs <= minGapMs) {
+                            cur.eMs = Math.max(cur.eMs, en); cur.count += 1; cur.coveredMs += (en - s);
+                        } else {
+                            if (cur) out.push(cur);
+                            cur = { sMs: s, eMs: en, count: 1, coveredMs: (en - s) };
+                        }
+                    }
+                    if (cur) out.push(cur);
+                    return out;
+                }
+                function motionAt(ms) {
+                    var v = visibleMotion;
+                    for (var i = 0; i < v.length; i++) if (ms >= v[i].sMs && ms <= v[i].eMs) return v[i];
+                    return null;
+                }
+                readonly property var hoverMotion: hoverMs >= 0 ? motionAt(hoverMs) : null
 
                 // gap backdrop (whole bar = red stripe), footage drawn on top
                 Rectangle {
@@ -695,9 +773,28 @@ Item {
                         opacity: 0.75
                     }
                 }
-                // footage label
-                Text { anchors.left: parent.left; anchors.leftMargin: 6; anchors.top: parent.top; anchors.topMargin: 30
-                    text: "FOOTAGE"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+                // motion episodes (amber) — a free-standing lane below the footage band;
+                // merged into density bands at wide zoom (see bar.visibleMotion). Click a
+                // band to seek into it; hover for the time range / count.
+                Repeater {
+                    model: bar.visibleMotion
+                    Rectangle {
+                        readonly property double bx0: bar.xOf(modelData.sMs)
+                        readonly property double bx1: bar.xOf(modelData.eMs)
+                        readonly property double extent: Math.max(1, modelData.eMs - modelData.sMs)
+                        x: Math.max(1, bx0); y: 28
+                        width: Math.max(2, bx1 - bx0); height: 6
+                        color: Theme.accent
+                        opacity: 0.45 + 0.45 * Math.min(1, modelData.coveredMs / extent)
+                    }
+                }
+                // lane labels
+                Row {
+                    anchors.left: parent.left; anchors.leftMargin: 6; anchors.top: parent.top; anchors.topMargin: 39
+                    spacing: 10
+                    Text { text: "FOOTAGE"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+                    Text { visible: Settings.eventsOnScrubber; text: "MOTION"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
+                }
 
                 // adaptive time ruler — major (labeled) + minor ticks at the bottom,
                 // intervals chosen from the visible span (re-evaluates on zoom/pan)
@@ -758,7 +855,11 @@ Item {
                     y: 2
                     implicitWidth: hoverT.implicitWidth + 10; height: 16
                     color: Qt.rgba(0, 0, 0, 0.85); border.width: 1; border.color: Theme.line2
-                    Text { id: hoverT; anchors.centerIn: parent; text: root.fmtClock(bar.hoverMs)
+                    Text { id: hoverT; anchors.centerIn: parent
+                        text: bar.hoverMotion
+                              ? ((bar.hoverMotion.count > 1 ? bar.hoverMotion.count + " motions · " : "Motion · ")
+                                 + root.fmtClock(bar.hoverMotion.sMs) + "–" + root.fmtClock(bar.hoverMotion.eMs))
+                              : root.fmtClock(bar.hoverMs)
                         color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9 }
                 }
 

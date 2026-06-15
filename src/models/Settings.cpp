@@ -14,6 +14,7 @@ Settings::Settings(QObject *parent)
     m_overlayShowIp = m_settings.value(QStringLiteral("overlay/showIp"), true).toBool();
     m_overlayShowId = m_settings.value(QStringLiteral("overlay/showId"), false).toBool();
     m_liveTransport = m_settings.value(QStringLiteral("video/liveTransport"), QStringLiteral("go2rtc")).toString();
+    m_eventsOnScrubber = m_settings.value(QStringLiteral("playback/eventsOnScrubber"), true).toBool();
 }
 
 void Settings::setDefaultStreamHd(bool v)
@@ -86,6 +87,15 @@ void Settings::setOverlayShowId(bool v)
     m_overlayShowId = v;
     m_settings.setValue(QStringLiteral("overlay/showId"), v);
     emit overlayShowIdChanged();
+}
+
+void Settings::setEventsOnScrubber(bool v)
+{
+    if (m_eventsOnScrubber == v)
+        return;
+    m_eventsOnScrubber = v;
+    m_settings.setValue(QStringLiteral("playback/eventsOnScrubber"), v);
+    emit eventsOnScrubberChanged();
 }
 
 void Settings::setLiveTransport(const QString &v)

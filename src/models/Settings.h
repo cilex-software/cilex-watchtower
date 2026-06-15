@@ -30,6 +30,8 @@ class Settings : public QObject
     // Live video transport, admin-only: "go2rtc" (default; camera creds stay
     // server-side) or "rtsp" (direct RTSP using creds delivered by the API).
     Q_PROPERTY(QString liveTransport READ liveTransport WRITE setLiveTransport NOTIFY liveTransportChanged)
+    // Show the motion/events lane on the playback scrubber (default on).
+    Q_PROPERTY(bool eventsOnScrubber READ eventsOnScrubber WRITE setEventsOnScrubber NOTIFY eventsOnScrubberChanged)
 
 public:
     explicit Settings(QObject *parent = nullptr);
@@ -61,6 +63,9 @@ public:
     QString liveTransport() const { return m_liveTransport; }
     void setLiveTransport(const QString &v);
 
+    bool eventsOnScrubber() const { return m_eventsOnScrubber; }
+    void setEventsOnScrubber(bool v);
+
     // Format an epoch-ms timestamp for display, honoring time24h. The QML clock
     // displays call this so the Time-format preference takes effect app-wide.
     Q_INVOKABLE QString clock(double ms, bool seconds = false) const;
@@ -91,6 +96,7 @@ signals:
     void overlayShowIpChanged();
     void overlayShowIdChanged();
     void liveTransportChanged();
+    void eventsOnScrubberChanged();
 
 private:
     QSettings m_settings;
@@ -103,4 +109,5 @@ private:
     bool m_overlayShowIp = true;
     bool m_overlayShowId = false;
     QString m_liveTransport = QStringLiteral("go2rtc");
+    bool m_eventsOnScrubber = true;
 };

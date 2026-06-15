@@ -39,6 +39,7 @@ public:
         AckRole,
         AckByRole,
         AckTimeRole,
+        RecordingIdRole,
     };
 
     explicit EventModel(QObject *parent = nullptr);
