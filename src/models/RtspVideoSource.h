@@ -43,6 +43,11 @@ public:
     int latencyMs() const { return m_latencyMs; }
     void setLatencyMs(int ms);
 
+    // Force a fresh (re)connect of the pipeline — used by VideoSurface's auto-retry
+    // to recover an errored stream (e.g. go2rtc restarted) without recreating the
+    // QML item. No-op unless active+url+sink are set (same guard as rebuild()).
+    Q_INVOKABLE void reconnect();
+
 signals:
     void urlChanged();
     void activeChanged();

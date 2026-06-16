@@ -23,6 +23,19 @@ Item {
     readonly property bool errored: backend.item ? backend.item.errored : false
     readonly property string errorText: backend.item ? backend.item.errorText : ""
 
+    // Auto-retry: if the stream errors while it should be playing (go2rtc restarted,
+    // a transient drop, etc.), periodically re-establish it so the tile self-heals
+    // without an operator touching anything. Jittered interval so many tiles never
+    // reconnect in lockstep (a synchronized herd against a recovering go2rtc).
+    readonly property int _retryMs: 4000 + Math.round(Math.random() * 2000)
+    function reconnect() { if (backend.item && backend.item.reconnect) backend.item.reconnect(); }
+    Timer {
+        interval: root._retryMs
+        repeat: true
+        running: root.active && root.url !== "" && root.errored
+        onTriggered: root.reconnect()
+    }
+
     VideoOutput {
         id: videoOut
         anchors.fill: parent
@@ -57,6 +70,14 @@ Item {
                 if (root.active && root.url !== "")
                     player.play();
             }
+            function reconnect() {
+                // Fallback backend: drop + re-issue play to reconnect an errored
+                // pipeline. stop() can block briefly, but the retry is per-tile and
+                // jittered, so it is never many at once.
+                player.stop();
+                if (root.active)
+                    player.play();
+            }
 
             // Start (or resume) on becoming active; do NOT stop on going inactive — a
             // synchronous MediaPlayer.stop() on live RTSP can block the GUI thread, and
@@ -84,6 +105,7 @@ Item {
             readonly property bool playing: rtsp.playing
             readonly property bool errored: rtsp.errored
             readonly property string errorText: rtsp.errorText
+            function reconnect() { rtsp.reconnect(); }
 
             RtspVideoSource {
                 id: rtsp
