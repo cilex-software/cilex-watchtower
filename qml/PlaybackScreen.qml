@@ -315,6 +315,13 @@ Item {
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
+        // Live View off → playback-service is stopped; no session can be created.
+        // Skip the doomed attempt (the player overlay explains it) and keep
+        // _pendingOpen so re-enabling Live View re-creates the session.
+        if (root.cameraModel && root.cameraModel.liveViewEnabled === false) {
+            loading = false; errorText = "";
+            return;
+        }
         var id = client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "");
         if (!id) {
             if (!client.loggedIn) return;          // /streams not resolved yet — wait
@@ -433,6 +440,20 @@ Item {
         function onChanged() { root.rebuildEvents(); }   // first page is enough for points + recent list
     }
 
+    // Live View came back on → (re)create the playback session if we're showing
+    // this screen for a camera (covers a gated open, and a session that died when
+    // Live View was switched off mid-playback).
+    Connections {
+        target: root.cameraModel
+        function onFunctionsChanged() {
+            if (root.visible && root.camera && root.cameraModel
+                && root.cameraModel.liveViewEnabled !== false) {
+                root._pendingOpen = true;
+                root.tryOpen();
+            }
+        }
+    }
+
     // pause streams when hidden; tidy player on hide
     focus: true
     onVisibleChanged: { if (visible) forceActiveFocus(); else { player.stop(); scanTimer.stop() } }
@@ -468,6 +489,28 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+
+        // Recording switched off → no new footage is being recorded; past footage
+        // is still viewable. Calm amber note (not a fault). Fail-safe: only on an
+        // explicit enabled:false.
+        Rectangle {
+            id: recBanner
+            readonly property bool recOff: root.cameraModel ? (root.cameraModel.recordingEnabled === false) : false
+            Layout.fillWidth: true
+            visible: recOff
+            Layout.preferredHeight: visible ? 34 : 0
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.10)
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.accent }
+            Row {
+                anchors { left: parent.left; leftMargin: 16; right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
+                spacing: 8
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "off"; size: 14; color: Theme.accent }
+                Text { anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 24; elide: Text.ElideRight
+                    text: "Recording is switched off — no new footage is being recorded. Past footage is still available."
+                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+            }
+        }
 
         // ---- player + aside ---------------------------------------------
         RowLayout {
@@ -534,6 +577,28 @@ Item {
                     Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 30; color: Theme.ink3 }
                     Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.errorText
                         color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13 }
+                }
+
+                // Live View switched off → playback-service is stopped, so no
+                // recorded playback / mosaic session can be created. Calm; explains
+                // the deliberate state instead of a spinning or broken player.
+                Rectangle {
+                    anchors.fill: parent
+                    visible: root.cameraModel && root.cameraModel.liveViewEnabled === false
+                    color: "#1d2120"
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 8
+                        width: parent.width
+                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 34; color: Theme.accent }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Playback unavailable"; color: Theme.ink
+                            font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter
+                            width: Math.min(440, parent.width - 48); horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                            text: "Live View is switched off — recorded playback and export are paused. This is an operator setting, not a fault."
+                            color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                    }
                 }
 
                 // top overlay
