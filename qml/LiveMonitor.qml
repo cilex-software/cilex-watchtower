@@ -39,6 +39,18 @@ Item {
     // the cap is blocked with a hint; demotions and page changes free the budget.
     readonly property int hdCap: 6
     property int hdCount: 0
+    // HD promotion gate, centralized + headless-testable (qml/HdCapTest.qml).
+    // Pass the tile's current HD state; returns the state it should adopt. A
+    // demotion always frees a slot; a promotion consumes one when under the cap,
+    // otherwise it is blocked (tile stays SD) and hdLimitReached() fires the hint.
+    function requestHdPromotion(currentlyOn) {
+        if (currentlyOn) { hdCount = Math.max(0, hdCount - 1); return false; }
+        if (hdCount < hdCap) { hdCount = hdCount + 1; return true; }
+        hdLimitReached();
+        return false;
+    }
+    // Release a tile's slot when it is torn down (paging/relayout).
+    function releaseHd(wasOn) { if (wasOn) hdCount = Math.max(0, hdCount - 1); }
 
     // "All cameras" + every backend group, for the header group switcher. Reads
     // cameraModel.total so it re-evaluates when the roster/groups (re)load.
@@ -729,22 +741,10 @@ Item {
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
                                 // HD promotion is gated by the wall's concurrency
-                                // cap; demotion always succeeds and frees a slot.
-                                onHdToggleRequested: {
-                                    if (liveTile.useMainStream) {
-                                        liveTile.useMainStream = false;
-                                        root.hdCount = Math.max(0, root.hdCount - 1);
-                                    } else if (root.hdCount < root.hdCap) {
-                                        liveTile.useMainStream = true;
-                                        root.hdCount = root.hdCount + 1;
-                                    } else {
-                                        root.hdLimitReached();
-                                    }
-                                }
-                                // Releasing the slot on teardown (paging/relayout)
-                                // keeps the budget honest without an explicit reset.
-                                Component.onDestruction: if (liveTile.useMainStream)
-                                    root.hdCount = Math.max(0, root.hdCount - 1)
+                                // cap; teardown (paging/relayout) frees the slot.
+                                onHdToggleRequested: liveTile.useMainStream =
+                                    root.requestHdPromotion(liveTile.useMainStream)
+                                Component.onDestruction: root.releaseHd(liveTile.useMainStream)
                                 onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
                                 onOpened: root.cameraOpened(cellWrap.modelData)
                                 onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)

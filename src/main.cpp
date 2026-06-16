@@ -163,10 +163,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtBuild", QStringLiteral("dev"));
 #endif
 
-    // WT_VIDEOTEST loads the single-stream video test instead of the app shell.
-    const QString entry = qEnvironmentVariableIsSet("WT_VIDEOTEST")
-        ? QStringLiteral("qrc:/qt/qml/Watchtower/qml/VideoTest.qml")
-        : QStringLiteral("qrc:/qt/qml/Watchtower/qml/Main.qml");
+    // WT_VIDEOTEST loads the single-stream video test instead of the app shell;
+    // WT_TEST_HDCAP runs the headless live-wall HD-cap self-test (exits 0/1).
+    QString entry = QStringLiteral("qrc:/qt/qml/Watchtower/qml/Main.qml");
+    if (qEnvironmentVariableIsSet("WT_VIDEOTEST"))
+        entry = QStringLiteral("qrc:/qt/qml/Watchtower/qml/VideoTest.qml");
+    else if (qEnvironmentVariableIsSet("WT_TEST_HDCAP"))
+        entry = QStringLiteral("qrc:/qt/qml/Watchtower/qml/HdCapTest.qml");
     engine.load(QUrl(entry));
 
     maybeArmScreenshot(engine);

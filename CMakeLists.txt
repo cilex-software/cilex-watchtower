@@ -95,6 +95,7 @@ qt_add_qml_module(watchtower
         qml/PreferencesScreen.qml
         qml/VideoSurface.qml
         qml/VideoTest.qml
+        qml/HdCapTest.qml
         qml/Toast.qml
         qml/ToastHost.qml
     SOURCES
