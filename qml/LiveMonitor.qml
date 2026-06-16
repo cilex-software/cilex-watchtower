@@ -97,6 +97,8 @@ Item {
     property int arrangeRev: 0            // bump to force arrangedFull re-eval after a save
     property int pickerCell: -1          // page-tile index being assigned (-1 = picker closed)
     property string pickerSearch: ""
+    property string pickerGroup: ""      // picker group filter ("" = all groups)
+    property bool pickerHideShown: false // hide cameras already on the visible wall
     // While arranging, ignore the status filter so the full group is shown and a
     // saved order covers every camera (not just the currently-visible subset).
     readonly property string _effFilter: arrangeMode ? "" : statusFilter
@@ -124,7 +126,14 @@ Item {
     }
     readonly property bool hasArrangement: { arrangeRev; return cameraModel ? Settings.liveLayout(groupId).length > 0 : false; }
     function _fullIds() { var a = arrangedFull, o = []; for (var i = 0; i < a.length; i++) o.push(a[i].camId); return o; }
-    function openCellPicker(tileIndex) { pickerSearch = ""; pickerCell = tileIndex; }
+    // camIds currently shown on the visible wall page — powers the picker's
+    // "ON WALL" badge and the "hide on-wall" toggle.
+    readonly property var displayedIds: {
+        var p = pagedCameras, s = ({});
+        for (var i = 0; i < p.length; i++) s[p[i].camId] = true;
+        return s;
+    }
+    function openCellPicker(tileIndex) { pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
     function assignToCell(tileIndex, camId) {
         var ids = _fullIds();
         var target = (page - 1) * perPage + tileIndex;
@@ -908,46 +917,114 @@ Item {
                     color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 34
-                    color: Theme.bg; border.color: Theme.line2; border.width: 1
-                    C.TextField {
-                        anchors.fill: parent; anchors.margins: 1
-                        text: root.pickerSearch
-                        onTextChanged: root.pickerSearch = text
-                        placeholderText: "Search cameras…"
-                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13
-                        leftPadding: 10; verticalAlignment: TextInput.AlignVCenter
-                        background: Rectangle { color: "transparent" }
+                // Group filter — "All cameras" + each configured group as pills.
+                Flow {
+                    Layout.fillWidth: true; spacing: 6
+                    visible: root.groupOpts.length > 1
+                    Repeater {
+                        model: root.groupOpts
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool sel: root.pickerGroup === modelData.id
+                            height: 26; width: gpTxt.implicitWidth + 20; radius: 13
+                            color: sel ? Theme.accent : Theme.bg
+                            border.width: 1; border.color: sel ? Theme.accent : Theme.line2
+                            Text {
+                                id: gpTxt; anchors.centerIn: parent; text: modelData.name
+                                color: sel ? Theme.bg : Theme.ink2
+                                font.family: Theme.fontSans; font.pixelSize: 12
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                onClicked: root.pickerGroup = modelData.id }
+                        }
+                    }
+                }
+
+                // Search + a toggle to hide cameras already on the visible wall.
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+                    Rectangle {
+                        Layout.fillWidth: true; Layout.preferredHeight: 34
+                        color: Theme.bg; border.color: Theme.line2; border.width: 1
+                        C.TextField {
+                            anchors.fill: parent; anchors.margins: 1
+                            text: root.pickerSearch
+                            onTextChanged: root.pickerSearch = text
+                            placeholderText: "Search cameras…"
+                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13
+                            leftPadding: 10; verticalAlignment: TextInput.AlignVCenter
+                            background: Rectangle { color: "transparent" }
+                        }
+                    }
+                    Rectangle {
+                        Layout.preferredHeight: 34; Layout.preferredWidth: hideTxt.implicitWidth + 24
+                        color: root.pickerHideShown ? Theme.accent : Theme.bg
+                        border.width: 1; border.color: root.pickerHideShown ? Theme.accent : Theme.line2
+                        Text {
+                            id: hideTxt; anchors.centerIn: parent
+                            text: "Hide on-wall"
+                            color: root.pickerHideShown ? Theme.bg : Theme.ink2
+                            font.family: Theme.fontSans; font.pixelSize: 12
+                        }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: root.pickerHideShown = !root.pickerHideShown }
                     }
                 }
 
                 ListView {
+                    id: pickList
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true
                     model: {
                         var q = root.pickerSearch.toLowerCase();
+                        var g = root.pickerGroup;
+                        var hide = root.pickerHideShown;
+                        var disp = root.displayedIds;
                         var a = root.arrangedFull, out = [];
                         for (var i = 0; i < a.length; i++) {
                             var c = a[i];
+                            if (g !== "" && c.groupId !== g) continue;
+                            if (hide && disp[c.camId] === true) continue;
                             if (q === "" || ("" + c.name).toLowerCase().indexOf(q) >= 0 || ("" + c.ip).indexOf(q) >= 0)
                                 out.push(c);
                         }
                         return out;
                     }
                     delegate: Rectangle {
+                        id: pickRow
                         required property var modelData
+                        readonly property bool onWall: root.displayedIds[modelData.camId] === true
                         width: ListView.view ? ListView.view.width : 0
                         height: 42
                         color: pickRowMa.containsMouse ? Theme.panel2 : "transparent"
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
                             Rectangle { width: 7; height: 7; radius: 4; color: modelData.live ? Theme.good : Theme.ink3 }
-                            Text { text: modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Text { text: modelData.name; color: pickRow.onWall ? Theme.ink2 : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
+                            // "ON WALL" badge — this camera is in a visible cell now.
+                            Rectangle {
+                                visible: pickRow.onWall
+                                Layout.preferredHeight: 18; Layout.preferredWidth: owTxt.implicitWidth + 12; radius: 9
+                                color: "transparent"; border.color: Theme.accent; border.width: 1
+                                Text { id: owTxt; anchors.centerIn: parent; text: "ON WALL"; color: Theme.accent
+                                    font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
+                            }
                             Text { text: modelData.ip; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                         }
                         MouseArea { id: pickRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: root.assignToCell(root.pickerCell, modelData.camId) }
+                    }
+                    // Honest empty state when filters leave nothing to pick.
+                    Text {
+                        anchors.centerIn: pickList
+                        width: pickList.width - 32
+                        visible: pickList.count === 0
+                        horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                        text: root.pickerHideShown
+                              ? "Every matching camera is already on the wall."
+                              : ((root.pickerSearch !== "" || root.pickerGroup !== "")
+                                 ? "No cameras match." : "No cameras available.")
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
                     }
                 }
 

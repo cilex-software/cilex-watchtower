@@ -170,6 +170,11 @@ int main(int argc, char *argv[])
         entry = QStringLiteral("qrc:/qt/qml/Watchtower/qml/VideoTest.qml");
     else if (qEnvironmentVariableIsSet("WT_TEST_HDCAP"))
         entry = QStringLiteral("qrc:/qt/qml/Watchtower/qml/HdCapTest.qml");
+    // WT_TEST_QML=<file> loads an arbitrary QML file (dev-only; the Watchtower
+    // module stays registered, so the file can `import Watchtower`). For
+    // iterating on a screen/overlay offscreen without rebuilding the qrc.
+    else if (qEnvironmentVariableIsSet("WT_TEST_QML"))
+        entry = QUrl::fromLocalFile(qEnvironmentVariable("WT_TEST_QML")).toString();
     engine.load(QUrl(entry));
 
     maybeArmScreenshot(engine);
