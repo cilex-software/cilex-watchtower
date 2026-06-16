@@ -11,6 +11,10 @@ Item {
 
     property var camera: null      // camera map (name, camId, ip, rtspUrl, rtspSubUrl, live, recording, groupId, groupName, mac, model, vendor, firmware)
     property var cameraModel: null
+    // Business-function state (fail-safe: only an explicit enabled:false counts as
+    // off). Lets the detail view show a deliberate "switched off" instead of a fault.
+    readonly property bool recOff:  cameraModel ? (cameraModel.recordingEnabled === false) : false
+    readonly property bool liveOff: cameraModel ? (cameraModel.liveViewEnabled === false) : false
     property bool useMain: Settings.defaultStreamHd   // focused view follows the global SD/HD preference; the HD toggle overrides
 
     signal closed()
@@ -50,7 +54,7 @@ Item {
                 id: vsurf
                 anchors.fill: parent
                 url: root.streamUrl
-                active: root.visible && root.streamUrl !== "" && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
+                active: root.visible && !root.liveOff && root.streamUrl !== "" && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
             }
 
             // connecting / offline / unavailable
@@ -74,6 +78,21 @@ Item {
                 Text { anchors.horizontalCenter: parent.horizontalCenter; text: "STREAM UNAVAILABLE"; color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.0 }
             }
 
+            // Live View switched off by an operator (go2rtc stopped) — a deliberate
+            // state, not a fault. Calm; covers the stream states beneath it.
+            Rectangle {
+                anchors.fill: parent
+                visible: root.liveOff
+                color: "#0a0d11"
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 36; color: Theme.ink3 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "LIVE VIEW OFF"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 14; font.letterSpacing: 1.4 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "switched off by operator"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                }
+            }
+
             // top overlay: back · name · live label
             Rectangle {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
@@ -95,7 +114,7 @@ Item {
                     Row {
                         spacing: 4
                         LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
-                        RecordingStatusBadge { state: root.camera ? root.camera.recording : CameraStatus.RecUnknown }
+                        RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : (root.camera ? root.camera.recording : CameraStatus.RecUnknown) }
                     }
                 }
             }
@@ -176,8 +195,9 @@ Item {
                 }
 
                 AsideHeader { text: "Status" }
-                KV { k: "Stream"; v: vsurf.playing ? "Live" : (root.camera && root.camera.live === CameraStatus.Offline ? "Offline" : (vsurf.errored ? "Unavailable" : "Connecting…")) }
-                KV { k: "Recording"; v: !root.camera ? "—"
+                KV { k: "Stream"; v: root.liveOff ? "Live View off" : (vsurf.playing ? "Live" : (root.camera && root.camera.live === CameraStatus.Offline ? "Offline" : (vsurf.errored ? "Unavailable" : "Connecting…"))) }
+                KV { k: "Recording"; v: root.recOff ? "Switched off"
+                        : !root.camera ? "—"
                         : root.camera.recording === CameraStatus.Recording ? "Recording"
                         : root.camera.recording === CameraStatus.Stalled ? "Stalled"
                         : root.camera.recording === CameraStatus.Armed ? "Motion armed"
