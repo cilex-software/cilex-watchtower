@@ -44,6 +44,9 @@ Item {
     // In the Live Monitor grid the hairline separator comes from the grid
     // container, so the tile drops its own border (design §14).
     property bool gridMode: false
+    // Live View business-function state (from the model). When false, an operator
+    // stopped go2rtc → show a calm "switched off" tile, not a red fault.
+    property bool liveViewEnabled: true
 
     // Live video. When videoActive and a stream URL is present, the tile plays
     // it; a Loader instantiates the player only then, so paged-out/offline tiles
@@ -212,12 +215,38 @@ Item {
             }
         }
 
+        // Live View switched off by an operator (go2rtc stopped) — a deliberate
+        // state, not a fault. Opaque, calm (muted, never red); covers the
+        // offline/unavailable/connecting states beneath it.
+        Rectangle {
+            anchors.fill: parent
+            visible: !root.liveViewEnabled
+            color: "#0a0d11"
+            z: 1
+            Column {
+                anchors.centerIn: parent
+                spacing: 5
+                Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 26; color: Theme.ink3 }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "LIVE VIEW OFF"; color: Theme.ink2
+                    font.family: Theme.fontMono; font.pixelSize: 12; font.letterSpacing: 1.1
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "switched off by operator"; color: Theme.ink3
+                    font.family: Theme.fontSans; font.pixelSize: 10
+                }
+            }
+        }
+
         // ---- fault top edge ----
         Rectangle {
             anchors { top: parent.top; left: parent.left; right: parent.right }
             height: 3
             z: 2
-            visible: root.isFault
+            // Suppressed when Live View is deliberately off (that's not a fault).
+            visible: root.isFault && root.liveViewEnabled
             color: (root.isOffline || root.isStalled) ? Theme.bad : Theme.accent
         }
 

@@ -316,8 +316,9 @@ void CameraModel::fetchCameras()
             qWarning() << "Watchtower: /streams fetch failed" << code << reply->errorString();
             return;   // keep the last-known list
         }
-        const auto arr =
-            QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        applyFunctions(obj.value("functions").toObject());   // business-function state
+        const auto arr = obj.value("streams").toArray();
 
         QVector<wt::CameraData> out;
         out.reserve(int(arr.size()));
@@ -394,6 +395,28 @@ void CameraModel::fetchCameras()
     });
 }
 
+void CameraModel::applyFunctions(const QJsonObject &funcs)
+{
+    // Fail-safe: a function is "on" unless EXPLICITLY {enabled:false}. A missing
+    // object / key / `enabled` field reads as enabled, so an empty or garbled
+    // `functions` (a backend blip) can never make the UI show everything switched
+    // off — only an explicit false does. (Backend contract, 2026-06-16.)
+    auto on = [&funcs](const char *key) -> bool {
+        const QJsonValue v = funcs.value(QLatin1String(key));
+        if (!v.isObject())
+            return true;
+        const QJsonValue e = v.toObject().value(QStringLiteral("enabled"));
+        return e.isBool() ? e.toBool() : true;
+    };
+    const bool rec = on("recording");
+    const bool live = on("live_view");
+    if (rec == m_recordingEnabled && live == m_liveViewEnabled)
+        return;
+    m_recordingEnabled = rec;
+    m_liveViewEnabled = live;
+    emit functionsChanged();
+}
+
 void CameraModel::pollStatuses()
 {
     // Periodic refresh of live + recording status AND group membership. Crucial:
@@ -414,8 +437,9 @@ void CameraModel::pollStatuses()
         if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
         if (reply->error() != QNetworkReply::NoError)
             return;   // transient — keep the last-known statuses
-        const auto arr =
-            QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        applyFunctions(obj.value("functions").toObject());   // business-function state
+        const auto arr = obj.value("streams").toArray();
 
         // Build {camera_id -> {live, recording, lastSegmentAt, group}} from the response.
         struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec;

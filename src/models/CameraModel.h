@@ -14,6 +14,7 @@
 #include "CameraStore.h"
 
 class QNetworkAccessManager;
+class QJsonObject;
 
 // Flat list of all cameras, exposed to QML. Group/status filtering and paging
 // for the Live Monitor are layered on top later (proxy/QML); this model is the
@@ -32,6 +33,11 @@ class CameraModel : public QAbstractListModel
     Q_PROPERTY(int recordingGapCount READ recordingGapCount NOTIFY countsChanged)
     // True while the first /streams fetch is in flight (auth -> list arrives).
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
+    // Business-function state from /streams `functions` (fail-safe: true unless the
+    // backend explicitly reports enabled:false). Lets the UI show a deliberate
+    // "switched off" instead of a fault. See docs/letters/2026-06-16-function-state*.
+    Q_PROPERTY(bool recordingEnabled READ recordingEnabled NOTIFY functionsChanged)
+    Q_PROPERTY(bool liveViewEnabled READ liveViewEnabled NOTIFY functionsChanged)
 
 public:
     enum Roles {
@@ -125,11 +131,15 @@ public:
     // (from the paged snapshot), not the model row.
     Q_INVOKABLE void toggleFavoriteById(const QString &cameraId);
 
+    bool recordingEnabled() const { return m_recordingEnabled; }
+    bool liveViewEnabled() const { return m_liveViewEnabled; }
+
 signals:
     void countsChanged();
     void groupsChanged();
     void groupCreated(const QString &groupId);
     void loadingChanged();
+    void functionsChanged();
 
 private:
     void recompute();
@@ -140,6 +150,7 @@ private:
     void fetchCameras();       // GET /streams -> m_all full reset (login / manual refresh)
     void pollStatuses();       // GET /streams -> in-place update of live + recording (15s poll)
     void fetchGroups();        // GET /groups  -> m_groups (definitions for groupList)
+    void applyFunctions(const QJsonObject &funcs);  // parse /streams `functions` (fail-safe)
     void setLoading(bool v);
 
     CameraStore m_store;
@@ -150,6 +161,8 @@ private:
     QHash<QString, QPair<QString, bool>> m_prefs;   // camera_id -> {displayName, favorite}
     QSet<QString> m_recentCamIds;                   // cameras with a recent event ("recent" filter)
     bool m_loading = false;
+    bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
+    bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

@@ -742,6 +742,43 @@ Item {
             }
         }
 
+        // Business-function "switched off" banner. Recording / Live View being off
+        // is a deliberate operator state (admin stopped the containers), NOT a
+        // fault — so this is calm amber, not red. Fail-safe: the model defaults
+        // both to enabled, so this only appears on an explicit enabled:false.
+        Rectangle {
+            id: fnBanner
+            // Fail-safe: only an explicit enabled:false counts as "off" (missing /
+            // unknown reads as on), so a model without the field never false-alarms.
+            readonly property bool recOff:  root.cameraModel ? (root.cameraModel.recordingEnabled === false) : false
+            readonly property bool liveOff: root.cameraModel ? (root.cameraModel.liveViewEnabled === false) : false
+            Layout.fillWidth: true
+            Layout.leftMargin: root.fullscreen ? 4 : 20
+            Layout.rightMargin: root.fullscreen ? 4 : 20
+            Layout.topMargin: visible ? 8 : 0
+            visible: recOff || liveOff
+            Layout.preferredHeight: visible ? 40 : 0
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.10)
+            border.color: Theme.accent; border.width: 1
+            radius: 4
+            Row {
+                anchors { left: parent.left; leftMargin: 14; right: parent.right; rightMargin: 14; verticalCenter: parent.verticalCenter }
+                spacing: 10
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "off"; size: 16; color: Theme.accent }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 26
+                    elide: Text.ElideRight
+                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
+                    text: (fnBanner.recOff && fnBanner.liveOff)
+                          ? "Recording and Live View are switched off — no new footage, and live video/snapshots are unavailable. This is an operator setting, not a fault."
+                          : (fnBanner.recOff
+                             ? "Recording is switched off — no new footage is being recorded. This is an operator setting, not a fault."
+                             : "Live View is switched off — live video and snapshots are unavailable. This is an operator setting, not a fault.")
+                }
+            }
+        }
+
         // ---------------------------------------------------------- grid
         Item {
             Layout.fillWidth: true
@@ -796,6 +833,9 @@ Item {
                                 id: liveTile
                                 anchors.fill: parent
                                 gridMode: true
+                                // Live View off (go2rtc stopped by an operator) = a
+                                // calm "switched off" tile, not a red fault.
+                                liveViewEnabled: !(root.cameraModel && root.cameraModel.liveViewEnabled === false)
                                 camName: cellWrap.modelData.name
                                 camId: cellWrap.modelData.camId
                                 ip: cellWrap.modelData.ip
@@ -1077,19 +1117,24 @@ Item {
                                         id: thumb; anchors.fill: parent
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true; cache: true
-                                        // Backend-provided snapshot URL (go2rtc frame.jpeg) when
-                                        // present; otherwise derive a sub-stream frame client-side.
-                                        source: (pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
-                                                ? pickCell.modelData.snapshotUrl
-                                                : root._thumbUrl(pickCell.modelData)
+                                        // Backend snapshot URL (go2rtc frame.jpeg) when present, else a
+                                        // client-derived sub-stream frame. Skip the fetch entirely when
+                                        // Live View is off (snapshots would 404).
+                                        source: (root.cameraModel && root.cameraModel.liveViewEnabled === false) ? ""
+                                                : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
+                                                   ? pickCell.modelData.snapshotUrl
+                                                   : root._thumbUrl(pickCell.modelData))
                                     }
-                                    // placeholder while the frame loads / if it fails
+                                    // placeholder: "Live View off" when disabled, else loading dots /
+                                    // the camera initial while or if the frame doesn't load.
                                     Text {
                                         anchors.centerIn: parent
                                         visible: thumb.status !== Image.Ready
-                                        text: thumb.status === Image.Loading ? "…"
-                                              : (("" + pickCell.modelData.name).charAt(0).toUpperCase() || "?")
-                                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 18
+                                        text: (root.cameraModel && root.cameraModel.liveViewEnabled === false) ? "Live View off"
+                                              : (thumb.status === Image.Loading ? "…"
+                                                 : (("" + pickCell.modelData.name).charAt(0).toUpperCase() || "?"))
+                                        color: Theme.ink3; font.family: Theme.fontSans
+                                        font.pixelSize: (root.cameraModel && root.cameraModel.liveViewEnabled === false) ? 10 : 18
                                     }
                                     Rectangle { x: 5; y: 5; width: 7; height: 7; radius: 4
                                         color: pickCell.modelData.live ? Theme.good : Theme.ink3 }
