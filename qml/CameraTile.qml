@@ -47,6 +47,11 @@ Item {
     // Live View business-function state (from the model). When false, an operator
     // stopped go2rtc → show a calm "switched off" tile, not a red fault.
     property bool liveViewEnabled: true
+    // Recording business-function state. When false, an operator switched recording
+    // off → the not-rec/stalled states are expected, so show a calm "OFF" badge
+    // instead of a red STALLED fault.
+    property bool recordingEnabled: true
+    readonly property bool recOff: !recordingEnabled
 
     // Live video. When videoActive and a stream URL is present, the tile plays
     // it; a Loader instantiates the player only then, so paged-out/offline tiles
@@ -73,7 +78,10 @@ Item {
     readonly property bool isArmed: recording === CameraStatus.Armed
     readonly property bool isDegraded: live === CameraStatus.Degraded
     readonly property bool isGap: recording === CameraStatus.RecordingGap
-    readonly property bool isFault: isOffline || isNotRec || isDegraded || isGap || isStalled
+    // Recording states (not-rec / gap / stalled) are NOT faults when an operator
+    // has deliberately switched recording off — only offline/degraded still are.
+    readonly property bool isFault: isOffline || isDegraded
+                                    || (!root.recOff && (isNotRec || isGap || isStalled))
 
     readonly property string geom: groupName.toLowerCase().indexOf("park") >= 0 ? "parking"
                                   : (groupName.toLowerCase().indexOf("lob") >= 0 ? "lobby" : "corridor")
@@ -289,13 +297,13 @@ Item {
                 anchors { top: parent.top; right: parent.right; topMargin: 6; rightMargin: 8 }
                 spacing: 4
                 LiveStatusBadge { state: root.live }
-                RecordingStatusBadge { state: root.recording }
+                RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : root.recording }
             }
         }
 
         // ---- inline issue strip (stalled / not-recording / degraded) ----
         Rectangle {
-            visible: root.isNotRec || root.isDegraded || root.isStalled
+            visible: root.isDegraded || (!root.recOff && (root.isNotRec || root.isStalled))
             anchors { left: parent.left; leftMargin: 8; bottom: parent.bottom; bottomMargin: 34 }
             implicitWidth: issueRow.implicitWidth + 20
             width: Math.min(implicitWidth, parent.width - 16)

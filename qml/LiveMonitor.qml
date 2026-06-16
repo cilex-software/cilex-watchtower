@@ -836,6 +836,7 @@ Item {
                                 // Live View off (go2rtc stopped by an operator) = a
                                 // calm "switched off" tile, not a red fault.
                                 liveViewEnabled: !(root.cameraModel && root.cameraModel.liveViewEnabled === false)
+                                recordingEnabled: !(root.cameraModel && root.cameraModel.recordingEnabled === false)
                                 camName: cellWrap.modelData.name
                                 camId: cellWrap.modelData.camId
                                 ip: cellWrap.modelData.ip
