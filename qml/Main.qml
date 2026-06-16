@@ -187,7 +187,7 @@ Window {
 
     // keyboard shortcuts (design §30)
     Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }
-    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (liveMonitor.visible && liveMonitor.arrangeMode) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
