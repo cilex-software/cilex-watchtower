@@ -73,14 +73,6 @@ void RtspVideoSource::setActive(bool a)
     rebuild();
 }
 
-void RtspVideoSource::reconnect()
-{
-    // rebuild() tears down the old (errored) pipeline, clears the error, and opens
-    // a fresh RTSP connection — exactly the recovery we want. Guarded internally on
-    // active/url/sink, so a no-op when there is nothing to play.
-    rebuild();
-}
-
 void RtspVideoSource::setVideoSink(QVideoSink *s)
 {
     if (m_sink == s)
