@@ -164,10 +164,15 @@ Item {
         // VideoSurface alive as long as the camera has a stream URL. Players
         // keep running quietly in the background; the actual teardown happens
         // only when the tile itself is destroyed (paging, sign-out).
+        // Exception: when Live View is switched off, go2rtc is stopped, so the
+        // pipelines are dead either way — drop the Loader (tearing down already-
+        // failed pipelines is cheap) so it is FRESHLY recreated, and reconnects,
+        // when Live View is switched back on (otherwise the players stay stuck on
+        // STREAM UNAVAILABLE and never retry).
         Loader {
             id: videoLoader
             anchors.fill: parent
-            active: root.streamUrl !== "" && !root.isOffline
+            active: root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
                 url: root.streamUrl
