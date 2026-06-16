@@ -30,6 +30,15 @@ Item {
     signal cameraPlaybackRequested(var cam)
     signal wallPlaybackRequested()
     signal groupRequested(string groupId, string label)   // quick group switch from the header
+    signal hdLimitReached()                               // a tile asked for HD past the cap
+
+    // HD (main-stream) promotion budget. The wall renders every tile in SD by
+    // default; each per-tile SD→HD promotion spins up a go2rtc HEVC→H.264
+    // transcode, so concurrent HD tiles are capped to keep go2rtc out of its
+    // memory cgroup under heavy wall use (backend-requested ~6). A promotion past
+    // the cap is blocked with a hint; demotions and page changes free the budget.
+    readonly property int hdCap: 6
+    property int hdCount: 0
 
     // "All cameras" + every backend group, for the header group switcher. Reads
     // cameraModel.total so it re-evaluates when the roster/groups (re)load.
@@ -694,6 +703,7 @@ Item {
                             Layout.fillHeight: true
 
                             CameraTile {
+                                id: liveTile
                                 anchors.fill: parent
                                 gridMode: true
                                 camName: cellWrap.modelData.name
@@ -718,6 +728,23 @@ Item {
                                 videoActive: root.visible && !root.arrangeMode
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
+                                // HD promotion is gated by the wall's concurrency
+                                // cap; demotion always succeeds and frees a slot.
+                                onHdToggleRequested: {
+                                    if (liveTile.useMainStream) {
+                                        liveTile.useMainStream = false;
+                                        root.hdCount = Math.max(0, root.hdCount - 1);
+                                    } else if (root.hdCount < root.hdCap) {
+                                        liveTile.useMainStream = true;
+                                        root.hdCount = root.hdCount + 1;
+                                    } else {
+                                        root.hdLimitReached();
+                                    }
+                                }
+                                // Releasing the slot on teardown (paging/relayout)
+                                // keeps the budget honest without an explicit reset.
+                                Component.onDestruction: if (liveTile.useMainStream)
+                                    root.hdCount = Math.max(0, root.hdCount - 1)
                                 onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
                                 onOpened: root.cameraOpened(cellWrap.modelData)
                                 onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)

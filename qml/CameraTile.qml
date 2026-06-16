@@ -83,6 +83,10 @@ Item {
     signal favoriteToggled()
     signal openedNewTab()
     signal issueRequested()
+    // Asks the wall to promote/demote this tile's HD stream. In the grid the wall
+    // gates promotion against a concurrency cap (go2rtc transcode budget) rather
+    // than letting the tile flip itself; a focused (non-grid) tile flips freely.
+    signal hdToggleRequested()
 
     // Capture a still and announce it. Prefer the main stream via go2rtc's
     // frame.jpeg endpoint (always full-res, regardless of which stream the
@@ -360,7 +364,10 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.useMainStream = !root.useMainStream
+                    // In the wall the parent gates HD promotion against the
+                    // concurrency cap; a focused tile flips its own stream.
+                    onClicked: root.gridMode ? root.hdToggleRequested()
+                                             : (root.useMainStream = !root.useMainStream)
                 }
             }
 

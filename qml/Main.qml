@@ -263,6 +263,10 @@ Window {
                         playbackScreen.openFor(cam, 60);
                     }
                     onWallPlaybackRequested: win.enterWallPlayback()
+                    onHdLimitReached: toastHost.show(
+                        "HD limit reached",
+                        "Up to " + liveMonitor.hdCap + " tiles can stream in HD at once — switch one back to SD first.",
+                        "accent", "", "")
                 }
 
                 WallPlayback {
