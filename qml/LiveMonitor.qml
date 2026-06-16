@@ -133,6 +133,56 @@ Item {
         for (var i = 0; i < p.length; i++) s[p[i].camId] = true;
         return s;
     }
+    // Filtered camera list shown in the picker (group + hide-on-wall + search).
+    readonly property var pickModel: {
+        var q = pickerSearch.toLowerCase(), g = pickerGroup, hide = pickerHideShown;
+        var disp = displayedIds, a = arrangedFull, out = [];
+        for (var i = 0; i < a.length; i++) {
+            var c = a[i];
+            if (g !== "" && c.groupId !== g) continue;
+            if (hide && disp[c.camId] === true) continue;
+            if (q === "" || ("" + c.name).toLowerCase().indexOf(q) >= 0 || ("" + c.ip).indexOf(q) >= 0)
+                out.push(c);
+        }
+        return out;
+    }
+    // Cheap fetch-once thumbnail: go2rtc serves a JPEG of the sub-stream at
+    // http://<host>:1984/api/frame.jpeg?src=<stream> (same path Artifacts uses for
+    // snapshots). Sub-stream keeps it light; the Image loads async + caches.
+    function _thumbUrl(cam) {
+        var u = (cam && cam.rtspSubUrl && cam.rtspSubUrl !== "") ? cam.rtspSubUrl
+              : ((cam && cam.rtspUrl) ? cam.rtspUrl : "");
+        if (u.indexOf("rtsp://") !== 0) return "";
+        var rest = u.substring(7), slash = rest.indexOf("/");
+        if (slash < 0) return "";
+        var hostport = rest.substring(0, slash), colon = hostport.indexOf(":");
+        var host = colon >= 0 ? hostport.substring(0, colon) : hostport;
+        var stream = rest.substring(slash + 1);
+        if (host === "" || stream === "") return "";
+        return "http://" + host + ":1984/api/frame.jpeg?src=" + encodeURIComponent(stream);
+    }
+    // Fit-to-screen grid geometry: the largest (capped) cell size that lays all
+    // `count` thumbnails out within availW×availH without scrolling. If they can't
+    // all fit even at the minimum column width, returns the tightest columns and
+    // the GridView scrolls (only for very large rosters — "dynamic to a degree").
+    function _pickGeom(count, availW, availH) {
+        var CMAXW = 208, CMINW = 132, LABELS = 50, ASPECT = 0.5625;  // thumb 16:9 + 2 label lines
+        if (count < 1) count = 1;
+        var maxCols = Math.max(1, Math.floor(availW / CMINW));
+        var pick = { cols: 1, cellW: Math.min(CMAXW, Math.max(CMINW, availW)), cellH: 1, rows: count };
+        for (var cols = 1; cols <= Math.min(count, maxCols); cols++) {
+            var cw = Math.min(CMAXW, Math.floor(availW / cols));
+            var ch = Math.round(cw * ASPECT) + LABELS;
+            var rows = Math.ceil(count / cols);
+            pick = { cols: cols, cellW: cw, cellH: ch, rows: rows };
+            if (rows * ch <= availH) break;   // largest cells that fit without scroll
+        }
+        return pick;
+    }
+    readonly property real _pickChrome: 176       // title + pills + search + cancel + margins
+    readonly property real _pickAvailW: width * 0.92 - 36
+    readonly property real _pickAvailH: height * 0.9 - _pickChrome
+    readonly property var _pg: _pickGeom(pickModel.length, _pickAvailW, _pickAvailH)
     function openCellPicker(tileIndex) { pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
     function assignToCell(tileIndex, camId) {
         var ids = _fullIds();
@@ -791,6 +841,16 @@ Item {
                                     onClicked: root.openCellPicker(cellWrap.index)
                                 }
                             }
+
+                            // Right-click anywhere on the cell → open the camera
+                            // picker for this slot (works in normal AND arrange mode).
+                            // Accepts only the right button, so left-clicks pass
+                            // straight through to the tile controls / arrange overlay.
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.RightButton
+                                onClicked: root.openCellPicker(cellWrap.index)
+                            }
                         }
                     }
 
@@ -903,8 +963,9 @@ Item {
 
         Rectangle {
             anchors.centerIn: parent
-            width: 440
-            height: Math.min(parent.height - 80, 540)
+            // Dynamic: grows to fit the thumbnail grid, capped to the screen.
+            width: Math.min(parent.width - 32, root._pg.cols * root._pg.cellW + 36)
+            height: Math.min(parent.height - 32, root._pg.rows * root._pg.cellH + root._pickChrome)
             color: Theme.panel; border.color: Theme.line2; border.width: 1
             MouseArea { anchors.fill: parent }   // swallow clicks inside the panel
 
@@ -971,54 +1032,68 @@ Item {
                     }
                 }
 
-                ListView {
-                    id: pickList
+                GridView {
+                    id: pickGrid
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true
-                    model: {
-                        var q = root.pickerSearch.toLowerCase();
-                        var g = root.pickerGroup;
-                        var hide = root.pickerHideShown;
-                        var disp = root.displayedIds;
-                        var a = root.arrangedFull, out = [];
-                        for (var i = 0; i < a.length; i++) {
-                            var c = a[i];
-                            if (g !== "" && c.groupId !== g) continue;
-                            if (hide && disp[c.camId] === true) continue;
-                            if (q === "" || ("" + c.name).toLowerCase().indexOf(q) >= 0 || ("" + c.ip).indexOf(q) >= 0)
-                                out.push(c);
-                        }
-                        return out;
-                    }
-                    delegate: Rectangle {
-                        id: pickRow
+                    cellWidth: root._pg.cellW
+                    cellHeight: root._pg.cellH
+                    model: root.pickModel
+                    delegate: Item {
+                        id: pickCell
                         required property var modelData
                         readonly property bool onWall: root.displayedIds[modelData.camId] === true
-                        width: ListView.view ? ListView.view.width : 0
-                        height: 42
-                        color: pickRowMa.containsMouse ? Theme.panel2 : "transparent"
-                        RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 10
-                            Rectangle { width: 7; height: 7; radius: 4; color: modelData.live ? Theme.good : Theme.ink3 }
-                            Text { text: modelData.name; color: pickRow.onWall ? Theme.ink2 : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; Layout.fillWidth: true; elide: Text.ElideRight }
-                            // "ON WALL" badge — this camera is in a visible cell now.
-                            Rectangle {
-                                visible: pickRow.onWall
-                                Layout.preferredHeight: 18; Layout.preferredWidth: owTxt.implicitWidth + 12; radius: 9
-                                color: "transparent"; border.color: Theme.accent; border.width: 1
-                                Text { id: owTxt; anchors.centerIn: parent; text: "ON WALL"; color: Theme.accent
-                                    font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
+                        width: pickGrid.cellWidth; height: pickGrid.cellHeight
+                        Rectangle {
+                            anchors.fill: parent; anchors.margins: 4
+                            color: cmA.containsMouse ? Theme.panel2 : Theme.bg
+                            border.width: 1; border.color: cmA.containsMouse ? Theme.accent : Theme.line2
+                            Column {
+                                anchors.fill: parent; anchors.margins: 6; spacing: 3
+                                // tiny live thumbnail (fetch-once go2rtc sub-stream still)
+                                Rectangle {
+                                    width: parent.width; height: Math.round(parent.width * 9 / 16)
+                                    color: "#0b0b0c"; clip: true
+                                    Image {
+                                        id: thumb; anchors.fill: parent
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true; cache: true
+                                        source: root._thumbUrl(pickCell.modelData)
+                                    }
+                                    // placeholder while the frame loads / if it fails
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: thumb.status !== Image.Ready
+                                        text: thumb.status === Image.Loading ? "…"
+                                              : (("" + pickCell.modelData.name).charAt(0).toUpperCase() || "?")
+                                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 18
+                                    }
+                                    Rectangle { x: 5; y: 5; width: 7; height: 7; radius: 4
+                                        color: pickCell.modelData.live ? Theme.good : Theme.ink3 }
+                                    Rectangle {
+                                        visible: pickCell.onWall
+                                        anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4
+                                        height: 15; width: owT.implicitWidth + 8; radius: 7
+                                        color: Qt.rgba(0, 0, 0, 0.66); border.color: Theme.accent; border.width: 1
+                                        Text { id: owT; anchors.centerIn: parent; text: "ON WALL"; color: Theme.accent
+                                            font.family: Theme.fontMono; font.pixelSize: 8; font.weight: Font.Bold }
+                                    }
+                                }
+                                Text { width: parent.width; text: pickCell.modelData.name
+                                    color: pickCell.onWall ? Theme.ink2 : Theme.ink
+                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
+                                Text { width: parent.width; text: pickCell.modelData.ip; color: Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight }
                             }
-                            Text { text: modelData.ip; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                            MouseArea { id: cmA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: root.assignToCell(root.pickerCell, pickCell.modelData.camId) }
                         }
-                        MouseArea { id: pickRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: root.assignToCell(root.pickerCell, modelData.camId) }
                     }
                     // Honest empty state when filters leave nothing to pick.
                     Text {
-                        anchors.centerIn: pickList
-                        width: pickList.width - 32
-                        visible: pickList.count === 0
+                        anchors.centerIn: pickGrid
+                        width: pickGrid.width - 32
+                        visible: pickGrid.count === 0
                         horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
                         text: root.pickerHideShown
                               ? "Every matching camera is already on the wall."
