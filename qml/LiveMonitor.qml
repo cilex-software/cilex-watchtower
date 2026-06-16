@@ -525,6 +525,24 @@ Item {
                                     }
                                 }
                             }
+
+                            // Manual resync — pull fresh groups + membership from
+                            // the server now (the 15s poll also auto-syncs groups).
+                            Rectangle { width: 220; height: 1; color: Theme.line2 }
+                            Rectangle {
+                                width: 220; height: 34
+                                color: grpSyncMa.containsMouse ? Theme.panel2 : "transparent"
+                                Text {
+                                    anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                    text: "↻  Sync from server"
+                                    color: grpSyncMa.containsMouse ? Theme.accent : Theme.ink2
+                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
+                                }
+                                MouseArea {
+                                    id: grpSyncMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { if (root.cameraModel) root.cameraModel.refresh(); groupPopup.close(); }
+                                }
+                            }
                         }
                     }
                 }

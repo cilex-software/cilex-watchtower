@@ -87,9 +87,12 @@ public:
     // feed). Drives the "recent" status filter; empty = nothing recent.
     Q_INVOKABLE void setRecentCameras(const QStringList &ids);
 
-    // Re-fetch the camera list from /streams (e.g. after the admin switches the
-    // live-video transport, so the new stream URLs take effect immediately).
-    Q_INVOKABLE void refresh() { fetchCameras(); }
+    // Re-fetch group definitions (/groups) AND the camera list (/streams) from
+    // the server — picks up admin-side changes immediately (regroups, new/renamed
+    // groups, new stream URLs after a live-transport switch). Used by the live
+    // group switcher's manual "Sync from server"; the 15s poll also auto-syncs
+    // group membership in place, so this is for instant resync on demand.
+    Q_INVOKABLE void refresh() { fetchGroups(); fetchCameras(); }
 
     // Per-operator edits keyed by the backend camera_id: a local display-name
     // override (layered over the backend name) and favorite.

@@ -392,12 +392,15 @@ void CameraModel::fetchCameras()
 
 void CameraModel::pollStatuses()
 {
-    // Periodic refresh of live + recording status only. Crucial: this MUST NOT
-    // reset the model — beginResetModel() destroys every Repeater delegate,
-    // which destroys every CameraTile → VideoSurface → RTSP pipeline; doing
-    // that every 15s would flicker the wall and re-establish 16 RTSP sessions
-    // each tick. Instead, patch m_all in place and emit dataChanged for the
-    // affected rows + roles so QML bindings re-evaluate without delegate churn.
+    // Periodic refresh of live + recording status AND group membership. Crucial:
+    // this MUST NOT reset the model for the common case — beginResetModel()
+    // destroys every Repeater delegate, which destroys every CameraTile →
+    // VideoSurface → RTSP pipeline; doing that every 15s would flicker the wall
+    // and re-establish 16 RTSP sessions each tick. Instead, patch m_all in place
+    // and emit dataChanged for the affected rows + roles so QML bindings
+    // re-evaluate without delegate churn. The ONE case that genuinely needs new
+    // rows — a camera added or removed in admin (the roster identity changes) —
+    // falls back to a full fetchCameras() (rare; worth the one-off reset).
     if (!m_nam)
         return;
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
@@ -410,8 +413,9 @@ void CameraModel::pollStatuses()
         const auto arr =
             QJsonDocument::fromJson(reply->readAll()).object().value("streams").toArray();
 
-        // Build {camera_id -> {live, recording, lastSegmentAt}} from the response.
-        struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec; QString lastSeg; };
+        // Build {camera_id -> {live, recording, lastSegmentAt, group}} from the response.
+        struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec;
+                          QString lastSeg; QString gid; QString gname; };
         QHash<QString, Incoming> incoming;
         incoming.reserve(int(arr.size()));
         for (const auto &v : arr) {
@@ -425,26 +429,57 @@ void CameraModel::pollStatuses()
                                                                  ? CameraStatus::Degraded
                                                                  : CameraStatus::LiveUnknown;
             incoming.insert(camId, { live, recStateFrom(o.value(QStringLiteral("recording")).toString()),
-                                     o.value(QStringLiteral("last_segment_at")).toString() });
+                                     o.value(QStringLiteral("last_segment_at")).toString(),
+                                     o.value(QStringLiteral("group_id")).toString(),
+                                     o.value(QStringLiteral("group_name")).toString() });
         }
 
-        // Patch matched rows in place; emit dataChanged once per changed row so
-        // tile bindings (live badge, REC badge) refresh without delegate teardown.
-        bool anyChanged = false;
+        // Roster change (a camera added or removed in admin) → full refetch, since
+        // in-place patching can't add or drop rows. Detect via id-set mismatch.
+        bool rosterChanged = (incoming.size() != m_all.size());
+        if (!rosterChanged)
+            for (const wt::CameraData &c : m_all)
+                if (!incoming.contains(c.id)) { rosterChanged = true; break; }
+        if (rosterChanged) {
+            // Ignore an empty/garbled response — never blank the wall on a
+            // transient; a genuine roster change still carries the full set.
+            if (incoming.isEmpty())
+                return;
+            fetchCameras();   // full reset: picks up adds/removes + groups
+            return;
+        }
+
+        // Patch matched rows in place; emit dataChanged per changed row so tile
+        // bindings (live/REC badge) and the group-filtered wall refresh without
+        // delegate teardown. Group membership is patched the same way, so a
+        // regroup in admin lands on the wall within one poll (~15s).
+        bool statusChanged = false, groupChanged = false;
         for (int i = 0; i < m_all.size(); ++i) {
             const auto it = incoming.constFind(m_all[i].id);
             if (it == incoming.constEnd()) continue;
-            if (m_all[i].live == it->live && m_all[i].recording == it->rec
-                && m_all[i].lastSegmentAt == it->lastSeg) continue;
-            m_all[i].live = it->live;
-            m_all[i].recording = it->rec;
-            m_all[i].lastSegmentAt = it->lastSeg;
-            anyChanged = true;
-            const QModelIndex idx = index(i);
-            emit dataChanged(idx, idx, { LiveRole, RecordingRole, LastSegmentAtRole });
+            if (m_all[i].live != it->live || m_all[i].recording != it->rec
+                || m_all[i].lastSegmentAt != it->lastSeg) {
+                m_all[i].live = it->live;
+                m_all[i].recording = it->rec;
+                m_all[i].lastSegmentAt = it->lastSeg;
+                statusChanged = true;
+                const QModelIndex idx = index(i);
+                emit dataChanged(idx, idx, { LiveRole, RecordingRole, LastSegmentAtRole });
+            }
+            if (m_all[i].groupId != it->gid || m_all[i].groupName != it->gname) {
+                m_all[i].groupId = it->gid;
+                m_all[i].groupName = it->gname;
+                groupChanged = true;
+                const QModelIndex idx = index(i);
+                emit dataChanged(idx, idx, { GroupIdRole, GroupNameRole });
+            }
         }
-        if (anyChanged)
+        if (statusChanged || groupChanged)
             recompute();   // refresh TopBar counts (online / offline / not-rec)
+        if (groupChanged) {
+            emit groupsChanged();   // per-group camera counts (switcher labels)
+            emit countsChanged();   // group-filtered grid + counts re-evaluate
+        }
     });
 }
 
