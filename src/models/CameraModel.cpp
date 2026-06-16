@@ -365,6 +365,10 @@ void CameraModel::fetchCameras()
                 c.rtspUrl = go2rtcUrl;
                 if (!go2rtcSubUrl.isEmpty()) c.rtspSubUrl = go2rtcSubUrl;
             }
+            // Backend-owned still-frame URL for thumbnails (go2rtc frame.jpeg) —
+            // preferred over a client-derived URL so the host/port/path live
+            // server-side, not hard-coded here.
+            c.snapshotUrl = o.value("snapshot_url").toString();
             // D2: identity metadata from /streams.
             { const QString s = o.value("mac").toString();      if (!s.isEmpty()) c.mac = s; }
             { const QString s = o.value("vendor").toString();   if (!s.isEmpty()) c.vendor = s; }
@@ -511,6 +515,7 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case PatternRole:   return c.pattern;
     case RtspUrlRole:    return c.rtspUrl;
     case RtspSubUrlRole: return c.rtspSubUrl;
+    case SnapshotUrlRole: return c.snapshotUrl;
     case IpRole:         return c.ip;
     case MacRole:       return c.mac;
     case ModelRole:     return c.model;
@@ -538,6 +543,7 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { PatternRole,   "pattern" },
         { RtspUrlRole,    "rtspUrl" },
         { RtspSubUrlRole, "rtspSubUrl" },
+        { SnapshotUrlRole, "snapshotUrl" },
         { IpRole,         "ip" },
         { MacRole,       "mac" },
         { ModelRole,     "model" },
@@ -566,6 +572,7 @@ QVariantMap CameraModel::get(int row) const
     m["pattern"] = c.pattern;
     m["rtspUrl"] = c.rtspUrl;
     m["rtspSubUrl"] = c.rtspSubUrl;
+    m["snapshotUrl"] = c.snapshotUrl;
     m["ip"] = c.ip;
     m["mac"] = c.mac;
     m["model"] = c.model;

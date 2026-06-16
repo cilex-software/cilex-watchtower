@@ -33,6 +33,7 @@ struct CameraData {
     // Real-camera metadata (populated by the provisioning importer; empty for mock).
     QString rtspUrl;     // main stream URL (higher res; on-demand HD only)
     QString rtspSubUrl;  // substream URL — the DEFAULT for monitoring (lighter)
+    QString snapshotUrl; // backend-provided still-frame URL (go2rtc frame.jpeg) for thumbnails
     QString ip;
     QString mac;
     QString model;

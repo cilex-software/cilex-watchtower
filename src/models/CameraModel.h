@@ -49,6 +49,7 @@ public:
         PatternRole,
         RtspUrlRole,
         RtspSubUrlRole,
+        SnapshotUrlRole,
         IpRole,
         MacRole,
         ModelRole,

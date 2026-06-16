@@ -146,9 +146,10 @@ Item {
         }
         return out;
     }
-    // Cheap fetch-once thumbnail: go2rtc serves a JPEG of the sub-stream at
-    // http://<host>:1984/api/frame.jpeg?src=<stream> (same path Artifacts uses for
-    // snapshots). Sub-stream keeps it light; the Image loads async + caches.
+    // Fallback thumbnail when a camera has no backend snapshot_url: go2rtc serves
+    // a JPEG of the sub-stream at http://<host>:1984/api/frame.jpeg?src=<stream>.
+    // Sub-stream keeps it light; the Image loads async + caches. (The preferred
+    // source is the backend's snapshotUrl — see the picker Image.)
     function _thumbUrl(cam) {
         var u = (cam && cam.rtspSubUrl && cam.rtspSubUrl !== "") ? cam.rtspSubUrl
               : ((cam && cam.rtspUrl) ? cam.rtspUrl : "");
@@ -1076,7 +1077,11 @@ Item {
                                         id: thumb; anchors.fill: parent
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true; cache: true
-                                        source: root._thumbUrl(pickCell.modelData)
+                                        // Backend-provided snapshot URL (go2rtc frame.jpeg) when
+                                        // present; otherwise derive a sub-stream frame client-side.
+                                        source: (pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
+                                                ? pickCell.modelData.snapshotUrl
+                                                : root._thumbUrl(pickCell.modelData)
                                     }
                                     // placeholder while the frame loads / if it fails
                                     Text {
