@@ -11,6 +11,7 @@ QtObject {
     readonly property color bg:          "#1a1816"  // window bg, table headers, sub-bars
     readonly property color panel:       "#221f1c"  // cards, drawers, modals, top bar
     readonly property color panel2:      "#2a2722"  // hover / secondary surface
+    readonly property color panel3:      "#322e28"  // raised surface (events-v2 cards/segments)
     readonly property color line:        "#34302a"  // subtle hairline dividers
     readonly property color line2:       "#443f37"  // component borders, table cells
     readonly property color ink:         "#f0ece4"  // primary text
@@ -27,6 +28,10 @@ QtObject {
     readonly property color goodDim:     "#2a4015"
     readonly property color rec:         "#d96649"  // recording (same as bad)
     readonly property color violet:      "#9a7bd0"  // bookmark markers/icons
+    readonly property color badSoft:     Qt.rgba(217 / 255, 102 / 255, 73 / 255, 0.10)
+    readonly property color goodSoft:    Qt.rgba(142 / 255, 185 / 255, 107 / 255, 0.10)
+    readonly property color info:        "#6f9bc4"  // blue — in-progress / vehicle accents
+    readonly property color infoDim:     "#2c4055"
 
     readonly property color windowBackdrop: "#0d0c0b"  // OS-level chrome backdrop
     readonly property color tileBg:         "#0a0908"  // near-black warm camera tile bg
@@ -77,4 +82,9 @@ QtObject {
     readonly property int borderThin:   1  // hairline dividers / component borders
     readonly property int edgeAccent:   3  // active nav rail edge, fault tile top edge
     readonly property int edgeToast:    4  // toast left edge
+
+    // Severity → color (events-v2: critical=bad, high=accent, medium=ink-2, low=ink-3).
+    function sevColor(p) {
+        return p === "critical" ? bad : p === "high" ? accent : p === "medium" ? ink2 : ink3;
+    }
 }

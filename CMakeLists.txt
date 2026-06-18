@@ -47,7 +47,7 @@ target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
 # Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
 # This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
 # as `singleton`.
-set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml PROPERTIES
+set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml qml/EventsStore.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(watchtower
@@ -63,6 +63,18 @@ qt_add_qml_module(watchtower
         qml/Theme.qml
         qml/LayoutSpec.qml
         qml/EventStyle.qml
+        qml/EventsStore.qml
+        qml/EvIcon.qml
+        qml/Sev.qml
+        qml/TypePill.qml
+        qml/StateTag.qml
+        qml/EvButton.qml
+        qml/EvPersonGlyph.qml
+        qml/EvVehicleGlyph.qml
+        qml/EvSnapshot.qml
+        qml/EvPlayer.qml
+        qml/EvTriage.qml
+        qml/EventsArea.qml
         qml/NetIcon.qml
         qml/Icon.qml
         qml/StatusBadge.qml

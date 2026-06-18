@@ -1,0 +1,377 @@
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Watchtower
+
+// VIEW 01 — TRIAGE QUEUE (port of view-triage.jsx / triage-queue-spec.md).
+// 2-column: 384px priority list | fluid detail pane that plays the event clip
+// inline, with the facts grid, per-type SOP checklist, disposition note, and the
+// action bar. Reads EventsStore; mutates only via EventsStore.ack/bookmark/dispose.
+Item {
+    id: tri
+    property string selId: ""                    // shared selection (owned by EventsArea)
+    signal select(string id)
+
+    property string filter: "open"               // open | critical | all
+    property string note: ""
+    property var done: ({})                       // local SOP ticks, reset per event
+
+    // priority → recency, filtered by the active tab
+    readonly property var _list: {
+        var es = EventsStore.events.filter(function (e) {
+            if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
+            if (tri.filter === "critical") return e.priority === "critical";
+            return true;
+        });
+        es.sort(function (a, b) {
+            return (EventsStore.sevRank[a.priority] - EventsStore.sevRank[b.priority]) || (b.ts.getTime() - a.ts.getTime());
+        });
+        return es;
+    }
+    readonly property var _cur: EventsStore.find(tri.selId) || (_list.length ? _list[0] : null)
+    readonly property int _openCount: EventsStore.events.filter(function (e) { return e.status === "new" || e.status === "ack" || e.status === "progress"; }).length
+    readonly property int _critTab: EventsStore.events.filter(function (e) { return e.priority === "critical"; }).length
+
+    // reset note + SOP ticks whenever the selected event changes
+    property string _curId: _cur ? _cur.id : ""
+    on_CurIdChanged: { note = ""; done = ({}); }
+
+    readonly property var _sops: ({
+        "_default":   ["Watch the clip + confirm subject type", "Confirm intent", "Record disposition"],
+        "person":     ["Watch playback at event time", "Confirm person vs. authorized staff (check badge log)", "If unauthorized after-hours → dispatch / call keyholder", "Record disposition + notes"],
+        "line_cross": ["Watch the crossing clip", "Verify direction (inbound = priority)", "Escalate to supervisor + dispatch patrol", "Notify keyholder, log incident"],
+        "tamper":     ["Switch to nearest overlapping camera", "Verify obstruction vs. fault", "Dispatch to inspect device", "Raise maintenance ticket"],
+        "vehicle":    ["Watch playback, read plate if visible", "Check against expected deliveries", "If in fire lane > limit → tannoy / dispatch", "Record disposition"],
+        "loiter":     ["Watch the dwell clip", "Assess intent / duration", "Tannoy warning or dispatch", "Log disposition"],
+        "offline":    ["Check device health page", "Confirm network vs. power", "Raise maintenance ticket", "Cover area with adjacent camera"],
+        "motion":     ["Scrub the motion clip", "Confirm environmental vs. real", "Dismiss or escalate"]
+    })
+    readonly property var _sop: _cur ? (_sops[_cur.type] || _sops["_default"]) : []
+
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // ======================= LEFT — the queue =======================
+        Rectangle {
+            Layout.preferredWidth: 384
+            Layout.fillHeight: true
+            color: "transparent"
+            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }  // right border
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                // ---- filter tabs ----
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 45
+                    color: "transparent"
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                    Row {
+                        anchors.left: parent.left; anchors.leftMargin: 14
+                        anchors.bottom: parent.bottom
+                        spacing: 4
+                        Repeater {
+                            model: [ { k: "open",     l: "Open queue", n: tri._openCount },
+                                     { k: "critical", l: "Critical",   n: tri._critTab },
+                                     { k: "all",      l: "All",        n: EventsStore.events.length } ]
+                            delegate: Rectangle {
+                                required property var modelData
+                                readonly property bool _active: tri.filter === modelData.k
+                                height: 34; width: tabRow.implicitWidth + 24; color: "transparent"
+                                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: parent._active ? Theme.accent : "transparent" }
+                                Row {
+                                    id: tabRow; anchors.centerIn: parent; spacing: 7
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.l
+                                        color: parent.parent._active ? Theme.ink : Theme.ink2
+                                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 15; width: nT.implicitWidth + 12; color: Theme.panel2
+                                        Text { id: nT; anchors.centerIn: parent; text: modelData.n
+                                            color: parent.parent.parent._active ? Theme.accent : Theme.ink3
+                                            font.family: Theme.fontMono; font.pixelSize: 10 }
+                                    }
+                                }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tri.filter = modelData.k }
+                            }
+                        }
+                    }
+                }
+
+                // ---- scrolling list ----
+                ListView {
+                    id: listView
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    model: tri._list
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Rectangle {
+                        id: row
+                        required property var modelData
+                        readonly property var e: modelData
+                        readonly property bool _on: tri._cur && e.id === tri._cur.id
+                        width: ListView.view.width; height: 67
+                        color: _on ? Theme.panel2 : (rowMa.containsMouse ? Theme.panel : "transparent")
+                        opacity: e.status !== "new" ? 0.5 : 1
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                        Rectangle { visible: row._on; anchors.left: parent.left; width: 3; height: parent.height; color: Theme.accent }  // selection bar
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16; anchors.rightMargin: 16
+                            spacing: 11
+
+                            // severity dot (+ halo on critical)
+                            Item {
+                                Layout.preferredWidth: 8; Layout.preferredHeight: 8; Layout.alignment: Qt.AlignVCenter
+                                Rectangle { visible: row.e.priority === "critical"; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.badSoft }
+                                Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Theme.sevColor(row.e.priority) }
+                            }
+                            // thumbnail + duration badge
+                            Rectangle {
+                                Layout.preferredWidth: 74; Layout.preferredHeight: 42; Layout.alignment: Qt.AlignVCenter
+                                color: "#000"; border.width: 1; border.color: Theme.line; clip: true
+                                EvSnapshot { anchors.fill: parent; anchors.margins: 1; ev: row.e; mini: true; showOsd: false }
+                                Rectangle {
+                                    visible: row.e.durationSec > 0
+                                    anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 2
+                                    color: Qt.rgba(0, 0, 0, 0.7); height: 11; width: dB.implicitWidth + 6
+                                    Text { id: dB; anchors.centerIn: parent; text: EventsStore.dur(row.e.durationSec); color: "#fff"
+                                        font.family: Theme.fontMono; font.pixelSize: 8 }
+                                }
+                            }
+                            // meta
+                            ColumnLayout {
+                                Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
+                                spacing: 4
+                                TypePill { type: row.e.type }
+                                Text { Layout.fillWidth: true; text: row.e.cam.name; color: Theme.ink; elide: Text.ElideRight
+                                    font.family: Theme.fontSans; font.pixelSize: 12 }
+                                Text { text: EventsStore.hhmmss(row.e.ts) + " · " + EventsStore.rel(row.e.ts); color: Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 10 }
+                            }
+                            // state dot
+                            StateTag { state: row.e.status; dotOnly: true; dotSize: 7; Layout.alignment: Qt.AlignVCenter }
+                        }
+                        MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: tri.select(row.e.id) }
+                    }
+                }
+            }
+        }
+
+        // ======================= RIGHT — the detail =======================
+        Item {
+            Layout.fillWidth: true; Layout.fillHeight: true
+
+            // empty state
+            Text {
+                visible: !tri._cur; anchors.centerIn: parent
+                text: "Queue clear — no open events."; color: Theme.ink3
+                font.family: Theme.fontSans; font.pixelSize: 14
+            }
+
+            ColumnLayout {
+                visible: tri._cur !== null
+                anchors.fill: parent
+                spacing: 0
+
+                // ---- hero: inline player + tool row ----
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: heroCol.implicitHeight
+                    color: "#000"
+                    ColumnLayout {
+                        id: heroCol
+                        width: parent.width
+                        spacing: 0
+                        EvPlayer { Layout.fillWidth: true; ev: tri._cur }
+                        Rectangle {                          // tool row
+                            Layout.fillWidth: true; Layout.preferredHeight: 52; color: Theme.panel
+                            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
+                                EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip" }
+                                EvButton { small: true; variant: "ghost"; icon: "assign"; label: "Assign" }
+                                Item { Layout.fillWidth: true }
+                                EvButton {
+                                    small: true; variant: "ghost"
+                                    on: tri._cur && tri._cur.bookmarked
+                                    icon: (tri._cur && tri._cur.bookmarked) ? "bookmarkF" : "bookmark"
+                                    label: (tri._cur && tri._cur.bookmarked) ? "Saved" : "Bookmark"
+                                    onClicked: if (tri._cur) EventsStore.bookmark(tri._cur.id)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---- body (scrolls) ----
+                Flickable {
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true
+                    contentWidth: width
+                    contentHeight: body.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+
+                    ColumnLayout {
+                        id: body
+                        width: parent.width
+                        x: 22; y: 18
+                        // 22px right padding too → cap width
+                        Component.onCompleted: width = parent.width - 44
+                        Connections { target: body.parent; function onWidthChanged() { body.width = body.parent.width - 44; } }
+                        spacing: 0
+
+                        // headline
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 16
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                RowLayout {
+                                    spacing: 12
+                                    Text { text: tri._cur ? EventsStore.types[tri._cur.type].label : ""; color: Theme.ink
+                                        font.family: Theme.fontSans; font.pixelSize: 20; font.weight: Font.DemiBold }
+                                    Rectangle {
+                                        visible: tri._cur && tri._cur.restricted
+                                        height: 18; width: rzT.implicitWidth + 12; color: "transparent"
+                                        border.width: 1; border.color: Theme.badDim
+                                        Text { id: rzT; anchors.centerIn: parent; text: "RESTRICTED ZONE"; color: Theme.bad
+                                            font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9 }
+                                    }
+                                }
+                                Text { Layout.fillWidth: true; text: (tri._cur && tri._cur.note) ? tri._cur.note : "—"; color: Theme.ink2
+                                    wrapMode: Text.WordWrap; font.family: Theme.fontSans; font.pixelSize: 13 }
+                            }
+                            Sev { level: tri._cur ? tri._cur.priority : "low"; Layout.alignment: Qt.AlignTop }
+                        }
+
+                        // facts grid (2-col, 1px gridlines)
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.topMargin: 18; Layout.bottomMargin: 18
+                            color: Theme.line
+                            Layout.preferredHeight: facts.implicitHeight + 2
+                            GridLayout {
+                                id: facts
+                                x: 1; y: 1; width: parent.width - 2
+                                columns: 2; rowSpacing: 1; columnSpacing: 1
+                                Repeater {
+                                    model: tri._cur ? [
+                                        { k: "Camera",        v: tri._cur.cam.name, mono: false },
+                                        { k: "Device",        v: tri._cur.cam.id,   mono: true },
+                                        { k: "Zone",          v: tri._cur.cam.zone, mono: false },
+                                        { k: "Time",          v: EventsStore.hhmmss(tri._cur.ts) + " · " + Qt.formatDate(tri._cur.ts, "ddd dd MMM"), mono: true },
+                                        { k: "Clip length",   v: tri._cur.durationSec ? EventsStore.dur(tri._cur.durationSec) : "—", mono: true },
+                                        { k: "AI confidence", v: tri._cur.conf ? (Math.round(tri._cur.conf * 100) + "%") : "n/a", mono: true }
+                                    ] : []
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 52
+                                        color: Theme.bg
+                                        ColumnLayout {
+                                            anchors.left: parent.left; anchors.right: parent.right
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.leftMargin: 13; anchors.rightMargin: 13
+                                            spacing: 3
+                                            Text { text: modelData.k.toUpperCase(); color: Theme.ink3
+                                                font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8 }
+                                            Text { Layout.fillWidth: true; text: modelData.v; color: Theme.ink; elide: Text.ElideRight
+                                                font.family: modelData.mono ? Theme.fontMono : Theme.fontSans; font.pixelSize: 13 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // response procedure (SOP)
+                        Text { text: "RESPONSE PROCEDURE"; color: Theme.ink3; Layout.bottomMargin: 10
+                            font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.2 }
+                        Repeater {
+                            model: tri._sop
+                            delegate: Item {
+                                id: sopItem
+                                required property int index
+                                required property var modelData
+                                readonly property bool _checked: tri.done[index] === true
+                                Layout.fillWidth: true
+                                implicitHeight: Math.max(32, sopText.implicitHeight)
+                                RowLayout {
+                                    anchors.fill: parent; spacing: 10
+                                    Rectangle {
+                                        Layout.preferredWidth: 18; Layout.preferredHeight: 18; Layout.alignment: Qt.AlignTop; Layout.topMargin: 7
+                                        color: sopItem._checked ? Theme.good : "transparent"
+                                        border.width: 1; border.color: sopItem._checked ? Theme.good : Theme.line2
+                                        EvIcon { anchors.centerIn: parent; visible: sopItem._checked; name: "check"; size: 12; color: Theme.bg }
+                                    }
+                                    Text {
+                                        id: sopText
+                                        Layout.fillWidth: true; topPadding: 7; bottomPadding: 7
+                                        text: sopItem.modelData; wrapMode: Text.WordWrap
+                                        color: sopItem._checked ? Theme.ink3 : Theme.ink2
+                                        font.family: Theme.fontSans; font.pixelSize: 13
+                                        font.strikeout: sopItem._checked
+                                    }
+                                }
+                                MouseArea {
+                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { var d = Object.assign({}, tri.done); d[sopItem.index] = !sopItem._checked; tri.done = d; }
+                                }
+                            }
+                        }
+
+                        // disposition note
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 40; Layout.topMargin: 16
+                            color: Theme.panel; border.width: 1; border.color: noteIn.activeFocus ? Theme.accent : Theme.line2
+                            TextInput {
+                                id: noteIn
+                                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
+                                verticalAlignment: TextInput.AlignVCenter
+                                clip: true; color: Theme.ink; selectionColor: Theme.accentDim
+                                font.family: Theme.fontSans; font.pixelSize: 13
+                                text: tri.note
+                                onTextChanged: tri.note = text
+                                Text { visible: noteIn.text === ""; text: "Add disposition note (what happened, who responded)…"
+                                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
+                                    anchors.verticalCenter: parent.verticalCenter }
+                            }
+                        }
+                        Item { Layout.preferredHeight: 6 }   // bottom breathing room
+                    }
+                }
+
+                // ---- action bar (fixed footer) ----
+                Rectangle {
+                    Layout.fillWidth: true; Layout.preferredHeight: 58; color: Theme.panel
+                    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
+                    RowLayout {
+                        anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18; spacing: 8
+                        EvButton { variant: "good"; icon: "check"; label: "Authorized"
+                            onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "authorized", tri.note) }
+                        EvButton { variant: ""; icon: "x"; label: "False alarm"
+                            onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "false_alarm", tri.note) }
+                        EvButton { variant: "danger"; icon: "dispatch"; label: "Dispatch guard"
+                            onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "dispatched", tri.note) }
+                        Item { Layout.fillWidth: true }
+                        EvButton {
+                            visible: tri._cur && tri._cur.status === "new"
+                            variant: "pri"; icon: "check"; label: "Acknowledge"; kbd: "E"
+                            onClicked: if (tri._cur) EventsStore.ack(tri._cur.id)
+                        }
+                        StateTag {
+                            visible: tri._cur && tri._cur.status !== "new"
+                            Layout.rightMargin: 8
+                            state: tri._cur ? tri._cur.status : "new"
+                            label: tri._cur ? (tri._cur.status.toUpperCase() + (tri._cur.dispo ? " · " + EventsStore.dispoDefs[tri._cur.dispo].label : "")) : ""
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
