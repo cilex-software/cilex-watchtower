@@ -194,6 +194,48 @@ Item {
         onTriggered: root.reopenSameWindow()
     }
 
+    // ---- per-cell camera swap (right-click a cell → pick another camera) -----
+    // Mirrors the Live wall: pick replaces the cell's camera (or, if the chosen
+    // camera is already on the wall, swaps the two so nothing duplicates), then
+    // re-composites the same window. cellPickerSlot = grid slot being edited.
+    property int cellPickerSlot: -1
+    property string cellPickerSearch: ""
+    function openCellPicker(slot) {
+        if (slot < 0 || !cellAtSlot(slot)) return;
+        cellPickerSlot = slot; cellPickerSearch = "";
+    }
+    function setSlotCamera(slot, cam) {
+        var cell = cellAtSlot(slot);
+        cellPickerSlot = -1;
+        if (!cell || !cam || !cam.camId) return;
+        var idx = -1, existing = -1;
+        for (var i = 0; i < cameras.length; i++) {
+            if (cameras[i].camId === cell.camera_id) idx = i;
+            if (cameras[i].camId === cam.camId) existing = i;
+        }
+        if (idx < 0 || existing === idx) return;     // not found / already this camera → no-op
+        var next = cameras.slice();
+        if (existing >= 0) { var t = next[idx]; next[idx] = next[existing]; next[existing] = t; }  // already on wall → swap
+        else next[idx] = cam;                        // otherwise replace this cell's camera
+        cameras = next;
+        persistLayout();
+        reopenSameWindow();
+    }
+    readonly property var cellPickerRows: {
+        var out = [];
+        var n = cameraModel ? cameraModel.total : 0;
+        var q = cellPickerSearch.toLowerCase();
+        for (var i = 0; i < n; i++) {
+            var c = cameraModel.get(i);
+            if (!c || !c.camId) continue;
+            if (q !== "" && ("" + c.name).toLowerCase().indexOf(q) < 0
+                         && ("" + c.ip).indexOf(q) < 0
+                         && ("" + c.groupName).toLowerCase().indexOf(q) < 0) continue;
+            out.push(c);
+        }
+        return out;
+    }
+
     function pad(n) { return (n < 10 ? "0" : "") + n }
     function fmtClock(ms) { return (!ms || isNaN(ms)) ? "—" : Settings.clock(ms, true) }
 
@@ -263,6 +305,64 @@ Item {
         var pos = wallToPos(ms);
         if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);   // headroom — don't strand at EOS
         player.position = Math.round(Math.max(0, pos) * 1000);
+    }
+
+    // ---- per-camera motion lanes on the scrubber ---------------------------
+    // The scrubber is thick, so we split it into one thin lane per displayed
+    // camera (in grid reading order — top-left cell = top lane) and overlay that
+    // camera's motion episodes, time-aligned across cameras. Motion comes from
+    // /events/timeline per camera (server pairs started↔ended); 16 concurrent
+    // fetches are safe — PlaybackClient routes each reply back by camera id.
+    property var motionByCam: ({})          // backendCamId -> [{startMs,endMs,intensity}]
+    readonly property var laneList: {
+        var out = [];
+        var cs = root.cells, g = root.grid;
+        if (cs && cs.length > 0 && g && g.cols) {
+            var sorted = cs.slice().sort(function (a, b) { return (a.row * g.cols + a.col) - (b.row * g.cols + b.col); });
+            for (var i = 0; i < sorted.length; i++) {
+                var cam = root.cameraModel ? root.cameraModel.cameraByBackendId(sorted[i].camera_id) : null;
+                out.push({ camId: sorted[i].camera_id, name: cam && cam.name ? cam.name : sorted[i].camera_id });
+            }
+        } else {                              // pre-session fallback: cameras[] order
+            for (var j = 0; j < root.cameras.length; j++)
+                if (root.cameras[j].camId) out.push({ camId: root.cameras[j].camId, name: root.cameras[j].name || root.cameras[j].camId });
+        }
+        return out;
+    }
+    function loadWallTimeline() {
+        motionByCam = ({});
+        if (!client || winEndMs <= winStartMs) return;
+        var ll = laneList, s = new Date(winStartMs).toISOString(), e = new Date(winEndMs).toISOString();
+        // wide windows → ask the server for density bins (compact, fast) instead of
+        // every episode; narrow windows → precise episode spans.
+        var bins = (winEndMs - winStartMs) > 6 * 3600 * 1000 ? 300 : 0;
+        for (var i = 0; i < ll.length; i++) client.fetchTimeline(ll[i].camId, s, e, bins);
+    }
+    Connections {
+        target: root.client
+        enabled: root.client !== null
+        function onTimelineReady(cid, mode, blocks) {
+            var eps = [];
+            if (mode === "buckets") {
+                for (var i = 0; i < blocks.length; i++) {
+                    var b = blocks[i], bs = Date.parse(b.bucket_start), be = Date.parse(b.bucket_end);
+                    var dur = Math.max(1, (be - bs) / 1000);
+                    eps.push({ startMs: bs, endMs: be, intensity: Math.min(1, (b.motion_seconds || 0) / dur) });
+                }
+            } else if (mode === "episodes") {
+                for (var j = 0; j < blocks.length; j++) {
+                    var ep = blocks[j], st = Date.parse(ep.start_time);
+                    var en = ep.end_time ? Date.parse(ep.end_time) : Math.min(Date.now(), root.winEndMs);
+                    if (en < st) { var t = st; st = en; en = t; }
+                    eps.push({ startMs: st, endMs: en, intensity: 1 });
+                }
+            } else return;                    // "error" → leave this camera's lane empty
+            eps.sort(function (a, b) { return a.startMs - b.startMs; });
+            var m = ({});
+            for (var k in root.motionByCam) m[k] = root.motionByCam[k];
+            m[cid] = eps;
+            root.motionByCam = m;
+        }
     }
 
     // ---- open / transport --------------------------------------------------
@@ -337,6 +437,7 @@ Item {
                            ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end), avail: f.availability });
             }
             root.frags = out;
+            root.loadWallTimeline();      // per-camera motion lanes for the scrubber
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             player.source = root.client.mosaicPlaylistUrl(sid);
             player.play();
@@ -381,6 +482,10 @@ Item {
     Keys.onPressed: (e) => {
         if (root.pickerOpen) {           // picker owns the keyboard while open
             if (e.key === Qt.Key_Escape) { root.pickerOpen = false; e.accepted = true; }
+            return;
+        }
+        if (root.cellPickerSlot >= 0) {  // per-cell picker owns the keyboard while open
+            if (e.key === Qt.Key_Escape) { root.cellPickerSlot = -1; e.accepted = true; }
             return;
         }
         if (player.duration <= 0) return;
@@ -481,10 +586,11 @@ Item {
                 }
 
                 // drag-to-rearrange: press a cell, drag onto another, release to swap.
+                // Right-click a cell → pick another camera for that cell (like Live).
                 MouseArea {
                     anchors.fill: parent
-                    visible: root.sessionId !== "" && root.grid.cols > 0 && root.errorText === "" && !root.pickerOpen
-                    acceptedButtons: Qt.LeftButton
+                    visible: root.sessionId !== "" && root.grid.cols > 0 && root.errorText === "" && !root.pickerOpen && root.cellPickerSlot < 0
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                     cursorShape: root.dragFrom >= 0 ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     function slotAt(mx, my) {
                         var c = root.grid.cols, r = root.grid.rows;
@@ -495,6 +601,10 @@ Item {
                     }
                     onPressed: (m) => {
                         var s = slotAt(m.x, m.y);
+                        if (m.button === Qt.RightButton) {       // right-click → swap this cell's camera
+                            if (s >= 0 && root.cellAtSlot(s)) root.openCellPicker(s);
+                            return;
+                        }
                         if (s >= 0 && root.cellAtSlot(s)) {
                             root.dragFrom = s; root.dragOver = s;
                             root.dragX = m.x; root.dragY = m.y;
@@ -615,6 +725,12 @@ Item {
                                 }
                             }
                         }
+                        // how to change a single tile's camera (mirrors the Live wall)
+                        Text {
+                            Layout.fillWidth: true; Layout.topMargin: 6
+                            text: "Right-click a tile to swap its camera · drag a tile to rearrange"
+                            color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap
+                        }
                     }
                     Hdr { text: "Status" }
                     RowLayout {
@@ -650,7 +766,7 @@ Item {
 
         // ---- master timeline + transport ---------------------------------
         Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 124; color: Theme.bg
+            Layout.fillWidth: true; Layout.preferredHeight: 140; color: Theme.bg
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
 
             RowLayout {
@@ -680,6 +796,7 @@ Item {
                 Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
                 Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
+                Chip { label: "Motion"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 Chip { visible: root.hasSelection; label: "Export selection"; active: true; onClicked: root.exportSelection() }
                 Chip { label: "Return to live"; onClicked: root.returnToLive() }
             }
@@ -688,7 +805,7 @@ Item {
             Rectangle {
                 id: bar
                 anchors { left: parent.left; right: parent.right; top: tlControls.bottom; topMargin: 10; leftMargin: 16; rightMargin: 16 }
-                height: 60
+                height: 88
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
                 // span/x↔ms use the (zoomable) VIEW window, not the full session window
@@ -697,28 +814,89 @@ Item {
                 function msOf(x) { return root.viewStartMs + (x / width) * span }
                 property double pressMs: -1
                 property double hoverMs: -1
+                property int hoverLane: -1
 
-                // footage segments (olive); gaps are the bare track
+                // ---- lane geometry: one thin lane per displayed camera ----------
+                readonly property bool lanesOn: Settings.eventsOnScrubber && root.laneList.length > 0
+                readonly property int laneCount: root.laneList.length
+                readonly property real coverH: lanesOn ? 11 : height        // footage strip (fills the bar when lanes are off)
+                readonly property real laneTop: coverH + 2
+                readonly property real laneAreaH: Math.max(0, height - laneTop - 2)
+                readonly property real laneH: (lanesOn && laneCount > 0) ? laneAreaH / laneCount : 0
+                // merge a camera's motion spans by ~2px gap so a busy lane reads as a
+                // band, not a thousand hairlines; clipped to the visible view window.
+                function laneSpans(camId) {
+                    var raw = root.motionByCam[camId];
+                    if (!raw || raw.length === 0) return [];
+                    var vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
+                    if (sp <= 0 || w <= 0) return [];
+                    var minGap = (2 / w) * sp, out = [], cur = null;
+                    for (var i = 0; i < raw.length; i++) {
+                        var e = raw[i];
+                        if (e.endMs < vs || e.startMs > ve) continue;
+                        var s = Math.max(e.startMs, vs), en = Math.min(e.endMs, ve);
+                        var it = (e.intensity === undefined) ? 1 : e.intensity;
+                        if (cur && s - cur.eMs <= minGap) { cur.eMs = Math.max(cur.eMs, en); cur.it = Math.max(cur.it, it); }
+                        else { if (cur) out.push({ sMs: cur.sMs, eMs: cur.eMs, it: cur.it }); cur = { sMs: s, eMs: en, it: it }; }
+                    }
+                    if (cur) out.push({ sMs: cur.sMs, eMs: cur.eMs, it: cur.it });
+                    return out;
+                }
+
+                // footage coverage strip (whole-grid composited) — the scrub track
                 Repeater {
                     model: root.frags
                     delegate: Rectangle {
                         x: bar.xOf(modelData.ws); width: Math.max(1, bar.xOf(modelData.we) - bar.xOf(modelData.ws))
-                        y: 0; height: parent.height
+                        y: 0; height: bar.coverH
                         color: modelData.avail === "ready" ? "#3f5a2a" : "#4a4327"   // ready vs warming
                     }
                 }
-                // In/Out selection
+                Rectangle { visible: bar.lanesOn; x: 0; y: bar.coverH; width: bar.width; height: 1; color: Theme.line }
+
+                // ---- per-camera motion lanes (grid reading order) ----
+                Item {
+                    visible: bar.lanesOn
+                    x: 0; y: bar.laneTop; width: bar.width; height: bar.laneAreaH; clip: true
+                    Repeater {
+                        model: root.laneList
+                        delegate: Item {
+                            id: lane
+                            required property int index
+                            required property var modelData
+                            readonly property string camId: modelData.camId
+                            y: lane.index * bar.laneH; width: bar.width; height: bar.laneH
+                            Rectangle { anchors.fill: parent; visible: lane.index % 2 === 0; color: Qt.rgba(1, 1, 1, 0.022) }       // zebra
+                            Rectangle { anchors.fill: parent; visible: bar.hoverLane === lane.index; color: Theme.accentSoft }       // hover row
+                            Repeater {
+                                model: bar.laneSpans(lane.camId)
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    x: Math.max(0, bar.xOf(modelData.sMs))
+                                    width: Math.max(2, bar.xOf(modelData.eMs) - bar.xOf(modelData.sMs))
+                                    height: Math.max(2, Math.min(lane.height - 1, 6))
+                                    y: (lane.height - height) / 2
+                                    color: Theme.accent
+                                    opacity: 0.45 + 0.45 * modelData.it
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // In/Out selection (full bar height)
                 Rectangle {
                     visible: root.hasSelection
                     x: bar.xOf(root.selStartMs); width: Math.max(1, bar.xOf(root.selEndMs) - bar.xOf(root.selStartMs))
                     y: 0; height: parent.height
                     color: Theme.accentSoft; border.width: 1; border.color: Theme.accent
                 }
-                // playhead
+                // playhead — vertical stick + diamond knob (one element), full height
                 Rectangle {
                     visible: root.frags.length > 0
                     width: 2; height: parent.height; color: "#fff"
-                    x: bar.xOf(root.playheadMs)
+                    x: bar.xOf(root.playheadMs) - 1
+                    Rectangle { anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; width: 7; height: 7; rotation: 45; color: "#fff" }
                 }
                 // hover scrub guide
                 Rectangle {
@@ -733,7 +911,8 @@ Item {
                     width: wTip.implicitWidth + 14; height: 20
                     x: Math.max(0, Math.min(bar.width - width, hx - width / 2)); y: 2
                     color: Qt.rgba(0, 0, 0, 0.9); border.width: 1; border.color: Theme.line2
-                    Text { id: wTip; anchors.centerIn: parent; text: root.fmtClock(bar.hoverMs)
+                    Text { id: wTip; anchors.centerIn: parent
+                        text: (bar.hoverLane >= 0 && bar.hoverLane < root.laneList.length ? root.laneList[bar.hoverLane].name + " · " : "") + root.fmtClock(bar.hoverMs)
                         color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
 
@@ -744,12 +923,15 @@ Item {
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onPositionChanged: (m) => {
                         bar.hoverMs = bar.msOf(m.x);
+                        var ly = m.y - bar.laneTop;          // which camera lane is under the cursor
+                        bar.hoverLane = (bar.lanesOn && ly >= 0 && ly < bar.laneAreaH && bar.laneH > 0)
+                            ? Math.min(root.laneList.length - 1, Math.floor(ly / bar.laneH)) : -1;
                         if (pressed && bar.pressMs >= 0) {     // dragging → tentative selection
                             var a = Math.min(bar.pressMs, bar.hoverMs), b = Math.max(bar.pressMs, bar.hoverMs);
                             root.selStartMs = a; root.selEndMs = b;
                         }
                     }
-                    onExited: bar.hoverMs = -1
+                    onExited: { bar.hoverMs = -1; bar.hoverLane = -1; }
                     onPressed: (m) => { bar.pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1; }
                     onReleased: (m) => {
                         var cur = bar.msOf(m.x);
@@ -774,13 +956,15 @@ Item {
                         root.viewEndMs = Math.min(root.winEndMs, ne);
                     }
                 }
-                Text {
-                    anchors { left: parent.left; bottom: parent.bottom; margins: 6 }
-                    text: root.frags.length ? (root.hasSelection
-                            ? ("IN " + root.fmtClock(root.selStartMs) + "  →  OUT " + root.fmtClock(root.selEndMs))
-                            : "FOOTAGE · scroll to zoom · drag to select")
-                          : ""
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1
+                // IN→OUT readout — floats over the lanes only while a selection exists
+                Rectangle {
+                    visible: root.frags.length > 0 && root.hasSelection
+                    anchors { left: parent.left; bottom: parent.bottom; margins: 4 }
+                    width: selT.implicitWidth + 12; height: 16
+                    color: Qt.rgba(0, 0, 0, 0.82); border.width: 1; border.color: Theme.line2
+                    Text { id: selT; anchors.centerIn: parent
+                        text: "IN " + root.fmtClock(root.selStartMs) + " → OUT " + root.fmtClock(root.selEndMs)
+                        color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
                 }
             }
         }
@@ -895,6 +1079,83 @@ Item {
                         MouseArea { id: paMa; anchors.fill: parent; hoverEnabled: true
                             cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: if (parent.enabled) root.applyPick() }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- per-cell camera picker: right-click a tile → choose its camera ------
+    Rectangle {
+        visible: root.cellPickerSlot >= 0
+        anchors.fill: parent
+        z: 62
+        color: Qt.rgba(0, 0, 0, 0.55)
+        MouseArea { anchors.fill: parent; onClicked: root.cellPickerSlot = -1 }
+        Rectangle {
+            anchors.centerIn: parent
+            width: 460; height: Math.min(580, parent.height - 60)
+            color: Theme.panel; border.width: 1; border.color: Theme.line2
+            MouseArea { anchors.fill: parent; onClicked: {} }    // swallow backdrop clicks
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 14; spacing: 10
+                ColumnLayout {
+                    spacing: 1; Layout.fillWidth: true
+                    Text { text: "Choose camera for this tile"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Text {
+                        readonly property var _cur: root.cellPickerSlot >= 0 ? root.cellAtSlot(root.cellPickerSlot) : null
+                        readonly property var _cam: _cur ? (root.cameraModel ? root.cameraModel.cameraByBackendId(_cur.camera_id) : null) : null
+                        Layout.fillWidth: true; elide: Text.ElideRight
+                        text: "Replaces " + (_cam && _cam.name ? _cam.name : (_cur ? _cur.camera_id : "")) + " · the wall re-composites"
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                    }
+                }
+                Rectangle {
+                    Layout.fillWidth: true; implicitHeight: 32
+                    color: Theme.bg; border.width: 1; border.color: cpInput.activeFocus ? Theme.accent : Theme.line2
+                    TextInput {
+                        id: cpInput
+                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+                        verticalAlignment: TextInput.AlignVCenter; clip: true
+                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
+                        onTextChanged: root.cellPickerSearch = text
+                        Connections { target: root; function onCellPickerSlotChanged() { if (root.cellPickerSlot >= 0) { cpInput.text = ""; cpInput.forceActiveFocus() } } }
+                    }
+                    Text { visible: cpInput.text === ""; anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 10
+                        text: "Search name, IP or group…"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                }
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                    model: root.cellPickerRows; spacing: 2
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool onWall: {
+                            for (var i = 0; i < root.cameras.length; i++) if (root.cameras[i].camId === modelData.camId) return true;
+                            return false;
+                        }
+                        width: ListView.view ? ListView.view.width : 0
+                        height: 42
+                        color: cpRowMa.containsMouse ? Theme.panel2 : "transparent"
+                        Column {
+                            anchors.left: parent.left; anchors.leftMargin: 12; anchors.right: onTag.left; anchors.rightMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                            Text { text: modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width }
+                            Text { text: modelData.ip + (modelData.groupName ? "  ·  " + modelData.groupName : ""); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width }
+                        }
+                        Text { id: onTag; visible: parent.onWall; anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
+                            text: "ON WALL"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
+                        MouseArea { id: cpRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setSlotCamera(root.cellPickerSlot, modelData) }
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        implicitWidth: ccT.implicitWidth + 22; implicitHeight: 28
+                        color: "transparent"; border.width: 1; border.color: ccMa.containsMouse ? Theme.ink3 : Theme.line2
+                        Text { id: ccT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        MouseArea { id: ccMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.cellPickerSlot = -1 }
                     }
                 }
             }
