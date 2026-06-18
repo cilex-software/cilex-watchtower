@@ -47,6 +47,8 @@ Item {
             EventsStore.loadMock();
         } else {
             EventsStore.realAck = function (id) { if (area.eventModel) area.eventModel.acknowledgeById(id); };
+            EventsStore.realDispose = function (id, d, note) { if (area.eventModel) area.eventModel.setDisposition(id, d, note); };
+            EventsStore.realBookmark = function (id, value) { if (area.eventModel) area.eventModel.setBookmark(id, value); };
             area._ingestReal();
         }
     }

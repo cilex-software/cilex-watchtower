@@ -9,6 +9,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QJsonValue>
 #include <QProcessEnvironment>
 #include <QSettings>
 #include <QDateTime>
@@ -186,6 +187,48 @@ void EventModel::loadMore()
     fetchPage(true);
 }
 
+// One /events row (also the body returned by the action POSTs) → EventData. The
+// full contract from cilex-vision's 2026-06-18 letter; design-only fields the
+// backend doesn't emit stay empty (never invented).
+wt::EventData EventModel::parseRow(const QJsonObject &o) const
+{
+    wt::EventData e;
+    e.id = o.value("event_id").toString();
+    e.type = o.value("event_type").toString().toLower();
+    e.camId = o.value("camera_id").toString();
+    e.camName = o.value("camera_name").toString();
+    if (e.camName.isEmpty()) e.camName = e.camId;
+    e.group = o.value("zone").toString();             // zone = camera group name
+    const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+    e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : o.value("start_time").toString();
+    e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
+    e.durationMs = o.value("duration_ms").toVariant().toLongLong();
+    e.recordingId = o.value("metadata").toObject().value("recording_id").toString();
+    e.desc = descForType(e.type, e.durationMs);
+    // redesign contract
+    e.severity = o.value("severity").toString();
+    e.zoneRestricted = o.value("zone_restricted").toBool();
+    e.triageState = o.value("triage_state").toString();
+    e.disposition = o.value("disposition").toString();
+    e.dispositionNote = o.value("disposition_note").toString();
+    e.bookmarked = o.value("bookmarked").toBool();
+    e.clipUrl = o.value("clip_url").toString();
+    // ack derives from triage_state (anything past "new")
+    e.ack = !e.triageState.isEmpty() && e.triageState != QLatin1String("new");
+    e.ackBy = o.value("acknowledged_by").toString();
+    const QDateTime adt = QDateTime::fromString(o.value("acknowledged_at").toString(), Qt::ISODate);
+    e.ackTime = adt.isValid() ? adt.toLocalTime().toString("HH:mm") : QString();
+    const QJsonValue det = o.value("detection");
+    if (det.isObject()) {
+        const QJsonObject d = det.toObject();
+        e.detClass = d.value("class").toString();
+        e.detConf = d.value("confidence").isDouble() ? d.value("confidence").toDouble() : -1.0;
+        const QJsonArray bb = d.value("bbox").toArray();
+        for (const QJsonValue &x : bb) e.detBbox.append(x.toDouble());
+    }
+    return e;
+}
+
 void EventModel::fetchPage(bool append)
 {
     const int gen = ++m_gen;               // tag this request; newer ones supersede it
@@ -214,33 +257,20 @@ void EventModel::fetchPage(bool append)
         out.reserve(arr.size());
         for (const auto &v : arr) {
             const auto o = v.toObject();
-            const QString type = o.value("event_type").toString().toLower();
-            if (isSuppressedType(type))    // drop motion_detected — see isSuppressedType()
-                continue;
-            wt::EventData e;
-            e.id = o.value("event_id").toString();
-            e.type = type;
-            e.camId = o.value("camera_id").toString();
-            e.camName = e.camId;           // Events screen resolves a friendly name via CameraModel
-            const QString iso = o.value("start_time").toString();
-            const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
-            e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : iso;
-            e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
-            e.durationMs = o.value("duration_ms").toVariant().toLongLong();
-            e.recordingId = o.value("metadata").toObject().value("recording_id").toString();
-            e.desc = descForType(e.type, e.durationMs);
-            out.push_back(e);
+            if (isSuppressedType(o.value("event_type").toString().toLower()))
+                continue;              // drop motion_detected — see isSuppressedType()
+            out.push_back(parseRow(o));
         }
+        // No applyAcks() on the live path: the backend's triage_state is now the
+        // authoritative ack/disposition state (parseRow derives `ack` from it).
         if (append && !out.isEmpty()) {
             const int base = int(m_all.size());
             beginInsertRows(QModelIndex(), base, base + int(out.size()) - 1);
             m_all += out;
             endInsertRows();
-            applyAcks();                   // restore acks on the appended rows
         } else if (!append) {
             beginResetModel();
             m_all = out;
-            applyAcks();                   // restore locally-persisted acknowledgements
             endResetModel();
         }
         m_serverTotal = obj.value("total").toInt(int(m_all.size()));
@@ -288,11 +318,70 @@ void EventModel::acknowledge(int row, const QString &by)
 
 void EventModel::acknowledgeById(const QString &id)
 {
-    for (int i = 0; i < m_all.size(); ++i)
-        if (m_all[i].id == id) {
-            acknowledge(i, AuthController::instance()->username());  // by the signed-in operator
-            return;
-        }
+    if (qEnvironmentVariableIsSet("WT_DEMO")) {            // mock: local-only ack
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == id) { acknowledge(i, AuthController::instance()->username()); return; }
+        return;
+    }
+    postEventAction(id, QStringLiteral("acknowledge"), {});   // shared, server-persisted
+}
+
+void EventModel::setDisposition(const QString &id, const QString &disposition, const QString &note)
+{
+    if (qEnvironmentVariableIsSet("WT_DEMO")) {            // mock: local patch
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == id) {
+                const bool dismiss = (disposition == "false_alarm" || disposition == "dismissed");
+                m_all[i].triageState = dismiss ? "dismissed" : "resolved";
+                m_all[i].disposition = disposition;
+                m_all[i].dispositionNote = note;
+                m_all[i].ack = true;
+                emit dataChanged(index(i), index(i));
+                emit changed();
+                return;
+            }
+        return;
+    }
+    QJsonObject b;
+    b["disposition"] = disposition;
+    if (!note.isEmpty()) b["note"] = note;
+    postEventAction(id, QStringLiteral("disposition"), b);
+}
+
+void EventModel::setBookmark(const QString &id, bool value)
+{
+    if (qEnvironmentVariableIsSet("WT_DEMO")) {            // mock: local toggle
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == id) { m_all[i].bookmarked = value; emit dataChanged(index(i), index(i)); emit changed(); return; }
+        return;
+    }
+    QJsonObject b; b["value"] = value;
+    postEventAction(id, QStringLiteral("bookmark"), b);
+}
+
+// POST /events/{id}/{acknowledge|disposition|bookmark}; the endpoint returns the
+// updated event row, which we parse and swap in place (so any client reflects the
+// shared state). Leaves the row untouched on any non-2xx.
+void EventModel::postEventAction(const QString &id, const QString &subpath, const QJsonObject &body)
+{
+    QNetworkRequest req{ QUrl(m_baseUrl + "/events/" + id + "/" + subpath) };
+    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (code < 200 || code >= 300) return;
+        const QJsonObject o = QJsonDocument::fromJson(reply->readAll()).object();
+        const wt::EventData e = parseRow(o);
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == e.id) {
+                m_all[i] = e;
+                emit dataChanged(index(i), index(i));
+                emit changed();
+                return;
+            }
+    });
 }
 
 QVariantMap EventModel::toMap(const wt::EventData &e) const
@@ -311,6 +400,23 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["ts"] = static_cast<qlonglong>(e.tsMs);
     m["durationMs"] = static_cast<qlonglong>(e.durationMs);
     m["recordingId"] = e.recordingId;
+    // redesign contract
+    m["severity"] = e.severity;
+    m["zoneRestricted"] = e.zoneRestricted;
+    m["triageState"] = e.triageState;
+    m["disposition"] = e.disposition;
+    m["dispositionNote"] = e.dispositionNote;
+    m["bookmarked"] = e.bookmarked;
+    m["clipUrl"] = e.clipUrl;
+    if (e.detClass.isEmpty()) {
+        m["detection"] = QVariant();           // null — no detection (never faked)
+    } else {
+        QVariantMap det;
+        det["cls"] = e.detClass;
+        det["confidence"] = e.detConf;
+        det["bbox"] = e.detBbox;
+        m["detection"] = det;
+    }
     return m;
 }
 

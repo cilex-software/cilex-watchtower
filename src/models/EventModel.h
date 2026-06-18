@@ -9,6 +9,7 @@
 #include "Types.h"
 
 class QNetworkAccessManager;
+class QJsonObject;
 
 // Operational events (motion / offline / online / gap / bookmark) feeding the
 // ops sidebar feed, the Events screen, and the nav-rail unacknowledged badge.
@@ -72,6 +73,11 @@ public:
 
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);
+    // Shared, server-persisted triage actions (cilex-vision 2026-06-18). POST the
+    // action, then replace the row in place from the returned event. Under WT_DEMO
+    // (no backend) they fall back to a local patch.
+    Q_INVOKABLE void setDisposition(const QString &id, const QString &disposition, const QString &note);
+    Q_INVOKABLE void setBookmark(const QString &id, bool value);
 
 signals:
     void changed();
@@ -80,6 +86,8 @@ private:
     void fetchPage(bool append);
     void applyAcks();
     void persistAck(const QString &id, const QString &by, const QString &time);
+    wt::EventData parseRow(const QJsonObject &o) const;
+    void postEventAction(const QString &id, const QString &subpath, const QJsonObject &body);
     QVariantMap toMap(const wt::EventData &e) const;
 
     QVector<wt::EventData> m_all;

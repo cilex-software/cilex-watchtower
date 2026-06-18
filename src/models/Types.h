@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QVariantList>
 #include "CameraStatus.h"
 
 // Plain data structs shared by the mock-data layer and the list models. These
@@ -56,6 +57,19 @@ struct EventData {
     qint64 tsMs = 0;     // start_time as epoch ms — for chronological Time sort (0 = unknown/mock)
     qint64 durationMs = 0;  // duration_ms from /events (0 = instantaneous / unknown)
     QString recordingId;    // metadata.recording_id — pairs motion_started/_ended episodes
+
+    // Events redesign contract (cilex-vision 2026-06-18; see docs/letters/).
+    QString severity;           // critical|high|medium|low (server-computed)
+    bool zoneRestricted = false;
+    QString triageState;        // new|acknowledged|in_progress|resolved|dismissed (NOT `state`)
+    QString disposition;        // verified|dispatched|authorized|false_alarm|dismissed | ""
+    QString dispositionNote;
+    bool bookmarked = false;
+    QString clipUrl;            // signed playback URL (optional)
+    // AI detection (null until the AI tier / smart events land) — empty class = none.
+    QString detClass;           // person|vehicle|face|…
+    double detConf = -1.0;      // 0..1, -1 = none
+    QVariantList detBbox;       // [x,y,w,h] normalized 0..1, or empty
 };
 
 // A reusable Live Monitor layout. Stores the *restorable* state (so opening a

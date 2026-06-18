@@ -358,11 +358,6 @@ Item {
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "false_alarm", tri.note) }
                         EvButton { variant: "danger"; icon: "dispatch"; label: "Dispatch guard"; enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "dispatched", tri.note) }
-                        Text {
-                            visible: EventsStore.actionsPending; Layout.leftMargin: 4
-                            text: "Disposition pending backend"; color: Theme.ink3
-                            font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.4
-                        }
                         Item { Layout.fillWidth: true }
                         EvButton {
                             visible: tri._cur && tri._cur.status === "new"

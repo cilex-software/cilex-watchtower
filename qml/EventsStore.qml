@@ -55,14 +55,15 @@ QtObject {
     property var events: []
 
     // Real-data mode: events came from the live cilex-vision /events feed (via
-    // ingestReal), not the mock. In this mode severity is neutral (the backend
-    // doesn't emit it — see docs/letters/2026-06-18-events-redesign-data-and-actions.md),
-    // there's no AI confidence/box, and disposition/bookmark actions are pending a
-    // backend endpoint, so the views disable them. Acknowledge still works (routed
-    // to the real EventModel's locally-persisted ack via realAck).
+    // ingestReal). The backend now emits severity + the full acknowledge/disposition
+    // lifecycle (cilex-vision 2026-06-18), so real mode carries real severity and
+    // the actions are routed to the server endpoints below — nothing is pending or
+    // faked. (AI detection is null until the AI tier lands; we show it cleanly absent.)
     property bool realMode: false
-    readonly property bool actionsPending: realMode      // dispositions/bookmark disabled until backend lands
-    property var realAck: null                            // function(id) → real EventModel.acknowledgeById
+    readonly property bool actionsPending: false         // backend shipped acknowledge/disposition/bookmark
+    property var realAck: null                            // function(id)            → EventModel.acknowledgeById
+    property var realDispose: null                        // function(id, dispo, note) → EventModel.setDisposition
+    property var realBookmark: null                       // function(id, value)     → EventModel.setBookmark
 
     function _ev(o, uid) {
         var t = new Date(store.now.getTime() - o.ago * 1000);
@@ -129,23 +130,28 @@ QtObject {
             var t = (r.ts && r.ts > 0) ? new Date(r.ts) : store.now;
             var cam = (camLookup && camLookup[r.camId]) ? camLookup[r.camId]
                     : { key: r.camId, id: r.camId, name: (r.camName ? r.camName : r.camId), zone: "", x: 50, y: 50 };
+            var det = r.detection;                            // null until the AI tier lands
+            var subj = det ? (det.cls === "vehicle" ? "vehicle"
+                            : (det.cls === "person" || det.cls === "face") ? "person" : "none") : "none";
             var e = {
                 id: r.eventId,
                 type: store._realTypeBucket(r.type),
                 rawType: ("" + r.type),
                 ts: t,
-                status: r.ack ? "ack" : "new",
-                conf: null,                                   // pending (Ask 2)
+                status: store._triageToStatus(r.triageState, r.ack),
+                conf: (det && det.confidence >= 0) ? det.confidence : null,
                 sx: 48, sy: 8,
-                tod: store._todFromDate(t),                   // derived from real time (honest)
-                subject: "none",                              // no AI subject from backend
-                bookmarked: false,                            // pending (no backend bookmark)
-                dispo: null,
-                note: (r.desc ? r.desc : ""),
-                restricted: false,                            // pending (Ask 5)
+                bbox: (det && det.bbox && det.bbox.length === 4) ? det.bbox : null,
+                tod: store._todFromDate(t),                   // derived from real time
+                subject: subj,                                // from detection.class (none until AI)
+                bookmarked: !!r.bookmarked,
+                dispo: (r.disposition ? r.disposition : null),
+                note: (r.dispositionNote ? r.dispositionNote : (r.desc ? r.desc : "")),
+                restricted: !!r.zoneRestricted,
                 durationSec: r.durationMs ? Math.round(r.durationMs / 1000) : 0,
-                priority: "medium",                           // PENDING severity — neutral, never invented
+                priority: (r.severity ? r.severity : "medium"),   // real server-computed severity
                 recordingId: (r.recordingId ? r.recordingId : ""),
+                clipUrl: (r.clipUrl ? r.clipUrl : ""),
                 cam: cam
             };
             out.push(e);
@@ -173,6 +179,15 @@ QtObject {
         if (h < 8 || h >= 17) return "dusk";
         return "day";
     }
+    // backend triage_state → the views' status vocabulary
+    function _triageToStatus(ts, ack) {
+        if (ts === "acknowledged") return "ack";
+        if (ts === "in_progress") return "progress";
+        if (ts === "resolved") return "resolved";
+        if (ts === "dismissed") return "dismissed";
+        if (ts === "new") return "new";
+        return ack ? "ack" : "new";        // fallback if a row lacks triage_state
+    }
 
     // ---- shared actions (the ONLY way views mutate events) ----
     function _clone(e) { var n = {}; for (var k in e) n[k] = e[k]; return n; }
@@ -184,21 +199,26 @@ QtObject {
             return n;
         });
     }
+    // Real mode routes to the live EventModel POST endpoints; the model's `changed`
+    // re-runs ingestReal so the row reflects the server's returned state. Mock mode
+    // patches the local array.
     function ack(id) {
-        // Real mode: route to the live EventModel (locally-persisted ack); the
-        // model's change re-runs ingestReal so status reflects it. Mock: patch.
         if (realMode) { if (realAck) realAck(id); return; }
         _patch(id, { status:"ack" });
     }
     function bookmark(id) {
-        if (realMode) return;                 // pending backend (Ask 3) — UI disables it
+        if (realMode) {
+            var cur = store.find(id);
+            if (realBookmark) realBookmark(id, !(cur && cur.bookmarked));
+            return;
+        }
         events = events.map(function (e) {
             if (e.id !== id) return e;
             var n = store._clone(e); n.bookmarked = !e.bookmarked; return n;
         });
     }
     function dispose(id, d, note) {
-        if (realMode) return;                 // pending backend (Ask 3) — UI disables it
+        if (realMode) { if (realDispose) realDispose(id, d, note || ""); return; }
         var inProgress = (d === "dispatched" || d === "verified");
         _patch(id, { status: inProgress ? "progress" : "resolved", dispo:d, note: note || "" });
     }
