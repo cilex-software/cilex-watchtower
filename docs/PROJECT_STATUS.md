@@ -75,12 +75,20 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
   click-popover, dashed "now" line, 90m/3.5h/8h windows.
 - **04 Map** (`EvMap`): schematic site plan + pulsing camera pins + count badges +
   legend; live-feed rail ⇄ per-camera detail (Verify/Dispatch/Clear).
-- **Integration:** mock-only, so gated behind **`WT_DEMO`** (`src/main.cpp` exposes
-  `wtDemo`; `Main.qml` routes the Events section to `EventsArea` under it, else the
-  live `EventsScreen`). Run `WT_DEMO=1 ./build/watchtower` → Events to review it.
-- **Next** (not built): back the views with real `EventModel`/playback instead of
-  the mock store (the event shape needs tod/subject/sx/sy/conf/restricted/duration —
-  a backend/mapping gap to spec in a `docs/letters/` ask before wiring to live data).
+- **Integration / data source:** `EventsStore` has two sources — `loadMock()` (the
+  showcase) and `ingestReal(rows, camLookup)` (live `/events`). Flags (`src/main.cpp`):
+  **`WT_DEMO`** → redesign on the mock; **`WT_EVENTS2`** → redesign on the **live feed**;
+  neither → the backend-wired `EventsScreen` (still default until cutover).
+- **Real-data foundation (done 06-18, `614148d`):** real `/events` mapped honestly —
+  neutral severity (no invented critical/high), no AI conf/box, **dispositions+bookmark
+  disabled "pending backend"**, **Acknowledge live** (routes to the real, locally-persisted
+  ack). `EventModel` now exposes `durationMs` + `recordingId`. Backend contract requested in
+  `docs/letters/2026-06-18-events-redesign-data-and-actions.md` (severity, AI detail,
+  ack/disposition endpoints, event-moment still, restricted flag).
+- **Next (not built):** imagery — *real frames + playback* (camera `snapshotUrl` thumbs +
+  real HLS in the Triage hero seeked to the event moment); today the snapshot is an honest
+  empty scene. Then production cutover once the letter's asks (esp. severity + shared
+  ack/disposition) land.
 
 ## Recovery pointers
 
