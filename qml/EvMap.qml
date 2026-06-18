@@ -30,6 +30,14 @@ Item {
         return es;
     }
     readonly property var _camList: { var a = []; for (var k in EventsStore.cams) a.push(EventsStore.cams[k]); return a; }
+    // Real Camera-Map placements, scoped to the cameras currently in view (the group
+    // filter narrows EventsStore.cams, so the map pins follow the selected group).
+    readonly property var _placements: {
+        if (!(EventsStore.realMode && siteMap.ready)) return [];
+        var all = siteMap.placements(), cams = EventsStore.cams, out = [];
+        for (var i = 0; i < all.length; i++) if (cams[all[i].cameraId] !== undefined) out.push(all[i]);
+        return out;
+    }
     readonly property var _cur: {
         if (active === "") return null;
         for (var i = 0; i < _camList.length; i++) if (_camList[i].id === active) return _camList[i];
@@ -237,7 +245,7 @@ Item {
                         width: planBg.paintedWidth; height: planBg.paintedHeight
                         x: (plan.width - width) / 2; y: (plan.height - height) / 2
                         Repeater {
-                            model: (EventsStore.realMode && siteMap.ready) ? siteMap.placements() : []
+                            model: map._placements
                             delegate: MapPin {
                                 required property var modelData
                                 camId: modelData.cameraId
@@ -254,7 +262,7 @@ Item {
                         height: 22; width: unpT.implicitWidth + 18; color: Qt.rgba(0, 0, 0, 0.5)
                         border.width: 1; border.color: Theme.line2
                         Text { id: unpT; anchors.centerIn: parent
-                            text: siteMap.placedCount + " of " + map._camList.length + " cameras placed · others in the feed"
+                            text: map._placements.length + " of " + map._camList.length + " cameras placed · others in the feed"
                             color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
                     }
                 }
