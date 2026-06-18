@@ -76,9 +76,11 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
 - **04 Map** (`EvMap`): schematic site plan + pulsing camera pins + count badges +
   legend; live-feed rail ⇄ per-camera detail (Verify/Dispatch/Clear).
 - **Integration / data source:** `EventsStore` has two sources — `loadMock()` (the
-  showcase) and `ingestReal(rows, camLookup)` (live `/events`). Flags (`src/main.cpp`):
-  **`WT_DEMO`** → redesign on the mock; **`WT_EVENTS2`** → redesign on the **live feed**;
-  neither → the backend-wired `EventsScreen` (still default until cutover).
+  showcase) and `ingestReal(rows, camLookup)` (live `/events`). **The redesign is now the
+  DEFAULT Events screen** (cutover done `0e4…`). Flags (`src/main.cpp`): **`WT_DEMO`** →
+  redesign on the mock showcase; **`WT_EVENTS_LEGACY`** → the old table-style `EventsScreen`
+  (instant fallback). Inline hero playback, real frames, real Map, Assign/Export all live.
+  Stable task tracker: `docs/events-redesign-tasks.md`.
 - **Real-data foundation (done 06-18, `614148d`):** real `/events` mapped honestly via
   `EventsStore.ingestReal`; `EventModel` exposes `durationMs` + `recordingId`.
 - **Backend contract shipped + wired (done 06-18, `233229b`):** Cilex Vision shipped all

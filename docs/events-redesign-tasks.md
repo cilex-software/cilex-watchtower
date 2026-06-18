@@ -17,7 +17,7 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 | 8 | Playback no-footage / transient-session-failure fix (side bug) | ✅ done | — |
 | 9 | **Imagery part 2 — inline HLS playback in the Triage hero** | ✅ done¹ | Watchtower |
 | 10 | **Export-clip toolrow button wiring** | ✅ done | Watchtower |
-| 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | 🔧 in progress | Watchtower |
+| 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | ✅ done | Watchtower |
 | 12 | Live-frame fallback on event-snapshot 404 | ◻︎ optional | Watchtower |
 | 13 | Map-pin facing via `rotation_deg` | ◻︎ optional | Watchtower |
 | 14 | Keyboard affordances (Triage `E` / ↑↓ / `Space`) | ◻︎ optional | Watchtower |
@@ -32,4 +32,7 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
   detector config + AI tier; operator placement). Fully wired on our side; they light up as
   the deployment is configured. Nothing is blocked.
 - Cilex Vision's Events **backend** workstream is closed (all engineering asks met).
-- Current critical path to default-on: **#9 → #10 → #11**.
+- **The redesign is now the DEFAULT Events screen** (#9–#11 done). Flags: `WT_DEMO` → mock
+  showcase; `WT_EVENTS_LEGACY` → the old table-style screen (instant fallback).
+- Remaining is **only optional polish (#12–#14)** + **operational (#15–#16)** — nothing on the
+  critical path. Suggested last check: eyeball the inline video in the running app.

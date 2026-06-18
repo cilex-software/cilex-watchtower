@@ -352,13 +352,13 @@ Window {
                     onOpenEvents: (cam) => win.section = "events"
                 }
 
-                // Events-screen redesign (events-v2 port). WT_DEMO → mock showcase;
-                // WT_EVENTS2 → the live cilex-vision feed (EventsStore.ingestReal).
-                // The live EventsScreen below stays the default until cutover.
+                // Events-screen redesign (events-v2 port) — now the DEFAULT Events
+                // screen, on the live cilex-vision feed (EventsStore.ingestReal).
+                // WT_DEMO → the mock showcase; WT_EVENTS_LEGACY → the old EventsScreen.
                 EventsArea {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: (wtDemo || wtEvents2) && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: !wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
                     demo: wtDemo
                     eventModel: eventModel
                     cameraModel: cameraModel
@@ -376,10 +376,11 @@ Window {
                     }
                 }
 
+                // Legacy table-style Events screen — fallback behind WT_EVENTS_LEGACY.
                 EventsScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: !(wtDemo || wtEvents2) && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
                     eventModel: eventModel
                     cameraModel: cameraModel
                     onOpenPlayback: (camId, atMs) => {
