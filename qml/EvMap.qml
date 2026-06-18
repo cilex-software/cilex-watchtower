@@ -11,8 +11,55 @@ import Watchtower
 Item {
     id: map
     signal openInTriage(string id)
+    signal openWall(var camIds)                   // "play selected" → synchronized wall playback
 
     property string active: ""                    // selected camera id, or ""
+
+    // ---- multi-select (Ctrl/Option-click pins + marquee drag) → wall playback ----
+    // The selection is capped at 16 (the wall's cell limit). Selecting any camera(s)
+    // surfaces a "Play in wall" action that jumps to the synchronized wall over only
+    // the chosen cameras.
+    property var selIds: ({})                     // backend camId -> true (≤16)
+    readonly property int selCount: { var n = 0; for (var k in selIds) n++; return n }
+    function _isSel(id) { return selIds[id] === true; }
+    function _toggleSel(id) {
+        var m = ({}); for (var k in selIds) m[k] = true;
+        if (m[id]) delete m[id];
+        else { if (selCount >= 16) return; m[id] = true; }   // hard cap: first 16
+        selIds = m;
+    }
+    function _clearSel() { selIds = ({}); }
+    function _playSelected() {
+        var ids = []; for (var k in selIds) ids.push(k);
+        if (ids.length > 0) map.openWall(ids);
+    }
+    // marquee (rubber-band) drag state, in `plan` pixel coords
+    property bool _mqActive: false
+    property real _mqx: 0; property real _mqy: 0; property real _mqx2: 0; property real _mqy2: 0
+    // Select every visible camera pin whose centre falls inside the box. `add` keeps
+    // the existing selection (Ctrl/Option-drag); otherwise it replaces it.
+    function _selectInRect(x0, y0, x1, y1, add) {
+        var m = ({}), cnt = 0;
+        if (add) { for (var k in selIds) { m[k] = true; cnt++; } }
+        function tryAdd(id) { if (cnt < 16 && !m[id]) { m[id] = true; cnt++; } }   // first 16 only
+        if (EventsStore.realMode) {
+            var ps = map._placements;
+            for (var i = 0; i < ps.length && cnt < 16; i++) {
+                var px = placedLayer.x + ps[i].x * placedLayer.width;
+                var py = placedLayer.y + ps[i].y * placedLayer.height;
+                if (px >= x0 && px <= x1 && py >= y0 && py <= y1) tryAdd(ps[i].cameraId);
+            }
+        } else {
+            var cl = map._camList;
+            for (var j = 0; j < cl.length && cnt < 16; j++) {
+                var mx = cl[j].x / 100 * plan.width, my = cl[j].y / 100 * plan.height;
+                if (mx >= x0 && mx <= x1 && my >= y0 && my <= y1) tryAdd(cl[j].id);
+            }
+        }
+        selIds = m;
+    }
+    // a stale selection from another scope is just noise — reset on source switch
+    Connections { target: EventsStore; function onRealModeChanged() { map._clearSel() } }
 
     readonly property var _byCam: {
         var m = {}; var es = EventsStore.events;
@@ -79,9 +126,10 @@ Item {
         readonly property string st: map._pinStateForId(camId)
         readonly property int open: map._openByCam[camId] || 0
         readonly property bool _sel: map.active === camId
+        readonly property bool _selected: map._isSel(camId)
         width: 30; height: 30
         x: cx - 15; y: cy - 15
-        z: _sel ? 5 : 1
+        z: _selected ? 6 : _sel ? 5 : 1
 
         Rectangle {                                   // ping ring (open events)
             id: pingRing
@@ -95,8 +143,14 @@ Item {
                 NumberAnimation { target: pingRing; property: "opacity"; from: 0.8; to: 0; duration: 1800 }
             }
         }
-        Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18   // selection halo
+        Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18   // active-detail halo
             color: "transparent"; border.width: 3; border.color: Theme.accent }
+        Rectangle {                                   // multi-select indicator (filled accent disc)
+            visible: pin._selected; z: 1
+            anchors.centerIn: parent; width: 34; height: 34; radius: 17
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
+            border.width: 2; border.color: Theme.accent
+        }
         Item {                                        // FOV cone (camera direction + field of view)
             visible: pin.facing >= 0
             width: 132; height: 132; anchors.centerIn: parent
@@ -157,7 +211,20 @@ Item {
             Text { id: bdg; anchors.centerIn: parent; text: pin.open; color: "#fff"
                 font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
         }
-        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: map.active = pin.camId }
+        Rectangle {                                   // selected check badge (top-left)
+            visible: pin._selected; z: 7
+            anchors.left: parent.left; anchors.top: parent.top; anchors.leftMargin: -3; anchors.topMargin: -3
+            width: 14; height: 14; radius: 7; color: Theme.accent; border.width: 1; border.color: Theme.bg
+            Text { anchors.centerIn: parent; text: "✓"; color: Theme.bg; font.pixelSize: 9; font.weight: Font.Bold }
+        }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+            // Ctrl-click (or Option/Alt on Mac) toggles this camera into the wall
+            // selection; a plain click opens the camera detail as before.
+            onClicked: (m) => {
+                if (m.modifiers & (Qt.ControlModifier | Qt.AltModifier)) map._toggleSel(pin.camId);
+                else map.active = pin.camId;
+            }
+        }
     }
 
     RowLayout {
@@ -185,6 +252,29 @@ Item {
                         anchors.fill: parent; fillMode: Image.PreserveAspectFit
                         asynchronous: true; cache: true
                         source: siteMap.ready ? siteMap.backgroundUrl : ""
+                    }
+
+                    // marquee (rubber-band) select — press in empty space and drag a
+                    // box. Pins sit ON TOP of this, so a press that lands on a pin goes
+                    // to the pin (its own MouseArea); only empty-space presses start a box.
+                    MouseArea {
+                        id: marquee
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        property real sx: 0
+                        property real sy: 0
+                        onPressed: (m) => { marquee.sx = m.x; marquee.sy = m.y; map._mqx = m.x; map._mqy = m.y; map._mqx2 = m.x; map._mqy2 = m.y; map._mqActive = true; }
+                        onPositionChanged: (m) => { if (map._mqActive) { map._mqx2 = m.x; map._mqy2 = m.y; } }
+                        onReleased: (m) => {
+                            map._mqActive = false;
+                            var moved = Math.abs(m.x - marquee.sx) > 4 || Math.abs(m.y - marquee.sy) > 4;
+                            var addMod = (m.modifiers & (Qt.ControlModifier | Qt.AltModifier)) !== 0;
+                            if (moved)
+                                map._selectInRect(Math.min(marquee.sx, m.x), Math.min(marquee.sy, m.y),
+                                                  Math.max(marquee.sx, m.x), Math.max(marquee.sy, m.y), addMod);
+                            else if (!addMod) { map._clearSel(); map.active = ""; }   // plain click on empty space clears
+                        }
+                        onCanceled: map._mqActive = false
                     }
 
                     // rooms (schematic backdrop — mock mode only)
@@ -264,6 +354,59 @@ Item {
                         Text { id: unpT; anchors.centerIn: parent
                             text: map._placements.length + " of " + map._camList.length + " cameras placed · others in the feed"
                             color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                    }
+
+                    // marquee drag rectangle (drawn over the pins while dragging)
+                    Rectangle {
+                        visible: map._mqActive
+                        x: Math.min(map._mqx, map._mqx2); y: Math.min(map._mqy, map._mqy2)
+                        width: Math.abs(map._mqx2 - map._mqx); height: Math.abs(map._mqy2 - map._mqy)
+                        z: 8
+                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+                        border.width: 1; border.color: Theme.accent
+                    }
+
+                    // how-to hint (only when nothing is selected yet, real mode)
+                    Rectangle {
+                        visible: map.selCount === 0 && EventsStore.realMode && siteMap.ready
+                        anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; anchors.topMargin: 10
+                        height: 22; width: hintT.implicitWidth + 18; radius: 11; color: Qt.rgba(0, 0, 0, 0.55)
+                        border.width: 1; border.color: Theme.line2; z: 19
+                        Text { id: hintT; anchors.centerIn: parent
+                            text: "Ctrl/Option-click pins or drag a box to select cameras for wall playback"
+                            color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 10 }
+                    }
+
+                    // selection action bar (bottom-centre) — jump to wall playback
+                    Rectangle {
+                        visible: map.selCount > 0 && EventsStore.realMode
+                        z: 20
+                        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 16
+                        width: selRow.implicitWidth + 24; height: 46; radius: 5
+                        color: Theme.panel2; border.width: 1; border.color: Theme.accent
+                        Row {
+                            id: selRow; anchors.centerIn: parent; spacing: 12
+                            Text { anchors.verticalCenter: parent.verticalCenter
+                                text: map.selCount + (map.selCount === 1 ? " camera" : " cameras") + " selected"
+                                color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            Rectangle {                            // Play in wall
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: pwRow.implicitWidth + 22; height: 32; radius: 3
+                                color: pwMa.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent
+                                Row { id: pwRow; anchors.centerIn: parent; spacing: 6
+                                    EvIcon { anchors.verticalCenter: parent.verticalCenter; name: "play"; size: 13; color: Theme.bg }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Play in wall"; color: Theme.bg
+                                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold } }
+                                MouseArea { id: pwMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._playSelected() }
+                            }
+                            Rectangle {                            // Clear
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: clrT.implicitWidth + 20; height: 32; radius: 3
+                                color: "transparent"; border.width: 1; border.color: clrMa.containsMouse ? Theme.ink3 : Theme.line2
+                                Text { id: clrT; anchors.centerIn: parent; text: "Clear"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                MouseArea { id: clrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._clearSel() }
+                            }
+                        }
                     }
                 }
 

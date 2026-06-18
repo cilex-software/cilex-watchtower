@@ -34,6 +34,24 @@ Window {
         wallPlayback.openFor(60);
     }
 
+    // Enter wall playback over an EXPLICIT camera set (the Situation-Map selection),
+    // bypassing the persisted wall layout. Resolves backend ids → camera objects,
+    // clears any overlay, switches to the live section's wall, composites the hour.
+    function enterWallWithCameras(ids) {
+        if (!ids || ids.length === 0) return;
+        var cams = [];
+        for (var i = 0; i < ids.length && cams.length < 16; i++) {
+            var c = cameraModel.cameraByBackendId(ids[i]);
+            if (c && c.camId) cams.push(c);
+        }
+        if (cams.length === 0) return;
+        focusedCamera = null;
+        playbackCamera = null;
+        section = "live";
+        wallMode = "playback";
+        wallPlayback.openWithCameras(cams);
+    }
+
     // Left-rail navigation. Camera detail, single-camera playback, and wall
     // playback are full-screen overlays that layer OVER a section (they gate on
     // focusedCamera / playbackCamera / wallMode, not on `section`), so setting
@@ -374,6 +392,8 @@ Window {
                                                     new Date(atMs + 45000).toISOString(),
                                                     "wallclock", dest, "", purpose);
                     }
+                    // Situation-Map multi-select → jump to wall playback over only those cameras.
+                    onOpenWall: (ids) => win.enterWallWithCameras(ids)
                 }
 
                 // Legacy table-style Events screen — fallback behind WT_EVENTS_LEGACY.

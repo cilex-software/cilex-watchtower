@@ -20,6 +20,7 @@ Item {
     property var cameraModel: null
     property bool demo: false
     signal exportClip(string camId, double atMs, string purpose)   // → Main's export flow
+    signal openWall(var camIds)                                    // Situation-Map selection → wall playback
     readonly property int _camCount: cameraModel ? cameraModel.total : 0
 
     // Camera-group scope: "" = all, "__ungrouped__" = cameras with no group, else a
@@ -299,6 +300,9 @@ Item {
     }
     Component {
         id: mapC
-        EvMap { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
+        EvMap {
+            onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; }
+            onOpenWall: (ids) => area.openWall(ids)
+        }
     }
 }

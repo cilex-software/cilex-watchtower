@@ -157,6 +157,16 @@ Item {
         persistLayout();
         reopenSameWindow();
     }
+    // Open over an EXPLICIT camera set (Situation-Map "play selected"). Bypasses the
+    // persisted-layout preference in seedCameras and does NOT persist — a transient
+    // view of the chosen cameras; the operator's saved wall layout stays untouched.
+    function openWithCameras(camObjs) {
+        var out = (camObjs || []).slice(0, 16);
+        if (out.length === 0) return;
+        cameras = out;
+        wallGroupLabel = "";
+        openFor(zoomMin || 60);
+    }
 
     // ---- drag-and-drop cell arrangement -------------------------------------
     // The grid is ONE composited stream, so a drop reorders cameras[] and the
