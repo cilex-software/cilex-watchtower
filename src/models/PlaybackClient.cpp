@@ -139,7 +139,13 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
         return;
     }
 
-    setStatus("Opening session…");
+    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, 0);
+}
+
+void PlaybackClient::requestSession(const QString &cameraId, const QString &wallStartIso,
+                                    const QString &wallEndIso, bool hevcCapable, int attempt)
+{
+    setStatus(attempt == 0 ? QStringLiteral("Opening session…") : QStringLiteral("Reconnecting…"));
     QNetworkRequest req{QUrl(m_baseUrl + "/review/sessions")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"camera_id", cameraId},
@@ -147,14 +153,27 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
                      {"wall_end", wallEndIso},
                      {"hevc_capable", hevcCapable}};
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
         if (code != 200) {
-            QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
-            emit sessionFailed(detail.isEmpty() ? QStringLiteral("Session error (%1)").arg(code)
-                                                : detail);
+            // code 0 = no HTTP response (transport failure: timeout / unreachable /
+            // reset). Usually transient — retry a couple of times with a short
+            // backoff before surfacing the failure (a plain HTTP POST, no pipeline
+            // teardown involved, so retrying here is safe).
+            if (code == 0 && attempt < 2) {
+                QTimer::singleShot(500, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt]() {
+                    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, attempt + 1);
+                });
+                return;
+            }
+            const QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
+            const QString msg = !detail.isEmpty() ? detail
+                        : code == 0 ? QStringLiteral("Couldn't reach the recording backend (%1).").arg(reply->errorString())
+                        : QStringLiteral("Session error (%1).").arg(code);
+            emit sessionFailed(msg);
             setStatus(QString());
             return;
         }

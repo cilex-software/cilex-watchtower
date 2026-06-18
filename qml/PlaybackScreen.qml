@@ -299,6 +299,17 @@ Item {
         selectedDay = dateStr;
         zoomMin = 1440;
         errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1;
+        // Coverage already tells us this day has no recorded footage (it has no
+        // calendar dot) — show an honest empty state instead of opening a session
+        // that can only come back empty (or, on a transport hiccup, as a cryptic
+        // "Session error"). Only short-circuit when coverage is actually known.
+        if (!coveragePending && footageDays.indexOf(dateStr) < 0) {
+            _pendingOpen = false; loading = false;
+            frags = []; sessionId = ""; compactDuration = 0;
+            if (player) { player.stop(); player.source = ""; }
+            errorText = "No footage recorded on this day.";
+            return;
+        }
         if (!client) return;
         client.ensureReady();
         _pendingOpen = true;

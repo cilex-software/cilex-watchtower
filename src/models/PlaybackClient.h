@@ -123,6 +123,10 @@ signals:
 private:
     void setStatus(const QString &s);
     void fetchStreams();
+    // POST /review/sessions for a resolved camera id; retries on a transport-level
+    // failure (HTTP code 0 — timeout / unreachable / reset) before giving up.
+    void requestSession(const QString &cameraId, const QString &wallStartIso,
+                        const QString &wallEndIso, bool hevcCapable, int attempt);
     void flushPendingSessions();
     void downloadExport(const QString &jobId, const QString &url, const QString &destPath);
 
