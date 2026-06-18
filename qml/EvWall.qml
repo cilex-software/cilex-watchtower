@@ -155,10 +155,13 @@ Item {
                         anchors.leftMargin: 11; anchors.rightMargin: 11; anchors.bottomMargin: 11
                         spacing: 5
                         EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "escalate"; label: "Threat"
+                            enabledBtn: !EventsStore.actionsPending
                             onClicked: EventsStore.dispose(cell.e.id, "verified", "") }
                         EvButton { Layout.fillWidth: true; small: true; variant: ""; icon: "x"; label: "Dismiss"
+                            enabledBtn: !EventsStore.actionsPending
                             onClicked: EventsStore.dispose(cell.e.id, "false_alarm", "") }
                         EvButton { small: true; variant: ""; on: cell.e.bookmarked
+                            enabledBtn: !EventsStore.actionsPending
                             icon: cell.e.bookmarked ? "bookmarkF" : "bookmark"
                             onClicked: EventsStore.bookmark(cell.e.id) }
                     }

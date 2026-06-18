@@ -50,7 +50,7 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 20; anchors.rightMargin: 20
                 spacing: 24
                 Repeater {
-                    model: [ { n: "38", c: Theme.ink,  a: "motion fragments", b: "collapsed into sessions" },
+                    model: [ { n: EventsStore.realMode ? ("" + EventsStore.events.filter(function (e) { return e.type === "motion"; }).length) : "38", c: Theme.ink,  a: "motion fragments", b: "collapsed into sessions" },
                              { n: "" + EventsStore.events.filter(function (e) { return e.status === "new" && (e.priority === "critical" || e.priority === "high"); }).length, c: Theme.bad,  a: "high-priority", b: "need action" },
                              { n: "" + EventsStore.events.filter(function (e) { return e.status !== "new"; }).length, c: Theme.good, a: "handled", b: "this shift" } ]
                     delegate: Row {
@@ -187,7 +187,7 @@ Item {
                                                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 5
                                                 visible: srow.e.status === "new"
                                                 EvButton { small: true; icon: "check"; label: "Ack"; onClicked: EventsStore.ack(srow.e.id) }
-                                                EvButton { small: true; on: srow.e.bookmarked
+                                                EvButton { small: true; on: srow.e.bookmarked; enabledBtn: !EventsStore.actionsPending
                                                     icon: srow.e.bookmarked ? "bookmarkF" : "bookmark"; onClicked: EventsStore.bookmark(srow.e.id) }
                                             }
                                             StateTag {
@@ -219,7 +219,7 @@ Item {
             anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 10
             Text { text: ses._pickedIds.length + " selected"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 12 }
             Item { Layout.fillWidth: true }
-            EvButton { small: true; icon: "x"; label: "Dismiss as noise"; onClicked: ses._bulkDismiss() }
+            EvButton { small: true; icon: "x"; label: "Dismiss as noise"; enabledBtn: !EventsStore.actionsPending; onClicked: ses._bulkDismiss() }
             EvButton { small: true; variant: "pri"; icon: "check"; label: "Acknowledge selected"; onClicked: ses._bulkAck() }
             EvButton { small: true; variant: "ghost"; label: "Clear"; onClicked: ses.picked = ({}) }
         }

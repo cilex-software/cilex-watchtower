@@ -12,6 +12,51 @@ Item {
     property string mode: "triage"
     property string selId: ""                     // shared event selection across views
 
+    // Data source. demo (or no eventModel) → the events-v2 mock showcase; otherwise
+    // the live cilex-vision feed via EventModel + CameraModel, mapped honestly in
+    // EventsStore.ingestReal (neutral severity, no fabricated fields).
+    property var eventModel: null
+    property var cameraModel: null
+    property bool demo: false
+    readonly property int _camCount: cameraModel ? cameraModel.total : 0
+
+    function _buildLookup() {
+        var lk = ({});
+        var n = cameraModel ? cameraModel.total : 0;
+        var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+        var rows = Math.max(1, Math.ceil(n / cols));
+        for (var i = 0; i < n; i++) {
+            var c = cameraModel.get(i);
+            if (!c || !c.camId) continue;
+            var col = i % cols, ri = Math.floor(i / cols);
+            // No site-plan coords from the backend yet — spread pins on a grid so the
+            // Map stays usable (a layout fallback, not invented positions).
+            lk[c.camId] = { key: c.camId, id: c.camId, name: (c.name ? c.name : c.camId),
+                zone: (c.groupName ? c.groupName : ""),
+                x: Math.round((col + 0.5) / cols * 100), y: Math.round((ri + 0.5) / rows * 100) };
+        }
+        return lk;
+    }
+    function _ingestReal() {
+        if (!eventModel) { EventsStore.loadMock(); return; }
+        EventsStore.ingestReal(eventModel.all(), area._buildLookup());
+    }
+
+    Component.onCompleted: {
+        if (demo || !eventModel) {
+            EventsStore.loadMock();
+        } else {
+            EventsStore.realAck = function (id) { if (area.eventModel) area.eventModel.acknowledgeById(id); };
+            area._ingestReal();
+        }
+    }
+    Connections {
+        target: area.eventModel
+        enabled: !area.demo && area.eventModel !== null
+        function onChanged() { area._ingestReal(); }
+    }
+    on_CamCountChanged: if (!demo && eventModel) area._ingestReal()    // cameras load async → re-resolve names/zones
+
     readonly property var _modes: [
         { id: "triage",   n: "01", label: "Triage Queue",      tag: "Clear the backlog",
           why: "<font color='#f0ece4'><b>Inbox triage.</b></font> Work the queue top-down by priority — watch the event clip inline, run the response procedure, and record a disposition. Best when one operator must clear a backlog of unhandled alarms fast." },

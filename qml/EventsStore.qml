@@ -9,11 +9,16 @@ import QtQuick
 QtObject {
     id: store
 
-    // "now" anchored to the design clock: 2026-06-17 20:49 (local).
-    readonly property var now: new Date(2026, 5, 17, 20, 49, 0)
+    // "now" — the mock design clock (2026-06-17 20:49) under loadMock, or the real
+    // current time under ingestReal (so the Timeline window + "X ago" are correct).
+    property var now: new Date(2026, 5, 17, 20, 49, 0)
+
+    // active camera set the views' axes read (Timeline lanes, Map pins). Set by
+    // loadMock() (the mock 8) or ingestReal() (real cameras from the lookup).
+    property var cams: ({})
 
     // cameras — id, name, zone, and schematic map position (x/y %, for View 04)
-    readonly property var cams: ({
+    readonly property var _mockCams: ({
         "A": { key:"A", id:"hiwatch-083bc14eff9a", name:"Loading Bay — Dock 2",       zone:"Loading Bay",     x:24, y:70 },
         "B": { key:"B", id:"hiwatch-2f5e1ac033",   name:"North Perimeter — Fence 4",  zone:"North Perimeter", x:50, y:14 },
         "C": { key:"C", id:"hiwatch-9c4d77ab12",   name:"Main Entrance — Lobby",      zone:"Main Entrance",   x:50, y:88 },
@@ -49,6 +54,16 @@ QtObject {
     // QML bindings — counts, lists, every view — re-evaluate)
     property var events: []
 
+    // Real-data mode: events came from the live cilex-vision /events feed (via
+    // ingestReal), not the mock. In this mode severity is neutral (the backend
+    // doesn't emit it — see docs/letters/2026-06-18-events-redesign-data-and-actions.md),
+    // there's no AI confidence/box, and disposition/bookmark actions are pending a
+    // backend endpoint, so the views disable them. Acknowledge still works (routed
+    // to the real EventModel's locally-persisted ack via realAck).
+    property bool realMode: false
+    readonly property bool actionsPending: realMode      // dispositions/bookmark disabled until backend lands
+    property var realAck: null                            // function(id) → real EventModel.acknowledgeById
+
     function _ev(o, uid) {
         var t = new Date(store.now.getTime() - o.ago * 1000);
         var subject = (o.type === "person" || o.type === "loiter" || o.type === "line_cross") ? "person"
@@ -60,7 +75,11 @@ QtObject {
         return e;
     }
 
-    Component.onCompleted: {
+    // ---- MOCK source (events-v2 design demo; used under WT_DEMO / standalone) ----
+    function loadMock() {
+        realMode = false;
+        now = new Date(2026, 5, 17, 20, 49, 0);  // anchor to the mock event ages
+        cams = store._mockCams;                // views' camera axis = the mock 8
         // meaningful, mixed-priority stream over the last ~3.5h (verbatim from data.jsx)
         var raw = [
             { ago:74,   type:"person",     cam:"F", priority:"critical", conf:0.94, tod:"night", sx:54, sy:6,  durationSec:38,  restricted:true, note:"Unscheduled presence in Server Room after hours." },
@@ -93,6 +112,68 @@ QtObject {
         events = out;
     }
 
+    // ---- REAL source (live cilex-vision /events via EventModel.all()) ----
+    // `rows` are EventModel maps (eventId/type/camId/ts/desc/ack/durationMs/…);
+    // `camLookup` resolves camId → { id, name, zone }. Every design-only field the
+    // backend doesn't emit is honest-pending here — NEVER fabricated:
+    //   priority → "medium" (neutral; no invented critical/high until the backend
+    //              emits severity), conf → null, subject → "none" (no AI box),
+    //              restricted → false, dispo → null. tod is derived from the real
+    //              local time; durationSec from duration_ms.
+    function ingestReal(rows, camLookup) {
+        now = new Date();                      // real wall clock for window/relative-time math
+        cams = camLookup ? camLookup : ({});   // views' camera axis = the real cameras
+        var out = [];
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var t = (r.ts && r.ts > 0) ? new Date(r.ts) : store.now;
+            var cam = (camLookup && camLookup[r.camId]) ? camLookup[r.camId]
+                    : { key: r.camId, id: r.camId, name: (r.camName ? r.camName : r.camId), zone: "", x: 50, y: 50 };
+            var e = {
+                id: r.eventId,
+                type: store._realTypeBucket(r.type),
+                rawType: ("" + r.type),
+                ts: t,
+                status: r.ack ? "ack" : "new",
+                conf: null,                                   // pending (Ask 2)
+                sx: 48, sy: 8,
+                tod: store._todFromDate(t),                   // derived from real time (honest)
+                subject: "none",                              // no AI subject from backend
+                bookmarked: false,                            // pending (no backend bookmark)
+                dispo: null,
+                note: (r.desc ? r.desc : ""),
+                restricted: false,                            // pending (Ask 5)
+                durationSec: r.durationMs ? Math.round(r.durationMs / 1000) : 0,
+                priority: "medium",                           // PENDING severity — neutral, never invented
+                recordingId: (r.recordingId ? r.recordingId : ""),
+                cam: cam
+            };
+            out.push(e);
+        }
+        realMode = true;
+        events = out;
+    }
+
+    // backend event_type → the design's 7 display buckets (icon/pill/snapshot).
+    // A documented categorisation of a REAL type, not invented data.
+    function _realTypeBucket(t) {
+        t = ("" + t).toLowerCase();
+        if (t.indexOf("motion") === 0) return "motion";
+        if (t === "line_crossing") return "line_cross";
+        if (t === "intrusion" || t === "region_entrance" || t === "region_exiting") return "line_cross";
+        if (t === "tamper" || t === "defocus") return "tamper";
+        if (t === "video_loss" || t === "offline") return "offline";
+        if (t === "face_detected") return "person";
+        if (t === "loitering") return "loiter";
+        return "motion";   // pir/scene_change/camera_event/online/gap/bookmark/unknown → neutral
+    }
+    function _todFromDate(d) {
+        var h = d.getHours();
+        if (h >= 19 || h < 6) return "night";
+        if (h < 8 || h >= 17) return "dusk";
+        return "day";
+    }
+
     // ---- shared actions (the ONLY way views mutate events) ----
     function _clone(e) { var n = {}; for (var k in e) n[k] = e[k]; return n; }
     function _patch(id, p) {
@@ -103,14 +184,21 @@ QtObject {
             return n;
         });
     }
-    function ack(id) { _patch(id, { status:"ack" }); }
+    function ack(id) {
+        // Real mode: route to the live EventModel (locally-persisted ack); the
+        // model's change re-runs ingestReal so status reflects it. Mock: patch.
+        if (realMode) { if (realAck) realAck(id); return; }
+        _patch(id, { status:"ack" });
+    }
     function bookmark(id) {
+        if (realMode) return;                 // pending backend (Ask 3) — UI disables it
         events = events.map(function (e) {
             if (e.id !== id) return e;
             var n = store._clone(e); n.bookmarked = !e.bookmarked; return n;
         });
     }
     function dispose(id, d, note) {
+        if (realMode) return;                 // pending backend (Ask 3) — UI disables it
         var inProgress = (d === "dispatched" || d === "verified");
         _patch(id, { status: inProgress ? "progress" : "resolved", dispo:d, note: note || "" });
     }

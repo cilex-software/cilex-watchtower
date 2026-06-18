@@ -54,6 +54,8 @@ struct EventData {
     QString ackBy;
     QString ackTime;
     qint64 tsMs = 0;     // start_time as epoch ms — for chronological Time sort (0 = unknown/mock)
+    qint64 durationMs = 0;  // duration_ms from /events (0 = instantaneous / unknown)
+    QString recordingId;    // metadata.recording_id — pairs motion_started/_ended episodes
 };
 
 // A reusable Live Monitor layout. Stores the *restorable* state (so opening a

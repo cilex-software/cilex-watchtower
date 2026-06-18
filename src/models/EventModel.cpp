@@ -226,7 +226,9 @@ void EventModel::fetchPage(bool append)
             const QDateTime dt = QDateTime::fromString(iso, Qt::ISODate);
             e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : iso;
             e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
-            e.desc = descForType(e.type, o.value("duration_ms").toVariant().toLongLong());
+            e.durationMs = o.value("duration_ms").toVariant().toLongLong();
+            e.recordingId = o.value("metadata").toObject().value("recording_id").toString();
+            e.desc = descForType(e.type, e.durationMs);
             out.push_back(e);
         }
         if (append && !out.isEmpty()) {
@@ -307,6 +309,8 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["ackBy"] = e.ackBy;
     m["ackTime"] = e.ackTime;
     m["ts"] = static_cast<qlonglong>(e.tsMs);
+    m["durationMs"] = static_cast<qlonglong>(e.durationMs);
+    m["recordingId"] = e.recordingId;
     return m;
 }
 

@@ -119,10 +119,14 @@ int main(int argc, char *argv[])
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
 
-    // WT_DEMO routes the Events section to the EventsArea redesign (mock
-    // EventsStore — the events-v2 design port). Off by default so normal runs
-    // keep the live, backend-wired EventsScreen.
+    // WT_DEMO routes the Events section to the EventsArea redesign on the mock
+    // events-v2 showcase store. WT_EVENTS2 routes it to the SAME redesign but fed
+    // by the live cilex-vision /events feed (EventsStore.ingestReal). Both are off
+    // by default so normal runs keep the live, backend-wired EventsScreen until the
+    // redesign cutover is deliberate (pending the backend asks in
+    // docs/letters/2026-06-18-events-redesign-data-and-actions.md).
     engine.rootContext()->setContextProperty("wtDemo", qEnvironmentVariableIsSet("WT_DEMO"));
+    engine.rootContext()->setContextProperty("wtEvents2", qEnvironmentVariableIsSet("WT_EVENTS2"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).

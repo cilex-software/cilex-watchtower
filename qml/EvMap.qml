@@ -90,9 +90,11 @@ Item {
                         Rectangle { x: 1 / 100 * plan.width; y: 54 / 100 * plan.height - 1; width: 8 / 100 * plan.width; height: 3; color: Theme.panel }
                     }
 
-                    // zone labels
+                    // zone labels — the fixed schematic names match the mock site plan;
+                    // hidden in real mode (real cameras have no site-plan coords yet, so
+                    // they sit on a neutral grid — see docs/letters/2026-06-18).
                     Repeater {
-                        model: [ { l: "Rear Yard", x: 16, y: 30 }, { l: "N. Perimeter", x: 50, y: 10 }, { l: "Stockroom", x: 30, y: 42 },
+                        model: EventsStore.realMode ? [] : [ { l: "Rear Yard", x: 16, y: 30 }, { l: "N. Perimeter", x: 50, y: 10 }, { l: "Stockroom", x: 30, y: 42 },
                                  { l: "Server Rm", x: 68, y: 30 }, { l: "Parking E.", x: 84, y: 46 }, { l: "Loading", x: 24, y: 70 },
                                  { l: "Reception", x: 60, y: 70 }, { l: "Main Ent.", x: 50, y: 90 } ]
                         delegate: Text {
@@ -268,8 +270,10 @@ Item {
                         EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: "Verify"
                             onClicked: if (map._curEv) map.openInTriage(map._curEv.id) }
                         EvButton { Layout.fillWidth: true; small: true; variant: "danger"; icon: "dispatch"; label: "Dispatch"
+                            enabledBtn: !EventsStore.actionsPending
                             onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "dispatched", "") }
                         EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "check"; label: "Clear"
+                            enabledBtn: !EventsStore.actionsPending
                             onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "authorized", "") }
                     }
                     Item { width: 1; height: 10 }

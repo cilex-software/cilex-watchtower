@@ -199,6 +199,7 @@ Item {
                                 Item { Layout.fillWidth: true }
                                 EvButton {
                                     small: true; variant: "ghost"
+                                    enabledBtn: !EventsStore.actionsPending
                                     on: tri._cur && tri._cur.bookmarked
                                     icon: (tri._cur && tri._cur.bookmarked) ? "bookmarkF" : "bookmark"
                                     label: (tri._cur && tri._cur.bookmarked) ? "Saved" : "Bookmark"
@@ -351,12 +352,17 @@ Item {
                     Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18; spacing: 8
-                        EvButton { variant: "good"; icon: "check"; label: "Authorized"
+                        EvButton { variant: "good"; icon: "check"; label: "Authorized"; enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "authorized", tri.note) }
-                        EvButton { variant: ""; icon: "x"; label: "False alarm"
+                        EvButton { variant: ""; icon: "x"; label: "False alarm"; enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "false_alarm", tri.note) }
-                        EvButton { variant: "danger"; icon: "dispatch"; label: "Dispatch guard"
+                        EvButton { variant: "danger"; icon: "dispatch"; label: "Dispatch guard"; enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "dispatched", tri.note) }
+                        Text {
+                            visible: EventsStore.actionsPending; Layout.leftMargin: 4
+                            text: "Disposition pending backend"; color: Theme.ink3
+                            font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.4
+                        }
                         Item { Layout.fillWidth: true }
                         EvButton {
                             visible: tri._cur && tri._cur.status === "new"
