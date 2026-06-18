@@ -195,7 +195,54 @@ Item {
                             RowLayout {
                                 anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
                                 EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip" }
-                                EvButton { small: true; variant: "ghost"; icon: "assign"; label: "Assign" }
+                                EvButton {
+                                    id: assignBtn
+                                    small: true; variant: "ghost"; icon: "assign"
+                                    on: tri._cur && tri._cur.assignedTo
+                                    label: (tri._cur && tri._cur.assignedTo) ? tri._cur.assignedTo : "Assign"
+                                    onClicked: assignPop.opened ? assignPop.close() : assignPop.open()
+
+                                    Popup {
+                                        id: assignPop
+                                        x: 0; y: assignBtn.height + 4
+                                        width: 214; padding: 1
+                                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                                        background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
+                                        contentItem: Column {
+                                            id: pickCol
+                                            Text { width: parent.width; height: 26; leftPadding: 10; verticalAlignment: Text.AlignVCenter
+                                                text: "ASSIGN TO"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.0 }
+                                            Repeater {
+                                                model: EventsStore.operators
+                                                delegate: Rectangle {
+                                                    required property var modelData
+                                                    readonly property bool _isCur: tri._cur && tri._cur.assignedTo === modelData.username
+                                                    width: pickCol.width; height: 30
+                                                    color: opMa.containsMouse ? Theme.panel3 : (_isCur ? Theme.accentSoft : "transparent")
+                                                    Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                                        text: modelData.display_name ? modelData.display_name : modelData.username
+                                                        color: parent._isCur ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                                    Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                                        text: modelData.role; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                                                    MouseArea { id: opMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                        onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, modelData.username); assignPop.close() } }
+                                                }
+                                            }
+                                            Rectangle { visible: tri._cur && tri._cur.assignedTo; width: pickCol.width; height: 1; color: Theme.line }
+                                            Rectangle {
+                                                visible: tri._cur && tri._cur.assignedTo
+                                                width: pickCol.width; height: 30; color: unMa.containsMouse ? Theme.panel3 : "transparent"
+                                                Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                                    text: "Unassign"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                                MouseArea { id: unMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                    onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, ""); assignPop.close() } }
+                                            }
+                                            Text { visible: !EventsStore.operators || EventsStore.operators.length === 0
+                                                width: parent.width; height: 30; leftPadding: 10; verticalAlignment: Text.AlignVCenter
+                                                text: "No operators available"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                        }
+                                    }
+                                }
                                 Item { Layout.fillWidth: true }
                                 EvButton {
                                     small: true; variant: "ghost"

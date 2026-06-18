@@ -72,15 +72,20 @@ EventModel::EventModel(QObject *parent)
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
         if (auth->authenticated()) {
             refresh();
+            fetchOperators();
         } else {
             beginResetModel();
             m_all.clear();
             endResetModel();
+            m_operators.clear();
+            emit operatorsChanged();
             emit changed();
         }
     });
-    if (auth->authenticated())
+    if (auth->authenticated()) {
         refresh();
+        fetchOperators();
+    }
 }
 
 int EventModel::rowCount(const QModelIndex &parent) const
@@ -211,6 +216,8 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     e.triageState = o.value("triage_state").toString();
     e.disposition = o.value("disposition").toString();
     e.dispositionNote = o.value("disposition_note").toString();
+    e.assignedTo = o.value("assigned_to").toString();
+    e.assignedAt = o.value("assigned_at").toString();
     e.bookmarked = o.value("bookmarked").toBool();
     e.clipUrl = o.value("clip_url").toString();
     // ack derives from triage_state (anything past "new")
@@ -359,6 +366,41 @@ void EventModel::setBookmark(const QString &id, bool value)
     postEventAction(id, QStringLiteral("bookmark"), b);
 }
 
+void EventModel::assignEvent(const QString &id, const QString &assignee)
+{
+    if (qEnvironmentVariableIsSet("WT_DEMO")) {            // mock: local patch
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == id) {
+                m_all[i].assignedTo = assignee;
+                if (!assignee.isEmpty()) m_all[i].triageState = "in_progress";
+                emit dataChanged(index(i), index(i));
+                emit changed();
+                return;
+            }
+        return;
+    }
+    QJsonObject b;
+    b.insert("assignee", assignee.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(assignee));
+    postEventAction(id, QStringLiteral("assign"), b);
+}
+
+void EventModel::fetchOperators()
+{
+    if (qEnvironmentVariableIsSet("WT_DEMO")) return;
+    if (!AuthController::instance()->authenticated()) return;
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/operators")});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (code < 200 || code >= 300) return;
+        const QJsonArray arr = QJsonDocument::fromJson(reply->readAll()).object().value("operators").toArray();
+        m_operators.clear();
+        for (const QJsonValue &v : arr) m_operators.append(v.toObject().toVariantMap());
+        emit operatorsChanged();
+    });
+}
+
 // POST /events/{id}/{acknowledge|disposition|bookmark}; the endpoint returns the
 // updated event row, which we parse and swap in place (so any client reflects the
 // shared state). Leaves the row untouched on any non-2xx.
@@ -406,6 +448,8 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["triageState"] = e.triageState;
     m["disposition"] = e.disposition;
     m["dispositionNote"] = e.dispositionNote;
+    m["assignedTo"] = e.assignedTo;
+    m["assignedAt"] = e.assignedAt;
     m["bookmarked"] = e.bookmarked;
     m["clipUrl"] = e.clipUrl;
     if (e.detClass.isEmpty()) {

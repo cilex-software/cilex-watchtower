@@ -64,6 +64,8 @@ struct EventData {
     QString triageState;        // new|acknowledged|in_progress|resolved|dismissed (NOT `state`)
     QString disposition;        // verified|dispatched|authorized|false_alarm|dismissed | ""
     QString dispositionNote;
+    QString assignedTo;         // operator username, or "" (unassigned)
+    QString assignedAt;         // ISO instant, or ""
     bool bookmarked = false;
     QString clipUrl;            // signed playback URL (optional)
     // AI detection (null until the AI tier / smart events land) — empty class = none.

@@ -64,13 +64,15 @@ QtObject {
     property var realAck: null                            // function(id)            → EventModel.acknowledgeById
     property var realDispose: null                        // function(id, dispo, note) → EventModel.setDisposition
     property var realBookmark: null                       // function(id, value)     → EventModel.setBookmark
+    property var realAssign: null                         // function(id, assignee)  → EventModel.assignEvent
+    property var operators: []                            // assignable roster (GET /operators), set by EventsArea
 
     function _ev(o, uid) {
         var t = new Date(store.now.getTime() - o.ago * 1000);
         var subject = (o.type === "person" || o.type === "loiter" || o.type === "line_cross") ? "person"
                     : (o.type === "vehicle" ? "vehicle" : "none");
         var e = { id:"EV-" + (7400 + uid), ts:t, status:"new", conf:null, sx:48, sy:8, tod:"night",
-                  subject:subject, bookmarked:false, dispo:null, note:"", restricted:false, durationSec:0 };
+                  subject:subject, bookmarked:false, assignedTo:"", dispo:null, note:"", restricted:false, durationSec:0 };
         for (var k in o) e[k] = o[k];          // raw overrides defaults
         e.cam = store.cams[o.cam];             // resolve camera key → object
         return e;
@@ -145,6 +147,7 @@ QtObject {
                 tod: store._todFromDate(t),                   // derived from real time
                 subject: subj,                                // from detection.class (none until AI)
                 bookmarked: !!r.bookmarked,
+                assignedTo: (r.assignedTo ? r.assignedTo : ""),
                 dispo: (r.disposition ? r.disposition : null),
                 note: (r.dispositionNote ? r.dispositionNote : (r.desc ? r.desc : "")),
                 restricted: !!r.zoneRestricted,
@@ -221,6 +224,12 @@ QtObject {
         if (realMode) { if (realDispose) realDispose(id, d, note || ""); return; }
         var inProgress = (d === "dispatched" || d === "verified");
         _patch(id, { status: inProgress ? "progress" : "resolved", dispo:d, note: note || "" });
+    }
+    // Assign to an operator username, or "" to unassign. Backend (real) transitions
+    // an assigned event to in_progress; mock mirrors that.
+    function assign(id, who) {
+        if (realMode) { if (realAssign) realAssign(id, who || ""); return; }
+        _patch(id, who ? { assignedTo: who, status: "progress" } : { assignedTo: "" });
     }
     function find(id) { for (var i = 0; i < events.length; i++) if (events[i].id === id) return events[i]; return null; }
 

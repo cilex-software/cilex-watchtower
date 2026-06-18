@@ -78,9 +78,16 @@ public:
     // (no backend) they fall back to a local patch.
     Q_INVOKABLE void setDisposition(const QString &id, const QString &disposition, const QString &note);
     Q_INVOKABLE void setBookmark(const QString &id, bool value);
+    // Assign an event to an operator (empty assignee → unassign). POSTs and swaps
+    // in the returned row; WT_DEMO falls back to a local patch.
+    Q_INVOKABLE void assignEvent(const QString &id, const QString &assignee);
+    // Roster of assignable operators (GET /operators) for the assign menu.
+    Q_INVOKABLE void fetchOperators();
+    Q_INVOKABLE QVariantList operators() const { return m_operators; }
 
 signals:
     void changed();
+    void operatorsChanged();
 
 private:
     void fetchPage(bool append);
@@ -91,6 +98,7 @@ private:
     QVariantMap toMap(const wt::EventData &e) const;
 
     QVector<wt::EventData> m_all;
+    QVariantList m_operators;
     QNetworkAccessManager *m_nam = nullptr;
     QString m_baseUrl;
     bool m_loading = false;

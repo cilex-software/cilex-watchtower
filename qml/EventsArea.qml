@@ -49,6 +49,9 @@ Item {
             EventsStore.realAck = function (id) { if (area.eventModel) area.eventModel.acknowledgeById(id); };
             EventsStore.realDispose = function (id, d, note) { if (area.eventModel) area.eventModel.setDisposition(id, d, note); };
             EventsStore.realBookmark = function (id, value) { if (area.eventModel) area.eventModel.setBookmark(id, value); };
+            EventsStore.realAssign = function (id, who) { if (area.eventModel) area.eventModel.assignEvent(id, who); };
+            area.eventModel.fetchOperators();
+            EventsStore.operators = area.eventModel.operators();
             area._ingestReal();
         }
     }
@@ -56,6 +59,7 @@ Item {
         target: area.eventModel
         enabled: !area.demo && area.eventModel !== null
         function onChanged() { area._ingestReal(); }
+        function onOperatorsChanged() { EventsStore.operators = area.eventModel.operators(); }
     }
     on_CamCountChanged: if (!demo && eventModel) area._ingestReal()    // cameras load async → re-resolve names/zones
 
