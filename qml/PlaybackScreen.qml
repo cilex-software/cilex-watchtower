@@ -160,8 +160,38 @@ Item {
         root._scanPos = p;        // keep the scan accumulator in step with manual seeks
     }
 
-    // current playhead wall ms
-    readonly property double playheadMs: posToWall(player.position / 1000)
+    // Smoothly-interpolated player position (compact ms). MediaPlayer.position over
+    // HLS only ticks a few times a second in coarse steps, so binding the playhead
+    // straight to it makes the marker lurch ~twice a second — and the eye catches the
+    // tall stick jumping a beat before the small knob, which reads as the two being
+    // "out of sync". We run a local 60fps clock while playing and snap it back to the
+    // real position on a seek / scan jump / drift, so the whole playhead glides as one.
+    property double _smoothMs: 0
+    Timer {
+        interval: 16; repeat: true
+        running: !root.paused && root.frags.length > 0 && root.playSpeed <= root.maxDecodeRate
+                 && player.playbackState === MediaPlayer.PlayingState
+        onTriggered: {
+            var d = player.duration;
+            root._smoothMs = Math.min(d > 0 ? d : root._smoothMs, root._smoothMs + interval * player.playbackRate);
+        }
+    }
+    Connections {
+        target: player
+        // snap when paused (sit exactly on the frame), during high-speed scan (follow
+        // its big jumps), or on a real seek / drift > ~0.4s; else let the clock glide.
+        function onPositionChanged() {
+            if (root.paused || root.playSpeed > root.maxDecodeRate
+                    || Math.abs(player.position - root._smoothMs) > 400)
+                root._smoothMs = player.position;
+        }
+        function onPlaybackStateChanged() {
+            if (player.playbackState !== MediaPlayer.PlayingState) root._smoothMs = player.position;
+        }
+    }
+
+    // current playhead wall ms (driven by the smooth clock, not raw position)
+    readonly property double playheadMs: posToWall(_smoothMs / 1000)
 
     // ---- playback speed / fast-forward ----------------------------------
     // playbackRate carries low speeds, but the HEVC-1440p decoder caps near ~14×
@@ -1100,10 +1130,10 @@ Item {
                 Rectangle {
                     visible: bar.hoverMs >= 0
                     readonly property real hx: bar.xOf(bar.hoverMs)
+                    width: hoverT.implicitWidth + 14; height: 20
                     x: Math.max(0, Math.min(bar.width - width, hx - width / 2))
                     y: 2
-                    implicitWidth: hoverT.implicitWidth + 10; height: 16
-                    color: Qt.rgba(0, 0, 0, 0.85); border.width: 1; border.color: Theme.line2
+                    color: Qt.rgba(0, 0, 0, 0.9); border.width: 1; border.color: Theme.line2
                     Text { id: hoverT; anchors.centerIn: parent
                         text: bar.hoverPoint
                               ? ((bar.hoverPoint.count > 1 ? bar.hoverPoint.count + " events · " : EventStyle.label(bar.hoverPoint.type) + " · ")
@@ -1112,7 +1142,7 @@ Item {
                                 ? ((bar.hoverMotion.count > 1 ? bar.hoverMotion.count + " motions · " : "Motion · ")
                                    + root.fmtClock(bar.hoverMotion.sMs) + "–" + root.fmtClock(bar.hoverMotion.eMs))
                                 : root.fmtClock(bar.hoverMs)
-                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9 }
+                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
 
                 // click to seek, drag to select

@@ -232,7 +232,32 @@ Item {
         }
         return 0;
     }
-    readonly property double playheadMs: posToWall(player.position / 1000)
+    // Smoothly-interpolated player position (compact ms) — same reason as the single-
+    // camera Playback screen: MediaPlayer.position ticks coarsely over HLS, so binding
+    // the playhead straight to it makes it lurch; a 60fps clock that snaps back on a
+    // seek / drift keeps it gliding. The wall only ever plays at 1× (server composite).
+    property double _smoothMs: 0
+    Timer {
+        interval: 16; repeat: true
+        running: root.frags.length > 0 && player.playbackState === MediaPlayer.PlayingState
+        onTriggered: {
+            var d = player.duration;
+            root._smoothMs = Math.min(d > 0 ? d : root._smoothMs, root._smoothMs + interval * player.playbackRate);
+        }
+    }
+    Connections {
+        target: player
+        function onPositionChanged() {
+            if (player.playbackState !== MediaPlayer.PlayingState
+                    || Math.abs(player.position - root._smoothMs) > 400)
+                root._smoothMs = player.position;
+        }
+        function onPlaybackStateChanged() {
+            if (player.playbackState !== MediaPlayer.PlayingState) root._smoothMs = player.position;
+        }
+    }
+
+    readonly property double playheadMs: posToWall(_smoothMs / 1000)
     function seekToWall(ms) {
         if (player.duration <= 0) return;
         var pos = wallToPos(ms);
@@ -700,6 +725,16 @@ Item {
                     visible: bar.hoverMs >= 0 && root.frags.length > 0
                     width: 1; height: parent.height; color: Theme.ink3
                     x: bar.xOf(bar.hoverMs)
+                }
+                // sticky hover tooltip — the exact wall-clock time under the cursor
+                Rectangle {
+                    visible: bar.hoverMs >= 0 && root.frags.length > 0
+                    readonly property real hx: bar.xOf(bar.hoverMs)
+                    width: wTip.implicitWidth + 14; height: 20
+                    x: Math.max(0, Math.min(bar.width - width, hx - width / 2)); y: 2
+                    color: Qt.rgba(0, 0, 0, 0.9); border.width: 1; border.color: Theme.line2
+                    Text { id: wTip; anchors.centerIn: parent; text: root.fmtClock(bar.hoverMs)
+                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
 
                 MouseArea {
