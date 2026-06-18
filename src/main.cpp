@@ -14,6 +14,7 @@
 #include <sys/resource.h>
 
 #include "AuthController.h"
+#include "models/CvImageProvider.h"
 
 namespace {
 
@@ -110,6 +111,8 @@ int main(int argc, char *argv[])
     }
 
     QQmlApplicationEngine engine;
+    // Authenticated backend images (event-moment snapshots): image://cvframe/<path>.
+    engine.addImageProvider(QStringLiteral("cvframe"), new CvImageProvider(auth));
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed,
         &app, []() { QCoreApplication::exit(-1); },
