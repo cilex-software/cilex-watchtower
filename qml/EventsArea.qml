@@ -33,7 +33,7 @@ Item {
             // No site-plan coords from the backend yet — spread pins on a grid so the
             // Map stays usable (a layout fallback, not invented positions).
             lk[c.camId] = { key: c.camId, id: c.camId, name: (c.name ? c.name : c.camId),
-                zone: (c.groupName ? c.groupName : ""),
+                zone: (c.groupName ? c.groupName : ""), snapshotUrl: (c.snapshotUrl ? c.snapshotUrl : ""),
                 x: Math.round((col + 0.5) / cols * 100), y: Math.round((ri + 0.5) / rows * 100) };
         }
         return lk;
@@ -203,7 +203,8 @@ Item {
 
     Component {
         id: triageC
-        EvTriage { selId: area.selId; playbackClient: heroClient; onSelect: (id) => area.selId = id
+        EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
+                   onSelect: (id) => area.selId = id
                    onExportClip: (c, a, p) => area.exportClip(c, a, p) }
     }
     Component {

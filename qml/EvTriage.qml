@@ -11,8 +11,25 @@ Item {
     id: tri
     property string selId: ""                    // shared selection (owned by EventsArea)
     property var playbackClient: null            // real-mode inline playback (EvHeroPlayer)
+    property bool active: false                   // Events screen visible → keyboard shortcuts live
     signal select(string id)
     signal exportClip(string camId, double atMs, string purpose)   // bubbles to Main's export flow
+
+    // move the selection up/down the sorted queue (keyboard ↑/↓)
+    function _moveSel(d) {
+        var l = tri._list; if (!l.length) return;
+        var idx = 0;
+        for (var i = 0; i < l.length; i++) if (tri._cur && l[i].id === tri._cur.id) { idx = i; break; }
+        tri.select(l[Math.max(0, Math.min(l.length - 1, idx + d))].id);
+    }
+    // E acknowledge · ↑/↓ move selection · Space play/pause — only when the Events
+    // screen is up and the disposition note isn't being typed in.
+    Shortcut { sequence: "E"; enabled: tri.active && tri._cur && tri._cur.status === "new" && !noteIn.activeFocus
+        onActivated: if (tri._cur) EventsStore.ack(tri._cur.id) }
+    Shortcut { sequence: "Up"; enabled: tri.active && !noteIn.activeFocus; onActivated: tri._moveSel(-1) }
+    Shortcut { sequence: "Down"; enabled: tri.active && !noteIn.activeFocus; onActivated: tri._moveSel(1) }
+    Shortcut { sequence: "Space"; enabled: tri.active && !noteIn.activeFocus
+        onActivated: if (heroLoader.item && heroLoader.item.toggle) heroLoader.item.toggle() }
 
     property string filter: "open"               // open | critical | all
     property string note: ""
@@ -192,6 +209,7 @@ Item {
                         spacing: 0
                         // mock → procedural EvPlayer; real → EvHeroPlayer (live recording)
                         Loader {
+                            id: heroLoader
                             Layout.fillWidth: true
                             sourceComponent: EventsStore.realMode ? heroRealC : heroMockC
                         }

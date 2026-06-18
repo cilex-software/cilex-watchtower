@@ -60,6 +60,7 @@ Item {
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
+    function toggle() { player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play() }  // keyboard Space
 
     Connections {
         target: hp.playbackClient

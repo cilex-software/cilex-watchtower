@@ -24,25 +24,34 @@ Item {
     // the cvframe image provider) instead of the procedural scene. Mock keeps the
     // procedural still (no backend).
     readonly property bool _real: EventsStore.realMode && !!ev && !!ev.id
+    // event still 404'd but the camera's live frame loaded → showing a "now" frame
+    readonly property bool _showingLive: root._real && evImg.status === Image.Error && liveImg.status === Image.Ready
 
     Rectangle { anchors.fill: parent; color: "#0b0d10" }
 
-    // ---- real event-moment frame (real mode) ----
+    // ---- real frame (real mode): event-moment still, else the live frame ----
     Item {
         id: realFrame
         visible: root._real && root._type !== "offline"
         anchors.fill: parent
-        Image {
+        Image {                                          // live frame fallback (below)
+            id: liveImg
+            anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+            asynchronous: true; cache: true
+            source: (root._real && root.ev && root.ev.cam && root.ev.cam.snapshotUrl) ? root.ev.cam.snapshotUrl : ""
+            visible: status === Image.Ready && evImg.status !== Image.Ready
+        }
+        Image {                                          // event-moment still (primary, on top)
             id: evImg
             anchors.fill: parent; fillMode: Image.PreserveAspectCrop
             asynchronous: true; cache: true
             source: (root._real && root.ev) ? ("image://cvframe/events/" + root.ev.id + "/snapshot") : ""
             visible: status === Image.Ready
         }
-        // honest "no recorded frame at the event moment" (the snapshot endpoint 404s)
+        // honest "no frame" only when neither the still nor the live frame loaded
         Item {
             anchors.fill: parent
-            visible: evImg.status === Image.Error || evImg.status === Image.Null
+            visible: evImg.status === Image.Error && liveImg.status !== Image.Ready
             Column { anchors.centerIn: parent; spacing: 5
                 EvIcon { visible: !root.mini; anchors.horizontalCenter: parent.horizontalCenter; name: "clock"; size: 18; color: Theme.ink3 }
                 Text { visible: !root.mini; text: "NO FRAME AT EVENT TIME"; color: Theme.ink3
@@ -160,10 +169,12 @@ Item {
             Text { anchors.verticalCenter: parent.verticalCenter; text: ev ? ev.cam.id.slice(0, 16) : ""
                 color: Qt.rgba(1,1,1,0.7); font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.36 }
         }
-        Text {                                           // bottom-right: date + time
+        Text {                                           // bottom-right: event time, or LIVE on fallback
             anchors { bottom: parent.bottom; right: parent.right; bottomMargin: 6; rightMargin: 8 }
-            text: ev ? (Qt.formatDate(ev.ts, "dd MMM").toUpperCase() + " " + EventsStore.hhmmss(ev.ts)) : ""
-            color: Qt.rgba(1,1,1,0.78); font.family: Theme.fontMono; font.pixelSize: 9
+            text: root._showingLive ? "● LIVE"
+                : (ev ? (Qt.formatDate(ev.ts, "dd MMM").toUpperCase() + " " + EventsStore.hhmmss(ev.ts)) : "")
+            color: root._showingLive ? Theme.rec : Qt.rgba(1,1,1,0.78)
+            font.family: Theme.fontMono; font.pixelSize: 9
         }
         Text {                                           // bottom-left: channel / playback
             anchors { bottom: parent.bottom; left: parent.left; bottomMargin: 6; leftMargin: 8 }

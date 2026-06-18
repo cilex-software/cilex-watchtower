@@ -18,9 +18,9 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 | 9 | **Imagery part 2 — inline HLS playback in the Triage hero** | ✅ done¹ | Watchtower |
 | 10 | **Export-clip toolrow button wiring** | ✅ done | Watchtower |
 | 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | ✅ done | Watchtower |
-| 12 | Live-frame fallback on event-snapshot 404 | ◻︎ optional | Watchtower |
-| 13 | Map-pin facing via `rotation_deg` | ◻︎ optional | Watchtower |
-| 14 | Keyboard affordances (Triage `E` / ↑↓ / `Space`) | ◻︎ optional | Watchtower |
+| 12 | Live-frame fallback on event-snapshot 404 | ✅ done | Watchtower |
+| 13 | Map-pin facing via `rotation_deg` | ✅ done | Watchtower |
+| 14 | Keyboard affordances (Triage `E` / ↑↓ / `Space`) | ✅ done² | Watchtower |
 | 15 | Real critical/high severity + AI detection populating | ⏳ outstanding | Cilex Vision (deployment/config) |
 | 16 | Cameras placed on the Camera Map (2/31 today) | ⏳ outstanding | Cilex Vision (operators place in editor) |
 
@@ -28,11 +28,14 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 - ¹ #9 built + structurally verified (session opens, plays, transport drives the player, no
   QML errors); the actual decoded video can't be screenshot-verified offscreen — confirmed
   visually in the running app is a final eyeball check.
+- ² #14 built + compiles; key input can't be exercised offscreen — eyeball `E`/↑↓/`Space` live.
 - #15–#16 are not code-resolvable by either side — they resolve operationally (camera
   detector config + AI tier; operator placement). Fully wired on our side; they light up as
   the deployment is configured. Nothing is blocked.
 - Cilex Vision's Events **backend** workstream is closed (all engineering asks met).
 - **The redesign is now the DEFAULT Events screen** (#9–#11 done). Flags: `WT_DEMO` → mock
   showcase; `WT_EVENTS_LEGACY` → the old table-style screen (instant fallback).
-- Remaining is **only optional polish (#12–#14)** + **operational (#15–#16)** — nothing on the
-  critical path. Suggested last check: eyeball the inline video in the running app.
+- **All client work is done (#1–#14).** The only open rows are **#15–#16** — operational/
+  config on Cilex Vision's side (severity/AI data, camera placement), which light up as the
+  deployment is configured; nothing for us to build. Suggested live eyeball checks: inline
+  video (#9) + keyboard shortcuts (#14).

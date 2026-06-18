@@ -67,6 +67,7 @@ Item {
         property string camId: ""
         property real cx: 0        // pixel centre within the parent layer
         property real cy: 0
+        property real facing: -1   // camera facing degrees (0 = up); -1 = none
         readonly property string st: map._pinStateForId(camId)
         readonly property int open: map._openByCam[camId] || 0
         readonly property bool _sel: map.active === camId
@@ -88,6 +89,11 @@ Item {
         }
         Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18   // selection halo
             color: "transparent"; border.width: 3; border.color: Theme.accent }
+        Item {                                        // facing tick (camera direction)
+            visible: pin.facing >= 0; anchors.fill: parent; rotation: pin.facing; z: 1
+            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; y: -7; width: 3; height: 9; radius: 1.5
+                color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent : Theme.ink2 }
+        }
         Rectangle {                                   // dot
             anchors.fill: parent; radius: 15; z: 2
             color: pin.st === "critical" ? Theme.badSoft : pin.st === "high" ? Theme.accentSoft : Theme.panel3
@@ -200,6 +206,7 @@ Item {
                                 camId: modelData.cameraId
                                 cx: modelData.x * placedLayer.width
                                 cy: modelData.y * placedLayer.height
+                                facing: modelData.rotation
                             }
                         }
                     }

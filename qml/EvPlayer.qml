@@ -31,6 +31,7 @@ Item {
 
     function _fmt(s) { s = Math.max(0, Math.round(s)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
     function _seekTo(frac) { prog = Math.min(1, Math.max(0, frac)); }
+    function toggle() { playing = !playing }              // keyboard Space
 
     Timer {
         interval: 100; repeat: true; running: pl.playing
