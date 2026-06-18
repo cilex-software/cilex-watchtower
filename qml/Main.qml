@@ -352,10 +352,19 @@ Window {
                     onOpenEvents: (cam) => win.section = "events"
                 }
 
+                // Events-screen redesign (events-v2 port) — mock EventsStore, so
+                // it only takes over the Events section under WT_DEMO; the live
+                // EventsScreen below stays the default.
+                EventsArea {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: wtDemo && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                }
+
                 EventsScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: !wtDemo && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
                     eventModel: eventModel
                     cameraModel: cameraModel
                     onOpenPlayback: (camId, atMs) => {

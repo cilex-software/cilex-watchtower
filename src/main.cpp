@@ -119,6 +119,10 @@ int main(int argc, char *argv[])
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
 
+    // WT_DEMO routes the Events section to the EventsArea redesign (mock
+    // EventsStore — the events-v2 design port). Off by default so normal runs
+    // keep the live, backend-wired EventsScreen.
+    engine.rootContext()->setContextProperty("wtDemo", qEnvironmentVariableIsSet("WT_DEMO"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).
