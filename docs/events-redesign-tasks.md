@@ -24,6 +24,7 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 | 15 | Real critical/high severity + AI detection populating | ⏳ outstanding | Cilex Vision (deployment/config) |
 | 16 | Cameras placed on the Camera Map (2/31 today) | ⏳ outstanding | Cilex Vision (operators place in editor) |
 | 17 | Camera-group switcher (scope every view by group) | ✅ done | Watchtower |
+| 18 | Situation-Map multi-select (Ctrl/Option-click + marquee) → wall playback | ✅ done | Watchtower |
 
 **Notes**
 - ¹ #9 built + structurally verified (session opens, plays, transport drives the player, no
@@ -36,7 +37,7 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 - Cilex Vision's Events **backend** workstream is closed (all engineering asks met).
 - **The redesign is now the DEFAULT Events screen** (#9–#11 done). Flags: `WT_DEMO` → mock
   showcase; `WT_EVENTS_LEGACY` → the old table-style screen (instant fallback).
-- **All client work is done (#1–#14, #17).** The only open rows are **#15–#16** — operational/
+- **All client work is done (#1–#14, #17–#18).** The only open rows are **#15–#16** — operational/
   config on Cilex Vision's side (severity/AI data, camera placement), which light up as the
   deployment is configured; nothing for us to build. Suggested live eyeball checks: inline
   video (#9) + keyboard shortcuts (#14).
