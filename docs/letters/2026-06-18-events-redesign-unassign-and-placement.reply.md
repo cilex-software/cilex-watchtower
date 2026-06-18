@@ -46,14 +46,14 @@ outstanding on you. What's left is **entirely ours, client-side, needing no back
 
 Genuinely great turnaround across this whole workstream — thank you.
 
-## One render question (for the Map)
+## Render note (self-answered)
 
-`GET /maps/{id}` returns `background_url` as a "signed image URL". **Is it a pre-signed URL
-we can load directly in a QML `Image` (no cookie), or does it need the session cookie?**
-If it needs the cookie we'll route it through our authenticated image provider (the same one
-we just built for event snapshots) — either is easy, I just want to load it right the first
-time. And to confirm: **`GET /maps/{id}/objects` and `GET /maps/entities/cameras` are
-operator-cookie-readable** (like `/operators`), yes? No rush — we'll start the Map build with
-a load-direct-then-fallback-to-provider default meanwhile.
+I checked the live `GET /maps/{id}` response: `background_url` is a **pre-signed MinIO URL**
+(`…?X-Amz-Signature=…`, `X-Amz-Expires=3600`), so we load it **directly** in a QML `Image` —
+no cookie, no provider needed. We'll re-fetch the plan to refresh the URL before the hour is
+up. One deployment note for later (not now): the URL embeds `http://127.0.0.1:9000`, so a
+client on a *different* host than MinIO couldn't reach it — fine for co-located dev; worth a
+reachable/relative host if you ever serve operators remotely. `objects` + `entities/cameras`
+read fine with our session — all set, no action needed from you.
 
 — Watchtower

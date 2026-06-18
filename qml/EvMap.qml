@@ -47,6 +47,67 @@ Item {
         var e = _byCam[cam.id]; var open = _openByCam[cam.id] || 0;
         return (e && open) ? e.priority : (e && e.type === "offline" ? "offline" : "idle");
     }
+    function _pinStateForId(id) {
+        var e = _byCam[id]; var open = _openByCam[id] || 0;
+        return (e && open) ? e.priority : (e && e.type === "offline" ? "offline" : "idle");
+    }
+
+    // Real mode → load cilex-vision's active Camera Map (background + placements).
+    // Fire once both real mode AND auth are ready (whichever lands last; ingestReal
+    // can flip realMode before autologin finishes).
+    SiteMapModel { id: siteMap }
+    function _maybeLoadMap() { if (EventsStore.realMode && AuthController.authenticated && !siteMap.ready) siteMap.load(); }
+    Component.onCompleted: map._maybeLoadMap()
+    Connections { target: EventsStore; function onRealModeChanged() { map._maybeLoadMap() } }
+    Connections { target: AuthController; function onAuthenticatedChanged() { map._maybeLoadMap() } }
+
+    // One pin visual, shared by the mock grid and the real Camera Map placements.
+    component MapPin: Item {
+        id: pin
+        property string camId: ""
+        property real cx: 0        // pixel centre within the parent layer
+        property real cy: 0
+        readonly property string st: map._pinStateForId(camId)
+        readonly property int open: map._openByCam[camId] || 0
+        readonly property bool _sel: map.active === camId
+        width: 30; height: 30
+        x: cx - 15; y: cy - 15
+        z: _sel ? 5 : 1
+
+        Rectangle {                                   // ping ring (open events)
+            id: pingRing
+            visible: pin.open > 0
+            anchors.centerIn: parent; width: 30; height: 30; radius: 15
+            color: "transparent"; border.width: 2
+            border.color: pin.st === "critical" ? Theme.bad : Theme.accent
+            ParallelAnimation {
+                running: pin.open > 0; loops: Animation.Infinite
+                NumberAnimation { target: pingRing; property: "scale"; from: 1; to: 2.4; duration: 1800; easing.type: Easing.OutCubic }
+                NumberAnimation { target: pingRing; property: "opacity"; from: 0.8; to: 0; duration: 1800 }
+            }
+        }
+        Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18   // selection halo
+            color: "transparent"; border.width: 3; border.color: Theme.accent }
+        Rectangle {                                   // dot
+            anchors.fill: parent; radius: 15; z: 2
+            color: pin.st === "critical" ? Theme.badSoft : pin.st === "high" ? Theme.accentSoft : Theme.panel3
+            border.width: 1
+            border.color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
+                        : pin.st === "idle" ? Theme.goodDim : pin.st === "offline" ? Theme.infoDim : Theme.line2
+            EvIcon { anchors.centerIn: parent; name: "pin"; size: 14
+                color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
+                     : pin.st === "idle" ? Theme.good : pin.st === "offline" ? Theme.info
+                     : (pin.st === "medium" || pin.st === "low") ? Theme.ink : Theme.ink2 }
+        }
+        Rectangle {                                   // count badge
+            visible: pin.open > 0; z: 3
+            anchors.right: parent.right; anchors.top: parent.top; anchors.rightMargin: -4; anchors.topMargin: -4
+            height: 16; width: Math.max(16, bdg.implicitWidth + 8); radius: 8; color: Theme.bad
+            Text { id: bdg; anchors.centerIn: parent; text: pin.open; color: "#fff"
+                font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
+        }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: map.active = pin.camId }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -66,8 +127,18 @@ Item {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     color: Theme.panel; border.width: 1; border.color: Theme.line2
 
-                    // rooms (schematic backdrop)
+                    // real Camera Map background (real mode) — pre-signed floor-plan image
+                    Image {
+                        id: planBg
+                        visible: EventsStore.realMode && siteMap.ready
+                        anchors.fill: parent; fillMode: Image.PreserveAspectFit
+                        asynchronous: true; cache: true
+                        source: siteMap.ready ? siteMap.backgroundUrl : ""
+                    }
+
+                    // rooms (schematic backdrop — mock mode only)
                     Item {
+                        visible: !EventsStore.realMode
                         anchors.fill: parent
                         Repeater {
                             model: [ { x: 8, y: 8, w: 34, h: 30 }, { x: 44, y: 8, w: 22, h: 30 }, { x: 68, y: 8, w: 24, h: 44 },
@@ -106,60 +177,41 @@ Item {
                         }
                     }
 
-                    // camera pins
+                    // camera pins — mock: schematic grid positions
                     Repeater {
-                        model: map._camList
-                        delegate: Item {
-                            id: pin
+                        model: EventsStore.realMode ? [] : map._camList
+                        delegate: MapPin {
                             required property var modelData
-                            readonly property var cam: modelData
-                            readonly property string st: map._pinState(cam)
-                            readonly property int open: map._openByCam[cam.id] || 0
-                            readonly property bool _sel: map.active === cam.id
-                            width: 30; height: 30
-                            x: cam.x / 100 * plan.width - 15
-                            y: cam.y / 100 * plan.height - 15
-                            z: _sel ? 5 : 1
-
-                            // ping ring (open events)
-                            Rectangle {
-                                id: pingRing
-                                visible: pin.open > 0
-                                anchors.centerIn: parent; width: 30; height: 30; radius: 15
-                                color: "transparent"; border.width: 2
-                                border.color: pin.st === "critical" ? Theme.bad : Theme.accent
-                                ParallelAnimation {
-                                    running: pin.open > 0; loops: Animation.Infinite
-                                    NumberAnimation { target: pingRing; property: "scale"; from: 1; to: 2.4; duration: 1800; easing.type: Easing.OutCubic }
-                                    NumberAnimation { target: pingRing; property: "opacity"; from: 0.8; to: 0; duration: 1800 }
-                                }
-                            }
-                            // selection halo
-                            Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18
-                                color: "transparent"; border.width: 3; border.color: Theme.accent }
-                            // dot
-                            Rectangle {
-                                id: dot
-                                anchors.fill: parent; radius: 15; z: 2
-                                color: pin.st === "critical" ? Theme.badSoft : pin.st === "high" ? Theme.accentSoft : Theme.panel3
-                                border.width: 1
-                                border.color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
-                                            : pin.st === "idle" ? Theme.goodDim : pin.st === "offline" ? Theme.infoDim : Theme.line2
-                                EvIcon { anchors.centerIn: parent; name: "pin"; size: 14
-                                    color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
-                                         : pin.st === "idle" ? Theme.good : pin.st === "offline" ? Theme.info
-                                         : (pin.st === "medium" || pin.st === "low") ? Theme.ink : Theme.ink2 }
-                            }
-                            // count badge
-                            Rectangle {
-                                visible: pin.open > 0; z: 3
-                                anchors.right: parent.right; anchors.top: parent.top; anchors.rightMargin: -4; anchors.topMargin: -4
-                                height: 16; width: Math.max(16, bdg.implicitWidth + 8); radius: 8; color: Theme.bad
-                                Text { id: bdg; anchors.centerIn: parent; text: pin.open; color: "#fff"
-                                    font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
-                            }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: map.active = pin.cam.id }
+                            camId: modelData.id
+                            cx: modelData.x / 100 * plan.width
+                            cy: modelData.y / 100 * plan.height
                         }
+                    }
+                    // camera pins — real: placements on the Camera Map background image
+                    Item {
+                        id: placedLayer
+                        visible: EventsStore.realMode && siteMap.ready && planBg.status === Image.Ready
+                        width: planBg.paintedWidth; height: planBg.paintedHeight
+                        x: (plan.width - width) / 2; y: (plan.height - height) / 2
+                        Repeater {
+                            model: (EventsStore.realMode && siteMap.ready) ? siteMap.placements() : []
+                            delegate: MapPin {
+                                required property var modelData
+                                camId: modelData.cameraId
+                                cx: modelData.x * placedLayer.width
+                                cy: modelData.y * placedLayer.height
+                            }
+                        }
+                    }
+                    // unplaced note (real mode) — the rest are reachable via the feed
+                    Rectangle {
+                        visible: EventsStore.realMode && siteMap.ready
+                        anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 10
+                        height: 22; width: unpT.implicitWidth + 18; color: Qt.rgba(0, 0, 0, 0.5)
+                        border.width: 1; border.color: Theme.line2
+                        Text { id: unpT; anchors.centerIn: parent
+                            text: siteMap.placedCount + " of " + map._camList.length + " cameras placed · others in the feed"
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
                     }
                 }
 

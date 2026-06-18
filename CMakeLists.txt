@@ -148,6 +148,8 @@ qt_add_qml_module(watchtower
         src/models/RtspVideoSource.cpp
         src/models/CvImageProvider.h
         src/models/CvImageProvider.cpp
+        src/models/SiteMapModel.h
+        src/models/SiteMapModel.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.
