@@ -79,16 +79,23 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
   showcase) and `ingestReal(rows, camLookup)` (live `/events`). Flags (`src/main.cpp`):
   **`WT_DEMO`** → redesign on the mock; **`WT_EVENTS2`** → redesign on the **live feed**;
   neither → the backend-wired `EventsScreen` (still default until cutover).
-- **Real-data foundation (done 06-18, `614148d`):** real `/events` mapped honestly —
-  neutral severity (no invented critical/high), no AI conf/box, **dispositions+bookmark
-  disabled "pending backend"**, **Acknowledge live** (routes to the real, locally-persisted
-  ack). `EventModel` now exposes `durationMs` + `recordingId`. Backend contract requested in
-  `docs/letters/2026-06-18-events-redesign-data-and-actions.md` (severity, AI detail,
-  ack/disposition endpoints, event-moment still, restricted flag).
-- **Next (not built):** imagery — *real frames + playback* (camera `snapshotUrl` thumbs +
-  real HLS in the Triage hero seeked to the event moment); today the snapshot is an honest
-  empty scene. Then production cutover once the letter's asks (esp. severity + shared
-  ack/disposition) land.
+- **Real-data foundation (done 06-18, `614148d`):** real `/events` mapped honestly via
+  `EventsStore.ingestReal`; `EventModel` exposes `durationMs` + `recordingId`.
+- **Backend contract shipped + wired (done 06-18, `233229b`):** Cilex Vision shipped all
+  five asks (their `…-events-redesign-shipped.md`, backend `44f7bd8`/migration 0042).
+  `EventModel.parseRow` now reads `severity`, `triage_state` (NOT `state`), `disposition`,
+  `disposition_note`, `bookmarked`, `zone_restricted`, `detection{class,confidence,bbox}`,
+  `camera_name`, `zone`; `acknowledge/disposition/bookmark` POST to `/events/{id}/…` and
+  swap in the returned row (WT_DEMO keeps a local fallback). `ingestReal` maps real
+  severity→priority, triage_state→status, etc.; `actionsPending` is now **false** (actions
+  live). Today all events are `severity:low` / `detection:null` (motion-only) — critical/high
+  + AI box light up with no rework when smart events/AI land.
+  - **Open residual** (our reply `…-shipped.reply.md`): asked them to map `verified`+`dispatched`
+    → `triage_state:in_progress` (they currently `resolved` those); plus deferred assignee
+    endpoint, `cameras.restricted` PATCH, after-hours escalation.
+- **Next (not built):** imagery — *real frames + playback*: wire `GET /events/{id}/snapshot`
+  (Ask 4) into thumbnails + real HLS in the Triage hero seeked to the event moment (404 →
+  live-frame fallback). Today the snapshot is an honest empty scene. Then production cutover.
 
 ## Recovery pointers
 
