@@ -102,12 +102,20 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
     Asked for the `GET /maps/entities/cameras/{camera_id}/placement` reverse-lookup; will
     grid-fallback the ~28 unplaced cameras; default to the active plan. See reply
     `…-followups-shipped.reply.md`.
+- **Imagery part 1 — real event frames (done 06-18, `52114e1`):** `CvImageProvider`
+  (authenticated async image provider, `image://cvframe/…`); `EvSnapshot` shows the real
+  event-moment frame (`GET /events/{id}/snapshot`) under the OSD in real mode, honest
+  "NO FRAME AT EVENT TIME" on 404; mock keeps the procedural still.
+- **Situation Map on the real Camera Map (done 06-18, `9bf148d`):** `SiteMapModel` fetches
+  CV's active plan + placements (`/maps?status=active`→`/maps/{id}`→`/maps/{id}/objects`);
+  `EvMap` real mode draws the real floor plan (pre-signed `background_url`) + camera pins at
+  `(x_norm·W, y_norm·H)` with an "N of M placed" note (2/31 today). Mock keeps the schematic.
+  CV closed the Events **backend** workstream (their `…-unassign-and-placement.md`; unassign
+  now reverts to `acknowledged` — no client change needed).
 - **Next (not built):**
-  - **Imagery** — *real frames + playback*: wire `GET /events/{id}/snapshot` into thumbnails +
-    real HLS in the Triage hero (404 → live-frame fallback). Today the snapshot is an honest
-    empty scene.
-  - **Situation Map on the real Camera Map** — render `background_url` + camera placements
-    (via the reverse-lookup once it lands), grid-fallback unplaced.
+  - **Imagery part 2** — real HLS playback in the Triage hero (reuse `/review/sessions`;
+    isolated `PlaybackClient`; the *stable* QtMultimedia path). Needs interactive verification
+    (offscreen can't screenshot live video).
   - Wire the **Export clip** toolrow button; then **production cutover**.
 
 ## Recovery pointers
