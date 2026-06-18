@@ -16,8 +16,8 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 | 7 | Situation Map on the real Camera Map (`/maps`) | ✅ done | — |
 | 8 | Playback no-footage / transient-session-failure fix (side bug) | ✅ done | — |
 | 9 | **Imagery part 2 — inline HLS playback in the Triage hero** | ✅ done¹ | Watchtower |
-| 10 | **Export-clip toolrow button wiring** | 🔧 in progress | Watchtower |
-| 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | ⏳ outstanding | Watchtower (gated on #9) |
+| 10 | **Export-clip toolrow button wiring** | ✅ done | Watchtower |
+| 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | 🔧 in progress | Watchtower |
 | 12 | Live-frame fallback on event-snapshot 404 | ◻︎ optional | Watchtower |
 | 13 | Map-pin facing via `rotation_deg` | ◻︎ optional | Watchtower |
 | 14 | Keyboard affordances (Triage `E` / ↑↓ / `Space`) | ◻︎ optional | Watchtower |

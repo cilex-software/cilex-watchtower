@@ -18,6 +18,7 @@ Item {
     property var eventModel: null
     property var cameraModel: null
     property bool demo: false
+    signal exportClip(string camId, double atMs, string purpose)   // → Main's export flow
     readonly property int _camCount: cameraModel ? cameraModel.total : 0
 
     function _buildLookup() {
@@ -202,7 +203,8 @@ Item {
 
     Component {
         id: triageC
-        EvTriage { selId: area.selId; playbackClient: heroClient; onSelect: (id) => area.selId = id }
+        EvTriage { selId: area.selId; playbackClient: heroClient; onSelect: (id) => area.selId = id
+                   onExportClip: (c, a, p) => area.exportClip(c, a, p) }
     }
     Component {
         id: reviewC

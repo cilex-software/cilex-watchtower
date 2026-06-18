@@ -362,6 +362,18 @@ Window {
                     demo: wtDemo
                     eventModel: eventModel
                     cameraModel: cameraModel
+                    // Export a 1-min clip around the event to the Clips library — same
+                    // flow as the legacy EventsScreen (global export toasts fire on
+                    // playbackClient below).
+                    onExportClip: (camId, atMs, purpose) => {
+                        var cam = cameraModel.cameraByBackendId(camId);
+                        var id = (cam && cam.camId) ? cam.camId : camId;
+                        var base = (cam && cam.name) ? cam.name : id;
+                        var dest = Artifacts.newExportPath(base, "mp4");
+                        playbackClient.createExport(id, new Date(atMs - 15000).toISOString(),
+                                                    new Date(atMs + 45000).toISOString(),
+                                                    "wallclock", dest, "", purpose);
+                    }
                 }
 
                 EventsScreen {

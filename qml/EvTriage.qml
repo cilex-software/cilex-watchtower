@@ -12,6 +12,7 @@ Item {
     property string selId: ""                    // shared selection (owned by EventsArea)
     property var playbackClient: null            // real-mode inline playback (EvHeroPlayer)
     signal select(string id)
+    signal exportClip(string camId, double atMs, string purpose)   // bubbles to Main's export flow
 
     property string filter: "open"               // open | critical | all
     property string note: ""
@@ -199,7 +200,10 @@ Item {
                             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
                             RowLayout {
                                 anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
-                                EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip" }
+                                EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip"
+                                    enabledBtn: tri._cur && EventsStore.realMode
+                                    onClicked: if (tri._cur) tri.exportClip(tri._cur.cam.id, tri._cur.ts.getTime(),
+                                        "Event · " + (EventsStore.types[tri._cur.type] ? EventsStore.types[tri._cur.type].label : tri._cur.type)) }
                                 EvButton {
                                     id: assignBtn
                                     small: true; variant: "ghost"; icon: "assign"
