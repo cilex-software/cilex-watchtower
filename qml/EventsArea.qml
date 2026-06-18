@@ -139,7 +139,7 @@ Item {
                 anchors.fill: parent
                 sourceComponent: area.mode === "triage" ? triageC
                                : area.mode === "review" ? reviewC
-                               : area.mode === "timeline" ? placeholderC
+                               : area.mode === "timeline" ? timelineC
                                : placeholderC
             }
         }
@@ -152,6 +152,10 @@ Item {
     Component {
         id: reviewC
         EvVerify { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
+    }
+    Component {
+        id: timelineC
+        EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
     }
 
     // temporary, until Verify / Timeline / Map land
