@@ -10,6 +10,7 @@ import Watchtower
 Item {
     id: tri
     property string selId: ""                    // shared selection (owned by EventsArea)
+    property var playbackClient: null            // real-mode inline playback (EvHeroPlayer)
     signal select(string id)
 
     property string filter: "open"               // open | critical | all
@@ -188,7 +189,11 @@ Item {
                         id: heroCol
                         width: parent.width
                         spacing: 0
-                        EvPlayer { Layout.fillWidth: true; ev: tri._cur }
+                        // mock → procedural EvPlayer; real → EvHeroPlayer (live recording)
+                        Loader {
+                            Layout.fillWidth: true
+                            sourceComponent: EventsStore.realMode ? heroRealC : heroMockC
+                        }
                         Rectangle {                          // tool row
                             Layout.fillWidth: true; Layout.preferredHeight: 52; color: Theme.panel
                             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
@@ -422,4 +427,7 @@ Item {
             }
         }
     }
+
+    Component { id: heroMockC; EvPlayer { ev: tri._cur } }
+    Component { id: heroRealC; EvHeroPlayer { ev: tri._cur; playbackClient: tri.playbackClient } }
 }

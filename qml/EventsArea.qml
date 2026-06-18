@@ -63,6 +63,10 @@ Item {
     }
     on_CamCountChanged: if (!demo && eventModel) area._ingestReal()    // cameras load async → re-resolve names/zones
 
+    // Dedicated playback client for the Triage hero's inline recording (real mode),
+    // isolated from the main Playback screen's session so they never collide.
+    PlaybackClient { id: heroClient }
+
     readonly property var _modes: [
         { id: "triage",   n: "01", label: "Triage Queue",      tag: "Clear the backlog",
           why: "<font color='#f0ece4'><b>Inbox triage.</b></font> Work the queue top-down by priority — watch the event clip inline, run the response procedure, and record a disposition. Best when one operator must clear a backlog of unhandled alarms fast." },
@@ -198,7 +202,7 @@ Item {
 
     Component {
         id: triageC
-        EvTriage { selId: area.selId; onSelect: (id) => area.selId = id }
+        EvTriage { selId: area.selId; playbackClient: heroClient; onSelect: (id) => area.selId = id }
     }
     Component {
         id: reviewC

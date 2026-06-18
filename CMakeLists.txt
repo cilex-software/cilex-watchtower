@@ -73,6 +73,7 @@ qt_add_qml_module(watchtower
         qml/EvVehicleGlyph.qml
         qml/EvSnapshot.qml
         qml/EvPlayer.qml
+        qml/EvHeroPlayer.qml
         qml/EvTriage.qml
         qml/EvWall.qml
         qml/EvSessions.qml
