@@ -19,10 +19,11 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 | 10 | **Export-clip toolrow button wiring** | ✅ done | Watchtower |
 | 11 | **Production cutover** (default the redesign; retire legacy EventsScreen) | ✅ done | Watchtower |
 | 12 | Live-frame fallback on event-snapshot 404 | ✅ done | Watchtower |
-| 13 | Map-pin facing via `rotation_deg` | ✅ done | Watchtower |
+| 13 | Map-pin facing → **FOV coverage cones** via `rotation_deg` | ✅ done | Watchtower |
 | 14 | Keyboard affordances (Triage `E` / ↑↓ / `Space`) | ✅ done² | Watchtower |
 | 15 | Real critical/high severity + AI detection populating | ⏳ outstanding | Cilex Vision (deployment/config) |
 | 16 | Cameras placed on the Camera Map (2/31 today) | ⏳ outstanding | Cilex Vision (operators place in editor) |
+| 17 | Camera-group switcher (scope every view by group) | ✅ done | Watchtower |
 
 **Notes**
 - ¹ #9 built + structurally verified (session opens, plays, transport drives the player, no
@@ -35,7 +36,12 @@ Status key: ✅ done · 🔧 in progress · ⏳ outstanding · ◻︎ optional/p
 - Cilex Vision's Events **backend** workstream is closed (all engineering asks met).
 - **The redesign is now the DEFAULT Events screen** (#9–#11 done). Flags: `WT_DEMO` → mock
   showcase; `WT_EVENTS_LEGACY` → the old table-style screen (instant fallback).
-- **All client work is done (#1–#14).** The only open rows are **#15–#16** — operational/
+- **All client work is done (#1–#14, #17).** The only open rows are **#15–#16** — operational/
   config on Cilex Vision's side (severity/AI data, camera placement), which light up as the
   deployment is configured; nothing for us to build. Suggested live eyeball checks: inline
   video (#9) + keyboard shortcuts (#14).
+- #13 upgraded from a thin facing tick to a translucent **FOV coverage cone** (wedge + outline,
+  tinted by pin state — amber active / olive clear / red critical / blue offline), oriented by
+  `rotation_deg`. #17 adds a group dropdown in the Events mode bar (`groupFilter` scopes the
+  queue, wall/sessions, timeline lanes, and map pins to All / a named group / Ungrouped). Dev
+  hook: `WT_EVENTS_VIEW=triage|review|timeline|map` opens a sub-view directly.

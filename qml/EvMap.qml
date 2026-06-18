@@ -89,10 +89,47 @@ Item {
         }
         Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18   // selection halo
             color: "transparent"; border.width: 3; border.color: Theme.accent }
-        Item {                                        // facing tick (camera direction)
-            visible: pin.facing >= 0; anchors.fill: parent; rotation: pin.facing; z: 1
-            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; y: -7; width: 3; height: 9; radius: 1.5
-                color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent : Theme.ink2 }
+        Item {                                        // FOV cone (camera direction + field of view)
+            visible: pin.facing >= 0
+            width: 132; height: 132; anchors.centerIn: parent
+            rotation: pin.facing; z: 0
+            Canvas {
+                id: fov
+                anchors.fill: parent
+                // Tint mirrors the map legend: critical→red, offline→blue,
+                // clear (idle)→olive, anything else with open activity→amber.
+                readonly property color tint: pin.st === "critical" ? Theme.bad
+                    : pin.st === "offline" ? Theme.info
+                    : pin.st === "idle" ? Theme.good
+                    : Theme.accent
+                onTintChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onVisibleChanged: if (visible) requestPaint()
+                Component.onCompleted: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d"); ctx.reset();
+                    var cx = width / 2, cy = height / 2, r = 58, ha = 34 * Math.PI / 180;
+                    var a0 = -Math.PI / 2 - ha, a1 = -Math.PI / 2 + ha;
+                    // filled wedge — never fades fully to zero so the whole cone
+                    // keeps a faint presence even over the busy isometric plan
+                    ctx.beginPath(); ctx.moveTo(cx, cy);
+                    ctx.arc(cx, cy, r, a0, a1); ctx.closePath();
+                    var g = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
+                    g.addColorStop(0.0, Qt.rgba(tint.r, tint.g, tint.b, 0.42));
+                    g.addColorStop(0.65, Qt.rgba(tint.r, tint.g, tint.b, 0.17));
+                    g.addColorStop(1.0, Qt.rgba(tint.r, tint.g, tint.b, 0.03));
+                    ctx.fillStyle = g; ctx.fill();
+                    // crisp outline (two radial edges + arc) so the cone shape
+                    // stays legible even where the fill is subtle
+                    ctx.strokeStyle = Qt.rgba(tint.r, tint.g, tint.b, 0.7);
+                    ctx.lineWidth = 1.5; ctx.lineJoin = "round";
+                    ctx.beginPath(); ctx.moveTo(cx, cy);
+                    ctx.lineTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0));
+                    ctx.arc(cx, cy, r, a0, a1);
+                    ctx.lineTo(cx, cy); ctx.stroke();
+                }
+            }
         }
         Rectangle {                                   // dot
             anchors.fill: parent; radius: 15; z: 2

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic
 import Watchtower
 
 // The Events redesign area (port of designs/events-v2 app.jsx shell, minus the
@@ -21,6 +22,27 @@ Item {
     signal exportClip(string camId, double atMs, string purpose)   // → Main's export flow
     readonly property int _camCount: cameraModel ? cameraModel.total : 0
 
+    // Camera-group scope: "" = all, "__ungrouped__" = cameras with no group, else a
+    // group name. Filters every view (queue, wall/sessions, timeline lanes, map pins).
+    property string groupFilter: ""
+    readonly property var _groups: {
+        var seen = ({}), out = [];
+        var n = cameraModel ? cameraModel.total : 0;
+        for (var i = 0; i < n; i++) {
+            var c = cameraModel.get(i);
+            var g = (c && c.groupName) ? c.groupName : "";
+            if (g !== "" && !seen[g]) { seen[g] = true; out.push(g); }
+        }
+        out.sort();
+        return out;
+    }
+    readonly property bool _hasUngrouped: {
+        var n = cameraModel ? cameraModel.total : 0;
+        for (var i = 0; i < n; i++) { var c = cameraModel.get(i); if (c && c.camId && !c.groupName) return true; }
+        return false;
+    }
+    onGroupFilterChanged: if (!demo && eventModel) area._ingestReal()
+
     function _buildLookup() {
         var lk = ({});
         var n = cameraModel ? cameraModel.total : 0;
@@ -40,10 +62,22 @@ Item {
     }
     function _ingestReal() {
         if (!eventModel) { EventsStore.loadMock(); return; }
-        EventsStore.ingestReal(eventModel.all(), area._buildLookup());
+        var fullLk = area._buildLookup();
+        var lk = fullLk, rows = eventModel.all();
+        if (groupFilter !== "") {                       // scope cams + events to the group
+            lk = ({});
+            for (var k in fullLk) {
+                var z = fullLk[k].zone;
+                if ((groupFilter === "__ungrouped__") ? (!z || z === "") : (z === groupFilter)) lk[k] = fullLk[k];
+            }
+            rows = rows.filter(function (r) { return lk[r.camId] !== undefined; });
+        }
+        EventsStore.ingestReal(rows, lk);
     }
 
     Component.onCompleted: {
+        if (typeof wtEventsView !== "undefined" && wtEventsView)   // dev: open a sub-view directly
+            area.mode = wtEventsView;
         if (demo || !eventModel) {
             EventsStore.loadMock();
         } else {
@@ -139,10 +173,58 @@ Item {
                     }
                 }
 
+                // ---- camera-group scope ----
+                Rectangle {
+                    id: grpBtn
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredHeight: 32; Layout.preferredWidth: 168
+                    color: grpMa.containsMouse ? Theme.panel2 : Theme.panel
+                    border.width: 1; border.color: area.groupFilter !== "" ? Theme.accent : Theme.line2
+                    EvIcon { id: grpChev; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                        name: "chev"; size: 12; rotation: 90; color: Theme.ink3 }
+                    Text {
+                        anchors.left: parent.left; anchors.leftMargin: 11; anchors.right: grpChev.left; anchors.rightMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
+                        text: area.groupFilter === "" ? "All groups" : area.groupFilter === "__ungrouped__" ? "Ungrouped" : area.groupFilter
+                        color: area.groupFilter !== "" ? Theme.accent : Theme.ink2
+                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold
+                    }
+                    MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: grpPop.opened ? grpPop.close() : grpPop.open() }
+                    Popup {
+                        id: grpPop
+                        y: grpBtn.height + 4; x: 0; width: 188; padding: 1
+                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                        background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
+                        contentItem: Column {
+                            id: grpCol
+                            Repeater {
+                                model: {
+                                    var m = [{ v: "", l: "All groups" }];
+                                    for (var i = 0; i < area._groups.length; i++) m.push({ v: area._groups[i], l: area._groups[i] });
+                                    if (area._hasUngrouped) m.push({ v: "__ungrouped__", l: "Ungrouped" });
+                                    return m;
+                                }
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    readonly property bool _on: area.groupFilter === modelData.v
+                                    width: grpCol.width; height: 30
+                                    color: gma.containsMouse ? Theme.panel3 : (_on ? Theme.accentSoft : "transparent")
+                                    Text { anchors.left: parent.left; anchors.leftMargin: 11; anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData.l; color: parent._on ? Theme.accent : Theme.ink
+                                        font.family: Theme.fontSans; font.pixelSize: 12 }
+                                    MouseArea { id: gma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { area.groupFilter = modelData.v; grpPop.close() } }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // ---- rationale (tag + why) ----
                 ColumnLayout {
                     Layout.alignment: Qt.AlignVCenter
-                    Layout.maximumWidth: 620
+                    Layout.maximumWidth: 440
                     Layout.fillWidth: true
                     spacing: 2
                     Text { text: area._curMode.tag.toUpperCase(); color: Theme.accent

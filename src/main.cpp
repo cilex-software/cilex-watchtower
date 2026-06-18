@@ -132,6 +132,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).
     engine.rootContext()->setContextProperty("wtSection", qEnvironmentVariable("WT_SECTION"));
+    // Optional initial Events sub-view (dev: WT_EVENTS_VIEW=triage|review|timeline|map).
+    engine.rootContext()->setContextProperty("wtEventsView", qEnvironmentVariable("WT_EVENTS_VIEW"));
     // Optional initial Live status filter (dev: WT_STATUS_FILTER=recent|online|offline|...).
     engine.rootContext()->setContextProperty("wtStatusFilter", qEnvironmentVariable("WT_STATUS_FILTER"));
     // Optional initial Live camera group, by NAME (dev: WT_GROUP=Office).
