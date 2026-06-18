@@ -1,6 +1,6 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-05-28. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-06-18. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
@@ -49,6 +49,38 @@ export/filters).
 - ✅ **Clips & Snapshots library** (§296–304) — `ClipsScreen.qml` + `SnapshotModel` over the local Artifacts dir; artifact table + detail panel (real image preview) + Open / Reveal-in-folder; reached via the command palette (nav rail has no Clips item, per design). Server-exported clips pending the backend list endpoint (letter §A6).
 
 **P1–P6 are all complete.** Remaining work is backend-gated (the API-requests letter) + optional polish/deferred items below.
+
+## Events screen redesign (events-v2) — done (design port, behind `WT_DEMO`)
+
+A faithful Qt6/QML 1:1 port of the `designs/events-v2` HTML/React prototype — the
+re-imagined Events area as **four views over one shared store**, built to the four
+spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-spec.md`,
+`map-screen-spec.md`). Commits `7df90aa` → `d09e397`.
+
+- **Shared store** `EventsStore.qml` (singleton): the events-v2 mock domain (20
+  events, cameras/types/dispositions) + the only mutators every view uses —
+  `ack` / `bookmark` / `dispose` — so OPEN/CRITICAL/CLEARED counts and the same
+  event update across all views live. Procedural `EvSnapshot` (CCTV still: AI box,
+  tod scene, tamper/offline, OSD) is the only "video"; all icons/glyphs via Qt Quick
+  Shapes (no SVG plugin). Primitives: EvIcon/Sev/TypePill/StateTag/EvButton.
+- **EventsArea** shell: 01–04 mode switcher + rationale + live status strip; stage
+  hosts the views via a Loader.
+- **01 Triage** (`EvTriage` + `EvPlayer`): 384px priority list + detail pane that
+  plays the clip inline (transport + seekable scrubber w/ event window), facts grid,
+  per-type SOP checklist, disposition note, action bar.
+- **02 Verify** (`EvVerify`/`EvWall`/`EvSessions`): Wall (S/M/L card grid, hover
+  preview, Threat/Dismiss) ⇄ Smart Sessions (zone-grouped, bulk bar), contextual
+  toolbar.
+- **03 Timeline** (`EvTimeline`): per-camera swimlanes, duration bars, markers,
+  click-popover, dashed "now" line, 90m/3.5h/8h windows.
+- **04 Map** (`EvMap`): schematic site plan + pulsing camera pins + count badges +
+  legend; live-feed rail ⇄ per-camera detail (Verify/Dispatch/Clear).
+- **Integration:** mock-only, so gated behind **`WT_DEMO`** (`src/main.cpp` exposes
+  `wtDemo`; `Main.qml` routes the Events section to `EventsArea` under it, else the
+  live `EventsScreen`). Run `WT_DEMO=1 ./build/watchtower` → Events to review it.
+- **Next** (not built): back the views with real `EventModel`/playback instead of
+  the mock store (the event shape needs tod/subject/sx/sy/conf/restricted/duration —
+  a backend/mapping gap to spec in a `docs/letters/` ask before wiring to live data).
 
 ## Recovery pointers
 
