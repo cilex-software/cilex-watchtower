@@ -90,9 +90,13 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
   severity→priority, triage_state→status, etc.; `actionsPending` is now **false** (actions
   live). Today all events are `severity:low` / `detection:null` (motion-only) — critical/high
   + AI box light up with no rework when smart events/AI land.
-  - **Open residual** (our reply `…-shipped.reply.md`): asked them to map `verified`+`dispatched`
-    → `triage_state:in_progress` (they currently `resolved` those); plus deferred assignee
-    endpoint, `cameras.restricted` PATCH, after-hours escalation.
+  - **Outstanding backend requests** (our reply `…-shipped.reply.md`): (1) map `verified`+
+    `dispatched` → `triage_state:in_progress` (correctness; they `resolved` those now); (2)
+    `POST /events/{id}/assign` + `assigned_to` filter + a `GET /operators` roster (for the
+    Assign action); (3) `PATCH /cameras/{id} {restricted}` (else `zone_restricted` is dead);
+    (4) Map per-camera site-plan position — backend-modelled vs Watchtower-owned (decision).
+    After-hours escalation explicitly declined (not modelled). Ask 4 snapshot is shipped (wire
+    client-side).
 - **Next (not built):** imagery — *real frames + playback*: wire `GET /events/{id}/snapshot`
   (Ask 4) into thumbnails + real HLS in the Triage hero seeked to the event moment (404 →
   live-frame fallback). Today the snapshot is an honest empty scene. Then production cutover.
