@@ -90,16 +90,25 @@ spec files (`triage-queue-spec.md`, `verify-screen-spec.md`, `timeline-screen-sp
   severity→priority, triage_state→status, etc.; `actionsPending` is now **false** (actions
   live). Today all events are `severity:low` / `detection:null` (motion-only) — critical/high
   + AI box light up with no rework when smart events/AI land.
-  - **Outstanding backend requests** (our reply `…-shipped.reply.md`): (1) map `verified`+
-    `dispatched` → `triage_state:in_progress` (correctness; they `resolved` those now); (2)
-    `POST /events/{id}/assign` + `assigned_to` filter + a `GET /operators` roster (for the
-    Assign action); (3) `PATCH /cameras/{id} {restricted}` (else `zone_restricted` is dead);
-    (4) Map per-camera site-plan position — backend-modelled vs Watchtower-owned (decision).
-    After-hours escalation explicitly declined (not modelled). Ask 4 snapshot is shipped (wire
-    client-side).
-- **Next (not built):** imagery — *real frames + playback*: wire `GET /events/{id}/snapshot`
-  (Ask 4) into thumbnails + real HLS in the Triage hero seeked to the event moment (404 →
-  live-frame fallback). Today the snapshot is an honest empty scene. Then production cutover.
+- **Follow-up asks shipped + consumed (done 06-18, `2ced7d8`):** Cilex Vision shipped §1–§3
+  (their `…-followups-shipped.md`, backend `76dd398`/migrations 0042+0043). (1) **in_progress**
+  mapping fixed — `verified`/`dispatched`→`in_progress`; no client change (`_triageToStatus`
+  already maps it). (2) **Assign** — `EventModel.assignEvent` + `fetchOperators`
+  (`GET /operators`); the Triage "Assign" button is now a real operator picker; events read
+  in_progress when assigned. (3) **`PATCH /cameras/{id} {restricted}`** shipped admin-only —
+  we accepted admin-only (it's camera policy; redesign only reads `zone_restricted`).
+  - **§4 Camera Map** (their `maps`/`map_objects`, migration 0040) is the real per-camera
+    site-plan source — we'll **consume it** (dropping the grid-fallback / our own store).
+    Asked for the `GET /maps/entities/cameras/{camera_id}/placement` reverse-lookup; will
+    grid-fallback the ~28 unplaced cameras; default to the active plan. See reply
+    `…-followups-shipped.reply.md`.
+- **Next (not built):**
+  - **Imagery** — *real frames + playback*: wire `GET /events/{id}/snapshot` into thumbnails +
+    real HLS in the Triage hero (404 → live-frame fallback). Today the snapshot is an honest
+    empty scene.
+  - **Situation Map on the real Camera Map** — render `background_url` + camera placements
+    (via the reverse-lookup once it lands), grid-fallback unplaced.
+  - Wire the **Export clip** toolrow button; then **production cutover**.
 
 ## Recovery pointers
 
