@@ -1,0 +1,308 @@
+import QtQuick
+import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Watchtower
+
+// VIEW 04 — SITUATION MAP (port of view-map.jsx / map-screen-spec.md). Spatial
+// awareness: a schematic site plan with a camera pin where each camera sits;
+// open events pulse on their pin (count badge), colour-coded by severity. The
+// right rail is the live feed; click a pin (or feed row) to drop into a
+// per-camera panel and Verify / Dispatch / Clear in context.
+Item {
+    id: map
+    signal openInTriage(string id)
+
+    property string active: ""                    // selected camera id, or ""
+
+    readonly property var _byCam: {
+        var m = {}; var es = EventsStore.events;
+        for (var i = 0; i < es.length; i++) { var k = es[i].cam.id; if (!m[k] || es[i].ts.getTime() > m[k].ts.getTime()) m[k] = es[i]; }
+        return m;
+    }
+    readonly property var _openByCam: {
+        var m = {}; var es = EventsStore.events;
+        for (var i = 0; i < es.length; i++) if (es[i].status === "new") { var k = es[i].cam.id; m[k] = (m[k] || 0) + 1; }
+        return m;
+    }
+    readonly property var _feed: {
+        var es = EventsStore.events.filter(function (e) { return e.status === "new"; });
+        es.sort(function (a, b) { return (EventsStore.sevRank[a.priority] - EventsStore.sevRank[b.priority]) || (b.ts.getTime() - a.ts.getTime()); });
+        return es;
+    }
+    readonly property var _camList: { var a = []; for (var k in EventsStore.cams) a.push(EventsStore.cams[k]); return a; }
+    readonly property var _cur: {
+        if (active === "") return null;
+        for (var i = 0; i < _camList.length; i++) if (_camList[i].id === active) return _camList[i];
+        return null;
+    }
+    readonly property var _curEvents: {
+        if (!_cur) return [];
+        var es = EventsStore.events.filter(function (e) { return e.cam.id === map._cur.id; });
+        es.sort(function (a, b) { return b.ts.getTime() - a.ts.getTime(); });
+        return es;
+    }
+    readonly property var _curEv: _curEvents.length ? _curEvents[0] : null
+
+    function _pinState(cam) {
+        var e = _byCam[cam.id]; var open = _openByCam[cam.id] || 0;
+        return (e && open) ? e.priority : (e && e.type === "offline" ? "offline" : "idle");
+    }
+
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // ======================= LEFT — map canvas =======================
+        Item {
+            Layout.fillWidth: true; Layout.fillHeight: true
+
+            ColumnLayout {
+                anchors.fill: parent; anchors.margins: 24
+                spacing: 0
+
+                // ---- site plan ----
+                Rectangle {
+                    id: plan
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    color: Theme.panel; border.width: 1; border.color: Theme.line2
+
+                    // rooms (schematic backdrop)
+                    Item {
+                        anchors.fill: parent
+                        Repeater {
+                            model: [ { x: 8, y: 8, w: 34, h: 30 }, { x: 44, y: 8, w: 22, h: 30 }, { x: 68, y: 8, w: 24, h: 44 },
+                                     { x: 8, y: 40, w: 34, h: 26 }, { x: 44, y: 40, w: 22, h: 26 }, { x: 8, y: 68, w: 58, h: 24 },
+                                     { x: 68, y: 54, w: 24, h: 38 } ]
+                            delegate: Rectangle {
+                                required property var modelData
+                                x: modelData.x / 100 * plan.width; y: modelData.y / 100 * plan.height
+                                width: modelData.w / 100 * plan.width; height: modelData.h / 100 * plan.height
+                                color: Qt.rgba(1, 1, 1, 0.012); border.width: 1; border.color: Theme.line
+                            }
+                        }
+                        // outer wall
+                        Rectangle {
+                            x: 2 / 100 * plan.width; y: 2 / 100 * plan.height
+                            width: 96 / 100 * plan.width; height: 96 / 100 * plan.height
+                            color: "transparent"; border.width: 1; border.color: Theme.line2
+                        }
+                        // door gap (erase a slice of the left wall)
+                        Rectangle { x: 1 / 100 * plan.width; y: 54 / 100 * plan.height - 1; width: 8 / 100 * plan.width; height: 3; color: Theme.panel }
+                    }
+
+                    // zone labels
+                    Repeater {
+                        model: [ { l: "Rear Yard", x: 16, y: 30 }, { l: "N. Perimeter", x: 50, y: 10 }, { l: "Stockroom", x: 30, y: 42 },
+                                 { l: "Server Rm", x: 68, y: 30 }, { l: "Parking E.", x: 84, y: 46 }, { l: "Loading", x: 24, y: 70 },
+                                 { l: "Reception", x: 60, y: 70 }, { l: "Main Ent.", x: 50, y: 90 } ]
+                        delegate: Text {
+                            required property var modelData
+                            x: modelData.x / 100 * plan.width - implicitWidth / 2
+                            y: modelData.y / 100 * plan.height - implicitHeight / 2
+                            text: modelData.l.toUpperCase(); color: Theme.ink3
+                            font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.6
+                        }
+                    }
+
+                    // camera pins
+                    Repeater {
+                        model: map._camList
+                        delegate: Item {
+                            id: pin
+                            required property var modelData
+                            readonly property var cam: modelData
+                            readonly property string st: map._pinState(cam)
+                            readonly property int open: map._openByCam[cam.id] || 0
+                            readonly property bool _sel: map.active === cam.id
+                            width: 30; height: 30
+                            x: cam.x / 100 * plan.width - 15
+                            y: cam.y / 100 * plan.height - 15
+                            z: _sel ? 5 : 1
+
+                            // ping ring (open events)
+                            Rectangle {
+                                id: pingRing
+                                visible: pin.open > 0
+                                anchors.centerIn: parent; width: 30; height: 30; radius: 15
+                                color: "transparent"; border.width: 2
+                                border.color: pin.st === "critical" ? Theme.bad : Theme.accent
+                                ParallelAnimation {
+                                    running: pin.open > 0; loops: Animation.Infinite
+                                    NumberAnimation { target: pingRing; property: "scale"; from: 1; to: 2.4; duration: 1800; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: pingRing; property: "opacity"; from: 0.8; to: 0; duration: 1800 }
+                                }
+                            }
+                            // selection halo
+                            Rectangle { visible: pin._sel; anchors.centerIn: parent; width: 36; height: 36; radius: 18
+                                color: "transparent"; border.width: 3; border.color: Theme.accent }
+                            // dot
+                            Rectangle {
+                                id: dot
+                                anchors.fill: parent; radius: 15; z: 2
+                                color: pin.st === "critical" ? Theme.badSoft : pin.st === "high" ? Theme.accentSoft : Theme.panel3
+                                border.width: 1
+                                border.color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
+                                            : pin.st === "idle" ? Theme.goodDim : pin.st === "offline" ? Theme.infoDim : Theme.line2
+                                EvIcon { anchors.centerIn: parent; name: "pin"; size: 14
+                                    color: pin.st === "critical" ? Theme.bad : pin.st === "high" ? Theme.accent
+                                         : pin.st === "idle" ? Theme.good : pin.st === "offline" ? Theme.info
+                                         : (pin.st === "medium" || pin.st === "low") ? Theme.ink : Theme.ink2 }
+                            }
+                            // count badge
+                            Rectangle {
+                                visible: pin.open > 0; z: 3
+                                anchors.right: parent.right; anchors.top: parent.top; anchors.rightMargin: -4; anchors.topMargin: -4
+                                height: 16; width: Math.max(16, bdg.implicitWidth + 8); radius: 8; color: Theme.bad
+                                Text { id: bdg; anchors.centerIn: parent; text: pin.open; color: "#fff"
+                                    font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold }
+                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: map.active = pin.cam.id }
+                        }
+                    }
+                }
+
+                // ---- legend ----
+                Row {
+                    Layout.topMargin: 14
+                    spacing: 16
+                    Repeater {
+                        model: [ { c: Theme.bad, l: "critical activity" }, { c: Theme.accent, l: "elevated" },
+                                 { c: Theme.info, l: "offline" }, { c: Theme.good, l: "clear" } ]
+                        delegate: Row {
+                            required property var modelData
+                            spacing: 6
+                            Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 9; height: 9; radius: 4.5; color: modelData.c }
+                            Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.l; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ======================= RIGHT — side rail =======================
+        Rectangle {
+            Layout.preferredWidth: 360; Layout.fillHeight: true
+            color: Theme.bg
+            Rectangle { anchors.left: parent.left; width: 1; height: parent.height; color: Theme.line }
+
+            // ---- State A: live feed ----
+            ColumnLayout {
+                visible: map._cur === null
+                anchors.fill: parent; spacing: 0
+                Rectangle {
+                    Layout.fillWidth: true; Layout.preferredHeight: 45; color: Theme.bg
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                    RowLayout {
+                        anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16
+                        Text { text: "LIVE FEED"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 1.0 }
+                        Item { Layout.fillWidth: true }
+                        Text { text: map._feed.length + " open"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 11 }
+                    }
+                }
+                ListView {
+                    Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                    model: map._feed
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Rectangle {
+                        id: frow
+                        required property var modelData
+                        readonly property var e: modelData
+                        width: ListView.view.width; height: 67
+                        color: fMa.containsMouse ? Theme.panel : "transparent"
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                        RowLayout {
+                            anchors.fill: parent; anchors.rightMargin: 16; spacing: 10
+                            Rectangle { Layout.preferredWidth: 3; Layout.fillHeight: true; color: Theme.sevColor(frow.e.priority) }
+                            Rectangle {
+                                Layout.preferredWidth: 76; Layout.preferredHeight: 44
+                                color: "#000"; border.width: 1; border.color: Theme.line; clip: true
+                                EvSnapshot { anchors.fill: parent; anchors.margins: 1; ev: frow.e; mini: true; showOsd: false }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                TypePill { type: frow.e.type }
+                                Text { text: frow.e.cam.zone; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                Text { text: EventsStore.rel(frow.e.ts); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                            }
+                        }
+                        MouseArea { id: fMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map.active = frow.e.cam.id }
+                    }
+                }
+            }
+
+            // ---- State B: camera detail ----
+            Flickable {
+                id: detail
+                visible: map._cur !== null
+                anchors.fill: parent; clip: true
+                contentWidth: width; contentHeight: detailCol.implicitHeight + 32
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: ScrollBar { }
+                Column {
+                    id: detailCol
+                    x: 16; y: 16; width: parent.width - 32; spacing: 6
+
+                    Text {
+                        text: "‹ All zones"; color: backMa.containsMouse ? Theme.accent : Theme.ink2
+                        font.family: Theme.fontSans; font.pixelSize: 12
+                        MouseArea { id: backMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map.active = "" }
+                    }
+                    Text { text: map._cur ? map._cur.name : ""; color: Theme.ink; topPadding: 4
+                        font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+                    Text { text: map._cur ? (map._cur.zone + " · " + map._cur.id) : ""; color: Theme.ink3; bottomPadding: 6
+                        font.family: Theme.fontMono; font.pixelSize: 11 }
+
+                    Rectangle {
+                        visible: map._curEv !== null
+                        width: parent.width; height: Math.round(width * 9 / 16)
+                        color: "#000"; border.width: 1; border.color: Theme.line; clip: true
+                        EvSnapshot { anchors.fill: parent; anchors.margins: 1; ev: map._curEv }
+                    }
+                    Item { width: 1; height: 6 }
+
+                    // action row
+                    RowLayout {
+                        visible: map._curEv !== null
+                        width: parent.width; spacing: 6
+                        EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: "Verify"
+                            onClicked: if (map._curEv) map.openInTriage(map._curEv.id) }
+                        EvButton { Layout.fillWidth: true; small: true; variant: "danger"; icon: "dispatch"; label: "Dispatch"
+                            onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "dispatched", "") }
+                        EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "check"; label: "Clear"
+                            onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "authorized", "") }
+                    }
+                    Item { width: 1; height: 10 }
+
+                    Text { visible: map._curEv !== null; text: "RECENT AT THIS CAMERA"; color: Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.0 }
+                    Text { visible: map._curEv === null; text: "No events at this camera."; color: Theme.ink3
+                        font.family: Theme.fontSans; font.pixelSize: 12; topPadding: 10 }
+
+                    Repeater {
+                        model: map._curEv ? map._curEvents.slice(0, 6) : []
+                        delegate: Item {
+                            id: drow
+                            required property var modelData
+                            readonly property var e: modelData
+                            width: detailCol.width; height: 37
+                            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
+                            RowLayout {
+                                anchors.fill: parent; spacing: 10
+                                Item {
+                                    Layout.preferredWidth: 8; Layout.preferredHeight: 8
+                                    Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Theme.sevColor(drow.e.priority) }
+                                }
+                                EvIcon { name: EventsStore.types[drow.e.type].icon; size: 12; color: Theme.ink2 }
+                                Text { text: EventsStore.types[drow.e.type].label; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                Item { Layout.fillWidth: true }
+                                Text { text: EventsStore.hhmmss(drow.e.ts); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                                StateTag { state: drow.e.status; dotOnly: true; dotSize: 6 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

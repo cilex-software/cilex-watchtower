@@ -78,6 +78,7 @@ qt_add_qml_module(watchtower
         qml/EvSessions.qml
         qml/EvVerify.qml
         qml/EvTimeline.qml
+        qml/EvMap.qml
         qml/EventsArea.qml
         qml/NetIcon.qml
         qml/Icon.qml

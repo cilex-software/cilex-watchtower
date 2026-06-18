@@ -140,7 +140,7 @@ Item {
                 sourceComponent: area.mode === "triage" ? triageC
                                : area.mode === "review" ? reviewC
                                : area.mode === "timeline" ? timelineC
-                               : placeholderC
+                               : mapC
             }
         }
     }
@@ -157,20 +157,8 @@ Item {
         id: timelineC
         EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
     }
-
-    // temporary, until Verify / Timeline / Map land
     Component {
-        id: placeholderC
-        Item {
-            Column {
-                anchors.centerIn: parent; spacing: 8
-                Text { anchors.horizontalCenter: parent.horizontalCenter
-                    text: area._curMode.n + " · " + area._curMode.label; color: Theme.ink
-                    font.family: Theme.fontSans; font.pixelSize: 18; font.weight: Font.DemiBold }
-                Text { anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Building this view next."; color: Theme.ink3
-                    font.family: Theme.fontMono; font.pixelSize: 12 }
-            }
-        }
+        id: mapC
+        EvMap { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
     }
 }
