@@ -27,6 +27,22 @@ Item {
     property int _pendingSeekMs: -1
     property bool _armed: false
     property int _speed: 1
+    property real _smoothMs: 0                          // interpolated playhead (smooth)
+
+    // Advance the playhead continuously at 30fps; the raw MediaPlayer.position
+    // updates coarsely/jitterily over HLS, so we interpolate and only snap on a
+    // real seek (large divergence) — keeps the scrubber gliding, not twitching.
+    Timer {
+        interval: 33; repeat: true
+        running: player.playbackState === MediaPlayer.PlayingState
+        onTriggered: hp._smoothMs = Math.min(player.duration > 0 ? player.duration : hp._smoothMs,
+                                             hp._smoothMs + 33 * player.playbackRate)
+    }
+    Connections {
+        target: player
+        function onPositionChanged() { if (Math.abs(player.position - hp._smoothMs) > 500) hp._smoothMs = player.position; }
+        function onPlaybackStateChanged() { if (player.playbackState !== MediaPlayer.PlayingState) hp._smoothMs = player.position; }
+    }
 
     onEvChanged: hp._open()
     Component.onCompleted: hp._open()
@@ -34,7 +50,7 @@ Item {
 
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
-        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1;
+        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
         player.stop(); player.source = ""; player.playbackRate = 1;
         var ts = ev.ts.getTime();
         _pendingSeekMs = ts - 15000;                       // event − 15s lead-in
@@ -165,11 +181,11 @@ Item {
                     Text { anchors.centerIn: parent; text: "+10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
                     MouseArea { id: b2; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: player.position = Math.min(player.duration, player.position + 10000) } }
                 Text { textFormat: Text.StyledText
-                    text: hp._fmt(player.position) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(player.duration)
+                    text: hp._fmt(hp._smoothMs) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(player.duration)
                     color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 Item {                                      // scrubber
                     Layout.fillWidth: true; Layout.preferredHeight: 30
-                    readonly property real _f: player.duration > 0 ? player.position / player.duration : 0
+                    readonly property real _f: player.duration > 0 ? Math.max(0, Math.min(1, hp._smoothMs / player.duration)) : 0
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 5; color: Theme.panel3 }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent.width * parent._f }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3; height: 16; color: Theme.ink; x: parent.width * parent._f - 1.5 }
