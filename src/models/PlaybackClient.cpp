@@ -237,7 +237,8 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
 }
 
 void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QString &wallStartIso,
-                                       const QString &wallEndIso, int cols, int rows)
+                                       const QString &wallEndIso, int cols, int rows,
+                                       const QString &replaces, int prewarmAt)
 {
     if (cameraIds.isEmpty()) {
         emit mosaicSessionFailed(QStringLiteral("No cameras selected for the wall."), false);
@@ -250,8 +251,8 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
         }
         ensureReady();
         connect(this, &PlaybackClient::camerasResolved, this,
-                [this, cameraIds, wallStartIso, wallEndIso, cols, rows]() {
-                    openMosaicSession(cameraIds, wallStartIso, wallEndIso, cols, rows);
+                [this, cameraIds, wallStartIso, wallEndIso, cols, rows, replaces, prewarmAt]() {
+                    openMosaicSession(cameraIds, wallStartIso, wallEndIso, cols, rows, replaces, prewarmAt);
                 }, Qt::SingleShotConnection);
         return;
     }
@@ -263,6 +264,10 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
     QJsonObject body{{"camera_ids", ids}, {"wall_start", wallStartIso}, {"wall_end", wallEndIso}};
     if (cols > 0 && rows > 0)
         body.insert("layout", QJsonObject{{"cols", cols}, {"rows", rows}});
+    if (!replaces.isEmpty())                 // B2a: reap the prior session on open
+        body.insert("replaces", replaces);
+    if (prewarmAt >= 0)                       // B3: warm around this fragment on create
+        body.insert("prewarm_at", prewarmAt);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
@@ -302,6 +307,28 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
         meta["live_gap_s"] = man.value("live_gap_s").toDouble();
         emit mosaicSessionReady(sid, grid, cells, compactDuration, frags, meta);
     });
+}
+
+void PlaybackClient::disposeMosaicSession(const QString &sessionId)
+{
+    if (sessionId.isEmpty() || !m_loggedIn)
+        return;
+    QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions/" + sessionId)};
+    QNetworkReply *reply = m_nam->deleteResource(req);
+    connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);   // fire-and-forget
+}
+
+void PlaybackClient::prewarmMosaic(const QString &sessionId, int atFrag, int ahead)
+{
+    if (sessionId.isEmpty() || atFrag < 0 || !m_loggedIn)
+        return;
+    QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions/" + sessionId + "/prewarm")};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject body{{"at_frag", atFrag}};
+    if (ahead > 0)
+        body.insert("ahead", ahead);
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);   // fire-and-forget (202)
 }
 
 void PlaybackClient::fetchCoverageUnion(const QStringList &cameraIds)

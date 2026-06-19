@@ -1,0 +1,400 @@
+[116:14:56.556823268] [3118784] [1;33m WARN [1;37mIPAManager [1;34mipa_manager.cpp:154 [0mNo IPA found in '/usr/lib/x86_64-linux-gnu/libcamera'
+[116:14:56.556904509] [3118784] [1;32m INFO [1;37mCamera [1;34mcamera_manager.cpp:284 [0mlibcamera v0.2.0
+qrc:/qt/qml/Watchtower/qml/EvSnapshot.qml:52:9: QML QQuickImage: HTTP 404
+qrc:/qt/qml/Watchtower/qml/EvSnapshot.qml:52:9: QML QQuickImage: HTTP 404
+qrc:/qt/qml/Watchtower/qml/EvSnapshot.qml:52:9: QML QQuickImage: HTTP 404
+qrc:/qt/qml/Watchtower/qml/EvSnapshot.qml:52:9: QML QQuickImage: HTTP 404
+qrc:/qt/qml/Watchtower/qml/EvSnapshot.qml:52:9: QML QQuickImage: HTTP 404
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,META,cams=16,iters=20,baseSmall=2026-06-19T10:46:36.563Z,baseBig=2026-06-17T14:16:36.563Z,steps=240
+qml: WALLOPEN,2026-06-19T09:46:36.563Z,2026-06-19T15:46:36.563Z,span=360min
+qml: WALLPERF,WARMUP,OK,2564ms,frames=3
+qml: WALLPERF,seek,10,FF,1,4457,OK,pos=4200083,frames=23
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,10,RW,1,6505,OK,pos=3600083,frames=34
+qml: WALLPERF,seek,10,FF,2,115,OK,pos=4200083,frames=45
+qml: WALLPERF,seek,10,RW,2,116,OK,pos=3600083,frames=56
+qml: WALLPERF,seek,10,FF,3,106,OK,pos=4200083,frames=67
+qml: WALLPERF,seek,10,RW,3,105,OK,pos=3600083,frames=78
+qml: WALLPERF,seek,10,FF,4,105,OK,pos=4200083,frames=89
+qml: WALLPERF,seek,10,RW,4,109,OK,pos=3600083,frames=100
+qml: WALLPERF,seek,10,FF,5,106,OK,pos=4200083,frames=111
+qml: WALLPERF,seek,10,RW,5,106,OK,pos=3600083,frames=123
+qml: WALLPERF,seek,10,FF,6,105,OK,pos=4200083,frames=134
+qml: WALLPERF,seek,10,RW,6,107,OK,pos=3600083,frames=145
+qml: WALLPERF,seek,10,FF,7,104,OK,pos=4200083,frames=156
+qml: WALLPERF,seek,10,RW,7,104,OK,pos=3600083,frames=167
+qml: WALLPERF,seek,10,FF,8,104,OK,pos=4200083,frames=178
+qml: WALLPERF,seek,10,RW,8,105,OK,pos=3600083,frames=189
+qml: WALLPERF,seek,10,FF,9,104,OK,pos=4200083,frames=200
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,10,RW,9,105,OK,pos=3600083,frames=211
+qml: WALLPERF,seek,10,FF,10,104,OK,pos=4200083,frames=222
+qml: WALLPERF,seek,10,RW,10,111,OK,pos=3600083,frames=233
+qml: WALLPERF,seek,10,FF,11,104,OK,pos=4200083,frames=244
+qml: WALLPERF,seek,10,RW,11,104,OK,pos=3600083,frames=255
+qml: WALLPERF,seek,10,FF,12,104,OK,pos=4200083,frames=266
+qml: WALLPERF,seek,10,RW,12,104,OK,pos=3600083,frames=277
+qml: WALLPERF,seek,10,FF,13,105,OK,pos=4200083,frames=288
+qml: WALLPERF,seek,10,RW,13,104,OK,pos=3600083,frames=299
+qml: WALLPERF,seek,10,FF,14,104,OK,pos=4200083,frames=310
+qml: WALLPERF,seek,10,RW,14,185,OK,pos=3600163,frames=321
+qml: WALLPERF,seek,10,FF,15,104,OK,pos=4200083,frames=332
+qml: WALLPERF,seek,10,RW,15,112,OK,pos=3600083,frames=343
+qml: WALLPERF,seek,10,FF,16,115,OK,pos=4200083,frames=354
+qml: WALLPERF,seek,10,RW,16,113,OK,pos=3600083,frames=365
+qml: WALLPERF,seek,10,FF,17,111,OK,pos=4200083,frames=376
+qml: WALLPERF,seek,10,RW,17,112,OK,pos=3600083,frames=387
+qml: WALLPERF,seek,10,FF,18,113,OK,pos=4200083,frames=398
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,10,RW,18,104,OK,pos=3600083,frames=409
+qml: WALLPERF,seek,10,FF,19,108,OK,pos=4200083,frames=420
+qml: WALLPERF,seek,10,RW,19,112,OK,pos=3600083,frames=431
+qml: WALLPERF,seek,10,FF,20,111,OK,pos=4200083,frames=442
+qml: WALLPERF,seek,10,RW,20,111,OK,pos=3600083,frames=453
+qml: WALLPERF,seek,30,FF,1,4527,OK,pos=5400083,frames=464
+qml: WALLPERF,seek,30,RW,1,116,OK,pos=3600083,frames=475
+qml: WALLPERF,seek,30,FF,2,107,OK,pos=5400083,frames=486
+qml: WALLPERF,seek,30,RW,2,108,OK,pos=3600083,frames=497
+qml: WALLPERF,seek,30,FF,3,107,OK,pos=5400083,frames=508
+qml: WALLPERF,seek,30,RW,3,108,OK,pos=3600083,frames=519
+qml: WALLPERF,seek,30,FF,4,108,OK,pos=5400083,frames=530
+qml: WALLPERF,seek,30,RW,4,108,OK,pos=3600083,frames=541
+qml: WALLPERF,seek,30,FF,5,215,OK,pos=5400166,frames=552
+qml: WALLPERF,seek,30,RW,5,106,OK,pos=3600083,frames=564
+qml: WALLPERF,seek,30,FF,6,105,OK,pos=5400083,frames=575
+qml: WALLPERF,seek,30,RW,6,108,OK,pos=3600083,frames=586
+qml: WALLPERF,seek,30,FF,7,105,OK,pos=5400083,frames=597
+qml: WALLPERF,seek,30,RW,7,106,OK,pos=3600083,frames=608
+qml: WALLPERF,seek,30,FF,8,106,OK,pos=5400083,frames=619
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,30,RW,8,105,OK,pos=3600083,frames=630
+qml: WALLPERF,seek,30,FF,9,104,OK,pos=5400083,frames=641
+qml: WALLPERF,seek,30,RW,9,114,OK,pos=3600083,frames=652
+qml: WALLPERF,seek,30,FF,10,105,OK,pos=5400083,frames=663
+qml: WALLPERF,seek,30,RW,10,105,OK,pos=3600083,frames=674
+qml: WALLPERF,seek,30,FF,11,107,OK,pos=5400083,frames=685
+qml: WALLPERF,seek,30,RW,11,104,OK,pos=3600083,frames=697
+qml: WALLPERF,seek,30,FF,12,106,OK,pos=5400083,frames=708
+qml: WALLPERF,seek,30,RW,12,108,OK,pos=3600083,frames=719
+qml: WALLPERF,seek,30,FF,13,106,OK,pos=5400083,frames=730
+qml: WALLPERF,seek,30,RW,13,105,OK,pos=3600083,frames=741
+qml: WALLPERF,seek,30,FF,14,108,OK,pos=5400083,frames=752
+qml: WALLPERF,seek,30,RW,14,106,OK,pos=3600083,frames=763
+qml: WALLPERF,seek,30,FF,15,110,OK,pos=5400083,frames=774
+qml: WALLPERF,seek,30,RW,15,106,OK,pos=3600083,frames=785
+qml: WALLPERF,seek,30,FF,16,107,OK,pos=5400083,frames=796
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,30,RW,16,104,OK,pos=3600083,frames=807
+qml: WALLPERF,seek,30,FF,17,112,OK,pos=5400083,frames=818
+qml: WALLPERF,seek,30,RW,17,107,OK,pos=3600083,frames=829
+qml: WALLPERF,seek,30,FF,18,105,OK,pos=5400083,frames=840
+qml: WALLPERF,seek,30,RW,18,108,OK,pos=3600083,frames=851
+qml: WALLPERF,seek,30,FF,19,104,OK,pos=5400083,frames=862
+qml: WALLPERF,seek,30,RW,19,106,OK,pos=3600083,frames=873
+qml: WALLPERF,seek,30,FF,20,192,OK,pos=5400165,frames=884
+qml: WALLPERF,seek,30,RW,20,105,OK,pos=3600083,frames=896
+qml: WALLPERF,seek,60,FF,1,4360,OK,pos=7200083,frames=907
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,60,RW,1,107,OK,pos=3600083,frames=918
+qml: WALLPERF,seek,60,FF,2,109,OK,pos=7200083,frames=929
+qml: WALLPERF,seek,60,RW,2,110,OK,pos=3600083,frames=940
+qml: WALLPERF,seek,60,FF,3,104,OK,pos=7200083,frames=951
+qml: WALLPERF,seek,60,RW,3,108,OK,pos=3600083,frames=962
+qml: WALLPERF,seek,60,FF,4,105,OK,pos=7200083,frames=973
+qml: WALLPERF,seek,60,RW,4,106,OK,pos=3600083,frames=984
+qml: WALLPERF,seek,60,FF,5,105,OK,pos=7200083,frames=995
+qml: WALLPERF,seek,60,RW,5,106,OK,pos=3600083,frames=1006
+qml: WALLPERF,seek,60,FF,6,105,OK,pos=7200083,frames=1017
+qml: WALLPERF,seek,60,RW,6,107,OK,pos=3600083,frames=1028
+qml: WALLPERF,seek,60,FF,7,105,OK,pos=7200083,frames=1039
+qml: WALLPERF,seek,60,RW,7,104,OK,pos=3600083,frames=1050
+qml: WALLPERF,seek,60,FF,8,118,OK,pos=7200083,frames=1061
+qml: WALLPERF,seek,60,RW,8,108,OK,pos=3600083,frames=1072
+qml: WALLPERF,seek,60,FF,9,115,OK,pos=7200083,frames=1083
+qml: WALLPERF,seek,60,RW,9,112,OK,pos=3600083,frames=1094
+qml: WALLPERF,seek,60,FF,10,113,OK,pos=7200083,frames=1105
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,60,RW,10,112,OK,pos=3600083,frames=1116
+qml: WALLPERF,seek,60,FF,11,115,OK,pos=7200083,frames=1127
+qml: WALLPERF,seek,60,RW,11,115,OK,pos=3600083,frames=1138
+qml: WALLPERF,seek,60,FF,12,119,OK,pos=7200083,frames=1149
+qml: WALLPERF,seek,60,RW,12,117,OK,pos=3600084,frames=1160
+qml: WALLPERF,seek,60,FF,13,117,OK,pos=7200084,frames=1171
+qml: WALLPERF,seek,60,RW,13,116,OK,pos=3600084,frames=1182
+qml: WALLPERF,seek,60,FF,14,118,OK,pos=7200084,frames=1193
+qml: WALLPERF,seek,60,RW,14,120,OK,pos=3600083,frames=1204
+qml: WALLPERF,seek,60,FF,15,116,OK,pos=7200083,frames=1215
+qml: WALLPERF,seek,60,RW,15,116,OK,pos=3600083,frames=1226
+qml: WALLPERF,seek,60,FF,16,117,OK,pos=7200083,frames=1238
+qml: WALLPERF,seek,60,RW,16,115,OK,pos=3600083,frames=1249
+qml: WALLPERF,seek,60,FF,17,117,OK,pos=7200083,frames=1260
+qml: WALLPERF,seek,60,RW,17,105,OK,pos=3600083,frames=1271
+qml: WALLPERF,seek,60,FF,18,118,OK,pos=7200083,frames=1282
+qml: WALLPERF,seek,60,RW,18,105,OK,pos=3600083,frames=1293
+qml: WALLPERF,seek,60,FF,19,115,OK,pos=7200083,frames=1304
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,60,RW,19,105,OK,pos=3600083,frames=1315
+qml: WALLPERF,seek,60,FF,20,113,OK,pos=7200083,frames=1326
+qml: WALLPERF,seek,60,RW,20,115,OK,pos=3600083,frames=1337
+qml: WALLPERF,seek,120,FF,1,4440,OK,pos=10800083,frames=1348
+qml: WALLPERF,seek,120,RW,1,108,OK,pos=3600083,frames=1359
+qml: WALLPERF,seek,120,FF,2,109,OK,pos=10800083,frames=1370
+qml: WALLPERF,seek,120,RW,2,105,OK,pos=3600083,frames=1382
+qml: WALLPERF,seek,120,FF,3,118,OK,pos=10800083,frames=1393
+qml: WALLPERF,seek,120,RW,3,106,OK,pos=3600083,frames=1404
+qml: WALLPERF,seek,120,FF,4,118,OK,pos=10800083,frames=1415
+qml: WALLPERF,seek,120,RW,4,114,OK,pos=3600083,frames=1426
+qml: WALLPERF,seek,120,FF,5,105,OK,pos=10800083,frames=1437
+qml: WALLPERF,seek,120,RW,5,114,OK,pos=3600083,frames=1448
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,120,FF,6,105,OK,pos=10800083,frames=1459
+qml: WALLPERF,seek,120,RW,6,110,OK,pos=3600083,frames=1470
+qml: WALLPERF,seek,120,FF,7,116,OK,pos=10800084,frames=1481
+qml: WALLPERF,seek,120,RW,7,115,OK,pos=3600083,frames=1492
+qml: WALLPERF,seek,120,FF,8,104,OK,pos=10800083,frames=1503
+qml: WALLPERF,seek,120,RW,8,114,OK,pos=3600083,frames=1514
+qml: WALLPERF,seek,120,FF,9,120,OK,pos=10800083,frames=1525
+qml: WALLPERF,seek,120,RW,9,118,OK,pos=3600083,frames=1536
+qml: WALLPERF,seek,120,FF,10,114,OK,pos=10800083,frames=1547
+qml: WALLPERF,seek,120,RW,10,118,OK,pos=3600083,frames=1558
+qml: WALLPERF,seek,120,FF,11,105,OK,pos=10800083,frames=1569
+qml: WALLPERF,seek,120,RW,11,118,OK,pos=3600083,frames=1582
+qml: WALLPERF,seek,120,FF,12,117,OK,pos=10800084,frames=1593
+qml: WALLPERF,seek,120,RW,12,118,OK,pos=3600083,frames=1604
+qml: WALLPERF,seek,120,FF,13,116,OK,pos=10800084,frames=1615
+qml: WALLPERF,seek,120,RW,13,115,OK,pos=3600083,frames=1626
+qml: WALLPERF,seek,120,FF,14,114,OK,pos=10800083,frames=1637
+qml: WALLPERF,seek,120,RW,14,104,OK,pos=3600083,frames=1648
+qml: WALLPERF,seek,120,FF,15,110,OK,pos=10800083,frames=1659
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,seek,120,RW,15,116,OK,pos=3600083,frames=1670
+qml: WALLPERF,seek,120,FF,16,110,OK,pos=10800083,frames=1681
+qml: WALLPERF,seek,120,RW,16,118,OK,pos=3600085,frames=1692
+qml: WALLPERF,seek,120,FF,17,105,OK,pos=10800083,frames=1703
+qml: WALLPERF,seek,120,RW,17,115,OK,pos=3600083,frames=1714
+qml: WALLPERF,seek,120,FF,18,106,OK,pos=10800083,frames=1725
+qml: WALLPERF,seek,120,RW,18,113,OK,pos=3600083,frames=1736
+qml: WALLPERF,seek,120,FF,19,107,OK,pos=10800083,frames=1747
+qml: WALLPERF,seek,120,RW,19,107,OK,pos=3600083,frames=1758
+qml: WALLPERF,seek,120,FF,20,106,OK,pos=10800083,frames=1769
+qml: WALLPERF,seek,120,RW,20,114,OK,pos=3600083,frames=1780
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,1,4054,OK,pos=83,frames=1793
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,1,3621,OK,pos=83,frames=1826
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,2,3893,OK,pos=83,frames=1859
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,2,4366,OK,pos=84,frames=1892
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,3,5519,OK,pos=83,frames=1926
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,3,22265,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,4,22019,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,4,21998,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,5,22002,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,5,24211,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,6,25369,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,6,23085,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,7,21999,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,7,22001,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,8,22032,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,8,23152,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,9,26551,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,9,23169,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,10,21999,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,10,22018,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,11,25434,TIMEOUT,pos=0,frames=1956
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,11,7880,OK,pos=83,frames=1959
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,12,3495,OK,pos=83,frames=1993
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,12,22285,TIMEOUT,pos=0,frames=2023
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,13,22001,TIMEOUT,pos=0,frames=2023
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,13,22139,TIMEOUT,pos=0,frames=2023
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,14,21991,TIMEOUT,pos=0,frames=2023
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,14,24562,OK,pos=83,frames=2026
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,15,6831,OK,pos=83,frames=2058
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,15,21413,TIMEOUT,pos=0,frames=2087
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,16,21119,TIMEOUT,pos=0,frames=2087
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,16,21260,TIMEOUT,pos=0,frames=2087
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,17,16524,OK,pos=83,frames=2090
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,17,16004,OK,pos=83,frames=2122
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,FF,18,5329,OK,pos=83,frames=2154
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,18,21414,TIMEOUT,pos=0,frames=2183
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,19,21120,TIMEOUT,pos=0,frames=2183
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,RW,19,21505,TIMEOUT,pos=0,frames=2183
+qml: WALLOPEN,2026-06-18T14:16:36.563Z,2026-06-18T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,1440,FF,20,22215,TIMEOUT,pos=0,frames=2183
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,1440,RW,20,21628,OK,pos=83,frames=2186
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,1,8194,OK,pos=83,frames=2218
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,1,21413,TIMEOUT,pos=0,frames=2247
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,FF,2,21121,TIMEOUT,pos=0,frames=2247
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,2,21120,TIMEOUT,pos=0,frames=2247
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,3,23499,TIMEOUT,pos=0,frames=2247
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,3,14416,OK,pos=83,frames=2250
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,4,5178,OK,pos=83,frames=2282
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,4,21425,TIMEOUT,pos=0,frames=2311
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,FF,5,21119,TIMEOUT,pos=0,frames=2311
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,5,23630,TIMEOUT,pos=0,frames=2311
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,6,12213,OK,pos=83,frames=2314
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,6,13061,OK,pos=83,frames=2346
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,7,11959,OK,pos=83,frames=2378
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,7,21414,TIMEOUT,pos=0,frames=2407
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,FF,8,21243,TIMEOUT,pos=0,frames=2407
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,8,13849,OK,pos=83,frames=2410
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,9,10060,OK,pos=83,frames=2442
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,9,21432,TIMEOUT,pos=0,frames=2471
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,10,19998,OK,pos=83,frames=2494
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,10,21429,TIMEOUT,pos=0,frames=2523
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,11,6196,OK,pos=83,frames=2526
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,11,5930,OK,pos=83,frames=2558
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,FF,12,4863,OK,pos=83,frames=2591
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,12,13751,OK,pos=83,frames=2623
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,13,21416,TIMEOUT,pos=0,frames=2652
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,13,21246,TIMEOUT,pos=0,frames=2652
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,14,22239,TIMEOUT,pos=0,frames=2652
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,14,18367,OK,pos=83,frames=2655
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,15,5285,OK,pos=83,frames=2687
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,15,2925,OK,pos=83,frames=2719
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,FF,16,21420,TIMEOUT,pos=0,frames=2748
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,16,21144,TIMEOUT,pos=0,frames=2748
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,17,22211,TIMEOUT,pos=0,frames=2748
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,17,23617,TIMEOUT,pos=0,frames=2748
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,18,21564,TIMEOUT,pos=0,frames=2761
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,18,3688,OK,pos=83,frames=2764
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,19,21420,TIMEOUT,pos=0,frames=2793
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qml: WALLPERF,reopen,2880,RW,19,21120,TIMEOUT,pos=0,frames=2793
+qml: WALLOPEN,2026-06-19T14:16:36.563Z,2026-06-19T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,FF,20,22236,TIMEOUT,pos=0,frames=2793
+qml: WALLOPEN,2026-06-17T14:16:36.563Z,2026-06-17T15:16:36.563Z,span=60min
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qrc:/qt/qml/Watchtower/qml/LiveMonitor.qml:1117:37: QML QQuickImage: Error decoding: http://192.168.1.79:1984/api/frame.jpeg?src=hiwatch-083bc1df3a0d: Unsupported image format
+qml: WALLPERF,reopen,2880,RW,20,22327,TIMEOUT,pos=0,frames=2793
+qml: WALLPERF,DONE,total=240

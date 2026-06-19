@@ -143,6 +143,22 @@ Net: the common live-review navigation (zoom presets + scrub within hours) no lo
 all ~105 ms in-stream seeks. The slow/flaky re-open path is now hit only by **changing days** (one debounced
 re-open per day) and the rare **grow-wider-than-ever** zoom, pending the backend session-lifecycle fixes (B1/B2).
 
+## Re-measure (after wiring B1/B2a/B3 — `…after-lifecycle.raw.log`)
+
+CV shipped the mosaic lifecycle (DELETE/replaces/prewarm). We wired it (dispose on leave, `replaces`
+on every open, prewarm seek-hint) and re-ran the same 240-jump harness:
+
+- **In-stream warm seeks: median 108 ms, p90 118 ms, 0 timeouts** (unchanged — the common C1 path).
+- **In-stream cold (first visit): ~4.4 s** (iGPU floor).
+- **Re-open (±1d/±2d): 50/80 timeout (62 %)** vs baseline 45/80 (56 %) — **statistically unchanged**.
+
+Why unchanged is expected: the harness ping-pongs between two anchor windows *with a settle between
+jumps*, so it never accumulates sessions (only 1–2 alive at a time) — its re-open latency was always
+the **iGPU cold-render floor**, not the pile-up. `replaces`/dispose fixes the *real* pile-up (varied
+navigation over a long shift), verified directly via curl (open-with-`replaces` reaps the prior
+session's playlist → 404; `DELETE` → 204). The re-measure therefore confirms the cold-render ceiling
+rather than the hygiene fix. Real-world lever stays **C1** (day-to-day nav is in-stream ~108 ms).
+
 ## Reproduce
 `QT_QPA_PLATFORM=wayland WT_CV_AUTOLOGIN=1 WT_CV_URL=http://192.168.1.79:8000 WT_WALL_DAY=live WT_WALLPERF=1 ./build/watchtower 2>&1 | grep WALLPERF`
 (`WT_WALLPERF=quick` for a 2-iteration smoke). Parse: `python3 /tmp/parse_wallperf.py <log>`. Needs a real GPU

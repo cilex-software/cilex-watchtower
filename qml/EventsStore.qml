@@ -222,8 +222,11 @@ QtObject {
     }
     function dispose(id, d, note) {
         if (realMode) { if (realDispose) realDispose(id, d, note || ""); return; }
-        var inProgress = (d === "dispatched" || d === "verified");
-        _patch(id, { status: inProgress ? "progress" : "resolved", dispo:d, note: note || "" });
+        // Mirror the backend's disposition→state map (CV 2026-06-19): verify/dispatch
+        // are mid-investigation (in_progress), authorized resolves, the rest dismiss.
+        var st = (d === "verified" || d === "dispatched") ? "progress"
+               : (d === "false_alarm" || d === "dismissed") ? "dismissed" : "resolved";
+        _patch(id, { status: st, dispo: d, note: note || "" });
     }
     // Assign to an operator username, or "" to unassign. Backend (real) transitions
     // an assigned event to in_progress; mock mirrors that.

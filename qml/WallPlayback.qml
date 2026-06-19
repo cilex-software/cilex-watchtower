@@ -322,6 +322,14 @@ Item {
         var pos = wallToPos(ms);
         if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);   // headroom — don't strand at EOS
         player.position = Math.round(Math.max(0, pos) * 1000);
+        if (client && sessionId !== "") {        // B3 seek-hint: warm the fragment we're landing on (+2 ahead)
+            var fi = _fragIndexAt(pos);
+            if (fi >= 0) client.prewarmMosaic(sessionId, fi, 2);
+        }
+    }
+    function _fragIndexAt(sec) {                  // manifest-fragment index covering compact-seconds `sec`
+        for (var i = 0; i < frags.length; i++) if (sec >= frags[i].cs && sec <= frags[i].ce) return i;
+        return -1;
     }
 
     // ---- per-camera motion lanes on the scrubber ---------------------------
@@ -414,6 +422,7 @@ Item {
             + ",span=" + Math.round((endMs - startMs) / 60000) + "min");   // audit re-composites
         renderGuard.stop();
         errorText = ""; pending = false; loading = true;
+        var oldSid = sessionId;          // B2a: ask the backend to reap it as we open the new one
         sessionId = ""; frags = []; grid = ({}); cells = []; _pendingSeekMs = -1;
         // Fully unload (not just stop): Qt 6.4's stop() re-prerolls the old media
         // at position 0, re-downloading its first segments through the proxy while
@@ -425,7 +434,8 @@ Item {
         var d = gridDims(ids.length);
         client.ensureReady();
         client.fetchCoverageUnion(ids);
-        client.openMosaicSession(ids, new Date(startMs).toISOString(), new Date(endMs).toISOString(), d.cols, d.rows);
+        client.openMosaicSession(ids, new Date(startMs).toISOString(), new Date(endMs).toISOString(),
+                                 d.cols, d.rows, oldSid);   // replaces=oldSid → one wall = one live session
     }
     // Zoom presets move the VIEW inside the already-loaded window (in-stream, instant)
     // instead of re-compositing. Only a preset WIDER than the loaded window grows it —
@@ -530,7 +540,16 @@ Item {
         }
     }
     focus: true
-    onVisibleChanged: { if (visible) forceActiveFocus(); else player.stop(); }
+    onVisibleChanged: {
+        if (visible) { forceActiveFocus(); return; }
+        player.stop();
+        if (root.sessionId !== "" && client) {   // B1: free the composite as we leave the wall
+            client.disposeMosaicSession(root.sessionId);
+            root.sessionId = "";
+        }
+    }
+    // App teardown — release the live composite rather than leaning on the idle reaper.
+    Component.onDestruction: if (root.sessionId !== "" && client) client.disposeMosaicSession(root.sessionId)
     // keyboard transport: space = play/pause, ←/→ = ∓10s (Shift = ∓60s)
     Keys.onPressed: (e) => {
         if (root.pickerOpen) {           // picker owns the keyboard while open

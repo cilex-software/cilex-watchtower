@@ -88,9 +88,18 @@ public:
     // of the whole grid + a cell↔camera mapping + a /review-shaped composited
     // manifest. Emits mosaicSessionReady or mosaicSessionFailed (the latter on
     // 404 until the endpoint ships → the wall shows an honest "pending" state).
+    // `replaces` (B2a): the prior session id to reap server-side (one wall = one
+    // live session). `prewarmAt` (B3): fragment index to warm around on create
+    // (-1 = none).
     Q_INVOKABLE void openMosaicSession(const QStringList &cameraIds,
                                        const QString &wallStartIso, const QString &wallEndIso,
-                                       int cols, int rows);
+                                       int cols, int rows,
+                                       const QString &replaces = QString(), int prewarmAt = -1);
+    // B1: dispose a session (DELETE) — cancels the chase + in-flight renders and
+    // frees its cache; fire-and-forget. Call on leaving the wall.
+    Q_INVOKABLE void disposeMosaicSession(const QString &sessionId);
+    // B3: seek-hint — warm `ahead` fragments around `atFrag`; fire-and-forget (202).
+    Q_INVOKABLE void prewarmMosaic(const QString &sessionId, int atFrag, int ahead = 0);
     // Proxied playlist URL for the composited mosaic stream.
     Q_INVOKABLE QString mosaicPlaylistUrl(const QString &sessionId) const;
 
