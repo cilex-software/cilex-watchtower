@@ -141,10 +141,11 @@ Window {
     }
 
     // Dev hook: WT_FOCUS_IP boots straight into Single Camera Detail for that
-    // camera (deferred so the shell finishes its first layout pass, matching the
-    // real flow where the user clicks a tile after the grid has settled).
+    // camera. Repeats until the camera roster has loaded (the first /streams
+    // response lands a few seconds after login), then stops once focused.
     Timer {
-        interval: 400; running: typeof wtFocusIp !== "undefined" && wtFocusIp !== ""
+        interval: 500; repeat: true
+        running: typeof wtFocusIp !== "undefined" && wtFocusIp !== "" && win.focusedCamera === null
         onTriggered: {
             var all = cameraModel.page("", "", "default", 1, 50);
             for (var i = 0; i < all.length; i++)

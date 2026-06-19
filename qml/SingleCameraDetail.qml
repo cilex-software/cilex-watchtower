@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic
 import Watchtower
 
 // Single Camera Detail — Live (S05): focused live view of one camera. Large
@@ -28,6 +29,13 @@ Item {
                    : (camera.rtspSubUrl || camera.rtspUrl || ""))
     readonly property var siblings: (cameraModel && camera)
         ? cameraModel.page(camera.groupId, "", "alpha", 1, 24) : []
+    // Same-group cameras minus the one we're already viewing — drives the thumbnail grid.
+    readonly property var groupSiblings: {
+        var out = [], s = root.siblings;
+        for (var i = 0; i < s.length; i++)
+            if (!root.camera || s[i].mac !== root.camera.mac) out.push(s[i]);
+        return out;
+    }
 
     function captureSnapshot() {
         var t = (vsurf.playing) ? vsurf : playerArea;
@@ -216,29 +224,78 @@ Item {
                 KV { k: "Firmware"; v: root.camera ? root.camera.firmware : "—" }
                 Item { Layout.preferredHeight: 8 }
 
-                AsideHeader { text: "Same group" }
-                ListView {
+                AsideHeader { text: "Same group" + (root.groupSiblings.length > 0 ? ("  ·  " + root.groupSiblings.length) : "") }
+                // Thumbnail grid: each tile is the camera's live frame (go2rtc snapshot)
+                // with a faint octet badge (e.g. ".101") so the whole group reads at a
+                // glance; click a tile to switch the focused camera.
+                GridView {
+                    id: sibGrid
+                    visible: root.groupSiblings.length > 0
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.leftMargin: 8
-                    Layout.rightMargin: 8
-                    Layout.bottomMargin: 8
+                    Layout.leftMargin: 8; Layout.rightMargin: 8; Layout.bottomMargin: 8
                     clip: true
-                    model: root.siblings
-                    delegate: Rectangle {
+                    model: root.groupSiblings
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    readonly property int cols: Math.max(2, Math.round(width / 112))
+                    cellWidth: width > 0 ? Math.floor(width / cols) : 110
+                    cellHeight: Math.round(cellWidth * 9 / 16) + 4
+                    delegate: Item {
                         required property var modelData
-                        width: ListView.view.width
-                        visible: root.camera ? modelData.mac !== root.camera.mac : true
-                        height: visible ? 36 : 0
-                        color: sibMa.containsMouse ? Theme.panel2 : "transparent"
-                        RowLayout {
-                            anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; spacing: 8
-                            Rectangle { Layout.preferredWidth: 6; Layout.preferredHeight: 6; radius: 0; color: modelData.live === CameraStatus.Live ? Theme.good : (modelData.live === CameraStatus.Offline ? Theme.bad : Theme.accent) }
-                            Text { Layout.fillWidth: true; text: modelData.name; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
-                            Text { text: modelData.ip; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                        width: sibGrid.cellWidth; height: sibGrid.cellHeight
+                        Rectangle {
+                            anchors.fill: parent; anchors.margins: 3
+                            color: "#0b0d10"; clip: true
+                            border.width: thumbMa.containsMouse ? 1.5 : 1
+                            border.color: thumbMa.containsMouse ? Theme.accent : Theme.line2
+                            // live frame — cache:false + retry so one transient bad
+                            // frame can't poison the rest of the grid.
+                            Image {
+                                id: thumbImg
+                                anchors.fill: parent; anchors.margins: 1
+                                fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+                                property int _retry: 0
+                                readonly property string _base: modelData.snapshotUrl ? modelData.snapshotUrl : ""
+                                source: _base === "" ? "" : (_base + (_retry > 0 ? ("&_r=" + _retry) : ""))
+                                visible: status === Image.Ready
+                                onStatusChanged: if (status === Image.Error && _retry < 2) thumbRetry.restart()
+                                Timer { id: thumbRetry; interval: 800; onTriggered: thumbImg._retry++ }
+                            }
+                            Icon {   // placeholder when no frame (offline / not yet loaded)
+                                anchors.centerIn: parent; visible: thumbImg.status !== Image.Ready
+                                name: modelData.live === CameraStatus.Offline ? "off" : "monitor"
+                                size: 16; color: Theme.ink3
+                            }
+                            Rectangle {   // live-status dot (top-right)
+                                anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 3
+                                width: 7; height: 7; radius: 3.5
+                                color: modelData.live === CameraStatus.Live ? Theme.good : (modelData.live === CameraStatus.Offline ? Theme.bad : Theme.accent)
+                                border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.4)
+                            }
+                            Rectangle {   // faint octet badge (e.g. ".101")
+                                anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 2
+                                visible: octT.text !== ""
+                                width: octT.implicitWidth + 8; height: octT.implicitHeight + 3; radius: 2
+                                color: Qt.rgba(0, 0, 0, 0.42)
+                                Text {
+                                    id: octT; anchors.centerIn: parent
+                                    text: { var p = ("" + (modelData.ip || "")).split("."); return p.length ? ("." + p[p.length - 1]) : ""; }
+                                    color: Qt.rgba(1, 1, 1, 0.82); font.family: Theme.fontMono; font.pixelSize: 10
+                                }
+                            }
+                            MouseArea { id: thumbMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor; onClicked: root.switchCamera(modelData) }
                         }
-                        MouseArea { id: sibMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.switchCamera(modelData) }
                     }
+                }
+                Text {
+                    visible: root.groupSiblings.length === 0
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 4
+                    text: (root.camera && root.camera.groupName) ? "No other cameras in this group." : "This camera isn't in a group."
+                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.WordWrap
+                    verticalAlignment: Text.AlignTop
                 }
             }
         }
