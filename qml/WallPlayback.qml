@@ -30,7 +30,14 @@ Item {
     property double compactDuration: 0
     property double winStartMs: 0
     property double winEndMs: 0
-    property int zoomMin: 60          // 15 / 60 / 360 / 720 / 1440
+    property int zoomMin: 60           // current VIEW preset (chips + window label): 15/60/360/720/1440
+    // Span of the loaded composite window. Zoom presets that fit inside it move the
+    // VIEW only (in-stream, instant) instead of re-compositing; the window grows
+    // (one re-composite) only when a preset is wider. Default wide (6 h) so the common
+    // ±minutes/hours navigation never re-opens (15m/1h/6h presets are in-stream view-
+    // changes). Entry plays from the window start (~3.8 s; a recent-edge seek render-
+    // chases the recording frontier to ~9 s). See docs/perf/2026-06-19.
+    property int loadedSpanMin: 360
     property string selectedDay: ""
     property bool loading: false
     property string errorText: ""     // honest pending/error message
@@ -114,7 +121,7 @@ Item {
     function reopenSameWindow() {
         var keepMs = frags.length ? playheadMs : -1;
         if (winEndMs > winStartMs && winStartMs > 0) _open(winStartMs, winEndMs);
-        else openFor(zoomMin || 60);
+        else openFor(loadedSpanMin);
         _pendingSeekMs = keepMs;         // set AFTER _open (which resets it)
     }
     function openPicker() {
@@ -165,7 +172,7 @@ Item {
         if (out.length === 0) return;
         cameras = out;
         wallGroupLabel = "";
-        openFor(zoomMin || 60);
+        openFor(loadedSpanMin);
     }
 
     // ---- drag-and-drop cell arrangement -------------------------------------
@@ -382,19 +389,29 @@ Item {
         return { s: start, e: end };
     }
     function openFor(spanMin) {
-        zoomMin = spanMin || zoomMin;
+        loadedSpanMin = spanMin || loadedSpanMin;
         selectedDay = "";
-        var w = _windowFor(zoomMin);
+        var w = _windowFor(loadedSpanMin);
         _open(w.s, w.e);
     }
+    // Calendar day-pick re-composites a 24 h window. Debounced so a flurry of rapid
+    // day clicks coalesces into ONE session create instead of piling up composites.
+    property string _pendingDay: ""
+    Timer { id: dayDebounce; interval: 350; onTriggered: root._openDayNow() }
     function openForDay(dateStr) {
-        selectedDay = dateStr;
-        var s = new Date(dateStr + "T00:00:00").getTime();
+        selectedDay = dateStr; zoomMin = 1440;
+        _pendingDay = dateStr; dayDebounce.restart();
+    }
+    function _openDayNow() {
+        if (_pendingDay === "") return;
+        var s = new Date(_pendingDay + "T00:00:00").getTime();
+        loadedSpanMin = 1440; _pendingDay = "";
         _open(s, Math.min(s + 86400000, Date.now()));
-        zoomMin = 1440;
     }
     function _open(startMs, endMs) {
         if (!client || cameras.length === 0) return;
+        console.log("WALLOPEN," + new Date(startMs).toISOString() + "," + new Date(endMs).toISOString()
+            + ",span=" + Math.round((endMs - startMs) / 60000) + "min");   // audit re-composites
         renderGuard.stop();
         errorText = ""; pending = false; loading = true;
         sessionId = ""; frags = []; grid = ({}); cells = []; _pendingSeekMs = -1;
@@ -410,7 +427,23 @@ Item {
         client.fetchCoverageUnion(ids);
         client.openMosaicSession(ids, new Date(startMs).toISOString(), new Date(endMs).toISOString(), d.cols, d.rows);
     }
-    function setZoom(spanMin) { openFor(spanMin); }
+    // Zoom presets move the VIEW inside the already-loaded window (in-stream, instant)
+    // instead of re-compositing. Only a preset WIDER than the loaded window grows it —
+    // one re-composite, playhead preserved. This is the main win from the wall perf
+    // report (docs/perf/2026-06-19): re-opens are slow (~8 s) and 56% stall; in-window
+    // seeks are ~105 ms and 100% reliable.
+    function setViewPreset(spanMin) {
+        zoomMin = spanMin; selectedDay = "";
+        if (frags.length > 0 && spanMin <= loadedSpanMin) {   // fits the loaded window → view only
+            viewEndMs = winEndMs;
+            viewStartMs = Math.max(winStartMs, winEndMs - spanMin * 60000);
+        } else {
+            var keepMs = frags.length ? playheadMs : -1;
+            openFor(spanMin);
+            _pendingSeekMs = keepMs;      // keep the playhead across the grow re-composite
+        }
+    }
+    function setZoom(spanMin) { setViewPreset(spanMin); }   // back-compat alias
 
     // Export the In→Out moment across the wall (dual-archive): a per-camera clip
     // for each tile (live today) + one combined synchronized-grid clip (E2 —
@@ -438,7 +471,15 @@ Item {
             root.sessionId = sid; root.grid = g; root.cells = c; root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
-            root.resetView();
+            root.selStartMs = -1; root.selEndMs = -1;
+            // View the whole loaded window; play from its start (compact 0). We do NOT
+            // seek to the recent edge on a fresh open: seeking far into a just-composited
+            // window render-chases the recording frontier (~9 s, measured). Playing from
+            // the window start is ~3.8 s, and all navigation within the window is then an
+            // in-stream seek. A restore (camera swap / window grow) keeps its pending
+            // playhead. See docs/perf/2026-06-19.
+            root.viewStartMs = root.winStartMs; root.viewEndMs = root.winEndMs;
+            if (root._pendingSeekMs < 0) root.zoomMin = root.loadedSpanMin;   // fresh → chip reflects the full window
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
@@ -802,11 +843,11 @@ Item {
                 Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
-                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setZoom(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setZoom(60) }
-                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setZoom(360) }
-                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setZoom(720) }
-                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setZoom(1440) }
+                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setViewPreset(15) }
+                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setViewPreset(60) }
+                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setViewPreset(360) }
+                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setViewPreset(720) }
+                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setViewPreset(1440) }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
                 Chip { label: "Motion"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 Chip { visible: root.hasSelection; label: "Export selection"; active: true; onClicked: root.exportSelection() }

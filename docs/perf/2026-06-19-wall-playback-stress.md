@@ -123,6 +123,26 @@ Two operation types, matching how the wall actually behaves:
   open (one wall = one live session), so bursts can't exhaust the renderer; reject-fast rather than open-then-stall.
 - **B3 — Faster cold start / pre-warm** around the requested playhead to cut the ~3.3 s cold-seek and re-open time.
 
+## Implemented (2026-06-19, client) — C1 + C3
+
+`WallPlayback.qml` now separates the **loaded composite window** (`loadedSpanMin`, default **6 h**) from the
+**view preset** (`zoomMin`). Verified on real GPU (`WALLOPEN` audit log in `_open` shows every re-composite):
+
+- **C1 — zoom presets are in-stream view-changes.** `setViewPreset(spanMin)` moves the view inside the loaded
+  window when it fits (`spanMin ≤ loadedSpanMin`), with **no re-composite**; only a preset *wider* than the
+  loaded window grows it once (playhead preserved), and the window only grows (monotonic), so once you've been
+  wide everything narrower is in-stream. Measured: `15m/1h/6h` → 0 `WALLOPEN`; `12h/24h` → 1 grow each.
+- **Entry stays fast (~2.9 s).** Key finding: seeking to the **recent edge** of a freshly-opened window
+  render-chases the recording frontier (**~9–11 s**, measured), so a wide window with a recent start is slow.
+  We therefore **play from the window start** (~2.9 s, ≈ the old 1 h-window entry) and let in-window seeks (~105 ms)
+  do the rest. Trade-off: "Go back in time" now lands at the window-start edge (6 h ago) with a 6 h scrubber,
+  instead of 1 h ago. `loadedSpanMin` is a one-line tune if a different span/landing is preferred.
+- **C3 — calendar day-picks debounced** (350 ms) so a flurry of day clicks coalesces into one session create.
+
+Net: the common live-review navigation (zoom presets + scrub within hours) no longer re-composites at all — it's
+all ~105 ms in-stream seeks. The slow/flaky re-open path is now hit only by **changing days** (one debounced
+re-open per day) and the rare **grow-wider-than-ever** zoom, pending the backend session-lifecycle fixes (B1/B2).
+
 ## Reproduce
 `QT_QPA_PLATFORM=wayland WT_CV_AUTOLOGIN=1 WT_CV_URL=http://192.168.1.79:8000 WT_WALL_DAY=live WT_WALLPERF=1 ./build/watchtower 2>&1 | grep WALLPERF`
 (`WT_WALLPERF=quick` for a 2-iteration smoke). Parse: `python3 /tmp/parse_wallperf.py <log>`. Needs a real GPU

@@ -31,7 +31,7 @@ Window {
         var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
         wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
         wallMode = "playback";
-        wallPlayback.openFor(60);
+        wallPlayback.openFor();
     }
 
     // Enter wall playback over an EXPLICIT camera set (the Situation-Map selection),
@@ -195,10 +195,13 @@ Window {
     Timer {
         interval: 3000; running: typeof wtWallDay !== "undefined" && wtWallDay !== ""
         onTriggered: {
+            wallMode = "playback";
+            // The WT_WALLPERF harness seeds + opens the session itself; if we also
+            // opened here it would create a second composite ~3 s later (churn).
+            if (typeof wtWallPerf !== "undefined" && wtWallPerf !== "") return;
             var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
             wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
-            wallMode = "playback";
-            if (wtWallDay === "live") wallPlayback.openFor(60);
+            if (wtWallDay === "live") wallPlayback.openFor();
             else wallPlayback.openForDay(wtWallDay);
         }
     }
