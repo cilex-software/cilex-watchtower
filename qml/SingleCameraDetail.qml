@@ -224,7 +224,26 @@ Item {
                 KV { k: "Firmware"; v: root.camera ? root.camera.firmware : "—" }
                 Item { Layout.preferredHeight: 8 }
 
-                AsideHeader { text: "Same group" + (root.groupSiblings.length > 0 ? ("  ·  " + root.groupSiblings.length) : "") }
+                // "Same group" header with the actual group name in parentheses so it's
+                // clear which group these cameras belong to.
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 14; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 8
+                    spacing: 7
+                    Text {
+                        text: "SAME GROUP"; color: Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.4
+                    }
+                    Text {
+                        Layout.fillWidth: true; elide: Text.ElideRight
+                        text: (root.camera && root.camera.groupName) ? ("(" + root.camera.groupName + ")") : ""
+                        color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11
+                    }
+                    Text {
+                        visible: root.groupSiblings.length > 0; text: root.groupSiblings.length
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
+                }
                 // Thumbnail grid: each tile is the camera's live frame (go2rtc snapshot)
                 // with a faint octet badge (e.g. ".101") so the whole group reads at a
                 // glance; click a tile to switch the focused camera.
