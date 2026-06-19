@@ -452,11 +452,13 @@ Item {
             player.source = root.client.mosaicPlaylistUrl(sid);
             player.play();
             renderGuard.restart();   // honest failure if the composite never produces frames
+            if (perf.active) perf._onSessionReady();
         }
         function onMosaicSessionFailed(err, pending) {
             root.loading = false;
             root.pending = pending;     // 404 ⇒ endpoint not shipped yet
             root.errorText = err;
+            if (perf.active) perf._onSessionFailed(err);
         }
         function onCoverageUnionReady(available, retDays, unionDays) {
             root.coveragePending = !available;
@@ -1170,5 +1172,129 @@ Item {
                 }
             }
         }
+    }
+
+    // ---- WT_WALLPERF: synchronized-wall seek / re-composite latency harness ----
+    // Measures, per playhead move, the time from issuing the move to the composited
+    // grid playing again (all 16 cells advance one frame). Small offsets are in-stream
+    // seeks within one loaded window; ±1d/±2d re-open the session (the real "navigate
+    // far" path). Emits CSV "WALLPERF,..." lines. WT_WALLPERF=1 = full (20×), =quick =
+    // 2× smoke. Needs a real GPU — frames don't decode under QT_QPA_PLATFORM=offscreen.
+    Item {
+        id: perf
+        readonly property bool active: (typeof wtWallPerf !== "undefined") && wtWallPerf !== ""
+        readonly property int iters: (active && wtWallPerf === "quick") ? 2 : 20
+        property int frames: 0
+        property var plan: []
+        property int stepIndex: -1
+        property var step: null
+        property bool waiting: false
+        property bool reopenPending: false
+        property double actionT: 0
+        property int framesAtAction: 0
+        property double targetPos: 0
+        property string phase: "idle"            // idle | warmup | run | done
+        property double baseSmall: 0
+        property double baseBig: 0
+
+        function _now() { return Date.now(); }
+        function _iso(ms) { return new Date(ms).toISOString(); }
+
+        Component.onCompleted: if (perf.active) startTimer.start()
+        Timer { id: startTimer; interval: 6000; onTriggered: perf._begin() }
+
+        function _begin() {
+            if (!root.cameraModel || !root.client) { startTimer.restart(); return; }
+            var cams = root.cameraModel.page("", "", "ip", 1, 16), out = [];
+            for (var i = 0; i < cams.length && out.length < 16; i++) if (cams[i] && cams[i].camId) out.push(cams[i]);
+            if (out.length === 0) { startTimer.restart(); return; }
+            root.cameras = out;
+            var now = perf._now();
+            perf.baseSmall = now - 4 * 3600000;               // in-stream anchor (recent footage)
+            perf.baseBig = now - 2 * 86400000 - 1800000;      // re-open anchor (base+2d ≤ now)
+            perf.plan = perf._buildPlan();
+            console.log("WALLPERF,META,cams=" + out.length + ",iters=" + perf.iters
+                + ",baseSmall=" + perf._iso(perf.baseSmall) + ",baseBig=" + perf._iso(perf.baseBig)
+                + ",steps=" + perf.plan.length);
+            perf.phase = "warmup";
+            perf.waiting = true; perf.actionT = perf._now(); perf.framesAtAction = perf.frames;
+            perf.targetPos = 0; perf.reopenPending = true;
+            timeoutTimer.restart();
+            root._open(perf.baseSmall - 3600000, perf.baseSmall + 5 * 3600000);   // 6h in-stream window
+        }
+
+        function _buildPlan() {
+            var inStream = [10, 30, 60, 120], reopen = [1440, 2880], p = [];
+            for (var a = 0; a < inStream.length; a++) {
+                var O = inStream[a] * 60000;
+                for (var i = 1; i <= perf.iters; i++) {
+                    p.push({ kind: "seek", offMin: inStream[a], dir: "FF", iter: i, toMs: perf.baseSmall + O });
+                    p.push({ kind: "seek", offMin: inStream[a], dir: "RW", iter: i, toMs: perf.baseSmall });
+                }
+            }
+            for (var b = 0; b < reopen.length; b++) {
+                var Ob = reopen[b] * 60000;
+                for (var j = 1; j <= perf.iters; j++) {
+                    p.push({ kind: "reopen", offMin: reopen[b], dir: "FF", iter: j, toMs: perf.baseBig + Ob });
+                    p.push({ kind: "reopen", offMin: reopen[b], dir: "RW", iter: j, toMs: perf.baseBig });
+                }
+            }
+            return p;
+        }
+
+        function _exec() {
+            perf.step = perf.plan[perf.stepIndex];
+            perf.waiting = true; perf.actionT = perf._now(); perf.framesAtAction = perf.frames;
+            timeoutTimer.restart();
+            if (perf.step.kind === "seek") {
+                perf.reopenPending = false;
+                root.seekToWall(perf.step.toMs);
+                perf.targetPos = player.position;
+            } else {
+                perf.reopenPending = true; perf.targetPos = 0;
+                root._open(perf.step.toMs, perf.step.toMs + 3600000);
+            }
+        }
+
+        function _next() {
+            perf.stepIndex++;
+            if (perf.stepIndex >= perf.plan.length) {
+                console.log("WALLPERF,DONE,total=" + perf.plan.length);
+                perf.phase = "done"; quitTimer.start(); return;
+            }
+            perf._exec();
+        }
+
+        function _onSessionReady() { if (perf.reopenPending) perf.reopenPending = false; }
+        function _onSessionFailed(err) { if (perf.waiting) perf._record("FAIL"); }
+
+        function _check() {
+            if (!perf.waiting || perf.reopenPending) return;
+            if (perf.frames >= perf.framesAtAction + 2 && player.position > perf.targetPos + 60)
+                perf._record("OK");
+        }
+
+        function _record(status) {
+            var lat = perf._now() - perf.actionT;
+            timeoutTimer.stop(); perf.waiting = false;
+            var isReopen = (perf.step && perf.step.kind === "reopen");
+            // let a re-composite settle longer before the next move so rapid session
+            // teardown/create churn doesn't poison the following measurement.
+            settleTimer.interval = (perf.phase === "warmup") ? 1500 : (isReopen ? 2500 : 700);
+            if (perf.phase === "warmup") {
+                console.log("WALLPERF,WARMUP," + status + "," + lat + "ms,frames=" + perf.frames);
+                perf.phase = "run"; settleTimer.restart(); return;
+            }
+            var s = perf.step;
+            console.log("WALLPERF," + s.kind + "," + s.offMin + "," + s.dir + "," + s.iter + ","
+                + lat + "," + status + ",pos=" + Math.round(player.position) + ",frames=" + perf.frames);
+            settleTimer.restart();
+        }
+
+        Connections { target: vout.videoSink; enabled: perf.active
+            function onVideoFrameChanged(f) { perf.frames++; perf._check(); } }
+        Timer { id: timeoutTimer; interval: 22000; onTriggered: if (perf.waiting) perf._record("TIMEOUT") }
+        Timer { id: settleTimer; interval: 700; onTriggered: perf._next() }
+        Timer { id: quitTimer; interval: 1500; onTriggered: Qt.quit() }
     }
 }

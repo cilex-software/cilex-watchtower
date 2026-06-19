@@ -153,6 +153,10 @@ int main(int argc, char *argv[])
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.
     engine.rootContext()->setContextProperty("wtSmoothTest", qEnvironmentVariable("WT_SMOOTHTEST"));
+    // QA: WT_WALLPERF=1 (or =quick) attaches the synchronized-wall seek/re-composite
+    // latency harness (drives the playhead over fixed offsets, measures time-to-replay
+    // across all 16 cells). Logs "WALLPERF,..." CSV lines. Needs a real GPU (VA-API).
+    engine.rootContext()->setContextProperty("wtWallPerf", qEnvironmentVariable("WT_WALLPERF"));
     // Live RTSP path: low-latency by default (custom GStreamer pipeline →
     // QVideoSink, rtspsrc latency≈150 ms). QMediaPlayer's default 2000 ms
     // jitter buffer is unusable for monitoring — proven so during the spike.
