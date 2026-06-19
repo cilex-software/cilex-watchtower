@@ -50,7 +50,14 @@ Item {
     // timeline view window (a zoomable subset of [winStartMs, winEndMs])
     property double viewStartMs: 0
     property double viewEndMs: 0
-    function resetView() { viewStartMs = winStartMs; viewEndMs = winEndMs; selStartMs = -1; selEndMs = -1; }
+    property bool customZoom: false   // true after a free-form mouse-wheel zoom (vs a clean preset)
+    function resetView() { viewStartMs = winStartMs; viewEndMs = winEndMs; selStartMs = -1; selEndMs = -1; zoomMin = loadedSpanMin; customZoom = false; }
+    function fmtSpan(ms) {
+        var m = Math.max(1, Math.round(ms / 60000));
+        if (m < 60) return m + " min";
+        var h = Math.floor(m / 60), mm = m % 60;
+        return mm ? (h + "h " + mm + "m") : (h + "h");
+    }
 
     // coverage (union) for the calendar
     property int retentionDays: 35
@@ -443,7 +450,7 @@ Item {
     // report (docs/perf/2026-06-19): re-opens are slow (~8 s) and 56% stall; in-window
     // seeks are ~105 ms and 100% reliable.
     function setViewPreset(spanMin) {
-        zoomMin = spanMin; selectedDay = "";
+        zoomMin = spanMin; selectedDay = ""; customZoom = false;
         if (frags.length > 0 && spanMin <= loadedSpanMin) {   // fits the loaded window → view only
             viewEndMs = winEndMs;
             viewStartMs = Math.max(winStartMs, winEndMs - spanMin * 60000);
@@ -570,6 +577,8 @@ Item {
         } else if (e.key === Qt.Key_Right) {
             player.position = Math.min(player.duration, player.position + ((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000));
             e.accepted = true;
+        } else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) {
+            root.resetView(); e.accepted = true;   // Fit: drop a custom wheel-zoom back to the full window
         }
     }
 
@@ -859,16 +868,23 @@ Item {
                 }
                 Chip { label: "−10s"; onClicked: player.position = Math.max(0, player.position - 10000) }
                 Chip { label: "+10s"; onClicked: player.position = Math.min(player.duration, player.position + 10000) }
+                Chip { label: "Last hour"; onClicked: root.setViewPreset(60) }
+                Chip { label: "Last 15 min"; onClicked: root.setViewPreset(15) }
                 Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
-                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === ""; onClicked: root.setViewPreset(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === ""; onClicked: root.setViewPreset(60) }
-                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === ""; onClicked: root.setViewPreset(360) }
-                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === ""; onClicked: root.setViewPreset(720) }
-                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === ""; onClicked: root.setViewPreset(1440) }
+                // Window presets move the view inside the loaded composite window;
+                // they de-highlight once you wheel-zoom into a custom span (then the
+                // Custom chip shows the visible span; Fit / 0-key resets).
+                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(15) }
+                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(60) }
+                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(360) }
+                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(720) }
+                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(1440) }
+                Chip { visible: root.customZoom; active: true; label: root.fmtSpan(root.viewEndMs - root.viewStartMs); onClicked: root.resetView() }
+                Chip { visible: root.customZoom; label: "Fit"; onClicked: root.resetView() }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
-                Chip { label: "Motion"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
+                Chip { label: "Events"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 Chip { visible: root.hasSelection; label: "Export selection"; active: true; onClicked: root.exportSelection() }
                 Chip { label: "Return to live"; onClicked: root.returnToLive() }
             }
@@ -1014,8 +1030,16 @@ Item {
                         }
                         bar.pressMs = -1;
                     }
-                    // mouse-wheel zoom (days→seconds) within the session window, around the cursor
+                    // mouse-wheel: zoom on the cursor; Shift+wheel pans (Premiere-style)
                     onWheel: (w) => {
+                        if (w.modifiers & Qt.ShiftModifier) {
+                            var d = (w.angleDelta.y > 0 ? -1 : 1) * bar.span * 0.15;
+                            var ps = root.viewStartMs + d, pe = root.viewEndMs + d;
+                            if (ps < root.winStartMs) { ps = root.winStartMs; pe = ps + bar.span; }
+                            if (pe > root.winEndMs) { pe = root.winEndMs; ps = pe - bar.span; }
+                            root.viewStartMs = ps; root.viewEndMs = pe;
+                            return;
+                        }
                         var atMs = bar.msOf(w.x);
                         var factor = w.angleDelta.y > 0 ? 0.8 : 1.25;   // up = zoom in
                         var newSpan = Math.max(5000, Math.min(root.winEndMs - root.winStartMs, bar.span * factor));
@@ -1026,6 +1050,7 @@ Item {
                         if (ne > root.winEndMs) { ne = root.winEndMs; ns = ne - newSpan; }
                         root.viewStartMs = Math.max(root.winStartMs, ns);
                         root.viewEndMs = Math.min(root.winEndMs, ne);
+                        root.customZoom = true;   // free-form zoom → de-highlight presets, show Fit
                     }
                 }
                 // IN→OUT readout — floats over the lanes only while a selection exists
