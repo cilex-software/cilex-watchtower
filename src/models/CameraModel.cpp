@@ -616,8 +616,12 @@ QVariantMap CameraModel::cameraByBackendId(const QString &cameraId) const
 
 bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const QString &f) const
 {
-    if (!groupId.isEmpty() && c.groupId != groupId)
+    if (groupId == QLatin1String("__selected__")) {       // transient ad-hoc set (Situation-Map "Show live")
+        if (!m_selectedCamIds.contains(c.id))
+            return false;
+    } else if (!groupId.isEmpty() && c.groupId != groupId) {
         return false;
+    }
     if (f.isEmpty() || f == QLatin1String("all"))
         return true;
     if (f == QLatin1String("online"))    return c.live == CameraStatus::Live;
@@ -644,6 +648,15 @@ void CameraModel::setRecentCameras(const QStringList &ids)
         return;                       // unchanged — don't churn the filtered views
     m_recentCamIds = next;
     emit countsChanged();             // re-evaluate the "recent" filter / counts
+}
+
+void CameraModel::setSelectedCameras(const QStringList &ids)
+{
+    QSet<QString> next(ids.begin(), ids.end());
+    if (next == m_selectedCamIds)
+        return;
+    m_selectedCamIds = next;
+    emit countsChanged();             // re-evaluate the "__selected__" scope / counts
 }
 
 static int statusRank(const wt::CameraData &c)

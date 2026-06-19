@@ -12,6 +12,7 @@ Item {
     id: map
     signal openInTriage(string id)
     signal openWall(var camIds)                   // "play selected" → synchronized wall playback
+    signal openLive(var camIds)                   // "show live" → Live Monitor scoped to the selection
 
     property string active: ""                    // selected camera id, or ""
 
@@ -32,6 +33,10 @@ Item {
     function _playSelected() {
         var ids = []; for (var k in selIds) ids.push(k);
         if (ids.length > 0) map.openWall(ids);
+    }
+    function _liveSelected() {
+        var ids = []; for (var k in selIds) ids.push(k);
+        if (ids.length > 0) map.openLive(ids);
     }
     // marquee (rubber-band) drag state, in `plan` pixel coords
     property bool _mqActive: false
@@ -389,6 +394,17 @@ Item {
                             Text { anchors.verticalCenter: parent.verticalCenter
                                 text: map.selCount + (map.selCount === 1 ? " camera" : " cameras") + " selected"
                                 color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
+                            Rectangle {                            // Show live (left of Play in wall)
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: slRow.implicitWidth + 22; height: 32; radius: 3
+                                color: slMa.containsMouse ? Theme.panel3 : "transparent"
+                                border.width: 1; border.color: Theme.accent
+                                Row { id: slRow; anchors.centerIn: parent; spacing: 6
+                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 3.5; color: Theme.good }   // live dot
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Show live"; color: Theme.accent
+                                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold } }
+                                MouseArea { id: slMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._liveSelected() }
+                            }
                             Rectangle {                            // Play in wall
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: pwRow.implicitWidth + 22; height: 32; radius: 3

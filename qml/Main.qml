@@ -52,6 +52,24 @@ Window {
         wallPlayback.openWithCameras(cams);
     }
 
+    // Show the LIVE feed of an explicit camera set (the Situation-Map selection) in
+    // the Live Monitor. Scopes the grid to a "__selected__" pseudo-group (handled in
+    // CameraModel.matches), so the group switcher's "All cameras" cleanly exits it.
+    function enterLiveWithCameras(ids) {
+        if (!ids || ids.length === 0 || !cameraModel) return;
+        cameraModel.setSelectedCameras(ids);
+        var n = Math.min(ids.length, 16);
+        gridLayout = n <= 1 ? "1" : n <= 4 ? "4" : n <= 9 ? "9" : "16";   // fit the grid to the count
+        gridPage = 1;
+        statusFilter = "";                 // show every selected camera regardless of status
+        groupFilter = "__selected__";
+        groupLabel = "Selected (" + ids.length + ")";
+        focusedCamera = null;
+        playbackCamera = null;
+        wallMode = "live";
+        section = "live";
+    }
+
     // Left-rail navigation. Camera detail, single-camera playback, and wall
     // playback are full-screen overlays that layer OVER a section (they gate on
     // focusedCamera / playbackCamera / wallMode, not on `section`), so setting
@@ -398,6 +416,8 @@ Window {
                     }
                     // Situation-Map multi-select → jump to wall playback over only those cameras.
                     onOpenWall: (ids) => win.enterWallWithCameras(ids)
+                    // Situation-Map multi-select → live grid scoped to only those cameras.
+                    onOpenLive: (ids) => win.enterLiveWithCameras(ids)
                 }
 
                 // Legacy table-style Events screen — fallback behind WT_EVENTS_LEGACY.

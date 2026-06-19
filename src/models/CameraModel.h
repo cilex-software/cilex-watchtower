@@ -93,6 +93,9 @@ public:
     // Backend camera_ids with a recent event (fed from the Live screen's events
     // feed). Drives the "recent" status filter; empty = nothing recent.
     Q_INVOKABLE void setRecentCameras(const QStringList &ids);
+    // Ad-hoc selected set (Situation-Map "Show live"). Scoped via the "__selected__"
+    // pseudo-group passed as groupId to page()/countFiltered().
+    Q_INVOKABLE void setSelectedCameras(const QStringList &ids);
 
     // Re-fetch group definitions (/groups) AND the camera list (/streams) from
     // the server — picks up admin-side changes immediately (regroups, new/renamed
@@ -160,6 +163,7 @@ private:
     QVector<wt::GroupData> m_groups;          // backend group definitions
     QHash<QString, QPair<QString, bool>> m_prefs;   // camera_id -> {displayName, favorite}
     QSet<QString> m_recentCamIds;                   // cameras with a recent event ("recent" filter)
+    QSet<QString> m_selectedCamIds;                 // ad-hoc selection ("__selected__" pseudo-group)
     bool m_loading = false;
     bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
     bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
