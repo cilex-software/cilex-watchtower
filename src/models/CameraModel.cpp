@@ -481,16 +481,25 @@ void CameraModel::pollStatuses()
         // bindings (live/REC badge) and the group-filtered wall refresh without
         // delegate teardown. Group membership is patched the same way, so a
         // regroup in admin lands on the wall within one poll (~15s).
-        bool statusChanged = false, groupChanged = false;
+        // Separate count-affecting changes (live / recording state) from a mere
+        // last_segment_at advance. last_segment_at ticks forward on EVERY poll for
+        // every actively-recording camera, so folding it into statusChanged made
+        // recompute() — hence countsChanged — fire every 15s. The live grid's model
+        // is a page() array bound to countsChanged (via cameraModel.total), so each
+        // tick rebuilt every Repeater delegate → every CameraTile/VideoSurface/
+        // MediaPlayer was destroyed and recreated → the whole wall flashed green (a
+        // fresh, not-yet-decoded VA-API surface) every 15s. A segment-only advance
+        // must refresh the row's data WITHOUT touching counts / the grid array.
+        bool countChanged = false, groupChanged = false;
         for (int i = 0; i < m_all.size(); ++i) {
             const auto it = incoming.constFind(m_all[i].id);
             if (it == incoming.constEnd()) continue;
-            if (m_all[i].live != it->live || m_all[i].recording != it->rec
-                || m_all[i].lastSegmentAt != it->lastSeg) {
+            const bool liveRecChanged = (m_all[i].live != it->live || m_all[i].recording != it->rec);
+            if (liveRecChanged || m_all[i].lastSegmentAt != it->lastSeg) {
                 m_all[i].live = it->live;
                 m_all[i].recording = it->rec;
                 m_all[i].lastSegmentAt = it->lastSeg;
-                statusChanged = true;
+                if (liveRecChanged) countChanged = true;
                 const QModelIndex idx = index(i);
                 emit dataChanged(idx, idx, { LiveRole, RecordingRole, LastSegmentAtRole });
             }
@@ -502,8 +511,8 @@ void CameraModel::pollStatuses()
                 emit dataChanged(idx, idx, { GroupIdRole, GroupNameRole });
             }
         }
-        if (statusChanged || groupChanged)
-            recompute();   // refresh TopBar counts (online / offline / not-rec)
+        if (countChanged || groupChanged)
+            recompute();   // refresh TopBar counts — only on a genuine live/recording flip
         if (groupChanged) {
             emit groupsChanged();   // per-group camera counts (switcher labels)
             emit countsChanged();   // group-filtered grid + counts re-evaluate
