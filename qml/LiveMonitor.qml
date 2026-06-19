@@ -247,6 +247,36 @@ Item {
         var s = (page - 1) * perPage;
         return arrangedFull.slice(s, s + perPage);
     }
+    // The grid renders from this persistent, camId-keyed model — NOT straight from
+    // the pagedCameras array. A Repeater bound to a JS array tears down and recreates
+    // EVERY delegate whenever the array identity changes (a layout switch, a page
+    // turn, a status poll), and each recreated CameraTile restarts its RTSP pipeline
+    // → a green (undecoded) VA-API surface flashes across the whole wall. Reconciling
+    // in place by camId (update / move / insert / remove) keeps the tiles for cameras
+    // that are still on screen alive, so they keep playing through a relayout instead
+    // of going green — and we don't needlessly re-negotiate ~16 RTSP sessions.
+    ListModel { id: gridModel; dynamicRoles: true }
+    function syncGrid(list) {
+        if (!list) list = [];
+        var want = ({});
+        for (var i = 0; i < list.length; i++) want[list[i].camId] = true;
+        for (var r = gridModel.count - 1; r >= 0; r--)          // drop cameras no longer on the page
+            if (!want[gridModel.get(r).camId]) gridModel.remove(r);
+        for (var j = 0; j < list.length; j++) {                 // place each camera at its slot
+            var cam = list[j];
+            var cur = -1;
+            for (var k = j; k < gridModel.count; k++)
+                if (gridModel.get(k).camId === cam.camId) { cur = k; break; }
+            if (cur === -1)
+                gridModel.insert(j, { camId: cam.camId, cam: cam });
+            else {
+                if (cur !== j) gridModel.move(cur, j, 1);
+                gridModel.setProperty(j, "cam", cam);           // refresh data (badges) without recreating the tile
+            }
+        }
+    }
+    onPagedCamerasChanged: syncGrid(pagedCameras)
+    Component.onCompleted: syncGrid(pagedCameras)
     readonly property string rangeText: {
         if (total === 0)
             return "0 of 0";
@@ -811,11 +841,12 @@ Item {
 
                     Repeater {
                         id: gridRepeater
-                        model: root.pagedCameras
+                        model: gridModel
                         delegate: Item {
                             id: cellWrap
-                            required property var modelData
                             required property int index
+                            required property var cam      // the camera map (gridModel role)
+                            readonly property var modelData: cam   // alias so the bindings below read unchanged
                             // Feature layouts place each tile in its fixed net cell
                             // (big tile spans); auto-fit grids place tiles row-major.
                             readonly property var cell: root.isFeatureLayout
