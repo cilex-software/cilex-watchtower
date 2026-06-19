@@ -268,21 +268,44 @@ Item {
                             color: "#0b0d10"; clip: true
                             border.width: thumbMa.containsMouse ? 1.5 : 1
                             border.color: thumbMa.containsMouse ? Theme.accent : Theme.line2
-                            // live frame — cache:false + retry so one transient bad
-                            // frame can't poison the rest of the grid.
-                            Image {
-                                id: thumbImg
+                            // live frame, double-buffered: the periodic refresh loads the
+                            // HIDDEN image and crossfades to it once ready, so the tile never
+                            // blanks during a reload (Qt 6.4 clears an Image while its source
+                            // reloads). cache:false → no shared-cache poisoning across tiles.
+                            Item {
+                                id: thumb
                                 anchors.fill: parent; anchors.margins: 1
-                                fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
-                                property int _retry: 0
+                                property int _tick: 0
+                                property bool _showA: true       // which buffer is on screen
+                                property bool _everLoaded: false
                                 readonly property string _base: modelData.snapshotUrl ? modelData.snapshotUrl : ""
-                                source: _base === "" ? "" : (_base + (_retry > 0 ? ("&_r=" + _retry) : ""))
-                                visible: status === Image.Ready
-                                onStatusChanged: if (status === Image.Error && _retry < 2) thumbRetry.restart()
-                                Timer { id: thumbRetry; interval: 800; onTriggered: thumbImg._retry++ }
+                                function _refresh() {
+                                    if (_base === "") return;
+                                    _tick++;
+                                    var url = _base + "&_r=" + _tick;
+                                    if (_showA) imgB.source = url; else imgA.source = url;   // load the off-screen buffer
+                                }
+                                Component.onCompleted: if (_base !== "") imgA.source = _base + "&_r=0"
+                                Image {
+                                    id: imgA
+                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+                                    opacity: thumb._showA ? 1 : 0
+                                    Behavior on opacity { NumberAnimation { duration: 220 } }
+                                    onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; }
+                                }
+                                Image {
+                                    id: imgB
+                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+                                    opacity: thumb._showA ? 0 : 1
+                                    Behavior on opacity { NumberAnimation { duration: 220 } }
+                                    onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; }
+                                }
+                                // periodic live refresh — fresh frame every few seconds while the
+                                // detail view is on screen (off-screen cells are virtualised away).
+                                Timer { interval: 4000; repeat: true; running: root.visible; onTriggered: thumb._refresh() }
                             }
-                            Icon {   // placeholder when no frame (offline / not yet loaded)
-                                anchors.centerIn: parent; visible: thumbImg.status !== Image.Ready
+                            Icon {   // placeholder until the first frame loads (offline / loading)
+                                anchors.centerIn: parent; visible: !thumb._everLoaded
                                 name: modelData.live === CameraStatus.Offline ? "off" : "monitor"
                                 size: 16; color: Theme.ink3
                             }
