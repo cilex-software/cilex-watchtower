@@ -14,8 +14,8 @@
 - **WT_WALLPERF re-measured** — see §2. The 56 % re-open stall is **gone** now that we reap on open.
 - **Your four decisions answered** (§3): Q-A pick-one-reversibly, Q-B operator-by-operator,
   Q-C client-side (already done), Q-D confirmed nothing requires detection/critical.
-- **One new bug for you** (§4): your §2 `GET /events/{id}/snapshot` returns **gray/blank**
-  keyframes for motion events — evidence below.
+- **§2 snapshots** (§4): your gray-frame fix is **live + verified** (real frames now, `std 47` vs
+  the old `<8`) — thank you. The one follow-up (a 503-shed retry) was **ours, and it's done**.
 - **One question back** (§6): confirm the `prewarm` `at_frag` unit.
 
 ## 1. Wall/mosaic lifecycle — wired + end-to-end verified
@@ -95,23 +95,19 @@ in_progress`, `authorized → resolved`, `false_alarm|dismissed → dismissed`; 
 `triage_state` straight through (`_triageToStatus`) and rely on your server-derived state in real
 mode. (Fixed a stale mock-only line that resolved `false_alarm` — real path was always correct.)
 
-## 4. New bug — your §2 event snapshots come back **gray/blank**
+## 4. §2 event snapshots — your gray-frame fix is **live, verified, thank you**
 
-While answering an operator question about "gray stills on some events," we traced it to your
-on-demand keyframe endpoint. Per-event fetch of `GET /events/{id}/snapshot` for one camera:
+We'd traced an operator's "gray stills" report to your snapshot endpoint (motion events returning
+~2–3 KB / mean 128 / std<8 — the classic INPUT-`-ss`-past-the-IDR gray P-frame). **Re-tested today
+it's fixed:** `GET /events/{id}/snapshot` now returns **real frames** (`std 47–49`, ~32 KB) — your
+OUTPUT-`-ss` decode-from-IDR path (with the `-skip_frame nokey` fallback) is doing exactly the
+right thing. Nothing further needed here.
 
-| Event type | Result | Image |
-|---|---|---|
-| `motion_started` / `motion_detected` | **HTTP 200** | ~2–3 KB, 640×360, **mean 128 / std < 8** — a near-uniform **gray** frame with faint motion-vector smears |
-| `motion_ended` | **HTTP 404** | (no clip/snapshot) |
-
-A real frame from the same camera is ~120 KB with std ~50. The 2–3 KB / std<8 signature is a
-**keyframe grabbed before a decodable I-frame** — ffmpeg emits the gray reference frame with the
-P-frame motion applied. So the event-moment still is effectively blank. (What *looks* correct in
-our UI on the other tiles is our **live-frame fallback firing on the 404s** — i.e. "now," not the
-event moment.) **Ask:** seek the snapshot to the clip's prior IDR / decode to the first real frame
-before grabbing (e.g. `-ss` to the keyframe, or `-skip_frame nokey`), so the still is the actual
-scene. Samples + the mean/std analysis available on request.
+One small thing **on us**, not you, now **done**: under memory pressure the endpoint correctly
+**503-sheds via the governor**, and our `CvImageProvider` was treating *any* non-200 (404 *and*
+503) as "no still" → live-frame fallback. We've added a **bounded `503 + Retry-After` retry** (3×,
+honors the header) on the snapshot path, so under RED/BLACK the real event still now appears once
+pressure clears (404 keeps falling back to live, as before). No backend change.
 
 ## 5. C1 size-check (your earlier ask, re: ~14.4k-segment 24 h playlist)
 
@@ -134,8 +130,8 @@ I'll switch.
 
 - **Wall:** B1/B2a/B3 wired + live-verified; B2b free via the existing proxy retry. Re-measure in §2.
 - **Events:** disposition map confirmed; Sessions are client-side; detection/critical not required.
-- **Yours to action:** the **gray-snapshot keyframe fix** (§4), the **`PATCH` for Q-A**, and
-  **`at_frag` confirmation** (§6). None blocks us — the wall lifecycle is in and the client degrades
-  honestly without any of them.
+- **Yours to action:** just the **`PATCH` for Q-A** and the **`at_frag` confirmation** (§6). The §2
+  snapshot fix is already verified live (thanks), and its 503-shed retry was ours (done). None of it
+  blocks us — the wall lifecycle is in and the client degrades honestly throughout.
 
 — Watchtower

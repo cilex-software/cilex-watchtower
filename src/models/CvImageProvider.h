@@ -41,6 +41,7 @@ private:
     QString m_error;
     QImage m_image;
     QPointer<QNetworkReply> m_reply;
+    int m_attempt = 0;                  // 503 (governor shed) retries — honors Retry-After
 };
 
 class CvImageProvider : public QQuickAsyncImageProvider

@@ -5,6 +5,12 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QThread>
+#include <QTimer>
+
+// The event-snapshot path 503-sheds under memory pressure (the backend governor).
+// That's transient + carries Retry-After, so retry a bounded few times before
+// giving up to the live-frame fallback. 404 (no clip) still fails immediately.
+static constexpr int kMaxSnapshotRetries = 3;
 
 CvImageResponse::~CvImageResponse()
 {
@@ -35,6 +41,17 @@ void CvImageResponse::start()
                 m_error = QStringLiteral("decode failed");
         } else if (r->error() == QNetworkReply::OperationCanceledError) {
             m_error = QStringLiteral("cancelled");
+        } else if (code == 503 && m_attempt < kMaxSnapshotRetries) {
+            // Governor shed under memory pressure — transient. Honor Retry-After
+            // (seconds; default ~1.2s) and retry; the still shows once pressure clears.
+            bool ok = false;
+            const int ra = r->rawHeader("Retry-After").toInt(&ok);
+            const int delayMs = (ok && ra > 0) ? qMin(ra, 5) * 1000 : 1200;
+            ++m_attempt;
+            r->deleteLater();
+            m_reply = nullptr;
+            QTimer::singleShot(delayMs, this, &CvImageResponse::start);
+            return;
         } else {
             m_error = QStringLiteral("HTTP %1").arg(code);   // 404 → caller falls back to the live frame
         }
