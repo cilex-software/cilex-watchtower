@@ -100,6 +100,7 @@ qt_add_qml_module(watchtower
         qml/LiveMonitor.qml
         qml/CameraGroups.qml
         qml/SingleCameraDetail.qml
+        qml/LiveThumb.qml
         qml/PlaybackScreen.qml
         qml/PlaybackCalendar.qml
         qml/WallPlayback.qml

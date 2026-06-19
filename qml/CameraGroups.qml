@@ -194,130 +194,123 @@ Item {
                 Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
                 Text {
                     anchors { left: parent.left; leftMargin: 20; verticalCenter: parent.verticalCenter }
-                    text: "Click a camera's name to rename it  ·  use the group dropdown on the right to move it into a group"
+                    text: "Click a thumbnail to open it live  ·  click the name to rename  ·  use the group chip to move it into a group"
                     color: Theme.ink3
                     font.family: Theme.fontSans
                     font.pixelSize: 11
                 }
             }
 
-            // camera rows
-            ListView {
-                id: camList
+            // camera thumbnails — each tile is the camera's live frame (refreshing every
+            // few seconds); click to open it live, rename inline, or reassign its group.
+            GridView {
+                id: camGrid
+                visible: root.cams.length > 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.margins: 8
                 clip: true
                 model: root.cams
-                spacing: 1
+                boundsBehavior: Flickable.StopAtBounds
+                C.ScrollBar.vertical: C.ScrollBar { }
+                readonly property int cols: Math.max(1, Math.floor(width / 250))
+                cellWidth: width > 0 ? Math.floor(width / cols) : 250
+                cellHeight: Math.round((cellWidth - 10) * 9 / 16) + 64   // thumbnail (16:9) + footer
 
-                delegate: Rectangle {
-                    id: camRow
+                delegate: Item {
+                    id: card
                     required property var modelData
-                    width: ListView.view.width
-                    height: 52
-                    color: rowMa.containsMouse ? Theme.panel : Theme.bg
+                    width: camGrid.cellWidth; height: camGrid.cellHeight
                     property bool editing: false
 
-                    MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true }
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: 5
+                        color: Theme.panel2; border.width: 1; border.color: Theme.line2
+                        ColumnLayout {
+                            anchors.fill: parent; spacing: 0
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 20; anchors.rightMargin: 20
-                        spacing: 14
-
-                        LiveStatusBadge { state: camRow.modelData.live }
-                        RecordingStatusBadge { state: camRow.modelData.recording }
-
-                        // name — click to rename
-                        Item {
-                            Layout.preferredWidth: 240
-                            Layout.fillHeight: true
-                            Text {
-                                visible: !camRow.editing
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width
-                                text: camRow.modelData.name
-                                color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; elide: Text.ElideRight
-                                MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; onClicked: { camRow.editing = true; nameField.forceActiveFocus(); nameField.selectAll(); } }
+                            LiveThumb {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Math.round(width * 9 / 16)
+                                cam: card.modelData
+                                active: root.visible
+                                onClicked: root.openCamera(card.modelData)
                             }
-                            C.TextField {
-                                id: nameField
-                                visible: camRow.editing
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width
-                                text: camRow.modelData.name
-                                color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13
-                                background: Rectangle { color: Theme.bg; border.width: 1; border.color: Theme.accent }
-                                onEditingFinished: {
-                                    if (text !== "")
-                                        root.cameraModel.setCameraName(camRow.modelData.camId, text);
-                                    camRow.editing = false;
+
+                            // footer — name (rename) + ip + group chip
+                            ColumnLayout {
+                                Layout.fillWidth: true; Layout.fillHeight: true
+                                Layout.leftMargin: 8; Layout.rightMargin: 8; Layout.topMargin: 5; Layout.bottomMargin: 5
+                                spacing: 3
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 6
+                                    RecordingStatusBadge { state: card.modelData.recording }
+                                    Item {
+                                        Layout.fillWidth: true; Layout.preferredHeight: 18
+                                        Text {
+                                            visible: !card.editing; anchors.fill: parent; verticalAlignment: Text.AlignVCenter
+                                            text: card.modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideRight
+                                            MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; onClicked: { card.editing = true; nameF.forceActiveFocus(); nameF.selectAll(); } }
+                                        }
+                                        C.TextField {
+                                            id: nameF; visible: card.editing; anchors.fill: parent
+                                            text: card.modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
+                                            background: Rectangle { color: Theme.bg; border.width: 1; border.color: Theme.accent }
+                                            onEditingFinished: { if (text !== "") root.cameraModel.setCameraName(card.modelData.camId, text); card.editing = false; }
+                                            Keys.onEscapePressed: card.editing = false
+                                        }
+                                    }
                                 }
-                                Keys.onEscapePressed: camRow.editing = false
-                            }
-                        }
-
-                        Text {
-                            Layout.preferredWidth: 130
-                            text: camRow.modelData.ip
-                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        // group assignment
-                        Rectangle {
-                            Layout.preferredHeight: 28
-                            implicitWidth: grpRow.implicitWidth + 20
-                            color: grpMa.containsMouse ? Theme.panel2 : Theme.panel
-                            border.width: 1; border.color: Theme.line2
-                            RowLayout {
-                                id: grpRow; anchors.centerIn: parent; spacing: 6
-                                Text { text: camRow.modelData.groupName !== "" ? camRow.modelData.groupName : "Ungrouped"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
-                                Icon { visible: root.canEdit; name: "chev"; size: 11; color: Theme.ink3 }
-                            }
-                            MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: root.canEdit ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: { if (root.canEdit) grpPopup.open() } }
-                            C.Popup {
-                                id: grpPopup
-                                y: parent.height + 2
-                                width: 200
-                                padding: 0
-                                background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
-                                contentItem: Column {
-                                    Repeater {
-                                        model: [{ id: "", name: "Ungrouped" }].concat(root.groupsData)
-                                        delegate: Rectangle {
-                                            required property var modelData
-                                            width: 200; height: 32
-                                            color: optMa.containsMouse ? Theme.panel2 : "transparent"
-                                            Text { anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
-                                                text: modelData.name
-                                                color: camRow.modelData.groupId === modelData.id ? Theme.accent : Theme.ink
-                                                font.family: Theme.fontSans; font.pixelSize: 12 }
-                                            MouseArea { id: optMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                onClicked: { root.cameraModel.setCameraGroup(camRow.modelData.camId, modelData.id); grpPopup.close(); } }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 6
+                                    Text { text: card.modelData.ip; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        Layout.preferredHeight: 20; implicitWidth: gchRow.implicitWidth + 14
+                                        color: gchMa.containsMouse ? Theme.panel3 : "transparent"; border.width: 1; border.color: Theme.line2
+                                        RowLayout {
+                                            id: gchRow; anchors.centerIn: parent; spacing: 4
+                                            Text { text: card.modelData.groupName !== "" ? card.modelData.groupName : "Ungrouped"
+                                                color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 10; elide: Text.ElideRight; Layout.maximumWidth: 96 }
+                                            Icon { visible: root.canEdit; name: "chev"; size: 9; color: Theme.ink3 }
+                                        }
+                                        MouseArea { id: gchMa; anchors.fill: parent; hoverEnabled: true
+                                            cursorShape: root.canEdit ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: if (root.canEdit) gPop.open() }
+                                        C.Popup {
+                                            id: gPop; y: parent.height + 2; x: parent.width - 200; width: 200; padding: 0
+                                            background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                                            contentItem: Column {
+                                                Repeater {
+                                                    model: [{ id: "", name: "Ungrouped" }].concat(root.groupsData)
+                                                    delegate: Rectangle {
+                                                        required property var modelData
+                                                        width: 200; height: 32; color: gOptMa.containsMouse ? Theme.panel2 : "transparent"
+                                                        Text {
+                                                            anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                                                            text: modelData.name
+                                                            color: card.modelData.groupId === modelData.id ? Theme.accent : Theme.ink
+                                                            font.family: Theme.fontSans; font.pixelSize: 12
+                                                        }
+                                                        MouseArea { id: gOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                                            onClicked: { root.cameraModel.setCameraGroup(card.modelData.camId, modelData.id); gPop.close(); } }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-
-                        IconButton { name: "monitor"; tip: "Open live"; iconColor: Theme.ink2; hoverIcon: Theme.accent
-                            onClicked: root.openCamera(camRow.modelData) }
                     }
-
-                    Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
                 }
-
-                // empty group
-                EmptyState {
-                    anchors.centerIn: parent
-                    width: parent.width
-                    visible: root.cams.length === 0
-                    icon: "layers"
-                    title: root.selectedGroup === "" ? "No cameras" : "No cameras in this group"
-                    subtitle: root.selectedGroup === "" ? "Import cameras to get started." : "Assign cameras to this group from another group's list."
-                }
+            }
+            // empty group
+            EmptyState {
+                Layout.fillWidth: true; Layout.fillHeight: true
+                visible: root.cams.length === 0
+                icon: "layers"
+                title: root.selectedGroup === "" ? "No cameras" : "No cameras in this group"
+                subtitle: root.selectedGroup === "" ? "Import cameras to get started." : "Assign cameras to this group from another group's list."
             }
         }
     }

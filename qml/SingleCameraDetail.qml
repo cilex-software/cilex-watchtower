@@ -263,71 +263,11 @@ Item {
                     delegate: Item {
                         required property var modelData
                         width: sibGrid.cellWidth; height: sibGrid.cellHeight
-                        Rectangle {
+                        LiveThumb {
                             anchors.fill: parent; anchors.margins: 3
-                            color: "#0b0d10"; clip: true
-                            border.width: thumbMa.containsMouse ? 1.5 : 1
-                            border.color: thumbMa.containsMouse ? Theme.accent : Theme.line2
-                            // live frame, double-buffered: the periodic refresh loads the
-                            // HIDDEN image and crossfades to it once ready, so the tile never
-                            // blanks during a reload (Qt 6.4 clears an Image while its source
-                            // reloads). cache:false → no shared-cache poisoning across tiles.
-                            Item {
-                                id: thumb
-                                anchors.fill: parent; anchors.margins: 1
-                                property int _tick: 0
-                                property bool _showA: true       // which buffer is on screen
-                                property bool _everLoaded: false
-                                readonly property string _base: modelData.snapshotUrl ? modelData.snapshotUrl : ""
-                                function _refresh() {
-                                    if (_base === "") return;
-                                    _tick++;
-                                    var url = _base + "&_r=" + _tick;
-                                    if (_showA) imgB.source = url; else imgA.source = url;   // load the off-screen buffer
-                                }
-                                Component.onCompleted: if (_base !== "") imgA.source = _base + "&_r=0"
-                                Image {
-                                    id: imgA
-                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
-                                    opacity: thumb._showA ? 1 : 0
-                                    Behavior on opacity { NumberAnimation { duration: 220 } }
-                                    onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; }
-                                }
-                                Image {
-                                    id: imgB
-                                    anchors.fill: parent; fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
-                                    opacity: thumb._showA ? 0 : 1
-                                    Behavior on opacity { NumberAnimation { duration: 220 } }
-                                    onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; }
-                                }
-                                // periodic live refresh — fresh frame every few seconds while the
-                                // detail view is on screen (off-screen cells are virtualised away).
-                                Timer { interval: 4000; repeat: true; running: root.visible; onTriggered: thumb._refresh() }
-                            }
-                            Icon {   // placeholder until the first frame loads (offline / loading)
-                                anchors.centerIn: parent; visible: !thumb._everLoaded
-                                name: modelData.live === CameraStatus.Offline ? "off" : "monitor"
-                                size: 16; color: Theme.ink3
-                            }
-                            Rectangle {   // live-status dot (top-right)
-                                anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 3
-                                width: 7; height: 7; radius: 3.5
-                                color: modelData.live === CameraStatus.Live ? Theme.good : (modelData.live === CameraStatus.Offline ? Theme.bad : Theme.accent)
-                                border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.4)
-                            }
-                            Rectangle {   // faint octet badge (e.g. ".101")
-                                anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 2
-                                visible: octT.text !== ""
-                                width: octT.implicitWidth + 8; height: octT.implicitHeight + 3; radius: 2
-                                color: Qt.rgba(0, 0, 0, 0.42)
-                                Text {
-                                    id: octT; anchors.centerIn: parent
-                                    text: { var p = ("" + (modelData.ip || "")).split("."); return p.length ? ("." + p[p.length - 1]) : ""; }
-                                    color: Qt.rgba(1, 1, 1, 0.82); font.family: Theme.fontMono; font.pixelSize: 10
-                                }
-                            }
-                            MouseArea { id: thumbMa; anchors.fill: parent; hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor; onClicked: root.switchCamera(modelData) }
+                            cam: modelData
+                            active: root.visible
+                            onClicked: root.switchCamera(modelData)
                         }
                     }
                 }
