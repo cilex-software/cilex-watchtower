@@ -35,7 +35,6 @@ Item {
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
     property bool favorite: false
-    property bool bookmarked: false
     property bool hasAudio: false
     property string timestamp: ""
     property string lastSeen: ""
@@ -90,7 +89,6 @@ Item {
     signal played()
     signal snapshotRequested()
     signal snapshotSaved(string path, string camName)
-    signal bookmarkRequested()
     signal favoriteToggled()
     signal openedNewTab()
     signal issueRequested()
@@ -415,12 +413,6 @@ Item {
 
             TileAction { name: "playback"; tip: "Open playback"; onClicked: root.played() }
             TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
-            TileToggle {
-                name: "bookmark"
-                on: root.bookmarked
-                tip: root.bookmarked ? "Remove bookmark" : "Add bookmark"
-                onClicked: { root.bookmarked = !root.bookmarked; root.bookmarkRequested() }
-            }
             TileToggle {
                 name: "star"
                 on: root.favorite

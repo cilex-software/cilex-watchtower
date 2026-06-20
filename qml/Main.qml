@@ -83,7 +83,12 @@ Window {
         section = sid;
     }
 
-    function setLayout(n) { gridLayout = n; gridPage = 1 }
+    function setLayout(n) {
+        gridLayout = n; gridPage = 1;
+        // A layout preset means "show me a normal grid", so exit a transient map-selection
+        // scope ("Selected (N)") instead of staying stuck re-tiling just those few cameras.
+        if (groupFilter === "__selected__") { groupFilter = ""; groupLabel = "All cameras"; }
+    }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
     function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
     // Open the Save-current-view modal, capturing the current Live Monitor state.

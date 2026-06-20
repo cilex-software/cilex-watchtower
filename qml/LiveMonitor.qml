@@ -578,6 +578,25 @@ Item {
                     }
                 }
 
+                // Clear a transient map-selection scope ("Selected (N)") back to All
+                // cameras in one click — shown only while the grid is scoped to it.
+                Rectangle {
+                    visible: root.groupId === "__selected__"
+                    Layout.preferredHeight: 38
+                    implicitWidth: clrRow.implicitWidth + 20
+                    color: clrMa.containsMouse ? Theme.panel2 : Theme.panel
+                    border.width: 1; border.color: clrMa.containsMouse ? Theme.accent : Theme.line2
+                    Row {
+                        id: clrRow; anchors.centerIn: parent; spacing: 6
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "✕"; color: clrMa.containsMouse ? Theme.accent : Theme.ink2; font.pixelSize: 12 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Clear selection"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                    }
+                    MouseArea {
+                        id: clrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: root.groupRequested("", "All cameras")
+                    }
+                }
+
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 24; color: Theme.line2 }
 
                 // filter pills
