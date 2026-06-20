@@ -870,7 +870,7 @@ Item {
                 Chip { label: "+10s"; onClicked: player.position = Math.min(player.duration, player.position + 10000) }
                 Chip { label: "Last hour"; onClicked: root.setViewPreset(60) }
                 Chip { label: "Last 15 min"; onClicked: root.setViewPreset(15) }
-                Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
+                Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") + " · " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
                 // Window presets move the view inside the loaded composite window;

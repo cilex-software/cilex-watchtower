@@ -664,7 +664,7 @@ Item {
                             font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
                         // primary playhead readout — the main time reference while reviewing
-                        Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd") + " · " + root.fmtClock(root.playheadMs)
+                        Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") + " · " + root.fmtClock(root.playheadMs)
                             color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 22; font.weight: Font.DemiBold
                             font.letterSpacing: 0.5; visible: root.frags.length > 0 }
                     }
@@ -1091,9 +1091,10 @@ Item {
                         }
                         Text {
                             visible: parent.modelData.major && parent.tx <= bar.width - implicitWidth - 2
-                            x: Math.round(parent.tx) + 3; y: bar.height - 25
+                            x: Math.round(parent.tx) + 3; y: bar.height - 27
                             text: parent.modelData.lbl
-                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                            // bright + a touch larger so the ruler times read at a glance
+                            color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Medium
                         }
                     }
                 }
