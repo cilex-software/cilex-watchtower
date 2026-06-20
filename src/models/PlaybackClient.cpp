@@ -424,18 +424,29 @@ QString PlaybackClient::mosaicPlaylistUrl(const QString &sessionId) const
 void PlaybackClient::createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
                                   const QString &destPath, const QString &groupId,
-                                  const QString &purpose)
+                                  const QString &purpose, bool hevcCapable)
 {
     QNetworkRequest req{QUrl(m_baseUrl + "/review/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"camera_id", cameraId}, {"wall_start", wallStartIso},
-                     {"wall_end", wallEndIso}, {"mode", mode}};
+                     {"wall_end", wallEndIso}, {"mode", mode}, {"hevc_capable", hevcCapable}};
     if (!groupId.isEmpty()) body.insert("group_id", groupId);
     if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
         reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        // 422 = High requested over a span that has aged to the standard sub (the
+        // grey-out/confirm race). Surface the backend's explanation; the operator
+        // can re-export at Standard quality.
+        if (code == 422) {
+            const QString detail = obj.value("detail").toString();
+            emit exportFailed(QString(), detail.isEmpty()
+                ? QStringLiteral("High-quality export needs the high-res original, which has aged to standard storage for part of this selection. Export at Standard quality instead.")
+                : detail);
+            return;
+        }
         const QString jobId = obj.value("job_id").toString();
         if (jobId.isEmpty()) {
             emit exportFailed(QString(), "Export request rejected.");

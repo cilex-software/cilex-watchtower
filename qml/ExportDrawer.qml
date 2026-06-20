@@ -132,6 +132,13 @@ Item {
     // kept the full retention). The manifest carries codec + resolution per fragment,
     // so we know — per slice of the selection — whether the original is still there.
     function _isHigh(f) {
+        // `stream_type` is the backend's authoritative "is the high-res original
+        // retained for this span" (main ⇒ yes, sub ⇒ only standard remains). It is
+        // orthogonal to `tier` (retention age) and `codec`. Fall back to a codec/
+        // resolution guess only for legacy fragments that predate stream_type.
+        var st = ("" + (f.stream_type || "")).toLowerCase();
+        if (st === "main") return true;
+        if (st === "sub") return false;
         var c = ("" + (f.codec || "")).toLowerCase();
         if (c === "hevc" || c === "h265") return true;
         var r = "" + (f.resolution || "");
@@ -163,7 +170,9 @@ Item {
         : "The high-quality original (1440p) is kept for a limited time, and this footage has aged into standard-quality storage (720p)."
     // The quality actually used: the pick, unless high was chosen but isn't available.
     readonly property string effectiveQuality: (quality === "high" && highAvailable) ? "high" : "standard"
-    readonly property string resLabel: effectiveQuality === "high" ? "1440p" : "720p"
+    // Delivered resolutions (confirmed against real exports): High = the 1440p main
+    // original; Standard = the 720p sub re-delivered at the 1080p H.264 profile.
+    readonly property string resLabel: effectiveQuality === "high" ? "1440p" : "1080p"
     // honest ~estimate: covered seconds × a rough per-rendition bitrate
     readonly property double estMb: coveredMs(startMs, endMs) / 1000 * (effectiveQuality === "high" ? 6.0 : 2.0) / 8
     readonly property string tzLabel: {
@@ -491,7 +500,7 @@ Item {
                             anchors.centerIn: parent; spacing: 1
                             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Standard quality"
                                 color: sqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "720p · smaller file"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "1080p · smaller file"
                                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
                         }
                         MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -500,7 +509,7 @@ Item {
                 }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
-                    text: "High quality is the full-resolution original (kept a limited time); standard is the smaller 720p copy. Selecting a quality records your choice; the export endpoint can't pick a rendition yet, so high-quality delivery is pending Cilex Vision support."
+                    text: "High quality is the full-resolution original (1440p, kept a limited time); standard is the smaller, universally-playable copy. The original ages out of storage after a few days — once it has, only standard is available for that footage."
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
 
@@ -663,7 +672,7 @@ Item {
                         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                         spacing: 4
                         Text { text: "• MP4 · " + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (720p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (1080p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• This export will be visible to your supervisor"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• Estimated size: ~ " + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { visible: root.overlayTs || root.overlayName; text: "• Overlays pending backend support — not applied to this export yet"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }

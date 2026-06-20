@@ -53,7 +53,8 @@ public:
     Q_INVOKABLE void createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
                                   const QString &destPath,
-                                  const QString &groupId = QString(), const QString &purpose = QString());
+                                  const QString &groupId = QString(), const QString &purpose = QString(),
+                                  bool hevcCapable = true);   // true = High (H.265 main original), false = Standard (H.264 sub)
     Q_INVOKABLE void pollExport(const QString &jobId);
 
     // Combined synchronized-grid export (E2): render a window of a mosaic session

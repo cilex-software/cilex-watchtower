@@ -410,7 +410,9 @@ Item {
                 if (f.availability !== "ready") continue;
                 out.push({ cs: f.compact_start, ce: f.compact_end,
                            ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
-                           codec: f.codec, tier: f.tier, resolution: f.resolution });
+                           codec: f.codec, tier: f.tier, resolution: f.resolution,
+                           stream_type: f.stream_type });   // "main" = high-res original retained; "sub" = standard only
+
             }
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
@@ -1213,12 +1215,11 @@ Item {
             if (!root.client) return;
             var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
             var dest = Artifacts.newExportPath(base, "mp4");
-            // `quality` ("high"/"standard") is collected for when cilex-vision adds a
-            // rendition selector to /review/exports (see the 2026-06-20 letter); the
-            // endpoint takes no quality field today, so we don't send an unknown one
-            // (it would risk a 422 against the working export).
+            // High = the H.265 main original (hevc_capable=true → ~1440p); Standard =
+            // the H.264 720p sub (false). Backend ships the selector (migration 0045);
+            // a High request over an aged span 422s, surfaced as an export error.
             root.client.createExport(root.camId, new Date(s).toISOString(),
-                                     new Date(e).toISOString(), mode, dest, "", purpose);
+                                     new Date(e).toISOString(), mode, dest, "", purpose, quality === "high");
         }
     }
 
