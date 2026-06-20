@@ -1211,15 +1211,24 @@ Item {
     ExportDrawer {
         id: exportDrawer
         z: 50
-        onConfirmed: (s, e, mode, purpose, quality) => {
+        onConfirmed: (s, e, mode, purpose, quality, compHeight, burnTs, burnName) => {
             if (!root.client) return;
             var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
             var dest = Artifacts.newExportPath(base, "mp4");
             // High = the H.265 main original (hevc_capable=true → ~1440p); Standard =
             // the H.264 720p sub (false). Backend ships the selector (migration 0045);
             // a High request over an aged span 422s, surfaced as an export error.
+            // Client post-processing (ffmpeg, local): downscale to compHeight (0 = keep)
+            // and/or burn in the camera caption + per-frame footage wall-clock.
+            var post = {};
+            if (compHeight > 0 || burnTs || burnName) {
+                var label = root.camera ? (root.camera.name + " (" + root.camera.ip + ")") : root.camId;
+                post = { height: compHeight, timestamp: burnTs, name: burnName,
+                         label: label, startEpochMs: s, durationMs: (e - s) };
+            }
             root.client.createExport(root.camId, new Date(s).toISOString(),
-                                     new Date(e).toISOString(), mode, dest, "", purpose, quality === "high");
+                                     new Date(e).toISOString(), mode, dest, "", purpose,
+                                     quality === "high", post);
         }
     }
 

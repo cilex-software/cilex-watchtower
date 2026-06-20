@@ -39,9 +39,11 @@ Item {
     property bool audioOn: false
     property string mode: "wallclock"   // wallclock = freeze gaps (timeline preserved); compact = drop gaps
     property string quality: "high"     // "high" = HEVC 1440p original (main); "standard" = H.264 720p (sub)
+    property int compHeight: 0          // client compression target height (0 = original size)
     property bool confirming: false
 
-    signal confirmed(double startMs, double endMs, string mode, string purpose, string quality)
+    signal confirmed(double startMs, double endMs, string mode, string purpose, string quality,
+                     int compHeight, bool burnTimestamp, bool burnName)
     signal closed()
 
     function openWith(cam, camId, sStart, sEnd, fragments, phMs) {
@@ -54,7 +56,8 @@ Item {
         purpose = "Incident review"; customPurpose = "";
         mode = "wallclock";
         quality = "high";   // default to the best; falls back to standard if the original has aged out
-        overlayTs = true; overlayName = true; audioOn = false;
+        compHeight = 0;     // original size by default
+        overlayTs = false; overlayName = false; audioOn = false;   // pristine clip by default; overlays opt-in (they re-encode)
         confirming = false;
         visible = true;
     }
@@ -170,11 +173,21 @@ Item {
         : "The high-quality original (1440p) is kept for a limited time, and this footage has aged into standard-quality storage (720p)."
     // The quality actually used: the pick, unless high was chosen but isn't available.
     readonly property string effectiveQuality: (quality === "high" && highAvailable) ? "high" : "standard"
-    // Delivered resolutions (confirmed against real exports): High = the 1440p main
+    // Source rendition height (confirmed against real exports): High = the 1440p main
     // original; Standard = the 720p sub re-delivered at the 1080p H.264 profile.
-    readonly property string resLabel: effectiveQuality === "high" ? "1440p" : "1080p"
-    // honest ~estimate: covered seconds × a rough per-rendition bitrate
-    readonly property double estMb: coveredMs(startMs, endMs) / 1000 * (effectiveQuality === "high" ? 6.0 : 2.0) / 8
+    readonly property int sourceHeight: effectiveQuality === "high" ? 1440 : 1080
+    // Compression-ladder target (0 = keep source). A target ≥ the source height would be
+    // an upscale / no-op, so it collapses to Original.
+    readonly property int effectiveCompHeight: (compHeight > 0 && compHeight < sourceHeight) ? compHeight : 0
+    readonly property int outHeight: effectiveCompHeight > 0 ? effectiveCompHeight : sourceHeight
+    readonly property string resLabel: outHeight + "p"
+    // We transcode locally only when there's actual work (downscale and/or overlays).
+    readonly property bool willTranscode: effectiveCompHeight > 0 || overlayTs || overlayName
+    // honest ~estimate: covered seconds × a rough per-output-height bitrate
+    readonly property double estMb: {
+        var br = outHeight >= 1440 ? 6.0 : outHeight >= 1080 ? 4.0 : outHeight >= 720 ? 2.0 : 1.0;
+        return coveredMs(startMs, endMs) / 1000 * br / 8;
+    }
     readonly property string tzLabel: {
         var off = -(new Date(startMs).getTimezoneOffset());
         var sign = off >= 0 ? "+" : "−"; off = Math.abs(off);
@@ -513,14 +526,41 @@ Item {
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
 
+                // --- compression (client-side local re-encode) ---
+                SecLabel { text: "Compression" }
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 6
+                    Repeater {
+                        model: [ { h: 0, l: "Original" }, { h: 1080, l: "1080p" }, { h: 720, l: "720p" }, { h: 480, l: "480p" } ]
+                        delegate: Rectangle {
+                            id: compBtn
+                            required property var modelData
+                            Layout.fillWidth: true; implicitHeight: 38
+                            // a size at/above the source is an upscale → unavailable
+                            readonly property bool avail: modelData.h === 0 || modelData.h < root.sourceHeight
+                            readonly property bool on: root.effectiveCompHeight === modelData.h
+                            color: !avail ? Theme.bg : (on ? Theme.accentSoft : (compMa.containsMouse ? Theme.panel2 : Theme.bg))
+                            border.width: 1; border.color: on ? Theme.accent : Theme.line2
+                            opacity: avail ? 1 : 0.4
+                            Text { anchors.centerIn: parent; text: compBtn.modelData.l
+                                color: compBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                            MouseArea { id: compMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: compBtn.avail ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: if (compBtn.avail) root.compHeight = compBtn.modelData.h }
+                        }
+                    }
+                }
+
                 // --- options ---
                 SecLabel { text: "Options" }
-                OptCheck { label: "Include timestamp overlay"; isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
-                OptCheck { label: "Include camera-name overlay"; isOn: root.overlayName; onToggled: root.overlayName = !root.overlayName }
+                OptCheck { label: "Burn in timestamp overlay"; isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
+                OptCheck { label: "Burn in camera-name overlay"; isOn: root.overlayName; onToggled: root.overlayName = !root.overlayName }
                 OptCheck { label: "Include audio"; isOn: root.audioOn; active: false; hint: "(unavailable — video export only)" }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
-                    text: "Purpose is saved with the export. Overlay burn-in is still pending Cilex Vision support (exports are stream-copy today); audio has no path yet. Video export works now."
+                    text: root.willTranscode
+                        ? "Smaller sizes + overlays are produced on this machine after download (local re-encode); the footage wall-clock and camera name are burned into each frame. Audio has no path yet."
+                        : "Original size with no overlays exports the pristine clip as-is (no re-encode). Turn on a smaller size or an overlay to re-encode locally. Audio has no path yet."
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
 
@@ -675,7 +715,7 @@ Item {
                         Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (1080p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• This export will be visible to your supervisor"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• Estimated size: ~ " + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.overlayTs || root.overlayName; text: "• Overlays pending backend support — not applied to this export yet"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.willTranscode; text: "• Re-encoded on this machine after download" + ((root.overlayTs || root.overlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                 }
             }
@@ -700,7 +740,8 @@ Item {
                         Text { id: okT; anchors.centerIn: parent; text: "Confirm export"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose, root.effectiveQuality); root.close(); }
+                            onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose, root.effectiveQuality,
+                                                        root.effectiveCompHeight, root.overlayTs, root.overlayName); root.close(); }
                         }
                     }
                 }

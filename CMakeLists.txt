@@ -142,6 +142,8 @@ qt_add_qml_module(watchtower
         src/models/HlsProxy.cpp
         src/models/PlaybackClient.h
         src/models/PlaybackClient.cpp
+        src/models/ClipTranscoder.h
+        src/models/ClipTranscoder.cpp
         src/models/SnapshotModel.h
         src/models/SnapshotModel.cpp
         src/models/StorageHealth.h

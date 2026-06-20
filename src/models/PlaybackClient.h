@@ -50,11 +50,15 @@ public:
     // groupId (I7) ties a dual-archive set (N per-camera + 1 mosaic of one wall
     // moment) together in the exports list; purpose (A1) is the operator label.
     // Both optional.
+    // post (optional) = client-side post-processing of the downloaded clip:
+    //   { height:int (0=keep), name:bool, timestamp:bool, label:string,
+    //     startEpochMs:qint64, durationMs:qint64 }. Empty = deliver the export as-is.
     Q_INVOKABLE void createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
                                   const QString &destPath,
                                   const QString &groupId = QString(), const QString &purpose = QString(),
-                                  bool hevcCapable = true);   // true = High (H.265 main original), false = Standard (H.264 sub)
+                                  bool hevcCapable = true,   // true = High (H.265 main original), false = Standard (H.264 sub)
+                                  const QVariantMap &post = QVariantMap());
     Q_INVOKABLE void pollExport(const QString &jobId);
 
     // Combined synchronized-grid export (E2): render a window of a mosaic session
@@ -149,4 +153,7 @@ private:
     QHash<QString, QString> m_ipToCamId;
     QHash<QString, QString> m_macToCamId;
     QHash<QString, QString> m_exportDest;   // jobId -> local file path
+    QHash<QString, QVariantMap> m_exportPost;   // jobId -> client post-process opts (compression/overlays)
+    void runPostProcess(const QString &jobId, const QString &srcPath,
+                        const QString &dstPath, const QVariantMap &post);
 };

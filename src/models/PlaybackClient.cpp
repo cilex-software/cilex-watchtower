@@ -1,6 +1,7 @@
 #include "PlaybackClient.h"
 #include "HlsProxy.h"
 #include "AuthController.h"
+#include "ClipTranscoder.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -424,7 +425,8 @@ QString PlaybackClient::mosaicPlaylistUrl(const QString &sessionId) const
 void PlaybackClient::createExport(const QString &cameraId, const QString &wallStartIso,
                                   const QString &wallEndIso, const QString &mode,
                                   const QString &destPath, const QString &groupId,
-                                  const QString &purpose, bool hevcCapable)
+                                  const QString &purpose, bool hevcCapable,
+                                  const QVariantMap &post)
 {
     QNetworkRequest req{QUrl(m_baseUrl + "/review/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -433,7 +435,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
     if (!groupId.isEmpty()) body.insert("group_id", groupId);
     if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, destPath, post]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
@@ -453,6 +455,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
             return;
         }
         m_exportDest.insert(jobId, destPath);
+        if (!post.isEmpty()) m_exportPost.insert(jobId, post);   // client compression/overlays
         emit exportStarted(jobId);
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
     });
@@ -568,6 +571,21 @@ void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
         file->deleteLater();
         m_exportDest.remove(jobId);
         if (reply->error() == QNetworkReply::NoError && sz > 0) {
+            // Client-side post-processing (compression ladder / overlay burn-in): the
+            // downloaded clip becomes the transcode source; the final lands back at
+            // destPath. cilex-vision's export is clean footage (no overlays) — exactly
+            // the source we want.
+            if (m_exportPost.contains(jobId)) {
+                const QVariantMap post = m_exportPost.take(jobId);
+                const QString srcTmp = destPath + QStringLiteral(".src.mp4");
+                QFile::remove(srcTmp);
+                if (QFile::rename(destPath, srcTmp)) {
+                    emit exportProgress(jobId, QStringLiteral("compressing"));
+                    runPostProcess(jobId, srcTmp, destPath, post);
+                    return;
+                }
+                // couldn't stage the source → fall through, deliver the original as-is
+            }
             emit exportSaved(jobId, destPath);
         } else {
             QFile::remove(destPath);   // don't leave a partial/empty file behind
@@ -576,4 +594,32 @@ void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
                                          : reply->errorString());
         }
     });
+}
+
+void PlaybackClient::runPostProcess(const QString &jobId, const QString &srcPath,
+                                    const QString &dstPath, const QVariantMap &post)
+{
+    auto *tc = new ClipTranscoder(this);
+    connect(tc, &ClipTranscoder::progress, this, [this, jobId](int pct) {
+        emit exportProgress(jobId, QStringLiteral("compressing %1%").arg(pct));
+    });
+    connect(tc, &ClipTranscoder::finished, this, [this, jobId, srcPath, tc](const QString &out) {
+        QFile::remove(srcPath);
+        tc->deleteLater();
+        emit exportSaved(jobId, out);
+    });
+    connect(tc, &ClipTranscoder::failed, this, [this, jobId, srcPath, dstPath, tc](const QString &err) {
+        // Keep the operator's footage: restore the un-transcoded original at dstPath,
+        // and report the compression failure honestly.
+        QFile::remove(dstPath);
+        QFile::rename(srcPath, dstPath);
+        tc->deleteLater();
+        emit exportFailed(jobId, QStringLiteral("Couldn't compress the clip (%1) — kept the original-quality export.").arg(err));
+    });
+    tc->start(srcPath, dstPath, post.value(QStringLiteral("height")).toInt(),
+              post.value(QStringLiteral("name")).toBool(),
+              post.value(QStringLiteral("timestamp")).toBool(),
+              post.value(QStringLiteral("label")).toString(),
+              post.value(QStringLiteral("startEpochMs")).toLongLong(),
+              post.value(QStringLiteral("durationMs")).toLongLong());
 }
