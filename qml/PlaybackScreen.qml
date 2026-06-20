@@ -1208,10 +1208,14 @@ Item {
     ExportDrawer {
         id: exportDrawer
         z: 50
-        onConfirmed: (s, e, mode, purpose) => {
+        onConfirmed: (s, e, mode, purpose, quality) => {
             if (!root.client) return;
             var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
             var dest = Artifacts.newExportPath(base, "mp4");
+            // `quality` ("high"/"standard") is collected for when cilex-vision adds a
+            // rendition selector to /review/exports (see the 2026-06-20 letter); the
+            // endpoint takes no quality field today, so we don't send an unknown one
+            // (it would risk a 422 against the working export).
             root.client.createExport(root.camId, new Date(s).toISOString(),
                                      new Date(e).toISOString(), mode, dest, "", purpose);
         }

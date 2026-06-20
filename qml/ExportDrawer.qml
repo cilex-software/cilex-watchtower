@@ -38,9 +38,10 @@ Item {
     property bool overlayName: true
     property bool audioOn: false
     property string mode: "wallclock"   // wallclock = freeze gaps (timeline preserved); compact = drop gaps
+    property string quality: "high"     // "high" = HEVC 1440p original (main); "standard" = H.264 720p (sub)
     property bool confirming: false
 
-    signal confirmed(double startMs, double endMs, string mode, string purpose)
+    signal confirmed(double startMs, double endMs, string mode, string purpose, string quality)
     signal closed()
 
     function openWith(cam, camId, sStart, sEnd, fragments, phMs) {
@@ -52,6 +53,7 @@ Item {
         previewSource = "";
         purpose = "Incident review"; customPurpose = "";
         mode = "wallclock";
+        quality = "high";   // default to the best; falls back to standard if the original has aged out
         overlayTs = true; overlayName = true; audioOn = false;
         confirming = false;
         visible = true;
@@ -125,17 +127,45 @@ Item {
     readonly property double durMs: Math.max(0, endMs - startMs)
     readonly property var gapList: gapsIn(startMs, endMs)
     readonly property bool hasGap: gapList.length > 0
-    // codec covering the midpoint (resolution isn't yet in the manifest, so the
-    // tier/resolution shown is inferred from codec: hot HEVC = 1440p, warm = 720p)
-    readonly property string domCodec: {
-        var mid = (startMs + endMs) / 2;
-        for (var i = 0; i < frags.length; i++)
-            if (mid >= frags[i].ws && mid <= frags[i].we) return frags[i].codec || "hevc";
-        return frags.length ? (frags[0].codec || "hevc") : "hevc";
+    // Quality model: the footage is dual-recorded — a high-res HEVC 1440p "original"
+    // (main stream, kept a limited time) and an H.264 720p "standard" (sub stream,
+    // kept the full retention). The manifest carries codec + resolution per fragment,
+    // so we know — per slice of the selection — whether the original is still there.
+    function _isHigh(f) {
+        var c = ("" + (f.codec || "")).toLowerCase();
+        if (c === "hevc" || c === "h265") return true;
+        var r = "" + (f.resolution || "");
+        return r.indexOf("2160") >= 0 || r.indexOf("1440") >= 0 || r.indexOf("1080") >= 0;
     }
-    readonly property string resLabel: domCodec === "hevc" ? "1440p" : "720p"
-    // honest ~estimate: covered seconds × a rough per-tier bitrate
-    readonly property double estMb: coveredMs(startMs, endMs) / 1000 * (domCodec === "hevc" ? 6.0 : 2.0) / 8
+    // High-quality export is only offered if the WHOLE selection is still covered by
+    // the high-res original; if any covered span has aged to the 720p sub, it isn't.
+    readonly property bool highAvailable: {
+        if (!frags.length || durMs <= 0) return false;
+        var anyHigh = false;
+        for (var i = 0; i < frags.length; i++) {
+            var lo = Math.max(startMs, frags[i].ws), hi = Math.min(endMs, frags[i].we);
+            if (hi <= lo) continue;                       // fragment doesn't overlap the selection
+            if (_isHigh(frags[i])) anyHigh = true; else return false;
+        }
+        return anyHigh;
+    }
+    readonly property bool highMixed: {                   // some original, some aged-out within the selection
+        var hi = false, lo = false;
+        for (var i = 0; i < frags.length; i++) {
+            var a = Math.max(startMs, frags[i].ws), b = Math.min(endMs, frags[i].we);
+            if (b <= a) continue;
+            if (_isHigh(frags[i])) hi = true; else lo = true;
+        }
+        return hi && lo;
+    }
+    readonly property string highUnavailReason: highMixed
+        ? "Part of this selection has aged into standard-quality storage (720p), so the high-quality original can't cover the whole clip."
+        : "The high-quality original (1440p) is kept for a limited time, and this footage has aged into standard-quality storage (720p)."
+    // The quality actually used: the pick, unless high was chosen but isn't available.
+    readonly property string effectiveQuality: (quality === "high" && highAvailable) ? "high" : "standard"
+    readonly property string resLabel: effectiveQuality === "high" ? "1440p" : "720p"
+    // honest ~estimate: covered seconds × a rough per-rendition bitrate
+    readonly property double estMb: coveredMs(startMs, endMs) / 1000 * (effectiveQuality === "high" ? 6.0 : 2.0) / 8
     readonly property string tzLabel: {
         var off = -(new Date(startMs).getTimezoneOffset());
         var sign = off >= 0 ? "+" : "−"; off = Math.abs(off);
@@ -407,6 +437,73 @@ Item {
                     Item { Layout.fillWidth: true }
                 }
 
+                // --- quality: high-res original vs standard sub ---
+                SecLabel { text: "Quality" }
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 6
+                    // High quality (HEVC 1440p original) — grays out (with a tooltip)
+                    // when the original has aged out of storage for any part of the
+                    // selection; the user's explicit ask.
+                    Rectangle {
+                        id: hqBtn
+                        Layout.fillWidth: true; implicitHeight: 46
+                        readonly property bool on: root.effectiveQuality === "high"
+                        color: !root.highAvailable ? Theme.bg
+                             : (on ? Theme.accentSoft : (hqMa.containsMouse ? Theme.panel2 : Theme.bg))
+                        border.width: 1; border.color: on ? Theme.accent : Theme.line2
+                        opacity: root.highAvailable ? 1 : 0.45
+                        Column {
+                            anchors.centerIn: parent; spacing: 1
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "High quality"
+                                color: hqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "1440p · original"
+                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
+                        }
+                        MouseArea {
+                            id: hqMa; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: root.highAvailable ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: if (root.highAvailable) root.quality = "high"
+                        }
+                        // explain the gray-out on hover
+                        Rectangle {
+                            visible: hqMa.containsMouse && !root.highAvailable
+                            z: 100
+                            anchors.left: parent.left; anchors.top: parent.bottom; anchors.topMargin: 4
+                            width: Math.min(300, root.width - 80)
+                            implicitHeight: ttT.implicitHeight + 14
+                            color: "#10141a"; border.width: 1; border.color: Theme.warnDim; radius: 2
+                            Text {
+                                id: ttT; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                                anchors.margins: 7; wrapMode: Text.WordWrap
+                                text: root.highUnavailReason
+                                color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 11; lineHeight: 1.25
+                            }
+                        }
+                    }
+                    // Standard quality (H.264 720p sub) — kept the full retention, so always available.
+                    Rectangle {
+                        id: sqBtn
+                        Layout.fillWidth: true; implicitHeight: 46
+                        readonly property bool on: root.effectiveQuality === "standard"
+                        color: on ? Theme.accentSoft : (sqMa.containsMouse ? Theme.panel2 : Theme.bg)
+                        border.width: 1; border.color: on ? Theme.accent : Theme.line2
+                        Column {
+                            anchors.centerIn: parent; spacing: 1
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Standard quality"
+                                color: sqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "720p · smaller file"
+                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
+                        }
+                        MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: root.quality = "standard" }
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true; Layout.topMargin: 2
+                    text: "High quality is the full-resolution original (kept a limited time); standard is the smaller 720p copy. Selecting a quality records your choice; the export endpoint can't pick a rendition yet, so high-quality delivery is pending Cilex Vision support."
+                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
+                }
+
                 // --- options ---
                 SecLabel { text: "Options" }
                 OptCheck { label: "Include timestamp overlay"; isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
@@ -565,7 +662,8 @@ Item {
                         id: factCol
                         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                         spacing: 4
-                        Text { text: "• MP4 · " + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { text: "• MP4 · " + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (720p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• This export will be visible to your supervisor"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• Estimated size: ~ " + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { visible: root.overlayTs || root.overlayName; text: "• Overlays pending backend support — not applied to this export yet"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
@@ -593,7 +691,7 @@ Item {
                         Text { id: okT; anchors.centerIn: parent; text: "Confirm export"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose); root.close(); }
+                            onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose, root.effectiveQuality); root.close(); }
                         }
                     }
                 }
