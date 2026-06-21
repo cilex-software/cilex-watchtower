@@ -1,8 +1,38 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-06-18. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-06-21. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-06-21) — HEAD `e49f116`, clean, pushed
+
+All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchtower` to run HEAD.**
+
+**Export quality + client-side compression — shipped both sides; one CV item open.**
+- Export drawer: **Quality** (High = HEVC 1440p main original / Standard = H.264 sub) with
+  grey-out+tooltip when the original has aged out; a **Compression** ladder (Original/1080p/720p/480p,
+  ≥-source greyed); functional **overlay burn-in** (default off = pristine).
+- CV (migration `0045`): `CreateExportRequest` takes `hevc_capable`; fragments carry `stream_type`
+  (`main`/`sub`) = authoritative rendition (orthogonal to `tier`). Verified: High→2560×1440,
+  Standard→1920×1080 (720p sub at the 1080p profile). High over an aged span → 422 (surfaced).
+- **`ClipTranscoder`** (`src/models/ClipTranscoder.{h,cpp}`): local ffmpeg/libx264 — downscale ladder +
+  burned-in camera caption and **per-frame footage wall-clock** (`drawtext %{pts:localtime:…}`). Wired
+  via `PlaybackClient::createExport(…, hevcCapable, post{height,timestamp,name,label,startEpochMs,durationMs})`.
+  **A2 (server overlay burn-in) retired** — overlays are client-side now.
+- **OPEN (await CV, then a 1-line label flip):** requested a native-720p Standard rendition (reply4,
+  Q-CV5) + Q-W1/Q-W2; when it ships, change the drawer's "Standard · 1080p" → "720p" (`sourceHeight` 1080→720).
+
+**Other this arc:** green-wall fixes (reconciled camId-keyed `gridModel` → no tile rebuild on
+poll/relayout; see DEVELOPMENT.md gotcha); brighter scrubber ruler + dated playhead watermark;
+**removed the dead camera-tile bookmark** (cameras = ★ only; bookmarks are Events-only); a **layout
+preset now exits the transient map-selection scope** (+ a "✕ Clear selection" chip).
+
+**Paused — freeze diagnosis (NOT finished):** the host appears to freeze over RDP on Live "Change
+layout" — most likely the shared Intel `i915` iGPU (app VA-API decode + Mutter + GNOME-RD encode +
+go2rtc QSV on one chip) wedging on relayout decode-context churn, and/or memory/swap/OOM (15 GiB,
+~1.2 free, 6.5 swap; QSV cgroup-OOM history). Recording is in Docker (killing the app is safe).
+Diagnostic scripts on the host (`~/freeze-watch.sh`, `~/freeze-snapshot.sh`); not yet run — awaiting
+a reproduction. Backend asks open: the [export letter](letters/2026-06-20-export-quality-and-client-side-compression.reply4.md).
 
 ## What this is
 

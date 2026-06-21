@@ -12,7 +12,86 @@ metadata:
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
-## Latest session (2026-06-02) — READ FIRST
+## Latest session (2026-06-21) — READ THIS FIRST (supersedes all blocks below)
+HEAD **`e49f116`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`e49f116` simplify camera marks + un-stick map-selection · `999a9fe`/`306a660` export letters ·
+`a21da42` client-side compression + overlay burn-in · `808f75f` wire High/Standard export ·
+`3e6d689` brighter ruler digits + dated watermark · `9e50713` export quality UI ·
+`b7c7705`/`b5345dd` green-wall fixes · `a777682` wall scrubber controls.
+
+⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
+just restart it to get `e49f116`. (QML is byte-compiled in; no hot reload.)
+
+**EXPORT QUALITY + CLIENT COMPRESSION — shipped both sides; one CV item open.**
+- Single-cam **Export drawer** now has: **Quality** (High = HEVC 1440p main original; Standard =
+  H.264 sub) with grey-out+tooltip when the original has aged out; a **Compression** ladder
+  (Original/1080p/720p/480p, sizes ≥ source greyed); and functional **overlay toggles**
+  (default OFF = pristine, no re-encode).
+- Backend (CV, migration **0045**): `CreateExportRequest` takes **`hevc_capable`** (true=High,
+  false=Standard); fragments carry **`stream_type` ("main"|"sub")** = the authoritative
+  "is the high-res original retained here" (orthogonal to `tier`, which is retention age).
+  Verified live: High→**2560×1440 H.264**, Standard→**1920×1080** (the 720p sub upscaled to the
+  1080p delivery profile; visual detail ≈720p). A High request over an aged span → **422** (string
+  `detail`), surfaced as an export error; our grey-out prevents the normal case.
+- **Client-side compression/overlays are OURS now — `ClipTranscoder` (`src/models/ClipTranscoder.{h,cpp}`):**
+  ffmpeg via QProcess, **software libx264** (never contends with the live wall on the shared iGPU),
+  scale + 2 `drawtext` overlays — camera caption via `textfile=` (no escaping), per-frame **footage
+  wall-clock** via `text='%{pts\:localtime\:<clip_start_epoch>\:%Y-%m-%d %H\\\:%M\\\:%S}'` (verified).
+  Wired through `PlaybackClient::createExport(..., hevcCapable, post)` where `post` =
+  `{height,timestamp,name,label,startEpochMs,durationMs}`; downloads the clean export then transcodes
+  to the final path (keeps the original on failure). **A2 (server overlay burn-in) is RETIRED.**
+  ffmpeg 6.1.1 + DejaVuSans present on the box.
+- **OPEN (await CV → then 1-line follow-up):** reply4 asked CV to add a **native-720p Standard
+  rendition** (Q-CV5=yes) + Q-W1 (will the Standard export `resolution` field report `1280×720`)
+  + Q-W2 (transparent to `hevc_capable`/`stream_type`). **When it ships, flip the ExportDrawer label
+  "Standard · 1080p" → "720p"** (set `sourceHeight` for standard 1080→720). Thread:
+  `docs/letters/2026-06-20-export-quality-and-client-side-compression*.md`.
+
+**ALSO shipped this arc:** green-wall fixes (the live grid binds a camId-keyed reconciled `gridModel`
+so a poll/relayout never rebuilds tiles → no green flash — see DEVELOPMENT.md gotcha); brighter/larger
+scrubber ruler digits + full date on the playhead watermark; **removed the dead camera-tile bookmark
+button** (it was a no-op — cameras keep the ★ star/favourite; bookmarks are Events-only); a **layout
+preset now exits the transient map-selection scope** to All cameras (+ a "✕ Clear selection" toolbar
+chip shown only in that scope).
+
+**PAUSED — freeze diagnosis (in progress, not finished):** user reports the host appears to freeze
+(over RDP) immediately on Live **"Change layout"**. Likely the **shared Intel AlderLake iGPU (`i915`)**
+— one chip does the app's VA-API decode + Mutter + GNOME-Remote-Desktop encode + go2rtc QSV — wedging
+under VA-API decode-context churn on relayout (would freeze app+desktop+RDP together), and/or
+**memory/swap/OOM** (15 GiB, ~1.2 free, 6.5 swap; documented Docker `ffmpeg`/`h264_qsv` cgroup OOM
+history). **Recording is in Docker → killing the app is SAFE.** Diagnostic scripts left on the host:
+**`~/freeze-watch.sh`** (1 s continuous monitor) + **`~/freeze-snapshot.sh`** (deep capture, run with
+`sudo` — gdb needs root, ptrace_scope=1). **Not yet run** — awaiting the user to reproduce + paste
+logs. Decision matrix + recovery order are in this session's transcript (least-disruptive: capture,
+then `kill -TERM $(pidof watchtower)`; never reboot first; never `docker stop`).
+
+**OFFERED, not started:** (a) broader view-scope simplification (a 2nd "favourite" exists on Saved
+Views; possible Groups/Saved-Views/Favourites consolidation); (b) a live end-to-end export→download→
+transcode verification pass.
+
+**Platform note:** this was a ~7-day **resumed Remote** session; its Background-tasks panel accumulated
+**9 phantom "Running" `run_in_background` entries** (processes long dead — a Claude Code bug; likely a
+sandbox time-namespace/clock skew). Reported via `/feedback`; full write-up at
+`/home/cilex-vision/claude-code-bug-report-background-tasks.md`. **A NEW session clears them.** Going
+forward, **avoid `run_in_background` for verify/perf — use foreground bounded runs.** (The freeze
+scripts + bug report live in `/home/cilex-vision/`, NOT the repo — local-only.)
+
+## Latest session (2026-06-18) — earlier (supersedes the 06-02 block below)
+Latest commit **`147ed50`** on `main` (pushed). The **Events redesign** (faithful QML port of
+`designs/events-v2`: 01 Triage / 02 Verify / 03 Timeline / 04 Situation Map) is now the
+**DEFAULT** Events screen, fully on real `/events` + `/maps`. Canonical task state lives in
+**`docs/events-redesign-tasks.md`** (rows #1–#14, #17 ✅ done; only **#15 severity/AI data** +
+**#16 camera placement** remain — both *operational/config on Cilex Vision's side*, not code).
+Backend Events workstream is **closed**. This session's two features: **(#13) FOV coverage cones**
+on Situation-Map pins (translucent wedge + outline via `rotation_deg`, tinted by pin state) and
+**(#17) a camera-group switcher** in the Events mode bar (`groupFilter` scopes queue / wall /
+timeline / map pins to All / a named group / Ungrouped; placed pins follow the group too).
+New dev hook **`WT_EVENTS_VIEW=triage|review|timeline|map`** opens an Events sub-view directly
+(for offscreen screenshots). Flags: `WT_DEMO` → mock showcase; `WT_EVENTS_LEGACY` → old table
+screen. Verify offscreen via PIL crop of `WT_SCREENSHOT` PNGs (no ImageMagick on the box).
+Letters exchanged this arc are under `docs/letters/2026-06-18-*`. Earlier blocks below are history.
+
+## Latest session (2026-06-02)
 Latest commit **`c18b5fa`** on `main` (pushed). The E1 wall is live; this session landed a
 large client-feature batch and **closed BOTH backend threads** (recorder stall + E2 export) —
 **no open backend asks** right now. For current truth read `docs/PROJECT_STATUS.md`,

@@ -1,0 +1,38 @@
+---
+name: timeline-event-markers-research
+description: "Deep-research findings (2026-06-15) on industry standards for event markers on a VMS playback scrubber — representation, density/LOD across zoom, show/hide — + recommended design for our timeline."
+metadata: 
+  node_type: memory
+  type: reference
+  originSessionId: 057dd61f-f06d-42c8-ac7c-9035085a07c1
+---
+
+Deep-research (104 agents, 22 sources, 25 adversarially-verified claims) on showing event markers on the playback scrubber. Drives a future implementation of motion start→end markers on the timeline.
+
+**Verified industry pattern:**
+- Motion = a COLORED SPAN (start→end) over the recording bar, NOT a point tick. Discrete events = icon/point markers in distinct colors, kept separate from the bars. No product uses per-event-type swimlanes. (Milestone XProtect: 2 stacked tracks selected-cam + all-cams, red=motion span, blue bookmark icons, "Color codes legend"; Avigilon ACC: red=motion/blue=recorded/white=none, zoom ¼s→years; Wisenet WAVE: black/green/blue/red single bar.)
+- Best data model for OUR motion_started→motion_ended episodes = **Grafana point-vs-region annotations**: point = line+icon (moment); region = shaded span with `time`+`timeEnd`. Our episodes (joined by recording_id, see [[motion-event-lifecycle]]) are free-standing → region model, NOT recording-coverage shading.
+- Density: VMS use ON-DEMAND querying + category toggles, NOT auto-heatmaps. WAVE shows NO motion until the user draws a Smart-Search region. Concrete clustering numbers come only from dataviz libs: Supercluster default 40px cluster radius, per-zoom LOD (minZoom 0→maxZoom 16), merge within radius into a counted cluster.
+- Show/hide: per-category toggles + legend (XProtect: Settings→Timeline: audio/additional-data/markers/bookmarks/Motion indication/all-cams). LIMITATION to beat: XProtect bundles all analytics under one "Additional data/markers" toggle — no per-event-type control.
+
+**Recommended design for our scrubber:** motion episodes → colored spans on a thin events lane; point events (line_crossing/intrusion/person/vehicle/tamper) → type-colored ticks w/ hover; per-zoom LOD clustering w/ min-pixel-spacing (~6-8px) merging into counted clusters; at wide zoom (24h) collapse motion to an intensity/density BAND (our designed heuristic — no VMS documents auto-heatmap), resolve individual episodes on zoom-in; per-event-type show/hide toggles + master toggle + color legend; default-quiet option for noisy cams.
+
+**DO NOT rely on (refuted 0-3 in verification):** Avigilon "Rarity slider"/"2s min-duration default"; "~100,000-point performance threshold"; WAVE "Show Bookmarks" green-bar toggle. **Not established:** Genetec, Bosch, Axis, Verkada, Eagle Eye, UniFi, Synology, Frigate, Blue Iris, YouTube, video editors (searched, didn't survive verification).
+
+Full cited report: `docs/research/2026-06-15-timeline-event-markers.md`. Pairs with the zoomable timeline scrubber (commits 0746a71, 6de058b).
+
+**PHASE 1 SHIPPED (2026-06-15, commit 28da64a):** motion episodes on the playback scrubber. `EventModel` now exposes `metadata.recording_id` (Types.h/role/toMap) to pair motion_started↔motion_ended; `qml/PlaybackScreen.qml` uses a DEDICATED `EventModel` instance (id: motionEvents — NOT the shared global one) scoped to the session camera+window, paginated to a 1500 cap; pairs into `motionEpisodes`; renders an amber MOTION lane (y:28) below the footage band via `bar.visibleMotion` which MERGES episodes <~3px apart into density bands (opacity ∝ coverage) — legible at 24h, resolves to discrete spans zoomed in. Hover tooltip + click-to-seek. `Settings.eventsOnScrubber` (persisted bool) drives an "Events" toggle. See [[motion-event-lifecycle]].
+
+**PHASE 2 SHIPPED (2026-06-15, commits 6dac61f + 4342266)** except the optional backend endpoint:
+- `qml/EventStyle.qml` — NEW singleton (color/icon/label, 3-tier: amber=motion, red=critical intrusion/tamper/loitering/video_loss, violet=other). De-dups the old eventColor/eventIcon copied across EventsScreen/AlertsDropdown/OpsSidebar/CommandPalette (they delegate now). Registered in CMakeLists (set_source_files_properties QT_QML_SINGLETON_TYPE + QML_FILES).
+- Point-event ticks on the scrubber: non-motion types → clustered pins (bar.visiblePoints, ~7px min spacing, count on clusters, mixed→neutral), `pointEvents` built in rebuildEvents().
+- Per-type legend in the playback aside ("EVENTS" section) that doubles as show/hide; persisted via `Settings.hiddenScrubberEventTypes` (QStringList); key "motion" gates the span lane, raw type gates ticks. `typeVisible/typeHidden/toggleType`.
+- Aside "Recent events" wired → live clickable list (`recentList` from reactive `eventList` property — NOT motionEvents.all() directly, which isn't reactive; that was a bug, fixed). Click row → seekToWall.
+- **CAVEAT (item 1 unverifiable):** 0 non-motion events exist across ALL cameras (7-day check) — no camera emits line_crossing/intrusion/etc. yet (per 2026-06-14 letter, they populate as cameras are configured). Point-tick code builds/runs clean (empty) and reuses the verified motion-merge/EventStyle/hover patterns; ticks appear automatically once such events flow. Legend + recent list verified live on .106.
+
+**BACKEND ENDPOINT ADOPTED (2026-06-15, commit afeb4db).** Cilex Vision finished `/events/timeline` (their reply: `/home/cilex-vision/projects/cilex-vision/docs/letters/2026-06-15-events-timeline-finished.md`; the empty was a `event_type='motion'` filter bug — no such type). Contract: `GET /events/timeline?start=&end=&camera_ids=[&buckets=N]` → `{mode, cameras:{id:[blocks]}}`. **episodes mode** = pre-joined motion spans `{event_id, start_time, end_time (null=ongoing), duration_ms, state, recording_id}`; **buckets mode** = N fixed bins `{bucket_start, bucket_end, episode_count, motion_seconds}`. Arbitrary UTC window (≤31d).
+- Client: new `PlaybackClient::fetchTimeline(cameraId,start,end,buckets)` → emits `timelineReady(cameraId,mode,blocks)`. PlaybackScreen sources `motionEpisodes` from episodes mode (dropped client pairing + the 1500-cap pagination); for >2000 episodes it re-fetches `buckets=600` and renders `bar.bucketBand`. `bar.motionBand` selects episode-merge vs bucket band by `bucketMode`. EventModel kept ONLY for non-motion point events + the aside recent list (first page).
+- `EventData.recordingId` (exposed in commit 28da64a for client pairing) is now UNUSED in the client (kept, harmless).
+- Verified: episodes (68) + buckets (48 bins) probed live + rendered on .106. The original ask letter is `docs/letters/2026-06-15-events-timeline-endpoint.md`.
+
+**Backend finding (2026-06-15):** `GET /events/timeline?date=YYYY-MM-DD&tz_offset_minutes=&camera_ids[]=` ALREADY EXISTS in the cilex-vision OpenAPI — documented as "Lightweight response for timeline rendering. Returns {camera_id: [event_summaries]} — only fields needed to draw blocks; metadata fetched on click via /events/{id}." Envelope: {date, tz_offset_minutes, utc_start, utc_end, cameras:{}}. **BUT it returns EMPTY** (`cameras: {}`) for cameras/dates where raw `/events` has data (verified: 2026-06-14 raw total=144, timeline=0) — i.e. defined-but-not-wired, or an undocumented gating/keying detail. This is the natural home for the "optional backend endpoint": before building anything new, ASK Cilex Vision (docs/letters/) to confirm /events/timeline's status + whether its blocks carry motion start→end and/or density buckets; if usable, adopt it to replace the Phase-1 client-side pagination/pairing. Not a blocker (Phase 1 works via /events). Pairs with [[playback-via-cilex-vision]].
