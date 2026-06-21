@@ -13,14 +13,15 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`e49f116`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`e49f116` simplify camera marks + un-stick map-selection · `999a9fe`/`306a660` export letters ·
-`a21da42` client-side compression + overlay burn-in · `808f75f` wire High/Standard export ·
-`3e6d689` brighter ruler digits + dated watermark · `9e50713` export quality UI ·
-`b7c7705`/`b5345dd` green-wall fixes · `a777682` wall scrubber controls.
+HEAD **`d7a8ef6`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`d7a8ef6` flip Standard label 1080p→720p (CV shipped native-720p; verified live 1280×720) ·
+`9b43253` recovery snapshot · `e49f116` simplify camera marks + un-stick map-selection ·
+`999a9fe`/`306a660` export letters · `a21da42` client-side compression + overlay burn-in ·
+`808f75f` wire High/Standard export · `3e6d689` brighter ruler digits · `9e50713` export quality UI ·
+`b7c7705`/`b5345dd` green-wall fixes.
 
 ⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `e49f116`. (QML is byte-compiled in; no hot reload.)
+just restart it to get `d7a8ef6`. (QML is byte-compiled in; no hot reload.)
 
 **EXPORT QUALITY + CLIENT COMPRESSION — shipped both sides; one CV item open.**
 - Single-cam **Export drawer** now has: **Quality** (High = HEVC 1440p main original; Standard =
@@ -41,11 +42,16 @@ just restart it to get `e49f116`. (QML is byte-compiled in; no hot reload.)
   `{height,timestamp,name,label,startEpochMs,durationMs}`; downloads the clean export then transcodes
   to the final path (keeps the original on failure). **A2 (server overlay burn-in) is RETIRED.**
   ffmpeg 6.1.1 + DejaVuSans present on the box.
-- **OPEN (await CV → then 1-line follow-up):** reply4 asked CV to add a **native-720p Standard
-  rendition** (Q-CV5=yes) + Q-W1 (will the Standard export `resolution` field report `1280×720`)
-  + Q-W2 (transparent to `hevc_capable`/`stream_type`). **When it ships, flip the ExportDrawer label
-  "Standard · 1080p" → "720p"** (set `sourceHeight` for standard 1080→720). Thread:
-  `docs/letters/2026-06-20-export-quality-and-client-side-compression*.md`.
+- **DONE (2026-06-21, `d7a8ef6`):** CV shipped native-720p Standard (`h264-main-720p`; reply5 —
+  Q-CV5/Q-W1/Q-W2 all yes). Flipped the ExportDrawer label **"Standard · 1080p" → "720p"**
+  (`sourceHeight` standard 1080→720; ladder now Original+480p; confirm-modal "(720p)"). **Verified
+  live end-to-end** (drove the real backend, not just CV's word): a fresh-window Standard export →
+  `resolution 1280x720` (~747 KB/8 s); playback manifest → `delivery_profile h264-main-720p` on every
+  sub fragment. **One non-blocking open item — Q-W3 (reply6):** a re-export of a *pre-deploy-rendered*
+  window still serves cached **1080p** (byte-identical 8848 B) → asked CV whether the rendered-fragment
+  cache is keyed by `(segment, hevc_capable)` not `delivery_profile` (so old windows serve 1080p until
+  they orphan out; fresh exports are correctly 720p). Created 2 dev-backend test exports
+  (`wt-720p-verify`/`wt-720p-fresh`). Thread: `…export-quality-and-client-side-compression.reply6.md`.
 
 **ALSO shipped this arc:** green-wall fixes (the live grid binds a camId-keyed reconciled `gridModel`
 so a poll/relayout never rebuilds tiles → no green flash — see DEVELOPMENT.md gotcha); brighter/larger
