@@ -4,11 +4,11 @@ _Last updated: 2026-06-21. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
-## Current status (2026-06-21) — export quality + compression CLOSED (native-720p verified)
+## Current status (2026-06-21) — native-720p shipped + verified; aged-window export bug open (Q-CV6)
 
 All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchtower` to run HEAD.**
 
-**Export quality + client-side compression — CLOSED both sides (native-720p Standard verified live).**
+**Export quality + client-side compression — shipped + verified; one open backend bug (aged-window Standard export still delivers 1080p — Q-CV6, CV's court).**
 - Export drawer: **Quality** (High = HEVC 1440p main original / Standard = H.264 sub) with
   grey-out+tooltip when the original has aged out; a **Compression** ladder (Original/1080p/720p/480p,
   ≥-source greyed); functional **overlay burn-in** (default off = pristine).
@@ -23,10 +23,14 @@ All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchto
   Q-CV5/Q-W1/Q-W2 all yes). Client label flipped — drawer reads **"Standard · 720p"** (`sourceHeight`
   1080→720), no-upscale ladder now offers Original + 480p. **Verified live from our side:** a
   fresh-window Standard export reports `resolution 1280x720` (~747 KB/8 s), and the playback manifest
-  shows `delivery_profile h264-main-720p` for every sub fragment. One non-blocking nuance raised
-  (reply6, **Q-W3**): a re-export of a *pre-deploy-rendered* window still serves cached 1080p
-  (byte-identical 8848 B) — asked CV to confirm the cache is keyed by `(segment, hevc_capable)`, not
-  `delivery_profile`. Thread: `docs/letters/2026-06-20-export-quality-and-client-side-compression.reply6.md`.
+  shows `delivery_profile h264-main-720p` for every sub fragment. **Q-W3 → Q-CV6 (open, non-blocking, CV's court):** re-exports of
+  *pre-deploy-rendered / aged* windows still deliver **1080p** (byte-identical 8848 B across 3 fresh
+  post-deploy jobs). CV (reply7) says the warm-path rendition cache is keyed by
+  `(segment_id, delivery_profile)` so "no fix needed" — but our Q-CV6 re-test (reply8) shows the
+  **export worker's aged/cold path still serves the old 1080p rendition** even though the live session
+  reports `no_recording` for that window. Common path (recent footage) is correctly 720p; only old
+  Standard footage is affected. Thread:
+  `docs/letters/2026-06-20-export-quality-and-client-side-compression.reply8.md`.
 
 **Other this arc:** green-wall fixes (reconciled camId-keyed `gridModel` → no tile rebuild on
 poll/relayout; see DEVELOPMENT.md gotcha); brighter scrubber ruler + dated playhead watermark;
@@ -38,7 +42,7 @@ layout" — most likely the shared Intel `i915` iGPU (app VA-API decode + Mutter
 go2rtc QSV on one chip) wedging on relayout decode-context churn, and/or memory/swap/OOM (15 GiB,
 ~1.2 free, 6.5 swap; QSV cgroup-OOM history). Recording is in Docker (killing the app is safe).
 Diagnostic scripts on the host (`~/freeze-watch.sh`, `~/freeze-snapshot.sh`); not yet run — awaiting
-a reproduction. Backend asks open: only the non-blocking [Q-W3 cache nuance](letters/2026-06-20-export-quality-and-client-side-compression.reply6.md).
+a reproduction. Backend asks open: only the non-blocking [Q-CV6 aged-export bug](letters/2026-06-20-export-quality-and-client-side-compression.reply8.md) (CV's court).
 
 ## What this is
 

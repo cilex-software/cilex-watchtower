@@ -47,11 +47,15 @@ just restart it to get `d7a8ef6`. (QML is byte-compiled in; no hot reload.)
   (`sourceHeight` standard 1080→720; ladder now Original+480p; confirm-modal "(720p)"). **Verified
   live end-to-end** (drove the real backend, not just CV's word): a fresh-window Standard export →
   `resolution 1280x720` (~747 KB/8 s); playback manifest → `delivery_profile h264-main-720p` on every
-  sub fragment. **One non-blocking open item — Q-W3 (reply6):** a re-export of a *pre-deploy-rendered*
-  window still serves cached **1080p** (byte-identical 8848 B) → asked CV whether the rendered-fragment
-  cache is keyed by `(segment, hevc_capable)` not `delivery_profile` (so old windows serve 1080p until
-  they orphan out; fresh exports are correctly 720p). Created 2 dev-backend test exports
-  (`wt-720p-verify`/`wt-720p-fresh`). Thread: `…export-quality-and-client-side-compression.reply6.md`.
+  sub fragment. **Open (non-blocking, CV's court) — Q-W3 → Q-CV6:** re-exports of *pre-deploy / aged*
+  windows still deliver **1080p** (byte-identical 8848 B across **3** fresh post-deploy jobs). CV
+  (reply7) says the warm-path rendition cache is keyed by `(segment_id, delivery_profile)` → "no fix
+  needed"; our Q-CV6 re-test (reply8) disproves that for the **export worker's aged/cold path** — it
+  serves the old 1080p rendition even though the window's live session now reports `no_recording`.
+  Recent-footage exports are correctly 720p (the common path), so non-blocking. Created 3 dev test
+  exports (`wt-720p-verify`/`wt-720p-fresh`/`wt-cv6-retest`; the failing-1080p jobs `62588e85` +
+  `bdb5237b` are for CV to inspect). reply8 also carries a **bitrate correction** (the sub is
+  ≈1 Mbit/s / 1024 Kbps-configured, not "~0.1"). Thread: `…compression.reply8.md` (reply7 = CV's).
 
 **ALSO shipped this arc:** green-wall fixes (the live grid binds a camId-keyed reconciled `gridModel`
 so a poll/relayout never rebuilds tiles → no green flash — see DEVELOPMENT.md gotcha); brighter/larger
