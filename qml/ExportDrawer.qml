@@ -174,8 +174,9 @@ Item {
     // The quality actually used: the pick, unless high was chosen but isn't available.
     readonly property string effectiveQuality: (quality === "high" && highAvailable) ? "high" : "standard"
     // Source rendition height (confirmed against real exports): High = the 1440p main
-    // original; Standard = the 720p sub re-delivered at the 1080p H.264 profile.
-    readonly property int sourceHeight: effectiveQuality === "high" ? 1440 : 1080
+    // original; Standard = the 720p sub, now delivered natively at 720p (CV shipped the
+    // h264-main-720p rendition — no more 1080p upscale; the job's resolution reports 1280×720).
+    readonly property int sourceHeight: effectiveQuality === "high" ? 1440 : 720
     // Compression-ladder target (0 = keep source). A target ≥ the source height would be
     // an upscale / no-op, so it collapses to Original.
     readonly property int effectiveCompHeight: (compHeight > 0 && compHeight < sourceHeight) ? compHeight : 0
@@ -513,7 +514,7 @@ Item {
                             anchors.centerIn: parent; spacing: 1
                             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Standard quality"
                                 color: sqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "1080p · smaller file"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "720p · smaller file"
                                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
                         }
                         MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -712,7 +713,7 @@ Item {
                         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                         spacing: 4
                         Text { text: "• MP4 · " + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (1080p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (720p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• This export will be visible to your supervisor"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: "• Estimated size: ~ " + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { visible: root.willTranscode; text: "• Re-encoded on this machine after download" + ((root.overlayTs || root.overlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }

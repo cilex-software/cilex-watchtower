@@ -4,11 +4,11 @@ _Last updated: 2026-06-21. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
-## Current status (2026-06-21) — HEAD `e49f116`, clean, pushed
+## Current status (2026-06-21) — export quality + compression CLOSED (native-720p verified)
 
 All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchtower` to run HEAD.**
 
-**Export quality + client-side compression — shipped both sides; one CV item open.**
+**Export quality + client-side compression — CLOSED both sides (native-720p Standard verified live).**
 - Export drawer: **Quality** (High = HEVC 1440p main original / Standard = H.264 sub) with
   grey-out+tooltip when the original has aged out; a **Compression** ladder (Original/1080p/720p/480p,
   ≥-source greyed); functional **overlay burn-in** (default off = pristine).
@@ -19,8 +19,14 @@ All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchto
   burned-in camera caption and **per-frame footage wall-clock** (`drawtext %{pts:localtime:…}`). Wired
   via `PlaybackClient::createExport(…, hevcCapable, post{height,timestamp,name,label,startEpochMs,durationMs})`.
   **A2 (server overlay burn-in) retired** — overlays are client-side now.
-- **OPEN (await CV, then a 1-line label flip):** requested a native-720p Standard rendition (reply4,
-  Q-CV5) + Q-W1/Q-W2; when it ships, change the drawer's "Standard · 1080p" → "720p" (`sourceHeight` 1080→720).
+- **DONE (2026-06-21):** CV shipped the native-720p Standard rendition (`h264-main-720p`; reply5,
+  Q-CV5/Q-W1/Q-W2 all yes). Client label flipped — drawer reads **"Standard · 720p"** (`sourceHeight`
+  1080→720), no-upscale ladder now offers Original + 480p. **Verified live from our side:** a
+  fresh-window Standard export reports `resolution 1280x720` (~747 KB/8 s), and the playback manifest
+  shows `delivery_profile h264-main-720p` for every sub fragment. One non-blocking nuance raised
+  (reply6, **Q-W3**): a re-export of a *pre-deploy-rendered* window still serves cached 1080p
+  (byte-identical 8848 B) — asked CV to confirm the cache is keyed by `(segment, hevc_capable)`, not
+  `delivery_profile`. Thread: `docs/letters/2026-06-20-export-quality-and-client-side-compression.reply6.md`.
 
 **Other this arc:** green-wall fixes (reconciled camId-keyed `gridModel` → no tile rebuild on
 poll/relayout; see DEVELOPMENT.md gotcha); brighter scrubber ruler + dated playhead watermark;
@@ -32,7 +38,7 @@ layout" — most likely the shared Intel `i915` iGPU (app VA-API decode + Mutter
 go2rtc QSV on one chip) wedging on relayout decode-context churn, and/or memory/swap/OOM (15 GiB,
 ~1.2 free, 6.5 swap; QSV cgroup-OOM history). Recording is in Docker (killing the app is safe).
 Diagnostic scripts on the host (`~/freeze-watch.sh`, `~/freeze-snapshot.sh`); not yet run — awaiting
-a reproduction. Backend asks open: the [export letter](letters/2026-06-20-export-quality-and-client-side-compression.reply4.md).
+a reproduction. Backend asks open: only the non-blocking [Q-W3 cache nuance](letters/2026-06-20-export-quality-and-client-side-compression.reply6.md).
 
 ## What this is
 
