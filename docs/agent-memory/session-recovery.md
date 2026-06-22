@@ -13,7 +13,13 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`e2c870b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`dcc61d3`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`dcc61d3` **cap concurrent VA-API decodes (default 9; `WT_MAX_DECODES` override)** — `LiveMonitor.
+maxLiveDecodes`; only the first N tiles by grid position run a live pipeline (`liveDecodeAllowed`),
+the rest show a periodic go2rtc snapshot via `LiveThumb` (all cameras stay visible). The residual
+~5.8 GB scales with concurrent decode count, so this bounds it. **Verified real-iGPU: 4×-reassign
+8.6→5.8→~3.3 GB (cap 9); screenshot shows a 4×4 all-populated (9 live + 7 snapshots).** Tune lower on
+a weak box, raise (16) for an all-live wall. ·
 `e2c870b` **stop decoding during Arrange + decode picker thumbs small (sourceSize 480)** —
 re-assign scenario (Arrange→pick-and-assign ×4) balloon **8.6 GB → 5.8 GB**. Reverts the earlier
 "keep alive in arrange"(Part2) + "pause during picker"(6390eb9) experiments (both kept/churned 16
@@ -44,7 +50,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `e2c870b`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `dcc61d3`.
 
 🧠 **OPEN ROOT CAUSE — VA-API decode-memory watermark (mitigated to ~5.8 GB, NOT eliminated).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
