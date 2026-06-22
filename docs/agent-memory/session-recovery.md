@@ -13,10 +13,16 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`6390eb9`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`7bcabc9`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`7bcabc9` **bound live-frame delivery to a 1-frame mailbox** (RtspVideoSource: onNewSample → single
+`m_pendingFrame` + `m_frameMutex`, post ≤1 `deliver()`; newer frames replace the unconsumed one).
+The low-latency path was posting EVERY decoded frame to the GUI thread via an **unbounded
+QueuedConnection** (16×15fps×3.7MB ≈ 888 MB/s); when the GUI thread fell behind, the event queue
+piled up and RSS ballooned. **Verified on the real iGPU (RSS heartbeat): steady-state 16-cam wall
+now flat at ~457 MB (was unbounded).** ·
 `6390eb9` **pause the live wall while the picker is open** (`videoActive: … && pickerCell < 0`) —
-frees the 16 live decode contexts + buffers (invisible behind the picker) at the picker-open crash
-moment; they rebuild staggered on close. Helps both the OOM and iGPU-wedge modes. ·
+frees the 16 live decode contexts during the picker; rebuild staggered on close. (Marginal vs the
+balloon below — keep for the single-open case.) ·
 `2bc7c21` **picker-table crash fix** — hard-cap the "Tap to change" thumbnail fetches to **≤3
 concurrent** (load limiter on LiveMonitor root: `_thumbWant`/`_thumbPump`/`_thumbRelease`, reset on
 open). **SELF-TESTED offscreen (drove the picker open, instrumented): cap provably holds at ≤3** —
@@ -33,7 +39,21 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `6390eb9`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `7bcabc9`.
+
+🧠 **OPEN ROOT CAUSE — picker+16-tiles VA-API balloon (NOT fully fixed).** Drove Arrange→picker ×6 on
+the REAL iGPU with an RSS heartbeat. The mailbox fix bounded *steady-state* (457 MB), but **opening
+the picker with 16 live tiles drives RSS to ~8.5 GB** (~530 MB **per live tile** under GPU load — far
+beyond any frame buffer). It is NOT: the thumbnail burst (capped ≤3, proven), NOT the reconnect
+cascade (disabling reconnect didn't change it), NOT fixed by pausing the wall (pause plateaus at the
+same ~8.5 GB). So it's a **VA-API/iGPU decode-memory balloon under GPU pressure, below the Qt/frame
+layer** — a client frame-path change can't fix it. With 1 live tile it stays ~0.6–1 GB; it scales with
+tile count. On a **rebooted box (~13 GB free) 8.5 GB SURVIVES** (the test did, exit 124, no crash); on
+the **starved box (7 GB swap, 7-day uptime — STILL not rebooted) it OOMs.** → **Reboot is essential.**
+Real fixes to pursue next: fewer concurrent VA-API decodes (smaller default wall, or a true "freeze
+last frame without a live pipeline" path), and a system-level look (`intel_gpu_top`, `LIBVA_*` debug,
+GST_DEBUG) at why each decode holds ~500 MB under load. Test harness for this: a `WT_TEST_PICKER`
+self-drive hook + an RSS heartbeat (added & reverted this session; re-add from git if needed).
 🖥️ **THE BOX IS STARVED + NOT REBOOTED (2026-06-22 15:42): 7-day uptime, swap 6.1 GiB used, 1.6 GiB
 free RAM, load avg 7.7.** Three crashes happened in this state. The code fixes remove the demand
 bursts, but **strongly push a REBOOT** (or `~/safe-swap-clean.sh` / the `swap-clean.timer` from this
