@@ -35,6 +35,31 @@ constexpr int kMaxConcurrentTeardowns = 8;
 std::mutex &teardownMutex() { static std::mutex m; return m; }
 std::condition_variable &teardownCv() { static std::condition_variable cv; return cv; }
 int &teardownInflight() { static int n = 0; return n; }
+
+// True if a (sampled) RGBA frame is one flat green colour — the signature of a decoder
+// "empty surface": the all-zero NV12 buffer a decoder emits before a real keyframe (or
+// for a wedged sub-stream) converts to ~RGB(0,135,0), the notorious solid green. Real
+// video is never a uniform flat colour, and a real green scene has texture, so this is
+// surgical: uniform AND green-dominant with R,B near zero. O(1) — a 6×6 sample grid.
+bool isEmptyGreenSurface(const unsigned char *base, int w, int h, int stride)
+{
+    if (!base || w < 2 || h < 2)
+        return false;
+    int rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
+    constexpr int N = 6;
+    for (int yi = 0; yi < N; ++yi)
+        for (int xi = 0; xi < N; ++xi) {
+            const int px = xi * (w - 1) / (N - 1);
+            const int py = yi * (h - 1) / (N - 1);
+            const unsigned char *p = base + qsizetype(py) * stride + qsizetype(px) * 4;
+            rmin = qMin(rmin, int(p[0])); rmax = qMax(rmax, int(p[0]));   // RGBA byte order
+            gmin = qMin(gmin, int(p[1])); gmax = qMax(gmax, int(p[1]));
+            bmin = qMin(bmin, int(p[2])); bmax = qMax(bmax, int(p[2]));
+        }
+    const bool uniform  = (rmax - rmin) <= 8 && (gmax - gmin) <= 8 && (bmax - bmin) <= 8;
+    const bool greenish = rmax < 60 && bmax < 60 && gmin > 70 && gmax < 200;
+    return uniform && greenish;
+}
 }
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
@@ -234,8 +259,14 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
             for (int y = 0; y < h; ++y)
                 std::memcpy(f.bits(0) + qsizetype(y) * dstStride,
                             map.data + qsizetype(y) * srcStride, copy);
+            // Sample for the "empty surface" green BEFORE unmapping. If it's that flat
+            // green (a decoder zero-buffer, not a real picture), drop it: don't deliver,
+            // don't mark playing — the VideoSurface stays covered and the reconnect
+            // watchdog keeps trying, so the operator never sees green.
+            const bool empty = isEmptyGreenSurface(f.bits(0), w, h, dstStride);
             f.unmap();
-            frame = f;
+            if (!empty)
+                frame = f;
         }
         gst_buffer_unmap(buf, &map);
     }
