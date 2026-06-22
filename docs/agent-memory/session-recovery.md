@@ -13,15 +13,27 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`3769878`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`85525d3`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`85525d3` bottom loading bar on connecting tiles + per-cell wall-clock (ms) on the playback wall ·
 `3769878` **auto-reconnect stalled tiles** (per-tile backoff + global ReconnectCoordinator throttle) ·
 `09130b8` **never show green** — VideoSurface gates video on real frame flow + opaque cover ·
 `fc81bba` export letters (CV reply7 / our reply8, Q-CV6) · `d7a8ef6` flip Standard label 1080p→720p
-(CV shipped native-720p; verified live 1280×720) · `e49f116` simplify camera marks · `a21da42`
-client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
+(CV shipped native-720p) · `a21da42` client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
 
 ⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `3769878`. (QML is byte-compiled in; no hot reload.)
+just restart it to get `85525d3`. (QML is byte-compiled in; no hot reload.)
+
+🩺 **DIAGNOSTIC LESSON (2026-06-22):** the operator reported green STILL showing after the
+green fix — but it was the **stale running binary**. Always confirm what's actually running:
+`ps -o lstart,etimes -C watchtower` (process start) vs `stat -c %y build/watchtower` (build time).
+The process had started 10:35; the fix was built 13:21 → 3 h of testing old code. When a "fix
+didn't work," **check the running process age FIRST** before re-diagnosing the code.
+
+**This session also added (`85525d3`, awaiting live confirm):** (1) an indeterminate **loading
+bar** along the bottom of a connecting/reconnecting tile (honest sweep, no fake %; clears when
+frames flow). (2) **Per-cell wall-clock (ms) on the playback wall** — `WallPlayback` is ONE
+server-composited HLS stream (one decode/timeline → ms-synced BY CONSTRUCTION; no client sync to
+do), so each cell now prints the identical `playheadMs` via `fmtWallMs()`, making the sync visible.
 
 **GREEN-SURFACE FIX (`09130b8`) — shipped, awaiting live confirm.** A single camera (.120, a stalled
 substream) showed a frozen green tile in the 4×4 AND a fully green single-cam view, while the backend
