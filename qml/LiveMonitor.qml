@@ -162,6 +162,13 @@ Item {
         if (host === "" || stream === "") return "";
         return "http://" + host + ":1984/api/frame.jpeg?src=" + encodeURIComponent(stream);
     }
+    // Cameras whose go2rtc frame.jpeg snapshot can't be decoded (e.g. an HEVC-only or
+    // wedged producer that returns a non-JPEG). Recorded on the FIRST failure so we stop
+    // re-requesting — a broken snapshot then logs at most once instead of spamming the
+    // console on every picker re-open / status-poll refresh; the cell falls back to the
+    // camera initial. (Both snapshotUrl and _thumbUrl hit the same frame.jpeg endpoint,
+    // so there is no alternate URL worth trying.)
+    property var _snapFailed: ({})
     // Fit-to-screen grid geometry: the largest (capped) cell size that lays all
     // `count` thumbnails out within availW×availH without scrolling. If they can't
     // all fit even at the minimum column width, returns the tightest columns and
@@ -1169,12 +1176,23 @@ Item {
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true; cache: true
                                         // Backend snapshot URL (go2rtc frame.jpeg) when present, else a
-                                        // client-derived sub-stream frame. Skip the fetch entirely when
-                                        // Live View is off (snapshots would 404).
-                                        source: (root.cameraModel && root.cameraModel.liveViewEnabled === false) ? ""
+                                        // client-derived sub-stream frame. Skip the fetch when Live View
+                                        // is off (snapshots would 404), or when this camera's snapshot has
+                                        // already failed to decode once (don't re-spam — show the initial).
+                                        source: ((root.cameraModel && root.cameraModel.liveViewEnabled === false)
+                                                 || root._snapFailed[pickCell.modelData.camId]) ? ""
                                                 : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
                                                    ? pickCell.modelData.snapshotUrl
                                                    : root._thumbUrl(pickCell.modelData))
+                                        onStatusChanged: {
+                                            if (status === Image.Error && pickCell.modelData && pickCell.modelData.camId) {
+                                                // record + stop retrying this camera's snapshot (fresh object → binding re-evaluates)
+                                                var m = {};
+                                                for (var k in root._snapFailed) m[k] = root._snapFailed[k];
+                                                m[pickCell.modelData.camId] = true;
+                                                root._snapFailed = m;
+                                            }
+                                        }
                                     }
                                     // placeholder: "Live View off" when disabled, else loading dots /
                                     // the camera initial while or if the frame doesn't load.
