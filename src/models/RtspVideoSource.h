@@ -3,9 +3,11 @@
 #include <QObject>
 #include <QString>
 #include <QVideoSink>
+#include <QVideoFrame>
 #include <QtQml/qqmlregistration.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
+#include <mutex>
 
 // Low-latency live RTSP source. Owns a GStreamer pipeline with a small rtspsrc
 // jitter buffer and pushes decoded frames into a QVideoSink (the sink a QML
@@ -67,7 +69,7 @@ private:
     void teardown();   // stop + dispose the pipeline
     void setPlaying(bool p);
     void setErrored(bool e, const QString &msg = {});
-    void deliver(const class QVideoFrame &frame);   // runs on the GUI thread
+    void deliver();   // runs on the GUI thread; consumes m_pendingFrame
 
     static GstFlowReturn onNewSample(GstAppSink *sink, gpointer self);
     static gboolean onBus(GstBus *bus, GstMessage *msg, gpointer self);
@@ -84,4 +86,13 @@ private:
     bool m_playing = false;
     bool m_errored = false;
     QString m_errorText;
+
+    // Single-slot "latest frame" mailbox. onNewSample (streaming thread) drops the newest
+    // frame here and posts at most ONE deliver() (GUI thread); newer frames replace the
+    // unconsumed one. Bounds memory to one frame per pipeline no matter how far behind the
+    // GUI thread falls — without this, 16 pipelines × 15 fps of unbounded queued frames
+    // (~3.7 MB each) balloon RSS to many GB and OOM-kill the app.
+    QVideoFrame m_pendingFrame;
+    bool m_deliverQueued = false;
+    std::mutex m_frameMutex;
 };

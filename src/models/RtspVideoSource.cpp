@@ -350,26 +350,43 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
     gst_sample_unref(sample);
 
     if (frame.isValid()) {
-        // Streaming-thread → GUI-thread hop. Two guards:
-        //   1) Under the alive-set lock, confirm `me` hasn't been destroyed
-        //      between sample-pull and this dispatch. Without this, the dtor
-        //      can race with a callback in flight on this thread.
-        //   2) Capture a QPointer so that even if the object dies after this
-        //      check but before the queued invocation runs, the lambda is a
-        //      no-op (QPointer goes null).
+        // Streaming-thread → GUI-thread hop, COALESCED. Posting EVERY decoded frame via a
+        // QueuedConnection is unbounded: 16 pipelines × 15 fps = 240 frames/s, each holding a
+        // full RGBA buffer (~3.7 MB). When the GUI thread falls behind (picker render, relayout)
+        // they pile up in the event queue and RSS explodes to many GB → OOM kill. So we keep
+        // only the LATEST frame in a single-slot mailbox and post at most ONE pending deliver();
+        // newer frames replace the unconsumed one (correct for live monitoring — the freshest
+        // frame is what we want). Memory is then bounded to one frame per pipeline.
+        // Guard 1: under the alive-set lock, confirm `me` wasn't destroyed mid-callback.
+        // Guard 2: a QPointer so a queued deliver() on a since-deleted object is a no-op.
         std::lock_guard<std::mutex> lock(aliveMutex());
         if (aliveSet().count(me) == 0)
             return GST_FLOW_OK;
-        QPointer<RtspVideoSource> guard(me);
-        QMetaObject::invokeMethod(me, [guard, frame]() {
-            if (guard) guard->deliver(frame);
-        }, Qt::QueuedConnection);
+        bool needPost = false;
+        {
+            std::lock_guard<std::mutex> flock(me->m_frameMutex);
+            me->m_pendingFrame = frame;                 // drop any undelivered older frame
+            if (!me->m_deliverQueued) { me->m_deliverQueued = true; needPost = true; }
+        }
+        if (needPost) {
+            QPointer<RtspVideoSource> guard(me);
+            QMetaObject::invokeMethod(me, [guard]() { if (guard) guard->deliver(); }, Qt::QueuedConnection);
+        }
     }
     return GST_FLOW_OK;
 }
 
-void RtspVideoSource::deliver(const QVideoFrame &frame)
+void RtspVideoSource::deliver()
 {
+    QVideoFrame frame;
+    {
+        std::lock_guard<std::mutex> flock(m_frameMutex);
+        frame = m_pendingFrame;
+        m_pendingFrame = QVideoFrame();    // release the slot so the buffer can be freed
+        m_deliverQueued = false;
+    }
+    if (!frame.isValid())
+        return;
     if (m_sink)
         m_sink->setVideoFrame(frame);
     setErrored(false);
