@@ -13,14 +13,15 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`09130b8`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`3769878`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`3769878` **auto-reconnect stalled tiles** (per-tile backoff + global ReconnectCoordinator throttle) ·
 `09130b8` **never show green** — VideoSurface gates video on real frame flow + opaque cover ·
 `fc81bba` export letters (CV reply7 / our reply8, Q-CV6) · `d7a8ef6` flip Standard label 1080p→720p
-(CV shipped native-720p; verified live 1280×720) · `9b43253` recovery snapshot · `e49f116` simplify
-camera marks · `a21da42` client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
+(CV shipped native-720p; verified live 1280×720) · `e49f116` simplify camera marks · `a21da42`
+client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
 
 ⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `09130b8`. (QML is byte-compiled in; no hot reload.)
+just restart it to get `3769878`. (QML is byte-compiled in; no hot reload.)
 
 **GREEN-SURFACE FIX (`09130b8`) — shipped, awaiting live confirm.** A single camera (.120, a stalled
 substream) showed a frozen green tile in the 4×4 AND a fully green single-cam view, while the backend
@@ -30,12 +31,17 @@ stall, so a green/frozen surface kept `playing=true` and showed through. Fix (`q
 `playing` now = real frame flow (`_hasRecentFrame`, set on `videoOut.videoSink.videoFrameChanged`,
 cleared by a 2.5 s stall `Timer`) + an opaque `#0a0d11` cover over the `VideoOutput` whenever
 `!playing`. Green never shows; a stall degrades to "Connecting…" and self-heals when frames resume.
-Verified: build/smoke clean + a WT_TEST_QML harness renders 100 % `#0a0d11` (not green). **Deferred
-(freeze-sensitive): auto-reconnect on stall** — a pipeline rebuild per stalled tile would help .120
-*recover* to video, but mass pipeline churn is the suspected Live-relayout freeze trigger, so it's a
-separate careful follow-up. Likely contributing cause for .120: opening the single view tears down the
-grid tile's pipeline + opens a 2nd .120 substream pipeline; the open/close churn wedges go2rtc's .120
-sub producer. The client fix makes this honest + self-healing; a genuinely-wedged sub is a backend/go2rtc item.
+Verified: build/smoke clean + a WT_TEST_QML harness renders 100 % `#0a0d11` (not green). **Auto-reconnect
+SHIPPED (`3769878`):** stalled tiles now actively recover — `VideoSurface` rebuilds the pipeline with
+per-tile exponential backoff (2/5/10/20/30 s; patient 8 s on a cold connect) via
+`RtspVideoSource.reconnect()` (`Q_INVOKABLE`→`rebuild()`; qtmm re-sets source), and **every attempt is
+serialized through the `ReconnectCoordinator` singleton** (≤1 initiation / 700 ms app-wide) so a
+fleet-wide stall recovers one pipeline at a time, NOT a 16-pipeline burst — the freeze guard. Throttle
+verified (6 requests released exactly 700 ms apart). **RULE: any other rebuild/reconnect path must also
+route through `ReconnectCoordinator`.** Likely original cause for .120: opening the single view tears
+down the grid tile's pipeline + opens a 2nd .120 sub pipeline; the open/close churn wedges go2rtc's .120
+sub producer — now self-heals. A genuinely-wedged sub is a backend/go2rtc item. **Both the green-fix and
+auto-reconnect await live confirm on .120 (relaunch needed).**
 
 **EXPORT QUALITY + CLIENT COMPRESSION — shipped both sides; one CV item open.**
 - Single-cam **Export drawer** now has: **Quality** (High = HEVC 1440p main original; Standard =
