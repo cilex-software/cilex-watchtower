@@ -169,6 +169,38 @@ Item {
     // camera initial. (Both snapshotUrl and _thumbUrl hit the same frame.jpeg endpoint,
     // so there is no alternate URL worth trying.)
     property var _snapFailed: ({})
+
+    // Picker thumbnail load LIMITER. The "Tap to change" grid shows every camera at once
+    // (~32), and each thumbnail is a go2rtc frame.jpeg — i.e. a frame-grab on the shared
+    // iGPU. Fetching all 32 simultaneously, on top of the live wall, spiked the iGPU +
+    // memory and crashed the app (OOM on a swap-pressured box). So we admit at most
+    // _thumbMax fetches at a time; the rest queue and start as slots free (each slot is
+    // released when its thumbnail finishes — Ready or Error). Reset on every picker open.
+    readonly property int _thumbMax: 3
+    property int _thumbInFlight: 0
+    property var _thumbGranted: ({})     // camId -> true once admitted to fetch
+    property var _thumbWaiting: []       // camIds queued for a slot
+    function _thumbWant(camId) {
+        if (!camId || _thumbGranted[camId]) return;          // already admitted/loaded
+        if (_thumbWaiting.indexOf(camId) < 0) _thumbWaiting.push(camId);
+        _thumbPump();
+    }
+    function _thumbPump() {
+        while (_thumbInFlight < _thumbMax && _thumbWaiting.length > 0) {
+            var id = _thumbWaiting.shift();
+            var g = {};
+            for (var k in _thumbGranted) g[k] = _thumbGranted[k];
+            g[id] = true; _thumbGranted = g;                 // fresh object → bindings re-eval
+            _thumbInFlight++;
+        }
+    }
+    function _thumbRelease() {            // a thumbnail finished (ready or error)
+        if (_thumbInFlight > 0) _thumbInFlight--;
+        _thumbPump();
+    }
+    function _thumbResetLoads() {         // picker (re)opened — forget all prior load state
+        _thumbWaiting = []; _thumbGranted = ({}); _thumbInFlight = 0;
+    }
     // Fit-to-screen grid geometry: the largest (capped) cell size that lays all
     // `count` thumbnails out within availW×availH without scrolling. If they can't
     // all fit even at the minimum column width, returns the tightest columns and
@@ -191,7 +223,7 @@ Item {
     readonly property real _pickAvailW: width * 0.92 - 36
     readonly property real _pickAvailH: height * 0.9 - _pickChrome
     readonly property var _pg: _pickGeom(pickModel.length, _pickAvailW, _pickAvailH)
-    function openCellPicker(tileIndex) { pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
+    function openCellPicker(tileIndex) { _thumbResetLoads(); pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
     function assignToCell(tileIndex, camId) {
         var ids = _fullIds();
         var target = (page - 1) * perPage + tileIndex;
@@ -1163,6 +1195,13 @@ Item {
                         required property var modelData
                         readonly property bool onWall: root.displayedIds[modelData.camId] === true
                         width: pickGrid.cellWidth; height: pickGrid.cellHeight
+                        // Ask the load limiter for a fetch slot when the picker is open.
+                        property bool _counted: false   // released our slot for the current load?
+                        function _request() {
+                            if (root.pickerCell >= 0) { pickCell._counted = false; root._thumbWant(modelData.camId); }
+                        }
+                        Component.onCompleted: _request()                       // delegate created while picker open
+                        Connections { target: root; function onPickerCellChanged() { pickCell._request() } }  // picker opened
                         Rectangle {
                             anchors.fill: parent; anchors.margins: 4
                             color: cmA.containsMouse ? Theme.panel2 : Theme.bg
@@ -1183,19 +1222,29 @@ Item {
                                         // fetch snapshots for every camera in the background), when Live View
                                         // is off (snapshots would 404), or when this camera's snapshot has
                                         // already failed to decode once (don't re-spam — show the initial).
+                                        // Fetch only once the load limiter has ADMITTED this camera
+                                        // (_thumbGranted) — see _thumbWant/_thumbPump. Plus the usual gates:
+                                        // picker open, Live View on, and not an already-failed snapshot.
                                         source: (root.pickerCell < 0
+                                                 || !root._thumbGranted[pickCell.modelData.camId]
                                                  || (root.cameraModel && root.cameraModel.liveViewEnabled === false)
                                                  || root._snapFailed[pickCell.modelData.camId]) ? ""
                                                 : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
                                                    ? pickCell.modelData.snapshotUrl
                                                    : root._thumbUrl(pickCell.modelData))
                                         onStatusChanged: {
-                                            if (status === Image.Error && pickCell.modelData && pickCell.modelData.camId) {
-                                                // record + stop retrying this camera's snapshot (fresh object → binding re-evaluates)
-                                                var m = {};
-                                                for (var k in root._snapFailed) m[k] = root._snapFailed[k];
-                                                m[pickCell.modelData.camId] = true;
-                                                root._snapFailed = m;
+                                            // Release the limiter slot once the fetch settles (Ready or Error),
+                                            // exactly once, so the next queued thumbnail can start.
+                                            if (!pickCell._counted && (status === Image.Ready || status === Image.Error)) {
+                                                pickCell._counted = true;
+                                                if (status === Image.Error && pickCell.modelData && pickCell.modelData.camId) {
+                                                    // record + stop retrying this camera's snapshot (fresh object → re-eval)
+                                                    var m = {};
+                                                    for (var k in root._snapFailed) m[k] = root._snapFailed[k];
+                                                    m[pickCell.modelData.camId] = true;
+                                                    root._snapFailed = m;
+                                                }
+                                                root._thumbRelease();
                                             }
                                         }
                                     }
