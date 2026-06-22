@@ -37,12 +37,17 @@ poll/relayout; see DEVELOPMENT.md gotcha); brighter scrubber ruler + dated playh
 **removed the dead camera-tile bookmark** (cameras = ★ only; bookmarks are Events-only); a **layout
 preset now exits the transient map-selection scope** (+ a "✕ Clear selection" chip).
 
-**Paused — freeze diagnosis (NOT finished):** the host appears to freeze over RDP on Live "Change
-layout" — most likely the shared Intel `i915` iGPU (app VA-API decode + Mutter + GNOME-RD encode +
-go2rtc QSV on one chip) wedging on relayout decode-context churn, and/or memory/swap/OOM (15 GiB,
-~1.2 free, 6.5 swap; QSV cgroup-OOM history). Recording is in Docker (killing the app is safe).
-Diagnostic scripts on the host (`~/freeze-watch.sh`, `~/freeze-snapshot.sh`); not yet run — awaiting
-a reproduction. Backend asks open: only the non-blocking [Q-CV6 aged-export bug](letters/2026-06-20-export-quality-and-client-side-compression.reply8.md) (CV's court).
+**Relayout/OOM freeze — FIX SHIPPED `51f528d` (2026-06-22), awaiting live confirm.** The host froze
+~20 s and the app was OOM-killed during camera-change churn (Arrange → Tap-to-change → Esc, repeated):
+the shared Intel `i915` iGPU wedged on a burst of ~16 simultaneous VA-API decode-context creations,
+on a box already swap-thrashing (6.9 GiB). Fix is load-spreading: a **global pipeline-build rate
+limiter** (`PipelineBuildPump`, ≤1 build/120 ms; `rebuild()` no longer builds inline), **keeping grid
+pipelines alive in Arrange** (no teardown/rebuild churn), and **gating the picker thumbnails** on the
+picker being open. Teardown stays capped at 8 concurrent. Build-stagger verified offscreen; the freeze
+itself only reproduces on the real iGPU, so **needs a live test** (Arrange/Tap cycling, layout
+changes, page turns) — recommend a reboot first to clear swap. Diagnostic scripts remain on the host
+(`~/freeze-watch.sh`, `~/freeze-snapshot.sh`); `sudo dmesg | grep -iE 'oom|i915|gpu hang'` would
+confirm OOM vs GPU-hang. Backend asks open: only the non-blocking [Q-CV6 aged-export bug](letters/2026-06-20-export-quality-and-client-side-compression.reply8.md) (CV's court).
 
 ## What this is
 

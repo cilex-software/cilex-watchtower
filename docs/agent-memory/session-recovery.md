@@ -13,7 +13,9 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`7bfcbfb`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`51f528d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`51f528d` **RELAYOUT-FREEZE FIX** — global pipeline-build rate limiter (PipelineBuildPump, ≤1 gst
+build / 120 ms) + keep tiles alive in Arrange + gate picker thumbs on picker-open ·
 `7bfcbfb` **drop the decoder "empty surface" green frame at the source** (RtspVideoSource onNewSample
 samples the RGBA frame; uniform+green-dominant = the all-zero-NV12→RGB(0,135,0) signature → don't
 deliver, don't mark playing → cover/reconnect take over). This is what finally kills the green that
@@ -22,7 +24,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `7bfcbfb`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `51f528d`.
 
 🔥 **CRASH (2026-06-22): app OOM-killed + 20 s system freeze during camera-change churn.** Repro:
 Arrange → "Tap to change" → Esc → "Tap to change" again. Mechanism: `videoActive: visible &&
@@ -31,11 +33,20 @@ Arrange → "Tap to change" → Esc → "Tap to change" again. Mechanism: `video
 "Tap to change" picker (GridView of go2rtc snapshot thumbs) piles on. On a box at **6.9 GiB swap**,
 that wedged the shared iGPU (20 s freeze) and the OOM-killer SIGKILL'd it ("Killed"). **The
 auto-reconnect did NOT cause it** (inactive arrange tiles don't reconnect; coordinator throttles).
-**FREEZE FIX NOT YET SHIPPED** — needs dmesg to confirm OOM vs i915 GPU-hang (different fix), then
-the safe direction is **load-spreading**: stagger pipeline (re)builds globally (a build-rate gate in
-RtspVideoSource, like the teardown semaphore) + don't tear down grid pipelines on Arrange + stagger
-the picker thumbs. DON'T ship blind (can't repro the freeze offscreen; user paused this area). Ask
-the user to run `sudo dmesg | grep -iE 'oom|killed process|i915|gpu hang'` first.
+**FREEZE FIX SHIPPED (`51f528d`, awaiting LIVE confirm)** — load-spreading, all three parts: (1)
+**global pipeline-build rate limiter** `PipelineBuildPump` (RtspVideoSource.cpp, GUI-thread, leaked
+singleton): `rebuild()` no longer builds inline — it enqueues + the pump calls `startPipelineNow()`
+≤1 per **120 ms**, so a 16-tile burst (layout change / page turn / app start) comes up gradually
+(loading bar covers it) instead of 16 simultaneous VA-API decode contexts. teardown()/dtor cancel a
+queued build; reconnects ride the same pump. **RULE: any pipeline build MUST go through `rebuild()`
+→ PipelineBuildPump — never build inline.** Verified offscreen (builds at 120/126/125 ms intervals,
+queue draining 1 at a time). (2) **Keep grid pipelines alive in Arrange** (videoActive dropped
+`&& !arrangeMode`) — no teardown-on-enter / rebuild-on-exit churn; overlay just dims. (3) **Picker
+thumbs gated on `pickerCell >= 0`** — GridView delegates existed while hidden and fetched go2rtc
+snapshots for every camera in the background (also the frame.jpeg spam source). Teardown still
+capped by kMaxConcurrentTeardowns(8). **Can't repro the freeze offscreen → NEEDS LIVE TEST**
+(Arrange/Tap cycling, layout changes, page turns); recommend a reboot first to clear 6.9 GiB swap.
+Still worth `sudo dmesg | grep -iE 'oom|killed process|i915|gpu hang'` to confirm OOM vs GPU-hang.
 
 🩺 **DIAGNOSTIC LESSON (2026-06-22):** the operator reported green STILL showing after the
 green fix — but it was the **stale running binary**. Always confirm what's actually running:
