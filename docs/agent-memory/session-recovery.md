@@ -13,17 +13,29 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`f04861d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`f04861d` stop console spam for cameras whose go2rtc frame.jpeg snapshot won't decode (per-camera
-`_snapFailed` set in the camera picker → log at most once, fall back to the initial) ·
-`85525d3` bottom loading bar on connecting tiles + per-cell wall-clock (ms) on the playback wall ·
-`3769878` **auto-reconnect stalled tiles** (per-tile backoff + global ReconnectCoordinator throttle) ·
-`09130b8` **never show green** — VideoSurface gates video on real frame flow + opaque cover ·
-`fc81bba` export letters (CV reply7 / our reply8, Q-CV6) · `d7a8ef6` flip Standard label 1080p→720p
-(CV shipped native-720p) · `a21da42` client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
+HEAD **`7bfcbfb`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`7bfcbfb` **drop the decoder "empty surface" green frame at the source** (RtspVideoSource onNewSample
+samples the RGBA frame; uniform+green-dominant = the all-zero-NV12→RGB(0,135,0) signature → don't
+deliver, don't mark playing → cover/reconnect take over). This is what finally kills the green that
+survived the cover — the wedged sub-stream was *delivering* green frames, so frame-flow gating saw
+"playing". · `f04861d` snapshot console-spam fix · `85525d3` loading bar + wall per-cell ms clock ·
+`3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
+letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `f04861d`. (QML is byte-compiled in; no hot reload.)
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `7bfcbfb`.
+
+🔥 **CRASH (2026-06-22): app OOM-killed + 20 s system freeze during camera-change churn.** Repro:
+Arrange → "Tap to change" → Esc → "Tap to change" again. Mechanism: `videoActive: visible &&
+!arrangeMode` (LiveMonitor:916) ⇒ entering Arrange tears down all 16 video pipelines and exiting
+**rebuilds 16 at once** (UNTHROTTLED gst PLAYING = 16 simultaneous VA-API decode contexts); the
+"Tap to change" picker (GridView of go2rtc snapshot thumbs) piles on. On a box at **6.9 GiB swap**,
+that wedged the shared iGPU (20 s freeze) and the OOM-killer SIGKILL'd it ("Killed"). **The
+auto-reconnect did NOT cause it** (inactive arrange tiles don't reconnect; coordinator throttles).
+**FREEZE FIX NOT YET SHIPPED** — needs dmesg to confirm OOM vs i915 GPU-hang (different fix), then
+the safe direction is **load-spreading**: stagger pipeline (re)builds globally (a build-rate gate in
+RtspVideoSource, like the teardown semaphore) + don't tear down grid pipelines on Arrange + stagger
+the picker thumbs. DON'T ship blind (can't repro the freeze offscreen; user paused this area). Ask
+the user to run `sudo dmesg | grep -iE 'oom|killed process|i915|gpu hang'` first.
 
 🩺 **DIAGNOSTIC LESSON (2026-06-22):** the operator reported green STILL showing after the
 green fix — but it was the **stale running binary**. Always confirm what's actually running:
