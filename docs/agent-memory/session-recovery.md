@@ -52,7 +52,7 @@ letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compressi
 
 ⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `dcc61d3`.
 
-🧠 **OPEN ROOT CAUSE — VA-API decode-memory watermark (mitigated to ~5.8 GB, NOT eliminated).**
+🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
 Findings: mailbox bounds *steady-state* (457 MB); the **picker / 4×-reassign churn balloons RSS to
 ~8.6 GB** (~530 MB **per live tile**), now cut to a **flat ~5.8 GB watermark** by `e2c870b`
