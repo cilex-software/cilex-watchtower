@@ -262,6 +262,16 @@ Item {
 
     function pad(n) { return (n < 10 ? "0" : "") + n }
     function fmtClock(ms) { return (!ms || isNaN(ms)) ? "—" : Settings.clock(ms, true) }
+    // Wall-clock with milliseconds, for the per-cell time indicator. The wall is ONE
+    // composited stream, so this exact instant is what every cell is showing — the cells
+    // are synchronized to the millisecond by construction, and printing the identical
+    // readout in each cell makes that guarantee visible/auditable.
+    function fmtWallMs(ms) {
+        if (!ms || isNaN(ms)) return "—";
+        var d = new Date(ms);
+        function p(n, w) { var s = "" + Math.floor(n); while (s.length < (w || 2)) s = "0" + s; return s; }
+        return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()) + "." + p(d.getMilliseconds(), 3);
+    }
 
     function camIds() {
         var out = [];
@@ -648,6 +658,20 @@ Item {
                                     return cam && cam.name ? cam.name : modelData.camera_id;
                                 }
                                 color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
+                            }
+                        }
+                        // Per-cell wall-clock time being shown. Identical in every cell because
+                        // the wall is one composited stream — i.e. ms-synced by construction;
+                        // the matching readouts make that visible at a glance.
+                        Rectangle {   // time chip
+                            anchors { left: parent.left; bottom: parent.bottom; margins: 4 }
+                            width: tm.implicitWidth + 10; height: 16
+                            color: "#cc16140f"; radius: 2
+                            visible: root.frags.length > 0
+                            Text {
+                                id: tm; anchors.centerIn: parent
+                                text: root.fmtWallMs(root.playheadMs)
+                                color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9
                             }
                         }
                         // drag feedback: source cell dims, hovered target gets an accent frame

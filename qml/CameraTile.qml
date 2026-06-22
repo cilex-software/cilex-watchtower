@@ -186,6 +186,29 @@ Item {
             ringSize: 18
         }
 
+        // Loading progress bar along the bottom edge while the stream is connecting or
+        // reconnecting (no frames yet). Indeterminate — a stream connection has no real
+        // percentage, so an honest sweeping segment signals "working on it" without
+        // fabricating progress. Disappears the moment frames flow (streamPlaying).
+        Rectangle {
+            id: loadBar
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: 3
+            visible: root.hasStream && !root.streamPlaying && !root.streamErrored
+            color: "#141a22"          // dim track
+            clip: true
+            Rectangle {
+                height: parent.height
+                width: parent.width * 0.35
+                color: Theme.accent
+                SequentialAnimation on x {
+                    running: loadBar.visible
+                    loops: Animation.Infinite
+                    NumberAnimation { from: -loadBar.width * 0.35; to: loadBar.width; duration: 1100; easing.type: Easing.InOutSine }
+                }
+            }
+        }
+
         // Offline: NO SIGNAL.
         Rectangle {
             anchors.fill: parent
