@@ -12,16 +12,30 @@ metadata:
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
-## Latest session (2026-06-21) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`d7a8ef6`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`d7a8ef6` flip Standard label 1080p→720p (CV shipped native-720p; verified live 1280×720) ·
-`9b43253` recovery snapshot · `e49f116` simplify camera marks + un-stick map-selection ·
-`999a9fe`/`306a660` export letters · `a21da42` client-side compression + overlay burn-in ·
-`808f75f` wire High/Standard export · `3e6d689` brighter ruler digits · `9e50713` export quality UI ·
-`b7c7705`/`b5345dd` green-wall fixes.
+## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
+HEAD **`09130b8`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`09130b8` **never show green** — VideoSurface gates video on real frame flow + opaque cover ·
+`fc81bba` export letters (CV reply7 / our reply8, Q-CV6) · `d7a8ef6` flip Standard label 1080p→720p
+(CV shipped native-720p; verified live 1280×720) · `9b43253` recovery snapshot · `e49f116` simplify
+camera marks · `a21da42` client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
 
 ⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `d7a8ef6`. (QML is byte-compiled in; no hot reload.)
+just restart it to get `09130b8`. (QML is byte-compiled in; no hot reload.)
+
+**GREEN-SURFACE FIX (`09130b8`) — shipped, awaiting live confirm.** A single camera (.120, a stalled
+substream) showed a frozen green tile in the 4×4 AND a fully green single-cam view, while the backend
+was fine (motion events flowing). Root cause: `VideoSurface.playing` meant "pipeline up", not "frames
+decoding" — `RtspVideoSource` flips `playing=false` only on EOS/error/teardown, never on a *silent*
+stall, so a green/frozen surface kept `playing=true` and showed through. Fix (`qml/VideoSurface.qml`):
+`playing` now = real frame flow (`_hasRecentFrame`, set on `videoOut.videoSink.videoFrameChanged`,
+cleared by a 2.5 s stall `Timer`) + an opaque `#0a0d11` cover over the `VideoOutput` whenever
+`!playing`. Green never shows; a stall degrades to "Connecting…" and self-heals when frames resume.
+Verified: build/smoke clean + a WT_TEST_QML harness renders 100 % `#0a0d11` (not green). **Deferred
+(freeze-sensitive): auto-reconnect on stall** — a pipeline rebuild per stalled tile would help .120
+*recover* to video, but mass pipeline churn is the suspected Live-relayout freeze trigger, so it's a
+separate careful follow-up. Likely contributing cause for .120: opening the single view tears down the
+grid tile's pipeline + opens a 2nd .120 substream pipeline; the open/close churn wedges go2rtc's .120
+sub producer. The client fix makes this honest + self-healing; a genuinely-wedged sub is a backend/go2rtc item.
 
 **EXPORT QUALITY + CLIENT COMPRESSION — shipped both sides; one CV item open.**
 - Single-cam **Export drawer** now has: **Quality** (High = HEVC 1440p main original; Standard =
