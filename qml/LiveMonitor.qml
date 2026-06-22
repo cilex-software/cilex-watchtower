@@ -942,16 +942,15 @@ Item {
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl
                                 // Only play when Live Monitor is the visible section (so other
-                                // screens don't hold open streams / hit cameras). Tiles KEEP playing
-                                // during Arrange (the overlay just dims them) — tearing 16 down on
-                                // enter + rebuilding on exit was a relayout-freeze trigger. BUT pause
-                                // them while the camera PICKER is open (pickerCell >= 0): the picker
-                                // covers the wall anyway, and freeing those 16 decode contexts +
-                                // buffers exactly when the picker spins up its own thumbnails is what
-                                // keeps the combined load from OOM-ing / wedging the shared iGPU. They
-                                // resume (rebuild, staggered) when the picker closes.
+                                // screens don't hold open streams / hit cameras) AND not while
+                                // arranging. Keeping the 16 VA-API decodes alive across the
+                                // arrange/picker churn — or tearing them down per picker-open — balloons
+                                // GPU/decode memory to ~8 GB and OOM-kills the app. Arrange only needs to
+                                // IDENTIFY cameras (name + thumbnail in the picker), not watch them live,
+                                // so the tiles drop to their placeholder during arrange and rebuild
+                                // (staggered, via the build pump — no relayout freeze) on exit.
                                 // WT_TEST_IP (dev) restricts streaming to a single camera.
-                                videoActive: root.visible && root.pickerCell < 0
+                                videoActive: root.visible && !root.arrangeMode
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
                                 // HD promotion is gated by the wall's concurrency
@@ -1220,6 +1219,10 @@ Item {
                                         id: thumb; anchors.fill: parent
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true; cache: true
+                                        // Decode at thumbnail size, NOT the camera's full resolution —
+                                        // a go2rtc frame.jpeg can be 2560×1440 (~14 MB decoded); at ~24
+                                        // tiles that's hundreds of MB of pixmaps for cells a few cm wide.
+                                        sourceSize.width: 480
                                         // Backend snapshot URL (go2rtc frame.jpeg) when present, else a
                                         // client-derived sub-stream frame. Skip the fetch when the picker
                                         // is closed (these GridView delegates exist even when hidden — don't
