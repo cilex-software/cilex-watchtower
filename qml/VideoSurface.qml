@@ -19,9 +19,20 @@ Item {
     property bool active: true   // play when true (e.g. tile visible / on current page)
     readonly property bool lowLatency: (typeof wtLowLatency !== "undefined" && wtLowLatency)
 
-    readonly property bool playing: backend.item ? backend.item.playing : false
+    // `playing` = FRAMES ARE ACTUALLY FLOWING, not merely "the pipeline reports itself up".
+    // A live RTSP pipeline can sit decoding nothing — a stalled substream, or the initial
+    // all-zero NV12 buffer that renders bright green — while still claiming to play, which is
+    // exactly how a green/frozen tile slips through (RtspVideoSource only flips playing=false
+    // on EOS/error/teardown, never on a silent stall). So we key `playing` off real frames
+    // reaching the sink (_hasRecentFrame), and the cover below hides the raw VideoOutput until
+    // then. Standing rule: green must never appear anywhere.
+    readonly property bool playing: _hasRecentFrame
     readonly property bool errored: backend.item ? backend.item.errored : false
     readonly property string errorText: backend.item ? backend.item.errorText : ""
+
+    // Flipped true as frames arrive, false by the stall timer when they stop — so a silent
+    // freeze degrades to an honest "connecting" state (and self-heals if frames resume).
+    property bool _hasRecentFrame: false
 
     VideoOutput {
         id: videoOut
@@ -29,6 +40,40 @@ Item {
         // Fit (letterbox), never crop — the operator must always see the WHOLE
         // frame. Tiles are auto-sized ~16:9 (see LiveMonitor) so bars stay minimal.
         fillMode: VideoOutput.PreserveAspectFit
+    }
+
+    // Opaque cover over the raw VA-API surface. That surface is bright green before its
+    // first decoded frame, and stays green/frozen on a silent stall; this keeps it hidden
+    // until frames are genuinely flowing, so no green ever reaches the operator. Consumers
+    // (tile, single-cam) layer their own "Connecting…/Unavailable" states on top.
+    Rectangle {
+        anchors.fill: parent
+        z: 1
+        color: "#0a0d11"
+        visible: !root.playing
+    }
+
+    // Frame-flow watchdog. Both backends push frames into videoOut.videoSink, so this one
+    // hook covers the low-latency (RtspVideoSource) and QtMultimedia paths alike.
+    Timer {
+        id: stallTimer
+        interval: 2500     // ~35+ missed frames at 15 fps — a real stall, not jitter
+        repeat: false
+        onTriggered: root._hasRecentFrame = false
+    }
+    Connections {
+        target: videoOut.videoSink
+        function onVideoFrameChanged() {
+            root._hasRecentFrame = true;
+            stallTimer.restart();
+        }
+    }
+    // A new URL or going inactive makes the current frame stale — drop to the covered
+    // state at once instead of showing the last (possibly green) frame.
+    Connections {
+        target: root
+        function onActiveChanged() { if (!root.active) { root._hasRecentFrame = false; stallTimer.stop(); } }
+        function onUrlChanged() { root._hasRecentFrame = false; stallTimer.stop(); }
     }
 
     // Picks exactly one backend at construction. Bindings inside reference
