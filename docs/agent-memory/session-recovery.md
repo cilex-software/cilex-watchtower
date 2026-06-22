@@ -13,7 +13,12 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`51f528d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`2bc7c21`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`2bc7c21` **picker-table crash fix** — hard-cap the "Tap to change" thumbnail fetches to **≤3
+concurrent** (load limiter on LiveMonitor root: `_thumbWant`/`_thumbPump`/`_thumbRelease`, reset on
+open). The picker built ALL ~32 go2rtc frame.jpeg thumbs (= iGPU frame-grabs) AT ONCE → OOM crash;
+Part 3 of 51f528d only gated them on picker-OPEN, but opening is when they burst. THIS is the 3rd
+crash's cause (operator correctly fingered "the table of cameras"). ·
 `51f528d` **RELAYOUT-FREEZE FIX** — global pipeline-build rate limiter (PipelineBuildPump, ≤1 gst
 build / 120 ms) + keep tiles alive in Arrange + gate picker thumbs on picker-open ·
 `7bfcbfb` **drop the decoder "empty surface" green frame at the source** (RtspVideoSource onNewSample
@@ -24,7 +29,12 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `51f528d`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `2bc7c21`.
+🖥️ **THE BOX IS STARVED + NOT REBOOTED (2026-06-22 15:42): 7-day uptime, swap 6.1 GiB used, 1.6 GiB
+free RAM, load avg 7.7.** Three crashes happened in this state. The code fixes remove the demand
+bursts, but **strongly push a REBOOT** (or `~/safe-swap-clean.sh` / the `swap-clean.timer` from this
+session — see `/home/cilex-vision/`) before/after testing. If crashes persist post-reboot, suspect a
+steady memory leak (Docker backend OOM history), not Watchtower.
 
 🔥 **CRASH (2026-06-22): app OOM-killed + 20 s system freeze during camera-change churn.** Repro:
 Arrange → "Tap to change" → Esc → "Tap to change" again. Mechanism: `videoActive: visible &&
