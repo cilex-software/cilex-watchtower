@@ -140,6 +140,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtGroup", qEnvironmentVariable("WT_GROUP"));
     // Optional camera to open focused on boot, by IP (dev: WT_FOCUS_IP=192.168.1.108).
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
+    // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
+    // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
+    // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
+    engine.rootContext()->setContextProperty("wtMaxDecodes", qEnvironmentVariableIntValue("WT_MAX_DECODES"));
     // Optional camera to open in Playback on boot, by IP (dev: WT_PLAYBACK_IP=192.168.1.106).
     engine.rootContext()->setContextProperty("wtPlaybackIp", qEnvironmentVariable("WT_PLAYBACK_IP"));
     // Optional: open WT_PLAYBACK_IP's playback on a specific day (dev:

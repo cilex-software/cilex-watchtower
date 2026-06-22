@@ -59,6 +59,13 @@ Item {
     property string rtspUrl: ""       // main stream (on-demand HD only)
     property string rtspSubUrl: ""    // substream — the default for monitoring
     property bool videoActive: false
+    // Concurrent-decode cap. Each live VA-API decode holds hundreds of MB on the shared iGPU,
+    // so the grid runs only a bounded number at once (set by LiveMonitor, by tile position).
+    // A tile beyond the cap shows a periodic SNAPSHOT (LiveThumb) instead of a live pipeline —
+    // every camera stays visible, but only `maxLiveDecodes` actually decode.
+    property bool liveDecodeAllowed: true
+    property string snapshotUrl: ""     // go2rtc frame.jpeg, for the snapshot when decode-capped
+    readonly property bool snapshotMode: !liveDecodeAllowed && !isOffline && liveViewEnabled && streamUrl !== ""
     // The live wall is ALWAYS SD (substream): many simultaneous decodes must stay
     // light and near real-time, so the wall never follows the global HD preference.
     // The per-tile HD button can still promote a single tile on demand. (gridMode
@@ -149,7 +156,7 @@ Item {
         // tile is paged out / the stream fails).
         PlaceholderVid {
             anchors.fill: parent
-            visible: !root.isOffline && !root.streamPlaying
+            visible: !root.isOffline && !root.streamPlaying && root.liveDecodeAllowed
             pattern: root.pattern
             ts: root.timestamp
             label: root.camId
@@ -170,7 +177,7 @@ Item {
         Loader {
             id: videoLoader
             anchors.fill: parent
-            active: root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled
+            active: root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
                 url: root.streamUrl
@@ -178,10 +185,21 @@ Item {
             }
         }
 
-        // Connecting indicator (while the stream negotiates / buffers).
+        // Decode-capped tile: a periodic go2rtc snapshot instead of a live VA-API pipeline,
+        // so every camera stays visible while only `maxLiveDecodes` actually decode.
+        LiveThumb {
+            anchors.fill: parent
+            visible: root.snapshotMode
+            active: root.videoActive && root.snapshotMode
+            showOctet: false; showStatus: false      // the tile draws its own badges/octet
+            cam: root.snapshotMode ? ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live }) : null
+        }
+
+        // Connecting indicator (while the stream negotiates / buffers). Live mode only —
+        // a decode-capped tile is showing a snapshot, not connecting.
         LoadingState {
             anchors.centerIn: parent
-            visible: root.hasStream && !root.streamPlaying && !root.streamErrored
+            visible: root.hasStream && !root.streamPlaying && !root.streamErrored && root.liveDecodeAllowed
             label: "Connecting…"
             ringSize: 18
         }
@@ -194,7 +212,7 @@ Item {
             id: loadBar
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             height: 3
-            visible: root.hasStream && !root.streamPlaying && !root.streamErrored
+            visible: root.hasStream && !root.streamPlaying && !root.streamErrored && root.liveDecodeAllowed
             color: "#141a22"          // dim track
             clip: true
             Rectangle {

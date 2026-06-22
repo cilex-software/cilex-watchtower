@@ -96,6 +96,11 @@ Item {
     property bool arrangeMode: false
     property int arrangeRev: 0            // bump to force arrangedFull re-eval after a save
     property int pickerCell: -1          // page-tile index being assigned (-1 = picker closed)
+    // Cap on simultaneous live VA-API decodes on the wall — tiles beyond it show a periodic
+    // snapshot, not a live pipeline. Each decode holds hundreds of MB on the shared iGPU, so
+    // this bounds both steady memory and the teardown watermark during arrange/relayout churn
+    // (the residual ~5.8 GB OOM). WT_MAX_DECODES overrides; default 9 (a full 3×3).
+    readonly property int maxLiveDecodes: (typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9
     property string pickerSearch: ""
     property string pickerGroup: ""      // picker group filter ("" = all groups)
     property bool pickerHideShown: false // hide cameras already on the visible wall
@@ -953,6 +958,10 @@ Item {
                                 videoActive: root.visible && !root.arrangeMode
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
+                                // Only the first maxLiveDecodes tiles run a live VA-API pipeline;
+                                // the rest show a periodic go2rtc snapshot (bounds GPU/decode memory).
+                                liveDecodeAllowed: cellWrap.index < root.maxLiveDecodes
+                                snapshotUrl: cellWrap.modelData.snapshotUrl || ""
                                 // HD promotion is gated by the wall's concurrency
                                 // cap; teardown (paging/relayout) frees the slot.
                                 onHdToggleRequested: liveTile.useMainStream =
