@@ -43,6 +43,12 @@ public:
     int latencyMs() const { return m_latencyMs; }
     void setLatencyMs(int ms);
 
+    // Force a fresh pipeline (teardown + rebuild) to recover a silently-stalled
+    // stream — no EOS/error, just no buffers, so `playing` stays stuck true. Rate-
+    // limiting and backoff are the caller's job (VideoSurface + the QML
+    // ReconnectCoordinator); this just rebuilds now, if we're meant to be streaming.
+    Q_INVOKABLE void reconnect();
+
 signals:
     void urlChanged();
     void activeChanged();

@@ -34,6 +34,58 @@ Item {
     // freeze degrades to an honest "connecting" state (and self-heals if frames resume).
     property bool _hasRecentFrame: false
 
+    // ---- auto-reconnect on stall ------------------------------------------------------
+    // A silently-stalled pipeline (no EOS/error, just no frames) won't recover on its own,
+    // so we actively rebuild it — carefully. Per-tile EXPONENTIAL BACKOFF means we never
+    // hammer a dead stream, and every attempt is routed through the global
+    // ReconnectCoordinator so a fleet-wide stall can't trigger a burst of simultaneous
+    // VA-API pipeline rebuilds (the decode-context churn suspected behind the Live-relayout
+    // freeze). Only a tile the operator is actually watching (active, real url) reconnects.
+    property bool _everPlayed: false        // have we ever had frames on the current url?
+    property int  _reconnectAttempt: 0      // index into _backoffMs, grows per attempt
+    property bool _reconnectPending: false  // a coordinator slot has been requested, not yet run
+    readonly property var _backoffMs: [2000, 5000, 10000, 20000, 30000]
+
+    Timer {
+        id: reconnectTimer
+        repeat: false
+        onTriggered: root._requestReconnect()
+    }
+
+    // Schedule the next reconnect attempt (idempotent: leaves a running countdown alone).
+    function _armReconnect() {
+        if (!root.active || root.url === "" || root.playing) { reconnectTimer.stop(); return; }
+        if (reconnectTimer.running) return;
+        // Be patient on a COLD connect (the first frame can legitimately take a beat —
+        // don't tear down a pipeline that's still negotiating). Use the short backoff only
+        // once we've seen frames and then lost them, i.e. a genuine stall.
+        reconnectTimer.interval = root._everPlayed
+            ? root._backoffMs[Math.min(root._reconnectAttempt, root._backoffMs.length - 1)]
+            : 8000;
+        reconnectTimer.start();
+    }
+    // Ask the global coordinator for a slot (it serializes initiations app-wide).
+    function _requestReconnect() {
+        if (root._reconnectPending) return;
+        if (!root.active || root.url === "" || root.playing) return;
+        root._reconnectPending = true;
+        // `root` is nulled by the engine if this surface is destroyed (paged out) before
+        // the slot is granted — guard so a queued reconnect never calls into a dead tile.
+        ReconnectCoordinator.request(function() { if (root) root._doReconnect(); });
+    }
+    // Runs when the coordinator grants a slot. Self-guards (the tile may have recovered or
+    // gone inactive while queued), then forces a fresh pipeline and re-arms in case this
+    // attempt also fails (next one waits a longer backoff).
+    function _doReconnect() {
+        root._reconnectPending = false;
+        if (!root.active || root.url === "" || root.playing) return;
+        if (backend.item && backend.item.reconnect) backend.item.reconnect();
+        root._reconnectAttempt = Math.min(root._reconnectAttempt + 1, root._backoffMs.length - 1);
+        root._armReconnect();
+    }
+
+    Component.onCompleted: _armReconnect()   // also covers a cold connect that never delivers a frame
+
     VideoOutput {
         id: videoOut
         anchors.fill: parent
@@ -65,6 +117,7 @@ Item {
         target: videoOut.videoSink
         function onVideoFrameChanged() {
             root._hasRecentFrame = true;
+            root._everPlayed = true;
             stallTimer.restart();
         }
     }
@@ -72,8 +125,23 @@ Item {
     // state at once instead of showing the last (possibly green) frame.
     Connections {
         target: root
-        function onActiveChanged() { if (!root.active) { root._hasRecentFrame = false; stallTimer.stop(); } }
-        function onUrlChanged() { root._hasRecentFrame = false; stallTimer.stop(); }
+        function onActiveChanged() {
+            if (!root.active) {            // hidden/off — stop everything; lowLatency tears down anyway
+                root._hasRecentFrame = false; stallTimer.stop();
+                reconnectTimer.stop(); root._reconnectAttempt = 0;
+            } else {
+                root._armReconnect();      // became visible again — recover if it isn't flowing
+            }
+        }
+        function onUrlChanged() {          // new stream: forget all prior frame/backoff state
+            root._hasRecentFrame = false; root._everPlayed = false; stallTimer.stop();
+            reconnectTimer.stop(); root._reconnectAttempt = 0;
+            root._armReconnect();
+        }
+        function onPlayingChanged() {
+            if (root.playing) { root._reconnectAttempt = 0; reconnectTimer.stop(); }  // frames back → reset
+            else root._armReconnect();                                                // stalled → schedule recovery
+        }
     }
 
     // Picks exactly one backend at construction. Bindings inside reference
@@ -101,6 +169,15 @@ Item {
             function maybePlay() {
                 if (root.active && root.url !== "")
                     player.play();
+            }
+            // Force a fresh pipeline to recover a stall: release the source (async, never
+            // the GUI-blocking stop()) and re-arm. Best-effort — this is the non-default
+            // WT_LEGACY path; the low-latency RtspVideoSource.reconnect() is the real one.
+            function reconnect() {
+                if (!root.active || root.url === "") return;
+                player.source = "";
+                player.source = root.url;
+                player.play();
             }
 
             // Start (or resume) on becoming active; do NOT stop on going inactive — a

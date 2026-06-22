@@ -92,6 +92,18 @@ void RtspVideoSource::setLatencyMs(int ms)
     rebuild();   // latency is set at pipeline build time
 }
 
+void RtspVideoSource::reconnect()
+{
+    // A silent stall (no EOS, no error, just no buffers arriving) leaves the pipeline
+    // reporting itself "playing" while the picture is frozen/green. The QML watchdog
+    // calls this to force a clean rebuild. No-op when we're not meant to be streaming;
+    // teardown() routes the old pipeline through the global teardown semaphore, so even
+    // a burst of reconnects can't stack unbounded pipeline ops on the GUI thread.
+    if (!m_active || m_url.isEmpty() || !m_sink)
+        return;
+    rebuild();
+}
+
 void RtspVideoSource::setPlaying(bool p)
 {
     if (m_playing == p)
