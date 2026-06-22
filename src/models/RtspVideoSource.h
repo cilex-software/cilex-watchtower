@@ -49,6 +49,11 @@ public:
     // ReconnectCoordinator); this just rebuilds now, if we're meant to be streaming.
     Q_INVOKABLE void reconnect();
 
+    // Internal: the actual GStreamer pipeline build, invoked (staggered, one at a time)
+    // by the global build pump in the .cpp. Don't call directly — go through rebuild(),
+    // which serializes builds so a burst can't wedge the shared iGPU.
+    void startPipelineNow();
+
 signals:
     void urlChanged();
     void activeChanged();

@@ -910,10 +910,12 @@ Item {
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl
                                 // Only play when Live Monitor is the visible section (so other
-                                // screens don't hold open streams / hit cameras), and not while
-                                // arranging (the overlay covers it). WT_TEST_IP (dev) further
-                                // restricts streaming to a single camera.
-                                videoActive: root.visible && !root.arrangeMode
+                                // screens don't hold open streams / hit cameras). We KEEP tiles
+                                // playing during Arrange now — tearing all 16 pipelines down on
+                                // enter and rebuilding them on exit was a prime trigger of the iGPU
+                                // relayout freeze; the arrange overlay just dims the live feed.
+                                // WT_TEST_IP (dev) restricts streaming to a single camera.
+                                videoActive: root.visible
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
                                 // HD promotion is gated by the wall's concurrency
@@ -1176,10 +1178,13 @@ Item {
                                         fillMode: Image.PreserveAspectCrop
                                         asynchronous: true; cache: true
                                         // Backend snapshot URL (go2rtc frame.jpeg) when present, else a
-                                        // client-derived sub-stream frame. Skip the fetch when Live View
+                                        // client-derived sub-stream frame. Skip the fetch when the picker
+                                        // is closed (these GridView delegates exist even when hidden — don't
+                                        // fetch snapshots for every camera in the background), when Live View
                                         // is off (snapshots would 404), or when this camera's snapshot has
                                         // already failed to decode once (don't re-spam — show the initial).
-                                        source: ((root.cameraModel && root.cameraModel.liveViewEnabled === false)
+                                        source: (root.pickerCell < 0
+                                                 || (root.cameraModel && root.cameraModel.liveViewEnabled === false)
                                                  || root._snapFailed[pickCell.modelData.camId]) ? ""
                                                 : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
                                                    ? pickCell.modelData.snapshotUrl

@@ -13,6 +13,10 @@
 #include <unordered_set>
 #include <gst/video/video.h>
 #include <gst/app/gstappsink.h>
+#include <QTimer>
+#include <QElapsedTimer>
+#include <deque>
+#include <algorithm>
 
 namespace {
 // Tracks live RtspVideoSource instances so the GStreamer streaming-thread
@@ -60,6 +64,65 @@ bool isEmptyGreenSurface(const unsigned char *base, int w, int h, int stride)
     const bool greenish = rmax < 60 && bmax < 60 && gmin > 70 && gmax < 200;
     return uniform && greenish;
 }
+
+// Global pipeline-BUILD rate limiter (GUI-thread only). Creating a GStreamer/VA-API
+// pipeline allocates a decode context on the shared iGPU; doing ~16 at once (a layout
+// change, Arrange exit, page turn, app start) is the decode-context churn that wedges the
+// chip — the Live-relayout freeze. So builds are SERIALIZED to at most one per
+// kBuildStaggerMs: a burst comes up gradually (each tile shows its loading bar until its
+// turn) instead of all at once. A lone build still starts immediately — the limiter only
+// spaces out bursts. (Teardown is separately bounded by the kMaxConcurrentTeardowns
+// semaphore, so create+destroy churn is capped on both sides.)
+constexpr int kBuildStaggerMs = 120;
+
+class PipelineBuildPump
+{
+public:
+    static PipelineBuildPump &instance()
+    {
+        // Leaked on purpose: a process-lifetime singleton, so RtspVideoSource destructors
+        // during shutdown can't touch a destroyed pump (no static-destruction-order race).
+        static PipelineBuildPump *p = new PipelineBuildPump();
+        return *p;
+    }
+    void request(RtspVideoSource *src)
+    {
+        if (std::find(m_queue.begin(), m_queue.end(), src) == m_queue.end())
+            m_queue.push_back(src);
+        pump();
+    }
+    void cancel(RtspVideoSource *src)
+    {
+        m_queue.erase(std::remove(m_queue.begin(), m_queue.end(), src), m_queue.end());
+    }
+private:
+    PipelineBuildPump()
+    {
+        m_timer.setSingleShot(true);
+        QObject::connect(&m_timer, &QTimer::timeout, [this] { pump(); });
+        m_clock.start();
+    }
+    void pump()
+    {
+        if (m_queue.empty())
+            return;
+        const qint64 since = m_clock.elapsed() - m_lastBuildMs;
+        if (since >= kBuildStaggerMs) {
+            RtspVideoSource *src = m_queue.front();
+            m_queue.pop_front();
+            m_lastBuildMs = m_clock.elapsed();
+            src->startPipelineNow();              // the actual gst build — one at a time
+            if (!m_queue.empty())
+                m_timer.start(kBuildStaggerMs);
+        } else {
+            m_timer.start(int(kBuildStaggerMs - since));   // wait out the remaining gap
+        }
+    }
+    QTimer m_timer;
+    QElapsedTimer m_clock;
+    qint64 m_lastBuildMs = -1000000;              // far in the past → first build is immediate
+    std::deque<RtspVideoSource *> m_queue;
+};
 }
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
@@ -148,6 +211,7 @@ void RtspVideoSource::setErrored(bool e, const QString &msg)
 
 void RtspVideoSource::teardown()
 {
+    PipelineBuildPump::instance().cancel(this);   // drop any queued (not-yet-started) build
     if (m_busWatch) {
         g_source_remove(m_busWatch);
         m_busWatch = 0;
@@ -199,6 +263,19 @@ void RtspVideoSource::rebuild()
     teardown();
     setErrored(false);
     if (!m_active || m_url.isEmpty() || !m_sink)
+        return;
+    // Don't build inline. Route through the global rate limiter so a burst of tiles
+    // becoming active at once (layout change, Arrange exit, page turn, app start) can't
+    // create N VA-API decode contexts simultaneously — that churn wedges the shared iGPU
+    // (the relayout freeze). A lone build still starts immediately (see PipelineBuildPump).
+    PipelineBuildPump::instance().request(this);
+}
+
+void RtspVideoSource::startPipelineNow()
+{
+    // Invoked by the global build pump (staggered). Re-check we still want to stream and
+    // hold no pipeline — state can change between the request and the drain.
+    if (m_pipeline || !m_active || m_url.isEmpty() || !m_sink)
         return;
 
     // decodebin picks VA-API on the Intel iGPU. RGBA out for a simple single-plane
