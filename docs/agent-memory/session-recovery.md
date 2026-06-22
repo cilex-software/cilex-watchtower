@@ -13,7 +13,9 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`85525d3`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`f04861d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`f04861d` stop console spam for cameras whose go2rtc frame.jpeg snapshot won't decode (per-camera
+`_snapFailed` set in the camera picker → log at most once, fall back to the initial) ·
 `85525d3` bottom loading bar on connecting tiles + per-cell wall-clock (ms) on the playback wall ·
 `3769878` **auto-reconnect stalled tiles** (per-tile backoff + global ReconnectCoordinator throttle) ·
 `09130b8` **never show green** — VideoSurface gates video on real frame flow + opaque cover ·
@@ -21,7 +23,7 @@ HEAD **`85525d3`** on `main`, **pushed, working tree clean.** This arc's commits
 (CV shipped native-720p) · `a21da42` client-side compression + overlay burn-in · `b7c7705`/`b5345dd` green-wall fixes.
 
 ⚠️ **RELAUNCH the app** — the running `./build/watchtower` predates HEAD; rebuild is on disk,
-just restart it to get `85525d3`. (QML is byte-compiled in; no hot reload.)
+just restart it to get `f04861d`. (QML is byte-compiled in; no hot reload.)
 
 🩺 **DIAGNOSTIC LESSON (2026-06-22):** the operator reported green STILL showing after the
 green fix — but it was the **stale running binary**. Always confirm what's actually running:
