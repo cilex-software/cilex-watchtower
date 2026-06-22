@@ -942,12 +942,16 @@ Item {
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl
                                 // Only play when Live Monitor is the visible section (so other
-                                // screens don't hold open streams / hit cameras). We KEEP tiles
-                                // playing during Arrange now — tearing all 16 pipelines down on
-                                // enter and rebuilding them on exit was a prime trigger of the iGPU
-                                // relayout freeze; the arrange overlay just dims the live feed.
+                                // screens don't hold open streams / hit cameras). Tiles KEEP playing
+                                // during Arrange (the overlay just dims them) — tearing 16 down on
+                                // enter + rebuilding on exit was a relayout-freeze trigger. BUT pause
+                                // them while the camera PICKER is open (pickerCell >= 0): the picker
+                                // covers the wall anyway, and freeing those 16 decode contexts +
+                                // buffers exactly when the picker spins up its own thumbnails is what
+                                // keeps the combined load from OOM-ing / wedging the shared iGPU. They
+                                // resume (rebuild, staggered) when the picker closes.
                                 // WT_TEST_IP (dev) restricts streaming to a single camera.
-                                videoActive: root.visible
+                                videoActive: root.visible && root.pickerCell < 0
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
                                 // HD promotion is gated by the wall's concurrency
