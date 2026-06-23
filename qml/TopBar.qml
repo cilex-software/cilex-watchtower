@@ -15,11 +15,14 @@ Item {
     property double now: Date.now()
     property bool hasAlerts: true
     property string statusFilter: ""   // "online" | "offline" | "notrec" | ""
+    property bool showSidePanelToggle: false   // only on the Live wall, where the OpsSidebar applies
+    property bool sidePanelOpen: true          // current state of that panel (drives the glyph)
 
     signal searchActivated()
     signal statusChipClicked(string which)
     signal alertsViewAllRequested()
     signal preferencesRequested()
+    signal toggleSidePanelRequested()          // show/hide the Live right-hand panel
 
     implicitHeight: Theme.topBarHeight
 
@@ -184,6 +187,55 @@ Item {
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
                 }
+            }
+
+            // Toggle the Live page's right-hand side panel (OpsSidebar). Shown only on the live
+            // wall, where that panel applies. The glyph IS the state: a window outline whose
+            // vertical divider sits INSET from the right edge — with a faint panel region — when
+            // the panel is OPEN, and hard against the right edge (collapsed) when CLOSED.
+            Item {
+                id: spToggle
+                visible: root.showSidePanelToggle
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                Layout.rightMargin: 6
+                Accessible.role: Accessible.Button
+                Accessible.name: "Toggle side panel"
+                Accessible.checkable: true
+                Accessible.checked: root.sidePanelOpen      // expanded state: true = panel open
+                Rectangle {
+                    anchors.fill: parent; radius: 4
+                    color: spMa.containsMouse ? Theme.panel : "transparent"
+                    border.width: spMa.containsMouse ? 1 : 0; border.color: Theme.line2
+                }
+                Item {
+                    id: spGlyph
+                    anchors.centerIn: parent
+                    width: 18; height: 14
+                    readonly property color fg: spMa.containsMouse ? Theme.ink : Theme.ink2
+                    // divider x: inset from the right when open, hard against the edge when closed
+                    readonly property real divX: root.sidePanelOpen ? width * 0.58 : width * 0.82
+                    Rectangle { anchors.fill: parent; radius: 2.5; color: "transparent"
+                        border.width: 1.4; border.color: spGlyph.fg }
+                    // open panel region — between the divider and the right edge
+                    Rectangle {
+                        visible: root.sidePanelOpen
+                        x: spGlyph.divX; y: 1.4
+                        width: Math.max(0, spGlyph.width - spGlyph.divX - 1.4); height: spGlyph.height - 2.8
+                        color: spGlyph.fg; opacity: 0.28
+                        Behavior on x { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+                    }
+                    Rectangle {     // the vertical divider
+                        x: spGlyph.divX; y: 1.4
+                        width: 1.4; height: spGlyph.height - 2.8; color: spGlyph.fg
+                        Behavior on x { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+                    }
+                }
+                MouseArea { id: spMa; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: root.toggleSidePanelRequested() }
+                C.ToolTip.visible: spMa.containsMouse
+                C.ToolTip.text: root.sidePanelOpen ? "Hide side panel" : "Show side panel"
+                C.ToolTip.delay: 400
             }
 
             // alerts bell

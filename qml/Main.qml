@@ -24,6 +24,7 @@ Window {
     property var focusedCamera: null    // shows Single Camera Detail when non-null
     property var playbackCamera: null   // shows Playback (S06) when non-null
     property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
+    property bool opsSidebarOpen: true  // Live page right-hand panel (OpsSidebar) — toggled from the Live toolbar
 
     // Enter synchronized wall playback. Seeds from the operator's persisted wall
     // layout when one exists, else from the cameras currently on the wall page.
@@ -270,6 +271,10 @@ Window {
                 onPreferencesRequested: win.goToSection("preferences")
                 onAlertsViewAllRequested: win.goToSection("events")
                 onSearchActivated: commandPalette.open()
+                // Live right-hand panel toggle — only meaningful on the live wall.
+                showSidePanelToggle: win.section === "live" && win.wallMode === "live" && win.focusedCamera === null
+                sidePanelOpen: win.opsSidebarOpen
+                onToggleSidePanelRequested: win.opsSidebarOpen = !win.opsSidebarOpen
             }
 
             RowLayout {
@@ -494,7 +499,7 @@ Window {
 
                 OpsSidebar {
                     Layout.fillHeight: true
-                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live"
+                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live" && win.opsSidebarOpen
                     cameraModel: cameraModel
                     eventModel: eventModel
                 }
