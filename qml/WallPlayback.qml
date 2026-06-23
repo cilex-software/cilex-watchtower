@@ -874,6 +874,34 @@ Item {
             Layout.fillWidth: true; Layout.preferredHeight: 140; color: Theme.bg
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
 
+            // Wall-wide loading bar — the play-wall analogue of the per-camera tile loading bar
+            // (CameraTile.loadBar). The grid is ONE composited stream, so one bar covers the whole
+            // wall: an indeterminate sweep while the composite is loading/seeking (a re-composite
+            // has no real %, so it sweeps honestly rather than faking progress). Sits at the very
+            // top of the transport — directly below the camera wall, above the scrubber — and
+            // spans the full width. Hidden the moment frames flow (loading=false) or on an error
+            // (the error banner takes over).
+            Rectangle {
+                id: wallLoadBar
+                anchors { left: parent.left; right: parent.right; top: parent.top }
+                height: 3
+                z: 5
+                visible: (root.loading || root.pending) && root.errorText === ""
+                color: "#141a22"          // dim track (matches CameraTile.loadBar)
+                clip: true
+                Rectangle {
+                    height: parent.height
+                    width: parent.width * 0.30
+                    color: Theme.accent
+                    SequentialAnimation on x {
+                        running: wallLoadBar.visible
+                        loops: Animation.Infinite
+                        NumberAnimation { from: -wallLoadBar.width * 0.30; to: wallLoadBar.width
+                            duration: 1100; easing.type: Easing.InOutSine }
+                    }
+                }
+            }
+
             RowLayout {
                 id: tlControls
                 anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 16; rightMargin: 16; topMargin: 12 }
