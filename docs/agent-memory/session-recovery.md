@@ -13,7 +13,11 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`6ac4857`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`844d61f`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`844d61f` **wall-wide loading bar on the "Go back in time" play wall** (`WallPlayback`, id `wallLoadBar`)
+— play-wall analogue of `CameraTile.loadBar`: one indeterminate accent sweep (dim `#141a22` track),
+anchored at the top of the transport (full width, directly below the camera grid + above the
+seek/scrubber), `visible: (loading||pending) && errorText===""`. Verified via force-show screenshot. ·
 `6ac4857` **Arrange tap opens the picker, never full-view** — `CameraTile.opened()` fires only from
 `TapHandler{onTapped}`, whose PASSIVE grab let it fire alongside the arrange overlay's MouseArea →
 tapping a cell (esp. the delegate recreated by the post-assign reconcile) popped the camera full-screen
@@ -62,7 +66,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `6ac4857`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `844d61f`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
