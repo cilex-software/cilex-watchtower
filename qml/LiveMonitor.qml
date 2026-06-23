@@ -101,6 +101,14 @@ Item {
     // this bounds both steady memory and the teardown watermark during arrange/relayout churn
     // (the residual ~5.8 GB OOM). WT_MAX_DECODES overrides; default 9 (a full 3×3).
     readonly property int maxLiveDecodes: (typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9
+    // Responsive controls row: when it's too narrow to fit the right-hand action buttons
+    // (Go-back / Save / Arrange), they collapse into the overflow "»" menu (MS-Office style).
+    // LOOP-FREE: every term is a STABLE implicitWidth — a hidden button keeps its implicit size,
+    // and toolbarSpacer.x stays at the (fixed) left-content width — so collapsing never changes
+    // the decision that triggered it. Sort + full-screen stay inline (compact, always reachable).
+    readonly property bool _tbCollapsed: headerRow.width > 0
+        && (toolbarSpacer.x + goBackBtn.implicitWidth + saveBtn.implicitWidth + arrangeBtn.implicitWidth
+            + sortControl.implicitWidth + fullBtn.implicitWidth + 5 * headerRow.spacing + 8) > headerRow.width
     property string pickerSearch: ""
     property string pickerGroup: ""      // picker group filter ("" = all groups)
     property bool pickerHideShown: false // hide cameras already on the visible wall
@@ -357,6 +365,7 @@ Item {
             }
 
             RowLayout {
+                id: headerRow
                 anchors.fill: parent
                 anchors.leftMargin: 20
                 anchors.rightMargin: 20
@@ -683,10 +692,12 @@ Item {
                     onRemoved: root.statusFilterRequested("")
                 }
 
-                Item { Layout.fillWidth: true }
+                Item { id: toolbarSpacer; Layout.fillWidth: true }
 
                 // go back in time (enter synchronized wall playback)
                 Rectangle {
+                    id: goBackBtn
+                    visible: !root._tbCollapsed
                     Layout.preferredHeight: 34
                     implicitWidth: gbtRow.implicitWidth + 24
                     color: gbtMa.containsMouse ? Theme.panel : "transparent"
@@ -709,6 +720,8 @@ Item {
 
                 // save current view (ghost)
                 Rectangle {
+                    id: saveBtn
+                    visible: !root._tbCollapsed
                     Layout.preferredHeight: 34
                     implicitWidth: saveTxt.implicitWidth + 28
                     color: saveMa.containsMouse ? Theme.panel : "transparent"
@@ -734,6 +747,8 @@ Item {
 
                 // arrange cells — tap a cell to choose its camera (e.g. the Center tile)
                 Rectangle {
+                    id: arrangeBtn
+                    visible: !root._tbCollapsed
                     Layout.preferredHeight: 34
                     implicitWidth: arrTxt.implicitWidth + 28
                     color: root.arrangeMode ? Theme.accent : (arrMa.containsMouse ? Theme.panel : "transparent")
@@ -752,7 +767,8 @@ Item {
                 }
                 // reset this group's arrangement (only while arranging + a custom order exists)
                 Rectangle {
-                    visible: root.arrangeMode && root.hasArrangement
+                    id: resetBtn
+                    visible: root.arrangeMode && root.hasArrangement && !root._tbCollapsed
                     Layout.preferredHeight: 34
                     implicitWidth: resetTxt.implicitWidth + 24
                     color: resetMa.containsMouse ? Theme.panel : "transparent"
@@ -764,6 +780,7 @@ Item {
                 // sort dropdown
                 Rectangle {
                     id: sortControl
+                    visible: !root._tbCollapsed
                     Layout.preferredHeight: 38
                     implicitWidth: sortRow.implicitWidth + 24
                     color: Theme.panel
@@ -831,6 +848,8 @@ Item {
 
                 // full-screen
                 IconButton {
+                    id: fullBtn
+                    visible: !root._tbCollapsed
                     name: "full"
                     iconColor: Theme.ink2
                     borderColor: Theme.line2
@@ -841,6 +860,83 @@ Item {
                     implicitWidth: 38
                     implicitHeight: 38
                     onClicked: root.fullscreenToggled()
+                }
+
+                // Overflow ("»"): when the row is too narrow to fit the action buttons above
+                // (Go-back / Save / Arrange), they collapse here — MS-Office-style right-edge
+                // overflow. Opens a menu with the same commands. Shown only while collapsed.
+                Rectangle {
+                    id: overflowBtn
+                    visible: root._tbCollapsed
+                    Layout.preferredHeight: 38; Layout.preferredWidth: 38
+                    color: (ovMa.containsMouse || ovPopup.visible) ? Theme.panel : "transparent"
+                    border.width: 1
+                    border.color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.line2
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "More controls"
+                    Row {     // "»" double chevron
+                        anchors.centerIn: parent; spacing: 0
+                        Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
+                        Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
+                    }
+                    MouseArea { id: ovMa; anchors.fill: parent; hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor; onClicked: ovPopup.open() }
+                    C.ToolTip.visible: ovMa.containsMouse && !ovPopup.visible
+                    C.ToolTip.text: "More controls"
+                    C.ToolTip.delay: 400
+                    C.Popup {
+                        id: ovPopup
+                        y: overflowBtn.height + 4
+                        x: overflowBtn.width - width
+                        width: 210; padding: 4
+                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1; radius: 2 }
+                        contentItem: Column {
+                            spacing: 0
+                            component OvRow: Rectangle {
+                                property string label: ""
+                                property string icon: ""
+                                signal triggered()
+                                width: 202; height: 34
+                                color: orMa.containsMouse ? Theme.panel2 : "transparent"
+                                Row {
+                                    anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                                    spacing: 9
+                                    Icon { anchors.verticalCenter: parent.verticalCenter; name: icon; size: 15; color: Theme.ink2 }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: label
+                                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13 }
+                                }
+                                MouseArea { id: orMa; anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor; onClicked: { parent.triggered(); ovPopup.close() } }
+                            }
+                            OvRow { label: "Go back in time"; icon: "history"; onTriggered: root.wallPlaybackRequested() }
+                            OvRow { label: "Save current view"; icon: "bookmark"; onTriggered: root.saveViewRequested() }
+                            OvRow { label: root.arrangeMode ? "Done arranging" : "Arrange"; icon: "grid"
+                                onTriggered: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1 } }
+                            OvRow { visible: root.arrangeMode && root.hasArrangement
+                                label: "Reset arrangement"; icon: "back"; onTriggered: root.resetArrangement() }
+                            OvRow { label: "Full-screen"; icon: "full"; onTriggered: root.fullscreenToggled() }
+                            Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
+                            Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
+                                text: "SORT BY"; color: Theme.ink3; font.family: Theme.fontMono
+                                font.pixelSize: 9; font.letterSpacing: 1 }
+                            Repeater {
+                                model: [ { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
+                                         { id: "status", lbl: "Status first" }, { id: "alpha", lbl: "Alphabetical" } ]
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: 202; height: 30
+                                    color: soMa.containsMouse ? Theme.panel2 : "transparent"
+                                    Text { anchors { left: parent.left; leftMargin: 34; verticalCenter: parent.verticalCenter }
+                                        text: modelData.lbl
+                                        color: root.sortMode === modelData.id ? Theme.accent : Theme.ink
+                                        font.family: Theme.fontSans; font.pixelSize: 12 }
+                                    MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
