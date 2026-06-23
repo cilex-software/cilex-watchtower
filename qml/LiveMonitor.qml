@@ -694,7 +694,7 @@ Item {
                     border.color: gbtMa.containsMouse ? Theme.accent : Theme.line2
                     Row {
                         id: gbtRow; anchors.centerIn: parent; spacing: 7
-                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "clip"; size: 14; color: Theme.ink2 }
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "history"; size: 15; color: Theme.ink2 }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Go back in time"; color: Theme.ink2

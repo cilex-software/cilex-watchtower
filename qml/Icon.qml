@@ -32,6 +32,10 @@ Item {
         // Open playback: a counter-clockwise replay ring (stroked, gap + arrowhead
         // at top pointing left) with a filled play triangle in the centre.
         "playback": { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4", "pf": "M10.4 8.7 L15.6 12 L10.4 15.3 Z" },
+        // Go back in time: the same counter-clockwise replay ring (gap + left-pointing
+        // arrowhead at top), but with CLOCK HANDS in the centre instead of a play triangle —
+        // i.e. "rewind through history", distinct from "playback" (which plays a recording).
+        "history":  { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4 M12 12 L12 7.8 M12 12 L15.3 12.6" },
         "pause":    { "p": "M6 4h4v16H6z M14 4h4v16h-4z", "f": true },
         "back":     { "p": "M15 6l-6 6 6 6" },
         "fwd":      { "p": "M9 6l6 6-6 6" },
