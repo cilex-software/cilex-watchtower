@@ -13,7 +13,15 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`844d61f`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`22bde7d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`22bde7d` **wall playback timer in lock-step with the picture on seek** — scrubber-click set
+`player.position` instantly → `onPositionChanged` snapped `_smoothMs`/`playheadMs` to the target while
+HLS buffered up to ~10 s → time chips + playhead lied about what's on screen. Fix: a `_settling` freeze
+(`seekToWall` raises it BEFORE moving position) stops the 60 fps clock + guards
+`onPositionChanged`/`onPlaybackStateChanged` so `_smoothMs` HOLDS; a `vout.videoSink.videoFrameChanged`
+Connections (`enabled: _settling`) snaps it the instant the seeked frame renders; `settleGuard` (8 s)
+fail-safe; loading bar shows during settle. Verified via `WT_WALLPERF` (held 1520 ms→snap, settles
+107 ms–10.3 s). ·
 `844d61f` **wall-wide loading bar on the "Go back in time" play wall** (`WallPlayback`, id `wallLoadBar`)
 — play-wall analogue of `CameraTile.loadBar`: one indeterminate accent sweep (dim `#141a22` track),
 anchored at the top of the transport (full width, directly below the camera grid + above the
@@ -66,7 +74,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `844d61f`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `22bde7d`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
