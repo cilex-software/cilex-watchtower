@@ -313,9 +313,17 @@ Item {
     // the playhead straight to it makes it lurch; a 60fps clock that snaps back on a
     // seek / drift keeps it gliding. The wall only ever plays at 1× (server composite).
     property double _smoothMs: 0
+    // While a scrubber seek is SETTLING — player.position has jumped to the target but the HLS
+    // decode hasn't produced frames there yet (a few seconds over the composited stream) — don't
+    // let the readouts run ahead of the picture. Freeze _smoothMs at the displayed moment and snap
+    // it forward only when the first fresh frame actually renders, so the per-cell time chips +
+    // playhead stay honest to what's on screen (the whole point of a synchronized wall).
+    // settleGuard releases the freeze if a frame never arrives.
+    property bool _settling: false
+    Timer { id: settleGuard; interval: 8000; onTriggered: { root._smoothMs = player.position; root._settling = false; } }
     Timer {
         interval: 16; repeat: true
-        running: root.frags.length > 0 && player.playbackState === MediaPlayer.PlayingState
+        running: root.frags.length > 0 && player.playbackState === MediaPlayer.PlayingState && !root._settling
         onTriggered: {
             var d = player.duration;
             root._smoothMs = Math.min(d > 0 ? d : root._smoothMs, root._smoothMs + interval * player.playbackRate);
@@ -324,12 +332,24 @@ Item {
     Connections {
         target: player
         function onPositionChanged() {
+            if (root._settling) return;                 // a seek jumped position; wait for the picture
             if (player.playbackState !== MediaPlayer.PlayingState
                     || Math.abs(player.position - root._smoothMs) > 400)
                 root._smoothMs = player.position;
         }
         function onPlaybackStateChanged() {
-            if (player.playbackState !== MediaPlayer.PlayingState) root._smoothMs = player.position;
+            if (!root._settling && player.playbackState !== MediaPlayer.PlayingState) root._smoothMs = player.position;
+        }
+    }
+    // Snap the readouts to the picture the instant the seeked-to frame renders, then resume the
+    // smooth clock. Enabled only while settling, so there is zero per-frame cost in steady play.
+    Connections {
+        target: vout.videoSink
+        enabled: root._settling
+        function onVideoFrameChanged() {
+            root._smoothMs = player.position;
+            root._settling = false;
+            settleGuard.stop();
         }
     }
 
@@ -338,6 +358,9 @@ Item {
         if (player.duration <= 0) return;
         var pos = wallToPos(ms);
         if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);   // headroom — don't strand at EOS
+        // Raise the settle freeze BEFORE moving position, so the synchronous onPositionChanged
+        // that the assignment may fire is already guarded and the readouts don't jump ahead.
+        root._settling = true; settleGuard.restart();   // hold the readouts at the picture until frames land
         player.position = Math.round(Math.max(0, pos) * 1000);
         if (client && sessionId !== "") {        // B3 seek-hint: warm the fragment we're landing on (+2 ahead)
             var fi = _fragIndexAt(pos);
@@ -886,7 +909,7 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 height: 3
                 z: 5
-                visible: (root.loading || root.pending) && root.errorText === ""
+                visible: (root.loading || root.pending || root._settling) && root.errorText === ""
                 color: "#141a22"          // dim track (matches CameraTile.loadBar)
                 clip: true
                 Rectangle {
