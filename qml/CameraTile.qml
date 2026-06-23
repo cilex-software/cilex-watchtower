@@ -43,6 +43,11 @@ Item {
     // In the Live Monitor grid the hairline separator comes from the grid
     // container, so the tile drops its own border (design §14).
     property bool gridMode: false
+    // When false, a tap does NOT open the camera full-screen. The wall sets this false while
+    // ARRANGING so a tap picks a camera for the cell (handled by the arrange overlay) instead —
+    // the full-view TapHandler uses a passive grab that would otherwise ALSO fire under the
+    // overlay, popping the camera open instead of the picker.
+    property bool tapToOpen: true
     // Live View business-function state (from the model). When false, an operator
     // stopped go2rtc → show a calm "switched off" tile, not a red fault.
     property bool liveViewEnabled: true
@@ -464,6 +469,6 @@ Item {
         }
 
         HoverHandler { id: hover }
-        TapHandler { onTapped: root.opened() }
+        TapHandler { enabled: root.tapToOpen; onTapped: root.opened() }
     }
 }

@@ -968,6 +968,9 @@ Item {
                                 videoActive: root.visible && !root.arrangeMode
                                     && ((typeof wtTestIp !== "undefined" && wtTestIp !== "")
                                         ? (cellWrap.modelData.ip === wtTestIp) : true)
+                                // While arranging, a tap must pick a camera for the cell (arrange
+                                // overlay), NOT open the camera full-screen — disable tap-to-open.
+                                tapToOpen: !root.arrangeMode
                                 // Only the first maxLiveDecodes tiles run a live VA-API pipeline;
                                 // the rest show a periodic go2rtc snapshot (bounds GPU/decode memory).
                                 liveDecodeAllowed: cellWrap.index < root.maxLiveDecodes
