@@ -13,7 +13,14 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`22bde7d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`49ca167`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`49ca167` **Toggle Side Panel button** — shows/hides the Live right-hand panel (`OpsSidebar`, a
+Main.qml sibling of LiveMonitor, Live-only). State `win.opsSidebarOpen` (default open) gates
+`OpsSidebar.visible`. Button lives in **`TopBar`** right cluster (NOT the LiveMonitor toolbar — it
+overflows its right controls at 1440 px), gated `showSidePanelToggle` (live wall only). Two-state
+glyph per spec: window outline + vertical divider INSET from right (+ faint panel-region fill) = open,
+divider hard against the edge = closed. `Accessible.name`/`checkable`/`checked` + Show/Hide tooltip.
+Verified both glyph states + wall expands full-width when closed. ·
 `22bde7d` **wall playback timer in lock-step with the picture on seek** — scrubber-click set
 `player.position` instantly → `onPositionChanged` snapped `_smoothMs`/`playheadMs` to the target while
 HLS buffered up to ~10 s → time chips + playhead lied about what's on screen. Fix: a `_settling` freeze
@@ -74,7 +81,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `22bde7d`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `49ca167`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
