@@ -13,7 +13,14 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`dcc61d3`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`0288a96`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`0288a96` **picker opens INSTANTLY** — profiled the "Tap to change"/right-click picker: structure was
+always instant (cells pre-exist), but all ~32 go2rtc frame.jpeg thumbs RE-FETCHED on every open
+(~2.7 s; `cache:true` useless — go2rtc serves fresh frames; raising the cap barely helped → go2rtc-
+bound, not client). Fix: **pre-warm on entering Arrange** (tiles fetch when `arrangeMode` turns on, not
+only on picker-open) + **keep-alive once loaded** (camId-keyed `_thumbLoaded`, survives delegate
+recreation, not cleared on reset → every open after the 1st, Arrange or right-click, reloads 0) +
+`_thumbMax` 3→6. Verified real-iGPU: pre-warm 31 thumbs in ~3 s, reopen = 0 reloads. ·
 `dcc61d3` **cap concurrent VA-API decodes (default 9; `WT_MAX_DECODES` override)** — `LiveMonitor.
 maxLiveDecodes`; only the first N tiles by grid position run a live pipeline (`liveDecodeAllowed`),
 the rest show a periodic go2rtc snapshot via `LiveThumb` (all cameras stay visible). The residual
@@ -50,7 +57,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `dcc61d3`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `0288a96`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
