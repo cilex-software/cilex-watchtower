@@ -181,12 +181,17 @@ Item {
     // memory and crashed the app (OOM on a swap-pressured box). So we admit at most
     // _thumbMax fetches at a time; the rest queue and start as slots free (each slot is
     // released when its thumbnail finishes — Ready or Error). Reset on every picker open.
-    readonly property int _thumbMax: 3
+    readonly property int _thumbMax: 6
     property int _thumbInFlight: 0
     property var _thumbGranted: ({})     // camId -> true once admitted to fetch
     property var _thumbWaiting: []       // camIds queued for a slot
+    // camId -> true once its snapshot has loaded. Keyed by camId (survives GridView delegate
+    // recreation) and NOT cleared by _thumbResetLoads, so a loaded thumbnail stays shown across
+    // every picker open/close for the whole Live session — the picker opens INSTANTLY after the
+    // first deliberate load, and each camera's go2rtc snapshot is fetched at most once.
+    property var _thumbLoaded: ({})
     function _thumbWant(camId) {
-        if (!camId || _thumbGranted[camId]) return;          // already admitted/loaded
+        if (!camId || _thumbGranted[camId] || _thumbLoaded[camId]) return;   // already admitted/loaded
         if (_thumbWaiting.indexOf(camId) < 0) _thumbWaiting.push(camId);
         _thumbPump();
     }
@@ -228,7 +233,12 @@ Item {
     readonly property real _pickAvailW: width * 0.92 - 36
     readonly property real _pickAvailH: height * 0.9 - _pickChrome
     readonly property var _pg: _pickGeom(pickModel.length, _pickAvailW, _pickAvailH)
-    function openCellPicker(tileIndex) { _thumbResetLoads(); pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
+    function openCellPicker(tileIndex) { pickerSearch = ""; pickerGroup = ""; pickerHideShown = false; pickerCell = tileIndex; }
+    // Free the cached thumbnails only when fully leaving the picker context (out of Arrange AND
+    // the picker is closed). Within an Arrange session the loaded snapshots stay alive so the
+    // picker opens instantly on every cell; right-click opens (no Arrange) free on close.
+    onArrangeModeChanged: { if (!arrangeMode && pickerCell < 0) _thumbResetLoads(); }
+    onPickerCellChanged: { if (pickerCell < 0 && !arrangeMode) _thumbResetLoads(); }
     function assignToCell(tileIndex, camId) {
         var ids = _fullIds();
         var target = (page - 1) * perPage + tileIndex;
@@ -1210,10 +1220,17 @@ Item {
                         // Ask the load limiter for a fetch slot when the picker is open.
                         property bool _counted: false   // released our slot for the current load?
                         function _request() {
-                            if (root.pickerCell >= 0) { pickCell._counted = false; root._thumbWant(modelData.camId); }
+                            // Load while EITHER arranging (pre-warm) or the picker is open. Pre-warming on
+                            // arrange-enter means the snapshots are already in flight (often done) by the
+                            // time a cell is tapped, and the source stays set across open/close so re-opens
+                            // are instant instead of re-fetching every go2rtc frame.jpeg.
+                            if (root.arrangeMode || root.pickerCell >= 0) { pickCell._counted = false; root._thumbWant(modelData.camId); }
                         }
                         Component.onCompleted: _request()                       // delegate created while picker open
-                        Connections { target: root; function onPickerCellChanged() { pickCell._request() } }  // picker opened
+                        Connections { target: root
+                            function onPickerCellChanged() { pickCell._request() }
+                            function onArrangeModeChanged() { pickCell._request() }   // pre-warm on entering Arrange
+                        }
                         Rectangle {
                             anchors.fill: parent; anchors.margins: 4
                             color: cmA.containsMouse ? Theme.panel2 : Theme.bg
@@ -1238,17 +1255,27 @@ Item {
                                         // fetch snapshots for every camera in the background), when Live View
                                         // is off (snapshots would 404), or when this camera's snapshot has
                                         // already failed to decode once (don't re-spam — show the initial).
-                                        // Fetch only once the load limiter has ADMITTED this camera
-                                        // (_thumbGranted) — see _thumbWant/_thumbPump. Plus the usual gates:
-                                        // picker open, Live View on, and not an already-failed snapshot.
-                                        source: (root.pickerCell < 0
-                                                 || !root._thumbGranted[pickCell.modelData.camId]
-                                                 || (root.cameraModel && root.cameraModel.liveViewEnabled === false)
-                                                 || root._snapFailed[pickCell.modelData.camId]) ? ""
+                                        // Show the snapshot when it's ALREADY loaded (_thumbLoaded — stays put
+                                        // across open/close so re-opens are instant), OR when the picker is
+                                        // active (arranging or open) AND the load limiter has admitted this
+                                        // camera (_thumbGranted). Never fetch for an off Live View or a snapshot
+                                        // that already failed to decode (show the camera initial instead).
+                                        source: ((root.cameraModel && root.cameraModel.liveViewEnabled === false)
+                                                 || root._snapFailed[pickCell.modelData.camId]
+                                                 || !(root._thumbLoaded[pickCell.modelData.camId]
+                                                      || ((root.arrangeMode || root.pickerCell >= 0)
+                                                          && root._thumbGranted[pickCell.modelData.camId]))) ? ""
                                                 : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
                                                    ? pickCell.modelData.snapshotUrl
                                                    : root._thumbUrl(pickCell.modelData))
                                         onStatusChanged: {
+                                            // Mark loaded (keep-alive across open/close) the first time it's Ready.
+                                            if (status === Image.Ready && pickCell.modelData && pickCell.modelData.camId
+                                                && !root._thumbLoaded[pickCell.modelData.camId]) {
+                                                var L = {};
+                                                for (var lk in root._thumbLoaded) L[lk] = root._thumbLoaded[lk];
+                                                L[pickCell.modelData.camId] = true; root._thumbLoaded = L;
+                                            }
                                             // Release the limiter slot once the fetch settles (Ready or Error),
                                             // exactly once, so the next queued thumbnail can start.
                                             if (!pickCell._counted && (status === Image.Ready || status === Image.Error)) {
