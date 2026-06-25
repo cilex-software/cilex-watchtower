@@ -72,15 +72,17 @@ ColumnLayout {
         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
     }
 
-    // weekday header + day grid
-    GridLayout {
+    // weekday header + day grid. Grid POSITIONER (not GridLayout): QQuickGridLayout SIGSEGVs on
+    // minimize/restore in Qt 6.4.2 (see LiveMonitor camera grid). Cells get an explicit equal width.
+    Grid {
+        id: dayGrid
         Layout.fillWidth: true; Layout.leftMargin: 12; Layout.rightMargin: 12; Layout.bottomMargin: 4
         columns: 7; columnSpacing: 2; rowSpacing: 2
 
         Repeater {
             model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
             Text {
-                Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+                width: (dayGrid.width - 6 * dayGrid.columnSpacing) / 7; horizontalAlignment: Text.AlignHCenter
                 text: modelData; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9
                 font.capitalization: Font.AllUppercase
             }
@@ -89,8 +91,8 @@ ColumnLayout {
         Repeater {
             model: cal._cells
             delegate: Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 30
+                width: (dayGrid.width - 6 * dayGrid.columnSpacing) / 7
+                height: 30
                 readonly property bool active: modelData.inWindow && !modelData.isFuture
                 readonly property bool marked: !cal.pending && cal.footageDays.indexOf(modelData.dateStr) >= 0
                 readonly property bool selected: modelData.dateStr === cal.selectedDate

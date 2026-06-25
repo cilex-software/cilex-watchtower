@@ -53,7 +53,9 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: stats.implicitHeight + 2
                 color: Theme.line
-                GridLayout {
+                // Grid POSITIONER (not GridLayout): QQuickGridLayout SIGSEGVs on minimize/restore in
+                // Qt 6.4.2 (see LiveMonitor camera grid). Cells get an explicit equal width.
+                Grid {
                     id: stats
                     anchors.fill: parent
                     anchors.margins: 1
@@ -66,8 +68,8 @@ Item {
                         property string lbl: ""
                         property int value: 0
                         property color valueColor: Theme.ink
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 64
+                        width: (stats.width - stats.columnSpacing) / 2
+                        height: 64
                         color: Theme.bg
                         Column {
                             anchors { left: parent.left; top: parent.top; leftMargin: 14; topMargin: 12 }

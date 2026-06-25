@@ -330,7 +330,10 @@ Item {
                             Layout.fillWidth: true; Layout.topMargin: 18; Layout.bottomMargin: 18
                             color: Theme.line
                             Layout.preferredHeight: facts.implicitHeight + 2
-                            GridLayout {
+                            // Grid POSITIONER (not GridLayout): a QQuickGridLayout SIGSEGVs on
+                            // minimize/restore in Qt 6.4.2 (see LiveMonitor camera grid). Grid has no
+                            // layout engine to corrupt. Cells get an explicit width (2 equal columns).
+                            Grid {
                                 id: facts
                                 x: 1; y: 1; width: parent.width - 2
                                 columns: 2; rowSpacing: 1; columnSpacing: 1
@@ -345,8 +348,8 @@ Item {
                                     ] : []
                                     delegate: Rectangle {
                                         required property var modelData
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 52
+                                        width: (facts.width - facts.columnSpacing) / 2
+                                        height: 52
                                         color: Theme.bg
                                         ColumnLayout {
                                             anchors.left: parent.left; anchors.right: parent.right
