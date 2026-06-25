@@ -13,7 +13,18 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`ab57554`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`79b58c8`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`79b58c8` **Q-CV6 FIXED (CV reply9, `b002010`) + one-click "Export as High"** — the "aged 1080p export"
+was a BLACK clip: cam `…ff9a`'s SUB stopped recording 06-11, so a Standard (sub-only) export of a
+main-only window got an all-`no_recording` manifest and the worker black-filled it at a hardcoded
+1080p default. CV now fails honestly (`state=failed`, `error_msg` — the field our poller already
+reads). Shipped option 1: `PlaybackClient.retryLastExportAsHigh()` + a ToastHost callback action
+(`actionId`/`actionInvoked`) → the failure toast offers one-click **"Export as High instead"**.
+Declined option 2 (backend Standard-from-main — our `ClipTranscoder` ladder already does small-720p).
+Verified live (jobs `53421c72` failed / `a79594ea` High `2560×1440`). **⚠️ DEAD-SUB FINDING: CV flags
+`…ff9a`/`…3a0d`/`…3a4b` recording main-but-not-sub — almost certainly == this session's green-tile +
+`…3a0d` "Unsupported image format" snapshot symptoms (our live wall + picker stream the SUB). Reply10
+asks Q-W4: camera-side (affects our live) vs recorder-side?** Letters: `…reply9.md` (CV), `…reply10.md` (us). ·
 `ab57554` **responsive Live controls row** — when too narrow (unmaximized / low-res / side panel open)
 the right-hand action buttons collapse MS-Office-style into a right-edge **`»` overflow menu**
 (`overflowBtn` + popup with Go-back/Save/Arrange/Reset/Full-screen + Sort options). `_tbCollapsed`
@@ -90,7 +101,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `ab57554`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `79b58c8`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
