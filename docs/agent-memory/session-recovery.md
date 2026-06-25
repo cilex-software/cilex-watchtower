@@ -13,7 +13,20 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`0d68a2b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`0e1cdf0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`0e1cdf0` **memory profiling + NV12 optimization (steady-state ~958→~825 MB).** Operator asked why the
+9-tile wall uses ~958 MB ("just broadcasting video"). Profiled (NOT a leak — flat): smaps = 81% (~800 MB)
+anonymous heap, only ~170 MB libs. **Key finding: cap-1 ≈ cap-9 RSS (~960 MB)** → cost is per-TILE
+(snapshot ≈ live), ×16 tiles, + ~460 MB Qt/Mesa/GStreamer shell; the decode CAP doesn't cut steady mem.
+73 threads → glibc arena bloat: `MALLOC_ARENA_MAX=2` in run-watchtower.sh trims ~30-50 MB (`f9123e4`).
+Streams decode 1280×720. **Option (c) DONE (`0e1cdf0`): pipeline now pulls native NV12 (1.5 B/px) not
+RGBA (4 B/px) — Qt's shader does NV12→RGB on the GPU; frame buffers 2.7× smaller, no videoconvert RGBA
+pool, no CPU convert. Colour space/range carried from caps; new isEmptyGreenNV12 (Y≈0 AND chroma≈0).
+Verified: renders correctly (colours right, empty-green drop works), RSS flat ~825 MB / 9,200 frames, no
+leak.** Builds on both Qt 6.4.2 + 6.8.3. **NEXT (operator: "do a tomorrow"): heaptrack (`sudo apt install
+heaptrack`, their terminal) for exact allocation-site attribution. Deferred bigger wins: true zero-copy
+(VA surface → DMABuf/GL texture, no GPU→CPU download) + rendering tiles at DISPLAY res (~480×270 vs 720p
+⇒ ~7× smaller per-tile buffers).** ·
 `0d68a2b` **🟢 P0 RESOLVED — the live-video OOM crash is fixed by building on Qt 6.8.3 (verified
 leak-free).** The Qt 6.4.2 VideoOutput leak (below) has no client-side workaround, so upgraded Qt:
 installed **6.8.3 user-space via aqtinstall at `/home/cilex-vision/Qt/6.8.3/gcc_64`**, built watchtower
@@ -141,7 +154,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `0d68a2b` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `0e1cdf0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
