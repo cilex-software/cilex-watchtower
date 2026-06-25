@@ -40,29 +40,36 @@ std::mutex &teardownMutex() { static std::mutex m; return m; }
 std::condition_variable &teardownCv() { static std::condition_variable cv; return cv; }
 int &teardownInflight() { static int n = 0; return n; }
 
-// True if a (sampled) RGBA frame is one flat green colour — the signature of a decoder
-// "empty surface": the all-zero NV12 buffer a decoder emits before a real keyframe (or
-// for a wedged sub-stream) converts to ~RGB(0,135,0), the notorious solid green. Real
-// video is never a uniform flat colour, and a real green scene has texture, so this is
-// surgical: uniform AND green-dominant with R,B near zero. O(1) — a 6×6 sample grid.
-bool isEmptyGreenSurface(const unsigned char *base, int w, int h, int stride)
+// True if an NV12 frame is the decoder "empty surface": the all-zero buffer a decoder emits before a
+// real keyframe (or for a wedged sub-stream). All-zero NV12 is Y≈0 AND chroma≈0, which renders as the
+// notorious solid green RGB(0,135,0). The chroma test is what makes it surgical: a REAL black frame is
+// Y≈0 but chroma≈128 (neutral), whereas the empty surface has chroma≈0 — so dark video is not flagged.
+// O(1) — 6×6 sample grids on each plane.
+bool isEmptyGreenNV12(const unsigned char *y, int yStride,
+                      const unsigned char *uv, int uvStride, int w, int h)
 {
-    if (!base || w < 2 || h < 2)
+    if (!y || !uv || w < 4 || h < 4)
         return false;
-    int rmin = 255, rmax = 0, gmin = 255, gmax = 0, bmin = 255, bmax = 0;
     constexpr int N = 6;
+    int ymax = 0;
     for (int yi = 0; yi < N; ++yi)
         for (int xi = 0; xi < N; ++xi) {
             const int px = xi * (w - 1) / (N - 1);
             const int py = yi * (h - 1) / (N - 1);
-            const unsigned char *p = base + qsizetype(py) * stride + qsizetype(px) * 4;
-            rmin = qMin(rmin, int(p[0])); rmax = qMax(rmax, int(p[0]));   // RGBA byte order
-            gmin = qMin(gmin, int(p[1])); gmax = qMax(gmax, int(p[1]));
-            bmin = qMin(bmin, int(p[2])); bmax = qMax(bmax, int(p[2]));
+            ymax = qMax(ymax, int(y[qsizetype(py) * yStride + px]));
         }
-    const bool uniform  = (rmax - rmin) <= 8 && (gmax - gmin) <= 8 && (bmax - bmin) <= 8;
-    const bool greenish = rmax < 60 && bmax < 60 && gmin > 70 && gmax < 200;
-    return uniform && greenish;
+    if (ymax > 24)                       // any real luma → real video, keep it
+        return false;
+    int uvmax = 0;                       // chroma plane is half-size, bytes interleaved U,V
+    const int cw = w / 2, ch = h / 2;
+    for (int yi = 0; yi < N; ++yi)
+        for (int xi = 0; xi < N; ++xi) {
+            const int px = xi * (cw - 1) / (N - 1);
+            const int py = yi * (ch - 1) / (N - 1);
+            const unsigned char *p = uv + qsizetype(py) * uvStride + qsizetype(px) * 2;
+            uvmax = qMax(uvmax, qMax(int(p[0]), int(p[1])));
+        }
+    return uvmax < 24;                   // chroma ≈ 0 (the green empty surface), not ≈128 (real black)
 }
 
 // Global pipeline-BUILD rate limiter (GUI-thread only). Creating a GStreamer/VA-API
@@ -285,13 +292,15 @@ void RtspVideoSource::startPipelineNow()
     if (m_pipeline || !m_active || m_url.isEmpty() || !m_sink)
         return;
 
-    // decodebin picks VA-API on the Intel iGPU. RGBA out for a simple single-plane
-    // copy (NV12 + zero-copy is the follow-up optimization). The URL is set on the
-    // element rather than baked into the parse string to avoid escaping the creds.
+    // decodebin picks VA-API on the Intel iGPU. We pull NV12 (the native decode format, 1.5 B/px) —
+    // NOT RGBA (4 B/px) — so each frame buffer is ~2.5× smaller and there is no CPU colour-conversion:
+    // we hand NV12 to the QVideoSink and Qt's video shader does NV12→RGB on the GPU. videoconvert is a
+    // passthrough when the decoder already outputs NV12 (it does for H.264/H.265 VA decode). The URL is
+    // set on the element rather than baked into the parse string to avoid escaping the creds.
     GError *err = nullptr;
     m_pipeline = gst_parse_launch(
         "rtspsrc name=src drop-on-latency=true ! decodebin ! videoconvert "
-        "! video/x-raw,format=RGBA ! appsink name=sink sync=false max-buffers=2 drop=true",
+        "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true",
         &err);
     if (!m_pipeline) {
         setErrored(true, err ? QString::fromUtf8(err->message) : QStringLiteral("pipeline build failed"));
@@ -331,34 +340,54 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
     GstCaps *caps = gst_sample_get_caps(sample);
     GstVideoInfo info;
     GstBuffer *buf = gst_sample_get_buffer(sample);
-    GstMapInfo map;
+    GstVideoFrame vframe;
     QVideoFrame frame;
-    if (caps && gst_video_info_from_caps(&info, caps) && gst_buffer_map(buf, &map, GST_MAP_READ)) {
+    if (caps && gst_video_info_from_caps(&info, caps)
+        && GST_VIDEO_INFO_FORMAT(&info) == GST_VIDEO_FORMAT_NV12   // pipeline forces NV12; guard defensively
+        && gst_video_frame_map(&vframe, &info, buf, GST_MAP_READ)) {
         const int w = GST_VIDEO_INFO_WIDTH(&info);
         const int h = GST_VIDEO_INFO_HEIGHT(&info);
-        const int srcStride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0);
         static thread_local bool resLogged = false;   // WT_TRACE: log each pipeline's decode resolution once
         if (!resLogged && qEnvironmentVariableIsSet("WT_TRACE")) {
             resLogged = true;
-            qInfo().noquote() << "[WT-RES] decode" << w << "x" << h << "→ RGBA buffer" << (w * h * 4 / 1024) << "KB/frame";
+            qInfo().noquote() << "[WT-RES] decode" << w << "x" << h << "→ NV12 buffer" << (w * h * 3 / 2 / 1024) << "KB/frame";
         }
-        QVideoFrame f(QVideoFrameFormat(QSize(w, h), QVideoFrameFormat::Format_RGBA8888));
+        // Carry the stream's colour space + range so Qt's NV12→RGB matches the source (otherwise
+        // the GPU shader assumes a default and colours wash out / green-shift). videoconvert used to
+        // bake this in for us; now we convert on the GPU, so we must pass it through.
+        QVideoFrameFormat fmt(QSize(w, h), QVideoFrameFormat::Format_NV12);
+        switch (GST_VIDEO_INFO_COLORIMETRY(&info).matrix) {
+        case GST_VIDEO_COLOR_MATRIX_BT601:  fmt.setColorSpace(QVideoFrameFormat::ColorSpace_BT601);  break;
+        case GST_VIDEO_COLOR_MATRIX_BT2020: fmt.setColorSpace(QVideoFrameFormat::ColorSpace_BT2020); break;
+        default:                            fmt.setColorSpace(QVideoFrameFormat::ColorSpace_BT709);  break;
+        }
+        fmt.setColorRange(GST_VIDEO_INFO_COLORIMETRY(&info).range == GST_VIDEO_COLOR_RANGE_0_255
+                          ? QVideoFrameFormat::ColorRange_Full : QVideoFrameFormat::ColorRange_Video);
+        QVideoFrame f(fmt);
         if (f.map(QVideoFrame::WriteOnly)) {
-            const int dstStride = f.bytesPerLine(0);
-            const int copy = qMin(srcStride, dstStride);
+            // Copy the two NV12 planes honouring each side's stride: Y (h rows) then the
+            // interleaved UV chroma plane (h/2 rows). No colour conversion — Qt's video shader
+            // does NV12→RGB on the GPU, so we never build the big RGBA buffer.
+            const unsigned char *srcY = static_cast<const unsigned char *>(GST_VIDEO_FRAME_PLANE_DATA(&vframe, 0));
+            const int srcYStride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 0);
+            const int dstYStride = f.bytesPerLine(0);
+            const int yCopy = qMin(srcYStride, dstYStride);
             for (int y = 0; y < h; ++y)
-                std::memcpy(f.bits(0) + qsizetype(y) * dstStride,
-                            map.data + qsizetype(y) * srcStride, copy);
-            // Sample for the "empty surface" green BEFORE unmapping. If it's that flat
-            // green (a decoder zero-buffer, not a real picture), drop it: don't deliver,
-            // don't mark playing — the VideoSurface stays covered and the reconnect
-            // watchdog keeps trying, so the operator never sees green.
-            const bool empty = isEmptyGreenSurface(f.bits(0), w, h, dstStride);
+                std::memcpy(f.bits(0) + qsizetype(y) * dstYStride, srcY + qsizetype(y) * srcYStride, yCopy);
+            const unsigned char *srcUV = static_cast<const unsigned char *>(GST_VIDEO_FRAME_PLANE_DATA(&vframe, 1));
+            const int srcUVStride = GST_VIDEO_FRAME_PLANE_STRIDE(&vframe, 1);
+            const int dstUVStride = f.bytesPerLine(1);
+            const int uvCopy = qMin(srcUVStride, dstUVStride);
+            for (int y = 0; y < h / 2; ++y)
+                std::memcpy(f.bits(1) + qsizetype(y) * dstUVStride, srcUV + qsizetype(y) * srcUVStride, uvCopy);
+            // Drop the decoder "empty surface" (flat green) BEFORE delivering — the VideoSurface
+            // stays covered and the reconnect watchdog keeps trying, so the operator never sees green.
+            const bool empty = isEmptyGreenNV12(f.bits(0), dstYStride, f.bits(1), dstUVStride, w, h);
             f.unmap();
             if (!empty)
                 frame = f;
         }
-        gst_buffer_unmap(buf, &map);
+        gst_video_frame_unmap(&vframe);
     }
     gst_sample_unref(sample);
 
