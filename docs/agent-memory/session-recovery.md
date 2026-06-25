@@ -12,8 +12,29 @@ metadata:
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
-## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`41dbef6`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
+HEAD **`0d68a2b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`0d68a2b` **🟢 P0 RESOLVED — the live-video OOM crash is fixed by building on Qt 6.8.3 (verified
+leak-free).** The Qt 6.4.2 VideoOutput leak (below) has no client-side workaround, so upgraded Qt:
+installed **6.8.3 user-space via aqtinstall at `/home/cilex-vision/Qt/6.8.3/gcc_64`**, built watchtower
+against it with **ZERO source changes** (`cmake -B build68 -DCMAKE_PREFIX_PATH=…/6.8.3/gcc_64`), run via
+**`./run-watchtower.sh`** (launcher sets lib/plugin/QML paths → `build68/watchtower`). **VERIFIED on real
+Wayland: cap-9 wall, 90 s, 10,608 frames, RSS FLAT ~950 MB** (was 8.5 GB → OOM in 30 s on 6.4.2). 6.8.3
+ALSO fixes the GridLayout SIGSEGV. System Qt 6.4.2 (`build/`) = offscreen checks only now. Docs:
+DEVELOPMENT.md Build/Gotchas, PROJECT_STATUS.md. The VideoFrameItem custom-item attempt was reverted
+(all client render paths leak on 6.4.2). ·
+`aa5aebe` **🔴 P0 — the recurring "Terminated" is earlyoom OOM-killing us for a Qt 6.4.2 VideoOutput
+LEAK (not a code crash).** "Terminated"=SIGTERM; earlyoom's log: `SIGTERM … "watchtower" … VmRSS
+9025 MiB`. Instrumented + traced: a steady **per-frame leak** — pipeline count flat at 9, RSS climbs
+~3.4 MB per delivered frame (~260 MB/s at 9 decodes) → 8 GB in ~30 s → earlyoom. Bisected to
+`m_sink->setVideoFrame()` (the VideoOutput path). **EXHAUSTIVELY proven it's Qt 6.4.2, not us:** leaks
+identically on OpenGL+Vulkan+software RHIs, AND with the legacy QMediaPlayer source into the same
+VideoOutput. Tried 3 client render paths — VideoOutput (3.4 MB/f), custom QSGSimpleTextureNode+
+createTextureFromImage (6.8), QQuickPaintedItem/FBO (6.4) — **ALL leak** (reverted; no simple client
+fix exists on 6.4.2). **KEPT (committed): a fatal-signal handler (prints signal+RSS at death →
+self-classifies OOM-SIGTERM vs code-SIGSEGV) + `WT_TRACE=1` → `[WT-MEM] rss/live_pipelines/frames`
+every 2 s + RtspVideoSource::livePipelineCount()/totalFramesDelivered().** Decision (operator: "both"):
+**Qt upgrade is the ONLY fix (also kills the GridLayout bug)** → done + verified in `0d68a2b` (above).
 `41dbef6` **finished the minimize SIGSEGV fix — converted the last 3 GridLayouts to `Grid`.** Follow-up
 to 63aa381: `EvTriage.qml` (Events facts grid — the confirmed Events crash, 158px matched the log),
 `PlaybackCalendar.qml` (7-col day grid, Playback+Wall), `OpsSidebar.qml` (Live 2×2 stats — survived
@@ -120,7 +141,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `41dbef6`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `0d68a2b` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
