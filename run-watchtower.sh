@@ -21,6 +21,11 @@ if [[ ! -d "$QT/lib" ]]; then
     exit 1
 fi
 
+# Cap glibc malloc arenas. The app runs ~73 threads (≈8 GStreamer/Qt threads per live pipeline);
+# glibc otherwise spins up an arena per thread (up to 8×cores), each retaining freed memory it never
+# returns to the OS. Capping to 2 trims ~30–50 MB of that retention at negligible cost for a video app.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+
 export LD_LIBRARY_PATH="$QT/lib:${LD_LIBRARY_PATH:-}"
 export QT_PLUGIN_PATH="$QT/plugins"
 export QML_IMPORT_PATH="$QT/qml"

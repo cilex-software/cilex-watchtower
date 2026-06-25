@@ -337,6 +337,11 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
         const int w = GST_VIDEO_INFO_WIDTH(&info);
         const int h = GST_VIDEO_INFO_HEIGHT(&info);
         const int srcStride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0);
+        static thread_local bool resLogged = false;   // WT_TRACE: log each pipeline's decode resolution once
+        if (!resLogged && qEnvironmentVariableIsSet("WT_TRACE")) {
+            resLogged = true;
+            qInfo().noquote() << "[WT-RES] decode" << w << "x" << h << "→ RGBA buffer" << (w * h * 4 / 1024) << "KB/frame";
+        }
         QVideoFrame f(QVideoFrameFormat(QSize(w, h), QVideoFrameFormat::Format_RGBA8888));
         if (f.map(QVideoFrame::WriteOnly)) {
             const int dstStride = f.bytesPerLine(0);
