@@ -428,6 +428,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
                                   const QString &purpose, bool hevcCapable,
                                   const QVariantMap &post)
 {
+    m_lastExport = { cameraId, wallStartIso, wallEndIso, mode, destPath, groupId, purpose, post, true };
     QNetworkRequest req{QUrl(m_baseUrl + "/review/exports")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body{{"camera_id", cameraId}, {"wall_start", wallStartIso},
@@ -459,6 +460,15 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
         emit exportStarted(jobId);
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
     });
+}
+
+void PlaybackClient::retryLastExportAsHigh()
+{
+    if (!m_lastExport.valid)
+        return;
+    const LastExport e = m_lastExport;   // copy — createExport overwrites m_lastExport
+    createExport(e.cameraId, e.wallStart, e.wallEnd, e.mode, e.destPath, e.groupId, e.purpose,
+                 /*hevcCapable=*/true, e.post);
 }
 
 void PlaybackClient::createMosaicExport(const QString &sessionId, const QString &wallStartIso,

@@ -59,6 +59,10 @@ public:
                                   const QString &groupId = QString(), const QString &purpose = QString(),
                                   bool hevcCapable = true,   // true = High (H.265 main original), false = Standard (H.264 sub)
                                   const QVariantMap &post = QVariantMap());
+    // Re-run the last single-camera export as High (hevc_capable=true). For when a Standard export
+    // fails because the camera's sub-stream wasn't recorded for that window — the High main is still
+    // there (Cilex Vision reply9 / our reply10, option 1). No-op if there was no prior export.
+    Q_INVOKABLE void retryLastExportAsHigh();
     Q_INVOKABLE void pollExport(const QString &jobId);
 
     // Combined synchronized-grid export (E2): render a window of a mosaic session
@@ -154,6 +158,11 @@ private:
     QHash<QString, QString> m_macToCamId;
     QHash<QString, QString> m_exportDest;   // jobId -> local file path
     QHash<QString, QVariantMap> m_exportPost;   // jobId -> client post-process opts (compression/overlays)
+    // Last single-camera export request, so a "Standard failed: no sub footage" can be re-run
+    // one-click as High (the main stream is still there). See retryLastExportAsHigh().
+    struct LastExport { QString cameraId, wallStart, wallEnd, mode, destPath, groupId, purpose;
+                        QVariantMap post; bool valid = false; };
+    LastExport m_lastExport;
     void runPostProcess(const QString &jobId, const QString &srcPath,
                         const QString &dstPath, const QVariantMap &post);
 };

@@ -524,12 +524,22 @@ Window {
             toastHost.show("Clip saved", "Saved to " + Artifacts.exportDir, "good", "Open folder", "file://" + Artifacts.exportDir)
         }
         function onExportFailed(jobId, err) {
-            toastHost.show("Export failed", err === "" ? "The clip could not be exported" : err, "bad", "", "")
+            // A Standard export over a window whose sub-stream wasn't recorded now fails honestly
+            // (Cilex Vision reply9) and points at High — offer a one-click re-run from the main
+            // stream (option 1). Match the backend's hint; a structured reason code is on our ask list.
+            if (err.indexOf("High export") >= 0 || err.indexOf("sub-stream") >= 0)
+                toastHost.show("Standard unavailable for this window", err, "bad",
+                               "Export as High instead", "", "retryExportHigh")
+            else
+                toastHost.show("Export failed", err === "" ? "The clip could not be exported" : err, "bad", "", "")
         }
     }
 
     // Toast stack overlay (snapshot feedback now; alerts later).
-    ToastHost { id: toastHost }
+    ToastHost {
+        id: toastHost
+        onActionInvoked: (actionId) => { if (actionId === "retryExportHigh") playbackClient.retryLastExportAsHigh() }
+    }
 
     // Save-current-view modal (O03) — opened from Live Monitor or Saved Views.
     SaveViewModal {

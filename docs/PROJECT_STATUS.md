@@ -4,7 +4,7 @@ _Last updated: 2026-06-21. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
-## Current status (2026-06-21) — native-720p shipped + verified; aged-window export bug open (Q-CV6)
+## Current status (2026-06-25) — Q-CV6 FIXED (CV `b002010`, verified both sides); 3 dead-sub cameras flagged (likely == our green-tile/snapshot symptoms)
 
 All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchtower` to run HEAD.**
 
@@ -23,14 +23,26 @@ All P1–P6 complete; this section is the live edge. **Relaunch `./build/watchto
   Q-CV5/Q-W1/Q-W2 all yes). Client label flipped — drawer reads **"Standard · 720p"** (`sourceHeight`
   1080→720), no-upscale ladder now offers Original + 480p. **Verified live from our side:** a
   fresh-window Standard export reports `resolution 1280x720` (~747 KB/8 s), and the playback manifest
-  shows `delivery_profile h264-main-720p` for every sub fragment. **Q-W3 → Q-CV6 (open, non-blocking, CV's court):** re-exports of
-  *pre-deploy-rendered / aged* windows still deliver **1080p** (byte-identical 8848 B across 3 fresh
-  post-deploy jobs). CV (reply7) says the warm-path rendition cache is keyed by
-  `(segment_id, delivery_profile)` so "no fix needed" — but our Q-CV6 re-test (reply8) shows the
-  **export worker's aged/cold path still serves the old 1080p rendition** even though the live session
-  reports `no_recording` for that window. Common path (recent footage) is correctly 720p; only old
-  Standard footage is affected. Thread:
-  `docs/letters/2026-06-20-export-quality-and-client-side-compression.reply8.md`.
+  shows `delivery_profile h264-main-720p` for every sub fragment. **Q-CV6 — FIXED (CV `b002010`, reply9; verified
+  both sides 2026-06-25).** Root cause was *not* a stale rendition or window age: that 1080p "clip" was a
+  **black-fill** — cam `…ff9a`'s **sub-stream stopped recording 06-11**, so a Standard (sub-only) export of a
+  06-18 window had an all-`no_recording` manifest, and the export worker black-filled the whole window at a
+  hardcoded `h264-main-1080p` default → an 8.8 KB black clip mislabeled `ready`. CV now **fails honestly** when a
+  window has zero footage in the selected quality. Verified from our side: Standard over `…ff9a` →
+  `state=failed` (`error_msg` = "…try a High export"), no artifact; High over the same window → `ready
+  2560×1440 1.18 MB`. The `error_msg` field is what our poller reads, so it surfaces verbatim.
+  **Client (option 1) shipped:** the failure toast offers one-click **"Export as High instead"**
+  (`PlaybackClient.retryLastExportAsHigh()` + a ToastHost callback action). Option 2 (backend
+  Standard-from-main) declined — our local `ClipTranscoder` ladder already does small-720p-from-main.
+
+  **NEW open thread — 3 dead-sub cameras (recording-side, CV investigating; likely == our green-tile/snapshot
+  symptoms):** CV found `…ff9a` (sub last 06-11), `…3a0d` (06-19), `…3a4b` (06-24) recording **main but not
+  sub**. `…3a0d` is the camera whose go2rtc `frame.jpeg` snapshot throws "Unsupported image format" in our
+  picker, and dead subs are exactly what produce the green/stalled live tiles we've been patching. **Open
+  question to CV (Q-W4): camera-side (affects our live wall + picker, which stream the sub) or recorder-side
+  (recording only)?** Plus Q-W5 (ETA to restore subs) and Q-W6 (a structured `failure_reason` code so our
+  option-1 trigger isn't prose-matched). Thread:
+  `docs/letters/2026-06-20-export-quality-and-client-side-compression.reply{9,10}.md`.
 
 **Other this arc:** green-wall fixes (reconciled camId-keyed `gridModel` → no tile rebuild on
 poll/relayout; see DEVELOPMENT.md gotcha); brighter scrubber ruler + dated playhead watermark;
