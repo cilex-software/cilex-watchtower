@@ -12,11 +12,69 @@
 #include <QProcessEnvironment>
 #include <gst/gst.h>
 #include <sys/resource.h>
+#include <csignal>
+#include <cstring>
+#include <cstdio>
+#include <unistd.h>
+#include <fcntl.h>
+#include <execinfo.h>
 
 #include "AuthController.h"
 #include "models/CvImageProvider.h"
+#include "models/RtspVideoSource.h"
 
 namespace {
+
+// This process's resident size in MB, read from /proc/self/statm. Uses only open/read/close so
+// it is safe to call from the fatal-signal handler below.
+long readRssMb()
+{
+    int fd = ::open("/proc/self/statm", O_RDONLY);
+    if (fd < 0)
+        return -1;
+    char b[64];
+    ssize_t n = ::read(fd, b, sizeof(b) - 1);
+    ::close(fd);
+    if (n <= 0)
+        return -1;
+    b[n] = '\0';
+    long pagesTotal = 0, pagesResident = 0;
+    if (std::sscanf(b, "%ld %ld", &pagesTotal, &pagesResident) != 2)
+        return -1;
+    return pagesResident * (sysconf(_SC_PAGESIZE) / 1024) / 1024;
+}
+
+// Fatal-signal handler. Prints WHAT killed the process and the RSS at death, so the terminal log
+// alone disambiguates the two very different failure modes we keep hitting:
+//   • SIGTERM / SIGKILL at high RSS  → the OS/earlyoom killed us for memory ("Terminated"/"Killed") —
+//     NOT a code bug; the fix is to use less RAM.
+//   • SIGSEGV / SIGABRT / SIGBUS     → a genuine code crash — a backtrace follows.
+// Re-raises with the default handler so the real exit status / core dump is preserved.
+void wtFatalHandler(int sig)
+{
+    long rss = readRssMb();
+    char line[320];
+    int len = std::snprintf(line, sizeof(line),
+        "\n[WT-FATAL] killed by signal %d (%s); RSS=%ld MB. "
+        "SIGTERM(15)/SIGKILL(9) at high RSS = OOM/earlyoom (memory pressure), not a code crash; "
+        "SIGSEGV(11)/SIGABRT(6)/SIGBUS(7) = code crash, backtrace follows.\n",
+        sig, ::strsignal(sig), rss);
+    if (len > 0)
+        ::write(STDERR_FILENO, line, size_t(len));
+    if (sig == SIGSEGV || sig == SIGABRT || sig == SIGBUS || sig == SIGFPE) {
+        void *bt[64];
+        int n = ::backtrace(bt, 64);
+        ::backtrace_symbols_fd(bt, n, STDERR_FILENO);   // async-signal-safe (unlike _symbols)
+    }
+    ::signal(sig, SIG_DFL);
+    ::raise(sig);
+}
+
+void installCrashHandlers()
+{
+    for (int s : {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGTERM})
+        ::signal(s, wtFatalHandler);
+}
 
 // Load the self-hosted, bundled fonts (OFL) so the families are available to
 // every QML file without a per-file FontLoader.
@@ -61,6 +119,9 @@ void maybeArmScreenshot(QQmlApplicationEngine &engine)
 
 int main(int argc, char *argv[])
 {
+    // Capture the death cause (OOM/earlyoom SIGTERM vs a real code SIGSEGV) before anything else.
+    installCrashHandlers();
+
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
@@ -197,6 +258,20 @@ int main(int argc, char *argv[])
     engine.load(QUrl(entry));
 
     maybeArmScreenshot(engine);
+
+    // WT_TRACE: every 2 s log RSS + live VA-API pipeline count + total frames, so RSS growth can be
+    // correlated with decode activity — a stable pipeline count with steadily rising RSS points to a
+    // per-decode VA-API surface leak rather than pipeline accumulation.
+    if (qEnvironmentVariableIsSet("WT_TRACE")) {
+        static QTimer memTimer;
+        QObject::connect(&memTimer, &QTimer::timeout, [] {
+            qInfo().noquote() << QStringLiteral("[WT-MEM] rss=%1MB live_pipelines=%2 frames=%3")
+                .arg(readRssMb())
+                .arg(RtspVideoSource::livePipelineCount())
+                .arg(RtspVideoSource::totalFramesDelivered());
+        });
+        memTimer.start(2000);
+    }
 
     return app.exec();
 }

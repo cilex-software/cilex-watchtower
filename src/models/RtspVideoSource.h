@@ -8,6 +8,7 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
 #include <mutex>
+#include <atomic>
 
 // Low-latency live RTSP source. Owns a GStreamer pipeline with a small rtspsrc
 // jitter buffer and pushes decoded frames into a QVideoSink (the sink a QML
@@ -55,6 +56,12 @@ public:
     // by the global build pump in the .cpp. Don't call directly — go through rebuild(),
     // which serializes builds so a burst can't wedge the shared iGPU.
     void startPipelineNow();
+
+    // Diagnostics (P0 memory trace): how many GStreamer pipelines are currently built (live VA-API
+    // decodes), and total frames delivered. Lets the memory logger correlate RSS growth with decode
+    // count (stable count + rising RSS = a per-decode VA-API leak, not pipeline accumulation).
+    static int livePipelineCount();
+    static long long totalFramesDelivered();
 
 signals:
     void urlChanged();

@@ -209,6 +209,12 @@ void RtspVideoSource::setErrored(bool e, const QString &msg)
     }
 }
 
+// P0 memory-trace diagnostics (see header): live GStreamer pipelines + total frames delivered.
+static std::atomic<int> g_livePipelines{0};
+static std::atomic<long long> g_totalFrames{0};
+int RtspVideoSource::livePipelineCount() { return g_livePipelines.load(); }
+long long RtspVideoSource::totalFramesDelivered() { return g_totalFrames.load(); }
+
 void RtspVideoSource::teardown()
 {
     PipelineBuildPump::instance().cancel(this);   // drop any queued (not-yet-started) build
@@ -221,6 +227,7 @@ void RtspVideoSource::teardown()
         m_bus = nullptr;
     }
     if (m_pipeline) {
+        --g_livePipelines;   // P0 trace: a built pipeline is being torn down
         // Clear appsink callbacks so the streaming thread won't dereference us
         // after we return. The thread that owns the pipeline below will still
         // see this — the appsink is part of the pipeline.
@@ -309,6 +316,7 @@ void RtspVideoSource::startPipelineNow()
     m_busWatch = gst_bus_add_watch(m_bus, &RtspVideoSource::onBus, this);
 
     gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+    ++g_livePipelines;   // P0 trace: a new pipeline is now live
 }
 
 GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
@@ -391,6 +399,7 @@ void RtspVideoSource::deliver()
         m_sink->setVideoFrame(frame);
     setErrored(false);
     setPlaying(true);
+    ++g_totalFrames;   // P0 trace: a frame reached the sink
 }
 
 gboolean RtspVideoSource::onBus(GstBus *, GstMessage *msg, gpointer self)
