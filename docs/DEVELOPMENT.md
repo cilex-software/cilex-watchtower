@@ -4,7 +4,7 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 
 ## Stack (locked)
 
-- **UI**: Qt 6.4.2 + Qt Quick / QML (GPU scene-graph compositing). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
+- **UI**: Qt **6.8.3** + Qt Quick / QML (GPU scene-graph compositing) — build against 6.8.3, **NOT** Ubuntu 24.04's system Qt 6.4.2, which has two fatal bugs (a QtMultimedia VideoOutput memory leak and a GridLayout SIGSEGV — see Build and Gotchas). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
 - **Core**: C++17.
 - **Video**: QtMultimedia `MediaPlayer` + `VideoOutput` (QML), GStreamer backend, **VA-API HW decode** (confirmed on Intel Alder Lake-S iGPU, iHD driver). See "qml6glsink" gotcha below.
 - **Persistence**: two stores — `QSettings` (INI) for small operator state (prefs, event acks, saved views), and **SQLite** via `CameraStore` for the local camera inventory at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`. Groups, events, and footage are not persisted locally — they come live from cilex-vision.
@@ -13,8 +13,29 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 
 ## Build / run / verify
 
+> **Build and run against Qt 6.8.3 — the system Qt 6.4.2 leaks/crashes in live use.** Ubuntu 24.04's
+> Qt 6.4.2 has a QtMultimedia **VideoOutput memory leak** (live video retains ~one frame-buffer per
+> rendered frame → ~260 MB/s on a 9-tile wall → ~9 GB → earlyoom SIGTERMs the app in ~30 s) and a
+> QtQuick.Layouts **GridLayout SIGSEGV** on maximize/minimize. Both are fixed in 6.8.3, which the app
+> builds and runs on **unmodified**. Install it user-space once and build against it:
+>
+> ```bash
+> python3 -m venv /tmp/aqtenv && /tmp/aqtenv/bin/pip install aqtinstall
+> /tmp/aqtenv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 \
+>     -m qtmultimedia qtshadertools -O "$HOME/Qt"        # ~2 GB; pulls the wayland plugins too
+> cmake -G Ninja -B build68 -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64" -S . && cmake --build build68
+> ./run-watchtower.sh        # launcher: points lib/plugin/QML paths at 6.8.3, runs build68/watchtower
+> ```
+>
+> Verified leak-free on real Wayland: cap-9 live wall, 90 s / 10,608 frames, RSS flat at ~950 MB (vs
+> 8.5 GB → OOM in 30 s on 6.4.2). The GridLayout workarounds (manual camera grid, `Grid` positioners)
+> are harmless on 6.8.3 and can be reverted later if desired.
+
+The system-Qt 6.4.2 build still compiles and is fine for **offscreen** smoke/screenshot checks (no
+video), but leaks/crashes in live use — don't ship or live-test on it:
+
 ```bash
-cmake -G Ninja -B build -S . && cmake --build build   # -> build/watchtower
+cmake -G Ninja -B build -S . && cmake --build build   # system Qt 6.4.2 — offscreen checks only
 ```
 
 - **Headless smoke test** (no display): `QT_QPA_PLATFORM=offscreen timeout 6 ./build/watchtower`
@@ -62,6 +83,7 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
 
 - **Qt 6.4 resource prefix**: `qt_add_qml_module` defaults to `/<URI>`, not `/qt/qml/`. We pin `RESOURCE_PREFIX "/qt/qml"` so `main.cpp` loads `qrc:/qt/qml/Watchtower/qml/Main.qml`. `loadFromModule()` doesn't exist in 6.4 — load by URL.
 - **qml6glsink doesn't work** on Ubuntu 24.04's `gstreamer1.0-qt6` 1.24.2 (the `Qt6GLVideoItem` QML type never registers). We use **QtMultimedia** instead (verified VA-API HW decode). Don't reintroduce the direct-qml6glsink path without re-checking.
+- **Qt 6.4.2 has two fatal bugs — build on 6.8.3 (see Build).** (1) QtMultimedia `VideoOutput` leaks ~one frame-buffer per rendered frame: bisected to `m_sink->setVideoFrame()`, reproduced on OpenGL/Vulkan/software RHI and with **both** RtspVideoSource and QMediaPlayer, and custom render paths (QSGSimpleTextureNode + `createTextureFromImage`, QQuickPaintedItem/FBO) leak *worse* — there is **no client-side workaround on 6.4.2**. → ~260 MB/s on a 9-tile wall → earlyoom SIGTERM (the "Terminated" the operator saw) in ~30 s. (2) `GridLayout` SIGSEGVs in `QQuickGridLayoutBase::rearrange` after minimize/restore. **6.8.3 fixes both** (verified). The diagnostics that found it stay in `main.cpp`: a **fatal-signal handler** (prints signal + RSS at death → instantly tells OOM-SIGTERM from a code SIGSEGV) and `WT_TRACE=1` (`[WT-MEM] rss/live_pipelines/frames` every 2 s).
 - **Namespaced attached properties**: with `import QtQuick.Controls.Basic as QC`, use `QC.ScrollBar.vertical`, not `ScrollBar.vertical` (else "Non-existent attached object").
 - **Camera IP lockout**: HiWatch/Hikvision lock an IP ~30 min after failed logins. Do **not** run the full live wall against all cameras during dev (per-camera creds incomplete) — use `WT_TEST_IP`. A tile streams only when its `videoActive` is true (Live Monitor visible); a hidden Live Monitor that keeps players open hammers cameras.
 - **Live status polls every 15s**: `CameraModel::pollStatuses()` GETs `/streams` and patches rows **in place** (`dataChanged` per row), never `beginResetModel()` — a reset would tear down every tile's RTSP pipeline each tick. (`WT_NO_POLL=1` disables it.)
