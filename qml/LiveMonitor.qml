@@ -106,9 +106,22 @@ Item {
     // LOOP-FREE: every term is a STABLE implicitWidth — a hidden button keeps its implicit size,
     // and toolbarSpacer.x stays at the (fixed) left-content width — so collapsing never changes
     // the decision that triggered it. Sort + full-screen stay inline (compact, always reachable).
-    readonly property bool _tbCollapsed: headerRow.width > 0
+    // Whether the right-hand actions WANT to collapse — recomputed live, including mid-resize.
+    readonly property bool _tbWantCollapse: headerRow.width > 0
         && (toolbarSpacer.x + goBackBtn.implicitWidth + saveBtn.implicitWidth + arrangeBtn.implicitWidth
             + sortControl.implicitWidth + fullBtn.implicitWidth + 5 * headerRow.spacing + 8) > headerRow.width
+    // The APPLIED collapse state that drives the buttons' `visible`. It is updated on a DEFERRED
+    // tick (the timer below), never synchronously from the binding above: toggling a RowLayout
+    // child's visibility *during the layout's own resize rearrange* re-enters QGridLayoutEngine and
+    // crashes on a dangling attached Layout property (SIGSEGV in QQuickGridLayoutBase::rearrange —
+    // reproduced by maximize/minimize). Deferring moves the toggle to the next tick, after the
+    // resize pass unwinds, so the layout is never mutated re-entrantly.
+    property bool _tbCollapsed: false
+    Timer {
+        interval: 0; repeat: false
+        running: root._tbWantCollapse !== root._tbCollapsed
+        onTriggered: root._tbCollapsed = root._tbWantCollapse
+    }
     property string pickerSearch: ""
     property string pickerGroup: ""      // picker group filter ("" = all groups)
     property bool pickerHideShown: false // hide cameras already on the visible wall
@@ -1000,13 +1013,20 @@ Item {
                     ? ({ cols: root.cols, rows: root.rows })
                     : LayoutSpec.bestGrid(root.fillCount, width, height, 16 / 9)
 
-                GridLayout {
+                // Manual cell positioning — NOT a QtQuick.Layouts GridLayout. On Qt 6.4.2 a
+                // GridLayout SIGSEGVs in QQuickGridLayoutBase::rearrange after the window is
+                // minimized and restored (a dangling attached-Layout access — reproduced by
+                // maximize/minimize cycling). Computing each cell's x/y/w/h avoids the layout engine
+                // entirely. Handles both auto-fit (1×1 cells) and feature spans (cw/ch). gSpace=1.
+                Item {
+                    id: gridArea
                     anchors.fill: parent
                     anchors.margins: 1
-                    columns: gridFrame.fitGrid.cols
-                    rows: gridFrame.fitGrid.rows
-                    rowSpacing: 1
-                    columnSpacing: 1
+                    readonly property int gCols: Math.max(1, gridFrame.fitGrid.cols)
+                    readonly property int gRows: Math.max(1, gridFrame.fitGrid.rows)
+                    readonly property real gSpace: 1
+                    readonly property real cellW: (width - (gCols - 1) * gSpace) / gCols
+                    readonly property real cellH: (height - (gRows - 1) * gSpace) / gRows
 
                     Repeater {
                         id: gridRepeater
@@ -1022,12 +1042,10 @@ Item {
                                 ? (index < root.lcells.length ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 }))
                                 : ({ c: index % gridFrame.fitGrid.cols,
                                      r: Math.floor(index / gridFrame.fitGrid.cols), cw: 1, ch: 1 })
-                            Layout.row: cell.r
-                            Layout.column: cell.c
-                            Layout.rowSpan: cell.ch
-                            Layout.columnSpan: cell.cw
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
+                            x: cell.c * (gridArea.cellW + gridArea.gSpace)
+                            y: cell.r * (gridArea.cellH + gridArea.gSpace)
+                            width: cell.cw * gridArea.cellW + (cell.cw - 1) * gridArea.gSpace
+                            height: cell.ch * gridArea.cellH + (cell.ch - 1) * gridArea.gSpace
 
                             CameraTile {
                                 id: liveTile
@@ -1135,10 +1153,10 @@ Item {
                         delegate: Rectangle {
                             required property int index
                             readonly property int ci: root.fillCount + index
-                            Layout.row: Math.floor(ci / gridFrame.fitGrid.cols)
-                            Layout.column: ci % gridFrame.fitGrid.cols
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
+                            x: (ci % gridArea.gCols) * (gridArea.cellW + gridArea.gSpace)
+                            y: Math.floor(ci / gridArea.gCols) * (gridArea.cellH + gridArea.gSpace)
+                            width: gridArea.cellW
+                            height: gridArea.cellH
                             color: Theme.tileBg
                         }
                     }
