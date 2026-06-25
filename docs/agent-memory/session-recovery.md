@@ -13,7 +13,21 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–22) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`79b58c8`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`63aa381`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`63aa381` **maximize/MINIMIZE SIGSEGV fixed — camera grid positioned manually, not GridLayout.**
+Operator's "crashed on maximize/minimize" ("Terminated" = shell reporting a crashed window) is a
+**Qt 6.4.2 Quick Layouts bug**: minimize→restore corrupts a `QQuickGridLayout` engine state, the next
+rearrange derefs a dangling attached-Layout (`QQuickGridLayoutBase::rearrange`→`qmlAttachedPropertiesObject`).
+Repro: cycle `win.visibility` Maximized/Windowed/**Minimized**; maximize-ONLY survives 40, +minimize
+crashes in ~4. Ruled OUT: memory, hang, the responsive toolbar (crashes with it off), window size
+(stays 1440×900), render loop (basic crashes too). FIX: the Live camera grid is now a plain `Item`
+with cells placed by computed x/y/w/h (`gridArea` gCols/gRows/gSpace/cellW/cellH; handles auto-fit
+1×1 + feature spans cw/ch + fillers) — no layout engine to corrupt. **Verified: Live survives 40
+cycles (was segfault).** Toolbar collapse also deferred (0ms timer) to avoid re-entrant visible-toggle.
+**⚠️ KNOWN-REMAINING same bug (other screens, NOT yet converted): `EvTriage.qml:333` (Events facts
+grid — confirmed crashes), `PlaybackCalendar.qml:76` (day grid, Playback/Wall — likely). `OpsSidebar.
+qml:56` is also a GridLayout but SURVIVED the 40-cycle Live test. Convert these to manual/`Grid` the
+same way; only 3 `GridLayout {` left in qml/. Long-term: Qt upgrade past 6.4.2.** ·
 `79b58c8` **Q-CV6 FIXED (CV reply9, `b002010`) + one-click "Export as High"** — the "aged 1080p export"
 was a BLACK clip: cam `…ff9a`'s SUB stopped recording 06-11, so a Standard (sub-only) export of a
 main-only window got an all-`no_recording` manifest and the worker black-filled it at a hardcoded
@@ -101,7 +115,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `79b58c8`.
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `63aa381`.
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
