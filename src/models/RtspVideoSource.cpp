@@ -285,6 +285,52 @@ void RtspVideoSource::rebuild()
     PipelineBuildPump::instance().request(this);
 }
 
+// Decoder-selection diagnostics + policy for the live GStreamer path. decodebin auto-picks a decoder:
+// VA-API on Linux, and on Windows it SHOULD pick the D3D11/DXVA hardware decoder — never a bundled
+// SOFTWARE H.264/H.265 decoder, which costs CPU and carries codec-patent exposure the OS/GPU path avoids.
+// These callbacks read only env (no instance state) so they are safe on the streaming thread.
+//
+// onAutoplugSelect runs per candidate decoder: under WT_TRACE it logs the codec + factory + HW/SW, and
+// under WT_HW_ONLY it SKIPs any non-hardware video decoder (decodebin then tries the next, or fails — the
+// tile errors and the reconnect watchdog retries — rather than silently software-decoding).
+// decodebin's GstAutoplugSelectResult enum is plugin-private (no public header); use its integer values.
+enum { WtAutoplugTry = 0, WtAutoplugExpose = 1, WtAutoplugSkip = 2 };
+static gint onAutoplugSelect(GstElement *, GstPad *, GstCaps *caps,
+                             GstElementFactory *factory, gpointer)
+{
+    const char *klass = gst_element_factory_get_klass(factory);
+    if (!klass || !std::strstr(klass, "Decoder") || !std::strstr(klass, "Video"))
+        return WtAutoplugTry;
+    const bool isHardware = std::strstr(klass, "Hardware") != nullptr;
+    static const bool hwOnly = qEnvironmentVariableIsSet("WT_HW_ONLY");
+    static const bool trace  = qEnvironmentVariableIsSet("WT_TRACE");
+    const bool skip = hwOnly && !isHardware;
+    if (trace) {
+        const char *codec = (caps && gst_caps_get_size(caps) > 0)
+            ? gst_structure_get_name(gst_caps_get_structure(caps, 0)) : "?";
+        qInfo().noquote() << "[WT-DEC]" << codec << "candidate"
+                          << gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory))
+                          << (isHardware ? "(hardware)" : "(SOFTWARE)")
+                          << (skip ? "-> SKIPPED (WT_HW_ONLY)" : "-> try");
+    }
+    return skip ? WtAutoplugSkip : WtAutoplugTry;
+}
+
+// onDeepDecoderAdded logs the decoder actually instantiated (the definitive "what is running") under
+// WT_TRACE — autoplug-select only shows candidates considered, not the final binding.
+static void onDeepDecoderAdded(GstBin *, GstBin *, GstElement *element, gpointer)
+{
+    static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+    if (!trace)
+        return;
+    GstElementFactory *f = gst_element_get_factory(element);
+    const char *klass = f ? gst_element_factory_get_klass(f) : nullptr;
+    if (!klass || !std::strstr(klass, "Decoder") || !std::strstr(klass, "Video"))
+        return;
+    qInfo().noquote() << "[WT-DEC] using" << gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(f))
+                      << (std::strstr(klass, "Hardware") ? "(hardware)" : "(SOFTWARE - patent/perf risk)");
+}
+
 void RtspVideoSource::startPipelineNow()
 {
     // Invoked by the global build pump (staggered). Re-check we still want to stream and
@@ -299,7 +345,7 @@ void RtspVideoSource::startPipelineNow()
     // set on the element rather than baked into the parse string to avoid escaping the creds.
     GError *err = nullptr;
     m_pipeline = gst_parse_launch(
-        "rtspsrc name=src drop-on-latency=true ! decodebin ! videoconvert "
+        "rtspsrc name=src drop-on-latency=true ! decodebin name=dec ! videoconvert "
         "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true",
         &err);
     if (!m_pipeline) {
@@ -319,6 +365,15 @@ void RtspVideoSource::startPipelineNow()
         cbs.new_sample = &RtspVideoSource::onNewSample;
         gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &cbs, this, nullptr);
         gst_object_unref(sinkEl);
+    }
+
+    // Watch (and optionally enforce) which decoder decodebin binds — so a Windows build can VERIFY it
+    // runs DXVA/D3D11 hardware decode, never a bundled software H.264/H.265 decoder (perf + codec-patent
+    // exposure). WT_TRACE logs the codec + decoder; WT_HW_ONLY refuses software video decoders outright.
+    if (GstElement *dec = gst_bin_get_by_name(GST_BIN(m_pipeline), "dec")) {
+        g_signal_connect(dec, "autoplug-select", G_CALLBACK(onAutoplugSelect), nullptr);
+        g_signal_connect(dec, "deep-element-added", G_CALLBACK(onDeepDecoderAdded), nullptr);
+        gst_object_unref(dec);
     }
 
     m_bus = gst_element_get_bus(m_pipeline);
