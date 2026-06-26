@@ -1,0 +1,4 @@
+# Fetched GStreamer runtime + packaging output — never commit binaries (fetch/build them instead).
+_gstreamer/
+*.msi
+*-setup.exe

@@ -190,3 +190,36 @@ target_link_libraries(watchtower PRIVATE
     Qt6::Multimedia
     PkgConfig::GST
 )
+
+# ---------------------------------------------------------------------------
+# Windows packaging (scaffold). Inert on Linux/macOS — only configures when WIN32,
+# so the current Linux build is unaffected. See packaging/windows/README.md.
+# The shared C++/QML above is cross-platform; this is the only platform-specific
+# build logic (decode platform differences are handled at runtime by decodebin +
+# #ifdef Q_OS_WIN in the C++, not here).
+# ---------------------------------------------------------------------------
+if(WIN32)
+    enable_language(RC)
+
+    # GUI subsystem (no console window) + embed app.manifest (Win10/11 compat, long-path,
+    # per-monitor-v2 DPI, UTF-8, UAC asInvoker) and version info via the resource script.
+    set_target_properties(watchtower PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_sources(watchtower PRIVATE packaging/windows/watchtower.rc)
+
+    # We embed our own manifest via the .rc; stop MSVC's linker from generating a second one.
+    if(MSVC)
+        target_link_options(watchtower PRIVATE /MANIFEST:NO)
+    endif()
+
+    # Bundle the runtime: windeployqt (Qt DLLs/QML/plugins) + the GStreamer LGPL subset.
+    # Explicit target:  cmake --build <dir> --target deploy-windows
+    # (Requires a Windows build against Qt 6.8.3 — see packaging/windows/README.md.)
+    add_custom_target(deploy-windows
+        COMMAND powershell -ExecutionPolicy Bypass -File
+                "${CMAKE_SOURCE_DIR}/packaging/windows/deploy.ps1"
+                -ExePath "$<TARGET_FILE:watchtower>"
+                -QmlDir  "${CMAKE_SOURCE_DIR}/qml"
+        DEPENDS watchtower
+        VERBATIM
+        COMMENT "windeployqt + GStreamer bundling (packaging/windows/deploy.ps1)")
+endif()

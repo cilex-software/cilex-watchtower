@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Cilex Watchtower — Windows application manifest.
+  Embedded into the executable via watchtower.rc (RT_MANIFEST). Qt >= 6.11 can auto-generate
+  this, but on the Qt 6.8.3 LTS we build against today it does not, so we ship our own.
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity type="win32" name="com.cilexvision.watchtower" version="0.1.0.0"
+                    processorArchitecture="*"/>
+  <description>Cilex Watchtower — VMS operator client</description>
+
+  <!-- UAC: run with the invoking user's privileges; no elevation. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!-- Declare Windows 10 / 11 support so QOperatingSystemVersion + OS APIs report correctly. -->
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/> <!-- Windows 10 and 11 -->
+    </application>
+  </compatibility>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <!-- Per-monitor-v2 DPI awareness — crisp UI across mixed-DPI multi-monitor video walls. -->
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <dpiAware    xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <!-- Long-path support (paths > 260 chars). -->
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+      <!-- UTF-8 active code page (Windows 10 1903+) so non-ASCII paths/strings work. -->
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>
