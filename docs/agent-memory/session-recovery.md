@@ -13,7 +13,26 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`0e1cdf0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`9b192de`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`9b192de` **Windows-port scaffold — `packaging/windows/` + `if(WIN32)` CMake skeleton.** Decided (after
+a `/deep-research` run): **same repo, not separate** (98 shared cross-platform files; Windows = the same
+app + conditionals + packaging; runtime binaries fetched not committed). Created app.manifest (Win10/11,
+long-path, PerMonitorV2 DPI, UTF-8, UAC asInvoker), watchtower.rc (manifest+version; .ico TODO),
+fetch-gstreamer-windows.ps1, deploy.ps1 (windeployqt + GStreamer LGPL subset — copy step is TODO),
+installer.nsi, README. CMake `if(WIN32)`: RC + WIN32_EXECUTABLE + /MANIFEST:NO + a `deploy-windows`
+target. **Inert on Linux — verified Linux still builds clean + the target is absent off-Windows.**
+`a038b41` **HW-decode instrumentation + enforcement (`WT_HW_ONLY`).** Decode is rank-based + silently
+falls back to software: Linux `va` plugin `vah264dec`/`vah265dec` (rank 257, klass `…/Hardware`) edge
+out software `avdec_*` (256); Windows = `d3d11h264dec` (DXVA) vs `avdec`. `WT_TRACE`→`[WT-DEC]` logs
+codec+decoder+HW/SW (via `decodebin` autoplug-select/deep-element-added); `WT_HW_ONLY=1` refuses
+software video decoders → guarantees no software H.26x decode (perf + codec-patent: OS/GPU decoder
+carries the patent licence). Qt's QMediaPlayer backend here = **FFmpeg 7.1 LGPL** (same on Windows).
+Mechanism validated standalone; full-app `[WT-DEC]` live-check pending (the wall built 0 pipelines — a
+backend/streaming/login state, NOT this code: pipeline parses, hooks are inside startPipelineNow).
+**Qt-version decision (deep-research): SHIP WINDOWS ON 6.8.3 LTS; 6.12 is Beta 1 (final ~22 Sep 2026,
+next LTS) — revisit then. The GStreamerVideoSource 6.12 feature is Linux-only + we don't use Qt's
+source API anyway.** Licensing: LGPL is satisfiable (dynamic-link + notices) or buy commercial; the
+real cost is H.264/H.265 codec PATENTS (mitigated by OS/HW decode). Legal/NOTICE work parked per operator. ·
 `0e1cdf0` **memory profiling + NV12 optimization (steady-state ~958→~825 MB).** Operator asked why the
 9-tile wall uses ~958 MB ("just broadcasting video"). Profiled (NOT a leak — flat): smaps = 81% (~800 MB)
 anonymous heap, only ~170 MB libs. **Key finding: cap-1 ≈ cap-9 RSS (~960 MB)** → cost is per-TILE
@@ -154,7 +173,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `0e1cdf0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `9b192de` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
