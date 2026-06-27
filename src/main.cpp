@@ -196,6 +196,12 @@ int main(int argc, char *argv[])
     // non-live tiles decode small JPEGs instead of full-res — measures the snapshot-side memory saving
     // of display-resolution rendering. 0 (unset) = decode at native size (current behaviour).
     engine.rootContext()->setContextProperty("wtThumbScale", qEnvironmentVariableIntValue("WT_THUMB_SCALE"));
+    // Test drivers (env-gated, inert unless set): programmatic resize / playback-seek / events stress
+    // harnesses that drive the UI deterministically and log timestamps for the external CPU/RSS sampler.
+    engine.rootContext()->setContextProperty("wtResizeTest", qEnvironmentVariableIsSet("WT_RESIZE_TEST"));
+    engine.rootContext()->setContextProperty("wtSeekTest", qEnvironmentVariableIsSet("WT_SEEK_TEST"));
+    engine.rootContext()->setContextProperty("wtSeekIters", qEnvironmentVariableIntValue("WT_SEEK_ITERS"));
+    engine.rootContext()->setContextProperty("wtEventsTest", qEnvironmentVariableIsSet("WT_EVENTS_TEST"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).

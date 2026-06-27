@@ -393,6 +393,112 @@ Item {
     }
     function setZoom(spanMin) { openFor(camera, spanMin); }
 
+    // ===== Seek-latency test driver (WT_SEEK_TEST) =====
+    // Drives N jumps per step size and times each from the seek COMMAND to the ACTUAL frame update.
+    // The FFmpeg/HLS backend renders nothing on a PAUSED seek, so we keep playing and detect the seek
+    // landing as a >400ms single-frame jump in the frame's media timestamp (normal 1x playback advances
+    // ~33-66ms/frame). Works in compact-position space (player.position). [SK] lines feed the analyzer.
+    property int    _skFrames: 0
+    property var    _skJobs: []
+    property int    _skJi: -1
+    property double _skT0: 0
+    property int    _skDir: 1
+    property string _skLabel: ""
+    property int    _skReq: 0
+    property real   _skAct: 0
+    property bool   _skWaiting: false
+    property int    _skFramesAtSeek: 0
+    property string _skCurStep: ""
+    property int    _skStepFail: 0
+    property int    _skStepSeen: 0
+    readonly property bool _skActive: (typeof wtSeekTest !== "undefined" && wtSeekTest === true)
+    Connections {
+        target: vout.videoSink; enabled: root._skActive
+        function onVideoFrameChanged(frame) {
+            root._skFrames++;
+            // Single-threaded QML guarantees no frame fires between _skFramesAtSeek=_skFrames and the
+            // player.position write in _skSeek, and the HLS backend flushes the sink on seek — so the
+            // FIRST frame delivered after a seek IS the new position rendering. (frame.startTime is
+            // unavailable on these frames, so content-based detection isn't possible — count is.)
+            if (root._skWaiting && root._skFrames > root._skFramesAtSeek) {
+                root._skWaiting = false;
+                root._skFinish(Date.now() - root._skT0, true);
+            }
+        }
+    }
+    Connections {
+        target: root.client; enabled: root._skActive
+        function onSessionReady(sid, dur, fragments, meta) { if (root._skJi === -1) _skStart.restart(); }
+    }
+    Timer { id: _skStart; interval: 2500; onTriggered: root._skBegin() }
+    Timer {
+        id: _skWait; interval: 50; repeat: true; running: false
+        property double deadline: 0
+        onTriggered: { if (Date.now() > deadline && root._skWaiting) root._skFinish(Date.now() - root._skT0, false); }
+    }
+    function _skBegin() {
+        if (root._skJi !== -1) return;
+        var steps = [["1s",1000],["10s",10000],["30s",30000],["1m",60000],["5m",300000],["10m",600000],
+                     ["20m",1200000],["45m",2700000],["1h",3600000],["2h",7200000],["3h",10800000],
+                     ["5h",18000000],["7.5h",27000000],["12h",43200000],["17h",61200000],["24h",86400000]];
+        var N = (typeof wtSeekIters !== "undefined" && wtSeekIters > 0) ? wtSeekIters : 100;
+        root._skJobs = [];
+        for (var s = 0; s < steps.length; s++)
+            for (var k = 0; k < N; k++) root._skJobs.push({ l: steps[s][0], d: steps[s][1] });
+        console.log("[SK] BEGIN n=" + root._skJobs.length + " iters=" + N +
+                    " compactDur_h=" + (compactDuration / 3600).toFixed(2) + " t=" + Date.now());
+        player.play();
+        _skWarmup.start();
+    }
+    Timer {
+        id: _skWarmup; interval: 100; repeat: true; running: false
+        property double t0: 0
+        onRunningChanged: if (running) t0 = Date.now()
+        onTriggered: {
+            if (root._skFrames > 5) {                              // decoder live + frames flowing
+                _skWarmup.stop();
+                console.log("[SK] WARMED frames=" + root._skFrames + " pos=" + player.position + " t=" + Date.now());
+                root._skJi = 0; root._skSeek();
+            } else if (Date.now() - t0 > 12000) {
+                _skWarmup.stop();
+                console.log("[SK] WARMUP-FAIL frames=" + root._skFrames + " t=" + Date.now()); Qt.quit();
+            }
+        }
+    }
+    function _skSeek() {
+        // Skip a step's remaining iters once it has deterministically frozen (3/3 timeouts) — keeps the
+        // run feasible instead of burning 100x the timeout on a dead step.
+        while (root._skJi < root._skJobs.length) {
+            var jb = root._skJobs[root._skJi];
+            if (jb.l !== root._skCurStep) { root._skCurStep = jb.l; root._skStepFail = 0; root._skStepSeen = 0; }
+            if (root._skStepSeen >= 3 && root._skStepFail >= 3) { root._skJi++; continue; }
+            break;
+        }
+        if (root._skJi >= root._skJobs.length) { console.log("[SK] DONE n=" + root._skJi + " t=" + Date.now()); Qt.quit(); return; }
+        var job = root._skJobs[root._skJi];
+        root._skStepSeen++;
+        var lo = 1000, hi = compactDuration * 1000 - 4000;        // compact-ms space (player.position)
+        var base = player.position;
+        root._skDir = -root._skDir;
+        var tgt = base + root._skDir * job.d;
+        if (tgt < lo || tgt > hi) tgt = base - root._skDir * job.d;   // reflect off the footage edge
+        if (tgt < lo) tgt = lo;
+        if (tgt > hi) tgt = hi;
+        root._skAct = Math.abs(tgt - base);
+        root._skLabel = job.l; root._skReq = job.d;
+        root._skFramesAtSeek = root._skFrames;                    // detect the first frame delivered after this seek
+        root._skWaiting = true; root._skT0 = Date.now();
+        player.position = tgt;                                    // the core seek
+        _skWait.deadline = Date.now() + 5000; _skWait.start();
+    }
+    function _skFinish(lat, ok) {
+        _skWait.stop(); root._skWaiting = false;
+        if (!ok) root._skStepFail++;
+        console.log("[SK] s=" + root._skLabel + " req=" + root._skReq + " act=" + Math.round(root._skAct) +
+                    " lat=" + lat + " " + (ok ? "ok" : "TIMEOUT") + " t=" + Date.now());
+        root._skJi++; root._skSeek();
+    }
+
     Connections {
         target: root.client
         enabled: root.client !== null

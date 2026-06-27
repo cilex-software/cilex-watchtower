@@ -26,6 +26,31 @@ Window {
     property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
     property bool opsSidebarOpen: true  // Live page right-hand panel (OpsSidebar) — toggled from the Live toolbar
 
+    // --- Resize stress-test driver (WT_RESIZE_TEST): drives programmatic resizes for the external
+    //     CPU/RSS sampler. Phase 1 (0-120s) random non-extreme sizes; phase 2 (120-240s) degenerate
+    //     edge cases. Logs requested + actual-granted size each tick (timestamps align with the sampler).
+    property double _rtStart: 0
+    property int _rtN: 0
+    Timer {
+        running: typeof wtResizeTest !== "undefined" && wtResizeTest === true
+        interval: 400; repeat: true
+        readonly property var extremes: [[1,1],[1920,40],[40,1080],[3000,60],[60,2000],[100,100],
+            [2560,1440],[1,900],[900,1],[3840,2160],[200,1200],[1200,200],[50,50],[1600,30],[30,1600]]
+        onTriggered: {
+            if (win._rtStart === 0) { win._rtStart = Date.now(); console.log("[RT] START t=" + Date.now()); }
+            if (win._rtN > 0) console.log("[RT] act " + win.width + "x" + win.height + " t=" + Date.now());
+            var el = (Date.now() - win._rtStart) / 1000.0;
+            if (el > 240) { console.log("[RT] DONE n=" + win._rtN + " t=" + Date.now()); Qt.quit(); return; }
+            var w, h, ph;
+            if (el < 120) { ph = "normal"; w = 600 + Math.floor(Math.random()*840); h = 400 + Math.floor(Math.random()*500); }
+            else if (Math.random() < 0.6) { ph = "extreme"; var e = extremes[Math.floor(Math.random()*extremes.length)]; w = e[0]; h = e[1]; }
+            else { ph = "extreme"; w = 1 + Math.floor(Math.random()*4000); h = 1 + Math.floor(Math.random()*2500); }
+            win._rtN++;
+            console.log("[RT] req " + w + "x" + h + " ph=" + ph + " n=" + win._rtN + " t=" + Date.now());
+            win.width = w; win.height = h;
+        }
+    }
+
     // Enter synchronized wall playback. Seeds from the operator's persisted wall
     // layout when one exists, else from the cameras currently on the wall page.
     function enterWallPlayback() {
@@ -209,7 +234,9 @@ Window {
                         else
                             playbackScreen.openForDay(wtPlaybackDay);   // dev: a specific day (warm/hot/mixed footage)
                     } else {
-                        playbackScreen.openFor(all[i], 60);
+                        // Seek-latency test (WT_SEEK_TEST) needs the widest session the backend serves
+                        // (24h = 1440min) so the larger jump steps have footage to land on.
+                        playbackScreen.openFor(all[i], (typeof wtSeekTest !== "undefined" && wtSeekTest) ? 1440 : 60);
                     }
                     break;
                 }

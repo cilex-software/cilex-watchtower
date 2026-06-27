@@ -104,6 +104,54 @@ Item {
     // isolated from the main Playback screen's session so they never collide.
     PlaybackClient { id: heroClient }
 
+    // ===== Events stress-test driver (WT_EVENTS_TEST) =====
+    // For 15 min, cycles tabs + selects events to stress the Events area, and times each event-select
+    // to the hero playback session opening (click -> playback-open). [EV] lines feed the analyzer.
+    property bool   _evActive: (typeof wtEventsTest !== "undefined" && wtEventsTest === true)
+    property double _evStart: 0
+    property int    _evN: 0
+    property double _evOpenT0: -1
+    Timer {
+        id: _evBoot; interval: 500; repeat: true; running: area._evActive
+        onTriggered: {
+            if (EventsStore.events.length > 0) {
+                _evBoot.stop(); area._evStart = Date.now();
+                console.log("[EV] BEGIN events=" + EventsStore.events.length + " t=" + Date.now());
+                _evTick.start();
+            }
+        }
+    }
+    Connections {
+        target: heroClient; enabled: area._evActive
+        function onSessionReady(sid, dur, frags, meta) {
+            if (area._evOpenT0 >= 0) {
+                console.log("[EV] open lat=" + (Date.now() - area._evOpenT0) + " t=" + Date.now());
+                area._evOpenT0 = -1;
+            }
+        }
+    }
+    Timer {
+        id: _evTick; interval: 1500; repeat: true; running: false
+        readonly property var tabs: ["triage", "review", "timeline", "map"]
+        onTriggered: {
+            if (Date.now() - area._evStart > 900000) {
+                console.log("[EV] DONE n=" + area._evN + " t=" + Date.now()); Qt.quit(); return;
+            }
+            area._evN++;
+            if (Math.random() < 0.5 && EventsStore.events.length > 0) {
+                area.mode = "triage";
+                var ev = EventsStore.events[Math.floor(Math.random() * EventsStore.events.length)];
+                area._evOpenT0 = Date.now();
+                area.selId = ev.id;
+                console.log("[EV] select id=" + ev.id + " n=" + area._evN + " t=" + Date.now());
+            } else {
+                var tb = _evTick.tabs[Math.floor(Math.random() * 4)];
+                area.mode = tb;
+                console.log("[EV] tab=" + tb + " n=" + area._evN + " t=" + Date.now());
+            }
+        }
+    }
+
     readonly property var _modes: [
         { id: "triage",   n: "01", label: "Triage Queue",      tag: "Clear the backlog",
           why: "<font color='#f0ece4'><b>Inbox triage.</b></font> Work the queue top-down by priority — watch the event clip inline, run the response procedure, and record a disposition. Best when one operator must clear a backlog of unhandled alarms fast." },
