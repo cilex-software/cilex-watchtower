@@ -13,7 +13,24 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`52af1b0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`f99504a`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+**ACTION-LIST OUTCOMES from the 3 stress tests (worked through with operator):**
+`fb9efa8` **A1 FIXED — playback far-seek freeze.** `seekToWall()` now detects a far target (>20s from the
+current compact pos) and calls new `seekFar()`, which re-opens a short ~30min session STARTING ~15s before
+the target + seeks on load (mirrors EvHeroPlayer event-open) — target lands near the start of a fresh short
+HLS, no cross-discontinuity seek, renders. Verified: before = ≥30s jumps all TIMEOUT; after = ok=32/0,
+far jumps render 3-391ms. **Trade-off (prototype): a far jump re-centres the scrubber to ~30min; polish
+follow-up = decouple the scrubber timeline from the player's loaded window.** Added `WT_SEEK_SPAN` knob;
+seek harness now routes through `seekToWall`. · `f99504a` **A3 DONE — backend letter**
+`docs/letters/2026-06-27-playback-seek-discontinuities-and-session-span.md` (asks: continuous-timeline HLS
+so seeks don't need the workaround; + the ~24-36h session-span cap). · **A2 NOT FIXED — events leak
+(~+100 MB/min browsing).** Operator-chosen experiment (recreate the hero MediaPlayer per event via a Loader)
+**FAILED: reuse +104 MB/min vs recreate +140 MB/min** → the leak is NOT the player-object lifecycle; it's
+deeper in the per-HLS-source-open path (QtMultimedia FFmpeg shared context / `HlsProxy` / un-closed backend
+sessions — PlaybackClient never sends `DELETE /review/sessions/<id>`). Experiment reverted. **Logged as
+known P2; next directions: audit HlsProxy per-session teardown, or revisit when a profiler works / Qt
+upgrade.** heaptrack still crashes this stack. Also: produced a 6-page PDF exec report (reportlab in a
+`/tmp/pdfvenv`; `/tmp/make_report.py`). ·
 `52af1b0` **test(harness): 3 env-gated UI-driver stress tests + an external /proc CPU/RSS sampler
 (`/tmp/sampler.py`) + matplotlib graphers (`/tmp/graph_test{1,2,3}.py`, `/tmp/run_test*.sh`).** Drivers
 (inert unless env set): `WT_RESIZE_TEST` (Main.qml, logs `[RT]`), `WT_SEEK_TEST`+`WT_SEEK_ITERS`
@@ -214,7 +231,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `52af1b0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `f99504a` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
