@@ -13,7 +13,24 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`d1f2a8c`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`52af1b0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`52af1b0` **test(harness): 3 env-gated UI-driver stress tests + an external /proc CPU/RSS sampler
+(`/tmp/sampler.py`) + matplotlib graphers (`/tmp/graph_test{1,2,3}.py`, `/tmp/run_test*.sh`).** Drivers
+(inert unless env set): `WT_RESIZE_TEST` (Main.qml, logs `[RT]`), `WT_SEEK_TEST`+`WT_SEEK_ITERS`
+(PlaybackScreen.qml, opened via `WT_PLAYBACK_IP` @ 24h session, logs `[SK]`), `WT_EVENTS_TEST`
+(EventsArea.qml via `WT_SECTION=events`, logs `[EV]`). **FINDINGS (2 real bugs to fix):**
+**(1) ▸RESIZE = CLEAN** — 600 resizes incl. 1×1/3840×2160, no crash, no leak (RSS floor flat ~160MB),
+only transient framebuffer spikes at 3-4K sizes that return. **(2) ▸PLAYBACK SEEK = BUG** — in-buffer
+jumps render fast (1s≈36ms, 10s≈101ms, n=100) but **EVERY jump ≥30s FREEZES** (position moves, player
+says Playing/Buffered, 0 frames for 45s). Real: scrubber-click + event-click both → `seekToWall`→
+`player.position`. Cause = FFmpeg HLS demuxer stalling across the 24h session's ~2879 fragment
+**discontinuities**. Day-scale jumps untestable: **backend caps a review session span at ~24-36h** (24h
+ok / 36h+ returns empty; footage itself exists ≥4d). Playback mem plateaus ~780MB (HEVC 2560×1440, no
+leak). **(3) ▸EVENTS = LEAK** — 15min browsing (cycling tabs + selecting events) climbs RSS **+642MB
+(582→1223, sawtooth, NO plateau)**, driven by event-select→hero-recording-open; click→playback-open
+latency median 67ms/mean 143ms/max 1157ms (n=295), no crash. (Backend playback contract: `POST
+/review/sessions {camera_id,wall_start,wall_end,hevc_capable}` cookie-auth → `{session_id,manifest:{
+wall_start,wall_end,fragments[]}}`; `frame.startTime` is unavailable on the HLS QVideoFrames.) ·
 `d1f2a8c` **perf: decode snapshot tiles at display size — MEASURED ~224 MB (-33%) wall saving (the
 biggest memory win yet).** Ran the videoscale + LiveThumb.sourceSize sweep the operator asked for, with
 real stats (offscreen, N=5/config, Welch t-test, MALLOC_ARENA_MAX=2, cap-9). **Finding inverted my
@@ -197,7 +214,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `d1f2a8c` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `52af1b0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
