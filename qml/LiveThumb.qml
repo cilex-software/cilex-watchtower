@@ -15,6 +15,13 @@ Rectangle {
     property bool active: true
     property int refreshMs: 4000
     property bool showOctet: true
+    // Decode snapshots at the tile's display size, NOT full camera resolution. A snapshot tile is only
+    // ever shown at tile size, so full-res JPEG decode (QImage + GPU texture, ×2 for the imgA/imgB
+    // no-blank refresh) was pure waste — measured ~224 MB across the wall (N=5, p<.001; on-screen the
+    // wall drops 677→~450 MB). wtThumbScale (WT_THUMB_SCALE) forces a fixed width for A/B testing.
+    readonly property size _srcSize: (typeof wtThumbScale !== "undefined" && wtThumbScale > 0)
+        ? Qt.size(wtThumbScale, Math.round(wtThumbScale * 9 / 16))
+        : Qt.size(Math.ceil(width), Math.ceil(height))
     property bool showStatus: true
     signal clicked()
 
@@ -43,7 +50,7 @@ Rectangle {
     Image {
         id: imgA
         anchors.fill: parent; anchors.margins: 1
-        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 220 } }
         onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; }
@@ -51,7 +58,7 @@ Rectangle {
     Image {
         id: imgB
         anchors.fill: parent; anchors.margins: 1
-        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 0 : 1
         Behavior on opacity { NumberAnimation { duration: 220 } }
         onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; }

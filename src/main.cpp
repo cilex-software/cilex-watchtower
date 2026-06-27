@@ -192,6 +192,10 @@ int main(int argc, char *argv[])
     // table-style EventsScreen.
     engine.rootContext()->setContextProperty("wtDemo", qEnvironmentVariableIsSet("WT_DEMO"));
     engine.rootContext()->setContextProperty("wtEventsLegacy", qEnvironmentVariableIsSet("WT_EVENTS_LEGACY"));
+    // Measurement knob (WT_THUMB_SCALE=<px>): cap the snapshot-tile Image sourceSize to <px> wide so
+    // non-live tiles decode small JPEGs instead of full-res — measures the snapshot-side memory saving
+    // of display-resolution rendering. 0 (unset) = decode at native size (current behaviour).
+    engine.rootContext()->setContextProperty("wtThumbScale", qEnvironmentVariableIntValue("WT_THUMB_SCALE"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).

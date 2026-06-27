@@ -344,10 +344,22 @@ void RtspVideoSource::startPipelineNow()
     // passthrough when the decoder already outputs NV12 (it does for H.264/H.265 VA decode). The URL is
     // set on the element rather than baked into the parse string to avoid escaping the creds.
     GError *err = nullptr;
-    m_pipeline = gst_parse_launch(
+    // Measurement knob (WT_DECODE_SCALE=WxH, e.g. "480x270"): insert a videoscale so the post-decode
+    // frame buffers (appsink NV12 → QVideoFrame → texture — the RSS-resident copies, NOT the GPU decode
+    // surfaces) are produced at WxH instead of native 720p. Lets us MEASURE the per-tile frame-buffer
+    // saving of display-resolution rendering before committing to the real (dynamic) implementation.
+    QByteArray pipeStr =
         "rtspsrc name=src drop-on-latency=true ! decodebin name=dec ! videoconvert "
-        "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true",
-        &err);
+        "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true";
+    const QList<QByteArray> wh = qgetenv("WT_DECODE_SCALE").split('x');
+    if (wh.size() == 2 && !wh[0].trimmed().isEmpty() && !wh[1].trimmed().isEmpty()) {
+        pipeStr = QByteArray(
+            "rtspsrc name=src drop-on-latency=true ! decodebin name=dec ! videoscale ! videoconvert "
+            "! video/x-raw,format=NV12,width=") + wh[0].trimmed() + ",height=" + wh[1].trimmed() +
+            " ! appsink name=sink sync=false max-buffers=2 drop=true";
+        qInfo("[WT-RES] WT_DECODE_SCALE active — decoding to %s", pipeStr.mid(pipeStr.indexOf("width=")).constData());
+    }
+    m_pipeline = gst_parse_launch(pipeStr.constData(), &err);
     if (!m_pipeline) {
         setErrored(true, err ? QString::fromUtf8(err->message) : QStringLiteral("pipeline build failed"));
         if (err) g_error_free(err);
