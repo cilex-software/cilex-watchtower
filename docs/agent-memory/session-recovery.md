@@ -13,7 +13,19 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`40d09a1`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`d1f2a8c`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`d1f2a8c` **perf: decode snapshot tiles at display size — MEASURED ~224 MB (-33%) wall saving (the
+biggest memory win yet).** Ran the videoscale + LiveThumb.sourceSize sweep the operator asked for, with
+real stats (offscreen, N=5/config, Welch t-test, MALLOC_ARENA_MAX=2, cap-9). **Finding inverted my
+guess: the SNAPSHOT tiles, not the live decode, are the sink.** LiveThumb's two Images (imgA/imgB
+no-blank refresh) had NO sourceSize → each non-live tile decoded a full-res JPEG → QImage+texture, ×2.
+Results vs 558.8±11.7 MB baseline: snapshots→tile-size **−223.8 MB [209,239] t=42 p<.001**; live
+videoscale 480×270 only −47.8 MB [33,62]; live 160×90 ceiling −55.8 MB (⇒ **row-4 zero-copy ceiling is
+≤56 MB — NOT worth building**); both −261 MB. **On-screen N=3 confirmed transfer: wall 677→421 MB
+(−38%).** Screenshot-verified all 16 tiles render (no visual change). SHIPPED: LiveThumb sourceSize
+defaults to tile size. Kept env knobs (inert unless set): **`WT_DECODE_SCALE=WxH`** (videoscale live
+decode — optional, costs live res, NOT default) + **`WT_THUMB_SCALE=<px>`** (A/B test). Sweep harness:
+`/tmp/sweep.sh` + `/tmp/analyze.py`. Wall = 16 tiles (9 live + 7 snapshot ≈ 32 MB/snap full-res). ·
 `40d09a1` **fix: `WT_CV_AUTOLOGIN` without `WT_CV_URL` wiped the base URL → empty wall (0 cameras/0
 pipelines on cold launch).** `loginWithPassword("")` overwrote m_baseUrl; now falls back to
 `auth->baseUrl()`. **THIS is why cold-launch profiling runs showed `live_pipelines=0` — NOT a decode
@@ -185,7 +197,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `40d09a1` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `d1f2a8c` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
