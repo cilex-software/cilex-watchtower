@@ -13,7 +13,12 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`b61474d`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`c0d9238`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`c0d9238` **perf: clawed back the A2 baseline — lazy-load non-Triage event views.** A2's StackLayout kept
+all 4 views resident (~580→~980MB). Now Triage stays resident; Verify/Timeline/Map lazy-load on first
+visit then LATCH active (never destroyed → no recreate-leak). Measured: **Triage-idle 484MB** (even below
+pre-A2 ~580, since lazy-play no longer auto-loads a recording); all-tabs plateau 981MB **slope +0 (flat,
+leak still fixed)**. Further claw-back of the 981 (release a hidden view's Canvas/image) deferred. ·
 **ACTION-LIST OUTCOMES from the 3 stress tests — ALL 3 NOW CLOSED (worked through with operator):**
 `fb9efa8` **A1 FIXED — playback far-seek freeze.** `seekToWall()` now detects a far target (>20s from the
 current compact pos) and calls new `seekFar()`, which re-opens a short ~30min session STARTING ~15s before
@@ -237,7 +242,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `b61474d` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `c0d9238` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
