@@ -166,7 +166,10 @@ int main(int argc, char *argv[])
     // WT_CV_USER/WT_CV_PASS service creds (previous always-on behaviour).
     if (qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN") && !auth->authenticated()) {
         const auto env = QProcessEnvironment::systemEnvironment();
-        auth->loginWithPassword(env.value("WT_CV_URL"),
+        // Fall back to the base URL restoreSession() already resolved (saved settings, or the built-in
+        // default) when WT_CV_URL is unset — otherwise loginWithPassword() overwrites it with "" and
+        // the auto-login silently fails (no token → /streams 401 → empty wall).
+        auth->loginWithPassword(env.value("WT_CV_URL", auth->baseUrl()),
                                 env.value("WT_CV_USER", "admin"),
                                 env.value("WT_CV_PASS", "admin"));
     }
