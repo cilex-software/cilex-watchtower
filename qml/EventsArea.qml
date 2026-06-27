@@ -320,11 +320,12 @@ Item {
         }
 
         // ============ stage — the active view ============
-        // StackLayout keeps all four views ALIVE (currentIndex toggles which shows). The old Loader
-        // recreated a view on every tab-switch; recreating ANY view interleaved with event-selections
-        // leaked ~+44 MB/min (measured: select-only flat, tab-only flat, but select+tab-recreate leaks —
-        // and keeping only Triage alive still leaked, so all four must persist). The cost is a higher,
-        // BOUNDED baseline (all views resident) in exchange for zero growth.
+        // The old Loader recreated a view on every tab-switch; recreating ANY view interleaved with event
+        // selections leaked ~+44 MB/min (measured: select-only flat, tab-only flat, but select+recreate
+        // leaks — and keeping only Triage alive still leaked). So views must persist once created.
+        // Triage (default + most-used) is always resident; the other three LAZY-load on first visit and
+        // then STAY (latched `active` — never destroyed, so no recreate-leak). A triage-focused session
+        // keeps the low ~580MB baseline; only the tabs an operator actually opens add their cost.
         StackLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             currentIndex: area.mode === "triage" ? 0
@@ -333,13 +334,20 @@ Item {
             EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
                        onSelect: (id) => area.selId = id
                        onExportClip: (c, a, p) => area.exportClip(c, a, p) }
-            EvVerify { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
-            EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
-            EvMap {
-                onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; }
-                onOpenWall: (ids) => area.openWall(ids)
-                onOpenLive: (ids) => area.openLive(ids)
-            }
+            Loader { property bool _seen: false; active: _seen; sourceComponent: reviewC
+                     StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
+            Loader { property bool _seen: false; active: _seen; sourceComponent: timelineC
+                     StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
+            Loader { property bool _seen: false; active: _seen; sourceComponent: mapC
+                     StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
         }
     }
+
+    Component { id: reviewC;   EvVerify   { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } } }
+    Component { id: timelineC; EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } } }
+    Component { id: mapC;      EvMap {
+        onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; }
+        onOpenWall: (ids) => area.openWall(ids)
+        onOpenLive: (ids) => area.openLive(ids)
+    } }
 }
