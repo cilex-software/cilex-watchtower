@@ -454,5 +454,5 @@ Item {
     }
 
     Component { id: heroMockC; EvPlayer { ev: tri._cur } }
-    Component { id: heroRealC; EvHeroPlayer { ev: tri._cur; playbackClient: tri.playbackClient } }
+    Component { id: heroRealC; EvHeroPlayer { ev: tri._cur; playbackClient: tri.playbackClient; surfaced: tri.active } }
 }

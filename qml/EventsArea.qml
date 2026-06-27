@@ -320,39 +320,26 @@ Item {
         }
 
         // ============ stage — the active view ============
-        Item {
+        // StackLayout keeps all four views ALIVE (currentIndex toggles which shows). The old Loader
+        // recreated a view on every tab-switch; recreating ANY view interleaved with event-selections
+        // leaked ~+44 MB/min (measured: select-only flat, tab-only flat, but select+tab-recreate leaks —
+        // and keeping only Triage alive still leaked, so all four must persist). The cost is a higher,
+        // BOUNDED baseline (all views resident) in exchange for zero growth.
+        StackLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-
-            Loader {
-                anchors.fill: parent
-                sourceComponent: area.mode === "triage" ? triageC
-                               : area.mode === "review" ? reviewC
-                               : area.mode === "timeline" ? timelineC
-                               : mapC
+            currentIndex: area.mode === "triage" ? 0
+                        : area.mode === "review" ? 1
+                        : area.mode === "timeline" ? 2 : 3
+            EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
+                       onSelect: (id) => area.selId = id
+                       onExportClip: (c, a, p) => area.exportClip(c, a, p) }
+            EvVerify { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
+            EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
+            EvMap {
+                onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; }
+                onOpenWall: (ids) => area.openWall(ids)
+                onOpenLive: (ids) => area.openLive(ids)
             }
-        }
-    }
-
-    Component {
-        id: triageC
-        EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
-                   onSelect: (id) => area.selId = id
-                   onExportClip: (c, a, p) => area.exportClip(c, a, p) }
-    }
-    Component {
-        id: reviewC
-        EvVerify { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
-    }
-    Component {
-        id: timelineC
-        EvTimeline { onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; } }
-    }
-    Component {
-        id: mapC
-        EvMap {
-            onOpenInTriage: (id) => { area.selId = id; area.mode = "triage"; }
-            onOpenWall: (ids) => area.openWall(ids)
-            onOpenLive: (ids) => area.openLive(ids)
         }
     }
 }

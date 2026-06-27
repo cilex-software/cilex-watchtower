@@ -22,7 +22,7 @@ Item {
     property string _sid: ""
     property var _frags: []
     property real _compactDur: 0
-    property bool _loading: true
+    property bool _loading: false
     property string _error: ""
     property int _pendingSeekMs: -1
     property bool _armed: false
@@ -44,12 +44,23 @@ Item {
         function onPlaybackStateChanged() { if (player.playbackState !== MediaPlayer.PlayingState) hp._smoothMs = player.position; }
     }
 
-    onEvChanged: hp._open()
-    Component.onCompleted: hp._open()
+    // On-demand: a new event shows its snapshot poster; the recording loads only on a play-tap.
+    // Auto-loading + the tab-switch teardown were the two events-browsing leaks (each ~+44 MB/min).
+    property bool _started: false
+    onEvChanged: hp._reset()
     Component.onDestruction: { player.stop(); player.source = ""; }
 
+    // Views are kept alive (StackLayout), so pause the recording when Triage isn't the shown tab.
+    property bool surfaced: true
+    onSurfacedChanged: if (!surfaced && player.playbackState === MediaPlayer.PlayingState) player.pause()
+
+    function _reset() {
+        _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false;
+        _pendingSeekMs = -1; _smoothMs = 0; player.stop(); player.source = "";
+    }
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
+        _started = true;
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
         player.stop(); player.source = ""; player.playbackRate = 1;
         var ts = ev.ts.getTime();
@@ -76,7 +87,10 @@ Item {
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
-    function toggle() { player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play() }  // keyboard Space
+    function toggle() {   // Space / play button: first press loads the recording on demand
+        if (!hp._started) { hp._open(); return; }
+        player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play();
+    }
 
     Connections {
         target: hp.playbackClient
@@ -142,6 +156,20 @@ Item {
                 visible: hp._loading || hp._error !== "" || player.mediaStatus < MediaPlayer.BufferedMedia
                 ev: hp.ev; showOsd: true; showPlayhead: false
             }
+            // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)
+            MouseArea {
+                anchors.fill: parent
+                visible: !hp._started && !hp._loading && hp._error === ""
+                enabled: visible; cursorShape: Qt.PointingHandCursor
+                onClicked: hp._open()
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                visible: !hp._started && !hp._loading && hp._error === ""
+                width: 56; height: 56; radius: 28
+                color: Qt.rgba(0, 0, 0, 0.55); border.width: 1.5; border.color: "#ffffff"
+                EvIcon { anchors.centerIn: parent; anchors.horizontalCenterOffset: 2; name: "play"; size: 22; color: "#ffffff" }
+            }
             Text { visible: hp._loading; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 8
                 text: "Loading recording…"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
             Text { visible: hp._error !== ""; anchors.centerIn: parent; width: parent.width * 0.7
@@ -172,7 +200,7 @@ Item {
                         Rectangle { width: 4; height: 14; color: Theme.ink } Rectangle { width: 4; height: 14; color: Theme.ink } }
                     EvIcon { anchors.centerIn: parent; visible: player.playbackState !== MediaPlayer.PlayingState; name: "play"; size: 15; color: Theme.ink }
                     MouseArea { id: pp; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play() }
+                        onClicked: hp.toggle() }
                 }
                 Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b1.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b1.containsMouse ? Theme.ink3 : Theme.line2
                     Text { anchors.centerIn: parent; text: "−10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
