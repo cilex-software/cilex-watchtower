@@ -13,7 +13,19 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`9b192de`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`40d09a1`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`40d09a1` **fix: `WT_CV_AUTOLOGIN` without `WT_CV_URL` wiped the base URL → empty wall (0 cameras/0
+pipelines on cold launch).** `loginWithPassword("")` overwrote m_baseUrl; now falls back to
+`auth->baseUrl()`. **THIS is why cold-launch profiling runs showed `live_pipelines=0` — NOT a decode
+bug.** With it fixed, `WT_CV_AUTOLOGIN=1` alone loads the wall. (Backend `/streams` needs the
+`access_token` **cookie**, not Bearer; login = `POST /auth/login` JSON {admin,admin} → 200 + cookie.)
+**heaptrack (the "tomorrow" task) is UNUSABLE on this VA-API/GStreamer/Qt stack — do not re-attempt:**
+on-screen it freezes the Qt event loop (2 timer fires in 82 s → never builds pipelines); offscreen AND
+standalone gst-launch both SIGSEGV (139) — heaptrack captured only ~2.8 MB of gst-init before crashing.
+So heap MICRO-attribution isn't feasible; the smaps MACRO-breakdown (entry below: ~460 MB shell +
+per-tile ~55 MB, ~800 MB anon = glibc arenas) stands as the answer. **Confirmed live wall HW-decodes:
+`[WT-DEC] using vah264dec (hardware)` ×9** (settles the WT_HW_ONLY question — it IS hardware). Run with
+WT_TRACE: `QT_QPA_PLATFORM=offscreen … WT_CV_AUTOLOGIN=1 WT_TRACE=1 build68/watchtower` decodes 9 @ ~550 MB. ·
 `9b192de` **Windows-port scaffold — `packaging/windows/` + `if(WIN32)` CMake skeleton.** Decided (after
 a `/deep-research` run): **same repo, not separate** (98 shared cross-platform files; Windows = the same
 app + conditionals + packaging; runtime binaries fetched not committed). Created app.manifest (Win10/11,
@@ -173,7 +185,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `9b192de` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `40d09a1` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
