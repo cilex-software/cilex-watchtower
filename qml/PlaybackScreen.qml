@@ -150,6 +150,15 @@ Item {
     function seekToWall(ms) {
         if (!player.seekable && player.duration <= 0) return;
         var pos = wallToPos(ms);
+        // A direct player.position seek to a target outside the buffered window stalls the FFmpeg HLS
+        // demuxer across the session's fragment discontinuities — the playhead moves but NO frame renders
+        // (the image freezes). For a far jump, re-open a short window that STARTS just before the target so
+        // it sits near the start and renders — the same pattern the event hero uses (EvHeroPlayer). Near
+        // jumps (within the playout buffer) keep the cheap direct seek.
+        if (frags.length > 0 && compactDuration > 60 && Math.abs(pos * 1000 - player.position) > 20000) {
+            seekFar(ms);
+            return;
+        }
         // Keep a little headroom before end-of-footage: seeking to the exact last
         // instant strands the pipeline at EOS (frozen frame, endless re-fetch of
         // the final segment). Found 2026-06-14 jumping to motion events whose time
@@ -158,6 +167,19 @@ Item {
         var p = Math.round(Math.max(0, pos) * 1000);
         player.position = p;
         root._scanPos = p;        // keep the scan accumulator in step with manual seeks
+    }
+    // Re-open a short session beginning ~15s before a far seek target (then seek to it on load), so the
+    // demuxer never has to seek across the full session's discontinuities. The target lands near the
+    // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
+    function seekFar(ms) {
+        if (!client || !camera) return;
+        _explicitStart = ms - 15000;
+        _explicitEnd = Math.min(ms - 15000 + 1800000, Date.now());   // ~30 min window from just before target
+        selectedDay = "";
+        _pendingSeekMs = ms;            // applied on session load → a small in-buffer seek that renders
+        _pendingArmed = false;
+        _pendingOpen = true;
+        tryOpen();
     }
 
     // Smoothly-interpolated player position (compact ms). MediaPlayer.position over
@@ -488,8 +510,8 @@ Item {
         root._skLabel = job.l; root._skReq = job.d;
         root._skFramesAtSeek = root._skFrames;                    // detect the first frame delivered after this seek
         root._skWaiting = true; root._skT0 = Date.now();
-        player.position = tgt;                                    // the core seek
-        _skWait.deadline = Date.now() + 5000; _skWait.start();
+        seekToWall(winStartMs + tgt);                            // route through the real user seek path (tests the fix)
+        _skWait.deadline = Date.now() + 8000; _skWait.start();
     }
     function _skFinish(lat, ok) {
         _skWait.stop(); root._skWaiting = false;

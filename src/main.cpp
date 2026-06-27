@@ -201,6 +201,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtResizeTest", qEnvironmentVariableIsSet("WT_RESIZE_TEST"));
     engine.rootContext()->setContextProperty("wtSeekTest", qEnvironmentVariableIsSet("WT_SEEK_TEST"));
     engine.rootContext()->setContextProperty("wtSeekIters", qEnvironmentVariableIntValue("WT_SEEK_ITERS"));
+    engine.rootContext()->setContextProperty("wtSeekSpan", qEnvironmentVariableIntValue("WT_SEEK_SPAN"));
     engine.rootContext()->setContextProperty("wtEventsTest", qEnvironmentVariableIsSet("WT_EVENTS_TEST"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));

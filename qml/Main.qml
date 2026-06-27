@@ -236,7 +236,8 @@ Window {
                     } else {
                         // Seek-latency test (WT_SEEK_TEST) needs the widest session the backend serves
                         // (24h = 1440min) so the larger jump steps have footage to land on.
-                        playbackScreen.openFor(all[i], (typeof wtSeekTest !== "undefined" && wtSeekTest) ? 1440 : 60);
+                        playbackScreen.openFor(all[i], (typeof wtSeekTest !== "undefined" && wtSeekTest)
+                            ? ((typeof wtSeekSpan !== "undefined" && wtSeekSpan > 0) ? wtSeekSpan : 1440) : 60);
                     }
                     break;
                 }
