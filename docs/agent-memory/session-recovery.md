@@ -13,8 +13,17 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`300a539`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`9578b1a`+`300a539` **FROZEN-SEEK FIXED in the Triage hero (the first of the 2 prompts).** Ported A1 to
+HEAD **`a9d9dd0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`a9d9dd0` **PER-OPEN LEAK INVESTIGATED → Qt-internal, unfixable client-side (2nd prompt, CLOSED as
+won't-fix-client-side).** Bisected with an open-only harness (**`WT_HERO_OPENONLY`** loops event-opens no
+seeks; **`WT_HERO_NOPLAY`** opens the session but skips the decode — both inert unless set) + /proc sampler.
+Open-only RSS slope: **play(decode) +66 MB/min · no-play(session/proxy/QNAM) FLAT −0.3 · recreate-player
++59 (NO help)**. So the leak is the **Qt-FFmpeg decode pipeline on player.source**, NOT the session/proxy
+(⇒ `DELETE /review/sessions` won't cut client RSS; HlsProxy cache is global+LRU-bounded 160MB); freed by
+neither source-clear (A2) nor destroying the player (tested a Loader-wrap recreate — reverted, no benefit).
+**Mitigation = the A3 backend continuous-HLS (kills the frozen-seek fix's per-seek re-opens, the bulk) +
+a Qt upgrade (only fix for the residual per-event leak; the harness is kept to re-bisect).** Data+graph
+`docs/perf/2026-06-28-hero-leak-bisect.*`; write-up in the leak prompt doc. · `9578b1a`+`300a539` **FROZEN-SEEK FIXED in the Triage hero (the first of the 2 prompts).** Ported A1 to
 EvHeroPlayer: new wall-time **`seekToWall`** (≤3s nudge = direct player.position; further = **`_seekFar`**
 re-opens a short session ~15s before the target → lands near the start, no cross-discontinuity stall) +
 the **tl* episode-timeline decouple** (scrubber/transport run on the episode `[start,end]` from
@@ -297,7 +306,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `300a539` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `a9d9dd0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
