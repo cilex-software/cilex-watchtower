@@ -34,6 +34,14 @@ Re-run `WT_HERO_OPENONLY` + the sampler; compare to +66 MB/min.
   the caveat — do the full regression pass before adopting.**
 - **Leaks, or won't decode** → go to Step 2.
 
+> **Feasibility note (checked 2026-06-29):** this Qt install ships **only the FFmpeg backend plugin** —
+> `ls /home/cilex-vision/Qt/6.8.3/gcc_64/plugins/multimedia/` → just `libffmpegmediaplugin.so`, no
+> `libgstreamermediaplugin.so`. So `QT_MEDIA_BACKEND=gstreamer` will **fail to load** as-is; Step 1 first
+> needs the GStreamer backend plugin — add the Multimedia component via the Qt online installer, or use a Qt
+> that ships both plugins. (System libgstreamer is partially present, `gst-vaapi` is absent.) So Step 1 is
+> *not* zero-cost on this box; if adding the plugin is awkward, Step 2 (a newer Qt that bundles both) may be
+> the better first move.
+
 > **Big caveat (do not skip):** the GStreamer backend swaps the HLS demuxer from libavformat `hls.c` to
 > GStreamer's `hlsdemux2`. Per Cilex Vision's reply8 (the hls.js note), hlsdemux2 already seeks across
 > per-fragment discontinuities — only `hls.c` stalled. So on this backend **our entire continuous-seek +
