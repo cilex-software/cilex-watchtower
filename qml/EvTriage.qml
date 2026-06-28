@@ -31,6 +31,81 @@ Item {
     Shortcut { sequence: "Space"; enabled: tri.active && !noteIn.activeFocus
         onActivated: if (heroLoader.item && heroLoader.item.toggle) heroLoader.item.toggle() }
 
+    // ---- WT_HERO_TEST: random-event + scrubber-jump latency stress (inert unless wtHeroTest set) ----
+    // Randomly select events (→ hero auto-opens via WT_HERO_AUTOPLAY; we time click→first-frame), then jump
+    // +/-1s/10s/30s/1m/5m as the episode length allows, 100 iters/step, timing seek→first-rendered-frame.
+    // The hero logs the precise [HT] latencies (frame-signal based); this state machine just sequences them.
+    property var _htSteps: [1000, 10000, 30000, 60000, 300000]
+    property var _htCount: ({})
+    property int _htJumps: 0
+    property int _htEvSeeks: 0
+    property int _htWaits: 0
+    property string _htState: "init"
+    readonly property var _ht: heroLoader.item
+    readonly property bool _htRun: (typeof wtHeroTest !== "undefined" && wtHeroTest === true) && tri.active && EventsStore.realMode
+    Timer {
+        interval: 30; repeat: true; running: tri._htRun
+        onTriggered: tri._htTick()
+    }
+    function _htTick() {
+        if (_htState === "init") {
+            if (EventsStore.events.length === 0) return;        // wait for the real feed to load
+            for (var i = 0; i < _htSteps.length; i++) _htCount[_htSteps[i]] = 0;
+            console.log("[HT] BEGIN events=" + EventsStore.events.length + " t=" + Date.now());
+            _htState = "sel"; return;
+        }
+        if (_htState === "sel") { _htSelect(); _htState = "waitopen"; _htWaits = 0; return; }
+        if (_htState === "waitopen") {
+            if (_ht && !_ht._htOpenPending && _ht.testFrames > 0 && _ht.testDurMs > 1500) { _htEvSeeks = 0; _htWaits = 0; _htState = "settle"; }
+            else if (++_htWaits > 500) { console.log("[HT] OPEN TIMEOUT t=" + Date.now()); _htState = "sel"; }   // 15s
+            return;
+        }
+        if (_htState === "settle") {                    // let the player play + buffer ahead before seeking
+            if (++_htWaits >= 70) { _htWaits = 0; _htState = "seek"; }   // ~2s
+            return;
+        }
+        if (_htState === "seek") {
+            if (_htDone()) { console.log("[HT] DONE jumps=" + _htJumps + _htSummary() + " t=" + Date.now()); Qt.quit(); return; }
+            if (_htEvSeeks >= 20) { _htState = "sel"; return; }       // periodically re-open for fresh events too
+            var step = _htPickStep();
+            if (step <= 0) { _htState = "sel"; return; }
+            _ht.testSeek((Math.random() < 0.5 ? 1 : -1) * step);
+            _htCount[step] = (_htCount[step] || 0) + 1; _htJumps++; _htEvSeeks++;
+            _htState = "waitseek"; _htWaits = 0; return;
+        }
+        if (_htState === "waitseek") {
+            if (_ht && !_ht._htSeekPending) { _htState = "seek"; _htWaits = 0; }       // rendered → next seek same episode
+            else if (++_htWaits > 60) {                                                // ~1.8s with no frame = frozen
+                console.log("[HT] SEEK TIMEOUT req=" + (_ht ? _ht._htSeekReq : 0) + " t=" + Date.now());
+                if (_ht) _ht._htSeekPending = false;
+                _htState = "sel"; _htWaits = 0;                                        // a frozen seek sticks the episode → re-open
+            }
+            return;
+        }
+    }
+    function _htSelect() {
+        var need = _htSteps.filter(function (s) { return (_htCount[s] || 0) < 100; });
+        var want = need.length ? need[Math.floor(Math.random() * need.length)] : _htSteps[Math.floor(Math.random() * _htSteps.length)];
+        var evs = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && (e.durationSec * 1000) >= (want + 4000); });
+        if (!evs.length) evs = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && e.durationSec >= 2; });
+        if (evs.length) tri.select(evs[Math.floor(Math.random() * evs.length)].id);
+    }
+    function _htPickStep() {
+        var dur = _ht ? _ht.testDurMs : 0;
+        var feas = _htSteps.filter(function (s) { return (s + 4000) <= dur && (_htCount[s] || 0) < 100; });
+        if (!feas.length) feas = _htSteps.filter(function (s) { return (s + 4000) <= dur; });
+        if (!feas.length) return -1;
+        feas.sort(function (a, b) { return (_htCount[a] || 0) - (_htCount[b] || 0); });
+        return feas[0];
+    }
+    function _htDone() {
+        if (_htJumps >= 360) return true;                       // hard cap (frozen seeks force a slow re-open each)
+        if (_htJumps < 300) return false;
+        for (var i = 0; i < _htSteps.length; i++) if ((_htCount[_htSteps[i]] || 0) < 100) return false;
+        return true;
+    }
+    function _htSummary() { var s = ""; for (var i = 0; i < _htSteps.length; i++) s += " " + (_htSteps[i] / 1000) + "s=" + (_htCount[_htSteps[i]] || 0); return s; }
+
     property string filter: "open"               // open | critical | all
     property string note: ""
     property var done: ({})                       // local SOP ticks, reset per event

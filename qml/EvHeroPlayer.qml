@@ -39,6 +39,42 @@ Item {
         onTriggered: hp._smoothMs = Math.min(player.duration > 0 ? player.duration : hp._smoothMs,
                                              hp._smoothMs + 33 * player.playbackRate)
     }
+    // ---- WT_HERO_TEST instrumentation (inert unless wtHeroTest set) ------------------------------------
+    // Precise latency from the seek/open COMMAND to the first ACTUALLY-RENDERED frame, via the video sink's
+    // frame signal (a paused seek renders nothing and player.position over HLS is coarse, so we detect the
+    // first frame the backend flushes after the command). EvTriage drives the events + jumps; we log [HT].
+    readonly property bool _htOn: (typeof wtHeroTest !== "undefined" && wtHeroTest === true)
+    property int testFrames: 0
+    property bool _htOpenPending: false
+    property double _htOpenT0: 0
+    property bool _htSeekPending: false
+    property double _htSeekT0: 0
+    property int _htSeekFramesAt: 0
+    property int _htSeekReq: 0
+    readonly property real testDurMs: player.duration
+    function testSeek(deltaMs) {
+        if (player.playbackState !== MediaPlayer.PlayingState) player.play();   // paused seeks render nothing
+        var hi = (player.duration > 4000 ? player.duration - 3000 : Math.max(0, player.duration));
+        var p = Math.round(Math.max(1000, Math.min(hi, player.position + deltaMs)));
+        _htSeekReq = deltaMs; _htSeekT0 = Date.now(); _htSeekFramesAt = testFrames; _htSeekPending = true;
+        player.position = p;
+    }
+    Connections {
+        target: vout.videoSink
+        enabled: hp._htOn
+        function onVideoFrameChanged(frame) {
+            hp.testFrames++;
+            if (hp._htOpenPending) {
+                hp._htOpenPending = false;
+                console.log("[HT] OPEN lat=" + (Date.now() - hp._htOpenT0) + " dur=" + Math.round(player.duration / 1000)
+                            + " ev=" + (hp.ev ? hp.ev.id : "?") + " t=" + Date.now());
+            } else if (hp._htSeekPending && hp.testFrames > hp._htSeekFramesAt) {
+                hp._htSeekPending = false;
+                console.log("[HT] SEEK req=" + hp._htSeekReq + " lat=" + (Date.now() - hp._htSeekT0) + " t=" + Date.now());
+            }
+        }
+    }
+
     Connections {
         target: player
         function onPositionChanged() { if (Math.abs(player.position - hp._smoothMs) > 500) hp._smoothMs = player.position; }
@@ -62,6 +98,7 @@ Item {
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
         _started = true;
+        if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
@@ -127,6 +164,7 @@ Item {
             hp._loading = false; hp._error = "";
             player.source = hp.playbackClient.playlistUrl(sid);
             player.play();
+            if (hp._htOn) { hp.testFrames = 0; hp._htOpenPending = true; }   // now arm: next frame = the new session rendering
         }
         function onSessionFailed(err) {
             hp._loading = false; hp._error = err;
