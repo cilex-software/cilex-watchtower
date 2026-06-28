@@ -27,8 +27,15 @@ Item {
     property bool _armed: false
     property int _speed: 1
     property real _smoothMs: 0                          // interpolated playhead (smooth)
+    // The EPISODE timeline the scrubber shows — [start, end] from EventsStore.episodeWindow, set on a fresh
+    // open and KEPT across far-seek re-opens (so a far seek doesn't shrink/jump the scrubber to the loaded
+    // sub-window). The player session (_frags) is a window inside it. Mirrors PlaybackScreen's tl*/win*.
+    property double tlStartMs: 0
+    property double tlEndMs: 0
+    property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     // wall-clock time of the frame currently on screen (compact playhead → wall, via the ready fragments)
-    readonly property double _playheadWallMs: _frags.length ? _posToWall(_smoothMs) : 0
+    readonly property double _playheadWallMs: _seekingToWall >= 0 ? _seekingToWall
+                                            : (_frags.length ? _posToWall(_smoothMs) : tlStartMs)
 
     // Advance the playhead continuously at 30fps; the raw MediaPlayer.position
     // updates coarsely/jitterily over HLS, so we interpolate and only snap on a
@@ -54,10 +61,8 @@ Item {
     readonly property real testDurMs: player.duration
     function testSeek(deltaMs) {
         if (player.playbackState !== MediaPlayer.PlayingState) player.play();   // paused seeks render nothing
-        var hi = (player.duration > 4000 ? player.duration - 3000 : Math.max(0, player.duration));
-        var p = Math.round(Math.max(1000, Math.min(hi, player.position + deltaMs)));
         _htSeekReq = deltaMs; _htSeekT0 = Date.now(); _htSeekFramesAt = testFrames; _htSeekPending = true;
-        player.position = p;
+        seekToWall(_playheadWallMs + deltaMs);                                  // the REAL seek path (near direct / far re-open)
     }
     Connections {
         target: vout.videoSink
@@ -68,8 +73,8 @@ Item {
                 hp._htOpenPending = false;
                 console.log("[HT] OPEN lat=" + (Date.now() - hp._htOpenT0) + " dur=" + Math.round(player.duration / 1000)
                             + " ev=" + (hp.ev ? hp.ev.id : "?") + " t=" + Date.now());
-            } else if (hp._htSeekPending && hp.testFrames > hp._htSeekFramesAt) {
-                hp._htSeekPending = false;
+            } else if (hp._htSeekPending && !hp._loading && hp.testFrames > hp._htSeekFramesAt) {
+                hp._htSeekPending = false;   // !_loading excludes a far-seek re-open's stop-flush; the real
                 console.log("[HT] SEEK req=" + hp._htSeekReq + " lat=" + (Date.now() - hp._htSeekT0) + " t=" + Date.now());
             }
         }
@@ -93,24 +98,46 @@ Item {
 
     function _reset() {
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false;
-        _pendingSeekMs = -1; _smoothMs = 0; player.stop(); player.source = "";
+        _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; player.stop(); player.source = "";
     }
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
         _started = true;
         if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
-        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
+        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
         // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
         // START, so this is a forward window with the footage (recording is motion-triggered: the episode's
         // recording_id covers [start, end]). Verified live on .106: 188 / 28 ready fragments.
         var w = EventsStore.episodeWindow(ev);
+        tlStartMs = w.startMs; tlEndMs = (w.endMs > w.startMs ? w.endMs : w.startMs + 1000);   // the episode timeline
         _pendingSeekMs = w.startMs - 15000;                              // seek to ~15s before the episode start
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
             new Date(w.startMs - 15000).toISOString(),
-            new Date((w.endMs > w.startMs ? w.endMs : w.startMs) + 15000).toISOString(), true);
+            new Date(tlEndMs + 15000).toISOString(), true);
+    }
+    // Seek to a WALL time on the episode timeline. A direct player.position seek over the episode's
+    // discontinuous HLS stalls — the playhead moves but NO frame renders (measured: 56% of jumps froze,
+    // 58-79% for ≥10s). So for anything past a tiny in-buffer nudge we RE-OPEN a fresh short session starting
+    // ~15s before the target (it lands near the start → no cross-discontinuity seek → renders), exactly the
+    // A1 PlaybackScreen workaround. The episode timeline (tl*) is kept, so the scrubber doesn't jump.
+    function seekToWall(wall) {
+        if (!_started) return;
+        wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
+        if (_armed && _frags.length > 0 && Math.abs(wall - _playheadWallMs) <= 3000) { _seekWall(wall); return; }
+        _seekFar(wall);
+    }
+    function _seekFar(wall) {
+        if (!ev || !playbackClient) return;
+        var ep = EventsStore.episodeWindow(ev);
+        _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall - 15000; _seekingToWall = wall;
+        player.stop(); player.source = "";
+        playbackClient.ensureReady();
+        playbackClient.openSession(ev.cam.id,
+            new Date(wall - 15000).toISOString(),
+            new Date(Math.max(ep.endMs, wall) + 15000).toISOString(), true);
     }
 
     // compact player-seconds ↔ wall ms (via the session's ready fragments)
@@ -164,7 +191,11 @@ Item {
             hp._loading = false; hp._error = "";
             player.source = hp.playbackClient.playlistUrl(sid);
             player.play();
-            if (hp._htOn) { hp.testFrames = 0; hp._htOpenPending = true; }   // now arm: next frame = the new session rendering
+            if (hp._htOn) {                                   // arm the latency detector for the new session
+                hp.testFrames = 0;
+                if (hp._htSeekPending) hp._htSeekFramesAt = 0;   // far-seek re-open: next frame = the seek landing
+                else hp._htOpenPending = true;                    // fresh event open
+            }
         }
         function onSessionFailed(err) {
             hp._loading = false; hp._error = err;
@@ -203,7 +234,7 @@ Item {
                         if (d < bestD) { bestD = d; bestWall = w; }
                     }
                     hp._seekWall(bestWall >= 0 ? bestWall : evt);
-                    hp._pendingSeekMs = -1;
+                    hp._pendingSeekMs = -1; hp._seekingToWall = -1;   // landed → release the held scrubber playhead
                 }
                 onSeekableChanged: _applySeek()
                 onDurationChanged: _applySeek()
@@ -274,22 +305,24 @@ Item {
                 }
                 Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b1.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b1.containsMouse ? Theme.ink3 : Theme.line2
                     Text { anchors.centerIn: parent; text: "−10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
-                    MouseArea { id: b1; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: player.position = Math.max(0, player.position - 10000) } }
+                    MouseArea { id: b1; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: hp.seekToWall(hp._playheadWallMs - 10000) } }
                 Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b2.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b2.containsMouse ? Theme.ink3 : Theme.line2
                     Text { anchors.centerIn: parent; text: "+10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
-                    MouseArea { id: b2; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: player.position = Math.min(player.duration, player.position + 10000) } }
+                    MouseArea { id: b2; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: hp.seekToWall(hp._playheadWallMs + 10000) } }
                 Text { textFormat: Text.StyledText
-                    text: hp._fmt(hp._smoothMs) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(player.duration)
+                    text: hp._fmt(hp._playheadWallMs - hp.tlStartMs) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(hp.tlEndMs - hp.tlStartMs)
                     color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
-                Item {                                      // scrubber
+                Item {                                      // scrubber — spans the whole EPISODE timeline (tl*), not the loaded window
                     Layout.fillWidth: true; Layout.preferredHeight: 30
-                    readonly property real _f: player.duration > 0 ? Math.max(0, Math.min(1, hp._smoothMs / player.duration)) : 0
+                    readonly property real _span: hp.tlEndMs - hp.tlStartMs
+                    readonly property real _f: _span > 0 ? Math.max(0, Math.min(1, (hp._playheadWallMs - hp.tlStartMs) / _span)) : 0
+                    function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(width, x)) / width * _span); }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 5; color: Theme.panel3 }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent.width * parent._f }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3; height: 16; color: Theme.ink; x: parent.width * parent._f - 1.5 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onPressed: (m) => { if (player.duration > 0) player.position = Math.round(Math.max(0, Math.min(width, m.x)) / width * player.duration) }
-                        onPositionChanged: (m) => { if (pressed && player.duration > 0) player.position = Math.round(Math.max(0, Math.min(width, m.x)) / width * player.duration) } }
+                        onPressed: (m) => parent._seekX(m.x)
+                        onReleased: (m) => parent._seekX(m.x) }
                 }
                 Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: sp.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sp.containsMouse ? Theme.ink3 : Theme.line2
                     Text { anchors.centerIn: parent; text: hp._speed + "×"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11 }
