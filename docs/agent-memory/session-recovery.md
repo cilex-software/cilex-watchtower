@@ -13,8 +13,21 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`a9d9dd0`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`a9d9dd0` **PER-OPEN LEAK INVESTIGATED → Qt-internal, unfixable client-side (2nd prompt, CLOSED as
+HEAD **`9f5ca08`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`fbbab27`+`9f5ca08` **A3 PLAYBACK-SEEK LETTER THREAD — CV replied, we sent reply2.** CV (`…span.reply.md`)
+**accepted both asks as backend-side**: Ask 1 (continuous-timeline) root cause = every rendition rebased to
+**PTS=0** ⇒ a mandatory `#EXT-X-DISCONTINUITY` per fragment; fix = give a contiguous run continuous PTS +
+emit discontinuity only at genuine boundaries (**route B** serve-time `-output_ts_offset` first ≈1wk, route
+A cache-native later). Ask 2 = the 24h cap is an intentional `MAX_WINDOW_HOURS` 400-guard; **48h cheap now**,
+multi-day gated on the per-request manifest JSONB re-parse. Our **reply2** (`…span.reply2.md`): (1) corrected
+hlsdemux2→we're on **Qt FFmpeg `hls.c`** (av_log proof committed) so they can validate with `ffmpeg -ss`;
+(2) validation pack = `2026-06-28-hlsseek-repro.sh` + our WT_SEEK_TEST/WT_HERO_TEST harness (offered to run
+vs their build) + the committed before-baseline; (3) take 48h now (client enforces NO window cap → lifts
+automatically); (4) **OPEN ASKS BACK TO CV — the client half waits on these:** (i) does route B keep the
+per-fragment manifest `compact_start/end` byte-identical? (ii) **MARK the kept discontinuities per-fragment**
+(gap/epoch/codec/profile/pts_wrap) so the client re-opens ONLY at boundaries; (iii) retention value for
+multi-day scoping. **NEXT (gated on CV):** when continuous-HLS ships, relax EvHeroPlayer/PlaybackScreen
+re-open to fire only at marked boundaries (→ scrubbing leak ≈ gone). · `a9d9dd0` **PER-OPEN LEAK INVESTIGATED → Qt-internal, unfixable client-side (2nd prompt, CLOSED as
 won't-fix-client-side).** Bisected with an open-only harness (**`WT_HERO_OPENONLY`** loops event-opens no
 seeks; **`WT_HERO_NOPLAY`** opens the session but skips the decode — both inert unless set) + /proc sampler.
 Open-only RSS slope: **play(decode) +66 MB/min · no-play(session/proxy/QNAM) FLAT −0.3 · recreate-player
@@ -306,7 +319,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `a9d9dd0` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `9f5ca08` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
