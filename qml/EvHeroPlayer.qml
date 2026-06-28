@@ -27,6 +27,8 @@ Item {
     property bool _armed: false
     property int _speed: 1
     property real _smoothMs: 0                          // interpolated playhead (smooth)
+    // wall-clock time of the frame currently on screen (compact playhead → wall, via the ready fragments)
+    readonly property double _playheadWallMs: _frags.length ? _posToWall(_smoothMs) : 0
 
     // Advance the playhead continuously at 30fps; the raw MediaPlayer.position
     // updates coarsely/jitterily over HLS, so we interpolate and only snap on a
@@ -85,6 +87,16 @@ Item {
         }
         for (var j = 0; j < _frags.length; j++) if (_frags[j].ws >= ms) return _frags[j].cs;
         return _compactDur;
+    }
+    // compact player-position (ms) → wall ms — inverse of _wallToPos, for the on-screen timestamp
+    function _posToWall(compactMs) {
+        var sec = compactMs / 1000;
+        for (var i = 0; i < _frags.length; i++) {
+            var f = _frags[i];
+            if (sec >= f.cs && sec <= f.ce)
+                return f.ws + ((f.ce > f.cs) ? (sec - f.cs) / (f.ce - f.cs) : 0) * (f.we - f.ws);
+        }
+        return _frags.length ? _frags[0].ws : 0;
     }
     function _seekWall(ms) {
         var pos = _wallToPos(ms);
@@ -187,13 +199,24 @@ Item {
                 text: hp._error; color: Theme.ink2; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
                 font.family: Theme.fontSans; font.pixelSize: 12 }
 
-            Rectangle {                                    // playback state chip
-                anchors.top: parent.top; anchors.right: parent.right; anchors.topMargin: 8; anchors.rightMargin: 10
+            Rectangle {                                    // playback state chip (top-left)
+                anchors.top: parent.top; anchors.left: parent.left; anchors.topMargin: 8; anchors.leftMargin: 10
                 visible: !hp._loading && hp._error === ""
                 color: Qt.rgba(0, 0, 0, 0.55); height: 18; width: stC.implicitWidth + 14
                 Text { id: stC; anchors.centerIn: parent
                     text: (player.playbackState === MediaPlayer.PlayingState ? "▶ " : "❚❚ ") + "PLAYBACK"
                     color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9 }
+            }
+
+            // wall-clock timestamp of the frame on screen (top-right OSD) — YYYY-MM-DD HH:MM:SS
+            Rectangle {
+                anchors.top: parent.top; anchors.right: parent.right; anchors.topMargin: 8; anchors.rightMargin: 10
+                visible: hp._started && !hp._loading && hp._error === "" && hp._frags.length > 0
+                         && player.mediaStatus >= MediaPlayer.BufferedMedia
+                color: Qt.rgba(0, 0, 0, 0.6); height: 20; width: tsT.implicitWidth + 14
+                Text { id: tsT; anchors.centerIn: parent
+                    text: Qt.formatDateTime(new Date(hp._playheadWallMs), "yyyy-MM-dd HH:mm:ss")
+                    color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 12 }
             }
         }
 
