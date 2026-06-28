@@ -5,7 +5,9 @@ import numpy as np
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-APP="/tmp/htfull_app.log"; CSV="/tmp/htfull_samples.csv"
+APP=sys.argv[1] if len(sys.argv)>1 else "/tmp/htfull_app.log"
+CSV=sys.argv[2] if len(sys.argv)>2 else "/tmp/htfull_samples.csv"
+OUTPNG=sys.argv[3] if len(sys.argv)>3 else "/tmp/ht_graph.png"
 GREEN="#2e8b57"; RED="#c0392b"; BLUE="#2b6cb0"; AMBER="#d98e00"; GREY="#888"
 
 opens=[]; seeks=[]; froz=[]
@@ -116,4 +118,4 @@ for t,v,d in rspk:
 ax1.legend(handles=[plt.Line2D([],[],color=RED,marker='v',ls='',label='RSS spike'),
                     plt.Line2D([],[],color=RED,alpha=.4,label='frozen seek')], loc="upper left", fontsize=8)
 ax2.plot(relmin,scpu,color=AMBER,lw=0.9); ax2.set_ylabel("CPU (% of 1 core)"); ax2.set_xlabel("minutes")
-plt.tight_layout(); plt.savefig("/tmp/ht_graph.png",dpi=120); print("\ngraph -> /tmp/ht_graph.png")
+plt.tight_layout(); plt.savefig(OUTPNG,dpi=120); print("\ngraph -> "+OUTPNG)
