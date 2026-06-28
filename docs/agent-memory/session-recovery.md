@@ -13,8 +13,17 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`1aeb051`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`6357b80`+`1aeb051` **TRIAGE-HERO LATENCY TEST + 2 open fix-prompts.** Built **`WT_HERO_TEST`** harness
+HEAD **`300a539`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`9578b1a`+`300a539` **FROZEN-SEEK FIXED in the Triage hero (the first of the 2 prompts).** Ported A1 to
+EvHeroPlayer: new wall-time **`seekToWall`** (≤3s nudge = direct player.position; further = **`_seekFar`**
+re-opens a short session ~15s before the target → lands near the start, no cross-discontinuity stall) +
+the **tl* episode-timeline decouple** (scrubber/transport run on the episode `[start,end]` from
+episodeWindow via `_posToWall`, kept across re-opens; `_seekingToWall` pins the bar during the ~170ms
+re-open). −10/+10 + scrubber now call seekToWall; testSeek too (so the harness measures the real path),
+with a `!_loading` gate so the re-open's stop-flush isn't mis-timed. **BEFORE/AFTER (docs/perf/
+`triage-hero-latency.baseline.md` + .after.*): seek froze 56%→2% (≥10s 58-79%→0%), all render ~166-225ms,
+run 13.8min→2.4min.** ⚠ **memory now climbs PER-SEEK (every far seek re-opens) → the per-open-leak prompt
+`docs/perf/2026-06-28-hero-per-open-leak.prompt.md` is the next priority (STILL OPEN).** · `6357b80`+`1aeb051` **TRIAGE-HERO LATENCY TEST + 2 fix-prompts.** Built **`WT_HERO_TEST`** harness
 (EvHeroPlayer instruments click→first-frame [armed in onSessionReady] + seek→first-frame via the video-sink
 frame signal; EvTriage sequences random selects + ±1s/10s/30s/1m/5m jumps, re-opens on freeze; new
 `wtHeroTest` ctx prop + WT_HERO_AUTOPLAY). **FINDINGS (360 jumps/195 opens, .106): open median 235ms/max
@@ -288,7 +297,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `1aeb051` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `300a539` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
