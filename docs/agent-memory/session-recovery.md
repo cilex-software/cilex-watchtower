@@ -13,8 +13,17 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`fd5ebab`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`7685435`+`fd5ebab` **POST-CACHING RE-TEST (CV reply6 shipped offset-caching `673296e`; our reply7).**
+HEAD **`684643b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`684643b` **CONTINUOUS-TIMELINE THREAD CLOSED (CV reply8 → our reply9).** CV **flipped the server
+`seek_mode` default legacy→continuous (`e1b1b84`)** after a clean hls.js no-regression check (hls.js already
+seeks across the per-fragment discontinuity; only Qt's libavformat `hls` stalled). CV **declined** widening
+base prewarm for the cold-base tail (16 GB OOM-sensitive host; h264-trans capped at concurrency 2) — left as
+a **bounded later lever** (small window-behind-the-playhead warmer) IF operators complain about backward/far
+cold seeks → then ping CV with the seek pattern. **NET: Ask 1 (continuous timeline + offset caching +
+boundary fields) + Ask 2 (48h cap) SHIPPED + DEFAULT; per-scrub re-open leak gone; freeze fixed.** TWO
+FUTURE-ONLY FLAGS parked: (1) **Playback wall `WT_SEEK_TEST`** inherits the fix (same PlaybackClient+hls.c) —
+run when wall wiring lands; (2) **mosaic `/review/mosaic-sessions`** still per-segment-discontinuous → ask CV
+for the same continuous treatment when we pick up multi-cam wall scrubbing. · `7685435`+`fd5ebab` **POST-CACHING RE-TEST (CV reply6 shipped offset-caching `673296e`; our reply7).**
 Re-tested continuous in Qt: **warm/repeat scrubs now FAST (median ~0.3-0.7s, 1s ~60-165ms; was ~1.8s)** —
 caching works. **Pure-direct diagnostic (no watchdog): continuous direct seeks LAND 99% (1% stuck), 0
 re-opens** ⇒ the seek-watchdog isn't catching demuxer hangs (continuous PTS killed those), only SLOW seeks.
@@ -345,7 +354,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `fd5ebab` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `684643b` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
