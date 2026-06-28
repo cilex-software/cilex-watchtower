@@ -13,8 +13,20 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`6a6f2ef`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`b0597ee`+`6a6f2ef` **P0 FIXED — "No footage recorded around this moment" for motion_ended events (+ the
+HEAD **`ed410bc`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`556760a`+`ed410bc` **P0 #2 FIXED — duplicate/overlapping clips for one motion + duration mismatch.** Each
+motion episode = **THREE backend events sharing `metadata.recording_id`: motion_started (exact start, NULL
+duration), motion_detected (start + duration, dropped by isSuppressedType), motion_ended (the END +
+duration).** Shown raw, the queue listed every episode TWICE (started row + ended row) and the wide P0
+window overlapped neighbours → two rows looked like "the same motion." Fix: **`EventsStore.ingestReal` now
+JOINS started↔ended by recording_id (`eventModel.all()` spans all loaded pages) → ONE row per episode,
+ev.ts = the EXACT start, durationSec = the true span [start,end]; `episodeWindow` simplified to forward
+[ts,ts+dur]; EvHeroPlayer opens EXACTLY [start-15s,end+15s] (no neighbour bleed, player dur == list badge).**
+Verified .106: queue 67→34 rows, 12-min episode one row "12m43s·17:36:57", 188 frags, 0 errors. Backend
+letter `docs/letters/2026-06-28-motion-episode-representation.md` (asks: episode-level events / documented
+join; merge over-segmented near-continuous motion — measured gaps 0-11s). · `7a57d94` **feat — Triage hero
+shows the recorded wall-clock time top-right (YYYY-MM-DD HH:MM:SS), ticks live; `_posToWall` inverse of
+`_wallToPos`; moved the ▶PLAYBACK chip to top-left.** · `b0597ee`+`6a6f2ef` **P0 FIXED — "No footage recorded around this moment" for motion_ended events (+ the
 same bug in Export).** ROOT CAUSE: **recording on these cameras is MOTION-TRIGGERED** — footage exists only
 DURING a motion episode, nothing after it stops. A `motion_ended` event's `start_time` (= `ev.ts`) is the
 END of the episode, with `duration_ms` = the episode length, so the footage is the span `[ts-dur, ts]`,
@@ -266,7 +278,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `6a6f2ef` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `ed410bc` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
