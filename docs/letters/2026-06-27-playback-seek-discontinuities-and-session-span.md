@@ -12,8 +12,10 @@ defect: seeking the playback player to any target outside the playout buffer **f
 playhead moved but no frame ever rendered). We traced it to the session manifest being a chain of
 per-fragment `EXT-X-DISCONTINUITY` segments, which Qt's FFmpeg HLS demuxer cannot seek across. We've
 **shipped a workaround** (commit `fb9efa8`: far seeks re-open a short window at the target), so **nothing
-below blocks us** — but the workaround costs UX (it re-centres the scrubber), and the root cause lives in
-the manifest. Ask 1 is the root fix; Ask 2 is a related limit we hit while testing it. Neither is urgent.
+below blocks us** — but the workaround costs UX (it re-centres the scrubber) and, we've since found, also
+**multiplies a client memory leak** (see the **2026-06-28 update** at the foot of this letter — it raises
+the value of Ask 1), and the root cause lives in the manifest. Ask 1 is the root fix; Ask 2 is a related
+limit we hit while testing it. Neither is urgent.
 
 ## TL;DR
 
@@ -64,3 +66,39 @@ a single session can't span it.
 1. Either a continuous-timeline manifest for contiguous spans, or your recommended way to make
    mid-session seeks land — so we can retire the re-open workaround and keep the full scrubber.
 2. Confirmation of the intended maximum session span (and whether multi-day review is on the table).
+
+## Update (2026-06-28) — Ask 1 now also relieves a client memory leak
+
+Since shipping the seek workaround we ported it to the Triage event-hero player and stress-tested both
+(random events + ±1 s…±5 m scrubs, hundreds of jumps, with `/proc` RSS sampling). That surfaced a second,
+independent reason the continuous-timeline manifest matters — **the re-open workaround multiplies a client
+memory leak.**
+
+The Watchtower client has a Qt-FFmpeg decode-context leak of **~8 MB every time a review-session HLS is
+opened** (`player.source` set). We bisected it (open-only loop):
+
+| variant (open a session repeatedly) | client RSS slope |
+|---|---|
+| open **+ decode** | **+66 MB/min** (~8 MB per open) → 1.2 GB in ~12 min |
+| open the session but **skip the decode** | **flat (−0 MB/min)** |
+| open + decode, **destroy + recreate the player** each time | still **+59 MB/min** |
+
+Two things follow, and both matter for this letter:
+
+- **It is NOT the session/manifest/HLS-proxy/HTTP path** — opening sessions without decoding is flat. So
+  this is not a backend bug, and `DELETE /review/sessions` (which we don't yet call) would **not** reduce
+  the client's RSS. We mention it only so it's clear we're not asking you to fix a leak — we're asking for
+  fewer *source-changes*.
+- **It's a Qt-internal per-source-change leak we cannot fix client-side** — freed by neither clearing the
+  source nor destroying the player (both tested). On its own it's a slow burn: one open per event an
+  operator reviews. **But the seek workaround re-opens a session on every far scrub**, so *with* the
+  workaround, scrubbing a clip leaks ~8 MB per jump and a few minutes of active review pushes the client
+  past 1 GB.
+
+A continuous-timeline manifest closes this: a mid-session seek would land **without re-opening**, so there
+are no per-seek source-changes and the scrubbing-driven leak disappears. (The residual one-open-per-event
+remains — that's on us / a Qt upgrade.)
+
+**Net:** Ask 1 now buys two things — it retires the scrubber-shrinking workaround **and** removes the
+largest contributor to client memory growth during review. No change to the ask itself; we just wanted you
+to know the continuous manifest is worth more than the UX polish it originally targeted.
