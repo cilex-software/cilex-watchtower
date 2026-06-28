@@ -1,0 +1,47 @@
+qml: [SK] BEGIN n=128 iters=8 compactDur_h=2.78 t=1782678686990
+qml: [SK] WARMED frames=34 pos=2148 t=1782678687090
+qml: [SK] s=1s req=1000 act=1000 lat=18 ok t=1782678687109
+qml: [SK] s=1s req=1000 act=1000 lat=41 ok t=1782678687150
+qml: [SK] s=1s req=1000 act=1000 lat=29 ok t=1782678687179
+qml: [SK] s=1s req=1000 act=1000 lat=41 ok t=1782678687220
+qml: [SK] s=1s req=1000 act=1000 lat=29 ok t=1782678687251
+qml: [SK] s=1s req=1000 act=1000 lat=42 ok t=1782678687293
+qml: [SK] s=1s req=1000 act=1000 lat=31 ok t=1782678687324
+qml: [SK] s=1s req=1000 act=1000 lat=43 ok t=1782678687367
+qml: [SK] s=10s req=10000 act=10000 lat=15 ok t=1782678687382
+qml: [SK] s=10s req=10000 act=10000 lat=8009 TIMEOUT t=1782678695391
+qml: [SK] s=10s req=10000 act=10000 lat=8036 TIMEOUT t=1782678703427
+qml: [SK] s=10s req=10000 act=10000 lat=8048 TIMEOUT t=1782678711475
+qml: [SK] s=30s req=30000 act=30000 lat=8017 TIMEOUT t=1782678719492
+qml: [SK] REOPEN cont=false t=1782678719492
+qml: [SK] s=30s req=30000 act=30000 lat=76 ok t=1782678719568
+qml: [SK] s=30s req=30000 act=30000 lat=273 ok t=1782678719841
+qml: [SK] s=30s req=30000 act=30000 lat=8017 TIMEOUT t=1782678727858
+qml: [SK] s=30s req=30000 act=30000 lat=8018 TIMEOUT t=1782678735876
+qml: [SK] REOPEN cont=false t=1782678735876
+qml: [SK] s=1m req=60000 act=60000 lat=10 ok t=1782678735886
+qml: [SK] s=1m req=60000 act=60000 lat=186 ok t=1782678736072
+qml: [SK] REOPEN cont=false t=1782678736072
+qml: [SK] s=1m req=60000 act=60000 lat=7 ok t=1782678736079
+qml: [SK] s=1m req=60000 act=60000 lat=246 ok t=1782678736325
+qml: [SK] REOPEN cont=false t=1782678736325
+qml: [SK] s=1m req=60000 act=60000 lat=8 ok t=1782678736333
+qml: [SK] s=1m req=60000 act=60000 lat=291 ok t=1782678736624
+qml: [SK] REOPEN cont=false t=1782678736624
+qml: [SK] s=1m req=60000 act=60000 lat=12 ok t=1782678736636
+qml: [SK] s=1m req=60000 act=60000 lat=434 ok t=1782678737070
+qml: [SK] REOPEN cont=false t=1782678737070
+qml: [SK] s=5m req=300000 act=300000 lat=10 ok t=1782678737080
+qml: [SK] s=5m req=300000 act=300000 lat=353 ok t=1782678737433
+qml: [SK] REOPEN cont=false t=1782678737433
+qml: [SK] s=5m req=300000 act=300000 lat=5 ok t=1782678737438
+qml: [SK] s=5m req=300000 act=300000 lat=215 ok t=1782678737653
+qml: [SK] REOPEN cont=false t=1782678737653
+qml: [SK] s=5m req=300000 act=300000 lat=11 ok t=1782678737664
+qml: [SK] s=5m req=300000 act=300000 lat=195 ok t=1782678737859
+qml: [SK] REOPEN cont=false t=1782678737859
+qml: [SK] s=5m req=300000 act=300000 lat=7 ok t=1782678737866
+qml: [SK] s=5m req=300000 act=300000 lat=337 ok t=1782678738204
+qml: [SK] REOPEN cont=false t=1782678738204
+qml: [SK] s=10m req=600000 act=600000 lat=8 ok t=1782678738212
+qml: [SK] REOPEN cont=false t=1782678738403

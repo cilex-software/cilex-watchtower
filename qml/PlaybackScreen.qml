@@ -34,6 +34,10 @@ Item {
     property double tlEndMs: 0
     property var tlFrags: []
     property bool _seekReopen: false   // true => the next session-ready is a far-seek re-open, keep the timeline
+    property bool _continuous: false   // continuous-timeline session ⇒ seek directly within the loaded run
+    property int _frameSeq: 0          // ++ on every rendered frame — input to the freeze-watchdog
+    property int _seekWatchSeq: -1     // _frameSeq when a direct continuous seek was issued; -1 = idle
+    property double _seekWatchWall: 0  // that seek's target, for the watchdog's fallback re-open
     // Zoomable scrubber view — a subset of [tlStartMs, tlEndMs] so you can zoom
     // in on a long (12h/24h) timeline to place an export In/Out precisely
     // (Premiere-style: +/− keys around the playhead, scroll to zoom on the cursor,
@@ -159,11 +163,26 @@ Item {
     function seekToWall(ms) {
         if (!player.seekable && player.duration <= 0) return;
         var pos = wallToPos(ms);
-        // A direct player.position seek to a target outside the buffered window stalls the FFmpeg HLS
-        // demuxer across the session's fragment discontinuities — the playhead moves but NO frame renders
-        // (the image freezes). For a far jump, re-open a short window that STARTS just before the target so
-        // it sits near the start and renders — the same pattern the event hero uses (EvHeroPlayer). Near
-        // jumps (within the playout buffer) keep the cheap direct seek.
+        // CONTINUOUS timeline (Cilex Vision route B, now the default): direct seeks land within a contiguous
+        // run. Re-open only when the target is OUTSIDE the loaded window (to fetch that region — the wall
+        // holds a ~30min sub-window of a multi-hour timeline) or the jump crosses a kept boundary
+        // (gap/codec/profile/pts_wrap). The 6s freeze-watchdog re-opens only a genuine hang; the cold-base
+        // latency tail (~2-4s) lands on its own, and re-opening would hit the same cold base.
+        if (_continuous && frags.length > 0) {
+            var inWindow = ms >= winStartMs && ms <= winEndMs;
+            if (inWindow && !_crossesBoundary(player.position / 1000, pos)) {
+                if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);
+                var pd = Math.round(Math.max(0, pos) * 1000);
+                player.position = pd; root._scanPos = pd;
+                _seekWatchSeq = _frameSeq; _seekWatchWall = ms; seekWatch.restart();
+                return;
+            }
+            seekFar(ms);
+            return;
+        }
+        // LEGACY (WT_SEEK_MODE=legacy): a direct seek to a target outside the playout buffer stalls the FFmpeg
+        // HLS demuxer across the per-fragment discontinuities — playhead moves, NO frame renders. So a far jump
+        // re-opens a short window starting just before the target; near jumps keep the cheap direct seek.
         if (frags.length > 0 && compactDuration > 60 && Math.abs(pos * 1000 - player.position) > 20000) {
             seekFar(ms);
             return;
@@ -177,11 +196,21 @@ Item {
         player.position = p;
         root._scanPos = p;        // keep the scan accumulator in step with manual seeks
     }
+    // Does the COMPACT jump [from,to] step over a kept discontinuity:true fragment? (The leading "start" sits
+    // at cs≤from, so a normal in-run seek never crosses it — only real gaps/codec/profile/pts_wrap.)
+    function _crossesBoundary(fromPos, toPos) {
+        var lo = Math.min(fromPos, toPos), hi = Math.max(fromPos, toPos);
+        for (var i = 0; i < frags.length; i++)
+            if (frags[i].disc && frags[i].cs > lo && frags[i].cs <= hi) return true;
+        return false;
+    }
     // Re-open a short session beginning ~15s before a far seek target (then seek to it on load), so the
     // demuxer never has to seek across the full session's discontinuities. The target lands near the
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
     function seekFar(ms) {
         if (!client || !camera) return;
+        if (_skActive) console.log("[SK] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count
+        seekWatch.stop(); _seekWatchSeq = -1;        // a re-open supersedes any pending direct-seek watch
         _explicitStart = ms - 15000;
         _explicitEnd = Math.min(ms - 15000 + 1800000, Date.now());   // ~30 min window from just before target
         _seekReopen = true;             // keep the scrubber timeline (tl*) — only the player window moves
@@ -189,6 +218,20 @@ Item {
         _pendingArmed = false;
         _pendingOpen = true;
         tryOpen();
+    }
+    // Freeze-watchdog (LAST RESORT): on a continuous session direct seeks land — slow ones are cold BASE
+    // renditions (S3 fetch, ~2-4s) that DO land, and re-opening hits the same cold base, so this is long: it
+    // re-opens only a genuine >6s hang, never the cold tail. _frameSeq ticks on every rendered frame.
+    Timer {
+        id: seekWatch; interval: 6000; repeat: false
+        onTriggered: {
+            if (root._seekWatchSeq >= 0 && root._frameSeq <= root._seekWatchSeq) root.seekFar(root._seekWatchWall);
+            root._seekWatchSeq = -1;
+        }
+    }
+    Connections {
+        target: vout.videoSink
+        function onVideoFrameChanged(frame) { root._frameSeq++; }
     }
 
     // Smoothly-interpolated player position (compact ms). MediaPlayer.position over
@@ -542,6 +585,7 @@ Item {
             root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
+            root._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks within a run
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
@@ -549,8 +593,8 @@ Item {
                 out.push({ cs: f.compact_start, ce: f.compact_end,
                            ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
                            codec: f.codec, tier: f.tier, resolution: f.resolution,
-                           stream_type: f.stream_type });   // "main" = high-res original retained; "sub" = standard only
-
+                           stream_type: f.stream_type,         // "main" = high-res original retained; "sub" = standard only
+                           disc: !!f.discontinuity, boundary: f.boundary || "" });   // kept-discontinuity markers (§4-ii)
             }
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
