@@ -13,8 +13,21 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`32a0337`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`32a0337` **fix: A1 POLISH — decoupled the scrubber timeline from the player window.** seekFar's short
+HEAD **`6a6f2ef`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`b0597ee`+`6a6f2ef` **P0 FIXED — "No footage recorded around this moment" for motion_ended events (+ the
+same bug in Export).** ROOT CAUSE: **recording on these cameras is MOTION-TRIGGERED** — footage exists only
+DURING a motion episode, nothing after it stops. A `motion_ended` event's `start_time` (= `ev.ts`) is the
+END of the episode, with `duration_ms` = the episode length, so the footage is the span `[ts-dur, ts]`,
+BEFORE ts. EvHeroPlayer opened a FORWARD window `[ts-15s, ts+dur+15s]` → past the end into empty space →
+0 fragments → the error. **Verified live on .106 (`hiwatch-083bc14eff9a`): forward=0 vs backward=183 ready
+fragments; 6/6 motion_ended events fixed (the 12m19s one 0→183).** Fix: EvHeroPlayer opens a WIDE window
+`[ts-dur-15s, ts+dur+15s]` (bulletproof both-directions) + seeks to the episode start; Export sends the
+episode span (was an empty forward mp4 — backend accepts it with 200, so it FAILED SILENTLY). Centralised in
+**`EventsStore.episodeWindow(ev)` → {startMs,endMs}** (used by hero + export so they can't drift). Added
+**`WT_HERO_AUTOPLAY`** test hook + WT_TRACE `[HERO]` log. Backend probe: `/tmp/diag_p0.py` (login admin/admin
+→ `/events?camera_id=&start=&end=` → `POST /review/sessions` fragment count). Legacy `EventsScreen` export
+(behind `WT_EVENTS_LEGACY`) + `openAt` still use the old forward path — low priority (the day session loads,
+so no "No footage", just seeks to the episode end). · `32a0337` **fix: A1 POLISH — decoupled the scrubber timeline from the player window.** seekFar's short
 ~30min re-open used to drive win*/win → scrubber/markers/footage-track re-centred to 30min on a far jump.
 Split it: **win*/frags = LOADED PLAYER session** (posToWall/seek/pipeline); new **tl*/tlFrags = TIMELINE the
 scrubber shows** (footage track, markers, zoom-view bounds, Coverage, export). Fresh open adopts session as
@@ -253,7 +266,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `32a0337` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `6a6f2ef` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
