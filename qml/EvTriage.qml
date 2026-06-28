@@ -43,6 +43,8 @@ Item {
     property string _htState: "init"
     readonly property var _ht: heroLoader.item
     readonly property bool _htRun: (typeof wtHeroTest !== "undefined" && wtHeroTest === true) && tri.active && EventsStore.realMode
+    readonly property bool _htOpenonly: (typeof wtHeroOpenonly !== "undefined" && wtHeroOpenonly === true)  // leak bisect: open events, no seeks
+    property int _htOpens: 0
     Timer {
         interval: 30; repeat: true; running: tri._htRun
         onTriggered: tri._htTick()
@@ -56,12 +58,18 @@ Item {
         }
         if (_htState === "sel") { _htSelect(); _htState = "waitopen"; _htWaits = 0; return; }
         if (_htState === "waitopen") {
-            if (_ht && !_ht._htOpenPending && _ht.testFrames > 0 && _ht.testDurMs > 1500) { _htEvSeeks = 0; _htWaits = 0; _htState = "settle"; }
+            var ready = _htOpenonly ? (_ht && _ht._armed && !_ht._loading)             // openonly: session ready (no decode/frame needed)
+                                    : (_ht && !_ht._htOpenPending && _ht.testFrames > 0 && _ht.testDurMs > 1500);
+            if (ready) { _htEvSeeks = 0; _htWaits = 0; _htState = "settle"; }
             else if (++_htWaits > 500) { console.log("[HT] OPEN TIMEOUT t=" + Date.now()); _htState = "sel"; }   // 15s
             return;
         }
         if (_htState === "settle") {                    // let the player play + buffer ahead before seeking
-            if (++_htWaits >= 70) { _htWaits = 0; _htState = "seek"; }   // ~2s
+            if (++_htWaits >= 70) {                      // ~2s
+                _htWaits = 0;
+                if (_htOpenonly) { _htOpens++; if (_htOpens % 20 === 0) console.log("[HT] OPENONLY opens=" + _htOpens + " t=" + Date.now()); _htState = "sel"; }
+                else _htState = "seek";
+            }
             return;
         }
         if (_htState === "seek") {
@@ -84,6 +92,11 @@ Item {
         }
     }
     function _htSelect() {
+        if (_htOpenonly) {                                  // leak bisect: just open a fresh event (≠ current), no seeks
+            var es = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && e.durationSec >= 2 && e.id !== tri.selId; });
+            if (es.length) tri.select(es[Math.floor(Math.random() * es.length)].id);
+            return;
+        }
         var need = _htSteps.filter(function (s) { return (_htCount[s] || 0) < 100; });
         var want = need.length ? need[Math.floor(Math.random() * need.length)] : _htSteps[Math.floor(Math.random() * _htSteps.length)];
         var evs = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && (e.durationSec * 1000) >= (want + 4000); });

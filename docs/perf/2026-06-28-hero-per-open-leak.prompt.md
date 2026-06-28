@@ -55,3 +55,40 @@ toward ~0 (bounded RSS across hundreds of opens). **Regression-guard:** re-run t
 ## Note
 This pairs with `2026-06-28-hero-frozen-seek.prompt.md` — the proposed far-seek fix RE-OPENS the session per
 far seek, multiplying this leak. Do this leak fix first, or together.
+
+---
+
+## Investigation result (2026-06-28)
+
+Bisected with an open-only harness (`WT_HERO_OPENONLY` loops event-opens with no seeks; `WT_HERO_NOPLAY`
+opens the session but skips the decode — both inert unless set) + the `/proc` sampler. Raw data + graph:
+`docs/perf/2026-06-28-hero-leak-bisect.{play,noplay,recreate}.csv` + `…-bisect.png`.
+
+### The leak is the DECODE path — not the session/proxy
+| variant (open-only loop) | RSS slope |
+|---|---|
+| open **+ play** (decode) | **+66 MB/min** (~8 MB/source-change → 1.2 GB) |
+| open, **NO play** (session + manifest + HlsProxy + QNAM only) | **−0.3 MB/min — FLAT** |
+| open + play **+ recreate the MediaPlayer** per open (Loader destroy+recreate) | **+59 MB/min** |
+
+- **No-play is FLAT** → opening sessions does **not** leak. So **`DELETE /review/sessions` will not reduce
+  the client RSS** (worth adding as server hygiene — sessions are never reaped — but it is *not* this leak).
+  `HlsProxy`'s cache is confirmed **global + LRU-bounded (160 MB)**, not per-session.
+- **Play leaks +66 MB/min** → the leak is the Qt-FFmpeg decode pipeline created on `player.source`.
+- **Recreating the MediaPlayer does NOT free it** (+59 ≈ +66). So the context is freed by **neither**
+  source-clear (already known from A2) **nor** destroying the player. This re-confirms A2: **the leak is
+  Qt-internal and cannot be fixed from QML/C++.**
+
+### Conclusion + mitigations
+The per-open leak is the **Qt-FFmpeg per-source-change decode-context leak (~8 MB)**, Qt-internal. No
+client-side teardown frees it. Realistic mitigations, in order:
+1. **Backend continuous-timeline HLS (the A3 letter).** One continuous session per episode means the
+   frozen-seek fix no longer re-opens per far seek — removing the **seek-driven** source-changes, which are
+   the bulk of the leak during active scrubbing. The per-event open (one source-change per event watched)
+   remains. **This is the highest-leverage action and is already requested.**
+2. **A Qt upgrade** is the only true fix for the residual per-event leak. The `WT_HERO_OPENONLY` bisect
+   harness is kept specifically to re-run this against a newer Qt and confirm.
+3. *(Not pursued)* switching the QtMultimedia backend (FFmpeg → GStreamer) — large change, untested.
+
+The Loader-wrap/recreate experiment was **reverted** (no benefit, added per-recreate null-deref churn). The
+bisect harness (`WT_HERO_OPENONLY` + `WT_HERO_NOPLAY`) was kept.

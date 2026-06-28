@@ -189,8 +189,10 @@ Item {
                             + " dur=" + (ev ? ev.durationSec : 0) + "s");
             if (out.length === 0) { hp._loading = false; hp._error = "No footage recorded around this moment."; return; }
             hp._loading = false; hp._error = "";
-            player.source = hp.playbackClient.playlistUrl(sid);
-            player.play();
+            if (typeof wtHeroNoplay === "undefined" || !wtHeroNoplay) {   // leak bisect: WT_HERO_NOPLAY skips the decode
+                player.source = hp.playbackClient.playlistUrl(sid);
+                player.play();
+            }
             if (hp._htOn) {                                   // arm the latency detector for the new session
                 hp.testFrames = 0;
                 if (hp._htSeekPending) hp._htSeekFramesAt = 0;   // far-seek re-open: next frame = the seek landing
