@@ -64,18 +64,16 @@ Item {
         _started = true;
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
         player.stop(); player.source = ""; player.playbackRate = 1;
-        var ts = ev.ts.getTime();
-        var dur = Math.max((ev.durationSec || 0) * 1000, 0);
-        // A motion_ENDED event's timestamp is the END of the episode, and recording is motion-triggered —
-        // nothing exists AFTER motion stops, so the footage lies BEFORE ts. Open a window spanning the
-        // episode in BOTH directions so the footage is always inside it, whichever end ts is. (Opening only
-        // forward, ts → ts+dur, returned an empty session — the "No footage recorded around this moment"
-        // P0; verified live on .106: 0 forward vs 183 backward ready fragments.)
-        _pendingSeekMs = EventsStore.episodeWindow(ev).startMs - 15000;   // seek ~15s before the episode start
+        // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
+        // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
+        // START, so this is a forward window with the footage (recording is motion-triggered: the episode's
+        // recording_id covers [start, end]). Verified live on .106: 188 / 28 ready fragments.
+        var w = EventsStore.episodeWindow(ev);
+        _pendingSeekMs = w.startMs - 15000;                              // seek to ~15s before the episode start
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
-            new Date(ts - dur - 15000).toISOString(),
-            new Date(ts + dur + 15000).toISOString(), true);
+            new Date(w.startMs - 15000).toISOString(),
+            new Date((w.endMs > w.startMs ? w.endMs : w.startMs) + 15000).toISOString(), true);
     }
 
     // compact player-seconds ↔ wall ms (via the session's ready fragments)

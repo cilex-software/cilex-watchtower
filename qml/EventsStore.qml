@@ -126,55 +126,79 @@ QtObject {
     function ingestReal(rows, camLookup) {
         now = new Date();                      // real wall clock for window/relative-time math
         cams = camLookup ? camLookup : ({});   // views' camera axis = the real cameras
-        var out = [];
+        // Collapse the motion lifecycle into ONE episode per recording_id. The backend emits motion_started
+        // (exact start, null duration), motion_detected (dropped — isSuppressedType) and motion_ended (exact
+        // END + duration) for EVERY episode. Shown raw, each episode duplicated into a started row AND an
+        // ended row, and the wide-window player then overlapped the neighbouring episode's footage. We pair
+        // started↔ended by recording_id (eventModel.all() spans every loaded page) and emit ONE row keyed
+        // off the exact START with the true span [start, end].
+        var groups = ({}); var order = []; var singles = [];
         for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
-            var t = (r.ts && r.ts > 0) ? new Date(r.ts) : store.now;
-            var cam = (camLookup && camLookup[r.camId]) ? camLookup[r.camId]
-                    : { key: r.camId, id: r.camId, name: (r.camName ? r.camName : r.camId), zone: "", x: 50, y: 50 };
-            var det = r.detection;                            // null until the AI tier lands
-            var subj = det ? (det.cls === "vehicle" ? "vehicle"
-                            : (det.cls === "person" || det.cls === "face") ? "person" : "none") : "none";
-            var e = {
-                id: r.eventId,
-                type: store._realTypeBucket(r.type),
-                rawType: ("" + r.type),
-                ts: t,
-                status: store._triageToStatus(r.triageState, r.ack),
-                conf: (det && det.confidence >= 0) ? det.confidence : null,
-                sx: 48, sy: 8,
-                bbox: (det && det.bbox && det.bbox.length === 4) ? det.bbox : null,
-                tod: store._todFromDate(t),                   // derived from real time
-                subject: subj,                                // from detection.class (none until AI)
-                bookmarked: !!r.bookmarked,
-                assignedTo: (r.assignedTo ? r.assignedTo : ""),
-                dispo: (r.disposition ? r.disposition : null),
-                note: (r.dispositionNote ? r.dispositionNote : (r.desc ? r.desc : "")),
-                restricted: !!r.zoneRestricted,
-                durationSec: r.durationMs ? Math.round(r.durationMs / 1000) : 0,
-                priority: (r.severity ? r.severity : "medium"),   // real server-computed severity
-                recordingId: (r.recordingId ? r.recordingId : ""),
-                clipUrl: (r.clipUrl ? r.clipUrl : ""),
-                cam: cam
-            };
-            out.push(e);
+            if (r.recordingId && (r.type === "motion_started" || r.type === "motion_ended")) {
+                if (!groups[r.recordingId]) { groups[r.recordingId] = { started: null, ended: null }; order.push(r.recordingId); }
+                if (r.type === "motion_started") groups[r.recordingId].started = r; else groups[r.recordingId].ended = r;
+            } else {
+                singles.push(r);
+            }
         }
+        var out = [];
+        for (var k = 0; k < order.length; k++) {
+            var g = groups[order[k]];
+            var base = g.started || g.ended;
+            var sMs, eMs;
+            if (g.started && g.ended) { sMs = g.started.ts; eMs = g.ended.ts; }              // exact span
+            else if (g.started)       { sMs = g.started.ts; eMs = g.started.ts; }            // ended not loaded yet
+            else                      { eMs = g.ended.ts; sMs = g.ended.ts - (g.ended.durationMs || 0); }  // started not loaded
+            out.push(store._mkEvent(base, camLookup, sMs, Math.max(0, eMs - sMs)));
+        }
+        for (var j = 0; j < singles.length; j++)
+            out.push(store._mkEvent(singles[j], camLookup, singles[j].ts, singles[j].durationMs || 0));
+        out.sort(function (a, b) { return b.ts.getTime() - a.ts.getTime(); });   // newest episode (by start) first
         realMode = true;
         events = out;
     }
+    // Build one ev object from a backend row, with an explicit episode start (tsMs) + span (durMs in ms).
+    function _mkEvent(r, camLookup, tsMs, durMs) {
+        var t = (tsMs && tsMs > 0) ? new Date(tsMs) : store.now;
+        var cam = (camLookup && camLookup[r.camId]) ? camLookup[r.camId]
+                : { key: r.camId, id: r.camId, name: (r.camName ? r.camName : r.camId), zone: "", x: 50, y: 50 };
+        var det = r.detection;                            // null until the AI tier lands
+        var subj = det ? (det.cls === "vehicle" ? "vehicle"
+                        : (det.cls === "person" || det.cls === "face") ? "person" : "none") : "none";
+        return {
+            id: r.eventId,
+            type: store._realTypeBucket(r.type),
+            rawType: ("" + r.type),
+            ts: t,                                        // the episode START
+            status: store._triageToStatus(r.triageState, r.ack),
+            conf: (det && det.confidence >= 0) ? det.confidence : null,
+            sx: 48, sy: 8,
+            bbox: (det && det.bbox && det.bbox.length === 4) ? det.bbox : null,
+            tod: store._todFromDate(t),                   // derived from real time
+            subject: subj,                                // from detection.class (none until AI)
+            bookmarked: !!r.bookmarked,
+            assignedTo: (r.assignedTo ? r.assignedTo : ""),
+            dispo: (r.disposition ? r.disposition : null),
+            note: (r.dispositionNote ? r.dispositionNote : (r.desc ? r.desc : "")),
+            restricted: !!r.zoneRestricted,
+            durationSec: durMs ? Math.round(durMs / 1000) : 0,
+            priority: (r.severity ? r.severity : "medium"),   // real server-computed severity
+            recordingId: (r.recordingId ? r.recordingId : ""),
+            clipUrl: (r.clipUrl ? r.clipUrl : ""),
+            cam: cam
+        };
+    }
 
-    // The wall-time span that actually contains an event's footage. A motion_ENDED (or *_exited / *_stopped)
-    // event's ts is the END of the episode, and recording is motion-triggered (nothing exists after motion
-    // stops) — so the footage is BEFORE ts; started/point events' footage is at/after ts. The Triage hero
+    // The wall-time span that contains an event's footage. ingestReal normalises ev.ts to the episode START
+    // and ev.durationSec to the [start,end] span, so the footage is simply [ts, ts+dur]. The Triage hero
     // (session window + seek) and Export (clip range) both use this so they can't disagree on where the
-    // video is. Opening forward from a motion_ended ts returned an empty session — the "No footage" P0.
+    // video is.
     function episodeWindow(ev) {
         if (!ev || !ev.ts) return { startMs: 0, endMs: 0 };
         var ts = ev.ts.getTime();
         var dur = Math.max((ev.durationSec || 0) * 1000, 0);
-        var ended = ev.rawType && (ev.rawType.indexOf("ended") >= 0 || ev.rawType.indexOf("exited") >= 0
-                                   || ev.rawType.indexOf("stopped") >= 0);
-        return { startMs: ended ? ts - dur : ts, endMs: ended ? ts : ts + dur };
+        return { startMs: ts, endMs: ts + dur };
     }
 
     // backend event_type → the design's 7 display buckets (icon/pill/snapshot).
