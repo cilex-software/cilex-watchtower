@@ -69,10 +69,7 @@ Item {
         // episode in BOTH directions so the footage is always inside it, whichever end ts is. (Opening only
         // forward, ts → ts+dur, returned an empty session — the "No footage recorded around this moment"
         // P0; verified live on .106: 0 forward vs 183 backward ready fragments.)
-        var ended = ev.rawType && (ev.rawType.indexOf("ended") >= 0 || ev.rawType.indexOf("exited") >= 0
-                                   || ev.rawType.indexOf("stopped") >= 0);
-        var seekTo = ended ? ts - dur : ts;                // start of the episode → watch it unfold
-        _pendingSeekMs = seekTo - 15000;                   // land ~15s before, on the lead-up
+        _pendingSeekMs = EventsStore.episodeWindow(ev).startMs - 15000;   // seek ~15s before the episode start
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
             new Date(ts - dur - 15000).toISOString(),

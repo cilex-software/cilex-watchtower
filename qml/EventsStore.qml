@@ -163,6 +163,20 @@ QtObject {
         events = out;
     }
 
+    // The wall-time span that actually contains an event's footage. A motion_ENDED (or *_exited / *_stopped)
+    // event's ts is the END of the episode, and recording is motion-triggered (nothing exists after motion
+    // stops) — so the footage is BEFORE ts; started/point events' footage is at/after ts. The Triage hero
+    // (session window + seek) and Export (clip range) both use this so they can't disagree on where the
+    // video is. Opening forward from a motion_ended ts returned an empty session — the "No footage" P0.
+    function episodeWindow(ev) {
+        if (!ev || !ev.ts) return { startMs: 0, endMs: 0 };
+        var ts = ev.ts.getTime();
+        var dur = Math.max((ev.durationSec || 0) * 1000, 0);
+        var ended = ev.rawType && (ev.rawType.indexOf("ended") >= 0 || ev.rawType.indexOf("exited") >= 0
+                                   || ev.rawType.indexOf("stopped") >= 0);
+        return { startMs: ended ? ts - dur : ts, endMs: ended ? ts : ts + dur };
+    }
+
     // backend event_type → the design's 7 display buckets (icon/pill/snapshot).
     // A documented categorisation of a REAL type, not invented data.
     function _realTypeBucket(t) {

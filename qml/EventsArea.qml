@@ -19,7 +19,7 @@ Item {
     property var eventModel: null
     property var cameraModel: null
     property bool demo: false
-    signal exportClip(string camId, double atMs, string purpose)   // → Main's export flow
+    signal exportClip(string camId, double startMs, double endMs, string purpose)   // → Main's export flow
     signal openWall(var camIds)                                    // Situation-Map selection → wall playback
     signal openLive(var camIds)                                    // Situation-Map selection → live grid
     readonly property int _camCount: cameraModel ? cameraModel.total : 0
@@ -333,7 +333,7 @@ Item {
                         : area.mode === "timeline" ? 2 : 3
             EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
                        onSelect: (id) => area.selId = id
-                       onExportClip: (c, a, p) => area.exportClip(c, a, p) }
+                       onExportClip: (c, s, e, p) => area.exportClip(c, s, e, p) }
             Loader { property bool _seen: false; active: _seen; sourceComponent: reviewC
                      StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
             Loader { property bool _seen: false; active: _seen; sourceComponent: timelineC

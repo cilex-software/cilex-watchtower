@@ -440,16 +440,16 @@ Window {
                     demo: wtDemo
                     eventModel: eventModel
                     cameraModel: cameraModel
-                    // Export a 1-min clip around the event to the Clips library — same
-                    // flow as the legacy EventsScreen (global export toasts fire on
-                    // playbackClient below).
-                    onExportClip: (camId, atMs, purpose) => {
+                    // Export the event's whole episode (footage span) to the Clips library. EvTriage already
+                    // resolved the episode start/end via EventsStore.episodeWindow, so a motion_ended event
+                    // exports its real footage instead of an empty forward window (global toasts fire below).
+                    onExportClip: (camId, startMs, endMs, purpose) => {
                         var cam = cameraModel.cameraByBackendId(camId);
                         var id = (cam && cam.camId) ? cam.camId : camId;
                         var base = (cam && cam.name) ? cam.name : id;
                         var dest = Artifacts.newExportPath(base, "mp4");
-                        playbackClient.createExport(id, new Date(atMs - 15000).toISOString(),
-                                                    new Date(atMs + 45000).toISOString(),
+                        playbackClient.createExport(id, new Date(startMs).toISOString(),
+                                                    new Date(endMs).toISOString(),
                                                     "wallclock", dest, "", purpose);
                     }
                     // Situation-Map multi-select → jump to wall playback over only those cameras.

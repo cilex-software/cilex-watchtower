@@ -13,7 +13,7 @@ Item {
     property var playbackClient: null            // real-mode inline playback (EvHeroPlayer)
     property bool active: false                   // Events screen visible → keyboard shortcuts live
     signal select(string id)
-    signal exportClip(string camId, double atMs, string purpose)   // bubbles to Main's export flow
+    signal exportClip(string camId, double startMs, double endMs, string purpose)   // bubbles to Main's export flow
 
     // move the selection up/down the sorted queue (keyboard ↑/↓)
     function _moveSel(d) {
@@ -220,8 +220,13 @@ Item {
                                 anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
                                 EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip"
                                     enabledBtn: tri._cur && EventsStore.realMode
-                                    onClicked: if (tri._cur) tri.exportClip(tri._cur.cam.id, tri._cur.ts.getTime(),
-                                        "Event · " + (EventsStore.types[tri._cur.type] ? EventsStore.types[tri._cur.type].label : tri._cur.type)) }
+                                    onClicked: {
+                                        if (!tri._cur) return;
+                                        var w = EventsStore.episodeWindow(tri._cur);   // export the whole episode (footage span), not a forward 1-min window
+                                        tri.exportClip(tri._cur.cam.id, w.startMs - 15000,
+                                            w.endMs > w.startMs ? w.endMs + 15000 : w.startMs + 45000,
+                                            "Event · " + (EventsStore.types[tri._cur.type] ? EventsStore.types[tri._cur.type].label : tri._cur.type));
+                                    } }
                                 EvButton {
                                     id: assignBtn
                                     small: true; variant: "ghost"; icon: "assign"
