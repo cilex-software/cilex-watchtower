@@ -92,6 +92,38 @@ Re-run the same open-only bisect; compare to +66 MB/min.
   playback-subsystem teardown (the A2 recreate-hero leaked more, so scope carefully); file the Qt bug with the
   standalone reproducer.
 
+## Result (2026-06-29) — re-bisected against Qt 6.12.0: NOT fixed
+
+Installed Qt **6.12.0** (newest available; `aqtinstall`, beside 6.8.3) and built `build612`. Needed
+`-DWT_ONLY_BYTECODE=ON` — **6.12.0's `qmlcachegen` SEGFAULTs during AOT codegen on our QML** (Error 139 on
+`Main.qml`), a 6.12.0 toolchain bug; the escape hatch (added to CMakeLists, no-op for the normal builds)
+skips AOT and the rest builds clean. Ran the identical open-only bisect (on-screen, FFmpeg backend):
+
+| Qt | open-only RSS slope |
+|---|---|
+| 6.8.3 (baseline) | +66.3 MB/min |
+| **6.12.0** | **+68.1 MB/min** (207→1191 MB, 121 opens) |
+
+**Identical → the per-open leak is NOT fixed through Qt 6.12.0.** Both ship the same FFmpeg backend
+(`libffmpegmediaplugin.so`); the leak is unchanged across 6.8→6.12 — a persistent QtMultimedia FFmpeg
+per-source-change defect. (Data: `docs/perf/2026-06-29-qt612-leak.{csv,ht.log}`.)
+
+**Step 1 (GStreamer backend) isn't testable from binaries:** both Qt releases ship ONLY
+`libffmpegmediaplugin.so` — no `libgstreamermediaplugin.so` — so `QT_MEDIA_BACKEND=gstreamer` needs Qt built
+from source with GStreamer enabled (a much bigger task, and it forks the seek model — see the caveat above).
+
+**Conclusion → ACCEPT + MITIGATE + file a Qt bug.** No upgrade fixes it through the newest Qt, and the other
+backend isn't in the binaries:
+- **Stay on Qt 6.8.3 (LTS)** — upgrading buys nothing for this leak, and 6.12.0's qmlcachegen is buggy for
+  our QML.
+- The leak is **bounded per event opened** (~8 MB × events/shift); the continuous-seek work already removed
+  the per-*scrub* re-opens. Document the ceiling; revisit only if a real shift exceeds memory (then a
+  periodic playback-subsystem teardown).
+- **File a Qt bug** with the standalone `setSource`-loop reproducer (FFmpeg backend leaks ~8 MB/source-change,
+  reproducible 6.8.3 → 6.12.0).
+- (Optional, large) build Qt from source with the GStreamer backend and re-test Step 1 — only if the leak
+  becomes shift-breaking.
+
 ## Gotchas / regression pass (before adopting anything)
 - **VA-API hardware decode must still work** — the wall + the 16-stream goal depend on it. Check decode logs +
   real playback, not just "it ran".

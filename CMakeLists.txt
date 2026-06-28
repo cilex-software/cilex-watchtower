@@ -44,6 +44,13 @@ if(NOT WT_GIT_SHA)
 endif()
 target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
 
+# Escape hatch: some Qt qmlcachegen toolchains (observed: 6.12.0) SEGFAULT during the AOT C++ codegen pass on
+# our QML. -DWT_ONLY_BYTECODE=ON skips AOT (the bytecode cache is still built), letting such a Qt build for
+# leak/regression testing. No-op for the normal builds.
+if(WT_ONLY_BYTECODE)
+    set_target_properties(watchtower PROPERTIES QT_QMLCACHEGEN_ARGUMENTS "--only-bytecode")
+endif()
+
 # Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
 # This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
 # as `singleton`.
