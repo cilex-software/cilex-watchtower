@@ -83,7 +83,7 @@ Item {
         }
         if (_htState === "waitseek") {
             if (_ht && !_ht._htSeekPending) { _htState = "seek"; _htWaits = 0; }       // rendered → next seek same episode
-            else if (++_htWaits > 60) {                                                // ~1.8s with no frame = frozen
+            else if (++_htWaits > 130) {                                               // ~3.9s with no frame = frozen (tolerates the un-cached continuous remux latency)
                 console.log("[HT] SEEK TIMEOUT req=" + (_ht ? _ht._htSeekReq : 0) + " t=" + Date.now());
                 if (_ht) _ht._htSeekPending = false;
                 _htState = "sel"; _htWaits = 0;                                        // a frozen seek sticks the episode → re-open

@@ -33,6 +33,10 @@ Item {
     property double tlStartMs: 0
     property double tlEndMs: 0
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
+    property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
+    property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog
+    property int _seekWatchSeq: -1                       // _frameSeq when a direct continuous seek was issued; -1 = idle
+    property double _seekWatchWall: 0                    // that seek's target, for the watchdog's fallback re-open
     // wall-clock time of the frame currently on screen (compact playhead → wall, via the ready fragments)
     readonly property double _playheadWallMs: _seekingToWall >= 0 ? _seekingToWall
                                             : (_frags.length ? _posToWall(_smoothMs) : tlStartMs)
@@ -62,12 +66,24 @@ Item {
     function testSeek(deltaMs) {
         if (player.playbackState !== MediaPlayer.PlayingState) player.play();   // paused seeks render nothing
         _htSeekReq = deltaMs; _htSeekT0 = Date.now(); _htSeekFramesAt = testFrames; _htSeekPending = true;
-        seekToWall(_playheadWallMs + deltaMs);                                  // the REAL seek path (near direct / far re-open)
+        if (typeof wtSeekDirect !== "undefined" && wtSeekDirect)               // validation: direct demuxer seek, NO re-open
+            _seekWall(Math.max(tlStartMs, Math.min(tlEndMs, _playheadWallMs + deltaMs)));   // lands iff the session is continuous
+        else
+            seekToWall(_playheadWallMs + deltaMs);                              // the REAL seek path (near direct / far re-open)
+    }
+    // Freeze-watchdog: a direct seek on a continuous session that renders nothing in time → re-open the rare
+    // flaky/boundary tail (continuous lands ~81% directly; this catches the rest without re-opening the 81%).
+    Timer {
+        id: seekWatch; interval: 2800; repeat: false
+        onTriggered: {
+            if (hp._seekWatchSeq >= 0 && hp._frameSeq <= hp._seekWatchSeq) hp._seekFar(hp._seekWatchWall);
+            hp._seekWatchSeq = -1;
+        }
     }
     Connections {
         target: vout.videoSink
-        enabled: hp._htOn
         function onVideoFrameChanged(frame) {
+            hp._frameSeq++;
             hp.testFrames++;
             if (hp._htOpenPending) {
                 hp._htOpenPending = false;
@@ -98,7 +114,8 @@ Item {
 
     function _reset() {
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false;
-        _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; player.stop(); player.source = "";
+        _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
+        seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
     }
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
@@ -118,20 +135,38 @@ Item {
             new Date(w.startMs - 15000).toISOString(),
             new Date(tlEndMs + 15000).toISOString(), true);
     }
-    // Seek to a WALL time on the episode timeline. A direct player.position seek over the episode's
-    // discontinuous HLS stalls — the playhead moves but NO frame renders (measured: 56% of jumps froze,
-    // 58-79% for ≥10s). So for anything past a tiny in-buffer nudge we RE-OPEN a fresh short session starting
-    // ~15s before the target (it lands near the start → no cross-discontinuity seek → renders), exactly the
-    // A1 PlaybackScreen workaround. The episode timeline (tl*) is kept, so the scrubber doesn't jump.
+    // Seek to a WALL time on the episode timeline.
+    //  • CONTINUOUS session (Cilex Vision route B): direct seeks land within a contiguous run, so we seek
+    //    directly and only RE-OPEN proactively when the jump crosses a kept boundary (gap/codec/profile/
+    //    pts_wrap — a discontinuity:true fragment). The freeze-watchdog re-opens the rare flaky tail.
+    //  • LEGACY session: every fragment is a discontinuity the FFmpeg demuxer can't seek across (56% of
+    //    jumps froze, 58-79% for ≥10s), so anything past a tiny in-buffer nudge re-opens a short window at
+    //    the target — the A1 PlaybackScreen workaround. Either way the episode timeline (tl*) is kept.
     function seekToWall(wall) {
         if (!_started) return;
         wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
+        if (_continuous) {
+            if (_armed && _frags.length > 0 && _crossesBoundary(_playheadWallMs, wall)) { _seekFar(wall); return; }
+            _seekWall(wall);
+            _seekWatchSeq = _frameSeq; _seekWatchWall = wall; seekWatch.restart();   // arm the freeze-watchdog
+            return;
+        }
         if (_armed && _frags.length > 0 && Math.abs(wall - _playheadWallMs) <= 3000) { _seekWall(wall); return; }
         _seekFar(wall);
+    }
+    // Does the wall jump [from,to] step over a kept discontinuity:true fragment? (The leading "start" sits at
+    // the run start ≤ from, so a normal mid-clip seek never crosses it — only real gaps/codec/profile/wrap.)
+    function _crossesBoundary(fromWall, toWall) {
+        var lo = Math.min(fromWall, toWall), hi = Math.max(fromWall, toWall);
+        for (var i = 0; i < _frags.length; i++)
+            if (_frags[i].disc && _frags[i].ws > lo && _frags[i].ws <= hi) return true;
+        return false;
     }
     function _seekFar(wall) {
         if (!ev || !playbackClient) return;
         var ep = EventsStore.episodeWindow(ev);
+        if (_htOn) console.log("[HT] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count = the leak proxy
+        seekWatch.stop(); _seekWatchSeq = -1;                            // a re-open supersedes any pending direct-seek watch
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall - 15000; _seekingToWall = wall;
         player.stop(); player.source = "";
         playbackClient.ensureReady();
@@ -180,9 +215,11 @@ Item {
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
                 if (f.availability !== "ready") continue;
-                out.push({ cs: f.compact_start, ce: f.compact_end, ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end) });
+                out.push({ cs: f.compact_start, ce: f.compact_end, ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
+                           disc: !!f.discontinuity, boundary: f.boundary || "" });   // kept-discontinuity markers (§4-ii)
             }
             hp._frags = out;
+            hp._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks, re-open only at boundaries
             hp._armed = true;
             if (typeof wtTrace !== "undefined" && wtTrace)
                 console.log("[HERO] session ready: " + out.length + " ready fragments · ev=" + (ev ? ev.rawType : "?")

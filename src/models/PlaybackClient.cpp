@@ -153,6 +153,12 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
                      {"wall_start", wallStartIso},
                      {"wall_end", wallEndIso},
                      {"hevc_capable", hevcCapable}};
+    // Ask 1 (Cilex Vision route B): request the continuous-timeline manifest so mid-session seeks land
+    // without a re-open. Validated (Qt harness: direct seeks land 81% on continuous vs 0% on legacy), so the
+    // client now defaults to "continuous"; WT_SEEK_MODE=legacy forces the old per-fragment-discontinuity path.
+    QString seekMode = qEnvironmentVariable("WT_SEEK_MODE");
+    if (seekMode.isEmpty()) seekMode = QStringLiteral("continuous");
+    body["seek_mode"] = seekMode;
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt]() {
@@ -196,6 +202,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         meta["clipped_to_finalized"] = man.value("clipped_to_finalized").toBool();
         meta["live_gap_s"] = man.value("live_gap_s").toDouble();
         meta["events"] = man.value("events").toArray().toVariantList();
+        meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
         emit sessionReady(sid, compactDuration, frags, meta);
     });

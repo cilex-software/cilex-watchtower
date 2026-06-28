@@ -208,6 +208,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));
     engine.rootContext()->setContextProperty("wtHeroNoplay", qEnvironmentVariableIsSet("WT_HERO_NOPLAY"));
+    engine.rootContext()->setContextProperty("wtSeekDirect", qEnvironmentVariableIsSet("WT_SEEK_DIRECT"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).
