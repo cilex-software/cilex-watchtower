@@ -18,7 +18,6 @@ Item {
     // 21:9 surface + 52px transport (drive our own implicit height for the layout)
     implicitHeight: width > 0 ? Math.round(width * 9 / 21) + 52 : 0
 
-    readonly property real _clip: Math.max((ev && ev.durationSec) ? ev.durationSec : 20, 14)
     property string _sid: ""
     property var _frags: []
     property real _compactDur: 0
@@ -47,7 +46,7 @@ Item {
     // On-demand: a new event shows its snapshot poster; the recording loads only on a play-tap.
     // Auto-loading + the tab-switch teardown were the two events-browsing leaks (each ~+44 MB/min).
     property bool _started: false
-    onEvChanged: hp._reset()
+    onEvChanged: { hp._reset(); if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) hp._open(); }
     Component.onDestruction: { player.stop(); player.source = ""; }
 
     // Views are kept alive (StackLayout), so pause the recording when Triage isn't the shown tab.
@@ -64,11 +63,20 @@ Item {
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0;
         player.stop(); player.source = ""; player.playbackRate = 1;
         var ts = ev.ts.getTime();
-        _pendingSeekMs = ts - 15000;                       // event − 15s lead-in
+        var dur = Math.max((ev.durationSec || 0) * 1000, 0);
+        // A motion_ENDED event's timestamp is the END of the episode, and recording is motion-triggered —
+        // nothing exists AFTER motion stops, so the footage lies BEFORE ts. Open a window spanning the
+        // episode in BOTH directions so the footage is always inside it, whichever end ts is. (Opening only
+        // forward, ts → ts+dur, returned an empty session — the "No footage recorded around this moment"
+        // P0; verified live on .106: 0 forward vs 183 backward ready fragments.)
+        var ended = ev.rawType && (ev.rawType.indexOf("ended") >= 0 || ev.rawType.indexOf("exited") >= 0
+                                   || ev.rawType.indexOf("stopped") >= 0);
+        var seekTo = ended ? ts - dur : ts;                // start of the episode → watch it unfold
+        _pendingSeekMs = seekTo - 15000;                   // land ~15s before, on the lead-up
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
-            new Date(ts - 15000).toISOString(),
-            new Date(ts + (hp._clip + 15) * 1000).toISOString(), true);
+            new Date(ts - dur - 15000).toISOString(),
+            new Date(ts + dur + 15000).toISOString(), true);
     }
 
     // compact player-seconds ↔ wall ms (via the session's ready fragments)
@@ -105,12 +113,18 @@ Item {
             }
             hp._frags = out;
             hp._armed = true;
+            if (typeof wtTrace !== "undefined" && wtTrace)
+                console.log("[HERO] session ready: " + out.length + " ready fragments · ev=" + (ev ? ev.rawType : "?")
+                            + " dur=" + (ev ? ev.durationSec : 0) + "s");
             if (out.length === 0) { hp._loading = false; hp._error = "No footage recorded around this moment."; return; }
             hp._loading = false; hp._error = "";
             player.source = hp.playbackClient.playlistUrl(sid);
             player.play();
         }
-        function onSessionFailed(err) { hp._loading = false; hp._error = err; }
+        function onSessionFailed(err) {
+            hp._loading = false; hp._error = err;
+            if (typeof wtTrace !== "undefined" && wtTrace) console.log("[HERO] session FAILED: " + err);
+        }
     }
 
     ColumnLayout {
