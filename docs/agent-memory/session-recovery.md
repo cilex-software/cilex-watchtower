@@ -13,8 +13,19 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`91ccc2b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`8dadde2`+`91ccc2b` **CONTINUOUS-HLS ADOPTED (CV reply4 shipped route B; our reply5 = GO).** Backend made
+HEAD **`fd5ebab`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`7685435`+`fd5ebab` **POST-CACHING RE-TEST (CV reply6 shipped offset-caching `673296e`; our reply7).**
+Re-tested continuous in Qt: **warm/repeat scrubs now FAST (median ~0.3-0.7s, 1s ~60-165ms; was ~1.8s)** —
+caching works. **Pure-direct diagnostic (no watchdog): continuous direct seeks LAND 99% (1% stuck), 0
+re-opens** ⇒ the seek-watchdog isn't catching demuxer hangs (continuous PTS killed those), only SLOW seeks.
+**Slow tail = COLD BASE renditions (S3 fetch, ~2-4s, variable) on backward/far seeks — NOT the offset step**
+(CV's own finding), and re-opening hits the SAME cold base, so a tight 2.8/4s watchdog was counterproductive
+(re-opened 26-29% cold-but-landing seeks). **Fix: watchdog → 6s LAST-RESORT** (tolerates cold-base, catches
+only a genuine >6s hang) ⇒ **seek re-open rate → ~0 = per-scrub leak gone.** Cold tail needs BROADER/backward
+base prewarm (CV's call; UX-niceness, not blocking; offset-prewarm won't help). Honesty note in reply7: seek
+re-opens were never the dominant RSS driver — the per-EVENT Qt decode leak dominates (separate, Qt-upgrade).
+GO to flip the server default (after CV's hls.js check). Logs `docs/perf/2026-06-28-continuous-postcache.*`.
+**STILL NEXT: wire Playback wall (PlaybackScreen) to continuous + WT_SEEK_TEST.** · `8dadde2`+`91ccc2b` **CONTINUOUS-HLS ADOPTED (CV reply4 shipped route B; our reply5 = GO).** Backend made
 seeks landable via `seek_mode:"continuous"` (one continuous-PTS timeline, per-fragment discontinuity dropped)
 + shipped §4-ii per-fragment `discontinuity`/`boundary` fields. **Client wiring:** PlaybackClient requests
 `seek_mode` (**default "continuous"**; `WT_SEEK_MODE=legacy` overrides) + echoes it in meta. EvHeroPlayer:
@@ -334,7 +345,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `91ccc2b` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `fd5ebab` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
