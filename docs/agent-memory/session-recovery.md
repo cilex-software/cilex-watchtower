@@ -13,7 +13,7 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`684643b`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+HEAD **`e7e4345`+`<reply10>`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
 `684643b` **CONTINUOUS-TIMELINE THREAD CLOSED (CV reply8 → our reply9).** CV **flipped the server
 `seek_mode` default legacy→continuous (`e1b1b84`)** after a clean hls.js no-regression check (hls.js already
 seeks across the per-fragment discontinuity; only Qt's libavformat `hls` stalled). CV **declined** widening
@@ -34,7 +34,7 @@ only a genuine >6s hang) ⇒ **seek re-open rate → ~0 = per-scrub leak gone.**
 base prewarm (CV's call; UX-niceness, not blocking; offset-prewarm won't help). Honesty note in reply7: seek
 re-opens were never the dominant RSS driver — the per-EVENT Qt decode leak dominates (separate, Qt-upgrade).
 GO to flip the server default (after CV's hls.js check). Logs `docs/perf/2026-06-28-continuous-postcache.*`.
-**STILL NEXT: wire Playback wall (PlaybackScreen) to continuous + WT_SEEK_TEST.** · `8dadde2`+`91ccc2b` **CONTINUOUS-HLS ADOPTED (CV reply4 shipped route B; our reply5 = GO).** Backend made
+**Playback wall NOW WIRED to continuous too (commit `e7e4345`, reply10): seekToWall direct + re-open only outside the loaded window OR across a discontinuity:true frag (`_crossesBoundary`, compact-space) + 6s watchdog; tl*/win* decouple preserved. WT_SEEK_TEST A/B (.106 06-26, 2.78h footage/24h): in-footage seeks 1s-3h 0% froze + DIRECT (15-173ms) vs legacy freezing 10s/30s + re-opening; ≥5h TIMEOUT = beyond-footage artifact. BOTH seek surfaces (hero+wall) now on continuous.** REMAINING: only the mosaic flag (future, multi-cam scrubbing). · `8dadde2`+`91ccc2b` **CONTINUOUS-HLS ADOPTED (CV reply4 shipped route B; our reply5 = GO).** Backend made
 seeks landable via `seek_mode:"continuous"` (one continuous-PTS timeline, per-fragment discontinuity dropped)
 + shipped §4-ii per-fragment `discontinuity`/`boundary` fields. **Client wiring:** PlaybackClient requests
 `seek_mode` (**default "continuous"**; `WT_SEEK_MODE=legacy` overrides) + echoes it in meta. EvHeroPlayer:
@@ -354,7 +354,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `684643b` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `e7e4345` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
