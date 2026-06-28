@@ -21,17 +21,26 @@ Item {
 
     // session state
     property string sessionId: ""
-    property var frags: []             // ready fragments (compact_start/end + wall_start/end ms)
+    property var frags: []             // ready fragments of the LOADED PLAYER session (compact↔wall)
     property double compactDuration: 0
-    property double winStartMs: 0      // loaded wall-clock window (the whole session)
+    property double winStartMs: 0      // loaded PLAYER window (the media the pipeline currently holds)
     property double winEndMs: 0
-    // Zoomable scrubber view — a subset of [winStartMs, winEndMs] so you can zoom
+    // The TIMELINE the scrubber shows — the operator's whole review window (a span or a day). It is
+    // DECOUPLED from the player window: a far seek re-opens a short player session at the target (so the
+    // FFmpeg HLS demuxer never seeks across discontinuities — the freeze fix) WITHOUT shrinking the
+    // scrubber. tlFrags = the timeline's footage segments (wall coords only, for the footage track);
+    // win*/frags stay the player session for posToWall/seek. Set on a fresh open, preserved on seekFar.
+    property double tlStartMs: 0
+    property double tlEndMs: 0
+    property var tlFrags: []
+    property bool _seekReopen: false   // true => the next session-ready is a far-seek re-open, keep the timeline
+    // Zoomable scrubber view — a subset of [tlStartMs, tlEndMs] so you can zoom
     // in on a long (12h/24h) timeline to place an export In/Out precisely
     // (Premiere-style: +/− keys around the playhead, scroll to zoom on the cursor,
     // Shift+scroll to pan, 0/Fit to reset).
     property double viewStartMs: 0
     property double viewEndMs: 0
-    readonly property bool tlZoomed: (winEndMs - winStartMs) > 0 && (viewEndMs - viewStartMs) < (winEndMs - winStartMs) - 1
+    readonly property bool tlZoomed: (tlEndMs - tlStartMs) > 0 && (viewEndMs - viewStartMs) < (tlEndMs - tlStartMs) - 1
     property int zoomMin: 60           // 15 / 60 / 1440
     property bool loading: false
     property string errorText: ""
@@ -60,13 +69,13 @@ Item {
     // recent list (its first page is enough; those are rare/recent).
     function loadTimeline() {
         motionEpisodes = []; motionBuckets = []; bucketMode = false;
-        if (!client || camId === "" || winEndMs <= winStartMs) return;
-        client.fetchTimeline(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString(), 0);
+        if (!client || camId === "" || tlEndMs <= tlStartMs) return;
+        client.fetchTimeline(camId, new Date(tlStartMs).toISOString(), new Date(tlEndMs).toISOString(), 0);
     }
     function loadMotionEvents() {
         pointEvents = []; eventList = [];
-        if (camId === "" || winEndMs <= winStartMs) return;
-        motionEvents.search(camId, new Date(winStartMs).toISOString(), new Date(winEndMs).toISOString());
+        if (camId === "" || tlEndMs <= tlStartMs) return;
+        motionEvents.search(camId, new Date(tlStartMs).toISOString(), new Date(tlEndMs).toISOString());
     }
     function rebuildEvents() {
         var all = motionEvents.all(), pts = [], evl = [];
@@ -175,7 +184,7 @@ Item {
         if (!client || !camera) return;
         _explicitStart = ms - 15000;
         _explicitEnd = Math.min(ms - 15000 + 1800000, Date.now());   // ~30 min window from just before target
-        selectedDay = "";
+        _seekReopen = true;             // keep the scrubber timeline (tl*) — only the player window moves
         _pendingSeekMs = ms;            // applied on session load → a small in-buffer seek that renders
         _pendingArmed = false;
         _pendingOpen = true;
@@ -245,27 +254,27 @@ Item {
     function togglePlay() { paused = !paused; applyTransport(); }
 
     // ---- timeline zoom (precise export selection on long windows) -----------
-    function resetView() { viewStartMs = winStartMs; viewEndMs = winEndMs; }
+    function resetView() { viewStartMs = tlStartMs; viewEndMs = tlEndMs; }
     // Zoom the view by `factor` (<1 = in, >1 = out) keeping centerMs under the
-    // same x; clamp to the loaded window, 2s minimum span.
+    // same x; clamp to the timeline window, 2s minimum span.
     function zoomView(factor, centerMs) {
-        var full = winEndMs - winStartMs;
+        var full = tlEndMs - tlStartMs;
         if (full <= 0) return;
         var cur = viewEndMs - viewStartMs; if (cur <= 0) cur = full;
         var span = Math.max(2000, Math.min(full, cur * factor));
         if (centerMs < viewStartMs || centerMs > viewEndMs) centerMs = (viewStartMs + viewEndMs) / 2;
         var frac = (centerMs - viewStartMs) / cur;
         var ns = centerMs - frac * span, ne = ns + span;
-        if (ns < winStartMs) { ns = winStartMs; ne = ns + span; }
-        if (ne > winEndMs) { ne = winEndMs; ns = ne - span; }
-        viewStartMs = Math.max(winStartMs, ns);
-        viewEndMs = Math.min(winEndMs, ne);
+        if (ns < tlStartMs) { ns = tlStartMs; ne = ns + span; }
+        if (ne > tlEndMs) { ne = tlEndMs; ns = ne - span; }
+        viewStartMs = Math.max(tlStartMs, ns);
+        viewEndMs = Math.min(tlEndMs, ne);
     }
     function panView(deltaMs) {
         var span = viewEndMs - viewStartMs;
         var ns = viewStartMs + deltaMs, ne = viewEndMs + deltaMs;
-        if (ns < winStartMs) { ns = winStartMs; ne = ns + span; }
-        if (ne > winEndMs) { ne = winEndMs; ns = ne - span; }
+        if (ns < tlStartMs) { ns = tlStartMs; ne = ns + span; }
+        if (ne > tlEndMs) { ne = tlEndMs; ns = ne - span; }
         viewStartMs = ns; viewEndMs = ne;
     }
     // Human span label for the "Custom" zoom chip, e.g. "2h 14m", "45m", "30s".
@@ -332,7 +341,7 @@ Item {
     function openFor(cam, spanMin) {
         camera = cam;
         zoomMin = spanMin || zoomMin;
-        _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1;
+        _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1; _seekReopen = false;
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         errorText = ""; selStartMs = -1; selEndMs = -1;
         if (!client) return;
@@ -350,7 +359,7 @@ Item {
         _explicitEnd = Math.min(s + 86400000, Date.now());
         selectedDay = dateStr;
         zoomMin = 1440;
-        errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1;
+        errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1; _seekReopen = false;
         // Coverage already tells us this day has no recorded footage (it has no
         // calendar dot) — show an honest empty state instead of opening a session
         // that can only come back empty (or, on a transport hiccup, as a cryptic
@@ -499,18 +508,20 @@ Item {
         if (root._skJi >= root._skJobs.length) { console.log("[SK] DONE n=" + root._skJi + " t=" + Date.now()); Qt.quit(); return; }
         var job = root._skJobs[root._skJi];
         root._skStepSeen++;
-        var lo = 1000, hi = compactDuration * 1000 - 4000;        // compact-ms space (player.position)
-        var base = player.position;
+        // Targets span the TIMELINE (tl*) in wall-ms. The decoupled player window now moves under us as
+        // far seeks re-open, so anchor to the stable timeline + the current playhead — not player.position.
+        var lo = root.tlStartMs + 1000, hi = root.tlEndMs - 4000;
+        var base = root.playheadMs;
         root._skDir = -root._skDir;
         var tgt = base + root._skDir * job.d;
-        if (tgt < lo || tgt > hi) tgt = base - root._skDir * job.d;   // reflect off the footage edge
+        if (tgt < lo || tgt > hi) tgt = base - root._skDir * job.d;   // reflect off the timeline edge
         if (tgt < lo) tgt = lo;
         if (tgt > hi) tgt = hi;
         root._skAct = Math.abs(tgt - base);
         root._skLabel = job.l; root._skReq = job.d;
         root._skFramesAtSeek = root._skFrames;                    // detect the first frame delivered after this seek
         root._skWaiting = true; root._skT0 = Date.now();
-        seekToWall(winStartMs + tgt);                            // route through the real user seek path (tests the fix)
+        seekToWall(tgt);                                          // route through the real user seek path (tests the fix)
         _skWait.deadline = Date.now() + 8000; _skWait.start();
     }
     function _skFinish(lat, ok) {
@@ -531,7 +542,6 @@ Item {
             root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
-            root.resetView();          // new session → scrubber shows the full window
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
                 var f = fragments[i];
@@ -545,8 +555,23 @@ Item {
             root.frags = out;
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             root.errorText = "";
-            root.loadMotionEvents();        // point events + recent list (EventModel)
-            root.loadTimeline();            // motion episode spans from /events/timeline
+            // A far-seek re-open only swaps the player window — keep the scrubber timeline, its footage
+            // track and its markers. A fresh open (span/day/camera) adopts this session AS the timeline.
+            if (root._seekReopen) {
+                root._seekReopen = false;
+                if (typeof wtTrace !== "undefined" && wtTrace)
+                    console.log("[PB] far-seek re-open: player win=" + Math.round((root.winEndMs - root.winStartMs) / 60000)
+                                + "min, timeline KEPT=" + Math.round((root.tlEndMs - root.tlStartMs) / 60000) + "min");
+            } else {
+                root.tlStartMs = root.winStartMs;
+                root.tlEndMs = root.winEndMs;
+                root.tlFrags = out;
+                root.resetView();           // fresh open → scrubber shows the full window
+                root.loadMotionEvents();    // point events + recent list (EventModel)
+                root.loadTimeline();        // motion episode spans from /events/timeline
+                if (typeof wtTrace !== "undefined" && wtTrace)
+                    console.log("[PB] fresh open: timeline=" + Math.round((root.tlEndMs - root.tlStartMs) / 60000) + "min");
+            }
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
             player.source = root.client.playlistUrl(sid);
@@ -586,14 +611,14 @@ Item {
             for (var j = 0; j < blocks.length; j++) {
                 var ep = blocks[j];
                 var st = Date.parse(ep.start_time);
-                var en = ep.end_time ? Date.parse(ep.end_time) : Math.min(Date.now(), root.winEndMs);
+                var en = ep.end_time ? Date.parse(ep.end_time) : Math.min(Date.now(), root.tlEndMs);
                 if (en < st) { var t = st; st = en; en = t; }
                 eps.push({ startMs: st, endMs: en });
             }
             if (eps.length > root.bucketThreshold) {     // very busy → bounded density buckets
                 root.motionEpisodes = []; root.bucketMode = true;
-                root.client.fetchTimeline(root.camId, new Date(root.winStartMs).toISOString(),
-                                          new Date(root.winEndMs).toISOString(), 600);
+                root.client.fetchTimeline(root.camId, new Date(root.tlStartMs).toISOString(),
+                                          new Date(root.tlEndMs).toISOString(), 600);
                 return;
             }
             eps.sort(function (a, b) { return a.startMs - b.startMs; });
@@ -936,7 +961,7 @@ Item {
                             // only for old rows where resolution is null.
                             return (f.resolution && f.resolution !== "") ? (f.resolution + " (" + c + ")")
                                    : (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)"); } }
-                    KV { k: "Coverage"; v: root.frags.length + " segments" }
+                    KV { k: "Coverage"; v: root.tlFrags.length + " segments" }
                     KV { k: "Window"; v: root.selectedDay !== ""
                             ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")
                             : (root.zoomMin === 1440 ? "24 hours" : root.zoomMin === 720 ? "12 hours"
@@ -1149,14 +1174,15 @@ Item {
                 // gap backdrop (whole bar = red stripe), footage drawn on top
                 Rectangle {
                     anchors.fill: parent; anchors.margins: 1
-                    visible: root.frags.length > 0
+                    visible: root.tlFrags.length > 0
                     color: "transparent"
                     Rectangle { anchors.fill: parent; color: Theme.bad; opacity: 0.12 }
                 }
 
-                // footage segments (olive)
+                // footage segments (olive) — the TIMELINE's footage (tlFrags), not the loaded player
+                // window, so a far-seek re-open never shrinks the recorded track.
                 Repeater {
-                    model: root.frags
+                    model: root.tlFrags
                     Rectangle {
                         readonly property double x0: bar.xOf(modelData.ws)
                         readonly property double x1: bar.xOf(modelData.we)
@@ -1332,7 +1358,7 @@ Item {
     // with the fields cilex-vision's API supports today (range + mode).
     function openExportDrawer() {
         if (!hasSelection || !client) return;
-        exportDrawer.openWith(camera, camId, selStartMs, selEndMs, frags, playheadMs);
+        exportDrawer.openWith(camera, camId, selStartMs, selEndMs, tlFrags, playheadMs);
         vout.grabToImage(function(res) { if (res) exportDrawer.previewSource = res.url; });
     }
 
