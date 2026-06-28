@@ -13,7 +13,7 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`e7e4345`+`<reply10>`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`5f63407` **QT-UPGRADE RE-BISECT of the per-open leak → NOT fixed (per-event Qt leak is here to stay).** Installed **Qt 6.12.0** (aqtinstall, beside 6.8.3, at `/home/cilex-vision/Qt/6.12.0`) + `build612`; needed **`-DWT_ONLY_BYTECODE=ON`** (guarded CMakeLists escape hatch — 6.12.0's qmlcachegen SEGFAULTs AOT-compiling our QML). Open-only leak: **6.12.0 +68.1 MB/min ≈ 6.8.3 +66.3** → the FFmpeg-backend per-source-change decode leak is UNCHANGED across 6.8→6.12. GStreamer backend (only other lever) **isn't in Qt binary releases** (both ship `libffmpegmediaplugin.so` only) → needs Qt from source. **DECISION: stay on 6.8.3 LTS; accept + mitigate (bounded ~8MB/event-opened; continuous-seek already removed per-scrub re-opens) + file a Qt bug** (standalone setSource-loop repro). Data/result: `docs/perf/2026-06-29-qt-leak-rebisect.prompt.md` + `2026-06-29-qt612-leak.*`. (Qt 6.12.0 + build612 left in place; removable to reclaim ~2G.) · HEAD **`5f63407`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
 `684643b` **CONTINUOUS-TIMELINE THREAD CLOSED (CV reply8 → our reply9).** CV **flipped the server
 `seek_mode` default legacy→continuous (`e1b1b84`)** after a clean hls.js no-regression check (hls.js already
 seeks across the per-fragment discontinuity; only Qt's libavformat `hls` stalled). CV **declined** widening
@@ -354,7 +354,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `e7e4345` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `5f63407` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
