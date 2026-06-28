@@ -13,8 +13,19 @@ the **cilex-vision** platform. Cameras have no storage; footage/events come from
 cilex-vision. Repo: `/home/cilex-vision/projects/cilex-watchtower`.
 
 ## Latest session (2026-06-21–25) — READ THIS FIRST (supersedes all blocks below)
-HEAD **`c0d9238`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
-`c0d9238` **perf: clawed back the A2 baseline — lazy-load non-Triage event views.** A2's StackLayout kept
+HEAD **`32a0337`** on `main`, **pushed, working tree clean.** This arc's commits (newest→oldest):
+`32a0337` **fix: A1 POLISH — decoupled the scrubber timeline from the player window.** seekFar's short
+~30min re-open used to drive win*/win → scrubber/markers/footage-track re-centred to 30min on a far jump.
+Split it: **win*/frags = LOADED PLAYER session** (posToWall/seek/pipeline); new **tl*/tlFrags = TIMELINE the
+scrubber shows** (footage track, markers, zoom-view bounds, Coverage, export). Fresh open adopts session as
+timeline; `_seekReopen` flag → onSessionReady swaps only the player window, KEEPS tl*. WT_SEEK_TEST anchors
+targets to tl*+playhead. Added **`wtTrace`** QML context prop + WT_TRACE-gated `[PB]` trace. Verified
+(WT_PLAYBACK_IP @24h): every far seek logs "win=30min, timeline KEPT=1439min"; on-screen shot = full-24h
+scrubber after 7 re-opens. Known follow-up: no auto-continuation at the 30min window EOS (pre-existing).
+**REDO of all 3 stress tests on this build (graphs /tmp/test{1,2,3}_graph.png): T1 resize CLEAN (DONE, 0
+crash); T2 seek ok=1524/TIMEOUT=3 — all 16 step sizes 1s..24h RENDER (was every ≥30s FROZE), plateau ~727MB
+no leak; T3 events 15min ramp→980MB then FLAT +0.2 MB/min (was +642MB/15min), 0 crash, opens=0 (lazy-play =
+recordings load on play-tap, not select).** All 3 fixes validated. · `c0d9238` **perf: clawed back the A2 baseline — lazy-load non-Triage event views.** A2's StackLayout kept
 all 4 views resident (~580→~980MB). Now Triage stays resident; Verify/Timeline/Map lazy-load on first
 visit then LATCH active (never destroyed → no recreate-leak). Measured: **Triage-idle 484MB** (even below
 pre-A2 ~580, since lazy-play no longer auto-loads a recording); all-tabs plateau 981MB **slope +0 (flat,
@@ -242,7 +253,7 @@ survived the cover — the wedged sub-stream was *delivering* green frames, so f
 `3769878` auto-reconnect (throttled) · `09130b8` green cover + frame-flow gating · `fc81bba` export
 letters (Q-CV6) · `d7a8ef6` Standard label→720p · `a21da42` client compression.
 
-⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `c0d9238` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
+⚠️ **RELAUNCH the app** — running `./build/watchtower` predates HEAD; just restart it for `32a0337` (run `./run-watchtower.sh`, NOT build/watchtower — that is the leaky Qt 6.4.2 build).
 
 🧠 **ROOT CAUSE — VA-API decode-memory watermark (now bounded by the decode cap `dcc61d3` → ~3.3 GB at cap 9; lower the cap for more headroom).**
 Replicated both scenarios on the REAL iGPU with an RSS heartbeat + a `WT_TEST_PICKER` self-drive hook.
