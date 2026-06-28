@@ -57,6 +57,33 @@ jumps ≥10 s, FREEZE** (position moves, `mediaStatus`→LoadedMedia, no frame).
 - `2026-06-28-triage-hero-latency-graph.png` — the CPU/memory graph (full 360-jump run).
 - `2026-06-28-triage-hero-latency-analyzer.py` — recompute everything + the graph.
 
+## AFTER — frozen-seek fix `9578b1a` (2026-06-28)
+
+Re-ran the identical test on the seek fix (`2026-06-28-hero-frozen-seek.prompt.md` applied — wall-time
+`seekToWall` with far-seek re-open + the tl* episode-timeline decouple). Raw data:
+`*.after.ht.log`, `*.after.samples.csv`, graph `2026-06-28-triage-hero-latency-after-graph.png`.
+
+### Seek → frame, before vs after
+| jump | froze% BEFORE | froze% AFTER | median latency BEFORE→AFTER |
+|---|---|---|---|
+| ±1 s  | 14 % | **7 %**  | 26 → 28 ms (direct path, unchanged) |
+| ±10 s | 67 % | **0 %**  | (only 33% rendered) → 166 ms (all render) |
+| ±30 s | 61 % | **0 %**  | → 174 ms |
+| ±1 m  | 58 % | **0 %**  | → 167 ms |
+| ±5 m  | 79 % | **0 %**  | → 225 ms |
+| **ALL** | **56 %** | **2 %** | → 164 ms median |
+
+**The freeze is eliminated** — ≥10 s jumps go 58–79 % → **0 %**; overall 56 % → 2 % (the 2 % residual is the
+1 s direct path, no regression). Far seeks now render in ~166–225 ms (the re-open) instead of never. The
+whole 360-jump run finished in **~2.4 min vs ~13.8 min** before, because seeks no longer burn the 2.5 s
+freeze timeout. Open latency unchanged (235 → ~207 ms median). Scrubber verified on-screen: time/bar span
+the full episode (e.g. "00:00 / 12:43"), no jump on a far seek.
+
+### ⚠ Memory got worse — the per-open leak is now per-seek
+RSS climbed 264 → 1213 MB in the (shorter) 2.4 min run — **every far seek now re-opens a session**, so the
+~6 MB/open leak (`2026-06-28-hero-per-open-leak.prompt.md`) is hit on essentially every scrub, not just on
+play-taps. **The leak fix is now the priority** before this ships to long shifts.
+
 ## To produce the AFTER (when the fixes land)
 1. Re-run the exact command above; save `/tmp/htfull_app.log` → `*.after.ht.log` (grep `[HT]`) and
    `/tmp/htfull_samples.csv` → `*.after.samples.csv`.
