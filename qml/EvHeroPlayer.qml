@@ -71,10 +71,11 @@ Item {
         else
             seekToWall(_playheadWallMs + deltaMs);                              // the REAL seek path (near direct / far re-open)
     }
-    // Freeze-watchdog: a direct seek on a continuous session that renders nothing in time → re-open the rare
-    // flaky/boundary tail (continuous lands ~81% directly; this catches the rest without re-opening the 81%).
+    // Freeze-watchdog (LAST RESORT only): on a continuous session direct seeks land ~99% — the slow ones are
+    // cold BASE renditions (S3 fetch, ~2-4s) that DO land, and re-opening hits the same cold base, so a tight
+    // watchdog just churns. So it's deliberately long: it re-opens only a genuine >6s hang, never the cold tail.
     Timer {
-        id: seekWatch; interval: 2800; repeat: false
+        id: seekWatch; interval: 6000; repeat: false
         onTriggered: {
             if (hp._seekWatchSeq >= 0 && hp._frameSeq <= hp._seekWatchSeq) hp._seekFar(hp._seekWatchWall);
             hp._seekWatchSeq = -1;
