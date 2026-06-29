@@ -162,6 +162,8 @@ qt_add_qml_module(watchtower
         src/models/CvImageProvider.cpp
         src/models/SiteMapModel.h
         src/models/SiteMapModel.cpp
+        src/models/MemTelemetry.h
+        src/models/MemTelemetry.cpp
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.

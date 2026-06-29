@@ -619,6 +619,7 @@ Item {
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
             player.source = root.client.playlistUrl(sid);
+            if (typeof MemTel !== "undefined") MemTel.noteOpen();
             player.play();
         }
         function onSessionFailed(err) { root.loading = false; root.errorText = err; }
@@ -770,6 +771,7 @@ Item {
                     id: player
                     videoOutput: vout
                     audioOutput: null
+                    onPlaybackStateChanged: if (typeof MemTel !== "undefined") MemTel.setPlaying(2, playbackState === MediaPlayer.PlayingState)
                     // Apply a deferred open-at seek (event −15s jump / WT_PLAYBACK_DAY
                     // instant). Must wait for `seekable` — a position set on
                     // durationChanged is silently dropped by the not-yet-prerolled

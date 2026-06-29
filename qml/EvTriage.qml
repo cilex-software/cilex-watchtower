@@ -44,6 +44,9 @@ Item {
     readonly property var _ht: heroLoader.item
     readonly property bool _htRun: (typeof wtHeroTest !== "undefined" && wtHeroTest === true) && tri.active && EventsStore.realMode
     readonly property bool _htOpenonly: (typeof wtHeroOpenonly !== "undefined" && wtHeroOpenonly === true)  // leak bisect: open events, no seeks
+    // openonly per-open dwell in 30ms ticks (WT_HERO_SETTLE_MS, default 70≈2.1s) — raise to hold fewer opens
+    // at equal playback time, discriminating open-driven vs playback-time-driven RSS growth.
+    readonly property int _htSettleTicks: (typeof wtHeroSettleMs !== "undefined" && wtHeroSettleMs > 0) ? Math.max(1, Math.round(wtHeroSettleMs / 30)) : 70
     property int _htOpens: 0
     Timer {
         interval: 30; repeat: true; running: tri._htRun
@@ -65,7 +68,7 @@ Item {
             return;
         }
         if (_htState === "settle") {                    // let the player play + buffer ahead before seeking
-            if (++_htWaits >= 70) {                      // ~2s
+            if (++_htWaits >= _htSettleTicks) {          // dwell (default ~2.1s; WT_HERO_SETTLE_MS)
                 _htWaits = 0;
                 if (_htOpenonly) { _htOpens++; if (_htOpens % 20 === 0) console.log("[HT] OPENONLY opens=" + _htOpens + " t=" + Date.now()); _htState = "sel"; }
                 else _htState = "seek";

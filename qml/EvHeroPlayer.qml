@@ -229,6 +229,7 @@ Item {
             hp._loading = false; hp._error = "";
             if (typeof wtHeroNoplay === "undefined" || !wtHeroNoplay) {   // leak bisect: WT_HERO_NOPLAY skips the decode
                 player.source = hp.playbackClient.playlistUrl(sid);
+                if (typeof MemTel !== "undefined") MemTel.noteOpen();
                 player.play();
             }
             if (hp._htOn) {                                   // arm the latency detector for the new session
@@ -259,6 +260,7 @@ Item {
                 videoOutput: vout
                 audioOutput: null
                 playbackRate: hp._speed
+                onPlaybackStateChanged: if (typeof MemTel !== "undefined") MemTel.setPlaying(1, playbackState === MediaPlayer.PlayingState)
                 // Seek to the event once the pipeline is seekable (a position set on
                 // durationChanged before preroll is dropped). Land on the recorded
                 // footage CLOSEST to the event — same logic as PlaybackScreen.

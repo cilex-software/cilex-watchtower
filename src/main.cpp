@@ -23,6 +23,7 @@
 #include "AuthController.h"
 #include "models/CvImageProvider.h"
 #include "models/RtspVideoSource.h"
+#include "models/MemTelemetry.h"
 
 namespace {
 
@@ -205,6 +206,10 @@ int main(int argc, char *argv[])
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
 
+    // Field memory telemetry — periodic [MEMTEL] log of RSS + cumulative active-playback seconds + open
+    // count, so a real shift self-reports whether the residual per-open RSS growth is shift-breaking.
+    engine.rootContext()->setContextProperty("MemTel", new MemTelemetry(&app));
+
     // Events section routing. The EventsArea redesign is now the DEFAULT (fed by
     // the live cilex-vision /events feed). WT_DEMO runs the same redesign on the
     // mock events-v2 showcase store; WT_EVENTS_LEGACY falls back to the old
@@ -226,6 +231,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtHeroAutoplay", qEnvironmentVariableIsSet("WT_HERO_AUTOPLAY"));
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));
+    // WT_HERO_SETTLE_MS: openonly per-open dwell (playback time before re-selecting). Default ~2.1s.
+    // Raising it (e.g. 30000) holds fewer opens at equal playback time → discriminates open-driven vs
+    // playback-time-driven RSS growth.
+    engine.rootContext()->setContextProperty("wtHeroSettleMs", qEnvironmentVariableIntValue("WT_HERO_SETTLE_MS"));
     engine.rootContext()->setContextProperty("wtHeroNoplay", qEnvironmentVariableIsSet("WT_HERO_NOPLAY"));
     engine.rootContext()->setContextProperty("wtSeekDirect", qEnvironmentVariableIsSet("WT_SEEK_DIRECT"));
     // Optional camera to focus in the video test (by IP); empty -> first camera.
