@@ -5,8 +5,9 @@
 > `mallinfo2` in-use stays FLAT while RSS climbs) **+ full-resolution snapshot decode**, **NOT** a Qt-internal
 > *unfreed* leak. Localized with an `LD_PRELOAD` malloc-site tracer (`leak-tools/`). Fixed in-client
 > (`mallopt`+`malloc_trim` in `main.cpp`; `sourceSize` + provider downscale): **+66 → +39 MB/min (~41 %)**,
-> snapshot baseline **323 → 98 MB**. The "Qt-internal/unfixable" and "emergent/profiler-blocked" sections
-> below are the (now-corrected) investigation journey, kept for the record.
+> snapshot baseline **323 → 98 MB**. **A 90-min soak then showed RSS PLATEAUS at ~0.7 GB (Revision 4) — the
+> residual is NOT shift-breaking; the "+39" was a startup fill, not a sustained leak.** The "Qt-internal/
+> unfixable" and "emergent/profiler-blocked" sections below are the (now-corrected) investigation journey.
 
 Investigation of the ~8 MB-per-playback-open leak (the dominant RSS driver), 2026-06-29. Builds on the
 localization in `a9d9dd0` (it's the decode path, Qt-internal) and the Qt-6.12 re-bisect
@@ -193,6 +194,37 @@ for very long shifts — but now at a much lower rate and baseline. **Files:** `
 `qml/EvSnapshot.qml` + `src/models/CvImageProvider.{h,cpp}` (sourceSize/downscale). **Tooling kept:**
 `leak-tools/{malloctrace,mmaptrace}.cpp` (the only profilers that work here) + gates `WT_PROXY_STATS`,
 `WT_DUMP_SEG`, `WT_NO_PREFETCH`, `WT_MMAP_KB`.
+
+## Revision 4 (2026-06-29) — PLATEAU confirmed: the residual is NOT shift-breaking
+
+Ran the decisive **90-min continuous-playback soak** (the openonly harness plays nonstop — worst case) with
+the new `[MEMTEL]` telemetry. **RSS plateaus:**
+
+| window | slope |
+|---|---|
+| 0–15 min | +8.9 MB/min (one-time startup working-set fill) |
+| 15–45 min | +0.0 MB/min |
+| 45–90 min | ~0 MB/min |
+| overall (90 min) | **+0.32 MB/min** (544 → ~715 MB) |
+
+RSS climbs to a **~700–730 MB plateau in the first ~15 min, then stays flat** for the remaining 75 min of
+nonstop playback. **The "+39 MB/min" measured in the earlier ≤4-min runs was the startup fill ramp, not a
+sustained leak** — every prior test (≤4 min; the smaps "linear over ~100 opens" ≈ ≤3 min) was simply too
+short to reach the plateau. This **corrects the original "linear, no plateau, effectively unbounded over a
+shift" symptom**: the working set (glibc arena size-classes + the bounded QtQuick image cache) saturates and
+stops growing.
+
+**Open-vs-playback discriminator:** per-open growth 0.07 MB/open (fast arm, 2408 opens) vs 1.77 MB/open (slow
+arm, 78 opens) — 25× apart ⇒ **not open-count-driven**; and the fast arm plateaus *despite* 2408 opens ⇒ not
+unboundedly anything.
+
+**Verdict: NOT shift-breaking.** Worst-case continuous playback plateaus at **~0.7 GB**; earlyoom's SIGTERM
+line is MemAvailable < ~1.6 GB (≈ **5.8 GB** of client headroom now), an ~8× margin — and ffmpeg is
+`--prefer`'d so the backend sheds first. No process-reset is needed for this. The fix work (mallopt +
+`sourceSize`) lowered the plateau height; it was never the runaway it looked like in short tests. **Caveat:**
+the soak cycles a fixed event pool, while a field shift sees ever-new snapshots — but the QtQuick pixmap cache
+is *size*-bounded (not count-bounded), so the plateau should hold; the shipped `MemTelemetry` (`[MEMTEL]`)
+verifies it in the field. Evidence: `2026-06-29-soak-90min.memtel.log`, `…-slow-40min.memtel.log`.
 
 ## Data
 `2026-06-29-qt-leak-smaps.csv` (per-region), `…-swdec.csv`, `…-arena2.csv`, `2026-06-29-qt612-leak.csv`;
