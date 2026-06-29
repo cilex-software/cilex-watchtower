@@ -105,6 +105,20 @@ Item {
     // climbing, rather than OOM-killing the client. Restores automatically when RSS recovers (hysteresis).
     readonly property int maxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
         : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9)
+    // Which cameras on the page get the ≤maxLiveDecodes LIVE decode slots — the most IMPORTANT ones, not just
+    // the first N by sort position. An ARMED (motion-armed) camera gets a live pipeline ahead of an idle one,
+    // so it's real-time, not a snapshot lagging behind. Stable: keyed off the roster/sort (not every status
+    // poll), so slots don't thrash — each change is a pipeline build+teardown. With nothing armed it's the old
+    // position order. (Set keyed by camId so it's robust across gridModel delegate recycling.)
+    readonly property var liveDecodeSet: {
+        var cams = pagedCameras, ranked = [];
+        for (var i = 0; i < cams.length; i++)
+            ranked.push({ id: cams[i].camId, armed: (cams[i].recording === CameraStatus.Armed), pos: i });
+        ranked.sort(function(a, b) { return (a.armed === b.armed) ? (a.pos - b.pos) : (a.armed ? -1 : 1); });
+        var set = ({}), n = Math.min(root.maxLiveDecodes, ranked.length);
+        for (var k = 0; k < n; k++) set[ranked[k].id] = true;
+        return set;
+    }
     // Responsive controls row: when it's too narrow to fit the right-hand action buttons
     // (Go-back / Save / Arrange), they collapse into the overflow "»" menu (MS-Office style).
     // LOOP-FREE: every term is a STABLE implicitWidth — a hidden button keeps its implicit size,
@@ -1089,9 +1103,10 @@ Item {
                                 // While arranging, a tap must pick a camera for the cell (arrange
                                 // overlay), NOT open the camera full-screen — disable tap-to-open.
                                 tapToOpen: !root.arrangeMode
-                                // Only the first maxLiveDecodes tiles run a live VA-API pipeline;
-                                // the rest show a periodic go2rtc snapshot (bounds GPU/decode memory).
-                                liveDecodeAllowed: cellWrap.index < root.maxLiveDecodes
+                                // Live VA-API pipeline only for the cameras in the importance-ranked
+                                // live set (armed first, then position) — capped at maxLiveDecodes; the
+                                // rest show a periodic go2rtc snapshot (bounds GPU/decode memory).
+                                liveDecodeAllowed: !!root.liveDecodeSet[cellWrap.modelData.camId]
                                 snapshotUrl: cellWrap.modelData.snapshotUrl || ""
                                 // HD promotion is gated by the wall's concurrency
                                 // cap; teardown (paging/relayout) frees the slot.

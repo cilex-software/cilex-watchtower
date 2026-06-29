@@ -345,6 +345,18 @@ Item {
                 id: badges
                 anchors { top: parent.top; right: parent.right; topMargin: 6; rightMargin: 8 }
                 spacing: 4
+                // Decode-capped tile: a periodic still (~1 s refresh), NOT a live decode. Badge it so a
+                // refreshing snapshot isn't mistaken for a real-time (or frozen) live feed.
+                Rectangle {
+                    visible: root.snapshotMode
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 14; radius: 2; width: snapLbl.implicitWidth + 9
+                    color: Qt.rgba(0, 0, 0, 0.55); border.width: 1; border.color: Theme.line2
+                    Text {
+                        id: snapLbl; anchors.centerIn: parent; text: "◌ SNAPSHOT"
+                        color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 0.6
+                    }
+                }
                 LiveStatusBadge { state: root.live }
                 RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : root.recording }
             }

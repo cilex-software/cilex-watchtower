@@ -13,7 +13,10 @@ Rectangle {
     id: thumb
     property var cam: null
     property bool active: true
-    property int refreshMs: 4000
+    // Snapshot poll interval for decode-capped tiles. Now that the backend serves snapshots from a cached,
+    // concurrency-bounded query-api endpoint (no go2rtc producer wake), a fast poll is cheap — so default 1 s
+    // (was 4 s, which read as a 2–3 s "lag" on capped cameras). Env-tunable via WT_THUMB_REFRESH_MS.
+    property int refreshMs: (typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 1000
     property bool showOctet: true
     // Decode snapshots at the tile's display size, NOT full camera resolution. A snapshot tile is only
     // ever shown at tile size, so full-res JPEG decode (QImage + GPU texture, ×2 for the imgA/imgB
