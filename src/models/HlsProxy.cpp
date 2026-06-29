@@ -119,6 +119,7 @@ void HlsProxy::cachePut(const QString &path, const QByteArray &body, const QByte
 // Prefetch the next kReadAhead segments after `path` (.../<n>.ts) into cache.
 void HlsProxy::prefetchAround(const QString &path)
 {
+    if (qEnvironmentVariableIsSet("WT_NO_PREFETCH")) return;   // leak bisect: isolate the read-ahead path
     const int slash = path.lastIndexOf(QLatin1Char('/'));
     if (slash < 0)
         return;

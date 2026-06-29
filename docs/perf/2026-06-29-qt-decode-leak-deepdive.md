@@ -76,6 +76,39 @@ source-change. Confirmed unreachable from QML/C++.
 source-clear · destroy+recreate the `MediaPlayer` · `MALLOC_ARENA_MAX` · Qt upgrade to 6.12.0 · (the GPU
 surface pool is not the leak).
 
+## ⚠ Revision (2026-06-29, later) — the standalone reproducer does NOT reproduce it; the leak is CLIENT-side
+
+Built the minimal `QMediaPlayer` `setSource`-loop reproducer (`qt-leak-repro/`) and ran it every way that
+matters — **all plateau**, none reproduce the sustained +66 MB/min:
+
+| reproducer variant | result |
+|---|---|
+| bare `QVideoSink`, mp4 | plateaus ~190 MB after ~10 opens |
+| `QVideoWidget` (on-screen render), HEVC 1440p | plateaus ~330 MB |
+| local HLS / HTTP-served HLS (Qt's own libavformat fetch) | plateaus |
+| unique URL per open (`?i=N`) | plateaus |
+| distinct content per open (6 different 1440p clips) | plateaus |
+
+**A bare QMediaPlayer reaches a bounded ~180–330 MB plateau and stays** — so the sustained leak is **not** a
+generic QMediaPlayer/libavformat `setSource` bug, and **not** the bare decode pipeline. **This overturns the
+"Qt-internal / file a Qt bug" conclusion above.**
+
+The leak is in the **client's playback integration** — real-backend HLS served through our **`HlsProxy`**
+(libavformat → localhost `HlsProxy` → QNAM → query-api), which the synthetic reproducer doesn't exercise.
+In-client bisect:
+- **`HlsProxy` read-ahead ≈ 18%**: `WT_NO_PREFETCH=1` drops +66 → **+54 MB/min**.
+- the remaining ~+54 is the main serve/decode path (proxy `forward` + QNAM + decode of the real segments).
+
+So it is most likely **client-fixable** (the proxy / QNAM segment path), not a Qt bug. **Corrected fix
+ranking:**
+1. **Localize within the client** — targeted bisection of `HlsProxy::forward` / the segment cache / the shared
+   QNAM (heaptrack is unusable on this stack; bisect with gates like `WT_NO_PREFETCH`). The smaps signature
+   (heap + anon, ~1–2 segments' worth/open) fits leaked segment `QByteArray`s or QNAM/reply state.
+2. **Cheap partial win:** the read-ahead is ~18% — consider disabling it (continuous-HLS already cut the
+   seek/re-open need for it), or bounding inflight more tightly.
+3. The standalone reproducer is **kept as the control** that rules out the bare Qt player — useful, but it is
+   NOT a Qt-bug reproducer (do not file the Qt bug on this evidence).
+
 ## Data
 `2026-06-29-qt-leak-smaps.csv` (per-region), `…-swdec.csv`, `…-arena2.csv`, `2026-06-29-qt612-leak.csv`;
 harness = `WT_HERO_OPENONLY`; samplers = `/tmp/sampler.py` (RSS) + `/tmp/smaps_cat.py` (per-region).
