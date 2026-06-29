@@ -1,4 +1,5 @@
 #include "MemTelemetry.h"
+#include "RtspVideoSource.h"   // live-wall pipeline/frame counters (the live decode path MEMTEL must also watch)
 
 #include <QTimer>
 #include <QFile>
@@ -47,8 +48,12 @@ void MemTelemetry::noteOpen()
 void MemTelemetry::tick()
 {
     const qint64 playMs = m_cumPlayMs + (m_playing.isEmpty() ? 0 : m_clock.elapsed());
-    qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d",
+    // livePipes = live-wall VA-API decode pipelines currently built. If RSS climbs while playSec stays flat,
+    // this is the path to watch — a livePipes count that ratchets up (not bounded by maxLiveDecodes) is the
+    // live-wall pipeline leak (the GLib g_object_unref teardown failure leaking pipelines under reconnect churn).
+    qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d frames=%lld",
           static_cast<long long>(m_uptime.elapsed() / 1000), rssMb(),
           static_cast<long long>(playMs / 1000), static_cast<long long>(m_opens),
-          static_cast<int>(m_playing.size()));
+          static_cast<int>(m_playing.size()), RtspVideoSource::livePipelineCount(),
+          static_cast<long long>(RtspVideoSource::totalFramesDelivered()));
 }
