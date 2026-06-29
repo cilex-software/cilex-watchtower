@@ -5,6 +5,7 @@
 #include <QQuickTextureFactory>
 #include <QImage>
 #include <QPointer>
+#include <QSize>
 #include <QString>
 
 class AuthController;
@@ -23,8 +24,8 @@ class CvImageResponse : public QQuickImageResponse
 {
     Q_OBJECT
 public:
-    CvImageResponse(AuthController *auth, const QString &path)
-        : m_auth(auth), m_path(path) {}
+    CvImageResponse(AuthController *auth, const QString &path, const QSize &reqSize)
+        : m_auth(auth), m_path(path), m_reqSize(reqSize) {}
     ~CvImageResponse() override;
 
     QQuickTextureFactory *textureFactory() const override
@@ -40,6 +41,7 @@ private:
     QString m_path;
     QString m_error;
     QImage m_image;
+    QSize m_reqSize;                    // QML sourceSize → decode/cache at display size, not full sensor res
     QPointer<QNetworkReply> m_reply;
     int m_attempt = 0;                  // 503 (governor shed) retries — honors Retry-After
 };

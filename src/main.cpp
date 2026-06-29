@@ -12,6 +12,7 @@
 #include <QProcessEnvironment>
 #include <gst/gst.h>
 #include <sys/resource.h>
+#include <malloc.h>
 #include <csignal>
 #include <cstring>
 #include <cstdio>
@@ -126,6 +127,24 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
     QGuiApplication::setOrganizationName(QStringLiteral("Cilex Vision"));
+
+    // --- per-open RSS retention control (the dominant memory growth during a review shift) ---
+    // Playback churns large transient buffers every recording open — decoded frames (~5.5 MB at
+    // 1440p), HLS segments, snapshot QImages. glibc's *dynamic* mmap threshold ratchets up as these
+    // are freed, so later allocations of the same size land in the main arena instead of being
+    // mmap'd; their freed space is then retained on the arena free-lists (not returned to the OS) and,
+    // fragmented by the churn, the arena high-water-mark climbs unboundedly. This is RETENTION, not an
+    // unfreed leak — `mallinfo2` in_use stays flat (~270 MB) while RSS climbs +66 MB/min. Pin a low,
+    // fixed mmap threshold so large allocs are mmap'd and munmap'd straight back to the OS on free,
+    // and a low trim threshold + a periodic malloc_trim() so the arena top is returned too.
+    // (Localized 2026-06-29 via an LD_PRELOAD malloc-site tracer; see docs/perf deep-dive.)
+    int mmapKb = qEnvironmentVariableIntValue("WT_MMAP_KB");   // tunable; default 128 KB
+    if (mmapKb <= 0) mmapKb = 128;
+    mallopt(M_MMAP_THRESHOLD, mmapKb * 1024);
+    mallopt(M_TRIM_THRESHOLD, mmapKb * 1024);
+    static QTimer s_trimTimer;
+    QObject::connect(&s_trimTimer, &QTimer::timeout, [] { malloc_trim(0); });
+    s_trimTimer.start(15000);
 
     // QtMultimedia (GStreamer backend, VA-API HW decode) renders video frames
     // through the scene graph; pin the OpenGL RHI backend before any window.

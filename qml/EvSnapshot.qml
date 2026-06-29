@@ -38,6 +38,8 @@ Item {
             id: liveImg
             anchors.fill: parent; fillMode: Image.PreserveAspectCrop
             asynchronous: true; cache: false
+            sourceSize: Qt.size(width, height)           // decode at display size — full 1440p stills are ~14MB each
+
             // go2rtc frame.jpeg can 503 transiently / return a transient "between
             // frames" still; cache:false so one bad shared-cache entry can't blank
             // every thumbnail, + retry a few times with a cache-busting suffix.
@@ -53,6 +55,7 @@ Item {
             id: evImg
             anchors.fill: parent; fillMode: Image.PreserveAspectCrop
             asynchronous: true; cache: true
+            sourceSize: Qt.size(width, height)           // requestedSize → provider downscales before caching
             source: (root._real && root.ev) ? ("image://cvframe/events/" + root.ev.id + "/snapshot") : ""
             visible: status === Image.Ready
         }

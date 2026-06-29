@@ -1,5 +1,13 @@
 # Qt-FFmpeg per-open decode leak — deep dive (cause / symptoms / fixes)
 
+> **✅ RESOLVED 2026-06-29 — read "Revision 3" (bottom) first; it supersedes everything above.**
+> The growth is **glibc arena retention** (freed playback buffers the allocator doesn't return to the OS —
+> `mallinfo2` in-use stays FLAT while RSS climbs) **+ full-resolution snapshot decode**, **NOT** a Qt-internal
+> *unfreed* leak. Localized with an `LD_PRELOAD` malloc-site tracer (`leak-tools/`). Fixed in-client
+> (`mallopt`+`malloc_trim` in `main.cpp`; `sourceSize` + provider downscale): **+66 → +39 MB/min (~41 %)**,
+> snapshot baseline **323 → 98 MB**. The "Qt-internal/unfixable" and "emergent/profiler-blocked" sections
+> below are the (now-corrected) investigation journey, kept for the record.
+
 Investigation of the ~8 MB-per-playback-open leak (the dominant RSS driver), 2026-06-29. Builds on the
 localization in `a9d9dd0` (it's the decode path, Qt-internal) and the Qt-6.12 re-bisect
 (`2026-06-29-qt-leak-rebisect.prompt.md` — not fixed by upgrade). Method: the `WT_HERO_OPENONLY` harness
@@ -146,6 +154,45 @@ client component despite exhaustive bisection. **Actionable now:**
 3. `WT_NO_PREFETCH` reclaims ~18 % cheaply (continuous-HLS already cut the seek/re-open need for read-ahead).
 4. Kept for a profiler-assisted pass: the control reproducer (`qt-leak-repro/`) + the gates `WT_PROXY_STATS`,
    `WT_NO_PREFETCH`, `WT_DUMP_SEG`.
+
+## Revision 3 (2026-06-29) — SOLVED: localized with an LD_PRELOAD malloc-site tracer
+
+The blocker (Revision 2) was the profiler. heaptrack/valgrind are unusable on this stack, so I wrote a tiny
+**`LD_PRELOAD` malloc-site tracer** (`leak-tools/malloctrace.cpp`: interpose malloc/calloc/realloc/
+posix_memalign/free, record live ≥16 KB allocations by backtrace, dump the top sites by live bytes + a
+`mallinfo2` summary on SIGUSR1). It cracked it on the first run. **The earlier "genuinely not freed /
+Qt-internal unfixable" conclusion was WRONG.** Two real, client-side causes:
+
+### (1) glibc arena RETENTION — the dominant +RSS mechanism (NOT an unfreed leak)
+`mallinfo2` **in-use (uordblks) is FLAT (~270 MB)** across the whole run while RSS climbs +66 MB/min, and the
+mmap tracer found **0 live >1 MB anon mmaps**. So nothing is unfreed. Instead: the large transient playback
+buffers churned every open (decoded frames ~5.5 MB, HLS segments, snapshot `QImage`s) ratchet up glibc's
+**dynamic** `M_MMAP_THRESHOLD`; later same-size allocations then land in the **main arena** instead of being
+individually mmap'd, and their freed space is retained on the arena free-lists (never returned to the OS) and
+fragmented by the churn — so the arena high-water-mark grows unboundedly even though *live* bytes are flat.
+- **Fix (`main.cpp`):** pin a low fixed `mallopt(M_MMAP_THRESHOLD/M_TRIM_THRESHOLD, 128 KB)` so large allocs
+  are mmap'd → `munmap`'d straight back to the OS on free, + a 15 s `malloc_trim(0)`.
+- **Measured: +66.3 → +39.2 MB/min (~41 %).** Threshold sweep (open-only slope): **128 KB → +39.2** (sweet
+  spot), 64 KB → +52.1, 32 KB → +46.4 — *lower is worse* (small mmaps add 4 KB-page rounding waste). Env
+  `WT_MMAP_KB` tunes it.
+
+### (2) Full-resolution snapshot decode — a large bounded baseline
+`EvSnapshot`'s two `Image`s (event still + live-frame) had **no `sourceSize`**, and `CvImageProvider` ignored
+`requestedSize` — so every snapshot was decoded **and QtQuick-cached at full 2560×1440 (~14 MB)** for
+thumbnail/poster display. That was the **#1 live-allocation site at 323 MB** (decoded JPEGs via
+`QImageReader`/`QImageIOHandler`).
+- **Fix:** `sourceSize: Qt.size(width, height)` on both `Image`s + `CvImageProvider` downscales the `QImage`
+  to `requestedSize` before caching. **Baseline 323 → 98 MB.** Bounded, so it doesn't move the *slope*, but
+  it's a big RSS + texture-upload saving and removes wasteful churn (which also feeds cause #1).
+
+### Net
+Two small, **zero-risk client changes** (no Qt rebuild, no GStreamer switch): per-open growth **−41 %** and the
+snapshot baseline **−3×**. The residual +39 MB/min is sub-128 KB arena fragmentation that allocator tuning
+can't fully reclaim (lower thresholds regress). The process-level reset (operational mitigation) still applies
+for very long shifts — but now at a much lower rate and baseline. **Files:** `src/main.cpp` (mallopt+trim),
+`qml/EvSnapshot.qml` + `src/models/CvImageProvider.{h,cpp}` (sourceSize/downscale). **Tooling kept:**
+`leak-tools/{malloctrace,mmaptrace}.cpp` (the only profilers that work here) + gates `WT_PROXY_STATS`,
+`WT_DUMP_SEG`, `WT_NO_PREFETCH`, `WT_MMAP_KB`.
 
 ## Data
 `2026-06-29-qt-leak-smaps.csv` (per-region), `…-swdec.csv`, `…-arena2.csv`, `2026-06-29-qt612-leak.csv`;

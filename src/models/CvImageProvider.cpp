@@ -35,10 +35,18 @@ void CvImageResponse::start()
         const int code = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 200) {
             QImage img;
-            if (img.loadFromData(r->readAll()))
+            if (img.loadFromData(r->readAll())) {
+                // Decode/cache at the requested DISPLAY size, not the full 2560x1440 sensor frame.
+                // QtQuick caches this provider's QImage, so a full-res still per event is ~14 MB that
+                // never shrinks — the dominant per-open RSS leak (localized 2026-06-29). Downscale to
+                // the QML sourceSize (thumbnail/poster) → caps each cached still to well under 1 MB.
+                if (m_reqSize.isValid() && !m_reqSize.isEmpty()
+                    && (img.width() > m_reqSize.width() || img.height() > m_reqSize.height()))
+                    img = img.scaled(m_reqSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                 m_image = img;
-            else
+            } else {
                 m_error = QStringLiteral("decode failed");
+            }
         } else if (r->error() == QNetworkReply::OperationCanceledError) {
             m_error = QStringLiteral("cancelled");
         } else if (code == 503 && m_attempt < kMaxSnapshotRetries) {
@@ -61,9 +69,9 @@ void CvImageResponse::start()
     });
 }
 
-QQuickImageResponse *CvImageProvider::requestImageResponse(const QString &id, const QSize &)
+QQuickImageResponse *CvImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
-    auto *resp = new CvImageResponse(m_auth, id);
+    auto *resp = new CvImageResponse(m_auth, id, requestedSize);
     // The NAM lives on the GUI thread; move the response there and kick the fetch
     // on that thread (this method runs on the pixmap-loader worker thread).
     resp->moveToThread(m_auth->thread());
