@@ -109,6 +109,38 @@ Window {
         section = sid;
     }
 
+    // ---- WT_GUARD_SOAK: long-run guard-usage emulator (inert unless wtGuardSoak) ----
+    // Periods on Live (~15–20 min) interspersed with human-paced click-throughs of Events
+    // (triage / situation-map / timeline), Groups, Views, Health, and the playback wall, then back to
+    // Live. Logs [GUARD] on each step (with an epoch ms) so the external sampler can attribute RSS/CPU
+    // and spikes to the active action. Dwells are human-paced (a guard lingers on a screen ~a minute).
+    Timer {
+        id: guardSoak
+        property int step: 0
+        readonly property int liveMs: (typeof wtGuardLiveMs !== "undefined" && wtGuardLiveMs > 0) ? wtGuardLiveMs : 1020000
+        readonly property var seq: [
+            { name: "live",            dwell: liveMs, fn: function(){ win.goToSection("live"); } },
+            { name: "events-triage",   dwell: 60000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "triage"; } },
+            { name: "events-map",      dwell: 50000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "map"; } },
+            { name: "events-timeline", dwell: 40000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "timeline"; } },
+            { name: "groups",          dwell: 50000,  fn: function(){ win.goToSection("groups"); } },
+            { name: "views",           dwell: 35000,  fn: function(){ win.goToSection("views"); } },
+            { name: "health",          dwell: 35000,  fn: function(){ win.goToSection("health"); } },
+            { name: "playback-wall",   dwell: 75000,  fn: function(){ win.goToSection("live"); win.enterWallPlayback(); } }
+        ]
+        running: (typeof wtGuardSoak !== "undefined" && wtGuardSoak === true)
+        repeat: true
+        triggeredOnStart: true
+        interval: 2000
+        onTriggered: {
+            var s = seq[step % seq.length];
+            try { s.fn(); } catch (e) { console.log("[GUARD] ERR " + e); }
+            console.log("[GUARD] t=" + Date.now() + " step=" + s.name + " section=" + win.section + " wall=" + win.wallMode);
+            guardSoak.interval = s.dwell;     // human-paced dwell on THIS action before the next
+            step = step + 1;
+        }
+    }
+
     function setLayout(n) {
         gridLayout = n; gridPage = 1;
         // A layout preset means "show me a normal grid", so exit a transient map-selection
@@ -434,6 +466,7 @@ Window {
                 // screen, on the live cilex-vision feed (EventsStore.ingestReal).
                 // WT_DEMO → the mock showcase; WT_EVENTS_LEGACY → the old EventsScreen.
                 EventsArea {
+                    id: eventsArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     visible: !wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null

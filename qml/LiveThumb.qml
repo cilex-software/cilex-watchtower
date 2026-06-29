@@ -36,22 +36,27 @@ Rectangle {
     // Cache-buster separator: the query-api snapshot URL has no '?' (the old go2rtc frame.jpeg?src=… did),
     // so appending "&_r=" to a '?'-less URL is malformed → 404. Use '?' when there's no query yet.
     readonly property string _sep: _base.indexOf("?") < 0 ? "?_r=" : "&_r="
+    // Route the snapshot through the cvframe image PROVIDER (which attaches the auth cookie) rather than a raw
+    // QML Image — the query-api cached snapshot endpoint requires auth, and a bare QML Image sends no cookie →
+    // 401 "Host requires authentication" → blank tile. Strip scheme+host (the backend echoes our connect host,
+    // so the provider's baseUrl + path resolves to the same URL).
+    readonly property string _provBase: _base === "" ? "" : ("image://cvframe/" + _base.replace(/^[a-z]+:\/\/[^\/]+\//, ""))
     property int _tick: 0
     property bool _showA: true          // which buffer is on screen
     property bool _everLoaded: false
     function _refresh() {
         if (_base === "") return;
         _tick++;
-        var url = _base + _sep + _tick;
+        var url = _provBase + _sep + _tick;
         if (_showA) imgB.source = url; else imgA.source = url;   // load the off-screen buffer
     }
     function _reset() {
         _everLoaded = false; _showA = true; _tick = 0;
         imgA.source = ""; imgB.source = "";
-        if (_base !== "") imgA.source = _base + _sep + "0";
+        if (_base !== "") imgA.source = _provBase + _sep + "0";
     }
     onCamChanged: _reset()
-    Component.onCompleted: if (_base !== "") imgA.source = _base + _sep + "0"
+    Component.onCompleted: if (_base !== "") imgA.source = _provBase + _sep + "0"
 
     Image {
         id: imgA
