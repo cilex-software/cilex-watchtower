@@ -109,6 +109,44 @@ ranking:**
 3. The standalone reproducer is **kept as the control** that rules out the bare Qt player — useful, but it is
    NOT a Qt-bug reproducer (do not file the Qt bug on this evidence).
 
+## Revision 2 (2026-06-29) — exhaustive elimination: the leak is EMERGENT in the full client
+
+Extended the bisection until every isolatable piece was tested. **Everything in isolation plateaus
+(~150–330 MB, bounded); only the full client sustains (+66 MB/min):**
+
+| isolated test | result |
+|---|---|
+| standalone player — bare `QVideoSink` / `QVideoWidget` / **QML `VideoOutput`** (client's exact render path) | plateau |
+| × mp4 / local-HLS / HTTP-HLS / **real captured HEVC segments** (file:// AND http://) | plateau |
+| × offscreen / on-screen / unique-URL-per-open / 6 distinct clips | plateau |
+| **QNAM alone** — 3000 sequential GETs, no player | **flat** (+0.001 MB/GET) |
+| **`HlsProxy` internals** (`WT_PROXY_STATS`): cache (LRU-bounded ≤160 MB), inflight ≤2, sockets ≤1, replies ≤3 | **all bounded** |
+| client open-only, `WT_NO_PREFETCH` | +66 → +54 (read-ahead ≈ 18 %; rest remains) |
+
+So the leak is **NOT** the player (any output, any content incl. real footage), **NOT** the QNAM, **NOT** the
+proxy's tracked objects. It is **emergent in the full client's hero-play path** — reproducible only with the
+real app, not with any standalone combination of its parts. (Note: the `HlsProxy` cache is never cleared in
+code; the `0`s in the proxy stats were a *second, idle* `HlsProxy` from the Playback-wall client, not a
+clear.) The proxy code audits clean (replies/sockets `deleteLater`'d, cache LRU-bounded, 503-retry timers
+one-shot).
+
+**Honest conclusion:** the leak resists component-isolation — it is a subtle interaction or an untracked
+allocation in the full client's playback path. Black-box bisection has gone as far as it usefully can.
+Pinning the exact malloc site now requires a **working heap profiler**, and that is the blocker: heaptrack is
+unusable on this VA-API/FFmpeg/Qt stack (per `dev-box`/memory), and valgrind/massif is impractical on the
+full client (SW-HEVC × valgrind ≈ unusably slow; VA-API × valgrind ≈ crash). An `LD_PRELOAD` mmap-site logger
+(intercept >1 MB allocations + backtrace, aggregate the never-freed ones) is the most promising remaining
+tool and the recommended next attempt.
+
+**Corrected fix status:** NOT a generic Qt bug (do not file one), and NOT localized to a single fixable
+client component despite exhaustive bisection. **Actionable now:**
+1. The leak is **bounded per event opened** (~8 MB × events/shift) and the continuous-seek work already
+   removed the per-scrub multiplier — so it is **not shift-breaking today**; document the ceiling + monitor.
+2. If it ever is: a **process/subsystem-level reset** at an RSS threshold (player-recreate does NOT free it).
+3. `WT_NO_PREFETCH` reclaims ~18 % cheaply (continuous-HLS already cut the seek/re-open need for read-ahead).
+4. Kept for a profiler-assisted pass: the control reproducer (`qt-leak-repro/`) + the gates `WT_PROXY_STATS`,
+   `WT_NO_PREFETCH`, `WT_DUMP_SEG`.
+
 ## Data
 `2026-06-29-qt-leak-smaps.csv` (per-region), `…-swdec.csv`, `…-arena2.csv`, `2026-06-29-qt612-leak.csv`;
 harness = `WT_HERO_OPENONLY`; samplers = `/tmp/sampler.py` (RSS) + `/tmp/smaps_cat.py` (per-region).

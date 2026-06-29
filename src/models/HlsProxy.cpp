@@ -2,6 +2,7 @@
 
 #include <QDebug>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -20,6 +21,18 @@ HlsProxy::HlsProxy(QNetworkAccessManager *nam, QObject *parent)
     : QObject(parent), m_nam(nam)
 {
     connect(&m_server, &QTcpServer::newConnection, this, &HlsProxy::onNewConnection);
+    // WT_PROXY_STATS=1 — periodic dump of the proxy's live internals, to localize the per-open RSS leak.
+    if (qEnvironmentVariableIsSet("WT_PROXY_STATS")) {
+        auto *t = new QTimer(this);
+        connect(t, &QTimer::timeout, this, [this]() {
+            qInfo("[PROXYSTATS] cacheN=%lld cacheMB=%lld inflight=%lld sockets=%lld replies=%lld",
+                  (long long)m_segCache.size(), (long long)(m_segBytes / 1048576),
+                  (long long)m_inflight.size(),
+                  (long long)m_server.findChildren<QTcpSocket *>().size(),
+                  (long long)m_nam->findChildren<QNetworkReply *>().size());
+        });
+        t->start(3000);
+    }
 }
 
 bool HlsProxy::start()
@@ -97,6 +110,11 @@ void HlsProxy::cachePut(const QString &path, const QByteArray &body, const QByte
 {
     if (body.isEmpty())
         return;
+    if (qEnvironmentVariableIsSet("WT_DUMP_SEG") && path.endsWith(QLatin1String(".ts"))) {   // capture real segments
+        const QString base = path.mid(path.lastIndexOf(QLatin1Char('/')) + 1);
+        QFile f(QStringLiteral("/tmp/realseg/") + base);
+        if (!f.exists() && f.open(QIODevice::WriteOnly)) { f.write(body); f.close(); }
+    }
     auto it = m_segCache.find(path);
     if (it != m_segCache.end()) {
         m_segBytes -= it->body.size();
