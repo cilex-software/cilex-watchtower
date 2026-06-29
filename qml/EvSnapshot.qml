@@ -46,7 +46,11 @@ Item {
             // (Lists are virtualised, so only the ~visible thumbnails fetch.)
             property int _retry: 0
             readonly property string _base: (root._real && root.ev && root.ev.cam && root.ev.cam.snapshotUrl) ? root.ev.cam.snapshotUrl : ""
-            source: _base === "" ? "" : (_base + (_retry > 0 ? ("&_r=" + _retry) : ""))
+            // LAZY: only fetch the go2rtc live frame once the event-still has actually FAILED. Fetching it
+            // eagerly for every event (the old behaviour) hammered go2rtc — each frame.jpeg wakes a VA-API
+            // ffmpeg transcode, and at scale this contributed to go2rtc OOM-kills (2026-06-29). Gating on
+            // evImg.status===Error confines go2rtc traffic to the genuine no-stored-still fallback case.
+            source: (_base === "" || evImg.status !== Image.Error) ? "" : (_base + (_retry > 0 ? ("&_r=" + _retry) : ""))
             visible: status === Image.Ready && evImg.status !== Image.Ready
             onStatusChanged: if (status === Image.Error && _retry < 3) liveRetry.restart()
             Timer { id: liveRetry; interval: 700; onTriggered: liveImg._retry++ }
