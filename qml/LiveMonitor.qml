@@ -100,7 +100,11 @@ Item {
     // snapshot, not a live pipeline. Each decode holds hundreds of MB on the shared iGPU, so
     // this bounds both steady memory and the teardown watermark during arrange/relayout churn
     // (the residual ~5.8 GB OOM). WT_MAX_DECODES overrides; default 9 (a full 3×3).
-    readonly property int maxLiveDecodes: (typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9
+    // Under the RSS-shed safety valve (a memory runaway — e.g. the live-pipeline leak under go2rtc
+    // instability) collapse to a single live decode so the wall sheds to snapshot tiles and RSS stops
+    // climbing, rather than OOM-killing the client. Restores automatically when RSS recovers (hysteresis).
+    readonly property int maxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
+        : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9)
     // Responsive controls row: when it's too narrow to fit the right-hand action buttons
     // (Go-back / Save / Arrange), they collapse into the overflow "»" menu (MS-Office style).
     // LOOP-FREE: every term is a STABLE implicitWidth — a hidden button keeps its implicit size,

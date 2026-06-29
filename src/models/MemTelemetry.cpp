@@ -24,6 +24,34 @@ MemTelemetry::MemTelemetry(QObject *parent) : QObject(parent)
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &MemTelemetry::tick);
     m_timer->start(30000);          // 30 s heartbeat
+
+    // RSS-shed safety valve (WT_RSS_SHED_MB, default 5000; 0 disables). Checked every 5 s — fast enough to
+    // trip before earlyoom on a runaway (the crash went 2.3→8.6 GB in ~60 s). Normal use is well under 1 GB,
+    // so 5 GB is unambiguously a leak. Trips shedLive → the live wall drops to snapshot tiles, capping growth.
+    m_shedThreshMb = qEnvironmentVariableIsSet("WT_RSS_SHED_MB")
+                     ? qEnvironmentVariableIntValue("WT_RSS_SHED_MB") : 5000;
+    if (m_shedThreshMb > 0) {
+        m_guardTimer = new QTimer(this);
+        connect(m_guardTimer, &QTimer::timeout, this, &MemTelemetry::guardTick);
+        m_guardTimer->start(5000);
+    }
+}
+
+void MemTelemetry::guardTick()
+{
+    const long rss = rssMb();
+    if (rss < 0)
+        return;
+    if (!m_shedLive && rss > m_shedThreshMb) {
+        m_shedLive = true;
+        qWarning("[MEMGUARD] RSS %ld MB > %ld MB — SHEDDING live decodes (wall → snapshot tiles) to avert OOM",
+                 rss, m_shedThreshMb);
+        emit shedLiveChanged();
+    } else if (m_shedLive && rss < m_shedThreshMb * 85 / 100) {   // hysteresis: recover at 85 %
+        m_shedLive = false;
+        qInfo("[MEMGUARD] RSS %ld MB recovered — restoring live decodes", rss);
+        emit shedLiveChanged();
+    }
 }
 
 void MemTelemetry::setPlaying(int id, bool playing)

@@ -135,8 +135,28 @@ private:
 RtspVideoSource::RtspVideoSource(QObject *parent)
     : QObject(parent)
 {
-    std::lock_guard<std::mutex> lock(aliveMutex());
-    aliveSet().insert(this);
+    {
+        std::lock_guard<std::mutex> lock(aliveMutex());
+        aliveSet().insert(this);
+    }
+    // WT_WALL_CHURN=<ms> (default 2000): test harness for the P0 live-wall leak. While set, each live source
+    // repeatedly tears down + rebuilds its pipeline (the exact reconnect() crash path), so a per-teardown leak
+    // accumulates fast — at a low WT_MAX_DECODES it reproduces the OOM mechanism safely + bounded. Inert
+    // unless the env is set. Logs [WALLCHURN] livePipes each cycle (ratchet>cap = build/teardown imbalance;
+    // stable count + rising RSS = the teardown unref / per-decode leak).
+    if (qEnvironmentVariableIsSet("WT_WALL_CHURN")) {
+        int ms = qEnvironmentVariableIntValue("WT_WALL_CHURN");
+        if (ms <= 0) ms = 2000;
+        auto *churn = new QTimer(this);
+        connect(churn, &QTimer::timeout, this, [this]() {
+            if (!m_active || m_url.isEmpty() || !m_sink)
+                return;
+            qInfo("[WALLCHURN] reconnect url=…%s livePipes=%d frames=%lld",
+                  m_url.right(20).toUtf8().constData(), livePipelineCount(), totalFramesDelivered());
+            reconnect();
+        });
+        churn->start(ms);
+    }
 }
 
 RtspVideoSource::~RtspVideoSource()
@@ -367,9 +387,16 @@ void RtspVideoSource::startPipelineNow()
     }
     if (err) g_error_free(err);
 
+    // WT_WALL_BADURL=<url>: test harness — force pipelines onto an unresponsive/erroring source so the churn
+    // (WT_WALL_CHURN) tears down BAD-STATE pipelines (the go2rtc-instability path the crash hit), not healthy
+    // ones. e.g. rtsp://192.0.2.1:554/x (TEST-NET black-hole → rtspsrc hangs connecting) or a 404 stream.
+    const QByteArray loc = qEnvironmentVariableIsSet("WT_WALL_BADURL")
+                           ? qgetenv("WT_WALL_BADURL") : m_url.toUtf8();
     if (GstElement *src = gst_bin_get_by_name(GST_BIN(m_pipeline), "src")) {
-        g_object_set(src, "location", m_url.toUtf8().constData(),
+        g_object_set(src, "location", loc.constData(),
                           "latency", guint(m_latencyMs), nullptr);
+        if (qEnvironmentVariableIsSet("WT_RTSP_TCP"))   // force TCP-interleaved so a TCP proxy carries media
+            g_object_set(src, "protocols", 0x4 /* GST_RTSP_LOWER_TRANS_TCP */, nullptr);
         gst_object_unref(src);
     }
     if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
