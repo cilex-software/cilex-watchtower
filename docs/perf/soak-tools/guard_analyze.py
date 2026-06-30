@@ -44,6 +44,22 @@ if hrs[-1] > 0.2:
     slope = np.polyfit(hrs, rss, 1)[0]
     print("RSS trend: %+.1f MB/hour over the run (≈0 = no leak)" % slope)
 
+from collections import defaultdict
+acnt = defaultdict(int); adwell = defaultdict(float)
+for i, (t, s) in enumerate(acts):
+    acnt[s] += 1
+    if i + 1 < len(acts): adwell[s] += (acts[i + 1][0] - t) / 1000.0
+print("\n-- ACTIONS SIMULATED (the guard work performed; from the [GUARD] log) --")
+print("total actions: %d | full cycles (playback-wall opens): %d | actions logged in app.log" % (len(acts), acnt.get('playback-wall', 0)))
+print("%-17s %6s %11s %12s" % ("action", "count", "total min", "avg dwell s"))
+for s in sorted(acnt, key=lambda k: -adwell[k]):
+    print("%-17s %6d %11.1f %12.0f" % (s, acnt[s], adwell[s] / 60, adwell[s] / max(1, acnt[s])))
+GROUPS = {'Live monitoring': ['live'], 'Events review (triage/map/timeline)': ['events-triage', 'events-map', 'events-timeline'],
+          'Playback wall': ['playback-wall'], 'Cameras / Views / Health': ['groups', 'views', 'health']}
+print("  grouped guard activity:")
+for g, ks in GROUPS.items():
+    print("    %-38s %3d visits, %7.1f min" % (g, sum(acnt[k] for k in ks), sum(adwell[k] for k in ks) / 60))
+
 print("\n-- per-action (mean +/- stdev) --")
 print("%-16s %5s %9s %7s %9s %7s" % ("action", "n", "RSSmean", "RSSsd", "CPUmean", "CPUsd"))
 for a in sorted(set(steps)):
