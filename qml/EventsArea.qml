@@ -45,6 +45,14 @@ Item {
     }
     onGroupFilterChanged: if (!demo && eventModel) area._ingestReal()
 
+    // WT_GUARD_SOAK: select a random playable event → drives the hero player (i.e. "play a video").
+    // Works from whatever tab is active (selId is shared across triage/review/timeline/map).
+    function selectRandomEvent() {
+        if (typeof EventsStore === "undefined" || !EventsStore.events) return;
+        var es = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && e.durationSec >= 2; });
+        if (es.length > 0) area.selId = es[Math.floor(Math.random() * es.length)].id;
+    }
+
     function _buildLookup() {
         var lk = ({});
         var n = cameraModel ? cameraModel.total : 0;

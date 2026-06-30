@@ -109,24 +109,63 @@ Window {
         section = sid;
     }
 
-    // ---- WT_GUARD_SOAK: long-run guard-usage emulator (inert unless wtGuardSoak) ----
-    // Periods on Live (~15–20 min) interspersed with human-paced click-throughs of Events
-    // (triage / situation-map / timeline), Groups, Views, Health, and the playback wall, then back to
-    // Live. Logs [GUARD] on each step (with an epoch ms) so the external sampler can attribute RSS/CPU
-    // and spikes to the active action. Dwells are human-paced (a guard lingers on a screen ~a minute).
+    // ---- WT_GUARD_SOAK: long-run guard-usage ENDURANCE + STRESS emulator (inert unless wtGuardSoak) ----
+    // Drives heavy, realistic guard interaction so a long run exercises the leak-prone paths, not just nav:
+    //  · Live   — fullscreen random cameras, REPLACE/swap random cameras into random tiles (the historical
+    //             swap-leak path), and change layouts (1/4/9/16);
+    //  · Events — cycle all four tabs (Triage / Review / Timeline / Map) and play random event videos (hero);
+    //  · Wall   — enter playback and re-arrange (swap) cells repeatedly (re-composites the mosaic).
+    // Logs [GUARD] t=<epoch> step=<name> on each action so the sampler can attribute RSS/CPU + count actions.
     Timer {
         id: guardSoak
         property int step: 0
-        readonly property int liveMs: (typeof wtGuardLiveMs !== "undefined" && wtGuardLiveMs > 0) ? wtGuardLiveMs : 1020000
+        readonly property int liveMs: (typeof wtGuardLiveMs !== "undefined" && wtGuardLiveMs > 0) ? wtGuardLiveMs : 180000
+        // random pickers over the live roster / a page tile / a wall slot
+        function _roster() { return cameraModel ? cameraModel.page(win.groupFilter, "", win.sortMode, 1, 64) : []; }
+        function _randCam() { var c = guardSoak._roster(); return c.length ? c[Math.floor(Math.random() * c.length)] : null; }
+        function _randCamId() { var c = guardSoak._randCam(); return c ? c.camId : ""; }
+        function _perPage() { return ({ "1": 1, "4": 4, "9": 9, "16": 16 })[win.gridLayout] || 16; }
+        function _fs() { var c = guardSoak._randCam(); if (c) win.focusedCamera = c; }       // double-click → fullscreen
+        function _fsExit() { win.focusedCamera = null; }
+        // right-click → pick a replacement camera for a random tile, N times (the swap-leak path)
+        function _replaceN(n) {
+            for (var i = 0; i < n; i++) {
+                var t = Math.floor(Math.random() * guardSoak._perPage());
+                liveMonitor.openCellPicker(t); liveMonitor.assignToCell(t, guardSoak._randCamId());
+            }
+            liveMonitor.pickerCell = -1;
+        }
+        function _wallSwapN(n) { for (var i = 0; i < n; i++) wallPlayback.swapSlots(Math.floor(Math.random() * 16), Math.floor(Math.random() * 16)); }
         readonly property var seq: [
-            { name: "live",            dwell: liveMs, fn: function(){ win.goToSection("live"); } },
-            { name: "events-triage",   dwell: 60000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "triage"; } },
-            { name: "events-map",      dwell: 50000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "map"; } },
-            { name: "events-timeline", dwell: 40000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "timeline"; } },
-            { name: "groups",          dwell: 50000,  fn: function(){ win.goToSection("groups"); } },
-            { name: "views",           dwell: 35000,  fn: function(){ win.goToSection("views"); } },
-            { name: "health",          dwell: 35000,  fn: function(){ win.goToSection("health"); } },
-            { name: "playback-wall",   dwell: 75000,  fn: function(){ win.goToSection("live"); win.enterWallPlayback(); } }
+            // ---- LIVE: monitor, then heavy interaction (fullscreen, replace/swap, layouts) ----
+            { name: "live",               dwell: liveMs, fn: function(){ win.goToSection("live"); liveMonitor.resetArrangement(); win.setLayout("16"); } },
+            { name: "live-fullscreen",    dwell: 6000,   fn: function(){ guardSoak._fs(); } },
+            { name: "live-fs-exit",       dwell: 35000,  fn: function(){ guardSoak._fsExit(); } },
+            { name: "live-fullscreen2",   dwell: 6000,   fn: function(){ guardSoak._fs(); } },
+            { name: "live-fs-exit2",      dwell: 22000,  fn: function(){ guardSoak._fsExit(); } },
+            { name: "live-replace",       dwell: 14000,  fn: function(){ guardSoak._replaceN(4); } },
+            { name: "live-layout-4",      dwell: 22000,  fn: function(){ win.setLayout("4"); } },
+            { name: "live-layout-9",      dwell: 22000,  fn: function(){ win.setLayout("9"); } },
+            { name: "live-fullscreen3",   dwell: 6000,   fn: function(){ guardSoak._fs(); } },
+            { name: "live-fs-exit3",      dwell: 22000,  fn: function(){ guardSoak._fsExit(); win.setLayout("16"); } },
+            { name: "live-replace2",      dwell: 14000,  fn: function(){ guardSoak._replaceN(4); } },
+            // ---- EVENTS: all four tabs + play random event videos ----
+            { name: "events-triage",      dwell: 22000,  fn: function(){ win.goToSection("events"); eventsArea.mode = "triage"; } },
+            { name: "events-triage-play", dwell: 20000,  fn: function(){ eventsArea.selectRandomEvent(); } },
+            { name: "events-triage-play2",dwell: 20000,  fn: function(){ eventsArea.selectRandomEvent(); } },
+            { name: "events-review",      dwell: 20000,  fn: function(){ eventsArea.mode = "review"; } },
+            { name: "events-review-play", dwell: 20000,  fn: function(){ eventsArea.selectRandomEvent(); } },
+            { name: "events-timeline",    dwell: 20000,  fn: function(){ eventsArea.mode = "timeline"; } },
+            { name: "events-timeline-play",dwell: 18000, fn: function(){ eventsArea.selectRandomEvent(); } },
+            { name: "events-map",         dwell: 20000,  fn: function(){ eventsArea.mode = "map"; } },
+            // ---- other sections ----
+            { name: "groups",             dwell: 20000,  fn: function(){ win.goToSection("groups"); } },
+            { name: "views",              dwell: 18000,  fn: function(){ win.goToSection("views"); } },
+            { name: "health",             dwell: 18000,  fn: function(){ win.goToSection("health"); } },
+            // ---- PLAYBACK WALL: enter + re-arrange (swap) repeatedly ----
+            { name: "playback-wall",      dwell: 45000,  fn: function(){ win.goToSection("live"); win.enterWallPlayback(); } },
+            { name: "playback-wall-swap", dwell: 30000,  fn: function(){ guardSoak._wallSwapN(5); } },
+            { name: "playback-wall-swap2",dwell: 30000,  fn: function(){ guardSoak._wallSwapN(5); } }
         ]
         running: (typeof wtGuardSoak !== "undefined" && wtGuardSoak === true)
         repeat: true
@@ -134,9 +173,9 @@ Window {
         interval: 2000
         onTriggered: {
             var s = seq[step % seq.length];
-            try { s.fn(); } catch (e) { console.log("[GUARD] ERR " + e); }
+            try { s.fn(); } catch (e) { console.log("[GUARD] ERR " + s.name + " " + e); }
             console.log("[GUARD] t=" + Date.now() + " step=" + s.name + " section=" + win.section + " wall=" + win.wallMode);
-            guardSoak.interval = s.dwell;     // human-paced dwell on THIS action before the next
+            guardSoak.interval = s.dwell;
             step = step + 1;
         }
     }
