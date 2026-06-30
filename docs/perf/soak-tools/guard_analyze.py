@@ -54,11 +54,22 @@ print("total actions: %d | full cycles (playback-wall opens): %d | actions logge
 print("%-17s %6s %11s %12s" % ("action", "count", "total min", "avg dwell s"))
 for s in sorted(acnt, key=lambda k: -adwell[k]):
     print("%-17s %6d %11.1f %12.0f" % (s, acnt[s], adwell[s] / 60, adwell[s] / max(1, acnt[s])))
-GROUPS = {'Live monitoring': ['live'], 'Events review (triage/map/timeline)': ['events-triage', 'events-map', 'events-timeline'],
-          'Playback wall': ['playback-wall'], 'Cameras / Views / Health': ['groups', 'views', 'health']}
+GROUPS = [('Live (monitor / fullscreen / replace / layout)', lambda s: s.startswith('live')),
+          ('Events (4 tabs + video playback)', lambda s: s.startswith('events')),
+          ('Playback wall (enter + re-arrange)', lambda s: s.startswith('playback-wall')),
+          ('Groups / Views / Health', lambda s: s in ('groups', 'views', 'health'))]
 print("  grouped guard activity:")
-for g, ks in GROUPS.items():
-    print("    %-38s %3d visits, %7.1f min" % (g, sum(acnt[k] for k in ks), sum(adwell[k] for k in ks) / 60))
+for g, pred in GROUPS:
+    ks = [k for k in acnt if pred(k)]
+    print("    %-46s %4d visits, %7.1f min" % (g, sum(acnt[k] for k in ks), sum(adwell[k] for k in ks) / 60))
+# stress applied — heavy interactions incl. the per-step inner repeats (replace x4/step, wall-swap x5/step)
+reps = sum(acnt[k] for k in acnt if k.startswith('live-replace')) * 4
+wsw = sum(acnt[k] for k in acnt if k.startswith('playback-wall-swap')) * 5
+fs = sum(acnt[k] for k in acnt if k.startswith('live-fullscreen'))
+lay = sum(acnt[k] for k in acnt if k.startswith('live-layout'))
+plays = sum(acnt[k] for k in acnt if k.endswith('-play'))
+print("  STRESS APPLIED: camera-replaces ~%d  wall-swaps ~%d  fullscreens %d  layout-changes %d  video-plays %d"
+      % (reps, wsw, fs, lay, plays))
 
 print("\n-- per-action (mean +/- stdev) --")
 print("%-16s %5s %9s %7s %9s %7s" % ("action", "n", "RSSmean", "RSSsd", "CPUmean", "CPUsd"))
