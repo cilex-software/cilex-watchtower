@@ -3,10 +3,14 @@
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QHostAddress>
 #include <QNetworkAccessManager>
+#include <QNetworkCookie>
+#include <QNetworkCookieJar>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
 #include <QUrl>
@@ -17,10 +21,22 @@ namespace {
 const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
 }
 
-HlsProxy::HlsProxy(QNetworkAccessManager *nam, QObject *parent)
-    : QObject(parent), m_nam(nam)
+HlsProxy::HlsProxy(QObject *parent)
+    : QObject(parent)
 {
-    connect(&m_server, &QTcpServer::newConnection, this, &HlsProxy::onNewConnection);
+    // Nothing here: the NAM, the QTcpServer and every accepted socket must be created on the proxy's OWN
+    // thread (see init()), never on the GUI thread — that is the whole point of the move-to-thread.
+}
+
+void HlsProxy::init()
+{
+    if (m_nam)
+        return;                                // already initialised
+    m_nam = new QNetworkAccessManager(this);   // the proxy's own, thread-affine manager
+    m_server = new QTcpServer(this);
+    connect(m_server, &QTcpServer::newConnection, this, &HlsProxy::onNewConnection);
+    m_server->listen(QHostAddress::LocalHost, 0);
+    m_port.store(m_server->serverPort());
     // WT_PROXY_STATS=1 — periodic dump of the proxy's live internals, to localize the per-open RSS leak.
     if (qEnvironmentVariableIsSet("WT_PROXY_STATS")) {
         auto *t = new QTimer(this);
@@ -28,28 +44,29 @@ HlsProxy::HlsProxy(QNetworkAccessManager *nam, QObject *parent)
             qInfo("[PROXYSTATS] cacheN=%lld cacheMB=%lld inflight=%lld sockets=%lld replies=%lld",
                   (long long)m_segCache.size(), (long long)(m_segBytes / 1048576),
                   (long long)m_inflight.size(),
-                  (long long)m_server.findChildren<QTcpSocket *>().size(),
+                  (long long)m_server->findChildren<QTcpSocket *>().size(),
                   (long long)m_nam->findChildren<QNetworkReply *>().size());
         });
         t->start(3000);
     }
 }
 
-bool HlsProxy::start()
+void HlsProxy::setAuthToken(const QString &token)
 {
-    if (m_server.isListening())
-        return true;
-    return m_server.listen(QHostAddress::LocalHost, 0);
+    if (!m_nam || token.isEmpty())
+        return;                                // pushed again on (re)login
+    QNetworkCookie cookie("access_token", token.toUtf8());
+    m_nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
 }
 
 QString HlsProxy::localBase() const
 {
-    return QStringLiteral("http://127.0.0.1:%1").arg(m_server.serverPort());
+    return QStringLiteral("http://127.0.0.1:%1").arg(m_port.load());
 }
 
 void HlsProxy::onNewConnection()
 {
-    while (QTcpSocket *sock = m_server.nextPendingConnection()) {
+    while (QTcpSocket *sock = m_server->nextPendingConnection()) {
         connect(sock, &QTcpSocket::readyRead, this, [this, sock]() {
             if (sock->property("served").toBool())
                 return;                            // request already dispatched

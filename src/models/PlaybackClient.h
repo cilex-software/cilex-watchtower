@@ -9,6 +9,7 @@
 
 class QNetworkAccessManager;
 class HlsProxy;
+class QThread;
 
 // Client for cilex-vision's recorded-playback API (the recording backend;
 // cameras have no local storage). Handles cookie login, camera_id resolution,
@@ -23,6 +24,7 @@ class PlaybackClient : public QObject
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 public:
     explicit PlaybackClient(QObject *parent = nullptr);
+    ~PlaybackClient() override;               // stops + joins the proxy thread
 
     bool loggedIn() const { return m_loggedIn; }
     QString status() const { return m_status; }
@@ -149,7 +151,8 @@ private:
     void downloadExport(const QString &jobId, const QString &url, const QString &destPath);
 
     QNetworkAccessManager *m_nam;
-    HlsProxy *m_proxy;
+    HlsProxy *m_proxy = nullptr;
+    QThread *m_proxyThread = nullptr;        // the proxy runs here, off the GUI thread
     QString m_baseUrl;
     bool m_loggedIn = false;      // ready: signed in AND /streams resolved
     bool m_loggingIn = false;

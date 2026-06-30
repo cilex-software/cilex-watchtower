@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QStringList>
 #include <QSet>
+#include <atomic>
 
 class QNetworkAccessManager;
 class QTcpSocket;
@@ -26,12 +27,19 @@ class HlsProxy : public QObject
 {
     Q_OBJECT
 public:
-    explicit HlsProxy(QNetworkAccessManager *nam, QObject *parent = nullptr);
+    explicit HlsProxy(QObject *parent = nullptr);
 
-    bool start();                              // listen on 127.0.0.1:<auto>
-    int port() const { return m_server.serverPort(); }
+    int port() const { return m_port.load(); }
     QString localBase() const;                 // "http://127.0.0.1:<port>"
+
+public slots:
+    // These run on the proxy's OWN thread (invoked via queued / blocking connections from the GUI thread),
+    // so the proxy keeps serving the player's segment reads even while the GUI thread is blocked — e.g. inside
+    // QMediaPlayer teardown on the wall↔Live transition. A GUI-thread proxy deadlocks there: stop() (GUI) waits
+    // for the demuxer, the demuxer waits for a segment, and the proxy can't serve it because the GUI is stuck.
+    void init();                               // create the NAM + QTcpServer and listen — ON this thread
     void setUpstream(const QString &base) { m_upstream = base; }
+    void setAuthToken(const QString &token);   // set the access_token cookie on the proxy's own NAM
 
 private slots:
     void onNewConnection();
@@ -57,8 +65,9 @@ private:
     bool cacheServe(QTcpSocket *sock, const QString &path);  // serve from cache if present
     void cachePut(const QString &path, const QByteArray &body, const QByteArray &ct);
 
-    QTcpServer m_server;
-    QNetworkAccessManager *m_nam;
+    QTcpServer *m_server = nullptr;            // created in init() ON the proxy thread
+    QNetworkAccessManager *m_nam = nullptr;    // the proxy's OWN nam (not the shared GUI-thread one)
+    std::atomic<int> m_port{0};                // server port, read cross-thread by localBase()/port()
     QString m_upstream;
 
     QHash<QString, CachedSeg> m_segCache;   // path -> {body, content-type}

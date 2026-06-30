@@ -44,6 +44,9 @@ public:
 
     // Shared, session-authenticated network manager used by all models.
     QNetworkAccessManager *nam() const { return m_nam; }
+    // The raw session token (the `access_token` cookie value) — for off-GUI-thread
+    // consumers that run their own QNetworkAccessManager (e.g. the HLS proxy thread).
+    QString token() const { return m_token; }
 
     // Restore a persisted token at startup (optimistic: trusts the local exp,
     // then revalidates against /auth/me in the background). Call from main().

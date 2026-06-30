@@ -1,5 +1,6 @@
 #include "PlaybackClient.h"
 #include "HlsProxy.h"
+#include <QThread>
 #include "AuthController.h"
 #include "ClipTranscoder.h"
 
@@ -34,21 +35,42 @@ PlaybackClient::PlaybackClient(QObject *parent)
     m_nam = auth->nam();                      // shared, session-authenticated jar
     m_baseUrl = auth->baseUrl();
 
-    m_proxy = new HlsProxy(m_nam, this);      // shares the authenticated cookie jar
-    m_proxy->setUpstream(m_baseUrl);
-    m_proxy->start();
+    // The HLS proxy runs on its OWN thread so it keeps serving the player's segment reads even while the GUI
+    // thread is blocked — e.g. inside QMediaPlayer teardown on the wall↔Live transition, where a GUI-thread
+    // proxy deadlocked (stop() waits for the demuxer, the demuxer waits for a segment, the proxy can't serve
+    // it). It has its own NAM, so we hand it the upstream URL + the session token over queued calls.
+    m_proxyThread = new QThread(this);
+    m_proxyThread->setObjectName(QStringLiteral("hls-proxy"));
+    m_proxy = new HlsProxy;                   // no parent — lives on m_proxyThread
+    m_proxy->moveToThread(m_proxyThread);
+    connect(m_proxyThread, &QThread::finished, m_proxy, &QObject::deleteLater);
+    m_proxyThread->start();
+    QMetaObject::invokeMethod(m_proxy, "init", Qt::BlockingQueuedConnection);   // NAM + listen, on the proxy thread
+    QMetaObject::invokeMethod(m_proxy, "setUpstream", Qt::QueuedConnection, Q_ARG(QString, m_baseUrl));
+    QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
 
     connect(auth, &AuthController::baseUrlChanged, this, [this, auth]() {
         m_baseUrl = auth->baseUrl();
-        m_proxy->setUpstream(m_baseUrl);
+        QMetaObject::invokeMethod(m_proxy, "setUpstream", Qt::QueuedConnection, Q_ARG(QString, m_baseUrl));
+        QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
     });
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
-        if (!auth->authenticated()) {         // signed out — drop resolved state
+        if (auth->authenticated()) {          // (re)login — refresh the proxy's cookie
+            QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
+        } else {                              // signed out — drop resolved state
             m_loggedIn = false;
             m_loggingIn = false;
             emit loggedInChanged();
         }
     });
+}
+
+PlaybackClient::~PlaybackClient()
+{
+    if (m_proxyThread) {
+        m_proxyThread->quit();
+        m_proxyThread->wait(3000);            // m_proxy is deleteLater'd on the thread's finished signal
+    }
 }
 
 void PlaybackClient::setStatus(const QString &s)
