@@ -314,6 +314,71 @@ Window {
                 }
         }
     }
+    // Dev/soak hook: WT_CAL_STRESS drives the playback CALENDAR + historic playback
+    // the way an operator does — pick a camera, open a day (it plays if there's
+    // footage), scrub it, then click another day, sweeping the whole retention window;
+    // every few days move to the next camera. Clicking a day tears down the playing
+    // session — the GUI-thread teardown that "stops responding" under a degraded
+    // backend (the reported .201 bug), and the load/seek path that's "awfully slow".
+    // Rotates over the FULL roster (every camera's past footage is still in storage,
+    // even unplugged). [CAL] + [PBSTOP] + WTSMOOTH lines are timestamped so the
+    // analyzer derives calendar-click hitch, time-to-first-frame, and any freeze.
+    Timer {
+        id: calStress
+        property var _cams: []           // full roster (resolved once)
+        property int _camIdx: 0
+        property int _tick: 0            // fixed 1s ticks (interval-change-while-running is unreliable)
+        property int _nextAt: 2          // act on this tick; +dwell after each action
+        property int _step: 0            // 0=open a day, 1=seek/scrub, 2=next day (calendar click)
+        property int _dayOff: 0          // day offset back from today
+        property int _dayCount: 0
+        readonly property int _daySpan: 14     // sweep the last 14 days (mix of footage + empty)
+        readonly property int _daysPerCam: 4   // day-clicks before advancing to the next camera
+        interval: 1000; repeat: true
+        running: (typeof wtCalStress !== "undefined" && wtCalStress === true)
+        function _dayStr(off) { var d = new Date(); d.setDate(d.getDate() - off); return Qt.formatDate(d, "yyyy-MM-dd"); }
+        function _cam() { return calStress._cams[calStress._camIdx % calStress._cams.length]; }
+        function _select(c) { win.focusedCamera = c; win.playbackCamera = c; playbackScreen.camera = c; }
+        onTriggered: {
+            calStress._tick++;
+            if (!calStress._cams.length) {                          // resolve the roster once
+                calStress._cams = cameraModel.page("", "", "default", 1, 50);
+                if (!calStress._cams.length) return;                // roster not ready — retry next tick
+                if (typeof wtPlaybackIp !== "undefined" && wtPlaybackIp !== "")   // start on WT_PLAYBACK_IP if given
+                    for (var i = 0; i < calStress._cams.length; i++)
+                        if (calStress._cams[i].ip === wtPlaybackIp) { calStress._camIdx = i; break; }
+                calStress._nextAt = calStress._tick + 1; return;
+            }
+            if (calStress._tick < calStress._nextAt) return;
+            var cam = calStress._cam();
+            if (calStress._step === 0) {                            // OPEN a day (session open + prior teardown)
+                calStress._select(cam);
+                var day = calStress._dayStr(calStress._dayOff);
+                console.log("[CAL] t=" + Date.now() + " action=open cam=" + (cam ? cam.ip : "?")
+                            + " day=" + day + " off=" + calStress._dayOff + " playing=" + playbackScreen.advancing);
+                playbackScreen.openForDay(day);
+                calStress._step = 1; calStress._nextAt = calStress._tick + 8;   // let it load + play
+            } else if (calStress._step === 1) {                     // SEEK/scrub within the loaded day
+                var played = playbackScreen.advancing;
+                if (played && playbackScreen.tlEndMs > playbackScreen.tlStartMs) {
+                    var frac = ((calStress._dayCount % 5) + 1) / 6.0;
+                    var tgt = playbackScreen.tlStartMs + frac * (playbackScreen.tlEndMs - playbackScreen.tlStartMs);
+                    console.log("[CAL] t=" + Date.now() + " action=seek cam=" + (cam ? cam.ip : "?") + " frac=" + frac.toFixed(2));
+                    playbackScreen.seekToWall(tgt);
+                } else {
+                    console.log("[CAL] t=" + Date.now() + " action=seek-skip cam=" + (cam ? cam.ip : "?") + " (no footage)");
+                }
+                calStress._step = 2; calStress._nextAt = calStress._tick + 6;
+            } else {                                                // NEXT day (calendar navigation → teardown)
+                calStress._dayOff = (calStress._dayOff + 1) % calStress._daySpan;
+                calStress._dayCount++;
+                if (calStress._dayCount % calStress._daysPerCam === 0) calStress._camIdx++;   // rotate camera
+                console.log("[CAL] t=" + Date.now() + " action=next dayCount=" + calStress._dayCount
+                            + " nextCamIdx=" + calStress._camIdx);
+                calStress._step = 0; calStress._nextAt = calStress._tick + 2;
+            }
+        }
+    }
     // Dev hook: WT_WALL_DAY boots into synchronized wall playback over the current
     // live page's cameras — a given day (YYYY-MM-DD) or "live" for the last hour.
     Timer {

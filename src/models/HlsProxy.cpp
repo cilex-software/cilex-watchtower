@@ -19,6 +19,12 @@ namespace {
 // WT_HLS_LOG=1 — per-request upstream timing on stderr ("WTHLS …"), for
 // diagnosing playback/seek latency (segment fetch time, 503 remux retries).
 const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
+// WT_HLS_SLOW_MS=<ms> — TEST ONLY: emulate a DEGRADED backend by holding every
+// segment response this long before delivering it (and bypassing the read-ahead
+// cache so the delay always bites). Reproduces the "cameras unplugged → backend
+// slow → historic playback awfully slow / session teardown blocks the GUI thread"
+// conditions, for A/B measuring calendar/playback behaviour. 0 = off (normal).
+const int s_slowMs = qEnvironmentVariableIntValue("WT_HLS_SLOW_MS");
 }
 
 HlsProxy::HlsProxy(QObject *parent)
@@ -95,9 +101,10 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
         writeResponse(sock, 404, "text/plain", "not found");
         return;
     }
-    if (isSegmentPath(path)) {
+    if (isSegmentPath(path) && s_slowMs == 0) {
         // Kick read-ahead in parallel with serving this one, so the demuxer's
         // next (serial) request lands in cache instead of a fresh cold fetch.
+        // (Bypassed under WT_HLS_SLOW_MS so the emulated backend delay always bites.)
         prefetchAround(path);
         if (cacheServe(sock, path))
             return;
@@ -257,7 +264,20 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
             cachePut(path, body, ct);   // warm the cache for re-seeks to this region
         }
-        writeResponse(sock, code ? code : 200, ct.isEmpty() ? "application/octet-stream" : ct, body);
+        const int outCode = code ? code : 200;
+        const QByteArray outCt = ct.isEmpty() ? QByteArrayLiteral("application/octet-stream") : ct;
+        // TEST hook: hold a segment response s_slowMs before delivering, to emulate a
+        // slow backend so the player's read blocks (as it does on a degraded backend).
+        // Deferred on THIS (proxy) thread; the socket may be closed meanwhile (player
+        // teardown / disconnect) → writeResponse no-ops on a non-connected socket.
+        if (s_slowMs > 0 && isSegmentPath(path)) {
+            QPointer<QTcpSocket> gs(sock);
+            QTimer::singleShot(s_slowMs, this, [this, gs, outCode, outCt, body]() {
+                if (gs) writeResponse(gs, outCode, outCt, body);
+            });
+            return;
+        }
+        writeResponse(sock, outCode, outCt, body);
     });
 }
 

@@ -410,7 +410,7 @@ Item {
         if (!coveragePending && footageDays.indexOf(dateStr) < 0) {
             _pendingOpen = false; loading = false;
             frags = []; sessionId = ""; compactDuration = 0;
-            if (player) { player.stop(); player.source = ""; }
+            _teardownPlayer("emptyday");
             errorText = "No footage recorded on this day.";
             return;
         }
@@ -427,6 +427,22 @@ Item {
         openForDay(Qt.formatDate(new Date(atMs), "yyyy-MM-dd"));
         _pendingSeekMs = atMs - 15000;     // set AFTER openForDay (which clears it); applied on session load
         _pendingArmed = false;             // disarm until this day's session reports ready
+    }
+    // Synchronous player teardown before a session switch. On Qt 6.4's GStreamer
+    // media backend, unloading a PLAYING HLS pipeline blocks the GUI thread while the
+    // streaming task unwinds — ~300ms on a healthy backend, up to ~1s when the backend
+    // is degraded (segments starved). Bounded (souphttpsrc/GStreamer cap it ~1s), not
+    // an unbounded hang, and NOT reducible by teardown ordering or proxy-side socket
+    // tricks (both measured ineffective, 2026-07-01) — it's internal to the pipeline
+    // NULL transition. [PBSTOP] times it under wtTrace; WT_CAL_STRESS exercises it.
+    function _teardownPlayer(tag) {
+        if (!player) return;
+        var wasPlaying = player.playbackState === MediaPlayer.PlayingState;
+        var t0 = Date.now();
+        player.stop();
+        player.source = "";
+        if (typeof wtTrace !== "undefined" && wtTrace)
+            console.log("[PBSTOP] " + tag + " took=" + (Date.now() - t0) + "ms wasPlaying=" + wasPlaying);
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
@@ -453,8 +469,7 @@ Item {
         // segments through the proxy (observed in the 2026-06-11 seek bench) while
         // the new session is being created. Clearing the source drops that wasted
         // work and detaches the old pipeline cleanly.
-        player.stop();
-        player.source = "";
+        _teardownPlayer("switch");
         var start, end;
         if (_explicitStart >= 0) { start = _explicitStart; end = _explicitEnd; }
         else { end = Date.now(); start = end - zoomMin * 60000; }
