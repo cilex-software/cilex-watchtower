@@ -73,12 +73,14 @@ media backend. It is bounded and recovers; under a healthy backend it's a ~300 m
 - **C — backend letter.** The dominant "awfully slow" is backend latency under load (login 7.8 s
   measured). File a `docs/letters/` note so the backend degraded-mode behaviour is on record.
 
-## Overnight validation
-An extended calendar + historic-playback **soak** runs tonight against the **real degraded backend**
-(cameras unplugged = the reported condition), rotating the roster, sweeping days, scrubbing footage,
-under crash/hang supervision — to confirm the stall stays **bounded** (no unbounded hang), quantify
-the teardown hitch and time-to-first-frame (mean/stdev), and catch any crash. Results:
-`docs/perf/2026-07-01-calendar-soak-results.md` (pending).
+## Update — the soak found the REAL bug: a crash (Qt 6.4.2-specific)
+The evening soak (`docs/perf/2026-07-01-calendar-soak-results.md`) confirmed the teardown stall is
+bounded (0 hangs) **but surfaced 6 SIGSEGV crashes** in **libsoup-3.0** (souphttpsrc closing its
+connection to the proxy on teardown) — ~1 per 15 min of calendar churn, not OOM. This is Qt
+**6.4.2**-specific: its GStreamer backend crashes in libsoup; its (experimental) FFmpeg backend
+crashes on a `QVideoFrame` GC assertion; **Qt 6.8.3's mature FFmpeg backend survives** and cuts the
+teardown hitch to ~20 ms. **Recommendation: run on the Qt 6.8.3 build (`build68`).** The bounded
+~300 ms hitch analysed above is the Qt 6.4.2 GStreamer teardown cost — also ~20 ms on Qt 6.8.3.
 
 ## Tooling
 `docs/perf/soak-tools/` — `guard_cal_supervisor.sh` (build/, system Qt 6.4.2, hang-aware),
