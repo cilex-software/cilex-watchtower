@@ -136,6 +136,33 @@ Window {
             liveMonitor.pickerCell = -1;
         }
         function _wallSwapN(n) { for (var i = 0; i < n; i++) wallPlayback.swapSlots(Math.floor(Math.random() * 16), Math.floor(Math.random() * 16)); }
+        // ---- single-camera PLAYBACK: calendar + historic scrubbing (with cameras unplugged, playback for
+        // other cameras runs off stored footage — the "playbacks don't work / very slow" path) ----
+        property int _pbDayOff: 0
+        property int _pbCamIdx: 0
+        property int _pbCount: 0
+        function _pbCam() { var c = guardSoak._roster(); return c.length ? c[guardSoak._pbCamIdx % c.length] : null; }
+        function _pbDayStr(off) { var d = new Date(); d.setDate(d.getDate() - off); return Qt.formatDate(d, "yyyy-MM-dd"); }
+        function _pbOpen() {                              // open the current camera's current day → plays if footage
+            var c = guardSoak._pbCam(); if (!c) return;
+            win.focusedCamera = c; win.playbackCamera = c; playbackScreen.camera = c;
+            playbackScreen.openForDay(guardSoak._pbDayStr(guardSoak._pbDayOff));
+            guardSoak._pbCount++;
+        }
+        function _pbScrub() {                             // seek within the loaded footage (historic scrub)
+            if (playbackScreen.advancing && playbackScreen.tlEndMs > playbackScreen.tlStartMs) {
+                var f = ((guardSoak._pbCount % 5) + 1) / 6.0;
+                playbackScreen.seekToWall(playbackScreen.tlStartMs + f * (playbackScreen.tlEndMs - playbackScreen.tlStartMs));
+            }
+        }
+        function _pbSweep(n) {                            // rapid day-clicks = the teardown-churn / ".201 stops responding" path
+            for (var i = 0; i < n; i++) {
+                guardSoak._pbDayOff = (guardSoak._pbDayOff + 1) % 14;   // sweep the last 14 days
+                var c = guardSoak._pbCam(); if (c) { win.playbackCamera = c; playbackScreen.camera = c; }
+                playbackScreen.openForDay(guardSoak._pbDayStr(guardSoak._pbDayOff));
+            }
+            guardSoak._pbCamIdx++;                        // next camera after each sweep
+        }
         readonly property var seq: [
             // ---- LIVE: monitor, then heavy interaction (fullscreen, replace/swap, layouts) ----
             { name: "live",               dwell: liveMs, fn: function(){ win.goToSection("live"); liveMonitor.resetArrangement(); win.setLayout("16"); } },
@@ -162,6 +189,13 @@ Window {
             { name: "groups",             dwell: 20000,  fn: function(){ win.goToSection("groups"); } },
             { name: "views",              dwell: 18000,  fn: function(){ win.goToSection("views"); } },
             { name: "health",             dwell: 18000,  fn: function(){ win.goToSection("health"); } },
+            // ---- PLAYBACK (single camera): open a day + historic scrub + rapid calendar sweep (teardown churn) ----
+            { name: "playback-open",      dwell: 12000,  fn: function(){ guardSoak._pbOpen(); } },
+            { name: "playback-scrub",     dwell: 10000,  fn: function(){ guardSoak._pbScrub(); } },
+            { name: "playback-cal-sweep", dwell: 16000,  fn: function(){ guardSoak._pbSweep(4); } },
+            { name: "playback-open2",     dwell: 12000,  fn: function(){ guardSoak._pbOpen(); } },
+            { name: "playback-scrub2",    dwell: 10000,  fn: function(){ guardSoak._pbScrub(); } },
+            { name: "playback-cal-sweep2",dwell: 16000,  fn: function(){ guardSoak._pbSweep(4); } },
             // ---- PLAYBACK WALL: enter + re-arrange (swap) repeatedly ----
             { name: "playback-wall",      dwell: 45000,  fn: function(){ win.goToSection("live"); win.enterWallPlayback(); } },
             { name: "playback-wall-swap", dwell: 30000,  fn: function(){ guardSoak._wallSwapN(5); } },

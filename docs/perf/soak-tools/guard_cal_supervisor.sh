@@ -10,7 +10,9 @@
 cd /home/cilex-vision/projects/cilex-watchtower
 BIN=${WT_SOAK_BIN:-./build/watchtower}
 export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000
-export WT_CV_AUTOLOGIN=1 WT_CAL_STRESS=1 WT_TRACE=1 WT_SMOOTHTEST=90000
+# Harness: WT_CAL_STRESS (calendar/playback only, default) or WT_GUARD_SOAK (comprehensive —
+# Live wall/fullscreen/replace/layouts + Events + playback-wall + the calendar/playback block).
+export WT_CV_AUTOLOGIN=1 "${WT_SOAK_HARNESS:-WT_CAL_STRESS}"=1 WT_TRACE=1 WT_SMOOTHTEST=90000
 # Optional non-system Qt runtime (e.g. Qt 6.8.3, whose default media backend is the mature FFmpeg one).
 if [ -n "${WT_SOAK_QT:-}" ]; then
   export LD_LIBRARY_PATH="$WT_SOAK_QT/lib" QT_PLUGIN_PATH="$WT_SOAK_QT/plugins" \
@@ -42,11 +44,11 @@ while [ "$(date +%s)" -lt "$END" ]; do
   echo "==== LAUNCH #$run $(date) ====" >> "$APP_LOG"
   "$BIN" >> "$APP_LOG" 2>&1 &
   APP=$!
-  last_hb=$(grep -ac -e 'WT-MEM' -e '\[CAL\]' "$APP_LOG"); stall=0
+  last_hb=$(grep -ac -e 'WT-MEM' -e '\[CAL\]' -e '\[GUARD\]' "$APP_LOG"); stall=0
   while [ "$(date +%s)" -lt "$END" ]; do
     sleep 15
     kill -0 "$APP" 2>/dev/null || { reason="crash"; break; }
-    hb=$(grep -ac -e 'WT-MEM' -e '\[CAL\]' "$APP_LOG")
+    hb=$(grep -ac -e 'WT-MEM' -e '\[CAL\]' -e '\[GUARD\]' "$APP_LOG")
     if [ "$hb" -gt "$last_hb" ]; then last_hb=$hb; stall=0; else stall=$((stall+15)); fi
     if [ "$stall" -ge "$HANG" ]; then reason="hang"; break; fi
   done
@@ -58,7 +60,7 @@ while [ "$(date +%s)" -lt "$END" ]; do
   { echo ""; echo "########## $tag  run #$run  $(date)  (alive ${alive}s, stall ${stall}s) ##########"
     { [ "$reason" = hang ] && echo "-- cause: heartbeat stalled ${stall}s while process ALIVE => GUI wedge"; }
     tail -12 "$APP_LOG" | grep -aE 'WT-FATAL|signal|Terminated|Killed|CRITICAL|assert' | sed 's/^/   /'
-    echo "-- [CAL] actions leading up to it (most recent last):"; grep -a '\[CAL\]' "$APP_LOG" | tail -8 | sed 's/^/   /'
+    echo "-- [CAL]/[GUARD] actions leading up to it (most recent last):"; grep -aE '\[CAL\]|\[GUARD\]' "$APP_LOG" | tail -8 | sed 's/^/   /'
     echo "-- last [PBSTOP]:"; grep -a '\[PBSTOP\]' "$APP_LOG" | tail -3 | sed 's/^/   /'
     echo "-- last [WT-MEM]:"; grep -a 'WT-MEM' "$APP_LOG" | tail -1 | sed 's/^/   /'
     echo "-- last 5 app.log lines:"; tail -5 "$APP_LOG" | sed 's/^/   /'
