@@ -1,24 +1,31 @@
 #!/bin/bash
-# Calendar + historic-playback soak supervisor. Runs `build/watchtower` (SYSTEM Qt 6.4.2 — the
-# operator's build, where the teardown stall lives) under WT_CAL_STRESS against the REAL backend
-# (degraded now: cameras unplugged = the reported condition), samples RSS/CPU, and on any crash OR
-# GUI hang (heartbeat stalled >HANG while the process is alive) records the cause + the [CAL]/[PBSTOP]
-# actions leading up to it, then relaunches. Self-contained. Arg: end "HH:MM" (default 08:00) or END_EPOCH.
+# Calendar + historic-playback soak supervisor. Drives a watchtower build under WT_CAL_STRESS against
+# the REAL backend (degraded now: cameras unplugged = the reported condition), samples RSS/CPU, and on
+# any crash OR GUI hang (heartbeat stalled >HANG while the process is alive) records the cause + the
+# [CAL]/[PBSTOP] actions leading up to it, then relaunches. Self-contained. Arg: end "HH:MM" (default
+# 08:00) or END_EPOCH. Env overrides:
+#   WT_SOAK_BIN  binary to run           (default ./build/watchtower = system Qt 6.4.2 / GStreamer)
+#   WT_SOAK_QT   Qt runtime gcc_64 dir   (e.g. ~/Qt/6.8.3/gcc_64 → mature FFmpeg backend; default: system Qt)
+#   WT_SOAK_DIR  output dir              (default /tmp/cal_soak)
 cd /home/cilex-vision/projects/cilex-watchtower
-# System Qt 6.4.2 (GStreamer media backend) — do NOT point LD_LIBRARY_PATH at Qt 6.8; the stall is a
-# 6.4-backend behaviour and this must match the operator's environment.
+BIN=${WT_SOAK_BIN:-./build/watchtower}
 export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000
 export WT_CV_AUTOLOGIN=1 WT_CAL_STRESS=1 WT_TRACE=1 WT_SMOOTHTEST=90000
+# Optional non-system Qt runtime (e.g. Qt 6.8.3, whose default media backend is the mature FFmpeg one).
+if [ -n "${WT_SOAK_QT:-}" ]; then
+  export LD_LIBRARY_PATH="$WT_SOAK_QT/lib" QT_PLUGIN_PATH="$WT_SOAK_QT/plugins" \
+         QML_IMPORT_PATH="$WT_SOAK_QT/qml" QML2_IMPORT_PATH="$WT_SOAK_QT/qml"
+fi
 
-D=/tmp/cal_soak; mkdir -p "$D"
+D=${WT_SOAK_DIR:-/tmp/cal_soak}; mkdir -p "$D"
 INC="$D/incidents.log"; APP_LOG="$D/app.log"; SUP="$D/supervisor.log"
 END=${END_EPOCH:-$(date -d "today ${1:-08:00}" +%s)}
 [ "$END" -le "$(date +%s)" ] && END=$(date -d "tomorrow ${1:-08:00}" +%s)
 HANG=120         # seconds with no [WT-MEM]/[CAL] heartbeat (proc alive) => GUI wedge
 log(){ echo "[$(date '+%m-%d %H:%M:%S')] $*" | tee -a "$SUP"; }
 
-log "CAL SOAK START — build/ (system Qt 6.4.2), runs until $(date -d @$END '+%a %H:%M'), hang-detect=${HANG}s"
-{ echo "=== BASELINE $(date) ==="; free -m | head -2
+log "CAL SOAK START — $BIN (Qt: ${WT_SOAK_QT:-system}), runs until $(date -d @$END '+%a %H:%M'), hang-detect=${HANG}s"
+{ echo "=== BASELINE $(date)  bin=$BIN  qt=${WT_SOAK_QT:-system} ==="; free -m | head -2
   echo "backend login timing:"; curl -s -m 15 -o /dev/null -w "  login HTTP %{http_code} in %{time_total}s\n" \
       -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' \
       http://192.168.1.79:8000/auth/login 2>&1
@@ -33,7 +40,7 @@ while [ "$(date +%s)" -lt "$END" ]; do
   run=$((run+1)); started=$(date +%s); reason=""
   log "launch #$run"
   echo "==== LAUNCH #$run $(date) ====" >> "$APP_LOG"
-  ./build/watchtower >> "$APP_LOG" 2>&1 &
+  "$BIN" >> "$APP_LOG" 2>&1 &
   APP=$!
   last_hb=$(grep -ac -e 'WT-MEM' -e '\[CAL\]' "$APP_LOG"); stall=0
   while [ "$(date +%s)" -lt "$END" ]; do
