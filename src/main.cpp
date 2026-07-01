@@ -177,6 +177,21 @@ int main(int argc, char *argv[])
     // Idempotent — QtMultimedia's backend also inits it for the default path.
     gst_init(nullptr, nullptr);
 
+    // Silence ONE benign GStreamer churn assertion. Rapid live-pipeline teardown/rebuild (fullscreen,
+    // layout change, wall camera-swap) makes a decodebin/VA-API element push a flush event whose seqnum is
+    // still INVALID, tripping "gst_event_set_seqnum: assertion 'seqnum != GST_SEQNUM_INVALID' failed". It is a
+    // g_return_if_fail (non-fatal — GStreamer proceeds) that we do not emit and cannot fix at the call site,
+    // but it spams the log under stress (256× in a 12 h soak). Drop only that exact message; forward everything
+    // else to GLib's default handler so real GStreamer criticals/warnings still surface.
+    g_log_set_handler("GStreamer",
+        (GLogLevelFlags)(G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION),
+        [](const gchar *domain, GLogLevelFlags level, const gchar *message, gpointer user) {
+            if (message && std::strstr(message, "gst_event_set_seqnum"))
+                return;                                    // benign churn assertion — swallow
+            g_log_default_handler(domain, level, message, user);
+        },
+        nullptr);
+
     // Session owner + the one shared network manager every model uses. Created
     // before the engine loads so AuthController::instance() is valid when the
     // QML-instantiated models are constructed.
