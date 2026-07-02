@@ -11,6 +11,8 @@ Item {
     property var ev: null
     property bool playing: false
     property bool showOsd: true
+    property bool showIdent: true                // top-left camera identity; a host that draws its own
+                                                 // header (EvHeroPlayer) sets this false to avoid overlap
     property bool mini: false
     property bool showPlayhead: true             // Player hides this; its transport owns the scrub
     clip: true
@@ -25,6 +27,14 @@ Item {
     // refetches on scroll. Normal (1) emits no token → identical URL to before.
     property int netPriority: mini ? 1 : 2
     function _prioPfx(p) { p = Math.max(0, Math.min(2, p)); return p === 1 ? "" : ("wtp" + p + "/"); }
+    // Camera identity for the OSD: "Name · IP", appending the IP only when the name
+    // doesn't already contain it (backend names are often "Model (192.168.x.y)").
+    function _identText(e) {
+        if (!e || !e.cam) return "";
+        var nm = e.cam.name || "";
+        var ip = e.cam.ip || "";
+        return (ip && nm.indexOf(ip) < 0) ? (nm + "   ·   " + ip) : nm;
+    }
 
     readonly property string _type: ev ? ev.type : "motion"
     readonly property string _tod: ev ? ev.tod : "night"
@@ -189,21 +199,29 @@ Item {
     // ---- on-screen display (OSD) overlays ----
     Item {
         visible: root.showOsd; anchors.fill: parent
-        Row {                                            // top-left: REC + cam id
-            anchors { top: parent.top; left: parent.left; topMargin: 6; leftMargin: 8 }
+        Row {                                            // top-left: REC + camera name · IP (not the backend id)
+            visible: root.showIdent
+            anchors { top: parent.top; left: parent.left; right: parent.right; topMargin: 6; leftMargin: 8; rightMargin: 8 }
             spacing: 5
             Rectangle { id: recDot; anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3; color: Theme.rec
                 SequentialAnimation on opacity { running: true; loops: Animation.Infinite
                     NumberAnimation { to: 0.3; duration: 800 } NumberAnimation { to: 1.0; duration: 800 } } }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: ev ? ev.cam.id.slice(0, 16) : ""
-                color: Qt.rgba(1,1,1,0.7); font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.36 }
+            Text { anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, root.width - 40); elide: Text.ElideRight
+                // name + IP; append the IP only when the name doesn't already carry it
+                // (backend names are often "Model (192.168.x.y)" — avoid doubling).
+                text: root._identText(ev)
+                color: Qt.rgba(1,1,1,0.8); font.family: Theme.fontMono; font.pixelSize: root.mini ? 9 : 11; font.letterSpacing: 0.3 }
         }
-        Text {                                           // bottom-right: event time, or LIVE on fallback
+        Rectangle {                                      // bottom-right: event date + time, or LIVE on fallback
             anchors { bottom: parent.bottom; right: parent.right; bottomMargin: 6; rightMargin: 8 }
-            text: root._showingLive ? "● LIVE"
-                : (ev ? (Qt.formatDate(ev.ts, "dd MMM").toUpperCase() + " " + EventsStore.hhmmss(ev.ts)) : "")
-            color: root._showingLive ? Theme.rec : Qt.rgba(1,1,1,0.78)
-            font.family: Theme.fontMono; font.pixelSize: 9
+            color: Qt.rgba(0,0,0,0.5); radius: 2
+            width: tsOsd.implicitWidth + 12; height: tsOsd.implicitHeight + 6
+            Text { id: tsOsd; anchors.centerIn: parent
+                text: root._showingLive ? "● LIVE"
+                    : (ev ? (Qt.formatDate(ev.ts, "dd MMM").toUpperCase() + "  " + EventsStore.hhmmss(ev.ts)) : "")
+                color: root._showingLive ? Theme.rec : Qt.rgba(1,1,1,0.92)
+                font.family: Theme.fontMono; font.pixelSize: root.mini ? 9 : 14; font.weight: Font.Medium }
         }
         Text {                                           // bottom-left: channel / playback
             anchors { bottom: parent.bottom; left: parent.left; bottomMargin: 6; leftMargin: 8 }

@@ -282,11 +282,13 @@ Item {
                 onDurationChanged: _applySeek()
             }
 
-            // poster: the real event frame until the recording is rendering
+            // poster: the real event frame until the recording is rendering. The player
+            // draws its OWN top-left identity (below), so suppress the poster's to avoid
+            // the PLAYBACK chip overlapping it.
             EvSnapshot {
                 anchors.fill: parent
                 visible: hp._loading || hp._error !== "" || player.mediaStatus < MediaPlayer.BufferedMedia
-                ev: hp.ev; showOsd: true; showPlayhead: false
+                ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false
             }
             // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)
             MouseArea {
@@ -308,13 +310,34 @@ Item {
                 text: hp._error; color: Theme.ink2; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
                 font.family: Theme.fontSans; font.pixelSize: 12 }
 
-            Rectangle {                                    // playback state chip (top-left)
+            // top-left header: playback-state chip + camera identity (name · IP), laid
+            // out in one Row so the chip never overlaps the identity (the reported bug).
+            Row {
                 anchors.top: parent.top; anchors.left: parent.left; anchors.topMargin: 8; anchors.leftMargin: 10
+                anchors.right: parent.right; anchors.rightMargin: 10
                 visible: !hp._loading && hp._error === ""
-                color: Qt.rgba(0, 0, 0, 0.55); height: 18; width: stC.implicitWidth + 14
-                Text { id: stC; anchors.centerIn: parent
-                    text: (player.playbackState === MediaPlayer.PlayingState ? "▶ " : "❚❚ ") + "PLAYBACK"
-                    color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9 }
+                spacing: 8
+                Rectangle {                                // playback state chip
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Qt.rgba(0, 0, 0, 0.55); height: 18; width: stC.implicitWidth + 14
+                    Text { id: stC; anchors.centerIn: parent
+                        text: (player.playbackState === MediaPlayer.PlayingState ? "▶ " : "❚❚ ") + "PLAYBACK"
+                        color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9 }
+                }
+                Rectangle {                                // camera identity: name · IP (backend id dropped — useless)
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: !!(hp.ev && hp.ev.cam)
+                    color: Qt.rgba(0, 0, 0, 0.55); height: 18
+                    width: Math.min(idT.implicitWidth + 14, hp.width - stC.implicitWidth - 150)
+                    Text { id: idT; anchors.centerIn: parent; width: parent.width - 12; elide: Text.ElideRight
+                        // name + IP; skip the IP if the name already carries it (avoid doubling)
+                        text: {
+                            if (!hp.ev || !hp.ev.cam) return "";
+                            var nm = hp.ev.cam.name || "", ip = hp.ev.cam.ip || "";
+                            return (ip && nm.indexOf(ip) < 0) ? (nm + "   ·   " + ip) : nm;
+                        }
+                        color: Qt.rgba(1, 1, 1, 0.92); font.family: Theme.fontMono; font.pixelSize: 11 }
+                }
             }
 
             // wall-clock timestamp of the frame on screen (top-right OSD) — YYYY-MM-DD HH:MM:SS
@@ -322,10 +345,10 @@ Item {
                 anchors.top: parent.top; anchors.right: parent.right; anchors.topMargin: 8; anchors.rightMargin: 10
                 visible: hp._started && !hp._loading && hp._error === "" && hp._frags.length > 0
                          && player.mediaStatus >= MediaPlayer.BufferedMedia
-                color: Qt.rgba(0, 0, 0, 0.6); height: 20; width: tsT.implicitWidth + 14
+                color: Qt.rgba(0, 0, 0, 0.6); height: 24; width: tsT.implicitWidth + 16
                 Text { id: tsT; anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(hp._playheadWallMs), "yyyy-MM-dd HH:mm:ss")
-                    color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 12 }
+                    color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 14; font.weight: Font.Medium }
             }
         }
 
