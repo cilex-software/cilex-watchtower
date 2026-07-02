@@ -3,6 +3,7 @@
 #include "MockData.h"
 #include "AuthController.h"
 
+#include <QElapsedTimer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -48,6 +49,23 @@ QString descForType(const QString &type, qint64 durMs)
 bool isSuppressedType(const QString &type)
 {
     return type == QLatin1String("motion_detected");
+}
+
+// [EVTIME] — WT_TRACE-gated latency/pool diagnostics for the events queries (the
+// Events screens' "same fix" counterpart of the playback [PBTIME] logs; see
+// docs/perf/2026-07-02-playback-ttff-fix.md).
+const bool s_evTime = qEnvironmentVariableIsSet("WT_TRACE");
+
+// Running requests the NAM has open to `host` — how full its 6-connection
+// per-host pool is at dispatch time.
+int runningTo(QNetworkAccessManager *nam, const QString &host)
+{
+    int n = 0;
+    const auto replies = nam->findChildren<QNetworkReply *>();
+    for (auto *r : replies)
+        if (r->isRunning() && r->url().host() == host)
+            ++n;
+    return n;
 }
 }
 
@@ -247,12 +265,20 @@ void EventModel::fetchPage(bool append)
     if (!m_qStart.isEmpty())    q.addQueryItem("start", m_qStart);
     if (!m_qEnd.isEmpty())      q.addQueryItem("end", m_qEnd);
     url.setQuery(q);
+    QElapsedTimer evTimer;
+    evTimer.start();
+    if (s_evTime)
+        qInfo("[EVTIME] events_dispatch inflight=%d", runningTo(m_nam, url.host()));
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
-    connect(reply, &QNetworkReply::finished, this, [this, reply, append, gen]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, append, gen, evTimer]() {
         reply->deleteLater();
+        const int code0 = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (s_evTime)
+            qInfo("[EVTIME] events_http ms=%lld code=%d superseded=%d",
+                  (long long)evTimer.elapsed(), code0, gen != m_gen ? 1 : 0);
         if (gen != m_gen)                  // a newer query started — drop this result
             return;
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const int code = code0;
         if (code == 401)
             AuthController::instance()->noteUnauthorized();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();

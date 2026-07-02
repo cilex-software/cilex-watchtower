@@ -12,6 +12,10 @@
 // giving up to the live-frame fallback. 404 (no clip) still fails immediately.
 static constexpr int kMaxSnapshotRetries = 3;
 
+// [EVIMG] — WT_TRACE-gated per-fetch diagnostics (code + latency), to verify the
+// thumbnail path stays authorized and to attribute pool pressure.
+static const bool s_imgLog = qEnvironmentVariableIsSet("WT_TRACE");
+
 CvImageResponse::~CvImageResponse()
 {
     if (m_reply)
@@ -26,13 +30,21 @@ void CvImageResponse::cancel()
 
 void CvImageResponse::start()
 {
-    if (!m_auth) { emit finished(); return; }
+    if (!m_auth || !m_nam) { emit finished(); return; }
+    m_timer.start();
     QNetworkRequest req{QUrl(m_auth->baseUrl() + "/" + m_path)};
-    m_reply = m_auth->nam()->get(req);   // cookie auto-attached by the shared jar
+    // Private pool + explicit cookie: the login lands on AuthController's NAM, so
+    // this jar never sees it — attach the session cookie per request (always the
+    // current token, survives relogin with no signal plumbing).
+    req.setRawHeader("Cookie", "access_token=" + m_auth->token().toUtf8());
+    m_reply = m_nam->get(req);
     connect(m_reply, &QNetworkReply::finished, this, [this]() {
         QNetworkReply *r = m_reply;
         if (!r) { emit finished(); return; }
         const int code = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (s_imgLog)
+            qInfo("[EVIMG] code=%d ms=%lld %s", code, (long long)m_timer.elapsed(),
+                  qPrintable(m_path.right(44)));
         if (code == 200) {
             QImage img;
             if (img.loadFromData(r->readAll())) {
@@ -69,9 +81,27 @@ void CvImageResponse::start()
     });
 }
 
+// PRIVATE NAM (own 6-connection pool). Thumbnail bursts — dozens of parallel event
+// stills per Events tab, plus live-frame fallbacks — are the app's bulk HTTP
+// traffic. On the shared AuthController NAM they filled its 6-per-host pool and
+// starved the control plane: a playback session POST measured 2.3–4.1 s queued
+// behind them (fixed 2026-07-02, PlaybackClient got its own NAM), and the Events
+// list queries queued the same way. Isolating the storm here un-starves EVERY
+// shared-NAM consumer (EventModel, CameraModel, StorageHealth, SiteMapModel) at
+// once. Constructed on the GUI thread (main.cpp) — matches where start() runs.
+CvImageProvider::CvImageProvider(AuthController *auth)
+    : m_auth(auth), m_nam(new QNetworkAccessManager)
+{
+}
+
+CvImageProvider::~CvImageProvider()
+{
+    delete m_nam;
+}
+
 QQuickImageResponse *CvImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
-    auto *resp = new CvImageResponse(m_auth, id, requestedSize);
+    auto *resp = new CvImageResponse(m_auth, m_nam, id, requestedSize);
     // The NAM lives on the GUI thread; move the response there and kick the fetch
     // on that thread (this method runs on the pixmap-loader worker thread).
     resp->moveToThread(m_auth->thread());

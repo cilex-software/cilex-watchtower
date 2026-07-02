@@ -65,7 +65,8 @@ workarounds are untouched.
 
 ## Follow-ups (not done here)
 
-- The Events screens' own queries still share the auth NAM with the thumbnail storm — if Events
-  ever feels sluggish, the same split (or `QNetworkRequest` priorities) applies there.
+- ~~The Events screens' own queries still share the auth NAM with the thumbnail storm~~ — **done
+  same day**: the thumbnail storm (CvImageProvider) was evicted to its own NAM, un-starving the
+  events queries and every other shared-NAM consumer. See `2026-07-02-events-nam-split.md`.
 - The backend session POST itself is ~0.15–0.4 s; if sub-300 ms TTFF is ever wanted, next lever is
   overlapping the session POST with pipeline spin-up, not playlist windowing.
