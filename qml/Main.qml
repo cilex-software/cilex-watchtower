@@ -17,7 +17,10 @@ Window {
     property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
     property int gridPage: 1
     property string statusFilter: (typeof wtStatusFilter !== "undefined" && wtStatusFilter !== "") ? wtStatusFilter : ""
-    property string sortMode: "ip"
+    // Live wall leads with cameras that are actually live (offline tiles sink to the
+    // last page). Overridable via the Sort menu, and a saved view / manual arrangement
+    // still wins. See CameraModel "live" sort.
+    property string sortMode: "live"
     property string groupFilter: ""
     property string groupLabel: "All cameras"
     property bool fullscreen: false

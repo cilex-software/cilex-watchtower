@@ -14,7 +14,7 @@ Item {
     property string layout: "16"         // canonical layout id (see LayoutSpec)
     property int page: 1
     property string statusFilter: ""
-    property string sortMode: "default"
+    property string sortMode: "live"      // live cameras first (offline last); see CameraModel
     property string groupId: ""
     property string groupLabel: "All cameras"
     property bool fullscreen: false
@@ -156,7 +156,7 @@ Item {
         cameraModel.total;                // refresh dep
         var all = cameraModel.page(groupId, _effFilter, sortMode, 1, Math.max(1, total));
         var saved = Settings.liveLayout(groupId);
-        if (!saved || saved.length === 0) return all;
+        if (!saved || saved.length === 0) return _liveFirst(all);
         var byId = ({});
         for (var i = 0; i < all.length; i++) byId[all[i].camId] = all[i];
         var out = [], used = ({});
@@ -166,7 +166,26 @@ Item {
         }
         for (var k = 0; k < all.length; k++)
             if (!used[all[k].camId]) out.push(all[k]);
-        return out;
+        return _liveFirst(out);
+    }
+    // "Live first" (the default sort): online cameras ALWAYS lead the wall and offline
+    // tiles sink to the last page — even on top of a saved manual arrangement, whose
+    // relative order is preserved WITHIN each liveness tier (stable partition). Only in
+    // the "live" sort (pick IP/Stream/Status to get the exact manual order back), and
+    // never while arranging (so Arrange mode stays deterministic). Mirrors CameraModel's
+    // liveRank; applied here too so it survives the arrangement overlay above.
+    function _liveFirst(list) {
+        if (sortMode !== "live" || arrangeMode || !list || list.length < 2)
+            return list;
+        function rank(c) {
+            var s = c ? c.live : -1;
+            return s === CameraStatus.Live ? 0
+                 : s === CameraStatus.Degraded ? 1
+                 : s === CameraStatus.Offline ? 3 : 2;   // unknown/unresolved between live and offline
+        }
+        var tagged = list.map(function (c, i) { return { c: c, i: i, r: rank(c) }; });
+        tagged.sort(function (a, b) { return a.r !== b.r ? a.r - b.r : a.i - b.i; });   // stable within a tier
+        return tagged.map(function (x) { return x.c; });
     }
     readonly property bool hasArrangement: { arrangeRev; return cameraModel ? Settings.liveLayout(groupId).length > 0 : false; }
     function _fullIds() { var a = arrangedFull, o = []; for (var i = 0; i < a.length; i++) o.push(a[i].camId); return o; }
@@ -378,7 +397,7 @@ Item {
         return start + "–" + end + " of " + total;
     }
 
-    readonly property var sortLabels: ({ "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
+    readonly property var sortLabels: ({ "live": "Live first", "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
 
     ColumnLayout {
         anchors.fill: parent
@@ -847,6 +866,7 @@ Item {
                         contentItem: Column {
                             Repeater {
                                 model: [
+                                    { id: "live",    lbl: "Live first" },
                                     { id: "ip",      lbl: "IP address" },
                                     { id: "default", lbl: "Stream order" },
                                     { id: "status",  lbl: "Status first" },
@@ -951,7 +971,7 @@ Item {
                                 text: "SORT BY"; color: Theme.ink3; font.family: Theme.fontMono
                                 font.pixelSize: 9; font.letterSpacing: 1 }
                             Repeater {
-                                model: [ { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
+                                model: [ { id: "live", lbl: "Live first" }, { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
                                          { id: "status", lbl: "Status first" }, { id: "alpha", lbl: "Alphabetical" } ]
                                 delegate: Rectangle {
                                     required property var modelData

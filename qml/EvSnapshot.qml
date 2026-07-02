@@ -15,6 +15,17 @@ Item {
     property bool showPlayhead: true             // Player hides this; its transport owns the scrub
     clip: true
 
+    // Network-scheduling priority for the cvframe image provider (see CvImageProvider):
+    // 2=High (focal/large frames — what the operator is actively looking at), 1=Normal
+    // (visible list thumbnails), 0=Low (background). Large/non-mini snapshots default
+    // High, minis Normal. The live-frame FALLBACK below fetches one tier LOWER than the
+    // still, so a visible row's real still always beats another row's go2rtc fallback
+    // (each fallback also wakes a VA-API transcode — the storm we want to yield). The
+    // token is stable per instance (fixed with mini), so it never churns the cache /
+    // refetches on scroll. Normal (1) emits no token → identical URL to before.
+    property int netPriority: mini ? 1 : 2
+    function _prioPfx(p) { p = Math.max(0, Math.min(2, p)); return p === 1 ? "" : ("wtp" + p + "/"); }
+
     readonly property string _type: ev ? ev.type : "motion"
     readonly property string _tod: ev ? ev.tod : "night"
     readonly property string _subject: ev ? ev.subject : "none"
@@ -53,7 +64,7 @@ Item {
             // Route via the cvframe provider (attaches the auth cookie) — the cached snapshot endpoint
             // requires auth and a bare QML Image sends none → 401. Strip scheme+host (backend echoes our host).
             source: (_base === "" || evImg.status !== Image.Error) ? ""
-                    : ("image://cvframe/" + _base.replace(/^[a-z]+:\/\/[^\/]+\//, "") + (_retry > 0 ? ("?_r=" + _retry) : ""))
+                    : ("image://cvframe/" + root._prioPfx(root.netPriority - 1) + _base.replace(/^[a-z]+:\/\/[^\/]+\//, "") + (_retry > 0 ? ("?_r=" + _retry) : ""))
             visible: status === Image.Ready && evImg.status !== Image.Ready
             onStatusChanged: if (status === Image.Error && _retry < 3) liveRetry.restart()
             Timer { id: liveRetry; interval: 700; onTriggered: liveImg._retry++ }
@@ -63,7 +74,7 @@ Item {
             anchors.fill: parent; fillMode: Image.PreserveAspectCrop
             asynchronous: true; cache: true
             sourceSize: Qt.size(width, height)           // requestedSize → provider downscales before caching
-            source: (root._real && root.ev) ? ("image://cvframe/events/" + root.ev.id + "/snapshot") : ""
+            source: (root._real && root.ev) ? ("image://cvframe/" + root._prioPfx(root.netPriority) + "events/" + root.ev.id + "/snapshot") : ""
             visible: status === Image.Ready
         }
         // honest "no frame" only when neither the still nor the live frame loaded

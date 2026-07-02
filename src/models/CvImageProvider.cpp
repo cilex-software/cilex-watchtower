@@ -32,7 +32,24 @@ void CvImageResponse::start()
 {
     if (!m_auth || !m_nam) { emit finished(); return; }
     m_timer.start();
-    QNetworkRequest req{QUrl(m_auth->baseUrl() + "/" + m_path)};
+    // Optional leading "wtp<N>/" token carries a network-scheduling priority set by
+    // the caller (EvSnapshot): 2=High (focal/visible still), 0=Low (background
+    // fallback); absent = Normal. Qt's HTTP stack dispatches HigherPriority requests
+    // first when the per-host pool (6) is saturated, so the thumbnail the operator is
+    // looking at jumps ahead of the go2rtc fallback storm. Strip it before forming the
+    // backend path; QML keeps the (stable) token in its cache key.
+    QString path = m_path;
+    QNetworkRequest::Priority prio = QNetworkRequest::NormalPriority;
+    if (path.size() > 4 && path.startsWith(QLatin1String("wtp"))
+        && path.at(4) == QLatin1Char('/')
+        && path.at(3) >= QLatin1Char('0') && path.at(3) <= QLatin1Char('2')) {
+        prio = path.at(3) == QLatin1Char('2') ? QNetworkRequest::HighPriority
+             : path.at(3) == QLatin1Char('0') ? QNetworkRequest::LowPriority
+                                              : QNetworkRequest::NormalPriority;
+        path = path.mid(5);
+    }
+    QNetworkRequest req{QUrl(m_auth->baseUrl() + "/" + path)};
+    req.setPriority(prio);
     // Private pool + explicit cookie: the login lands on AuthController's NAM, so
     // this jar never sees it — attach the session cookie per request (always the
     // current token, survives relogin with no signal plumbing).

@@ -41,6 +41,25 @@ Diagnostics kept (WT_TRACE-gated): `[EVTIME]` events-query dispatch/inflight/lat
 image pool — NOT re-merging with the control plane; and mind go2rtc's OOM history before adding
 snapshot parallelism in the degraded state.)
 
+## Follow-up (same day): visible/focal thumbnails prioritized within the pool
+
+Within the private thumbnail pool, requests are now priority-ordered so the frames the operator is
+actually looking at win the 6 connection slots:
+
+- `CvImageProvider` parses an optional stable `wtp<N>/` id prefix → `QNetworkRequest` priority
+  (2=High, 0=Low; absent=Normal). Qt's HTTP stack dispatches higher-priority requests first when
+  the per-host pool is saturated. The token is stripped before the backend path (verified: real
+  paths like `events/<id>/snapshot` are never falsely matched) and kept in QML's cache key, so it
+  is **stable per instance — no refetch churn on scroll**.
+- `EvSnapshot.netPriority` defaults `mini ? Normal : High`: large/focal frames (hero, selected
+  event, player, map current) load ahead of the many mini list thumbnails. The **live-frame
+  fallback** fetches one tier *lower* than its still (mini fallback = Low), so a visible row's real
+  still always beats another row's go2rtc fallback — and the fallback storm (each wakes a VA-API
+  transcode) yields to everything real.
+
+Verified: Normal (no-prefix) path unchanged in-app (0×401, real 404 mix intact); prefix parse
+covered by a unit test (High/Low/Normal, invalid prefixes and real paths untouched → all pass).
+
 ## Why the queue explodes in the degraded state
 
 Each visible event row wants a stored still (`events/<id>/snapshot`, many 404 on motion-only

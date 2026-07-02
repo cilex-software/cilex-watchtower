@@ -668,6 +668,8 @@ void CameraModel::setSelectedCameras(const QStringList &ids)
     emit countsChanged();             // re-evaluate the "__selected__" scope / counts
 }
 
+// "Status first" (triage): surface PROBLEMS at the top — offline/not-recording rank
+// lowest (0) so they sort first ascending.
 static int statusRank(const wt::CameraData &c)
 {
     if (c.live == CameraStatus::Offline) return 0;
@@ -675,6 +677,17 @@ static int statusRank(const wt::CameraData &c)
     if (c.live == CameraStatus::Degraded) return 2;
     if (c.recording == CameraStatus::RecordingGap) return 3;
     return 4;
+}
+
+// "Live first" (the live-wall default): put actually-live cameras at the top so wall
+// real estate leads with real feeds, offline tiles sink to the last page. Inverse
+// intent to statusRank — online ranks lowest (0) so it sorts first ascending.
+static int liveRank(const wt::CameraData &c)
+{
+    if (c.live == CameraStatus::Live)     return 0;
+    if (c.live == CameraStatus::Degraded) return 1;   // partially up (has a feed, with issues)
+    if (c.live == CameraStatus::Offline)  return 3;   // no feed — last
+    return 2;                                          // unknown/unresolved — after live, before offline
 }
 
 QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &f,
@@ -686,7 +699,21 @@ QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &
         if (matches(m_all.at(i), groupId, f))
             idx.push_back(i);
 
-    if (sortMode == QLatin1String("alpha")) {
+    if (sortMode == QLatin1String("live")) {
+        // Online first (offline last), IP as the stable tiebreak within each tier so
+        // the live block keeps a familiar, deterministic order.
+        std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
+            const int ra = liveRank(m_all.at(a));
+            const int rb = liveRank(m_all.at(b));
+            if (ra != rb)
+                return ra < rb;
+            const quint32 ka = ipSortKey(m_all.at(a).ip);
+            const quint32 kb = ipSortKey(m_all.at(b).ip);
+            if (ka != kb)
+                return ka < kb;
+            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+        });
+    } else if (sortMode == QLatin1String("alpha")) {
         std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
             return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
         });
