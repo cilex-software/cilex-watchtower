@@ -704,6 +704,9 @@ Window {
                     visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live" && win.opsSidebarOpen
                     cameraModel: cameraModel
                     eventModel: eventModel
+                    // "View all →" on the LIVE EVENTS panel → open the full Events screen
+                    // (same as the alerts dropdown's View-all, line ~473).
+                    onViewAllEvents: win.goToSection("events")
                 }
             }
         }
