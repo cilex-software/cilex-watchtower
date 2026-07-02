@@ -51,7 +51,8 @@ cmake -G Ninja -B build -S . && cmake --build build   # system Qt 6.4.2 — offs
 | `WT_DEMO=1` | Use the mock dataset (cameras + events). **Off by default** — real persisted data is the source of truth. Mock is dev-only. |
 | `WT_SECTION=live\|groups\|events\|health\|…` | Boot directly into a nav section. |
 | `WT_FOCUS_IP=<ip>` | Boot into Single Camera Detail for that camera. |
-| `WT_PLAYBACK_IP=<ip>` | Boot into Playback for that camera. |
+| `WT_PLAYBACK_IP=<ip>` | Boot into Playback for that camera. (`WT_PLAYBACK_DAY=yyyy-MM-dd[Thh:mm:ss]` opens a specific day / instant.) |
+| `WT_TTFF_DAYS=d1,d2,…` | Playback open-latency harness: opens each day in turn, logs `[TTFF]` (calendar-click → first rendered frame) + `[PBTIME]` stage breakdowns, quits. Pair with `WT_PLAYBACK_IP`. `WT_TRACE=1` alone also enables the `[PBTIME]` logs. |
 | `WT_TEST_IP=<ip>` | Restrict live streaming to one camera during dev (avoid hammering cameras — see lockout caveat). |
 | `WT_CAMERAS=<provisioning.json>` | One-time bootstrap import into an empty camera store. |
 | `WT_SCREENSHOT=<path>`, `WT_SCREENSHOT_MS=<ms>` | Screenshot hook (above). |

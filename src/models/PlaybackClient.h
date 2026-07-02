@@ -142,6 +142,7 @@ signals:
 
 private:
     void setStatus(const QString &s);
+    void applyAuthCookie();   // mirror the access_token into our private NAM's jar
     void fetchStreams();
     // POST /review/sessions for a resolved camera id; retries on a transport-level
     // failure (HTTP code 0 — timeout / unreachable / reset) before giving up.

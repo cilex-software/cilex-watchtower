@@ -294,6 +294,11 @@ int main(int argc, char *argv[])
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.
     engine.rootContext()->setContextProperty("wtSmoothTest", qEnvironmentVariable("WT_SMOOTHTEST"));
+    // QA: WT_TTFF_DAYS="2026-06-30,2026-07-01,…" — open each day in turn in Playback
+    // on a warm app, log [TTFF]/[PBTIME] (calendar-click → first rendered frame), then
+    // quit. Pair with WT_PLAYBACK_IP. Measures the "historic playback is slow to
+    // start" path end-to-end. See qml/PlaybackScreen.qml ttffRun.
+    engine.rootContext()->setContextProperty("wtTtffDays", qEnvironmentVariable("WT_TTFF_DAYS"));
     // QA: WT_WALLPERF=1 (or =quick) attaches the synchronized-wall seek/re-composite
     // latency harness (drives the playhead over fixed offsets, measures time-to-replay
     // across all 16 cells). Logs "WALLPERF,..." CSV lines. Needs a real GPU (VA-API).

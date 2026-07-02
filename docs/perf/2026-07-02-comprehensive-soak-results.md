@@ -39,11 +39,16 @@ low play-rate: the harness's 12 s open-dwell was shorter than the ~14 s load, so
 before the first frame — a harness-tuning artefact that happens to expose the real TTFF.)
 
 ### Recommended follow-up (separate from the crash fix)
-- **Shrink the initial playback window / seek-on-open**: open a bounded window around the target
-  instant (or the day's first footage) instead of the full 24 h, so preroll isn't gated by a
-  1500-segment playlist; lazily widen the scrubber timeline. Biggest lever for perceived speed.
-- Or a lighter/windowed backend manifest for day-opens.
-- Meanwhile a determinate "Loading…" affordance would make the ~14 s read as progress, not "broken".
+> **UPDATE 2026-07-02 (same day): root-caused and FIXED — and the preroll attribution above is
+> WRONG.** Staged measurement showed FFmpeg first-frame is ~0.16 s at *every* playlist length
+> (15→1446 segments); the ~14 s was the session POST queueing behind event-thumbnail traffic on
+> the shared QNetworkAccessManager (6 connections/host). PlaybackClient now has its own NAM;
+> day-open TTFF ≈ 0.7 s quiet / ~1.0 s under full churn. Windowing/seek-on-open NOT needed.
+> See `docs/perf/2026-07-02-playback-ttff-fix.md`. Original (superseded) suggestions kept below
+> for the record:
+- ~~**Shrink the initial playback window / seek-on-open**~~ (unnecessary — preroll was never the cost)
+- ~~Or a lighter/windowed backend manifest for day-opens.~~
+- ~~Meanwhile a determinate "Loading…" affordance~~ (moot at ~1 s).
 
 ## Recommendation (unchanged, reinforced)
 **Ship/run on Qt 6.8.3 (`build68`)** — eliminates the crash and the teardown hitch. The remaining

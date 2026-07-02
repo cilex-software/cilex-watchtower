@@ -209,6 +209,7 @@ Item {
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
     function seekFar(ms) {
         if (!client || !camera) return;
+        _obMark("seekfar");
         if (_skActive) console.log("[SK] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count
         seekWatch.stop(); _seekWatchSeq = -1;        // a re-open supersedes any pending direct-seek watch
         _explicitStart = ms - 15000;
@@ -231,7 +232,15 @@ Item {
     }
     Connections {
         target: vout.videoSink
-        function onVideoFrameChanged(frame) { root._frameSeq++; }
+        function onVideoFrameChanged(frame) {
+            root._frameSeq++;
+            if (root._ttffPending) {       // first frame of a fresh open — the TTFF endpoint
+                root._ttffPending = false;
+                root.lastTtffMs = Date.now() - root._obT0;
+                if (root._pbTime) console.log("[PBTIME] first_frame dt=" + Math.round(root.lastTtffMs)
+                                              + "ms tag=" + root._obTag);
+            }
+        }
     }
 
     // Smoothly-interpolated player position (compact ms). MediaPlayer.position over
@@ -366,6 +375,21 @@ Item {
         return out;
     }
 
+    // ---- open-path stage timing ------------------------------------------
+    // [PBTIME] logs each stage of an open (dispatch → session HTTP → source set →
+    // first rendered frame) so "playback is slow to start" reports can be localized
+    // in one run. Active under WT_TRACE or the WT_TTFF_DAYS harness; inert otherwise.
+    readonly property bool _pbTime: (typeof wtTrace !== "undefined" && wtTrace)
+                                    || (typeof wtTtffDays !== "undefined" && wtTtffDays !== "")
+    property double _obT0: 0           // when the current open began
+    property string _obTag: ""
+    property bool _ttffPending: false  // armed on source-set; cleared by the first rendered frame
+    property double lastTtffMs: -1     // last open→first-frame (read by the WT_TTFF_DAYS harness)
+    function _obMark(tag) {
+        _obT0 = Date.now(); _obTag = tag; _ttffPending = false;
+        if (_pbTime) console.log("[PBTIME] open tag=" + tag + " t=" + _obT0);
+    }
+
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
     // When >= 0, tryOpen() uses this explicit wall window (a calendar day)
@@ -384,6 +408,7 @@ Item {
     function openFor(cam, spanMin) {
         camera = cam;
         zoomMin = spanMin || zoomMin;
+        _obMark("span" + zoomMin);
         _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1; _seekReopen = false;
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         errorText = ""; selStartMs = -1; selEndMs = -1;
@@ -396,6 +421,7 @@ Item {
     // Load a single calendar day's full 24h (gaps included), clamped to now.
     function openForDay(dateStr) {
         if (!camera) return;
+        _obMark("day:" + dateStr);
         var startD = new Date(dateStr + "T00:00:00");   // local midnight
         var s = startD.getTime();
         _explicitStart = s;
@@ -594,6 +620,9 @@ Item {
         target: root.client
         enabled: root.client !== null
         function onSessionReady(sid, dur, fragments, meta) {
+            var _tReady = Date.now();
+            if (root._pbTime) console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
+                                          + "ms frags=" + fragments.length + " tag=" + root._obTag);
             root.loading = false;
             root._pendingArmed = true;     // fragments below are now THIS session's — safe to apply a pending seek
             root.sessionId = sid;
@@ -636,8 +665,11 @@ Item {
             player.source = root.client.playlistUrl(sid);
             if (typeof MemTel !== "undefined") MemTel.noteOpen();
             player.play();
+            root._ttffPending = true;      // next rendered frame completes the TTFF measurement
+            if (root._pbTime) console.log("[PBTIME] source_set dt=" + (Date.now() - root._obT0)
+                                          + "ms marshal=" + (Date.now() - _tReady) + "ms tag=" + root._obTag);
         }
-        function onSessionFailed(err) { root.loading = false; root.errorText = err; }
+        function onSessionFailed(err) { root.loading = false; root.errorText = err; root._ttffPending = false; }
         function onCamerasResolved() {
             root.tryOpen();
             if (root.camId !== "") root.client.fetchCoverage(root.camId);
@@ -820,6 +852,8 @@ Item {
                     }
                     onSeekableChanged: applyPendingSeek()
                     onDurationChanged: applyPendingSeek()
+                    onMediaStatusChanged: if (root._pbTime) console.log("[PBTIME] mediaStatus=" + mediaStatus
+                                                                        + " dt=" + (Date.now() - root._obT0) + "ms")
                 }
 
                 LoadingState {
@@ -1510,6 +1544,47 @@ Item {
                         + "ms maxDesync=" + Math.round(probe.maxDesyncMs) + "ms frames=" + probe.frames + " over=" + sec + "s");
                     Qt.quit();
                 }
+            }
+        }
+    }
+
+    // TTFF harness (WT_TTFF_DAYS="d1,d2,…"): on a warm app, opens each listed day in
+    // turn and logs [TTFF] day=… ttff=…ms — the operator's "click a calendar day →
+    // first rendered frame" latency through the REAL open path — then a summary and
+    // quits. Pair with WT_PLAYBACK_IP (+ optionally WT_PLAYBACK_DAY for the boot
+    // open); the [PBTIME] stage logs break each open down.
+    Item {
+        id: ttffRun
+        property bool on: (typeof wtTtffDays !== "undefined") && wtTtffDays !== ""
+        property var days: on ? String(wtTtffDays).split(",") : []
+        property int idx: -1
+        property var results: []
+        Timer {
+            running: ttffRun.on; interval: 1000; repeat: true
+            property int tick: 0
+            property int nextAt: 12          // boot grace: let the WT_PLAYBACK_DAY open settle
+            onTriggered: {
+                tick++;
+                if (tick < nextAt) return;
+                if (ttffRun.idx >= 0) {      // record the previous open's outcome
+                    var d = ttffRun.days[ttffRun.idx];
+                    var r = root.lastTtffMs >= 0 ? Math.round(root.lastTtffMs) : -1;
+                    ttffRun.results.push(r);
+                    console.log("[TTFF] day=" + d + " ttff=" + r + "ms err=" + (root.errorText || "-"));
+                }
+                ttffRun.idx++;
+                if (ttffRun.idx >= ttffRun.days.length) {
+                    var ok = ttffRun.results.filter(function (x) { return x >= 0; });
+                    var sum = 0;
+                    for (var i = 0; i < ok.length; i++) sum += ok[i];
+                    console.log("[TTFF] SUMMARY n=" + ttffRun.results.length + " played=" + ok.length
+                                + " meanTtff=" + (ok.length ? Math.round(sum / ok.length) : -1) + "ms");
+                    Qt.quit();
+                    return;
+                }
+                root.lastTtffMs = -1;
+                root.openForDay(ttffRun.days[ttffRun.idx]);
+                nextAt = tick + 30;          // fixed dwell — bounds even a pathological open
             }
         }
     }

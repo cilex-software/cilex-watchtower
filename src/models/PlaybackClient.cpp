@@ -5,8 +5,11 @@
 #include "ClipTranscoder.h"
 
 #include <QNetworkAccessManager>
+#include <QNetworkCookie>
+#include <QNetworkCookieJar>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QElapsedTimer>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -28,12 +31,34 @@ static QString operatorTz()
     return id.isEmpty() ? QStringLiteral("UTC") : QString::fromUtf8(id);
 }
 
+// Running requests a NAM currently has open to `host` — how full its 6-connection
+// per-host pool is when we dispatch a session POST ([PBTIME] diagnostics).
+static int runningTo(QNetworkAccessManager *nam, const QString &host)
+{
+    int n = 0;
+    const auto replies = nam->findChildren<QNetworkReply *>();
+    for (auto *r : replies)
+        if (r->isRunning() && r->url().host() == host)
+            ++n;
+    return n;
+}
+
 PlaybackClient::PlaybackClient(QObject *parent)
     : QObject(parent)
 {
     auto *auth = AuthController::instance();
-    m_nam = auth->nam();                      // shared, session-authenticated jar
+    // OWN QNetworkAccessManager — not the shared AuthController one. QNAM opens at
+    // most 6 concurrent connections per host, and the shared NAM also carries the
+    // event-thumbnail (CvImageProvider) + events/health traffic to the same backend;
+    // a calendar day-open's session POST queued behind that storm for SECONDS
+    // (measured 2026-07-02: inflight=12 → 2.3 s, inflight=6 → 0.5 s, inflight=0 →
+    // 0.17 s, while the same POST via curl was always ~0.25 s — the "historic
+    // playback is awfully slow" report). A private pool makes playback control calls
+    // (sessions/coverage/timeline/exports) independent of thumbnail storms. The auth
+    // cookie is mirrored from AuthController (same pattern as HlsProxy::setAuthToken).
+    m_nam = new QNetworkAccessManager(this);
     m_baseUrl = auth->baseUrl();
+    applyAuthCookie();
 
     // The HLS proxy runs on its OWN thread so it keeps serving the player's segment reads even while the GUI
     // thread is blocked — e.g. inside QMediaPlayer teardown on the wall↔Live transition, where a GUI-thread
@@ -51,11 +76,13 @@ PlaybackClient::PlaybackClient(QObject *parent)
 
     connect(auth, &AuthController::baseUrlChanged, this, [this, auth]() {
         m_baseUrl = auth->baseUrl();
+        applyAuthCookie();
         QMetaObject::invokeMethod(m_proxy, "setUpstream", Qt::QueuedConnection, Q_ARG(QString, m_baseUrl));
         QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
     });
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
-        if (auth->authenticated()) {          // (re)login — refresh the proxy's cookie
+        if (auth->authenticated()) {          // (re)login — refresh our + the proxy's cookie
+            applyAuthCookie();
             QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
         } else {                              // signed out — drop resolved state
             m_loggedIn = false;
@@ -79,6 +106,17 @@ void PlaybackClient::setStatus(const QString &s)
         return;
     m_status = s;
     emit statusChanged();
+}
+
+// Mirror the backend session cookie into our private NAM's jar (the login itself
+// happens on AuthController's NAM; ours never sees the Set-Cookie).
+void PlaybackClient::applyAuthCookie()
+{
+    const QString token = AuthController::instance()->token();
+    if (token.isEmpty())
+        return;
+    QNetworkCookie cookie("access_token", token.toUtf8());
+    m_nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_baseUrl));
 }
 
 void PlaybackClient::ensureReady()
@@ -168,6 +206,11 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
 void PlaybackClient::requestSession(const QString &cameraId, const QString &wallStartIso,
                                     const QString &wallEndIso, bool hevcCapable, int attempt)
 {
+    // [PBTIME] pairs with the QML open-path stage logs (see PlaybackScreen.qml).
+    static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
+                               || qEnvironmentVariableIsSet("WT_TTFF_DAYS");
+    QElapsedTimer httpTimer;
+    httpTimer.start();
     setStatus(attempt == 0 ? QStringLiteral("Opening session…") : QStringLiteral("Reconnecting…"));
     QNetworkRequest req{QUrl(m_baseUrl + "/review/sessions")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -181,12 +224,22 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     QString seekMode = qEnvironmentVariable("WT_SEEK_MODE");
     if (seekMode.isEmpty()) seekMode = QStringLiteral("continuous");
     body["seek_mode"] = seekMode;
+    if (pbTime) {
+        auto *sharedNam = AuthController::instance()->nam();
+        const QString host = QUrl(m_baseUrl).host();
+        qInfo("[PBTIME] session_dispatch inflight_own=%d inflight_shared=%d",
+              runningTo(m_nam, host),
+              m_nam == sharedNam ? -1 : runningTo(sharedNam, host));
+    }
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt]() {
+            [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, httpTimer]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
+        if (pbTime)
+            qInfo("[PBTIME] session_http ms=%lld code=%d bytes=%lld attempt=%d",
+                  (long long)httpTimer.elapsed(), code, (long long)raw.size(), attempt);
         if (code != 200) {
             // code 0 = no HTTP response (transport failure: timeout / unreachable /
             // reset). Usually transient — retry a couple of times with a short
