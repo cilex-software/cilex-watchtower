@@ -309,6 +309,10 @@ int main(int argc, char *argv[])
     // and seek-bar-visibility invariant. Logs [NTIME]/[NSLOW]/[NSEEK]/[XSOAK]/[XRESULT]/
     // [ESCTEST]/[SEEKBAR]. Run on real Wayland (Qt 6.12 offscreen SIGBUSes). See qml/Main.qml.
     engine.rootContext()->setContextProperty("wtNightSoak", qEnvironmentVariableIsSet("WT_NIGHT_SOAK"));
+    // WT_SOAK_NOEXPORT: run the night-soak with pure playback churn (skip the export +
+    // export-drawer steps) — bisects whether the ~840s FFmpeg-backend crash is triggered
+    // by the export path or by the open/seek churn itself.
+    engine.rootContext()->setContextProperty("wtSoakNoExport", qEnvironmentVariableIsSet("WT_SOAK_NOEXPORT"));
     // QA self-test: WT_SMOOTHTEST=<seconds> attaches a playback smoothness/sync
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.

@@ -490,14 +490,23 @@ Item {
     // an unbounded hang, and NOT reducible by teardown ordering or proxy-side socket
     // tricks (both measured ineffective, 2026-07-01) — it's internal to the pipeline
     // NULL transition. [PBSTOP] times it under wtTrace; WT_CAL_STRESS exercises it.
-    function _teardownPlayer(tag) {
+    function _teardownPlayer(tag, keepSource) {
         if (!player) return;
         var wasPlaying = player.playbackState === MediaPlayer.PlayingState;
         var t0 = Date.now();
         player.stop();
-        player.source = "";
+        // Skip the intermediate full-unload (source="") when a new source will be set
+        // immediately (a session SWITCH). Clearing the source tears down the FFmpeg
+        // backend's media objects; a frame/state event the decode thread already posted,
+        // delivered AFTER that teardown, is a use-after-free — SIGSEGV in
+        // libffmpegmediaplugin under ~38+ rapid session opens (2026-07-02 night soak,
+        // reproduced on BOTH Qt 6.8.3 and 6.12). Letting onSessionReady do a single
+        // setSource(newUrl) swaps the backend in one transition, closing that race.
+        // The empty-day / hide paths pass keepSource=false to clear the video.
+        if (!keepSource) player.source = "";
         if (typeof wtTrace !== "undefined" && wtTrace)
-            console.log("[PBSTOP] " + tag + " took=" + (Date.now() - t0) + "ms wasPlaying=" + wasPlaying);
+            console.log("[PBSTOP] " + tag + " took=" + (Date.now() - t0) + "ms wasPlaying=" + wasPlaying
+                        + " keepSrc=" + (keepSource === true));
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
@@ -519,12 +528,10 @@ Item {
         loading = true;
         frags = [];            // drop the prior session's fragments — a deferred seek or
                                // overlay must never resolve against stale coverage mid-swap
-        // Fully unload (not just stop) before switching sessions. Qt 6.4's stop()
-        // re-prerolls the OLD media at position 0 — it re-downloads its first
-        // segments through the proxy (observed in the 2026-06-11 seek bench) while
-        // the new session is being created. Clearing the source drops that wasted
-        // work and detaches the old pipeline cleanly.
-        _teardownPlayer("switch");
+        // Stop the old pipeline but KEEP its source — onSessionReady swaps to the new
+        // URL in a single setSource, avoiding the source="" teardown that races decode-
+        // thread posted events into a use-after-free under rapid churn (see _teardownPlayer).
+        _teardownPlayer("switch", true);
         var start, end;
         if (_explicitStart >= 0) { start = _explicitStart; end = _explicitEnd; }
         else { end = Date.now(); start = end - zoomMin * 60000; }
@@ -710,7 +717,10 @@ Item {
             if (root._pbTime) console.log("[PBTIME] source_set dt=" + (Date.now() - root._obT0)
                                           + "ms marshal=" + (Date.now() - _tReady) + "ms tag=" + root._obTag);
         }
-        function onSessionFailed(err) { root.loading = false; root.errorText = err; root._ttffPending = false; }
+        function onSessionFailed(err) {
+            root.loading = false; root.errorText = err; root._ttffPending = false;
+            if (player) player.source = "";   // we kept the old source for the swap; a failed open must clear it (rare path, not the churn hot path)
+        }
         function onCamerasResolved() {
             root.tryOpen();
             if (root.camId !== "") root.client.fetchCoverage(root.camId);

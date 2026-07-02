@@ -540,6 +540,9 @@ Window {
                 playbackScreen.seekToWall(nightSoak.seekTgt);
                 nightSoak.step = 3; nightSoak.nextAt = nightSoak.tick + 8;    // 8s land timeout
             } else if (nightSoak.step === 4) {                  // EXPORT matrix (rotates)
+                if (typeof wtSoakNoExport !== "undefined" && wtSoakNoExport === true) {   // bisect: skip export+drawer
+                    nightSoak.step = 6; nightSoak.nextAt = nightSoak.tick + 1; return;
+                }
                 var t = nightSoak.expTurn % 6;
                 var durMin = [1, 2, 5, 12, 25, 40][nightSoak.cycle % 6];      // 1..40 min sizes
                 if (t === 0) nightSoak._doExport(true, durMin, "rand-high");
