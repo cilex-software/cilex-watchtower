@@ -160,8 +160,32 @@ Item {
             if (frags[j].ws >= ms) return frags[j].cs;
         return compactDuration;
     }
+    // Nearest recorded instant to wall `ms` on the operator's timeline (tlFrags; falls
+    // back to the loaded window's frags). Inside footage → unchanged; in a gap → the
+    // nearer island's head, or its tail −3s (EOS headroom) when past the end.
+    function _snapToFootage(ms) {
+        var f = tlFrags.length ? tlFrags : frags;
+        var best = ms, bestD = Infinity;
+        for (var i = 0; i < f.length; i++) {
+            if (ms >= f[i].ws && ms <= f[i].we) return ms;
+            var head = ms < f[i].ws;
+            var d = head ? f[i].ws - ms : ms - f[i].we;
+            if (d < bestD) { bestD = d; best = head ? f[i].ws : Math.max(f[i].ws, f[i].we - 3000); }
+        }
+        return best;
+    }
     function seekToWall(ms) {
-        if (!player.seekable && player.duration <= 0) return;
+        if (!player.seekable && player.duration <= 0) {
+            // Player unloaded/unseekable — e.g. a far seek landed in dead air and its
+            // session came back (near-)empty (the 2026-07-02 strand: scrubber shows
+            // footage, playhead gone, every click dead; reproduced with frags=1 too —
+            // a stray fragment, then all seeks silently ate here). A scrubber click
+            // must RECOVER — re-open at the (footage-snapped) target — never no-op
+            // into a trap state.
+            if (!loading && tlFrags.length > 0 && client && camera)
+                seekFar(ms);
+            return;
+        }
         var pos = wallToPos(ms);
         // CONTINUOUS timeline (Cilex Vision route B, now the default): direct seeks land within a contiguous
         // run. Re-open only when the target is OUTSIDE the loaded window (to fetch that region — the wall
@@ -209,6 +233,11 @@ Item {
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
     function seekFar(ms) {
         if (!client || !camera) return;
+        // A far target in DEAD AIR (most of a sparse day) must not open a ±30 min
+        // session around nothing — that returns zero ready fragments and strands the
+        // player unloaded while the scrubber still shows footage (reported 2026-07-02,
+        // 23 Jun day-open). VMS-standard: snap to the nearest recording edge first.
+        ms = _snapToFootage(ms);
         _obMark("seekfar");
         if (_skActive) console.log("[SK] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count
         seekWatch.stop(); _seekWatchSeq = -1;        // a re-open supersedes any pending direct-seek watch
@@ -641,7 +670,19 @@ Item {
                            disc: !!f.discontinuity, boundary: f.boundary || "" });   // kept-discontinuity markers (§4-ii)
             }
             root.frags = out;
-            if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
+            if (out.length === 0) {
+                if (root._seekReopen) {
+                    // A far-seek window came back empty. Shouldn't happen now that far
+                    // targets snap to footage first — kept as a safety net: keep the
+                    // timeline, clear the re-open flag, and say how to recover (any
+                    // footage click re-opens via seekToWall's unloaded-player branch).
+                    root._seekReopen = false;
+                    root.errorText = "No footage at that moment — click a green section of the timeline.";
+                } else {
+                    root.errorText = "No footage recorded in this range.";
+                }
+                return;
+            }
             root.errorText = "";
             // A far-seek re-open only swaps the player window — keep the scrubber timeline, its footage
             // track and its markers. A fresh open (span/day/camera) adopts this session AS the timeline.
