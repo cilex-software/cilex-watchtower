@@ -778,6 +778,33 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+        // Crash-prone runtime → warn persistently, right where the risk is. Qt <6.5
+        // means QtMultimedia's GStreamer backend, which SIGSEGVs in libsoup under
+        // playback seek/day-switch churn (P0, root-caused 2026-07-01; both 6.4.2
+        // backends crash — no clean fix). The supported runtime is Qt 6.8.3 via
+        // ./run.sh (FFmpeg backend, 8.8 h soak, 0 crashes).
+        Rectangle {
+            id: qtBanner
+            readonly property var _v: (typeof wtQtRuntime !== "undefined") ? String(wtQtRuntime).split(".") : []
+            readonly property bool oldQt: _v.length >= 2
+                && (parseInt(_v[0]) < 6 || (parseInt(_v[0]) === 6 && parseInt(_v[1]) < 5))
+            Layout.fillWidth: true
+            visible: oldQt
+            Layout.preferredHeight: visible ? 34 : 0
+            color: Qt.rgba(Theme.bad.r, Theme.bad.g, Theme.bad.b, 0.12)
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.bad }
+            Row {
+                anchors { left: parent.left; leftMargin: 16; right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
+                spacing: 8
+                Icon { anchors.verticalCenter: parent.verticalCenter; name: "off"; size: 14; color: Theme.bad }
+                Text { anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 24; elide: Text.ElideRight
+                    text: "Unstable build for playback — this launch runs Qt " + (qtBanner._v.join(".")
+                          ) + " (GStreamer backend), which can crash on seeks. Close and start via ./run.sh (Qt 6.8.3)."
+                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+            }
+        }
+
         // Recording switched off → no new footage is being recorded; past footage
         // is still viewable. Calm amber note (not a fault). Fail-safe: only on an
         // explicit enabled:false.

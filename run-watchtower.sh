@@ -7,6 +7,14 @@
 # leak-free on 6.8.3 (and it also fixes the Qt 6.4.2 GridLayout maximize/minimize SIGSEGV). The app
 # source needs no changes — it builds and runs unmodified on 6.8.3. See docs/DEVELOPMENT.md.
 #
+# ALSO (P0, root-caused 2026-07-01, recurred 2026-07-02 by launching ./build/watchtower directly):
+# Qt 6.4.2's GStreamer media backend SIGSEGVs in libsoup-3.0 (g_input_stream_close → g_object_unref,
+# souphttpsrc thread) under recorded-playback seek / calendar day-switch churn. There is NO clean fix
+# on 6.4.2 — both its media backends crash. Qt 6.8.3's FFmpeg backend ran the same workload 8.8 h
+# with 0 crashes (docs/perf/2026-07-02-comprehensive-soak-results.md). ALWAYS start the app with
+# this script (or ./run.sh, an alias); the app shows a red banner on the Playback screen when it
+# detects a <6.5 runtime.
+#
 # Override the Qt prefix or build dir with WT_QT_PREFIX / WT_BUILD_DIR if you relocate them.
 set -euo pipefail
 QT="${WT_QT_PREFIX:-/home/cilex-vision/Qt/6.8.3/gcc_64}"
@@ -19,6 +27,12 @@ if [[ ! -d "$QT/lib" ]]; then
     echo "  python3 -m venv /tmp/aqtenv && /tmp/aqtenv/bin/pip install aqtinstall" >&2
     echo "  /tmp/aqtenv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtmultimedia qtshadertools -O \$HOME/Qt" >&2
     exit 1
+fi
+
+if [[ ! -x "$BUILD/watchtower" ]]; then
+    echo "watchtower missing in $BUILD — configuring + building against $QT …" >&2
+    cmake -S "$DIR" -B "$BUILD" -DCMAKE_PREFIX_PATH="$QT" -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$BUILD" -j"$(nproc)"
 fi
 
 # Cap glibc malloc arenas. The app runs ~73 threads (≈8 GStreamer/Qt threads per live pipeline);

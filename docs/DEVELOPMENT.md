@@ -31,6 +31,13 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 > 8.5 GB → OOM in 30 s on 6.4.2). The GridLayout workarounds (manual camera grid, `Grid` positioners)
 > are harmless on 6.8.3 and can be reverted later if desired.
 
+**ALWAYS launch the app with `./run.sh` (alias of `./run-watchtower.sh`).** It pins the Qt 6.8.3
+runtime env and runs `build68/watchtower` (building it first if missing). Launching
+`./build/watchtower` directly puts you on the system Qt 6.4.2 **GStreamer** media backend, which
+**SIGSEGVs in libsoup during playback seeks / calendar day-switches** (P0; root-caused 2026-07-01,
+recurred 2026-07-02 exactly this way) — and even `build68/watchtower` without the env silently
+loads system Qt. The app shows a red banner on the Playback screen when it detects a <6.5 runtime.
+
 The system-Qt 6.4.2 build still compiles and is fine for **offscreen** smoke/screenshot checks (no
 video), but leaks/crashes in live use — don't ship or live-test on it:
 

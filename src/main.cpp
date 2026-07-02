@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QVersionNumber>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
@@ -246,6 +247,18 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtSeekSpan", qEnvironmentVariableIntValue("WT_SEEK_SPAN"));
     engine.rootContext()->setContextProperty("wtEventsTest", qEnvironmentVariableIsSet("WT_EVENTS_TEST"));
     engine.rootContext()->setContextProperty("wtTrace", qEnvironmentVariableIsSet("WT_TRACE"));
+    // RUNTIME Qt version (what the loader actually resolved, not the compile SDK).
+    // It decides the QtMultimedia backend: <6.5 → GStreamer (souphttpsrc), which
+    // SIGSEGVs in libsoup under playback seek/day-switch churn (P0, root-caused
+    // 2026-07-01 — docs/perf/2026-07-01-calendar-soak-results.md); ≥6.5 → FFmpeg,
+    // validated stable (8.8 h soak, 0 crashes). Surfaced to QML so the Playback
+    // screen can warn persistently when someone launches the crash-prone build
+    // directly instead of via ./run.sh.
+    engine.rootContext()->setContextProperty("wtQtRuntime", QString::fromLatin1(qVersion()));
+    if (QVersionNumber::fromString(QString::fromLatin1(qVersion())) < QVersionNumber(6, 5))
+        qWarning("Watchtower: RUNTIME Qt %s -> GStreamer media backend: recorded playback "
+                 "can crash (libsoup SIGSEGV) under seek churn. Launch via ./run.sh "
+                 "(Qt 6.8.3 / FFmpeg).", qVersion());
     engine.rootContext()->setContextProperty("wtHeroAutoplay", qEnvironmentVariableIsSet("WT_HERO_AUTOPLAY"));
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));
