@@ -4,7 +4,10 @@
 # is still alive — the wedge the first run hit) records the death/hang cause + the [GUARD] actions that led to
 # it, then relaunches and continues. Self-contained. Args: optional end "HH:MM" (default 12:00) — or set END_EPOCH.
 cd /home/cilex-vision/projects/cilex-watchtower
-QT=/home/cilex-vision/Qt/6.8.3/gcc_64
+# Primary Qt 6.12 / build (override WT_QT + BIN for the 6.8.3 fallback). Runs on real
+# Wayland (below) — NOT offscreen, where Qt 6.12 SIGBUSes; that bug is offscreen-only.
+QT=${WT_QT:-/home/cilex-vision/Qt/6.12.0/gcc_64}
+BIN=${WT_BIN:-./build/watchtower}
 export LD_LIBRARY_PATH=$QT/lib QT_PLUGIN_PATH=$QT/plugins QML_IMPORT_PATH=$QT/qml QML2_IMPORT_PATH=$QT/qml
 export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000
 export WT_CV_AUTOLOGIN=1 WT_SECTION=live WT_GUARD_SOAK=1
@@ -29,7 +32,7 @@ while [ "$(date +%s)" -lt "$END" ]; do
   run=$((run+1)); started=$(date +%s); reason=""
   log "launch #$run"
   echo "==== LAUNCH #$run $(date) ====" >> "$APP_LOG"
-  ./build68/watchtower >> "$APP_LOG" 2>&1 &
+  "$BIN" >> "$APP_LOG" 2>&1 &
   APP=$!
   last_hb=$(grep -ac -e MEMTEL -e '\[GUARD\]' "$APP_LOG"); stall=0
   while [ "$(date +%s)" -lt "$END" ]; do

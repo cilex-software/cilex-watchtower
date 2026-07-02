@@ -4,52 +4,58 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 
 ## Stack (locked)
 
-- **UI**: Qt **6.8.3** + Qt Quick / QML (GPU scene-graph compositing) — build against 6.8.3, **NOT** Ubuntu 24.04's system Qt 6.4.2, which has two fatal bugs (a QtMultimedia VideoOutput memory leak and a GridLayout SIGSEGV — see Build and Gotchas). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
+- **UI**: Qt **6.12** (primary) / **6.8.3 LTS** (fallback) + Qt Quick / QML (GPU scene-graph compositing). Ubuntu 24.04's system Qt **6.4.2 is BANNED** — the CMake floor is 6.8, so it can't even configure (it has a QtMultimedia libsoup-SIGSEGV on playback seeks, a VideoOutput memory leak, and a GridLayout SIGSEGV — see Build and Gotchas). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
 - **Core**: C++17.
-- **Video**: QtMultimedia `MediaPlayer` + `VideoOutput` (QML), GStreamer backend, **VA-API HW decode** (confirmed on Intel Alder Lake-S iGPU, iHD driver). See "qml6glsink" gotcha below.
+- **Video**: QtMultimedia `MediaPlayer` + `VideoOutput` (QML) on Qt's **FFmpeg** media backend (default ≥6.5; FFmpeg 7.1.x), **VA-API HW decode** (confirmed on Intel Alder Lake-S iGPU, iHD driver). The opt-in low-latency LIVE path (`RtspVideoSource`) drives a custom GStreamer pipeline; recorded PLAYBACK uses the FFmpeg backend. See "qml6glsink" gotcha below.
 - **Persistence**: two stores — `QSettings` (INI) for small operator state (prefs, event acks, saved views), and **SQLite** via `CameraStore` for the local camera inventory at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`. Groups, events, and footage are not persisted locally — they come live from cilex-vision.
 - **Network**: `QNetworkAccessManager` (Qt6::Network) for cilex-vision auth + APIs.
 - **Build**: CMake + Ninja.
 
 ## Build / run / verify
 
-> **Build and run against Qt 6.8.3 — the system Qt 6.4.2 leaks/crashes in live use.** Ubuntu 24.04's
-> Qt 6.4.2 has a QtMultimedia **VideoOutput memory leak** (live video retains ~one frame-buffer per
-> rendered frame → ~260 MB/s on a 9-tile wall → ~9 GB → earlyoom SIGTERMs the app in ~30 s) and a
-> QtQuick.Layouts **GridLayout SIGSEGV** on maximize/minimize. Both are fixed in 6.8.3, which the app
-> builds and runs on **unmodified**. Install it user-space once and build against it:
+> **ALWAYS launch with `./run.sh`** (alias of `./run-watchtower.sh`). It pins the Qt runtime env and
+> runs `build/watchtower`, building it first if missing. The primary toolchain is **Qt 6.12**; the
+> system Qt **6.4.2 is banned** (CMake floor 6.8 → it hard-fails `find_package`). Even a correct binary
+> doesn't pin its own Qt — without the launcher's `LD_LIBRARY_PATH` it loads whatever `libQt6*.so` the
+> linker finds — so the launcher is mandatory. A red banner appears on the Playback screen if a <6.5
+> runtime is ever detected.
 >
+> Install Qt user-space once, then build via presets:
 > ```bash
 > python3 -m venv /tmp/aqtenv && /tmp/aqtenv/bin/pip install aqtinstall
-> /tmp/aqtenv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 \
->     -m qtmultimedia qtshadertools -O "$HOME/Qt"        # ~2 GB; pulls the wayland plugins too
-> cmake -G Ninja -B build68 -DCMAKE_PREFIX_PATH="$HOME/Qt/6.8.3/gcc_64" -S . && cmake --build build68
-> ./run-watchtower.sh        # launcher: points lib/plugin/QML paths at 6.8.3, runs build68/watchtower
+> /tmp/aqtenv/bin/aqt install-qt linux desktop 6.12.0 linux_gcc_64 \
+>     -m qtmultimedia qtshadertools qttasktree -O "$HOME/Qt"      # ~2 GB; pulls the wayland plugins
+> cmake --preset default && cmake --build build   # Qt 6.12 → build/   (primary)
+> ./run.sh
 > ```
 >
-> Verified leak-free on real Wayland: cap-9 live wall, 90 s / 10,608 frames, RSS flat at ~950 MB (vs
-> 8.5 GB → OOM in 30 s on 6.4.2). The GridLayout workarounds (manual camera grid, `Grid` positioners)
-> are harmless on 6.8.3 and can be reverted later if desired.
+> **Fallback — Qt 6.8.3 LTS** (the 8.8h-soak-validated runtime; kept as a safety net because 6.12
+> fixes nothing on the residual per-open decode leak, ~+2 MB/min vs 6.8.3):
+> ```bash
+> /tmp/aqtenv/bin/aqt install-qt linux desktop 6.8.3 linux_gcc_64 -m qtmultimedia qtshadertools -O "$HOME/Qt"
+> cmake --preset qt68 && cmake --build build68           # Qt 6.8.3 → build68/
+> WT_QT_PREFIX="$HOME/Qt/6.8.3/gcc_64" WT_BUILD_DIR=build68 ./run.sh
+> ```
 
-**ALWAYS launch the app with `./run.sh` (alias of `./run-watchtower.sh`).** It pins the Qt 6.8.3
-runtime env and runs `build68/watchtower` (building it first if missing). Launching
-`./build/watchtower` directly puts you on the system Qt 6.4.2 **GStreamer** media backend, which
-**SIGSEGVs in libsoup during playback seeks / calendar day-switches** (P0; root-caused 2026-07-01,
-recurred 2026-07-02 exactly this way) — and even `build68/watchtower` without the env silently
-loads system Qt. The app shows a red banner on the Playback screen when it detects a <6.5 runtime.
+Both use Qt's FFmpeg media backend (which fixed the 6.4.2 playback crash). Build floor / AOT / offscreen
+caveats:
+- **CMake floor is 6.8** (`find_package(Qt6 6.8 REQUIRED)` + `qt_standard_project_setup(REQUIRES 6.8)`).
+  Configuring against system 6.4.2 fails with *"not compatible with requested version 6.8"* — by design.
+- **Qt 6.12's `qmlcachegen` SIGSEGVs in the AOT C++ codegen pass** on `qml/Main.qml` (valid QML — 6.8.3
+  compiled it fine; a 6.12 tool regression). CMake auto-sets `--only-bytecode` for Qt ≥6.12 (keeps the
+  QML *bytecode* cache — startup stays fast — only AOT binding-compilation is skipped; the app is
+  identical). `-DWT_ENABLE_AOT=ON` re-enables it once a fixed Qt ships.
+- **Qt 6.12's `offscreen` QPA SIGBUSes** under playback/calendar churn (intermittent; ~1 per 30 actions).
+  It is **offscreen-only** — real Wayland ran 77 churn actions clean (6.8.3 offscreen also clean, 168
+  actions). So for headless smoke/screenshots on 6.12, either run on **Wayland** (below) or use the
+  **6.8.3 `build68`** binary for offscreen checks. Doesn't affect real use.
 
-The system-Qt 6.4.2 build still compiles and is fine for **offscreen** smoke/screenshot checks (no
-video), but leaks/crashes in live use — don't ship or live-test on it:
-
-```bash
-cmake -G Ninja -B build -S . && cmake --build build   # system Qt 6.4.2 — offscreen checks only
-```
-
-- **Headless smoke test** (no display): `QT_QPA_PLATFORM=offscreen timeout 6 ./build/watchtower`
-  — exit **124** (timeout killed it) = QML loaded fine; exit **255** = a load/QML error was printed to stderr. Grep stderr for `.qml:` / `warning` / `Unable to assign` / `Non-existent`.
-- **Screenshot to PNG** (env-gated hook in `main.cpp`, no display needed):
-  `WT_SCREENSHOT=/tmp/x.png WT_SCREENSHOT_MS=1500 QT_QPA_PLATFORM=offscreen timeout 12 ./build/watchtower`
-  — renders the window then quits; read the PNG back to inspect the UI. This is the standard visual-verification path. A real Wayland session also exists (`WAYLAND_DISPLAY=wayland-0`).
+- **Headless smoke test** (offscreen): `QT_QPA_PLATFORM=offscreen timeout 6 ./build68/watchtower`
+  — exit **124** (timeout killed it) = QML loaded fine; exit **255** = a load/QML error on stderr. Grep for `.qml:` / `warning` / `Unable to assign` / `Non-existent`. (Use `build68`, not `build`, to avoid the 6.12 offscreen SIGBUS.)
+- **Screenshot to PNG** (env-gated hook in `main.cpp`):
+  `WT_SCREENSHOT=/tmp/x.png WT_SCREENSHOT_MS=1500 QT_QPA_PLATFORM=offscreen timeout 12 ./build68/watchtower`
+  — renders the window then quits; read the PNG back. The standard visual-verification path. On a real
+  Wayland session (`WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000`) the 6.12 `build/` renders fine.
 
 ## Dev hooks (environment variables)
 
@@ -91,7 +97,7 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
 
 - **Qt 6.4 resource prefix**: `qt_add_qml_module` defaults to `/<URI>`, not `/qt/qml/`. We pin `RESOURCE_PREFIX "/qt/qml"` so `main.cpp` loads `qrc:/qt/qml/Watchtower/qml/Main.qml`. `loadFromModule()` doesn't exist in 6.4 — load by URL.
 - **qml6glsink doesn't work** on Ubuntu 24.04's `gstreamer1.0-qt6` 1.24.2 (the `Qt6GLVideoItem` QML type never registers). We use **QtMultimedia** instead (verified VA-API HW decode). Don't reintroduce the direct-qml6glsink path without re-checking.
-- **Qt 6.4.2 has two fatal bugs — build on 6.8.3 (see Build).** (1) QtMultimedia `VideoOutput` leaks ~one frame-buffer per rendered frame: bisected to `m_sink->setVideoFrame()`, reproduced on OpenGL/Vulkan/software RHI and with **both** RtspVideoSource and QMediaPlayer, and custom render paths (QSGSimpleTextureNode + `createTextureFromImage`, QQuickPaintedItem/FBO) leak *worse* — there is **no client-side workaround on 6.4.2**. → ~260 MB/s on a 9-tile wall → earlyoom SIGTERM (the "Terminated" the operator saw) in ~30 s. (2) `GridLayout` SIGSEGVs in `QQuickGridLayoutBase::rearrange` after minimize/restore. **6.8.3 fixes both** (verified). The diagnostics that found it stay in `main.cpp`: a **fatal-signal handler** (prints signal + RSS at death → instantly tells OOM-SIGTERM from a code SIGSEGV) and `WT_TRACE=1` (`[WT-MEM] rss/live_pipelines/frames` every 2 s).
+- **Qt 6.4.2 is BANNED (CMake floor 6.8) — it has three fatal bugs; primary is 6.12, fallback 6.8.3 (see Build).** (0) QtMultimedia's GStreamer backend SIGSEGVs in libsoup-3.0 on recorded-playback seek/day-switch churn (the P0). (1) QtMultimedia `VideoOutput` leaks ~one frame-buffer per rendered frame: bisected to `m_sink->setVideoFrame()`, reproduced on OpenGL/Vulkan/software RHI and with **both** RtspVideoSource and QMediaPlayer, and custom render paths (QSGSimpleTextureNode + `createTextureFromImage`, QQuickPaintedItem/FBO) leak *worse* — there is **no client-side workaround on 6.4.2**. → ~260 MB/s on a 9-tile wall → earlyoom SIGTERM (the "Terminated" the operator saw) in ~30 s. (2) `GridLayout` SIGSEGVs in `QQuickGridLayoutBase::rearrange` after minimize/restore. **6.8.3 fixes both** (verified). The diagnostics that found it stay in `main.cpp`: a **fatal-signal handler** (prints signal + RSS at death → instantly tells OOM-SIGTERM from a code SIGSEGV) and `WT_TRACE=1` (`[WT-MEM] rss/live_pipelines/frames` every 2 s).
 - **Video decode is hardware-vs-software by GStreamer *rank* — verify it, especially on Windows.** The live `decodebin` pipeline auto-picks the decoder by rank. On this box the **`va` plugin** provides HW decode: `vah264dec`/`vah265dec` are rank `primary+1` (257), klass `Codec/Decoder/Video/Hardware`, outranking software `avdec_h264`/`avdec_h265` (rank `primary`, 256). So VA-API HW decode is used **when it initialises**, but `decodebin` **silently falls back to software** if it doesn't (and `gstreamer-vaapi`'s `vaapih264dec` is rank `none` here — it's the newer `va` plugin that matters). Diagnostics + policy live in `RtspVideoSource`: **`WT_TRACE`** logs the codec + bound decoder + HW/SW (`[WT-DEC] … (hardware)` / `(SOFTWARE)`); **`WT_HW_ONLY=1`** makes `decodebin` *refuse* any non-hardware video decoder (the tile errors and the reconnect watchdog retries, instead of software-decoding). Use `WT_HW_ONLY` to **guarantee no software H.264/H.265 decode** — it matters for CPU **and** codec-patent exposure (the OS/GPU decoder carries the patent licence; a bundled *software* decoder shifts that burden onto us). **Windows port:** the HW equivalent is `d3d11h264dec`/`d3d11h265dec` (DXVA, from gst-plugins-bad's `d3d11`) — bundle it, run with `WT_HW_ONLY=1`, and confirm `[WT-DEC]` shows `d3d11…(hardware)`, never `avdec…(SOFTWARE)`. The QMediaPlayer/HLS playback path uses Qt's **FFmpeg backend** (FFmpeg 7.1, LGPL 2.1 — logged as `qt.multimedia.ffmpeg`) on both platforms; verify *it* HW-decodes (its own HW-device config) rather than silently software-decoding HEVC.
 - **Namespaced attached properties**: with `import QtQuick.Controls.Basic as QC`, use `QC.ScrollBar.vertical`, not `ScrollBar.vertical` (else "Non-existent attached object").
 - **Camera IP lockout**: HiWatch/Hikvision lock an IP ~30 min after failed logins. Do **not** run the full live wall against all cameras during dev (per-camera creds incomplete) — use `WT_TEST_IP`. A tile streams only when its `videoActive` is true (Live Monitor visible); a hidden Live Monitor that keeps players open hammers cameras.

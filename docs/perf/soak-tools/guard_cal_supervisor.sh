@@ -4,20 +4,21 @@
 # any crash OR GUI hang (heartbeat stalled >HANG while the process is alive) records the cause + the
 # [CAL]/[PBSTOP] actions leading up to it, then relaunches. Self-contained. Arg: end "HH:MM" (default
 # 08:00) or END_EPOCH. Env overrides:
-#   WT_SOAK_BIN  binary to run           (default ./build/watchtower = system Qt 6.4.2 / GStreamer)
-#   WT_SOAK_QT   Qt runtime gcc_64 dir   (e.g. ~/Qt/6.8.3/gcc_64 → mature FFmpeg backend; default: system Qt)
+#   WT_SOAK_BIN  binary to run           (default ./build/watchtower = Qt 6.12 primary)
+#   WT_SOAK_QT   Qt runtime gcc_64 dir   (default ~/Qt/6.12.0/gcc_64; set ~/Qt/6.8.3/gcc_64 for the fallback)
 #   WT_SOAK_DIR  output dir              (default /tmp/cal_soak)
+# NB: runs on real Wayland (below), NOT offscreen — Qt 6.12's offscreen QPA SIGBUSes under churn
+# (offscreen-only bug); the real display is clean.
 cd /home/cilex-vision/projects/cilex-watchtower
 BIN=${WT_SOAK_BIN:-./build/watchtower}
 export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000
 # Harness: WT_CAL_STRESS (calendar/playback only, default) or WT_GUARD_SOAK (comprehensive —
 # Live wall/fullscreen/replace/layouts + Events + playback-wall + the calendar/playback block).
 export WT_CV_AUTOLOGIN=1 "${WT_SOAK_HARNESS:-WT_CAL_STRESS}"=1 WT_TRACE=1 WT_SMOOTHTEST=90000
-# Optional non-system Qt runtime (e.g. Qt 6.8.3, whose default media backend is the mature FFmpeg one).
-if [ -n "${WT_SOAK_QT:-}" ]; then
-  export LD_LIBRARY_PATH="$WT_SOAK_QT/lib" QT_PLUGIN_PATH="$WT_SOAK_QT/plugins" \
-         QML_IMPORT_PATH="$WT_SOAK_QT/qml" QML2_IMPORT_PATH="$WT_SOAK_QT/qml"
-fi
+# Pin the Qt runtime (default 6.12; the binary alone loads system Qt otherwise → ABI mismatch).
+WT_SOAK_QT=${WT_SOAK_QT:-$HOME/Qt/6.12.0/gcc_64}
+export LD_LIBRARY_PATH="$WT_SOAK_QT/lib" QT_PLUGIN_PATH="$WT_SOAK_QT/plugins" \
+       QML_IMPORT_PATH="$WT_SOAK_QT/qml" QML2_IMPORT_PATH="$WT_SOAK_QT/qml"
 
 D=${WT_SOAK_DIR:-/tmp/cal_soak}; mkdir -p "$D"
 INC="$D/incidents.log"; APP_LOG="$D/app.log"; SUP="$D/supervisor.log"

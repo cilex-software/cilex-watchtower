@@ -9,11 +9,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-# Qt 6.4 ships with Ubuntu 24.04. We pin >= 6.4 and use the modern
-# qt_add_qml_module flow. GStreamer / Multimedia / Sql get linked in later
-# phases (video pipeline, persistence) — kept out of the first build to keep
-# the dependency surface minimal until those features land.
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Multimedia)
+# Qt >= 6.8 REQUIRED. Ubuntu 24.04's system Qt 6.4.2 is BANNED: its QtMultimedia
+# GStreamer backend SIGSEGVs in libsoup during playback seeks (the P0) and its
+# VideoOutput leaks a frame-buffer per frame → OOM. The floor makes 6.4.2 fail to
+# configure (hard error) instead of silently building a crash-prone binary. Primary
+# toolchain is Qt 6.12 (build against ~/Qt/6.12.0 — see CMakePresets.json / run.sh);
+# Qt 6.8.3 LTS is a supported fallback (the 8.8 h-validated runtime). Both use Qt's
+# mature FFmpeg media backend.
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Multimedia)
 
 # Video is played through QtMultimedia (QML MediaPlayer + VideoOutput), which on
 # Linux uses the GStreamer backend with VA-API hardware decode. The opt-in
@@ -24,7 +27,13 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET
     gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 
-qt_standard_project_setup(REQUIRES 6.4)
+qt_standard_project_setup(REQUIRES 6.8)
+
+# Qt 6.12's qmlcachegen SIGSEGVs when invoked with --dump-aot-stats (a build-time
+# AOT-compilation *diagnostic*, on by default). It does not affect the produced
+# binary or the AOT-compiled QML — only the stats side-file — so we turn it off.
+# Harmless no-op on Qt < 6.12 (the variable/feature doesn't exist there).
+set(QT_QML_GENERATE_AOTSTATS OFF)
 
 qt_add_executable(watchtower
     src/main.cpp
@@ -44,10 +53,13 @@ if(NOT WT_GIT_SHA)
 endif()
 target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
 
-# Escape hatch: some Qt qmlcachegen toolchains (observed: 6.12.0) SEGFAULT during the AOT C++ codegen pass on
-# our QML. -DWT_ONLY_BYTECODE=ON skips AOT (the bytecode cache is still built), letting such a Qt build for
-# leak/regression testing. No-op for the normal builds.
-if(WT_ONLY_BYTECODE)
+# Qt 6.12.0's qmlcachegen SIGSEGVs in the AOT C++ codegen pass on qml/Main.qml (the QML is valid — 6.8.3
+# compiled it fine; this is a 6.12 tool regression). `--only-bytecode` skips the AOT pass — the QML *bytecode*
+# cache is still built, so startup stays fast — and Qt's CMake then also omits the separately-crashing
+# `--dump-aot-stats`. Auto-on for Qt >= 6.12 (our pinned toolchain); `-DWT_ENABLE_AOT=ON` re-enables AOT once a
+# fixed Qt ships. AOT is a JS-binding *speed* optimisation, not a correctness feature — the app is identical.
+option(WT_ENABLE_AOT "QML AOT C++ codegen (SIGSEGVs on Qt 6.12.0 — leave OFF there)" OFF)
+if(NOT WT_ENABLE_AOT AND Qt6_VERSION VERSION_GREATER_EQUAL 6.12)
     set_target_properties(watchtower PROPERTIES QT_QMLCACHEGEN_ARGUMENTS "--only-bytecode")
 endif()
 
