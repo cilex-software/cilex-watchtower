@@ -750,7 +750,11 @@ Item {
         }
     }
 
-    // Esc closes the modal first, then the drawer
+    // Esc closes the modal first, then the drawer. forceActiveFocus() on open so the
+    // key reaches THIS handler even though the drawer opens over the focused
+    // PlaybackScreen (focus:visible alone doesn't steal active focus reliably).
     Keys.onEscapePressed: (e) => { if (root.confirming) root.confirming = false; else root.close(); e.accepted = true; }
     focus: visible
+    onVisibleChanged: if (visible) forceActiveFocus()
+    onConfirmingChanged: if (visible) forceActiveFocus()
 }

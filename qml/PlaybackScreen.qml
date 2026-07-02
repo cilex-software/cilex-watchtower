@@ -1524,6 +1524,16 @@ Item {
         exportDrawer.openWith(camera, camId, selStartMs, selEndMs, tlFrags, playheadMs);
         vout.grabToImage(function(res) { if (res) exportDrawer.previewSource = res.url; });
     }
+    // Export-drawer state exposed for the WT_NIGHT_SOAK harness (Esc/cancel checks).
+    readonly property bool exportDrawerVisible: exportDrawer.visible
+    readonly property bool exportDrawerFocus: exportDrawer.activeFocus
+    function closeExportDrawer() { if (exportDrawer) exportDrawer.close(); }
+    // Is wall-ms inside recorded footage on the operator timeline? (seek-land verification)
+    function msInFootage(ms) {
+        var f = tlFrags;
+        for (var i = 0; i < f.length; i++) if (ms >= f[i].ws && ms <= f[i].we) return true;
+        return false;
+    }
 
     ExportDrawer {
         id: exportDrawer

@@ -303,6 +303,12 @@ int main(int argc, char *argv[])
     // GUI-thread session teardown ("stops responding" on the .201 report). Logs [CAL]
     // lines. Starts on WT_PLAYBACK_IP if given.
     engine.rootContext()->setContextProperty("wtCalStress", qEnvironmentVariableIsSet("WT_CAL_STRESS"));
+    // WT_NIGHT_SOAK: comprehensive overnight endurance/stress harness — historic-playback
+    // timing (calendar-open → first frame, seek → frame-land, flag >1 s), full export matrix
+    // (every camera / quality / size, HD-older-than-5-days policy, select+cancel, Esc focus),
+    // and seek-bar-visibility invariant. Logs [NTIME]/[NSLOW]/[NSEEK]/[XSOAK]/[XRESULT]/
+    // [ESCTEST]/[SEEKBAR]. Run on real Wayland (Qt 6.12 offscreen SIGBUSes). See qml/Main.qml.
+    engine.rootContext()->setContextProperty("wtNightSoak", qEnvironmentVariableIsSet("WT_NIGHT_SOAK"));
     // QA self-test: WT_SMOOTHTEST=<seconds> attaches a playback smoothness/sync
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.

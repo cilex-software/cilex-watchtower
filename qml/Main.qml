@@ -416,6 +416,206 @@ Window {
             }
         }
     }
+    // ========================================================================
+    // WT_NIGHT_SOAK — comprehensive overnight endurance/stress harness (2026-07-02).
+    // Drives the operator's real historic-playback flow — pick a RANDOM camera →
+    // Open playback → RANDOM calendar day → seek to a RANDOM instant — with rigorous
+    // per-action timing, PLUS a full export matrix (every camera; every quality on a
+    // known-footage camera/day; HD-older-than-5-days policy; select+cancel; drawer
+    // focus for Esc), and seek-LAND verification (did the video move to the target?).
+    //
+    // Log grammar (parsed by the analyzer → docs/perf report):
+    //   [NTIME] action=<a> ms=<t>            every timed action; ms>1000 also emits
+    //   [NSLOW] action=<a> ms=<t> (>1s)      the >1s violations the operator flagged
+    //   [NSEEK] land err_s=… | TIMEOUT       seek landed near target, or froze/dead-air
+    //   [XSOAK] action=export … dest=…       export requested (cam/quality/range/day)
+    //   [XRESULT] job=… OK file=… total_ms=  export finished (supervisor stats the file)
+    //   [ESCTEST] drawer focus=OK|LOST       drawer holds active focus ⇒ Esc will close it
+    //   [SEEKBAR] hidden-while-day-loaded     the playhead vanished with footage loaded (bug)
+    // Freezes: WTSMOOTH STALL (WT_SMOOTHTEST). Crashes: [WT-FATAL]. RSS: [WT-MEM]/sampler.
+    Timer {
+        id: nightSoak
+        interval: 1000; repeat: true
+        running: (typeof wtNightSoak !== "undefined" && wtNightSoak === true)
+
+        property var cams: []
+        property int camIdx: 0
+        property int tick: 0
+        property int nextAt: 4
+        property int step: 0            // 0 open · 1 await-load · 2 seek · 3 await-land · 4 export · 5 drawer · 6 next
+        property int cycle: 0
+        property double t0: 0
+        property int frameSeqAtSeek: -1
+        property double seekTgt: 0
+        property int dayOff: 0
+        readonly property int daySpan: 14
+        property string curDay: ""
+        property int expTurn: 0
+        property double expT0: 0
+        property string expTag: ""
+        property bool sawDay: false     // a day session loaded this cycle (for seek-bar / seek gating)
+
+        function _log(a, ms) {
+            console.log("[NTIME] t=" + Date.now() + " action=" + a + " ms=" + Math.round(ms));
+            if (ms > 1000) console.log("[NSLOW] action=" + a + " ms=" + Math.round(ms) + " (>1s)");
+        }
+        function _cam() { return nightSoak.cams.length ? nightSoak.cams[nightSoak.camIdx % nightSoak.cams.length] : null; }
+        function _dayStr(off) { var d = new Date(); d.setDate(d.getDate() - off); return Qt.formatDate(d, "yyyy-MM-dd"); }
+        function _select(c) { win.focusedCamera = c; win.playbackCamera = c; playbackScreen.camera = c; }
+        function _camId(c) { return c ? (playbackClient.cameraIdForIp(c.ip) || playbackClient.cameraIdForMac(c.mac || "")) : ""; }
+        // a random [start,end] of ~durMin inside the loaded day's footage (tlFrags), or null
+        function _pickRange(durMin) {
+            var f = playbackScreen.tlFrags;
+            if (!f || !f.length) return null;
+            var i = (nightSoak.cycle * 7 + nightSoak.expTurn) % f.length;   // deterministic-but-varied pick
+            var span = f[i].we - f[i].ws;
+            var want = durMin * 60000;
+            var s = f[i].ws + Math.min(span * 0.1, Math.max(0, span - want));
+            var e = Math.min(f[i].we + want, s + want);                     // may extend across neighbouring footage
+            if (e - s < 2000) e = s + Math.min(want, 2000);
+            return { s: s, e: e };
+        }
+        function _doExport(hi, durMin, tag) {
+            var c = nightSoak._cam(), id = nightSoak._camId(c), r = nightSoak._pickRange(durMin);
+            if (!c || !id || !r) { console.log("[XSOAK] skip reason=" + (!c ? "nocam" : !id ? "nocamid" : "nofootage")
+                                               + " cam=" + (c ? c.ip : "?") + " day=" + nightSoak.curDay); return false; }
+            var dest = Artifacts.newExportPath((c.name || id), "mp4");
+            nightSoak.expT0 = Date.now();
+            nightSoak.expTag = "cam=" + c.ip + " q=" + (hi ? "HIGH" : "STD") + " durMin=" + durMin + " day=" + nightSoak.curDay + " tag=" + (tag || "rand");
+            console.log("[XSOAK] t=" + Date.now() + " action=export " + nightSoak.expTag
+                        + " range=" + Qt.formatDateTime(new Date(r.s), "HH:mm:ss") + "-" + Qt.formatDateTime(new Date(r.e), "HH:mm:ss")
+                        + " dest=" + dest);
+            playbackClient.createExport(id, new Date(r.s).toISOString(), new Date(r.e).toISOString(),
+                                        "wallclock", dest, "", "soak", hi, ({}));
+            return true;
+        }
+
+        onTriggered: {
+            nightSoak.tick++;
+            if (!nightSoak.cams.length) {                       // resolve roster once
+                nightSoak.cams = cameraModel.page("", "", "default", 1, 64);
+                if (!nightSoak.cams.length) return;
+                nightSoak.nextAt = nightSoak.tick + 1; return;
+            }
+            // seek-bar invariant: the playhead is bound to frags.length>0; if a day is
+            // loaded (tlFrags present, playing) but frags emptied, the bar vanished.
+            if (nightSoak.sawDay && playbackScreen.tlFrags.length > 0 && playbackScreen.frags.length === 0
+                    && !playbackScreen.loading && playbackScreen.errorText === "")
+                console.log("[SEEKBAR] hidden-while-day-loaded cam=" + (nightSoak._cam() ? nightSoak._cam().ip : "?") + " day=" + nightSoak.curDay);
+
+            if (nightSoak.step === 3) return;   // seek-land measured by nsSeekWatch (40ms, sub-second precision)
+            if (nightSoak.tick < nightSoak.nextAt) return;
+            var cam = nightSoak._cam();
+
+            if (nightSoak.step === 0) {                         // OPEN a random day (calendar click)
+                nightSoak._select(cam);
+                nightSoak.dayOff = (nightSoak.cycle * 5 + 3) % nightSoak.daySpan;   // varied day, incl. >5d old
+                nightSoak.curDay = nightSoak._dayStr(nightSoak.dayOff);
+                nightSoak.sawDay = false;
+                if (typeof win.goToSection === "function") win.goToSection("live");   // fresh nav
+                win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.camera = cam;
+                console.log("[NTIME] t=" + Date.now() + " action=open-begin cam=" + (cam ? cam.ip : "?") + " day=" + nightSoak.curDay + " off=" + nightSoak.dayOff);
+                playbackScreen.openForDay(nightSoak.curDay);     // [PBTIME] times open→first_frame
+                nightSoak.step = 1; nightSoak.nextAt = nightSoak.tick + 10;
+            } else if (nightSoak.step === 1) {                  // AWAIT load, then decide seek/empty
+                if (playbackScreen.advancing && playbackScreen.tlEndMs > playbackScreen.tlStartMs) {
+                    nightSoak.sawDay = true; nightSoak.step = 2; nightSoak.nextAt = nightSoak.tick + 1;
+                } else {                                         // empty/honest-no-footage day → skip to export/next
+                    console.log("[NTIME] t=" + Date.now() + " action=day-empty cam=" + (cam ? cam.ip : "?") + " day=" + nightSoak.curDay + " err=" + (playbackScreen.errorText || "-"));
+                    nightSoak.step = 4; nightSoak.nextAt = nightSoak.tick + 1;
+                }
+            } else if (nightSoak.step === 2) {                  // SEEK to a random instant (scrubber click)
+                var lo = playbackScreen.tlStartMs, hi = playbackScreen.tlEndMs;
+                var frac = ((nightSoak.cycle * 13) % 90 + 5) / 100.0;        // 5%..95%
+                var ff = playbackScreen.tlFrags;
+                if (nightSoak.cycle % 4 === 0 || !ff.length) {                // 1-in-4 clicks land in DEAD AIR (tests snap)
+                    nightSoak.seekTgt = lo + frac * (hi - lo);
+                } else {                                                     // else land INSIDE footage (tests exact seek)
+                    var fr = ff[(nightSoak.cycle * 3) % ff.length];
+                    nightSoak.seekTgt = fr.ws + frac * (fr.we - fr.ws);
+                }
+                nightSoak.t0 = Date.now(); nightSoak.frameSeqAtSeek = playbackScreen._frameSeq;
+                console.log("[NTIME] t=" + Date.now() + " action=seek-begin cam=" + (cam ? cam.ip : "?") + " frac=" + frac.toFixed(2)
+                            + " tgt=" + Qt.formatDateTime(new Date(nightSoak.seekTgt), "HH:mm:ss"));
+                playbackScreen.seekToWall(nightSoak.seekTgt);
+                nightSoak.step = 3; nightSoak.nextAt = nightSoak.tick + 8;    // 8s land timeout
+            } else if (nightSoak.step === 4) {                  // EXPORT matrix (rotates)
+                var t = nightSoak.expTurn % 6;
+                var durMin = [1, 2, 5, 12, 25, 40][nightSoak.cycle % 6];      // 1..40 min sizes
+                if (t === 0) nightSoak._doExport(true, durMin, "rand-high");
+                else if (t === 1) nightSoak._doExport(false, durMin, "rand-std");
+                else if (t === 2) { nightSoak._doExport(true, 2, "samecam-high"); }   // pair for size compare
+                else if (t === 3) { nightSoak._doExport(false, 2, "samecam-std"); }
+                else if (t === 4) {                                            // HD-older-than-5d policy
+                    if (nightSoak.dayOff > 5) nightSoak._doExport(true, 1, "old5d-high");
+                    else nightSoak._doExport(true, 1, "recent-high");
+                } else { nightSoak._log("export-turn-skip", 0); }
+                nightSoak.expTurn++;
+                nightSoak.step = 5; nightSoak.nextAt = nightSoak.tick + 4;
+            } else if (nightSoak.step === 5) {                  // DRAWER: open → focus/Esc check → cancel
+                var r = nightSoak._pickRange(1);
+                if (r && playbackScreen.advancing) {
+                    playbackScreen.selStartMs = r.s; playbackScreen.selEndMs = r.e;
+                    playbackScreen.openExportDrawer();
+                    var ok = playbackScreen.exportDrawerVisible && playbackScreen.exportDrawerFocus;
+                    console.log("[ESCTEST] drawer focus=" + (ok ? "OK" : "LOST") + " visible=" + playbackScreen.exportDrawerVisible
+                                + " activeFocus=" + playbackScreen.exportDrawerFocus);
+                    playbackScreen.closeExportDrawer();          // cancel-before-launch path
+                    console.log("[XSOAK] drawer-cancel closed visible=" + playbackScreen.exportDrawerVisible);
+                }
+                nightSoak.step = 6; nightSoak.nextAt = nightSoak.tick + 2;
+            } else {                                             // NEXT: advance camera, loop
+                nightSoak.cycle++;
+                if (nightSoak.cycle % 2 === 0) nightSoak.camIdx++;            // rotate camera every 2 cycles
+                nightSoak.step = 0; nightSoak.nextAt = nightSoak.tick + 2;
+            }
+        }
+    }
+    // Precise seek-land timer: polls the rendered-frame counter every 40ms so the
+    // scrubber-click → first-changed-frame latency is measured to ~40ms (the 1s cycle
+    // timer would quantize it to whole seconds → false >1s violations).
+    Timer {
+        id: nsSeekWatch
+        interval: 40; repeat: true
+        running: (typeof wtNightSoak !== "undefined" && wtNightSoak === true) && nightSoak.step === 3
+        onTriggered: {
+            var dt = Date.now() - nightSoak.t0;
+            if (playbackScreen._frameSeq > nightSoak.frameSeqAtSeek) {
+                nightSoak._log("seek-land", dt);
+                var ph = playbackScreen.playheadMs, err = Math.abs(ph - nightSoak.seekTgt);
+                var inFoot = playbackScreen.msInFootage(nightSoak.seekTgt);
+                var phFoot = playbackScreen.msInFootage(ph);
+                var ok = inFoot ? (err < 5000) : phFoot;   // in-footage → land near; dead-air → snapped to footage
+                console.log("[NSEEK] " + (ok ? "OK" : "BAD") + " land_ms=" + Math.round(dt) + " inFootage=" + inFoot
+                            + " landedOnFootage=" + phFoot + " err_s=" + Math.round(err / 1000)
+                            + " tgt=" + Qt.formatDateTime(new Date(nightSoak.seekTgt), "HH:mm:ss")
+                            + " ph=" + Qt.formatDateTime(new Date(ph), "HH:mm:ss"));
+                nightSoak.step = 4; nightSoak.nextAt = nightSoak.tick + 2;
+            } else if (dt > 8000) {
+                console.log("[NSEEK] TIMEOUT no-frame-after=" + Math.round(dt) + "ms (froze or dead-air) cam="
+                            + (nightSoak._cam() ? nightSoak._cam().ip : "?"));
+                nightSoak.step = 4; nightSoak.nextAt = nightSoak.tick + 2;
+            }
+        }
+    }
+    // Export result capture for the night soak (file size stat'd by the supervisor).
+    Connections {
+        target: playbackClient
+        enabled: (typeof wtNightSoak !== "undefined" && wtNightSoak === true)
+        function onExportStarted(jobId) {
+            console.log("[XSOAK] started job=" + jobId + " dispatch_ms=" + (Date.now() - nightSoak.expT0) + " " + nightSoak.expTag);
+        }
+        function onExportSaved(jobId, path) {
+            // Export is a backend job (create→remux/transcode→download) with a progress
+            // toast — its total_ms is recorded for the export report but is NOT a <1s UI
+            // violation (only interactive actions are held to the 1s bar).
+            console.log("[XRESULT] job=" + jobId + " OK file=" + path + " total_ms=" + (Date.now() - nightSoak.expT0) + " " + nightSoak.expTag);
+        }
+        function onExportFailed(jobId, err) {
+            console.log("[XRESULT] job=" + jobId + " FAIL err=\"" + err + "\" total_ms=" + (Date.now() - nightSoak.expT0) + " " + nightSoak.expTag);
+        }
+    }
+
     // Dev hook: WT_WALL_DAY boots into synchronized wall playback over the current
     // live page's cameras — a given day (YYYY-MM-DD) or "live" for the last hour.
     Timer {
