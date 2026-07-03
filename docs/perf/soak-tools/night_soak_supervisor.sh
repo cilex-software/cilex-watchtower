@@ -15,6 +15,7 @@ export WT_CV_AUTOLOGIN=1 WT_NIGHT_SOAK=1 WT_TRACE=1 WT_SMOOTHTEST=999999   # smo
 D=${WT_SOAK_DIR:-/tmp/night_soak}; mkdir -p "$D"
 INC="$D/incidents.log"; APP_LOG="$D/app.log"; SUP="$D/supervisor.log"; XSZ="$D/export_sizes.log"
 EXPORT_DIR="${WT_EXPORT_DIR:-$HOME/Videos/Watchtower}"
+START=$(date +%s)   # sidecar only ever deletes exports created AFTER this — never the operator's clips
 END=${END_EPOCH:-$(date -d "today ${1:-07:00}" +%s)}
 [ "$END" -le "$(date +%s)" ] && END=$(date -d "tomorrow ${1:-07:00}" +%s)
 HANG=150         # seconds with no [NTIME]/[WT-MEM] heartbeat while the process is alive => GUI wedge
@@ -33,9 +34,10 @@ SAMPLER=$!
 ( while [ "$(date +%s)" -lt "$END" ]; do
     for f in "$EXPORT_DIR"/*.mp4; do
       [ -e "$f" ] || continue
+      mt=$(stat -c%Y "$f" 2>/dev/null || echo 0)
+      [ "$mt" -lt "$START" ] && continue          # SAFETY: never touch pre-existing operator clips
       sz=$(stat -c%s "$f" 2>/dev/null); [ -z "$sz" ] && continue
-      # only once the file is quiescent (not still being written): mtime > 3s ago
-      age=$(( $(date +%s) - $(stat -c%Y "$f" 2>/dev/null || echo 0) ))
+      age=$(( $(date +%s) - mt ))                 # only once quiescent (not still being written)
       [ "$age" -lt 3 ] && continue
       echo "$(date '+%H:%M:%S') size=${sz} bytes=$(numfmt --to=iec $sz 2>/dev/null) file=$(basename "$f")" >> "$XSZ"
       rm -f "$f"
