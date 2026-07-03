@@ -313,6 +313,11 @@ int main(int argc, char *argv[])
     // export-drawer steps) — bisects whether the ~840s FFmpeg-backend crash is triggered
     // by the export path or by the open/seek churn itself.
     engine.rootContext()->setContextProperty("wtSoakNoExport", qEnvironmentVariableIsSet("WT_SOAK_NOEXPORT"));
+    // WT_PB_WINDOW_FRAGS: ready-fragment threshold above which a fresh day/span open
+    // attaches the player to a bounded ~30 min window (scrubber stays full-day;
+    // EndOfMedia rolls forward) instead of the full playlist. 0/unset → default 1200.
+    // Test: 1 forces bounded for every open; a huge value disables it.
+    engine.rootContext()->setContextProperty("wtPbWindowFrags", qEnvironmentVariableIntValue("WT_PB_WINDOW_FRAGS"));
     // QA self-test: WT_SMOOTHTEST=<seconds> attaches a playback smoothness/sync
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.
@@ -322,6 +327,9 @@ int main(int argc, char *argv[])
     // quit. Pair with WT_PLAYBACK_IP. Measures the "historic playback is slow to
     // start" path end-to-end. See qml/PlaybackScreen.qml ttffRun.
     engine.rootContext()->setContextProperty("wtTtffDays", qEnvironmentVariable("WT_TTFF_DAYS"));
+    // WT_TTFF_EOS=1: during the WT_TTFF_DAYS harness, seek near the loaded window's end
+    // after each open so EndOfMedia → the bounded-window roll-over is exercised.
+    engine.rootContext()->setContextProperty("wtTtffEos", qEnvironmentVariableIsSet("WT_TTFF_EOS"));
     // QA: WT_WALLPERF=1 (or =quick) attaches the synchronized-wall seek/re-composite
     // latency harness (drives the playhead over fixed offsets, measures time-to-replay
     // across all 16 cells). Logs "WALLPERF,..." CSV lines. Needs a real GPU (VA-API).

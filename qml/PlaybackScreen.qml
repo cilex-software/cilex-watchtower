@@ -231,14 +231,16 @@ Item {
     // Re-open a short session beginning ~15s before a far seek target (then seek to it on load), so the
     // demuxer never has to seek across the full session's discontinuities. The target lands near the
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
-    function seekFar(ms) {
+    function seekFar(ms, preserveMark) {
         if (!client || !camera) return;
         // A far target in DEAD AIR (most of a sparse day) must not open a ±30 min
         // session around nothing — that returns zero ready fragments and strands the
         // player unloaded while the scrubber still shows footage (reported 2026-07-02,
         // 23 Jun day-open). VMS-standard: snap to the nearest recording edge first.
         ms = _snapToFootage(ms);
-        _obMark("seekfar");
+        // preserveMark: the bounded day-open bootstrap re-opens THROUGH this path but
+        // must keep timing ([PBTIME]/TTFF) attributed to the operator's calendar click.
+        if (!preserveMark) _obMark("seekfar");
         if (_skActive) console.log("[SK] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count
         seekWatch.stop(); _seekWatchSeq = -1;        // a re-open supersedes any pending direct-seek watch
         _explicitStart = ms - 15000;
@@ -707,6 +709,27 @@ Item {
                 root.loadTimeline();        // motion episode spans from /events/timeline
                 if (typeof wtTrace !== "undefined" && wtTrace)
                     console.log("[PB] fresh open: timeline=" + Math.round((root.tlEndMs - root.tlStartMs) / 60000) + "min");
+                // BOUNDED INITIAL WINDOW (heavy days): keep this DAY session as the scrubber
+                // timeline (tl* above) but do NOT attach its huge playlist — prerolling
+                // thousands of segments is what pushed heavy-day TTFF over 1 s (soak
+                // 2026-07-02: p99 6.9 s, 3542-frag day). Bootstrap a ~30 min player session
+                // at the open target (event instant, else the day's first footage) through
+                // the far-seek machinery; EndOfMedia rolls the window forward (see the
+                // MediaPlayer handler), so watching straight through the day still works.
+                // Gated to genuinely heavy manifests so light days keep the proven
+                // single-session path. WT_PB_WINDOW_FRAGS overrides the threshold (test:
+                // 1 forces bounded; huge disables).
+                var thr = (typeof wtPbWindowFrags !== "undefined" && wtPbWindowFrags > 0) ? wtPbWindowFrags : 1200;
+                if (out.length > thr) {
+                    var tgt = root._pendingSeekMs >= 0 ? root._pendingSeekMs : out[0].ws;
+                    if (root._pbTime) console.log("[PBTIME] bounded_bootstrap frags=" + out.length
+                                                  + " tgt=" + Qt.formatDateTime(new Date(tgt), "HH:mm:ss")
+                                                  + " tag=" + root._obTag);
+                    root.frags = [];            // the day session never becomes the player window
+                    root.loading = true;        // spinner holds until the short session lands
+                    root.seekFar(tgt, true);    // preserveMark: TTFF stays attributed to the calendar click
+                    return;
+                }
             }
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
@@ -896,7 +919,11 @@ Item {
                     id: player
                     videoOutput: vout
                     audioOutput: null
-                    onPlaybackStateChanged: if (typeof MemTel !== "undefined") MemTel.setPlaying(2, playbackState === MediaPlayer.PlayingState)
+                    onPlaybackStateChanged: {
+                        if (typeof MemTel !== "undefined") MemTel.setPlaying(2, playbackState === MediaPlayer.PlayingState)
+                        if (root._pbTime) console.log("[PBTIME] playbackState=" + playbackState + " status=" + mediaStatus
+                                                      + " pos=" + position + " dur=" + duration);
+                    }
                     // Apply a deferred open-at seek (event −15s jump / WT_PLAYBACK_DAY
                     // instant). Must wait for `seekable` — a position set on
                     // durationChanged is silently dropped by the not-yet-prerolled
@@ -930,8 +957,30 @@ Item {
                     }
                     onSeekableChanged: applyPendingSeek()
                     onDurationChanged: applyPendingSeek()
-                    onMediaStatusChanged: if (root._pbTime) console.log("[PBTIME] mediaStatus=" + mediaStatus
-                                                                        + " dt=" + (Date.now() - root._obT0) + "ms")
+                    onMediaStatusChanged: {
+                        if (root._pbTime) console.log("[PBTIME] mediaStatus=" + mediaStatus
+                                                      + " dt=" + (Date.now() - root._obT0) + "ms")
+                        // WINDOW ROLL-OVER: with a bounded player window (far-seek re-open or
+                        // the heavy-day bootstrap), reaching the end of the LOADED window must
+                        // not halt the review — open the next window at the following footage
+                        // and keep playing. (Also fixes the long-standing far-seek
+                        // stop-at-window-end.) The next window is ≥ ~30 min away, so this
+                        // cannot tight-loop; an empty re-open is caught by the safety net in
+                        // onSessionReady.
+                        if (mediaStatus === MediaPlayer.EndOfMedia && !root.paused && !root.loading
+                                && root.frags.length > 0 && root.tlFrags.length > 0
+                                && root.tlEndMs > root.winEndMs + 2000) {
+                            for (var i = 0; i < root.tlFrags.length; i++) {
+                                if (root.tlFrags[i].we > root.winEndMs + 1000) {
+                                    var nxt = Math.max(root.tlFrags[i].ws, root.winEndMs + 100);
+                                    if (typeof wtTrace !== "undefined" && wtTrace)
+                                        console.log("[PB] window roll-over -> " + Qt.formatDateTime(new Date(nxt), "HH:mm:ss"));
+                                    root.seekFar(nxt);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 LoadingState {
@@ -1653,6 +1702,19 @@ Item {
             property int nextAt: 12          // boot grace: let the WT_PLAYBACK_DAY open settle
             onTriggered: {
                 tick++;
+                // WT_TTFF_EOS=1: 10 s after each open, seek near the END of the loaded
+                // player window so EndOfMedia fires within seconds → deterministically
+                // exercises the bounded-window ROLL-OVER (playback must continue into
+                // the next window, not halt). Inert unless the env is set.
+                if ((typeof wtTtffEos !== "undefined") && wtTtffEos === true
+                        && ttffRun.idx >= 0 && tick === nextAt - 20
+                        && root.frags.length > 0 && !root.loading && player.duration > 8000) {
+                    // Set position DIRECTLY (not seekToWall — a near-end wall target on a
+                    // gappy day crosses a boundary and slides the window instead): jump to
+                    // duration−4 s so playback runs off the end within seconds.
+                    console.log("[TTFF-EOS] kick: position -> dur-4s (dur=" + player.duration + ")");
+                    player.position = player.duration - 4000;
+                }
                 if (tick < nextAt) return;
                 if (ttffRun.idx >= 0) {      // record the previous open's outcome
                     var d = ttffRun.days[ttffRun.idx];
