@@ -13,6 +13,7 @@
 #include <QProcessEnvironment>
 #include <gst/gst.h>
 #include <sys/resource.h>
+#include <sys/prctl.h>
 #include <malloc.h>
 #include <csignal>
 #include <cstring>
@@ -124,6 +125,13 @@ int main(int argc, char *argv[])
 {
     // Capture the death cause (OOM/earlyoom SIGTERM vs a real code SIGSEGV) before anything else.
     installCrashHandlers();
+
+    // WT_PTRACE_ANY=1 (dev/soak only): allow ANY same-user process to ptrace-attach.
+    // Yama ptrace_scope=1 only lets an ANCESTOR attach, but a soak supervisor's
+    // `gdb -p` is a SIBLING of the app — so a live-wedge stack dump (the whole point
+    // of the hang-aware supervisor) is denied without this. Inert unless set.
+    if (qEnvironmentVariableIsSet("WT_PTRACE_ANY"))
+        prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
@@ -313,11 +321,25 @@ int main(int argc, char *argv[])
     // export-drawer steps) — bisects whether the ~840s FFmpeg-backend crash is triggered
     // by the export path or by the open/seek churn itself.
     engine.rootContext()->setContextProperty("wtSoakNoExport", qEnvironmentVariableIsSet("WT_SOAK_NOEXPORT"));
+    // WT_SOAK_FIX_CAM=<ip> / WT_SOAK_FIX_DAY=<yyyy-MM-dd>: pin the night-soak to one
+    // camera/day — the targeted GUI-wedge repro (heavy-day + export + drawer-grab
+    // coincidence, docs/perf/2026-07-03-night-soak-gui-wedge.prompt.md). Inert unless set.
+    engine.rootContext()->setContextProperty("wtSoakFixCam", qEnvironmentVariable("WT_SOAK_FIX_CAM"));
+    engine.rootContext()->setContextProperty("wtSoakFixDay", qEnvironmentVariable("WT_SOAK_FIX_DAY"));
+    // WT_GRAB_STORM=<n>: fire n extra VideoOutput grabToImage readbacks (250 ms apart)
+    // each night-soak drawer step — amplifies the rare grab/render race ~40× so a
+    // 1-in-3h wedge becomes reproducible. Inert unless set.
+    engine.rootContext()->setContextProperty("wtGrabStorm", qEnvironmentVariableIntValue("WT_GRAB_STORM"));
     // WT_PB_WINDOW_FRAGS: ready-fragment threshold above which a fresh day/span open
     // attaches the player to a bounded ~30 min window (scrubber stays full-day;
     // EndOfMedia rolls forward) instead of the full playlist. 0/unset → default 1200.
     // Test: 1 forces bounded for every open; a huge value disables it.
     engine.rootContext()->setContextProperty("wtPbWindowFrags", qEnvironmentVariableIntValue("WT_PB_WINDOW_FRAGS"));
+    // WT_SEEK_SPAM=1: chaotic scrubber click-spam driver — bursts of rapid random
+    // seekToWall calls with NO waiting (the operator gesture reported 2026-07-03:
+    // "click fast and chaotically → lots of freezes"). Deterministic targets, logs
+    // [SPAM] click/recovered lines. Pair with WT_PLAYBACK_IP/WT_PLAYBACK_DAY.
+    engine.rootContext()->setContextProperty("wtSeekSpam", qEnvironmentVariableIntValue("WT_SEEK_SPAM"));
     // QA self-test: WT_SMOOTHTEST=<seconds> attaches a playback smoothness/sync
     // probe (frame-vs-playhead desync + freeze detection) and prints WTSMOOTH
     // lines, then quits. See qml/PlaybackScreen.qml SmoothnessProbe.

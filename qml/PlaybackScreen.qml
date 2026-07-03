@@ -175,13 +175,19 @@ Item {
         return best;
     }
     function seekToWall(ms) {
+        // A far-seek open is in flight: route straight to seekFar, which COALESCES
+        // (replaces the pending target — last click wins). Deterministic, instead of
+        // depending on the stopped-mid-swap player's seekable/duration quirks, where
+        // rapid clicks previously either dispatched a redundant re-open or vanished.
+        if (_farInFlight) { seekFar(ms); return; }
         if (!player.seekable && player.duration <= 0) {
             // Player unloaded/unseekable — e.g. a far seek landed in dead air and its
             // session came back (near-)empty (the 2026-07-02 strand: scrubber shows
             // footage, playhead gone, every click dead; reproduced with frags=1 too —
             // a stray fragment, then all seeks silently ate here). A scrubber click
             // must RECOVER — re-open at the (footage-snapped) target — never no-op
-            // into a trap state.
+            // into a trap state. (Clicks during an in-flight FAR open never reach
+            // here — the _farInFlight guard above coalesces them.)
             if (!loading && tlFrags.length > 0 && client && camera)
                 seekFar(ms);
             return;
@@ -238,6 +244,16 @@ Item {
         // player unloaded while the scrubber still shows footage (reported 2026-07-02,
         // 23 Jun day-open). VMS-standard: snap to the nearest recording edge first.
         ms = _snapToFootage(ms);
+        // COALESCE rapid far clicks: one open in flight, later clicks only move the
+        // target. If the landing window covers the newest target the deferred seek
+        // applies it directly; otherwise onSessionReady issues ONE follow-up open.
+        if (_farInFlight) {
+            _farLatestMs = ms;
+            _pendingSeekMs = ms;
+            if (_skActive || (typeof wtTrace !== "undefined" && wtTrace))
+                console.log("[PB] far-coalesce tgt=" + Qt.formatDateTime(new Date(ms), "HH:mm:ss") + " t=" + Date.now());
+            return;
+        }
         // preserveMark: the bounded day-open bootstrap re-opens THROUGH this path but
         // must keep timing ([PBTIME]/TTFF) attributed to the operator's calendar click.
         if (!preserveMark) _obMark("seekfar");
@@ -248,6 +264,8 @@ Item {
         _seekReopen = true;             // keep the scrubber timeline (tl*) — only the player window moves
         _pendingSeekMs = ms;            // applied on session load → a small in-buffer seek that renders
         _pendingArmed = false;
+        _farInFlight = true;            // coalesce further far clicks until this open lands/fails
+        _farLatestMs = ms;
         _pendingOpen = true;
         tryOpen();
     }
@@ -429,6 +447,27 @@ Item {
     property double _explicitEnd: -1
     property double _pendingSeekMs: -1     // after the session loads, seek here (event open-at, −15s lead-in)
     property bool _pendingArmed: false     // true only once THIS open's session is ready (race-safe deferred seek)
+    // Far-seek COALESCING (2026-07-03, operator report "click the bar fast → freezes"):
+    // rapid chaotic scrubber clicks used to dispatch one session re-open PER CLICK —
+    // overlapping opens, serial source swaps, seconds of dead video (and clicks landing
+    // mid-open were silently dropped). Now at most ONE far-seek open is in flight;
+    // later far clicks only replace the pending target. On land: in-window targets
+    // apply via the normal deferred seek; an outside-window latest triggers ONE
+    // follow-up re-open. See [SPAM] driver + docs/perf/2026-07-03 wedge prompt.
+    property bool _farInFlight: false
+    property double _farLatestMs: -1
+    // One silent retry for a FRESH open whose manifest came back empty. Observed
+    // 2026-07-03 under backend load: a 22 Jun day-open returned 0 fragments (200 OK)
+    // while the same request minutes later returned 4760 ready — a transient. Showing
+    // the terminal "No footage recorded in this range." for a blip reads as data loss
+    // to the operator (reported, screenshot). Retry once ~1.5 s later; still empty →
+    // the honest error stands. (Far-seek empties keep their own snap/recover path.)
+    property bool _emptyRetried: false
+    Timer {
+        id: emptyRetry
+        interval: 1500; repeat: false
+        onTriggered: { root._pendingOpen = true; root.tryOpen(); }
+    }
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
     // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
@@ -441,6 +480,8 @@ Item {
         zoomMin = spanMin || zoomMin;
         _obMark("span" + zoomMin);
         _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1; _seekReopen = false;
+        _farInFlight = false; _farLatestMs = -1;
+        _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         errorText = ""; selStartMs = -1; selEndMs = -1;
         if (!client) return;
@@ -460,6 +501,8 @@ Item {
         selectedDay = dateStr;
         zoomMin = 1440;
         errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1; _seekReopen = false;
+        _farInFlight = false; _farLatestMs = -1;
+        _emptyRetried = false; emptyRetry.stop();
         // Coverage already tells us this day has no recorded footage (it has no
         // calendar dot) — show an honest empty state instead of opening a session
         // that can only come back empty (or, on a transport hiccup, as a cryptic
@@ -662,6 +705,8 @@ Item {
             if (root._pbTime) console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
                                           + "ms frags=" + fragments.length + " tag=" + root._obTag);
             root.loading = false;
+            root._farInFlight = false;     // this open landed — the far-click coalescing window is over
+            var farNext = root._farLatestMs; root._farLatestMs = -1;
             root._pendingArmed = true;     // fragments below are now THIS session's — safe to apply a pending seek
             root.sessionId = sid;
             root.compactDuration = dur;
@@ -670,13 +715,15 @@ Item {
             root._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks within a run
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
+                // Positional primitive row (pre-filtered "ready" in PlaybackClient):
+                // [cs, ce, wsMs, weMs, disc, boundary, codec, tier, resolution, stream_type].
+                // Per-fragment QVariantMaps here fed the QV4 heap until a forced GC
+                // stalled the GUI thread for minutes (the 2026-07-02 HANG #1).
                 var f = fragments[i];
-                if (f.availability !== "ready") continue;
-                out.push({ cs: f.compact_start, ce: f.compact_end,
-                           ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
-                           codec: f.codec, tier: f.tier, resolution: f.resolution,
-                           stream_type: f.stream_type,         // "main" = high-res original retained; "sub" = standard only
-                           disc: !!f.discontinuity, boundary: f.boundary || "" });   // kept-discontinuity markers (§4-ii)
+                out.push({ cs: f[0], ce: f[1], ws: f[2], we: f[3],
+                           codec: f[6], tier: f[7], resolution: f[8],
+                           stream_type: f[9],                  // "main" = high-res original retained; "sub" = standard only
+                           disc: !!f[4], boundary: f[5] || "" });   // kept-discontinuity markers (§4-ii)
             }
             root.frags = out;
             if (out.length === 0) {
@@ -687,12 +734,21 @@ Item {
                     // footage click re-opens via seekToWall's unloaded-player branch).
                     root._seekReopen = false;
                     root.errorText = "No footage at that moment — click a green section of the timeline.";
+                } else if (!root._emptyRetried) {
+                    // Transient backend blip (empty manifest with 200 under load) —
+                    // retry ONCE silently before declaring the range footage-less.
+                    root._emptyRetried = true;
+                    root.loading = true;
+                    if (typeof wtTrace !== "undefined" && wtTrace)
+                        console.log("[PB] empty-manifest retry tag=" + root._obTag);
+                    emptyRetry.restart();
                 } else {
                     root.errorText = "No footage recorded in this range.";
                 }
                 return;
             }
             root.errorText = "";
+            root._emptyRetried = false; emptyRetry.stop();   // a non-empty session re-arms the transient-empty retry
             // A far-seek re-open only swaps the player window — keep the scrubber timeline, its footage
             // track and its markers. A fresh open (span/day/camera) adopts this session AS the timeline.
             if (root._seekReopen) {
@@ -739,9 +795,16 @@ Item {
             root._ttffPending = true;      // next rendered frame completes the TTFF measurement
             if (root._pbTime) console.log("[PBTIME] source_set dt=" + (Date.now() - root._obT0)
                                           + "ms marshal=" + (Date.now() - _tReady) + "ms tag=" + root._obTag);
+            // A newer far target arrived while this open was in flight (coalesced
+            // clicks) and it is OUTSIDE the landed window — ONE follow-up open for
+            // the newest target; every intermediate click is dropped by design.
+            if (farNext >= 0 && (farNext < root.winStartMs || farNext > root.winEndMs))
+                root.seekFar(farNext);
         }
         function onSessionFailed(err) {
             root.loading = false; root.errorText = err; root._ttffPending = false;
+            root._farInFlight = false; root._farLatestMs = -1;   // coalescing must not outlive a failed open
+            emptyRetry.stop();                                   // a real failure outranks a pending blip-retry
             if (player) player.source = "";   // we kept the old source for the swap; a failed open must clear it (rare path, not the churn hot path)
         }
         function onCamerasResolved() {
@@ -1583,6 +1646,10 @@ Item {
         exportDrawer.openWith(camera, camId, selStartMs, selEndMs, tlFrags, playheadMs);
         vout.grabToImage(function(res) { if (res) exportDrawer.previewSource = res.url; });
     }
+    // Test-only (WT_GRAB_STORM): one fire-and-forget VideoOutput readback — the same
+    // grabToImage path as the export-drawer preview, without the drawer. Used by the
+    // GUI-wedge repro to amplify the rare grab/render race. Inert unless driven.
+    function stormGrab() { vout.grabToImage(function(res) {}); }
     // Export-drawer state exposed for the WT_NIGHT_SOAK harness (Esc/cancel checks).
     readonly property bool exportDrawerVisible: exportDrawer.visible
     readonly property bool exportDrawerFocus: exportDrawer.activeFocus
@@ -1618,6 +1685,62 @@ Item {
         }
     }
 
+    // ===== Chaotic scrubber click-spam driver (WT_SEEK_SPAM=1) =====
+    // Reproduces the operator gesture "click the seek bar fast and chaotically"
+    // (2026-07-03 report: ~5 apparent freezes/min doing this). Bursts of 12 rapid
+    // (140 ms) DETERMINISTIC random-target seekToWall calls with no waiting —
+    // overlapping far-seek re-opens — then a settle window that measures recovery:
+    // last click → next rendered frame ([SPAM] recovered after_ms=…). 40 bursts,
+    // then DONE. Pair with WT_SMOOTHTEST (GUI-freeze detector) to separate a GUI
+    // stall from video dead-time. Inert unless WT_SEEK_SPAM is set.
+    Item {
+        id: spam
+        property bool on: typeof wtSeekSpam !== "undefined" && wtSeekSpam > 0
+        property int burst: 0
+        property int clicksLeft: 0
+        property int clickNo: 0
+        property double lastClickT: 0
+        property int frameAtLast: 0
+        property bool waitingRecover: false
+        Timer {                      // click cadence within a burst
+            interval: 140; repeat: true
+            running: spam.on && spam.clicksLeft > 0 && root.tlFrags.length > 0
+            onTriggered: {
+                var lo = root.tlStartMs, hi = root.tlEndMs;
+                spam.clickNo++;      // deterministic LCG → identical target sequence across A/B runs
+                var r = ((spam.clickNo * 1103515245 + 12345) >>> 4) % 1000 / 1000.0;
+                var ms = lo + r * (hi - lo);
+                spam.clicksLeft--;
+                spam.lastClickT = Date.now(); spam.frameAtLast = root._frameSeq;
+                console.log("[SPAM] click burst=" + spam.burst + " left=" + spam.clicksLeft
+                            + " tgt=" + Qt.formatDateTime(new Date(ms), "HH:mm:ss") + " t=" + Date.now());
+                root.seekToWall(ms);
+                if (spam.clicksLeft === 0) spam.waitingRecover = true;
+            }
+        }
+        Timer {                      // recovery watch + burst pacing
+            interval: 40; repeat: true
+            running: spam.on
+            property double settleUntil: 0
+            onTriggered: {
+                if (spam.waitingRecover && root._frameSeq > spam.frameAtLast) {
+                    console.log("[SPAM] recovered burst=" + spam.burst + " after_ms=" + (Date.now() - spam.lastClickT) + " t=" + Date.now());
+                    spam.waitingRecover = false;
+                    settleUntil = Date.now() + 4000;
+                } else if (spam.waitingRecover && Date.now() - spam.lastClickT > 15000) {
+                    console.log("[SPAM] RECOVER-TIMEOUT burst=" + spam.burst + " t=" + Date.now());
+                    spam.waitingRecover = false;
+                    settleUntil = Date.now() + 4000;
+                } else if (!spam.waitingRecover && spam.clicksLeft === 0
+                           && Date.now() > settleUntil && root.tlFrags.length > 0 && !root.loading) {
+                    spam.burst++;
+                    if (spam.burst > 40) { console.log("[SPAM] DONE bursts=40 t=" + Date.now()); spam.on = false; return; }
+                    spam.clicksLeft = 12;
+                    console.log("[SPAM] burst=" + spam.burst + " begin t=" + Date.now());
+                }
+            }
+        }
+    }
     // QA self-test (WT_SMOOTHTEST=<seconds>): verifies playback SMOOTHNESS (video
     // frames keep arriving while the playhead advances — no frozen frame while the
     // timer ticks) and FRAME/TIMER SYNC (the displayed frame's PTS tracks the

@@ -25,6 +25,12 @@ const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
 // slow → historic playback awfully slow / session teardown blocks the GUI thread"
 // conditions, for A/B measuring calendar/playback behaviour. 0 = off (normal).
 const int s_slowMs = qEnvironmentVariableIntValue("WT_HLS_SLOW_MS");
+// WT_HLS_SLOW_EVERY=<n> — TEST ONLY: with WT_HLS_SLOW_MS, hold only every Nth
+// segment (default 1 = every). N>1 emulates a backend that mostly serves but
+// intermittently stalls (the real degraded condition): playback still advances,
+// so the full soak flow (seeks/exports/drawer grabs) keeps running WITH a starved
+// in-flight read usually present — the GUI-wedge repro cocktail.
+const int s_slowEvery = qMax(1, qEnvironmentVariableIntValue("WT_HLS_SLOW_EVERY"));
 }
 
 HlsProxy::HlsProxy(QObject *parent)
@@ -271,11 +277,14 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         // Deferred on THIS (proxy) thread; the socket may be closed meanwhile (player
         // teardown / disconnect) → writeResponse no-ops on a non-connected socket.
         if (s_slowMs > 0 && isSegmentPath(path)) {
-            QPointer<QTcpSocket> gs(sock);
-            QTimer::singleShot(s_slowMs, this, [this, gs, outCode, outCt, body]() {
-                if (gs) writeResponse(gs, outCode, outCt, body);
-            });
-            return;
+            static int s_nthSeg = 0;   // WT_HLS_SLOW_EVERY: hold only every Nth segment
+            if (++s_nthSeg % s_slowEvery == 0) {
+                QPointer<QTcpSocket> gs(sock);
+                QTimer::singleShot(s_slowMs, this, [this, gs, outCode, outCt, body]() {
+                    if (gs) writeResponse(gs, outCode, outCt, body);
+                });
+                return;
+            }
         }
         writeResponse(sock, outCode, outCt, body);
     });

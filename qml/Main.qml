@@ -459,7 +459,14 @@ Window {
             console.log("[NTIME] t=" + Date.now() + " action=" + a + " ms=" + Math.round(ms));
             if (ms > 1000) console.log("[NSLOW] action=" + a + " ms=" + Math.round(ms) + " (>1s)");
         }
-        function _cam() { return nightSoak.cams.length ? nightSoak.cams[nightSoak.camIdx % nightSoak.cams.length] : null; }
+        function _cam() {
+            // WT_SOAK_FIX_CAM pins the soak to one camera (targeted wedge repro).
+            if (typeof wtSoakFixCam !== "undefined" && wtSoakFixCam !== "" && nightSoak.cams.length) {
+                for (var i = 0; i < nightSoak.cams.length; i++)
+                    if (nightSoak.cams[i].ip === wtSoakFixCam) return nightSoak.cams[i];
+            }
+            return nightSoak.cams.length ? nightSoak.cams[nightSoak.camIdx % nightSoak.cams.length] : null;
+        }
         function _dayStr(off) { var d = new Date(); d.setDate(d.getDate() - off); return Qt.formatDate(d, "yyyy-MM-dd"); }
         function _select(c) { win.focusedCamera = c; win.playbackCamera = c; playbackScreen.camera = c; }
         function _camId(c) { return c ? (playbackClient.cameraIdForIp(c.ip) || playbackClient.cameraIdForMac(c.mac || "")) : ""; }
@@ -509,8 +516,13 @@ Window {
 
             if (nightSoak.step === 0) {                         // OPEN a random day (calendar click)
                 nightSoak._select(cam);
-                nightSoak.dayOff = (nightSoak.cycle * 5 + 3) % nightSoak.daySpan;   // varied day, incl. >5d old
-                nightSoak.curDay = nightSoak._dayStr(nightSoak.dayOff);
+                if (typeof wtSoakFixDay !== "undefined" && wtSoakFixDay !== "") {   // targeted wedge repro: pin the day
+                    nightSoak.curDay = wtSoakFixDay;
+                    nightSoak.dayOff = Math.max(0, Math.round((Date.now() - new Date(wtSoakFixDay + "T12:00:00").getTime()) / 86400000));
+                } else {
+                    nightSoak.dayOff = (nightSoak.cycle * 5 + 3) % nightSoak.daySpan;   // varied day, incl. >5d old
+                    nightSoak.curDay = nightSoak._dayStr(nightSoak.dayOff);
+                }
                 nightSoak.sawDay = false;
                 if (typeof win.goToSection === "function") win.goToSection("live");   // fresh nav
                 win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.camera = cam;
@@ -556,6 +568,11 @@ Window {
                 nightSoak.expTurn++;
                 nightSoak.step = 5; nightSoak.nextAt = nightSoak.tick + 4;
             } else if (nightSoak.step === 5) {                  // DRAWER: open → focus/Esc check → cancel
+                // WT_GRAB_STORM: burst extra preview grabs — they intentionally bleed
+                // across the drawer close AND the next cycle's session switch, so the
+                // readback overlaps teardown/swap (the suspected wedge race window).
+                if (typeof wtGrabStorm !== "undefined" && wtGrabStorm > 0)
+                    grabStormT.left = wtGrabStorm;
                 var r = nightSoak._pickRange(1);
                 if (r && playbackScreen.advancing) {
                     playbackScreen.selStartMs = r.s; playbackScreen.selEndMs = r.e;
@@ -573,6 +590,16 @@ Window {
                 nightSoak.step = 0; nightSoak.nextAt = nightSoak.tick + 2;
             }
         }
+    }
+    // WT_GRAB_STORM burst driver: fires playbackScreen.stormGrab() every 250ms while
+    // charges remain (armed each drawer step). Deliberately outlives the drawer and
+    // overlaps the next open/teardown — the grab/render race the wedge repro amplifies.
+    Timer {
+        id: grabStormT
+        property int left: 0
+        interval: 250; repeat: true
+        running: left > 0 && (typeof wtNightSoak !== "undefined" && wtNightSoak === true)
+        onTriggered: { left--; playbackScreen.stormGrab(); }
     }
     // Precise seek-land timer: polls the rendered-frame counter every 40ms so the
     // scrubber-click → first-changed-frame latency is measured to ~40ms (the 1s cycle

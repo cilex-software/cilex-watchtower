@@ -17,6 +17,7 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QFile>
+#include <QDateTime>
 #include <QTimeZone>
 
 // The operator's IANA timezone (e.g. "Europe/Moscow"). The coverage calendar
@@ -263,20 +264,43 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         const QString sid = obj.value("session_id").toString();
         const auto man = obj.value("manifest").toObject();
         const auto fragsArr = man.value("fragments").toArray();
+        // Fragments cross the C++→QML boundary as POSITIONAL PRIMITIVE ROWS
+        // [cs, ce, wsMs, weMs, disc, boundary, codec, tier, resolution, stream_type],
+        // pre-filtered to availability=="ready" — NOT per-fragment QVariantMaps.
+        // Marshalling thousands of maps builds a huge QV4 heap graph (a
+        // VariantAssociation wrapper + key strings per map, Qt ≥6.10); under session
+        // churn that accumulation made a forced QML GC drain its mark stack for
+        // MINUTES on the GUI thread — the rare "GUI wedge" (HANG #1, 2026-07-02 night
+        // soak; live stack captured 2026-07-03: runGC→MarkStack::drain inside this
+        // signal's fromQVariantMap). Every consumer dropped non-ready rows and used
+        // only these ten fields, so nothing is lost — and the payload shrinks ~50×.
+        // See docs/perf/2026-07-03-night-soak-gui-wedge.prompt.md.
         QVariantList frags;
         double compactDuration = 0.0;
         for (const auto &fv : fragsArr) {
             const auto fo = fv.toObject();
-            frags.append(fo.toVariantMap());
-            if (fo.value("availability").toString() == "ready")
-                compactDuration = qMax(compactDuration, fo.value("compact_end").toDouble());
+            if (fo.value("availability").toString() != QLatin1String("ready"))
+                continue;
+            const double ce = fo.value("compact_end").toDouble();
+            compactDuration = qMax(compactDuration, ce);
+            frags.append(QVariant(QVariantList{
+                fo.value("compact_start").toDouble(), ce,
+                double(QDateTime::fromString(fo.value("wall_start").toString(), Qt::ISODateWithMs).toMSecsSinceEpoch()),
+                double(QDateTime::fromString(fo.value("wall_end").toString(), Qt::ISODateWithMs).toMSecsSinceEpoch()),
+                fo.value("discontinuity").toBool(),
+                fo.value("boundary").toString(),
+                fo.value("codec").toString(),
+                fo.value("tier").toString(),
+                fo.value("resolution").toString(),
+                fo.value("stream_type").toString()}));
         }
         QVariantMap meta;
         meta["wall_start"] = man.value("wall_start").toString();
         meta["wall_end"] = man.value("wall_end").toString();
         meta["clipped_to_finalized"] = man.value("clipped_to_finalized").toBool();
         meta["live_gap_s"] = man.value("live_gap_s").toDouble();
-        meta["events"] = man.value("events").toArray().toVariantList();
+        // manifest "events" deliberately NOT forwarded: no QML consumer exists, and on
+        // heavy days it was hundreds more QVariantMaps of pure GC load per open.
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
         emit sessionReady(sid, compactDuration, frags, meta);

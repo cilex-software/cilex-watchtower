@@ -11,8 +11,10 @@ BIN=${WT_BIN:-./build/watchtower}
 export LD_LIBRARY_PATH="$QT/lib" QT_PLUGIN_PATH="$QT/plugins" QML_IMPORT_PATH="$QT/qml" QML2_IMPORT_PATH="$QT/qml"
 export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 MALLOC_ARENA_MAX=2
 export WT_CV_AUTOLOGIN=1 WT_NIGHT_SOAK=1 WT_TRACE=1 WT_SMOOTHTEST=999999   # smoothtest never self-quits
+export WT_PTRACE_ANY=1   # let our (sibling) gdb attach on a wedge — Yama scope=1 only allows ancestors
 
-D=${WT_SOAK_DIR:-/tmp/night_soak}; mkdir -p "$D"
+# NOT /tmp: the 2026-07-03 reboot ate the first night's raw logs (incl. the HANG #1 record).
+D=${WT_SOAK_DIR:-$HOME/watchtower-soak/night_soak}; mkdir -p "$D"
 INC="$D/incidents.log"; APP_LOG="$D/app.log"; SUP="$D/supervisor.log"; XSZ="$D/export_sizes.log"
 EXPORT_DIR="${WT_EXPORT_DIR:-$HOME/Videos/Watchtower}"
 START=$(date +%s)   # sidecar only ever deletes exports created AFTER this — never the operator's clips
@@ -71,6 +73,20 @@ while [ "$(date +%s)" -lt "$END" ]; do
     echo "-- last [WT-MEM]:"; grep -a 'WT-MEM' "$APP_LOG" | tail -1 | sed 's/^/   /'
     echo "-- last 6 app.log lines:"; tail -6 "$APP_LOG" | sed 's/^/   /'
     echo "-- host: $(free -m | awk 'NR==2{print $3" MB used, "$7" MB avail"}')"
+    # On a LIVE wedge, capture WHERE every thread is blocked BEFORE killing — the
+    # datum HANG #1 (2026-07-02) died without. Needs WT_PTRACE_ANY=1 (exported above).
+    if [ "$reason" = hang ] && kill -0 "$APP" 2>/dev/null; then
+      echo "-- gdb thread apply all bt (live wedge):"
+      timeout 90 gdb -p "$APP" -batch -ex 'set pagination off' -ex 'thread apply all bt' 2>&1 \
+        | sed 's/^/   /' || echo "   (gdb attach failed)"
+      echo "-- kernel per-thread state/wchan:"
+      for t in /proc/$APP/task/*; do
+        [ -d "$t" ] || continue
+        printf '   tid=%-8s state=%s wchan=%-26s %s\n' "${t##*/}" \
+          "$(awk '{print $3}' "$t/stat" 2>/dev/null)" "$(cat "$t/wchan" 2>/dev/null)" \
+          "$(tr -d '\0' < "$t/comm" 2>/dev/null)"
+      done
+    fi
   } >> "$INC"
   kill -9 "$APP" 2>/dev/null; pkill -9 -x watchtower 2>/dev/null
   log "$tag run #$run (alive ${alive}s) — recorded; relaunching"

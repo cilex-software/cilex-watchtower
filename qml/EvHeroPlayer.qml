@@ -214,10 +214,11 @@ Item {
             hp._sid = sid; hp._compactDur = dur;
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
+                // Positional primitive row (pre-filtered "ready" in PlaybackClient):
+                // [cs, ce, wsMs, weMs, disc, boundary, …] — see PlaybackScreen.onSessionReady.
                 var f = fragments[i];
-                if (f.availability !== "ready") continue;
-                out.push({ cs: f.compact_start, ce: f.compact_end, ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end),
-                           disc: !!f.discontinuity, boundary: f.boundary || "" });   // kept-discontinuity markers (§4-ii)
+                out.push({ cs: f[0], ce: f[1], ws: f[2], we: f[3],
+                           disc: !!f[4], boundary: f[5] || "" });   // kept-discontinuity markers (§4-ii)
             }
             hp._frags = out;
             hp._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks, re-open only at boundaries
