@@ -1,6 +1,111 @@
 # Prompt — Root-cause the rare GUI-thread wedge (HANG #1) from the 2026-07-02 night soak
 
 ## Status
+**✅ RESOLVED 2026-07-03 — root-caused WITH a live stack, fixed, validated. Plus a second,
+user-reported freeze class (scrubber click-spam) found and fixed the same day.** Original
+prompt kept below for the record; resolution first.
+
+---
+
+## RESOLUTION (2026-07-03)
+
+### The wedge = a MINUTES-LONG QML garbage collection on the GUI thread (Qt 6.12), not a deadlock
+Reproduced in **58 min** with an amplified cocktail (`WT_SOAK_FIX_CAM/DAY` pinned to the heavy
+2026-06-29 day, `WT_GRAB_STORM=20`, `WT_HLS_SLOW_MS=8000` + new `WT_HLS_SLOW_EVERY=6`), the app
+running **as gdb's child** (fifo-driven — Yama `ptrace_scope=1` denies a sibling `gdb -p`, which
+is also why the supervisor now needs `WT_PTRACE_ANY`). Two spaced all-thread backtraces show the
+GUI thread inside ONE `QV4::MemoryManager::runGC` call — `GCStateMachine::transition` →
+`MarkStack::drain` — entered from `allocString` **while marshalling the session-ready `fragments`
+payload** (`QList<QVariant>` of per-fragment `QVariantMap`s) through
+`VariantAssociationPrototype::fromQVariantMap` inside `PlaybackClient::sessionReady` →
+`onSessionReady`. Kernel state: main thread **R (running)**, all other threads parked — a pure
+GUI-thread compute stall. **It self-recovered after ≈2.5 min total.** The overnight HANG #1 was
+this exact stall: the supervisor killed it at 150 s mid-GC, masking the recovery ("not reproduced
+twice" — it recovered before ever being seen live).
+
+Why it arrived with the Qt 6.12 migration: the incremental `GCStateMachine` + the
+`VariantAssociation` reference wrappers for QVariantMap are new in the ≥6.10 line — 6.8.3's soaks
+(8.8 h + 12 h) never hung. Why "near a heavy-day export": every soak cycle's export/drawer step and
+every session open marshalled thousands of maps (up to 4873/open), so heavy-day churn built the GC
+graph fastest right around export activity. RSS stayed normal (~687 MB) — matching the original
+HANG #1 (~450–665 MB, NOT OOM).
+
+**Eliminated en route** (all with data, all on 6.12/`build/`):
+- Teardown-join on starved reads: 47 `WT_CAL_STRESS` day-switches under TOTAL segment starvation
+  (`WT_HLS_SLOW_MS=300000`) — every `[PBSTOP] switch took=0ms`. The FFmpeg backend interrupts
+  starved IO fine (the bounded ~1 s stall of 2026-07-01 was GStreamer/6.4.2-only, now moot).
+- Export download/transcode → GUI handoff: fully async, and not even on the soak path (soak sends
+  an empty post map → no ffmpeg).
+- The drawer `grabToImage` as the blocker: grabs were the garbage *amplifier*, not the block —
+  under `WT_GRAB_STORM=20` with the payload fix in, zero GUI gaps.
+
+### Fix 1 — starve the GC at the boundary (the wedge fix)
+`PlaybackClient::requestSession` now emits fragments as **positional primitive rows**
+`[cs, ce, wsMs, weMs, disc, boundary, codec, tier, resolution, stream_type]`, **pre-filtered to
+`availability=="ready"`** (every consumer dropped non-ready anyway), with ISO→epoch-ms parsing
+moved to C++; the dead `meta["events"]` map-array (zero consumers, hundreds of maps/open) is no
+longer forwarded. Consumers updated: `PlaybackScreen.onSessionReady`, `EvHeroPlayer.onSessionReady`
+(QML-side `{cs,ce,ws,we,…}` structures unchanged → no UI refactor). The mosaic path
+(`mosaicSessionReady` → `WallPlayback`) still ships maps — **follow-up: same recipe when wall
+review lands** (it consumes non-ready rows for its gap bar, so the filter must differ).
+Measured: QML-side `marshal=` p50 9 ms / p90 16 ms / max **1149 ms** → **~1 ms** flat.
+
+### Fix 2 — far-seek coalescing (the user-reported click-spam freezes, same day)
+While validating, the operator produced ~5 freezes/min by **chaotically clicking the scrubber**.
+Classified with the new `WT_SEEK_SPAM` driver (12 deterministic clicks @140 ms × 40 bursts) +
+`WT_SMOOTHTEST`'s 1 s GUI heartbeat: **zero GUI gaps in every run — these were video-level, not
+the wedge class.** Cause: every far click did teardown + a fresh session POST (and clicks landing
+mid-open were **silently dropped**); under a degraded backend the storm self-amplified to
+**2.3 opens/click** (480 clicks → 1107 opens). Fix: at most ONE far-seek open in flight
+(`_farInFlight`); later clicks only replace the pending target (last click wins), applied
+in-window via the deferred seek or via exactly one follow-up open (`PlaybackScreen.qml`).
+A/B (healthy backend, identical click sequence): after-burst recovery **p90 5.8 s → 0.9 s, max
+11.1 s → 2.1 s, 15 s-timeouts 3 → 0** (304/480 clicks coalesced). Degraded A/B is floor-limited
+by the injected 8 s hold itself (p90 8.8 → 8.6 s) — the cascade compounding is what the fix
+removes. Note: the synthetic 8 s hold exceeds the 6 s seek-watchdog, so the watchdog re-opens
+resonate in that harness config — an artifact (real cold-base is 2–4 s), not a regression.
+
+### Validation — PASSED (2026-07-03 evening)
+- **Final gate: 2.5 h full amplified cocktail on the final binary, STALL=15 — ONE continuous
+  process, alive 8994 s of a 9000 s window, 0 wedges / 0 crashes / 0 GUI stalls ≥15 s / 0
+  `[SEEKBAR]` violations, across 1037 session opens, 151 successful + 101 correctly-rejected
+  exports.** Pre-fix, the identical cocktail wedged at 58 min ⇒ ≥2.6× exposure clean (and
+  ~2× the opens). Includes live operator abuse mid-run (manual navigation, exports,
+  calendar-fighting the pinned soak).
+- Earlier same day: 55+ min payload-fix cocktail clean incl. a minute of operator chaos;
+  4 spam runs (1920 chaotic clicks) — zero GUI-heartbeat gaps >2 s in every run.
+- Artifacts checked, not regressions: `[NSEEK] BAD` under the cocktail is the §6 stale-playhead
+  measurement artifact (pre-fix same cocktail: 0 OK/115 BAD — same shape); RSS spiked >1500 MB
+  in 75/3332 samples (grab-storm ×20 + holds compounding, harness-only) and recovered to the
+  ~525 MB plateau (last read 541 MB, no ratchet).
+- Broad overnight re-soak recommended (the patched supervisor now gdb-dumps any live wedge:
+  `WT_PTRACE_ANY` + capture block in `night_soak_supervisor.sh`, logs default OFF `/tmp`).
+
+### Also found during validation (operator interventions, same day)
+- **Transient EMPTY session manifest**: a 22 Jun day-open returned 200 + 0 fragments under
+  load; identical request minutes later → 4760 ready. Client now retries a fresh-open empty
+  manifest ONCE (~1.5 s) before the terminal "No footage recorded" (PlaybackScreen
+  `emptyRetry`); backend letter `docs/letters/2026-07-03-transient-empty-session-manifest.md`.
+- **"Standard unavailable → Export as High" is backend-truthful**: .106 records MAIN-only
+  (probe: 4760/4760 frags `('main','warm')`, identical with `hevc_capable=false`) — no sub
+  stream exists, so STD export honestly fails and main plays 1440p at 11 days. Model
+  questions → `docs/letters/2026-07-03-camera-substream-recording-gaps.md`.
+- **Preferences-window brief freeze on open** (operator observation) — unmeasured; likely
+  first-instantiation jank now that the GC class is gone. P3 follow-up: measure with the
+  WTSMOOTH heartbeat around opening Preferences.
+
+### Follow-ups
+- **Qt upstream bug**: minutes-long `runGC` on a VariantAssociation-heavy heap (Qt 6.12.0) —
+  needs a standalone marshalling-loop repro; the two full stacks are in
+  `~/watchtower-soak/wedge-p1b/gdb.log` (BT PASS1/PASS2). Not yet filed.
+- Mosaic fragment payload (above). — **Repro/diag tooling kept** (all env-gated, inert):
+  `WT_SOAK_FIX_CAM/DAY`, `WT_GRAB_STORM`, `WT_HLS_SLOW_EVERY`, `WT_SEEK_SPAM`, `WT_PTRACE_ANY`,
+  and `scratchpad wedge_catch.sh`-style fifo-gdb catching (supervisor has the equivalent now).
+
+---
+
+## Original prompt (2026-07-03, pre-resolution) — kept for the record
+
 **OPEN — P2.** This is recommendation #4 of `docs/perf/2026-07-02-night-soak-report.md` ("Root-cause
 HANG #1 before wide rollout"). It is the last un-closed item from the Qt-6.12 rollout soak (the crash
 `4a14650` and the TTFF item `ff707ab` are both done). Not a blocker for day-to-day work; flagged

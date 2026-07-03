@@ -46,7 +46,7 @@ timed · 975 exports attempted (402 produced) · 32 cameras · 12 277 RSS sample
   soak repeated each action hundreds of times; RSS stayed bounded — no monotonic per-action growth.)
 
 ## 3. FREEZES & HANGS
-### HANG #1 — one GUI wedge in ~3.27 h (rare) — open item
+### HANG #1 — one GUI wedge in ~3.27 h (rare) — ~~open item~~ RESOLVED 2026-07-03 (GC stall, see rec #4)
 - Run #1 wedged once (both `[NTIME]` and the 2 s `[WT-MEM]` heartbeat stopped >150 s ⇒ real GUI-thread
   stall). **RSS normal (~450–665 MB) — NOT OOM.** Context: around a HIGH export of the heavy
   3542-fragment day (.106/06-30); that export completed OK (8 s), so the export didn't hang.
@@ -116,5 +116,13 @@ wall separately, clean over 8.8 h previously). Recommend one combined coverage p
    window forward (also fixed the far-seek stop-at-window-end). Measured: heavy-day TTFF 715–986 ms
    (all < 1 s, mean 791 ms); light days unchanged (660 ms); churn slice 0 crashes / 0 seek-bar
    violations; roll-over verified (EOS → next window → playback continues).
-4. **Root-cause HANG #1** (rare GUI wedge near heavy-day export) before wide rollout.
+4. ~~**Root-cause HANG #1** (rare GUI wedge near heavy-day export) before wide rollout~~ —
+   **DONE 2026-07-03: root-caused WITH a live gdb stack + fixed.** Not a deadlock: a
+   **minutes-long QV4 (QML) garbage collection on the GUI thread** (Qt 6.12's incremental GC +
+   `VariantAssociation` map wrappers), triggered by marshalling thousands of per-fragment
+   QVariantMaps through `PlaybackClient::sessionReady` every open; it SELF-RECOVERS (~2.5 min
+   observed) — the supervisor's 150 s kill masked that. Fixed by shipping fragments as positional
+   primitive rows (pre-filtered "ready") and dropping the consumer-less `meta.events` payload;
+   plus far-seek coalescing for a second, click-spam freeze class found the same day. Full story:
+   `docs/perf/2026-07-03-night-soak-gui-wedge.prompt.md` (RESOLUTION section).
 5. Minor: correct the harness seek-position measurement; run one combined UI-coverage pass.
