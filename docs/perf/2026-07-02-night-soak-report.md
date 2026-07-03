@@ -110,7 +110,11 @@ wall separately, clean over 8.8 h previously). Recommend one combined coverage p
 1. **Ship the crash fix (`4a14650`)** — done; it's the one real blocker and it's fixed + validated.
 2. **Qt 6.12 migration: proceed.** The crash was not Qt-version-specific; 6.12 ran ~7 h / 1500 opens
    clean with the fix. (6.8.3 stays the validated fallback.)
-3. **Playback-open latency (TTFF):** implement the bounded-window / seek-on-open for heavy days — the
-   biggest lever to get calendar-open under 1 s. Currently 53 % exceed 1 s.
+3. ~~**Playback-open latency (TTFF):** implement the bounded-window / seek-on-open for heavy days~~ —
+   **DONE 2026-07-03 (`ff707ab`).** Heavy-day opens (> 1200 ready frags, WT_PB_WINDOW_FRAGS) now
+   bootstrap a ~30 min player window while the scrubber keeps the full day; EndOfMedia rolls the
+   window forward (also fixed the far-seek stop-at-window-end). Measured: heavy-day TTFF 715–986 ms
+   (all < 1 s, mean 791 ms); light days unchanged (660 ms); churn slice 0 crashes / 0 seek-bar
+   violations; roll-over verified (EOS → next window → playback continues).
 4. **Root-cause HANG #1** (rare GUI wedge near heavy-day export) before wide rollout.
 5. Minor: correct the harness seek-position measurement; run one combined UI-coverage pass.
