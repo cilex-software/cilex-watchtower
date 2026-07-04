@@ -37,8 +37,13 @@ jobs:
       # Qt 6.12 msvc2022_64 via aqtinstall. Sets QT_ROOT_DIR + adds <qt>/bin to PATH
       # (windeployqt) for later steps. qtmultimedia = the FFmpeg media backend; base
       # covers Core/Gui/Qml/Quick/QuickControls2/Sql/Network/ShaderTools.
-      # aqtversion pinned to 3.1.*: aqtinstall 3.3.0 hard-fails on the download.qt.io
-      # Updates.xml checksum ("Failed to locate XML data for 6.12.0"); 3.1.x is lenient.
+      #
+      # aqtsource = git master: released aqtinstall 3.3.0 CANNOT resolve Qt 6.12.0 —
+      # its all_extensions() returns [''] for 6.12 desktop, so it builds the folder
+      # qt6_6120/qt6_6120/Updates.xml (404, "Failed to locate XML data") instead of the
+      # arch-split qt6_6120/qt6_6120_msvc2022_64/Updates.xml that Qt 6.12 actually uses.
+      # master (3.3.1.dev) knows the split layout (verified locally). Revert to a pinned
+      # release once one ships with the 6.12 desktop arch-split fix.
       - name: Install Qt ${{ env.QT_VERSION }}
         uses: jurplel/install-qt-action@v4
         with:
@@ -47,7 +52,7 @@ jobs:
           target: desktop
           arch: win64_msvc2022_64
           modules: qtmultimedia
-          aqtversion: '==3.1.*'
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
           cache: true
 
       # cl.exe + the MSVC toolchain in PATH so the Ninja generator finds the compiler.
