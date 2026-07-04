@@ -1,0 +1,39 @@
+Cilex Watchtower — Third-Party Notices (Windows distribution)
+=============================================================
+
+Cilex Watchtower is distributed with the third-party components below. Each is
+DYNAMICALLY LINKED or shipped as a SEPARATE EXECUTABLE (never statically linked into
+watchtower.exe), so the LGPL relink/replace obligation is satisfied by shipping the
+component's own DLLs/exe alongside ours. The corresponding license texts are in this
+folder; the exact upstream versions and their source code are listed in SOURCES.md
+(the LGPL "written offer" — the sources remain available at those URLs).
+
+Watchtower's own source: https://github.com/romayankin/cilex-watchtower
+
+--------------------------------------------------------------------------------
+1. Qt 6.12  — The Qt Company
+   License:  GNU LGPL v3 (LGPL-3.0.txt, which builds on GPL-3.0.txt).
+   Linkage:  dynamic (Qt6*.dll deployed by windeployqt beside watchtower.exe).
+   Modules:  Core, Gui, Qml, Quick, QuickControls2, Sql, Network, Multimedia (+ the
+             Qt plugins under plugins\ and QML modules under qml\).
+   See NOTICE-Qt.txt.
+
+2. GStreamer 1.26  — the GStreamer project
+   License:  GNU LGPL v2.1 or later (the shipped plugin subset is LGPL only — no
+             gst-plugins-ugly / GPL codecs are bundled).
+   Linkage:  dynamic (gst*.dll + the plugin subset under lib\gstreamer-1.0\).
+   See NOTICE-GStreamer.txt for the exact shipped plugin/DLL inventory.
+
+3. FFmpeg  — the FFmpeg project (BtbN "win64-lgpl-shared" build)
+   License:  GNU LGPL v2.1 or later (the LGPL build — it does NOT include GPL
+             components such as libx264/libx265).
+   Linkage:  separate executable (ffmpeg.exe) invoked by Watchtower's exporter, plus
+             its own shared LGPL DLLs beside it.
+   See NOTICE-FFmpeg.txt.
+
+4. Bundled fonts (Watchtower UI) — Space Grotesk, JetBrains Mono
+   License:  SIL Open Font License 1.1 (embedded in the app's Qt resources).
+
+--------------------------------------------------------------------------------
+No component here imposes copyleft on Watchtower's own (separately-licensed) source:
+all are dynamically linked / separate executables under LGPL or permissive terms.

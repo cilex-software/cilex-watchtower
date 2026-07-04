@@ -1,0 +1,23 @@
+FFmpeg — LGPL notice (Windows distribution)
+===========================================
+
+Watchtower's clip exporter shells out to ffmpeg.exe (via QProcess) for optional
+client-side post-processing (compression ladder + caption/timestamp burn-in). We ship
+the FFmpeg **LGPL** build — specifically BtbN's "win64-lgpl-shared" release, which is
+configured WITHOUT GPL components (no libx264, libx265, or other GPL/nonfree encoders).
+
+License: GNU LGPL v2.1 or later. See LGPL-3.0.txt (and, for the "or later" grant, the
+LGPL as published by the FSF). FFmpeg's own license breakdown:
+  https://www.ffmpeg.org/legal.html
+
+Linkage: SEPARATE EXECUTABLE. ffmpeg.exe and its own LGPL shared DLLs (avcodec, avformat,
+avutil, avfilter, swscale, swresample, …) ship beside watchtower.exe and run as a child
+process — no FFmpeg code is linked into watchtower.exe.
+
+Upstream + source for the exact build: see SOURCES.md (BtbN publishes the build config
+and the FFmpeg source tag it was built from).
+
+CAVEAT (tracked, W2): because this is the LGPL build, the H.264 encoder used for the
+compress/burn export path (libx264, GPL) is NOT present. That export path is being moved
+to an LGPL-clean encoder (h264_mf / Media Foundation, or libopenh264) on Windows. Plain
+Standard/High exports (no re-encode) do not use ffmpeg at all.

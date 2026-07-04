@@ -138,6 +138,26 @@ jobs:
           -QmlDir (Resolve-Path qml).Path
           -GstRuntime $env:GSTREAMER_ROOT
 
+      # Compliance: every GStreamer plugin we actually SHIP must be documented in the LGPL
+      # inventory — a bundled-but-undocumented plugin is a licence drift, so fail on it.
+      - name: License compliance (shipped plugins are documented)
+        shell: pwsh
+        run: |
+          $notice = "packaging/windows/licenses/NOTICE-GStreamer.txt"
+          $dir = "build-windows/dist/lib/gstreamer-1.0"
+          if (-not (Test-Path $dir)) { Write-Host "no plugins bundled — nothing to check"; exit 0 }
+          $text = Get-Content $notice -Raw
+          $bad = @()
+          Get-ChildItem $dir -Filter "gst*.dll" | ForEach-Object {
+            $name = $_.BaseName -replace '^gst',''
+            if ($text -notmatch "\b$([regex]::Escape($name))\b") { $bad += $name }
+          }
+          if ($bad.Count -gt 0) {
+            Write-Host "::error::Shipped GStreamer plugins not in NOTICE-GStreamer.txt: $($bad -join ', ')"
+            exit 1
+          }
+          Write-Host "OK — all shipped GStreamer plugins are documented."
+
       - name: Build installer (NSIS)
         shell: pwsh
         working-directory: packaging/windows

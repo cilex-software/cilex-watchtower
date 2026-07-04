@@ -102,12 +102,19 @@ try {
 }
 catch { Write-Warning "  ffmpeg fetch failed ($($_.Exception.Message)) - export post-processing needs it (W2/W4)" }
 
-# 4) Licence notices — a stub until W4 assembles the full LGPL inventory + source offers.
-$lic = Join-Path $dist "licenses"
-New-Item -ItemType Directory -Force -Path $lic | Out-Null
-"Third-party licence notices are assembled in W4 (docs/plans/windows-port/W4-*.prompt.md).`n" +
-"Bundled: Qt (LGPLv3), GStreamer LGPL plugin subset, FFmpeg (LGPL). Dynamically linked / separate exe." |
-    Out-File -FilePath (Join-Path $lic "README.txt") -Encoding utf8
+# 4) Licence notices — the LGPL inventory + source offers (W4). Shipped verbatim from
+#    packaging/windows/licenses/ so the dist carries Qt/GStreamer/FFmpeg LGPL texts +
+#    THIRD-PARTY-NOTICES.txt + SOURCES.md (the written offer). CI drift-checks that the
+#    shipped GStreamer plugins all appear in NOTICE-GStreamer.txt.
+$licSrc = Join-Path $PSScriptRoot "licenses"
+$licDst = Join-Path $dist "licenses"
+New-Item -ItemType Directory -Force -Path $licDst | Out-Null
+if (Test-Path $licSrc) {
+    Copy-Item (Join-Path $licSrc "*") -Destination $licDst -Recurse -Force
+    Write-Host "  licenses copied: $((Get-ChildItem $licDst -File).Count) files"
+} else {
+    Write-Warning "  packaging/windows/licenses/ missing — dist ships without notices (W4 regression)"
+}
 
 Write-Host ""
 Write-Host "Dist assembled at: $dist"

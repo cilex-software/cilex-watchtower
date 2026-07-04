@@ -1,0 +1,19 @@
+Qt — LGPL notice (Windows distribution)
+=======================================
+
+Qt 6.12 (The Qt Company) is used under the GNU Lesser General Public License v3
+(LGPL-3.0.txt in this folder, which incorporates GPL-3.0.txt by reference).
+
+Linkage: DYNAMIC. The Qt runtime DLLs (Qt6Core, Qt6Gui, Qt6Qml, Qt6Quick,
+Qt6QuickControls2, Qt6Sql, Qt6Network, Qt6Multimedia, …), the Qt plugins under
+plugins\ (platforms, imageformats, multimedia, sqldrivers, tls, …) and the QML
+modules under qml\ are deployed beside watchtower.exe by windeployqt. Watchtower
+does NOT statically link Qt, so the LGPL requirement to allow replacing the Qt
+libraries is met — a user may substitute their own compatible Qt 6.12 DLLs.
+
+Qt's own third-party attributions (the libraries Qt itself bundles, e.g. FreeType,
+HarfBuzz, PCRE2, zlib) are documented by The Qt Company at:
+  https://doc.qt.io/qt-6/licenses-used-in-qt.html
+
+Upstream + source for the exact build: see SOURCES.md.
+No Qt commercial license is used; this distribution relies solely on the LGPLv3 terms.
