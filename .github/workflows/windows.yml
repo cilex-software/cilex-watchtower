@@ -84,33 +84,35 @@ jobs:
             Invoke-WebRequest -Uri "$base/$f" -OutFile "gst-msi/$f"
           }
 
-      # Full install (ADDLOCAL=ALL) of runtime + devel to the default
-      # C:\gstreamer\1.0\msvc_x86_64 tree; devel provides the .pc files pkg-config needs.
-      # Then DISCOVER the real pkgconfig dir (don't assume <root>/lib/pkgconfig) and set
-      # PKG_CONFIG_PATH from it — pkg_check_modules(GST ...) inherits it from the process.
+      # Administrative-extract (/a TARGETDIR) both MSIs to a known dir — a silent /i
+      # install returned exit 0 but landed nothing at the expected path. /a deterministically
+      # unpacks the full tree (bin/lib/include/lib/pkgconfig/lib/gstreamer-1.0); GStreamer
+      # 1.26 .pc files are relocatable (${pcfiledir}), so the extract works for build +
+      # bundling. Then DISCOVER the real pkgconfig dir and export PKG_CONFIG_PATH (inherited
+      # by pkg_check_modules(GST ...)) + GSTREAMER_ROOT (used by deploy.ps1).
       - name: Install GStreamer
         shell: pwsh
         run: |
+          $target = "C:\gst"
           foreach ($k in @('', 'devel-')) {
             $f = (Resolve-Path "gst-msi/gstreamer-1.0-${k}msvc-x86_64-$env:GST_VERSION.msi").Path
-            Write-Host "Installing $f"
-            $p = Start-Process msiexec.exe -ArgumentList "/i `"$f`" /qn ADDLOCAL=ALL" -Wait -PassThru
+            Write-Host "Extracting $f"
+            $p = Start-Process msiexec.exe -ArgumentList "/a `"$f`" /qn TARGETDIR=`"$target`"" -Wait -PassThru
             Write-Host "  msiexec exit=$($p.ExitCode)"
           }
-          $root = "C:\gstreamer\1.0\msvc_x86_64"
-          Write-Host "== searching for gstreamer-1.0.pc under C:\gstreamer =="
-          $pc = Get-ChildItem -Path "C:\gstreamer" -Recurse -Filter "gstreamer-1.0.pc" -ErrorAction SilentlyContinue | Select-Object -First 1
+          Write-Host "== searching for gstreamer-1.0.pc under $target =="
+          $pc = Get-ChildItem -Path $target -Recurse -Filter "gstreamer-1.0.pc" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $pc) {
-            Write-Host "!! gstreamer-1.0.pc NOT found. Tree under ${root}:"
-            Get-ChildItem -Path $root -ErrorAction SilentlyContinue | Format-Table Name,Mode
-            if (Test-Path "$root\lib") { Get-ChildItem "$root\lib" | Format-Table Name }
-            throw "GStreamer devel .pc files missing — check the devel MSI install."
+            Write-Host "!! gstreamer-1.0.pc NOT found. Extracted tree (2 levels):"
+            Get-ChildItem -Path $target -Recurse -Depth 2 -ErrorAction SilentlyContinue | Select-Object FullName | Format-Table -AutoSize
+            throw "GStreamer devel .pc files missing after extract."
           }
-          $pcdir = $pc.Directory.FullName
-          Write-Host "== found .pc dir: $pcdir =="
+          $pcdir = $pc.Directory.FullName                       # ...\lib\pkgconfig
+          $root  = $pc.Directory.Parent.Parent.FullName         # ...\msvc_x86_64
+          Write-Host "== .pc dir: $pcdir ==  == root: $root =="
           Get-ChildItem $pcdir -Filter "gstreamer-*.pc" | ForEach-Object { Write-Host "   $($_.Name)" }
-          "GSTREAMER_ROOT=$root"      | Out-File -FilePath $env:GITHUB_ENV -Append
-          "PKG_CONFIG_PATH=$pcdir"    | Out-File -FilePath $env:GITHUB_ENV -Append
+          "GSTREAMER_ROOT=$root"   | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PKG_CONFIG_PATH=$pcdir" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "== pkg-config sanity =="
           pkg-config --version
           $env:PKG_CONFIG_PATH = $pcdir
