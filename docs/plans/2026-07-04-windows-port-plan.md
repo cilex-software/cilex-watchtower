@@ -46,8 +46,8 @@ target. Execution is split into six **independently runnable phase prompts** in
 
 | Phase | Prompt | Needs Windows HW? | Effort |
 |---|---|---|---|
-| W0 — MSVC compilability + preset + icon | `windows-port/W0-msvc-compilability.prompt.md` | no | ~1 day |
-| W1 — GitHub Actions CI → .exe/installer artifacts | `windows-port/W1-ci-pipeline.prompt.md` | no | ~2–3 days |
+| W0 — MSVC compilability + preset + icon ✅ DONE 2026-07-04 | `windows-port/W0-msvc-compilability.prompt.md` | no | ~1 day |
+| W1 — GitHub Actions CI → .exe/installer artifacts ✅ DONE 2026-07-04 (green; W0 MSVC compile proven) | `windows-port/W1-ci-pipeline.prompt.md` | no | ~2–3 days |
 | W2 — Runtime bring-up (both video paths, HW decode) | `windows-port/W2-runtime-bringup.prompt.md` | **yes (GPU)** | 1–2 wks |
 | W3 — Parity soaks + PowerShell supervisor (procdump) | `windows-port/W3-parity-soaks.prompt.md` | yes | ~1 wk elapsed |
 | W4 — Installer, LGPL/notices, signing decision | `windows-port/W4-packaging-licensing.prompt.md` | build only | 2–3 days |

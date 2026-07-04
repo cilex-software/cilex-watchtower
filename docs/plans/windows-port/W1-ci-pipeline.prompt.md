@@ -1,6 +1,29 @@
 # Prompt W1 — GitHub Actions CI: a Windows .exe + installer on every code change
 
 ## Status
+**DONE 2026-07-04.** `.github/workflows/windows.yml` builds `watchtower.exe` on `windows-2022`
+(Qt 6.12.0 msvc2022_64 + GStreamer 1.26.11) and uploads `watchtower-portable` (144.6 MB) +
+`watchtower-setup` (107 MB NSIS installer) on every push. This PROVED the W0 MSVC compile:
+`main.cpp` + `MemTelemetry.cpp` compile and link under cl.exe. Non-obvious fixes needed to get
+green (all documented in commits):
+1. **aqtinstall 3.3.0 can't resolve Qt 6.12.0** — its `all_extensions('6.12.0')` returns `['']`,
+   so it builds the pre-arch-split path `qt6_6120/qt6_6120/Updates.xml` (404). Fixed by pinning
+   install-qt-action `aqtsource` to git master (`3.3.1.dev`, knows the split layout). **Revert to
+   a pinned release once one ships with the fix.**
+2. **GStreamer silent `/i` install landed nothing** — switched to `/a` administrative-extract to a
+   known dir, then discover the real `lib/pkgconfig` and export PKG_CONFIG_PATH + GSTREAMER_ROOT.
+3. **Duplicate manifest at link** (CVT1100) — Qt 6.12 auto-generates its own RT_MANIFEST; stopped
+   embedding ours via the .rc (dropped `/MANIFEST:NO` too). Custom manifest extras (long-path,
+   UTF-8 CP) deferred to W4.
+4. **GStreamer plugins are `gst*.dll` on Windows** (no `lib` prefix) — deploy.ps1 tries both.
+
+Remaining W1-adjacent follow-ups for later phases: verify the login-screen launch on a clean
+Win11 VM (W2 does this with hardware); the GStreamer plugin bundle completeness is validated on
+the GPU box in W2; caching of the GStreamer MSIs works but the download re-ran across the
+early failed runs (cache saves on the green run). Original prompt below.
+
+---
+
 OPEN. Depends on W0 (MSVC-compilable source). **No Windows hardware needed** — this phase
 IS the Windows build machine. Deliverable: every push to `main` produces downloadable
 `watchtower.exe` artifacts.
