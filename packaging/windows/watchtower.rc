@@ -3,12 +3,13 @@
 // CMakeLists.txt; enable_language(RC) is set there). Works with both MSVC rc.exe and MinGW windres.
 #include <windows.h>
 
-// Embed the application manifest.
-//   CREATEPROCESS_MANIFEST_RESOURCE_ID = 1, RT_MANIFEST = 24.
-// "app.manifest" is resolved relative to this .rc file's directory (packaging/windows/).
-// NOTE: on MSVC we disable the linker's auto-generated manifest (/MANIFEST:NO in CMakeLists.txt)
-// so this is the only one.
-1 24 "app.manifest"
+// Application manifest — NOT embedded here on Qt 6.12: qt_add_executable() auto-generates
+// its own RT_MANIFEST (id 1) with PerMonitorV2 DPI + Win10/11 compat + UAC asInvoker, and
+// embedding app.manifest here too caused a link-time "CVT1100: duplicate resource type:MANIFEST".
+// We let Qt own the manifest. app.manifest is kept for reference / a future custom path
+// (long-path awareness + UTF-8 active code page aren't in Qt's default — re-add in W4 via
+// Qt's manifest customization or an mt.exe post-link step). See W1/W4 prompts.
+// 1 24 "app.manifest"
 
 // Application icon shown in the taskbar / title bar / Explorer.
 // watchtower.ico generated from assets/images/cilex-logo.png (7 sizes 16..256) — see
