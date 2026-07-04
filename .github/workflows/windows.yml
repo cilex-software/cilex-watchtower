@@ -101,7 +101,7 @@ jobs:
           Write-Host "== searching for gstreamer-1.0.pc under C:\gstreamer =="
           $pc = Get-ChildItem -Path "C:\gstreamer" -Recurse -Filter "gstreamer-1.0.pc" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $pc) {
-            Write-Host "!! gstreamer-1.0.pc NOT found. Tree under $root:"
+            Write-Host "!! gstreamer-1.0.pc NOT found. Tree under ${root}:"
             Get-ChildItem -Path $root -ErrorAction SilentlyContinue | Format-Table Name,Mode
             if (Test-Path "$root\lib") { Get-ChildItem "$root\lib" | Format-Table Name }
             throw "GStreamer devel .pc files missing — check the devel MSI install."
