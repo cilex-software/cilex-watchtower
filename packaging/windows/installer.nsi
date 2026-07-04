@@ -8,7 +8,7 @@
 !define COMPANY  "Cilex Vision"
 !define VERSION  "0.1.0"
 !define EXE      "watchtower.exe"
-!define DIST_DIR "..\..\build-windows"   ; TODO: point at the deployed dist (where watchtower.exe + DLLs live)
+!define DIST_DIR "..\..\build-windows\dist"   ; clean deployed dist from deploy.ps1 (exe + Qt + GStreamer + ffmpeg)
 
 Name "${APPNAME}"
 OutFile "CilexWatchtower-${VERSION}-setup.exe"

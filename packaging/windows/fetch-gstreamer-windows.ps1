@@ -14,7 +14,7 @@
   pwsh ./fetch-gstreamer-windows.ps1 -Version 1.24.12
 #>
 param(
-    [string]$Version = "1.24.12",                 # TODO: verify the current 1.24.x runtime version
+    [string]$Version = "1.26.11",                 # verified downloadable 2026-07-04 (CI pins the same)
     [string]$Dest    = "$PSScriptRoot/_gstreamer"  # gitignored; see .gitignore
 )
 $ErrorActionPreference = "Stop"

@@ -1,0 +1,144 @@
+name: windows
+
+# A Windows watchtower.exe + installer on every code change (W1 of the Windows port —
+# docs/plans/windows-port/W1-ci-pipeline.prompt.md). Docs-only pushes are skipped so a
+# ~15-25 min Windows build isn't burned on prose. Artifacts land on each run's page.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '**/*.prompt.md'
+      - '.claude/**'
+      - 'memory/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '**/*.prompt.md'
+      - '.claude/**'
+  workflow_dispatch: {}
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: 6.12.0          # MANDATORY per the port plan — never fall back to 6.8.x
+  GST_VERSION: 1.26.11        # GStreamer MSVC runtime + devel (verified downloadable 2026-07-04)
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      # Qt 6.12 msvc2022_64 via aqtinstall. Sets QT_ROOT_DIR + adds <qt>/bin to PATH
+      # (windeployqt) for later steps. qtmultimedia = the FFmpeg media backend; base
+      # covers Core/Gui/Qml/Quick/QuickControls2/Sql/Network/ShaderTools.
+      - name: Install Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtmultimedia
+          cache: true
+
+      # cl.exe + the MSVC toolchain in PATH so the Ninja generator finds the compiler.
+      - name: Set up MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install build tools (ninja, pkg-config, NSIS)
+        shell: pwsh
+        run: choco install ninja pkgconfiglite nsis -y --no-progress
+
+      - name: Cache GStreamer MSIs
+        id: gst-cache
+        uses: actions/cache@v4
+        with:
+          path: gst-msi
+          key: gst-${{ env.GST_VERSION }}-msvc-x86_64
+
+      - name: Download GStreamer ${{ env.GST_VERSION }} (runtime + devel)
+        if: steps.gst-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path gst-msi | Out-Null
+          $base = "https://gstreamer.freedesktop.org/data/pkg/windows/$env:GST_VERSION/msvc"
+          foreach ($k in @('', 'devel-')) {
+            $f = "gstreamer-1.0-${k}msvc-x86_64-$env:GST_VERSION.msi"
+            Write-Host "Downloading $f"
+            Invoke-WebRequest -Uri "$base/$f" -OutFile "gst-msi/$f"
+          }
+
+      # Full install (ADDLOCAL=ALL) of runtime + devel to the default
+      # C:\gstreamer\1.0\msvc_x86_64 tree; devel provides the .pc files pkg-config needs.
+      - name: Install GStreamer
+        shell: pwsh
+        run: |
+          foreach ($k in @('', 'devel-')) {
+            $f = (Resolve-Path "gst-msi/gstreamer-1.0-${k}msvc-x86_64-$env:GST_VERSION.msi").Path
+            Write-Host "Installing $f"
+            Start-Process msiexec.exe -ArgumentList "/i `"$f`" /qn ADDLOCAL=ALL" -Wait
+          }
+          $root = "C:\gstreamer\1.0\msvc_x86_64"
+          "GSTREAMER_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "GStreamer at $root"
+
+      # The `windows` preset (CMakePresets.json) reads QT_ROOT_DIR (Qt prefix) and
+      # GSTREAMER_ROOT (-> PKG_CONFIG_PATH for pkg_check_modules(GST ...)).
+      - name: Configure
+        shell: pwsh
+        run: cmake --preset windows
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build-windows
+
+      # windeployqt (Qt runtime/QML/plugins) + GStreamer LGPL subset + ffmpeg.exe.
+      - name: Deploy runtime
+        shell: pwsh
+        run: >
+          pwsh packaging/windows/deploy.ps1
+          -ExePath (Resolve-Path build-windows/watchtower.exe).Path
+          -QmlDir (Resolve-Path qml).Path
+          -GstRuntime $env:GSTREAMER_ROOT
+
+      - name: Build installer (NSIS)
+        shell: pwsh
+        working-directory: packaging/windows
+        run: makensis installer.nsi
+
+      - name: Upload portable (exe + runtime)
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-portable
+          path: build-windows/dist
+          if-no-files-found: error
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchtower-setup
+          path: packaging/windows/CilexWatchtower-*-setup.exe
+          if-no-files-found: error
+
+  # Optional: publish a permanent versioned installer on a v* tag.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: watchtower-setup
+          path: dist
+      - name: Attach installer to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*-setup.exe
