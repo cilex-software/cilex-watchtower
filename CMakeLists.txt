@@ -232,9 +232,13 @@ if(WIN32)
         target_link_options(watchtower PRIVATE /MANIFEST:NO)
     endif()
 
+    # PSAPI: GetProcessMemoryInfo — the Windows RSS reader in main.cpp / MemTelemetry.cpp
+    # (the /proc/self/statm equivalent). SetUnhandledExceptionFilter is in kernel32 (auto-linked).
+    target_link_libraries(watchtower PRIVATE psapi)
+
     # Bundle the runtime: windeployqt (Qt DLLs/QML/plugins) + the GStreamer LGPL subset.
     # Explicit target:  cmake --build <dir> --target deploy-windows
-    # (Requires a Windows build against Qt 6.8.3 — see packaging/windows/README.md.)
+    # (Requires a Windows build against Qt 6.12 msvc2022_64 — see packaging/windows/README.md.)
     add_custom_target(deploy-windows
         COMMAND powershell -ExecutionPolicy Bypass -File
                 "${CMAKE_SOURCE_DIR}/packaging/windows/deploy.ps1"

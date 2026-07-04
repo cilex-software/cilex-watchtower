@@ -11,16 +11,31 @@
 #include <QDebug>
 #include <QtQml/qqml.h>
 #include <QProcessEnvironment>
-#include <gst/gst.h>
-#include <sys/resource.h>
-#include <sys/prctl.h>
-#include <malloc.h>
+#include <gst/gst.h>            // GStreamer is cross-platform (Linux VA-API / Windows d3d11)
 #include <csignal>
 #include <cstring>
 #include <cstdio>
-#include <unistd.h>
-#include <fcntl.h>
-#include <execinfo.h>
+// Platform split: the RSS reader, the crash handler, the fd-limit raise, the glibc arena
+// tuning and the Yama ptrace opt-in are all OS-specific. Qt is included above, so Q_OS_WIN /
+// Q_OS_LINUX (from <QtGlobal>) are already defined here. Everything outside these blocks is
+// portable Qt/QML/GStreamer. (Windows port W0 — docs/plans/windows-port/W0-*.prompt.md.)
+#if defined(Q_OS_WIN)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#  include <psapi.h>            // GetProcessMemoryInfo (RSS) — link psapi (CMakeLists WIN32 block)
+#else
+#  include <sys/resource.h>     // getrlimit/setrlimit(RLIMIT_NOFILE)
+#  include <sys/prctl.h>        // prctl(PR_SET_PTRACER) — Yama, Linux-only
+#  include <malloc.h>           // mallopt/malloc_trim — glibc arena control, Linux-only
+#  include <unistd.h>           // read/write/close/sysconf
+#  include <fcntl.h>            // open, O_RDONLY
+#  include <execinfo.h>         // backtrace — async-signal-safe crash trace
+#endif
 
 #include "AuthController.h"
 #include "models/CvImageProvider.h"
@@ -29,10 +44,17 @@
 
 namespace {
 
-// This process's resident size in MB, read from /proc/self/statm. Uses only open/read/close so
-// it is safe to call from the fatal-signal handler below.
+// This process's resident size in MB. Linux: read /proc/self/statm with only open/read/close
+// so it is async-signal-safe (called from the fatal-signal handler below). Windows: PSAPI
+// WorkingSetSize — the SEH crash path is not bound by POSIX signal-safety, so this is fine.
 long readRssMb()
 {
+#if defined(Q_OS_WIN)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
+        return long(pmc.WorkingSetSize / (1024 * 1024));
+    return -1;
+#else
     int fd = ::open("/proc/self/statm", O_RDONLY);
     if (fd < 0)
         return -1;
@@ -46,10 +68,39 @@ long readRssMb()
     if (std::sscanf(b, "%ld %ld", &pagesTotal, &pagesResident) != 2)
         return -1;
     return pagesResident * (sysconf(_SC_PAGESIZE) / 1024) / 1024;
+#endif
 }
 
-// Fatal-signal handler. Prints WHAT killed the process and the RSS at death, so the terminal log
-// alone disambiguates the two very different failure modes we keep hitting:
+// Fatal-crash reporter. Prints WHAT killed the process and the RSS at death, so the terminal
+// log alone disambiguates the failure modes we keep hitting, then hands off to the OS default
+// so the real exit status / core dump / crash dump is preserved for offline analysis.
+#if defined(Q_OS_WIN)
+// Windows: an unhandled-exception filter. Logs the exception code + RSS, then
+// EXCEPTION_CONTINUE_SEARCH so WER (or procdump -ma, the W3 soak-supervisor mechanism)
+// produces the actual minidump — the analogue of the Linux re-raise-with-SIG_DFL below.
+LONG WINAPI wtUnhandledException(EXCEPTION_POINTERS *info)
+{
+    const unsigned long code = (info && info->ExceptionRecord)
+                                   ? (unsigned long)info->ExceptionRecord->ExceptionCode : 0UL;
+    long rss = readRssMb();
+    char line[320];
+    int len = std::snprintf(line, sizeof(line),
+        "\n[WT-FATAL] unhandled exception 0x%08lX; RSS=%ld MB. "
+        "0xC0000005=access violation, 0xC00000FD=stack overflow = code crash; a memory dump "
+        "(WER / procdump -ma, see docs W3) carries the stack.\n",
+        code, rss);
+    if (len > 0)
+        ::fwrite(line, 1, size_t(len), stderr);
+    ::fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;   // let WER/procdump produce the dump, then terminate
+}
+
+void installCrashHandlers()
+{
+    ::SetUnhandledExceptionFilter(wtUnhandledException);
+}
+#else
+// Linux: a POSIX signal handler.
 //   • SIGTERM / SIGKILL at high RSS  → the OS/earlyoom killed us for memory ("Terminated"/"Killed") —
 //     NOT a code bug; the fix is to use less RAM.
 //   • SIGSEGV / SIGABRT / SIGBUS     → a genuine code crash — a backtrace follows.
@@ -79,6 +130,7 @@ void installCrashHandlers()
     for (int s : {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGTERM})
         ::signal(s, wtFatalHandler);
 }
+#endif
 
 // Load the self-hosted, bundled fonts (OFL) so the families are available to
 // every QML file without a per-file FontLoader.
@@ -130,8 +182,11 @@ int main(int argc, char *argv[])
     // Yama ptrace_scope=1 only lets an ANCESTOR attach, but a soak supervisor's
     // `gdb -p` is a SIBLING of the app — so a live-wedge stack dump (the whole point
     // of the hang-aware supervisor) is denied without this. Inert unless set.
+    // Linux/Yama-specific; on Windows the W3 supervisor uses procdump (no opt-in needed).
+#if defined(Q_OS_LINUX)
     if (qEnvironmentVariableIsSet("WT_PTRACE_ANY"))
         prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
+#endif
 
     QGuiApplication app(argc, argv);
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
@@ -148,6 +203,9 @@ int main(int argc, char *argv[])
     // fixed mmap threshold so large allocs are mmap'd and munmap'd straight back to the OS on free,
     // and a low trim threshold + a periodic malloc_trim() so the arena top is returned too.
     // (Localized 2026-06-29 via an LD_PRELOAD malloc-site tracer; see docs/perf deep-dive.)
+    // glibc-specific: the Windows CRT heap (segment-based, decommits on free) does not exhibit
+    // this arena-retention pathology, so there is nothing to tune there.
+#if defined(Q_OS_LINUX)
     int mmapKb = qEnvironmentVariableIntValue("WT_MMAP_KB");   // tunable; default 128 KB
     if (mmapKb <= 0) mmapKb = 128;
     mallopt(M_MMAP_THRESHOLD, mmapKb * 1024);
@@ -155,6 +213,7 @@ int main(int argc, char *argv[])
     static QTimer s_trimTimer;
     QObject::connect(&s_trimTimer, &QTimer::timeout, [] { malloc_trim(0); });
     s_trimTimer.start(15000);
+#endif
 
     // QtMultimedia (GStreamer backend, VA-API HW decode) renders video frames
     // through the scene graph; pin the OpenGL RHI backend before any window.
@@ -174,6 +233,9 @@ int main(int argc, char *argv[])
     // + pipe pairs in flight) don't hit a 1024-fd default the launcher may have
     // imposed. RtspVideoSource also caps concurrent teardowns; this is belt-
     // and-suspenders against environment-imposed limits.
+    // POSIX rlimit; Windows has no equivalent per-process fd soft-cap (its handle
+    // limit is ~16M and not shell-imposed), so this is a no-op there.
+#if defined(Q_OS_LINUX)
     {
         struct rlimit rl;
         if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur < rl.rlim_max) {
@@ -181,6 +243,7 @@ int main(int argc, char *argv[])
             setrlimit(RLIMIT_NOFILE, &rl);
         }
     }
+#endif
 
     // Initialize GStreamer for the opt-in low-latency RTSP path (RtspVideoSource).
     // Idempotent — QtMultimedia's backend also inits it for the default path.

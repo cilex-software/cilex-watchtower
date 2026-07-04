@@ -11,10 +11,10 @@
 1 24 "app.manifest"
 
 // Application icon shown in the taskbar / title bar / Explorer.
-// TODO: add packaging/windows/watchtower.ico (generate from assets/images/cilex-logo.png, e.g.
-//       ImageMagick: `magick cilex-logo.png -define icon:auto-resize=256,128,64,48,32,16 watchtower.ico`)
-//       then uncomment the line below.
-// IDI_ICON1 ICON "watchtower.ico"
+// watchtower.ico generated from assets/images/cilex-logo.png (7 sizes 16..256) — see
+// docs/plans/windows-port/W0-*.prompt.md (Pillow ICO export). The lowest numeric icon ID
+// becomes the app's default (Explorer/taskbar) icon.
+IDI_ICON1 ICON "watchtower.ico"
 
 // Version information (Explorer → Properties → Details). Keep in sync with project(VERSION ...).
 VS_VERSION_INFO VERSIONINFO

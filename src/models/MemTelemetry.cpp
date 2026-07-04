@@ -2,13 +2,34 @@
 #include "RtspVideoSource.h"   // live-wall pipeline/frame counters (the live decode path MEMTEL must also watch)
 
 #include <QTimer>
-#include <QFile>
-#include <QByteArrayList>
 #include <QDebug>
-#include <unistd.h>
+// Same RSS reader as main.cpp readRssMb(), minus the signal-safety constraint (this one runs
+// on the GUI thread from a QTimer, never a signal handler). Linux: /proc/self/statm; Windows:
+// PSAPI WorkingSetSize. Kept per-file rather than shared — the two callers have different
+// safety needs and a shared unit would couple them for ~4 saved lines.
+#if defined(Q_OS_WIN)
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#  include <psapi.h>
+#else
+#  include <QFile>
+#  include <QByteArrayList>
+#  include <unistd.h>
+#endif
 
 static long rssMb()
 {
+#if defined(Q_OS_WIN)
+    PROCESS_MEMORY_COUNTERS pmc;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
+        return long(pmc.WorkingSetSize / (1024 * 1024));
+    return -1;
+#else
     QFile f(QStringLiteral("/proc/self/statm"));   // field 2 = resident pages
     if (!f.open(QIODevice::ReadOnly))
         return -1;
@@ -16,6 +37,7 @@ static long rssMb()
     if (p.size() < 2)
         return -1;
     return (p[1].toLong() * (sysconf(_SC_PAGESIZE) / 1024)) / 1024;
+#endif
 }
 
 MemTelemetry::MemTelemetry(QObject *parent) : QObject(parent)

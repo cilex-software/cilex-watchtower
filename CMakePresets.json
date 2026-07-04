@@ -15,18 +15,34 @@
     },
     {
       "name": "qt68",
-      "displayName": "Qt 6.8.3 LTS (fallback)",
-      "description": "Validated fallback: Qt 6.8.3 LTS (8.8h soak) -> build68/",
+      "displayName": "Qt 6.8.3 LTS (Linux fallback)",
+      "description": "Validated LINUX fallback: Qt 6.8.3 LTS (8.8h soak) -> build68/. Not a Windows target.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build68",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "$env{HOME}/Qt/6.8.3/gcc_64",
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "windows",
+      "displayName": "Qt 6.12 (Windows / MSVC 2022)",
+      "description": "Windows target: Qt 6.12 msvc2022_64 -> build-windows/. Qt via QT_ROOT_DIR (or CMAKE_PREFIX_PATH), GStreamer dev via GSTREAMER_ROOT/PKG_CONFIG_PATH. See docs/plans/windows-port/.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-windows",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT_DIR}",
+        "CMAKE_BUILD_TYPE": "Release"
+      },
+      "environment": {
+        "PKG_CONFIG_PATH": "$env{GSTREAMER_ROOT}/lib/pkgconfig"
+      }
     }
   ],
   "buildPresets": [
     { "name": "default", "configurePreset": "default" },
-    { "name": "qt68", "configurePreset": "qt68" }
+    { "name": "qt68", "configurePreset": "qt68" },
+    { "name": "windows", "configurePreset": "windows" }
   ]
 }

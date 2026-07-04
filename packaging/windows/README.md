@@ -4,29 +4,35 @@ Scaffold for building and shipping Watchtower on **Windows 10/11**. The app's C+
 cross-platform; only the files here plus the `if(WIN32)` block in the top-level `CMakeLists.txt`
 are Windows-specific. **Nothing here is compiled on Linux/macOS** (the block is inert off-Windows).
 
-## Status — scaffold, not yet a working Windows build
-The structure is in place. Items marked **TODO** need a Windows machine and the port work itself
-(the decode path + testing). See `docs/DEVELOPMENT.md` → *Build* and the hardware-decode gotcha.
+## Status — W0 done (source compiles for MSVC); CI + runtime pending
+The source is MSVC-ready: the Linux-only bits in `src/main.cpp` and `src/models/MemTelemetry.cpp`
+are `Q_OS_*`-guarded with Windows counterparts (PSAPI RSS, SEH crash filter), the `windows` CMake
+preset + PSAPI link are in place, and `watchtower.ico` is generated. **Not yet proven to compile
+on real MSVC** — that is W1 (GitHub Actions), which also produces the .exe/installer. Runtime
+(both video paths, D3D11 decode) is W2 and needs a GPU box. Full plan:
+`docs/plans/2026-07-04-windows-port-plan.md` + `docs/plans/windows-port/W0..W5`.
 
 ## Files
 | File | Purpose |
 |---|---|
 | `app.manifest` | Win10/11 compat, long-path awareness, per-monitor-v2 DPI, UTF-8, UAC `asInvoker`. |
-| `watchtower.rc` | Embeds the manifest + version info (+ the app icon, once added). |
-| `watchtower.ico` | **TODO** — generate from `assets/images/cilex-logo.png`, then uncomment in `watchtower.rc`. |
+| `watchtower.rc` | Embeds the manifest + version info + the app icon. |
+| `watchtower.ico` | App icon (7 sizes 16–256), generated from `assets/images/cilex-logo.png` (Pillow ICO). |
 | `fetch-gstreamer-windows.ps1` | Download the GStreamer-for-Windows MSVC runtime. |
 | `deploy.ps1` | `windeployqt` (Qt runtime) + the GStreamer LGPL-plugin bundle → a self-contained dist. |
 | `installer.nsi` | NSIS installer skeleton (WiX/MSIX are alternatives). |
 
 ## Build & package flow (on Windows)
-1. **Qt 6.8.3** (same version as Linux):
-   `aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 -m qtmultimedia qtshadertools`
+1. **Qt 6.12** (same version as the Linux primary — **mandatory**, not 6.8.3):
+   `aqt install-qt windows desktop 6.12.0 win64_msvc2022_64 -m qtmultimedia qtshadertools`
+   (Use the latest available 6.12.x if 6.12.0 has aged off the mirror — stay on the 6.12 line.)
 2. **GStreamer** — install the MSVC **runtime + development** MSIs (devel is needed to *build*), or run
    `fetch-gstreamer-windows.ps1` for the runtime. Point `PKG_CONFIG_PATH`/CMake at the GStreamer dev
    so the existing `pkg_check_modules(GST ...)` in `CMakeLists.txt` resolves.
-3. **Configure + build**:
+3. **Configure + build** (the `windows` CMake preset sets generator/paths — needs `QT_ROOT_DIR`
+   + `GSTREAMER_ROOT` in the environment):
    ```
-   cmake -G Ninja -B build-windows -DCMAKE_PREFIX_PATH=<qt>/6.8.3/msvc2022_64
+   cmake --preset windows       # or: cmake -G Ninja -B build-windows -DCMAKE_PREFIX_PATH=<qt>/6.12.x/msvc2022_64
    cmake --build build-windows
    ```
 4. **Deploy**: `cmake --build build-windows --target deploy-windows`  (runs `deploy.ps1`).
@@ -52,5 +58,6 @@ would shift it onto us — hence `WT_HW_ONLY=1`.
 ## Notes
 - The build directory (`build-windows/`) is already covered by the root `.gitignore` (`/build-*/`).
 - The fetched GStreamer runtime, MSIs and the generated `*-setup.exe` are ignored by this dir's `.gitignore`.
-- Qt ≥ 6.11 auto-generates the Windows manifest; on 6.8.3 we embed our own (`app.manifest`). When you
-  move to the 6.12 LTS you can either keep ours (explicit control) or drop it and let Qt generate one.
+- Qt ≥ 6.11 auto-generates a Windows manifest; on our target (**6.12**) we deliberately embed our own
+  (`app.manifest` via `watchtower.rc`, with `/MANIFEST:NO` so the linker doesn't add a second) — it
+  declares long-path awareness, PerMonitorV2 DPI, UTF-8 and UAC asInvoker explicitly. Keep ours.
