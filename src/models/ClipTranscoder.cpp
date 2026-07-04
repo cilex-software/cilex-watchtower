@@ -13,13 +13,33 @@ ClipTranscoder::~ClipTranscoder() { cleanup(); }
 QString ClipTranscoder::fontFile()
 {
     static const QStringList kCandidates = {
+#if defined(Q_OS_WIN)
+        // Windows: the bundled LGPL ffmpeg may lack fontconfig, so drawtext needs an
+        // EXPLICIT fontfile — the empty fallback that works on Linux would fail here.
+        QStringLiteral("C:/Windows/Fonts/segoeui.ttf"),
+        QStringLiteral("C:/Windows/Fonts/arial.ttf"),
+        QStringLiteral("C:/Windows/Fonts/tahoma.ttf"),
+        QStringLiteral("C:/Windows/Fonts/verdana.ttf"),
+#else
         QStringLiteral("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
         QStringLiteral("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+#endif
     };
     for (const QString &f : kCandidates)
         if (QFile::exists(f))
             return f;
     return QString();   // fall back to fontconfig's default (no fontfile= option)
+}
+
+// Escape a filesystem path for use INSIDE an ffmpeg -vf filtergraph option value
+// (drawtext fontfile=/textfile=), where ':' separates options and '\' escapes. No-op on
+// POSIX paths (no colon/backslash); on Windows converts C:\Windows\Fonts\arial.ttf ->
+// C\:/Windows/Fonts/arial.ttf, the form the filtergraph parser accepts.
+static QString escFilterPath(QString p)
+{
+    p.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    p.replace(QLatin1Char(':'), QStringLiteral("\\:"));
+    return p;
 }
 
 // Build the -vf filtergraph. Returns "" when no scale and no overlays are requested.
@@ -38,12 +58,13 @@ QString ClipTranscoder::buildFilter(int heightPx, bool burnName, bool burnTimest
     const int refH = heightPx > 0 ? heightPx : 1080;     // font sized to the output frame
     const int fs = qBound(18, int(qRound(refH / 30.0)), 44);
     const QString font = fontFile();
-    const QString fontOpt = font.isEmpty() ? QString() : (QStringLiteral(":fontfile=") + font);
+    const QString fontOpt = font.isEmpty() ? QString()
+                                           : (QStringLiteral(":fontfile=") + escFilterPath(font));
     const QString style = QStringLiteral(":fontsize=%1:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=7%2")
                               .arg(fs).arg(fontOpt);
 
     if (burnName && !nameFilePath.isEmpty())
-        parts << (QStringLiteral("drawtext=textfile=%1:expansion=none:x=14:y=14").arg(nameFilePath) + style);
+        parts << (QStringLiteral("drawtext=textfile=%1:expansion=none:x=14:y=14").arg(escFilterPath(nameFilePath)) + style);
 
     if (burnTimestamp) {
         const qint64 epochSec = startEpochMs / 1000;
@@ -83,6 +104,12 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
     if (filter.isEmpty()) {
         args << QStringLiteral("-c") << QStringLiteral("copy");
     } else {
+        // NOTE (Windows/W2): libx264 is GPL and is NOT in the LGPL ffmpeg we bundle, so the
+        // compress/burn re-encode will fail on Windows until this is resolved on-hardware —
+        // either switch to h264_mf (Media Foundation, LGPL-clean, but different rate-control
+        // options than -preset/-crf) or libopenh264, per `ffmpeg -encoders | findstr 264` on
+        // the box. Plain STD/HIGH export (no filter) is unaffected (direct download, no ffmpeg).
+        // See docs/plans/windows-port/W2-*.prompt.md.
         args << QStringLiteral("-vf") << filter
              << QStringLiteral("-c:v") << QStringLiteral("libx264")
              << QStringLiteral("-preset") << QStringLiteral("veryfast")
