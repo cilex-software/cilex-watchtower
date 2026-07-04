@@ -86,17 +86,36 @@ jobs:
 
       # Full install (ADDLOCAL=ALL) of runtime + devel to the default
       # C:\gstreamer\1.0\msvc_x86_64 tree; devel provides the .pc files pkg-config needs.
+      # Then DISCOVER the real pkgconfig dir (don't assume <root>/lib/pkgconfig) and set
+      # PKG_CONFIG_PATH from it — pkg_check_modules(GST ...) inherits it from the process.
       - name: Install GStreamer
         shell: pwsh
         run: |
           foreach ($k in @('', 'devel-')) {
             $f = (Resolve-Path "gst-msi/gstreamer-1.0-${k}msvc-x86_64-$env:GST_VERSION.msi").Path
             Write-Host "Installing $f"
-            Start-Process msiexec.exe -ArgumentList "/i `"$f`" /qn ADDLOCAL=ALL" -Wait
+            $p = Start-Process msiexec.exe -ArgumentList "/i `"$f`" /qn ADDLOCAL=ALL" -Wait -PassThru
+            Write-Host "  msiexec exit=$($p.ExitCode)"
           }
           $root = "C:\gstreamer\1.0\msvc_x86_64"
-          "GSTREAMER_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "GStreamer at $root"
+          Write-Host "== searching for gstreamer-1.0.pc under C:\gstreamer =="
+          $pc = Get-ChildItem -Path "C:\gstreamer" -Recurse -Filter "gstreamer-1.0.pc" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $pc) {
+            Write-Host "!! gstreamer-1.0.pc NOT found. Tree under $root:"
+            Get-ChildItem -Path $root -ErrorAction SilentlyContinue | Format-Table Name,Mode
+            if (Test-Path "$root\lib") { Get-ChildItem "$root\lib" | Format-Table Name }
+            throw "GStreamer devel .pc files missing — check the devel MSI install."
+          }
+          $pcdir = $pc.Directory.FullName
+          Write-Host "== found .pc dir: $pcdir =="
+          Get-ChildItem $pcdir -Filter "gstreamer-*.pc" | ForEach-Object { Write-Host "   $($_.Name)" }
+          "GSTREAMER_ROOT=$root"      | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PKG_CONFIG_PATH=$pcdir"    | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "== pkg-config sanity =="
+          pkg-config --version
+          $env:PKG_CONFIG_PATH = $pcdir
+          pkg-config --exists gstreamer-1.0; Write-Host "gstreamer-1.0 exists exit=$LASTEXITCODE"
+          pkg-config --modversion gstreamer-1.0
 
       # The `windows` preset (CMakePresets.json) reads QT_ROOT_DIR (Qt prefix) and
       # GSTREAMER_ROOT (-> PKG_CONFIG_PATH for pkg_check_modules(GST ...)).
