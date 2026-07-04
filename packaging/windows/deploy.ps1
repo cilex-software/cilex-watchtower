@@ -67,9 +67,14 @@ if (Test-Path $gstBin) {
         'app','rtp','rtsp','rtpmanager','rtspclientsink','udp','tcp','autodetect','d3d11'
     )
     foreach ($pl in $plugins) {
-        $src = Join-Path $gstPluginSrc "libgst$pl.dll"
-        if (Test-Path $src) { Copy-Item $src -Destination $pluginDst -Force }
-        else { Write-Warning "  plugin libgst$pl.dll not found (ok if unused on this GStreamer version)" }
+        # Windows/MSVC GStreamer plugins are gst<name>.dll (no 'lib' prefix — that's Linux);
+        # try both so the copy is correct regardless of the build's convention.
+        $copied = $false
+        foreach ($name in @("gst$pl.dll", "libgst$pl.dll")) {
+            $src = Join-Path $gstPluginSrc $name
+            if (Test-Path $src) { Copy-Item $src -Destination $pluginDst -Force; $copied = $true; break }
+        }
+        if (-not $copied) { Write-Warning "  plugin gst$pl.dll not found (ok if unused on this GStreamer version)" }
     }
     Write-Host "  GStreamer subset copied to $dist (+ lib\gstreamer-1.0)"
 }

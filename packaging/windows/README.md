@@ -1,16 +1,32 @@
 # Cilex Watchtower — Windows packaging
 
+[![windows](https://github.com/romayankin/cilex-watchtower/actions/workflows/windows.yml/badge.svg)](https://github.com/romayankin/cilex-watchtower/actions/workflows/windows.yml)
+
 Scaffold for building and shipping Watchtower on **Windows 10/11**. The app's C++/QML core is
 cross-platform; only the files here plus the `if(WIN32)` block in the top-level `CMakeLists.txt`
 are Windows-specific. **Nothing here is compiled on Linux/macOS** (the block is inert off-Windows).
 
-## Status — W0 done (source compiles for MSVC); CI + runtime pending
-The source is MSVC-ready: the Linux-only bits in `src/main.cpp` and `src/models/MemTelemetry.cpp`
-are `Q_OS_*`-guarded with Windows counterparts (PSAPI RSS, SEH crash filter), the `windows` CMake
-preset + PSAPI link are in place, and `watchtower.ico` is generated. **Not yet proven to compile
-on real MSVC** — that is W1 (GitHub Actions), which also produces the .exe/installer. Runtime
-(both video paths, D3D11 decode) is W2 and needs a GPU box. Full plan:
-`docs/plans/2026-07-04-windows-port-plan.md` + `docs/plans/windows-port/W0..W5`.
+## Status — W0 + W1 done (CI builds a Windows .exe + installer on every push)
+- **W0** — source is MSVC-ready: the Linux-only bits in `src/main.cpp` and
+  `src/models/MemTelemetry.cpp` are `Q_OS_*`-guarded with Windows counterparts (PSAPI RSS, SEH
+  crash filter), the `windows` CMake preset + PSAPI link are in place, `watchtower.ico` generated.
+- **W1** — `.github/workflows/windows.yml` builds `watchtower.exe` on `windows-2022` (Qt 6.12
+  msvc2022_64, GStreamer 1.26.11) and uploads a portable zip + NSIS installer **on every push**.
+  This PROVED the W0 MSVC compile (main.cpp + MemTelemetry.cpp compile + link under cl.exe).
+- **Next (W2)** — runtime bring-up on a real GPU box: both video paths + D3D11 hardware decode.
+  Full plan: `docs/plans/2026-07-04-windows-port-plan.md` + `docs/plans/windows-port/W0..W5`.
+
+## Getting a Windows build (no Windows machine needed)
+Every push to `main` (and every PR) runs the **windows** workflow. To fetch a build:
+1. Open the [windows workflow runs](https://github.com/romayankin/cilex-watchtower/actions/workflows/windows.yml)
+   and click the latest green run.
+2. Download from **Artifacts**: `watchtower-portable` (unzip → run `watchtower.exe`) or
+   `watchtower-setup` (the NSIS installer). Artifacts keep for 90 days; a `v*` tag publishes a
+   permanent installer on the GitHub Release.
+
+**Caveat (W2):** the login screen renders from the portable zip, but the **GStreamer plugin
+subset** for the live wall is still being finalised on-hardware in W2 (deploy.ps1 copies it
+best-effort and logs what it bundles). Recorded-playback + live-wall decode are validated in W2.
 
 ## Files
 | File | Purpose |
