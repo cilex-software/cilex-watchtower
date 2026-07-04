@@ -37,8 +37,12 @@ jobs:
       # Qt 6.12 msvc2022_64 via aqtinstall. Sets QT_ROOT_DIR + adds <qt>/bin to PATH
       # (windeployqt) for later steps. qtmultimedia = the FFmpeg media backend; base
       # covers Core/Gui/Qml/Quick/QuickControls2/Sql/Network/ShaderTools.
+      # AQT_CONFIG (fallback mirrors + hash retries) works around the download.qt.io
+      # "Failed to download checksum for Updates.xml" flake.
       - name: Install Qt ${{ env.QT_VERSION }}
         uses: jurplel/install-qt-action@v4
+        env:
+          AQT_CONFIG: ${{ github.workspace }}/.github/aqt-settings.ini
         with:
           version: ${{ env.QT_VERSION }}
           host: windows
