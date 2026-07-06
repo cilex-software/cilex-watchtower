@@ -10,6 +10,36 @@ whole file first, then work top-to-bottom.
 
 ---
 
+## Quickstart — check out + run Watchtower on Windows (copy-paste PowerShell)
+No build toolchain needed — this pulls the CI-built exe. The laptop must be on the `192.168.1.x`
+LAN (backend at `.79`); a real GPU is needed for the hardware-decode gate (any machine works for
+the "does it launch" check).
+```powershell
+# 0. Prereqs (skip any already installed)
+winget install --id Git.Git -e
+winget install --id GitHub.cli -e
+gh auth login                              # GitHub.com → HTTPS → login via browser
+
+# 1. Clone the repo (path without spaces)
+git clone https://github.com/romayankin/cilex-watchtower.git C:\wt\cilex-watchtower
+cd C:\wt\cilex-watchtower
+
+# 2. Download the latest GREEN Windows build (portable = exe + full runtime)
+$run = gh run list --workflow windows.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId'
+gh run download $run -n watchtower-portable -D C:\wt\portable
+#   (installer instead: gh run download $run -n watchtower-setup -D C:\wt\setup)
+
+# 3a. Run it — autologin to the live wall
+cd C:\wt\portable ; $env:WT_CV_AUTOLOGIN = "1" ; .\watchtower.exe
+
+# 3b. …or the automated W2 bring-up harness (launch + HW-decode + RSS + crash checks)
+pwsh C:\wt\cilex-watchtower\packaging\windows\w2-bringup.ps1 -Dist C:\wt\portable -Seconds 45
+```
+If `.\watchtower.exe` opens a window and shows the camera wall, the port fundamentally works —
+proceed to the W2 gates (Section 5). If it doesn't launch, that's the first thing to fix.
+
+---
+
 ## 0. What already happened (context)
 Watchtower is a native **Qt 6.12 / QML / C++** surveillance VMS operator client; it's a client of
 the **cilex-vision** backend (cameras have no storage). It runs on Linux today. The Windows port so
