@@ -104,17 +104,25 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
     if (filter.isEmpty()) {
         args << QStringLiteral("-c") << QStringLiteral("copy");
     } else {
-        // NOTE (Windows/W2): libx264 is GPL and is NOT in the LGPL ffmpeg we bundle, so the
-        // compress/burn re-encode will fail on Windows until this is resolved on-hardware —
-        // either switch to h264_mf (Media Foundation, LGPL-clean, but different rate-control
-        // options than -preset/-crf) or libopenh264, per `ffmpeg -encoders | findstr 264` on
-        // the box. Plain STD/HIGH export (no filter) is unaffected (direct download, no ffmpeg).
-        // See docs/plans/windows-port/W2-*.prompt.md.
-        args << QStringLiteral("-vf") << filter
-             << QStringLiteral("-c:v") << QStringLiteral("libx264")
+        // Windows/W2: the bundled Windows ffmpeg is LGPL and has NO libx264 (GPL), so the
+        // compress/burn re-encode uses libopenh264 (LGPL, software, identical on every GPU --
+        // matches the W5 multi-GPU matrix). -preset/-crf are libx264-only; drive a
+        // resolution-scaled average bitrate instead (~CRF-23-equivalent for low-motion
+        // surveillance footage). Verified on-hardware 2026-07-06 (ffmpeg N-125444 LGPL:
+        // scale+drawtext+libopenh264 -> clean H.264). See docs/perf/2026-07-06-win-export-encoder.md.
+        // Plain STD/HIGH export (no filter) is unaffected (direct download, no ffmpeg).
+        args << QStringLiteral("-vf") << filter;
+#if defined(Q_OS_WIN)
+        const int refH = heightPx > 0 ? heightPx : 1080;        // output height (source height if unscaled)
+        const int kbps = qBound(800, refH * refH / 180, 8000);  // ~1.3M@480, 2.9M@720, 6.5M@1080
+        args << QStringLiteral("-c:v") << QStringLiteral("libopenh264")
+             << QStringLiteral("-b:v") << QStringLiteral("%1k").arg(kbps);
+#else
+        args << QStringLiteral("-c:v") << QStringLiteral("libx264")
              << QStringLiteral("-preset") << QStringLiteral("veryfast")
-             << QStringLiteral("-crf") << QStringLiteral("23")
-             << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p")
+             << QStringLiteral("-crf") << QStringLiteral("23");
+#endif
+        args << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p")
              << QStringLiteral("-movflags") << QStringLiteral("+faststart");
     }
     args << dst;
