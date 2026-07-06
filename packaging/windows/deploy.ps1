@@ -52,6 +52,9 @@ if (Test-Path $gstBin) {
     $dllPrefixes = @(
         'gstreamer-1.0','gstbase-1.0','gstapp-1.0','gstvideo-1.0','gstrtp-1.0','gstrtsp-1.0',
         'gstsdp-1.0','gstnet-1.0','gstpbutils-1.0','gstaudio-1.0','gsttag-1.0','gstcodecparsers-1.0',
+        # d3d11/DXVA hardware-decode closure: gstd3d11.dll links these; without them it fails to
+        # load and the live wall gets no hardware decoder (W2, verified on GTX 1070 2026-07-06).
+        'gstcodecs-1.0','gstd3d11-1.0','gstdxva-1.0','gstd3dshader-1.0',
         'glib-2.0','gobject-2.0','gmodule-2.0','gio-2.0','gthread-2.0',
         'ffi','intl','z-1','orc-0.4','graphene-1.0','libwinpthread','pcre2-8'
     )
@@ -64,7 +67,9 @@ if (Test-Path $gstBin) {
     New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
     $plugins = @(
         'coreelements','playback','typefindfunctions','videoconvertscale','videoparsersbad',
-        'app','rtp','rtsp','rtpmanager','rtspclientsink','udp','tcp','autodetect','d3d11'
+        # rtspclientsink dropped: the viewer uses rtspsrc (receive), never rtspclientsink (send);
+        # its DLL failed to load in W2 (missing deps) and it is unused. See W2 findings 2026-07-06.
+        'app','rtp','rtsp','rtpmanager','udp','tcp','autodetect','d3d11'
     )
     foreach ($pl in $plugins) {
         # Windows/MSVC GStreamer plugins are gst<name>.dll (no 'lib' prefix — that's Linux);

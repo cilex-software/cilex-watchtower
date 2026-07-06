@@ -12,13 +12,14 @@ License text: LGPL-2.1 — https://www.gnu.org/licenses/old-licenses/lgpl-2.1.ht
 
 SHIPPED CORE/SUPPORT DLLs (dynamic link) — copied by packaging/windows/deploy.ps1:
   gstreamer-1.0, gstbase-1.0, gstapp-1.0, gstvideo-1.0, gstrtp-1.0, gstrtsp-1.0,
-  gstsdp-1.0, gstnet-1.0, gstpbutils-1.0, gstaudio-1.0, gsttag-1.0, gstcodecparsers-1.0
+  gstsdp-1.0, gstnet-1.0, gstpbutils-1.0, gstaudio-1.0, gsttag-1.0, gstcodecparsers-1.0,
+  gstcodecs-1.0, gstd3d11-1.0, gstdxva-1.0, gstd3dshader-1.0   (d3d11/DXVA HW-decode closure)
   + GLib: glib-2.0, gobject-2.0, gmodule-2.0, gio-2.0, gthread-2.0
   + deps: ffi, intl, z-1, orc-0.4, graphene-1.0, libwinpthread, pcre2-8
 
 SHIPPED PLUGINS (LGPL) under lib\gstreamer-1.0\  (gst<name>.dll):
   coreelements, playback, typefindfunctions, videoconvertscale, videoparsersbad,
-  app, rtp, rtsp, rtpmanager, rtspclientsink, udp, tcp, autodetect, d3d11
+  app, rtp, rtsp, rtpmanager, udp, tcp, autodetect, d3d11
 
   (d3d11 = the DXVA hardware decoder — the Windows equivalent of Linux VA-API. The
    H.264/H.265 PATENT obligation rides on the OS/GPU decoder, not on us; WT_HW_ONLY=1
