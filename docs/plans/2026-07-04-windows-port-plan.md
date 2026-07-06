@@ -48,7 +48,7 @@ target. Execution is split into six **independently runnable phase prompts** in
 |---|---|---|---|
 | W0 — MSVC compilability + preset + icon ✅ DONE 2026-07-04 | `windows-port/W0-msvc-compilability.prompt.md` | no | ~1 day |
 | W1 — GitHub Actions CI → .exe/installer artifacts ✅ DONE 2026-07-04 (green; W0 MSVC compile proven) | `windows-port/W1-ci-pipeline.prompt.md` | no | ~2–3 days |
-| W2 — Runtime bring-up (both video paths, HW decode) ⏸ PARKED (needs GPU box; prep done — see W2-RUNBOOK.md) | `windows-port/W2-runtime-bringup.prompt.md` | **yes (GPU)** | 1–2 wks |
+| W2 — Runtime bring-up (both video paths, HW decode) 🟡 CORE GATES GREEN 2026-07-06 on GTX 1070 (launch, d3d11 HW decode, live pipelines, RSS bounded; harness PASS, driven over Tailscale — see docs/perf/2026-07-06-win-w2-bringup-results.md). 2 fixes landed: gstd3d11 decode bundle + libopenh264 export. Remaining: eyes-on wall/playback/export-matrix/DPI/sleep + 30-min smoothtest | `windows-port/W2-runtime-bringup.prompt.md` | **yes (GPU)** | 1–2 wks |
 | W3 — Parity soaks + PowerShell supervisor (procdump) ⏸ PARKED (after W2) | `windows-port/W3-parity-soaks.prompt.md` | yes | ~1 wk elapsed |
 | W4 — Installer, LGPL/notices, signing decision ✅ DONE 2026-07-04 (installer + notices shipped; signing = operator decision, SIGNING.md) | `windows-port/W4-packaging-licensing.prompt.md` | build only | 2–3 days |
 | W5 — OS/GPU acceptance matrix + sign-off | `windows-port/W5-acceptance-matrix.prompt.md` | yes | matrix-bound |
