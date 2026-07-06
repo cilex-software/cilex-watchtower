@@ -3,11 +3,11 @@
   W2 runtime bring-up harness for Cilex Watchtower on Windows (docs/plans/windows-port/W2).
   Launches the deployed watchtower.exe against the cilex-vision backend, captures the trace,
   screenshots the window, and reports pass/fail for the automatable W2 checks. The interactive
-  gates (watch the wall / scrub playback / export) are in W2-RUNBOOK.md — this covers the parts
+  gates (watch the wall / scrub playback / export) are in W2-RUNBOOK.md - this covers the parts
   a script can judge: does it launch, does the LIVE wall hardware-decode, is RSS sane, any crash.
 
 .NOTES
-  A WIN32 GUI app doesn't write qInfo() to stdout — QT_FORCE_STDERR_LOGGING makes the [WT-*]
+  A WIN32 GUI app doesn't write qInfo() to stdout - QT_FORCE_STDERR_LOGGING makes the [WT-*]
   trace reach a redirectable stderr. Run from the unzipped watchtower-portable dir, or pass -Dist.
 
 .EXAMPLE
@@ -18,12 +18,12 @@ param(
     [string]$Dist       = ".",
     [string]$BackendUrl = "http://192.168.1.79:8000",
     [int]$Seconds       = 45,
-    [switch]$HwOnly,                       # WT_HW_ONLY=1 — refuse software video decoders (patent/perf gate)
+    [switch]$HwOnly,                       # WT_HW_ONLY=1 - refuse software video decoders (patent/perf gate)
     [string]$OutDir     = "w2-out"
 )
 $ErrorActionPreference = "Stop"
 $exe = Join-Path $Dist "watchtower.exe"
-if (-not (Test-Path $exe)) { throw "watchtower.exe not found in '$Dist' — pass -Dist <unzipped portable dir>." }
+if (-not (Test-Path $exe)) { throw "watchtower.exe not found in '$Dist' - pass -Dist <unzipped portable dir>." }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $trace = Join-Path $OutDir "trace.log"
 $shot  = Join-Path $OutDir "render.png"
@@ -68,7 +68,7 @@ $rendered = Test-Path $shot
 
 Write-Host ""
 Write-Host "================ W2 automated checks ================"
-Write-Host ("  [{0}] window rendered (screenshot)        : {1}" -f $(if ($rendered) {"PASS"} else {"FAIL"}), $(if ($rendered) {$shot} else {"no render.png — check render.stderr.log"}))
+Write-Host ("  [{0}] window rendered (screenshot)        : {1}" -f $(if ($rendered) {"PASS"} else {"FAIL"}), $(if ($rendered) {$shot} else {"no render.png - check render.stderr.log"}))
 Write-Host ("  [{0}] launched without crash              : {1}" -f $(if ($fatal -eq 0) {"PASS"} else {"FAIL"}), "[WT-FATAL] count=$fatal")
 Write-Host ("  [{0}] LIVE wall hardware-decodes (d3d11)  : {1}" -f $(if ($decHw -gt 0 -and $decSw -eq 0) {"PASS"} elseif ($decHw -gt 0) {"WARN"} else {"FAIL"}), "hardware=$decHw software=$decSw")
 Write-Host ("  [{0}] live pipelines built                : {1}" -f $(if ($streams -gt 0) {"PASS"} else {"FAIL"}), "samples with live_pipelines>=1: $streams")
