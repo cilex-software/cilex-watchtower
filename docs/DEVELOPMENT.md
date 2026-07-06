@@ -13,6 +13,11 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 
 ## Build / run / verify
 
+> **Windows build/run** lives separately — CI builds `watchtower.exe` + an installer on every push
+> (`.github/workflows/windows.yml`); the toolchain + deploy notes are in `packaging/windows/README.md`,
+> the port plan in `docs/plans/2026-07-04-windows-port-plan.md`, and the on-hardware session bootstrap
+> in `docs/plans/windows-port/START-HERE-WINDOWS.md`. The rest of this section is the Linux build.
+
 > **ALWAYS launch with `./run.sh`** (alias of `./run-watchtower.sh`). It pins the Qt runtime env and
 > runs `build/watchtower`, building it first if missing. The primary toolchain is **Qt 6.12**; the
 > system Qt **6.4.2 is banned** (CMake floor 6.8 → it hard-fails `find_package`). Even a correct binary

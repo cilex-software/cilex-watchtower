@@ -1,8 +1,37 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-06-21. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-07-06. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-07-06) — Linux client hardened; **Windows port in progress (W0/W1/W4 done, W2/W3 need a Windows GPU box)**
+
+**Windows 10/11 port — same repo, Qt 6.12 msvc2022_64 (MANDATORY; 6.8.3 is Linux-only fallback).**
+Canonical plan + phase prompts: [`docs/plans/2026-07-04-windows-port-plan.md`](plans/2026-07-04-windows-port-plan.md)
+and `docs/plans/windows-port/W0..W5`. **To continue on a Windows laptop, start with
+[`docs/plans/windows-port/START-HERE-WINDOWS.md`](plans/windows-port/START-HERE-WINDOWS.md).**
+- **W0 done** — source made MSVC-compilable (`src/main.cpp`, `src/models/MemTelemetry.cpp` `Q_OS_*`-guarded;
+  PSAPI RSS + SEH crash filter; `windows` CMake preset; `watchtower.ico`).
+- **W1 done** — **`.github/workflows/windows.yml` builds `watchtower.exe` + NSIS installer on every push**
+  (`windows-2022`, Qt 6.12 + GStreamer 1.26.11), artifacts `watchtower-portable` + `watchtower-setup`.
+  Proved the MSVC compile/link. (4 CI fixes: aqt git-master for Qt 6.12 layout; GStreamer `/a` extract;
+  Qt-owns-manifest; `gst*.dll` plugin names.)
+- **W4 done** — per-user installer + LGPL notices/SOURCES + CI compliance check; **signing = unsigned
+  (internal)**, `packaging/windows/SIGNING.md`.
+- **W2 + W3 PENDING — need a physical Win10/11 GPU box on the LAN.** Prep done: runtime audit (decode is
+  decodebin-rank-based → auto d3d11, no code change; fixed ClipTranscoder Linux fonts+escaping; FLAGGED:
+  compress/burn uses `libx264`, absent from the LGPL ffmpeg → switch to `h264_mf`/`libopenh264` on-box),
+  turnkey `packaging/windows/w2-bringup.ps1` + `docs/plans/windows-port/W2-RUNBOOK.md`. W5 = GPU matrix (last).
+
+**Linux client hardening (2026-07-02–03) — shipped on Qt 6.12 (now primary, `build/`; 6.8.3 fallback `build68/`).**
+- **HANG #1 root-caused + fixed** (`d81d887`): the rare "GUI wedge" was a **minutes-long QML GC on the GUI
+  thread** (Qt ≥6.10), triggered by marshalling thousands of per-fragment QVariantMaps in `PlaybackClient::
+  sessionReady`; fixed by shipping fragments as positional primitive rows. Validated 2.5 h, 0 wedges.
+- **Far-seek coalescing** (same commit) — chaotic scrubber clicks no longer storm session re-opens
+  (one in-flight open, last click wins); after-burst dead-video p90 5.8 s→0.9 s.
+- **Transient-empty-manifest retry** — a fresh day-open that returns 0 fragments (backend blip) retries once
+  before the "No footage" error. Backend letters: `docs/letters/2026-07-03-*`. Full write-up:
+  `docs/perf/2026-07-03-night-soak-gui-wedge.prompt.md`. Earlier crash + TTFF fixes: `docs/perf/2026-07-02-*`.
 
 ## Current status (2026-06-25) — 🔴→🟢 P0 RESOLVED: the recurring "Terminated" crash was a Qt 6.4.2 VideoOutput memory leak; fixed by building on Qt 6.8.3 (verified leak-free)
 
