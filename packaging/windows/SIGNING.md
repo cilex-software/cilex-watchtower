@@ -41,4 +41,6 @@ key-free. Revisit at the point Watchtower is handed to sites/operators outside t
 4. Verify: `signtool verify /pa /v watchtower.exe` + a clean-VM SmartScreen check.
 
 ---
-**Operator decision:** ____________  (A / B / C, date, who)
+**Operator decision:** **A — stay unsigned** (2026-07-06). Internal/pilot use; operators
+click through the one-time SmartScreen prompt. Revisit (→ OV or EV) when Watchtower is
+distributed to sites/operators outside the team. No signtool wiring in CI until then.
