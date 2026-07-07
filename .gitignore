@@ -38,3 +38,4 @@ Thumbs.db
 # Windows W2/W3 tooling output (harness screenshots, soak dumps/logs)
 w2-out/
 *.dmp
+aqtinstall.log
