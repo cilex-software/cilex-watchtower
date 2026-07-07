@@ -51,7 +51,9 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
-          modules: qtmultimedia
+          # qtmultimedia = the FFmpeg media backend; qttools = lupdate/lrelease +
+          # the Qt6LinguistTools CMake package that qt_add_translations (i18n) needs.
+          modules: qtmultimedia qttools
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
           cache: true
 
