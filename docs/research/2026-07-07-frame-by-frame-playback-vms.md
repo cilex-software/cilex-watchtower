@@ -3,6 +3,7 @@
 **Date:** 2026-07-07
 **Status:** Research synthesis (drives a Frame-Step feature for Watchtower playback). Not yet a plan.
 **Method:** Deep-research harness — 5 search angles, 25 sources fetched, 98 claims extracted, 25 adversarially verified (3-vote, need 2/3 to kill) → **21 confirmed, 2 refuted, 2 unverified**. The workflow's final auto-synthesis pass was cut off by a session rate-limit; this report is hand-synthesised from the 21 verified claims (each cited below), with lower-confidence items from the source pool explicitly flagged.
+**Update 2026-07-08:** the 2 previously-unverified claims (their votes had errored on the rate-limit) were **re-checked directly** against multiple independent sources — both now **confirmed** (details in "Re-verified" below). The FFmpeg-TS-seek one is material and refines §2/§4.
 
 ## Why
 
@@ -56,7 +57,9 @@ Pairs with: our continuous-timeline HLS seeking (`seekToWall`/`seekFar`, commits
 
 **Bounding memory (confirmed):** mpv caps the reverse buffers explicitly (`--video-reversal-buffer` / `--audio-reversal-buffer`) — "the approximate maximum amount of bytes that can be buffered"; when exceeded it **drops frames** rather than growing unbounded. [10] Any cache we build must be bounded the same way (directly relevant given our long history of playback RSS bounding).
 
-> Takeaway for us: a back-step = seek to the GOP's I-frame, decode forward to (current − 1), display. Cache the decoded frames of the *current GOP* so consecutive back-steps within one GOP are cheap; bound the cache and evict LRU. FFmpeg's `AVSEEK_FLAG_BACKWARD` (lands on the preceding keyframe) + decode-forward is the primitive — but see the unverified TS-stream caveat in §6.
+**⚠ MPEG-TS caveat (confirmed 2026-07-08, and material — our HLS uses `.ts` segments):** on MPEG-TS with H.264/AVC, FFmpeg's `av_seek_frame()` with `AVSEEK_FLAG_BACKWARD` is **unreliable — it does *not* dependably land on the preceding keyframe**; it can land on the exact timestamp (like `AVSEEK_FLAG_ANY`) or even the *next* keyframe. Root cause: TS has no global index, so seeking is a PCR-based binary search, worsened by audio/video PTS interaction. Corroborated by four independent FFmpeg mailing-list threads + the documented mechanism [21][22][23][24]. The standard workaround (also confirmed): **over-seek** — seek to a point safely *before* the target, reset the decoder, and decode forward to the target, verifying by decoded PTS.
+
+> Takeaway for us: a back-step = seek to a point *before* the current GOP's I-frame (over-seek — do **not** trust `AVSEEK_FLAG_BACKWARD` to land before the target on TS), decode forward to (current − 1), display. Cache the decoded frames of the *current GOP* so consecutive back-steps within one GOP are cheap; bound the cache and evict LRU. Prefer `avformat_seek_file()` with a min/max-ts window over bare `av_seek_frame()` for more control. **Mitigation already in our favour:** our player seeks via libavformat's *HLS* demuxer (segment-level selection from the playlist), and our continuous-timeline work + `_frameSeq` frame-arrival detection mean we already coarse-seek-then-confirm rather than trusting one exact seek — so we sidestep the worst of the raw-TS imprecision.
 
 ---
 
@@ -104,9 +107,10 @@ Confirmed conventions, consolidated:
 
 - **Refuted (3-0):** "In mpv's backward mode the frame-step commands are transposed so a backward step is dramatically more expensive than forward." — mpv does not invert the commands; the *cost* asymmetry is real but the command semantics are not transposed. [10]
 - **Refuted (1-2):** "Final Cut Pro's single-frame step is K+L / K+J." — not how FCP documents it; FCP uses arrow keys for frame step (K+J/K+L is the **Resolve** convention [5], which *is* confirmed).
-- **Unverified (verification votes hit the session limit):**
-  - "FFmpeg `av_seek_frame()` with `AVSEEK_FLAG_BACKWARD` on MPEG-TS/H.264 does *not* land on the preceding keyframe (behaves like `AVSEEK_FLAG_ANY`)." — **material to us** (it would change the back-step seek strategy for TS-delivered streams); re-verify before relying on it. Note our delivery is HLS/fMP4, which may differ from raw TS.
-  - "Premiere frame-step is bound to arrow keys, 5-frame jumps on Shift+arrow." — plausible, unverified.
+**Re-verified 2026-07-08** (both were "unverified" only because their verification votes errored on the rate-limit — re-checked directly against independent sources):
+
+- **✅ CONFIRMED (with nuance) — "FFmpeg `av_seek_frame()` + `AVSEEK_FLAG_BACKWARD` on MPEG-TS/H.264 does not dependably land on the preceding keyframe (≈ `AVSEEK_FLAG_ANY`)."** Corroborated by four independent FFmpeg mailing-list threads [21][22][23][24] and the documented PCR-binary-search mechanism (TS has no index). Nuance: the *exact* failure mode varies (lands on the exact timestamp, or sometimes the **next** keyframe) — the verified core is "**BACKWARD is unreliable on TS**," not a fixed "always == ANY." **Material to us** (our HLS is `.ts`-segmented) — folded into §2/§4 as the over-seek + decode-forward strategy; note our HLS-demuxer + frame-arrival confirmation already mitigate it.
+- **✅ CONFIRMED — "Premiere frame-step is on the arrow keys; Shift+arrow jumps 5 frames; separate from J-K-L."** Adobe's official docs confirm Left/Right = frame-by-frame and **Shift+arrow = "step forward/back many" (default 5, configurable in Preferences → Playback)** [25], distinct from the J-K-L shuttle. (The original blog source [6] had internally-garbled left/right direction labels, but the substance holds and Adobe is authoritative.)
 
 ---
 
@@ -135,7 +139,14 @@ Quality as rated by the harness (primary = official vendor/spec/patent; forum/bl
 19. Radiant Media Player — frame-accurate seeking (`seekToFrame`) — *primary* — https://www.radiantmediaplayer.com/docs/latest/frame-accurate-seeking.html
 20. hls.js #2327 — seeking near fragment boundary / maxFragLookUpTolerance — *forum* — https://github.com/video-dev/hls.js/issues/2327
 
-Additional pool sources (fetched, lower-yield): FFmpeg libav-user threads on `av_seek_frame`/`AVSEEK_FLAG_BACKWARD` [https://ffmpeg.org/pipermail/libav-user/2013-September/005558.html, https://www.mail-archive.com/libav-user@ffmpeg.org/msg12269.html]; hls.js #6649, #7583.
+Additional pool sources (fetched, lower-yield): hls.js #6649, #7583.
+
+**Re-verification sources (2026-07-08):**
+21. libav-user — "Seeking backward to a key frame within transport stream" (the original report) — *forum* — https://ffmpeg.org/pipermail/libav-user/2013-September/005558.html
+22. libav-user — "When Seeking … with AVSEEK_FLAG_BACKWARD, libav will seek to exact specified frame" — *forum* — https://www.mail-archive.com/libav-user@ffmpeg.org/msg12269.html
+23. libav-user — "Why av_seek_frame with AVSEEK_FLAG_BACKWARD sometimes seeks to 'NEXT' keyframe?" — *forum* — https://www.mail-archive.com/libav-user@ffmpeg.org/msg11627.html
+24. ffmpeg-devel — "av_seek_frame() issues with audio from MPEG-TS" (PCR-based-seek mechanism) — *forum* — https://ffmpeg-devel.ffmpeg.narkive.com/b1zJjFzM/av-seek-frame-issues-with-audio-from-mpeg-ts
+25. Adobe — Premiere Pro default keyboard shortcuts (arrow = frame step, Shift+arrow = step-many) — *primary* — https://helpx.adobe.com/premiere/desktop/get-started/keyboard-shortcuts/default-keyboard-shortcuts.html
 
 ---
 
