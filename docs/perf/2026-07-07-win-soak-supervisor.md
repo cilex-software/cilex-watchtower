@@ -42,7 +42,12 @@ as the w2-bringup harness).
   deleted them under the mtime guard.
 - **procdump capture**: the exact supervisor command wrote a **1.1 GB full dump** of the live
   process. (Budget disk: a `-ma` dump of the running client is ~1 GB each; wedges should be rare.)
-- **30-min smoke** against the CI-built dist: see the run summary appended on completion.
+- **30-min smoke** against the CI-built dist (`-DurationMinutes 30`): clean end-time stop, **1
+  launch, 0 crashes, 0 hangs**, single pid throughout; 120 samples, RSS bounded 275-800 MB (ended
+  631, no ratchet); HW decode held (0 software). The export matrix ran end-to-end through the app:
+  **STD exports OK** (~12-14 s/clip), while HIGH exports on aged footage were correctly refused by
+  the app's own "main-stream aged to standard storage" policy (expected, not a defect). Compress/
+  burn (the libopenh264 path) was NOT exercised by the soak matrix -- still to validate through the UI.
 
 ## How to run the overnight soaks (remaining W3 work — unattended)
 
