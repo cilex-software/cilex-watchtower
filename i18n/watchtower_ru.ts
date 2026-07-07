@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1" language="ru_RU">
+    <context>
+        <name>LoginScreen</name>
+        <message>
+            <source>Sign in to the surveillance backend</source>
+            <translation>Вход в систему видеонаблюдения</translation>
+        </message>
+        <message>
+            <source>Password</source>
+            <translation>Пароль</translation>
+        </message>
+        <message>
+            <source>Token</source>
+            <translation>Токен</translation>
+        </message>
+        <message>
+            <source>Server</source>
+            <translation>Сервер</translation>
+        </message>
+        <message>
+            <source>Username</source>
+            <translation>Имя пользователя</translation>
+        </message>
+        <message>
+            <source>operator</source>
+            <translation>оператор</translation>
+        </message>
+        <message>
+            <source>TOKEN</source>
+            <translation>ТОКЕН</translation>
+        </message>
+        <message>
+            <source>Paste a token issued by Cilex Vision.</source>
+            <translation>Вставьте токен, выданный Cilex Vision.</translation>
+        </message>
+        <message>
+            <source>Signing in…</source>
+            <translation>Вход…</translation>
+        </message>
+        <message>
+            <source>Sign in</source>
+            <translation>Войти</translation>
+        </message>
+    </context>
+    <context>
+        <name>Main</name>
+        <message>
+            <source>Watchtower</source>
+            <translation>Watchtower</translation>
+        </message>
+    </context>
+    <context>
+        <name>NavRail</name>
+        <message>
+            <source>Live</source>
+            <translation>Онлайн</translation>
+        </message>
+        <message>
+            <source>Groups</source>
+            <translation>Группы</translation>
+        </message>
+        <message>
+            <source>Views</source>
+            <translation>Виды</translation>
+        </message>
+        <message>
+            <source>Events</source>
+            <translation>События</translation>
+        </message>
+        <message>
+            <source>Health</source>
+            <translation>Состояние</translation>
+        </message>
+    </context>
+    <context>
+        <name>PreferencesScreen</name>
+        <message>
+            <source>Choose the snapshot folder</source>
+            <translation>Выберите папку для снимков</translation>
+        </message>
+        <message>
+            <source>Choose the clip export folder</source>
+            <translation>Выберите папку для экспорта клипов</translation>
+        </message>
+        <message>
+            <source>Preferences</source>
+            <translation>Настройки</translation>
+        </message>
+        <message>
+            <source>Back to monitoring</source>
+            <translation>Вернуться к мониторингу</translation>
+        </message>
+        <message>
+            <source>Workspace</source>
+            <translation>Рабочее пространство</translation>
+        </message>
+        <message>
+            <source>Default landing screen</source>
+            <translation>Экран по умолчанию при запуске</translation>
+        </message>
+        <message>
+            <source>Where Watchtower opens on launch.</source>
+            <translation>Какой экран открывается при запуске Watchtower.</translation>
+        </message>
+        <message>
+            <source>Theme</source>
+            <translation>Тема</translation>
+        </message>
+        <message>
+            <source>Light and System themes are planned for a later phase.</source>
+            <translation>Светлая и системная темы появятся позже.</translation>
+        </message>
+        <message>
+            <source>Dark</source>
+            <translation>Тёмная</translation>
+        </message>
+        <message>
+            <source>Video</source>
+            <translation>Видео</translation>
+        </message>
+        <message>
+            <source>Default stream quality (focused view)</source>
+            <translation>Качество потока по умолчанию (детальный просмотр)</translation>
+        </message>
+        <message>
+            <source>Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile.</source>
+            <translation>Качество по умолчанию при открытии одной камеры. SD использует дополнительный поток (легче, почти в реальном времени); HD — основной поток. Стена мониторинга всегда работает в SD для производительности; любую плитку можно переключить в HD прямо на ней.</translation>
+        </message>
+        <message>
+            <source>Live video transport (admin)</source>
+            <translation>Транспорт живого видео (администратор)</translation>
+        </message>
+        <message>
+            <source>How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision.</source>
+            <translation>Как стена мониторинга получает видео с камер. go2rtc хранит учётные данные камер на сервере (рекомендуется). Прямой RTSP подключает каждый клиент напрямую к камерам, используя учётные данные, предоставленные Cilex Vision.</translation>
+        </message>
+        <message>
+            <source>Direct RTSP</source>
+            <translation>Прямой RTSP</translation>
+        </message>
+        <message>
+            <source>Live tile overlay</source>
+            <translation>Наложение на плитке</translation>
+        </message>
+        <message>
+            <source>Camera name</source>
+            <translation>Имя камеры</translation>
+        </message>
+        <message>
+            <source>Show the camera name/model on each live tile.</source>
+            <translation>Показывать имя/модель камеры на каждой плитке.</translation>
+        </message>
+        <message>
+            <source>Off</source>
+            <translation>Выкл</translation>
+        </message>
+        <message>
+            <source>On</source>
+            <translation>Вкл</translation>
+        </message>
+        <message>
+            <source>IP address</source>
+            <translation>IP-адрес</translation>
+        </message>
+        <message>
+            <source>Show the camera's IP address on each live tile.</source>
+            <translation>Показывать IP-адрес камеры на каждой плитке.</translation>
+        </message>
+        <message>
+            <source>Camera ID</source>
+            <translation>ID камеры</translation>
+        </message>
+        <message>
+            <source>Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile.</source>
+            <translation>Показывать серверный ID камеры (например, hiwatch-083bc14effb2) на каждой плитке.</translation>
+        </message>
+        <message>
+            <source>Time &amp; language</source>
+            <translation>Время и язык</translation>
+        </message>
+        <message>
+            <source>Time format</source>
+            <translation>Формат времени</translation>
+        </message>
+        <message>
+            <source>How clocks are shown across the app.</source>
+            <translation>Как отображается время в приложении.</translation>
+        </message>
+        <message>
+            <source>24-hour</source>
+            <translation>24 часа</translation>
+        </message>
+        <message>
+            <source>12-hour</source>
+            <translation>12 часов</translation>
+        </message>
+        <message>
+            <source>Language</source>
+            <translation>Язык</translation>
+        </message>
+        <message>
+            <source>Interface language. Defaults to your operating system's language; changes apply immediately.</source>
+            <translation>Язык интерфейса. По умолчанию используется язык операционной системы; изменения применяются сразу.</translation>
+        </message>
+        <message>
+            <source>Alerts</source>
+            <translation>Оповещения</translation>
+        </message>
+        <message>
+            <source>Alert sound</source>
+            <translation>Звук оповещения</translation>
+        </message>
+        <message>
+            <source>Play a sound when a camera raises an alert.</source>
+            <translation>Воспроизводить звук при срабатывании оповещения камеры.</translation>
+        </message>
+        <message>
+            <source>Desktop notifications</source>
+            <translation>Уведомления рабочего стола</translation>
+        </message>
+        <message>
+            <source>Show an OS notification for alerts even when Watchtower isn't focused.</source>
+            <translation>Показывать системные уведомления об оповещениях, даже когда Watchtower не в фокусе.</translation>
+        </message>
+        <message>
+            <source>Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive.</source>
+            <translation>Оповещения формируются из событий камер (движение, потеря связи, пропуски записи). Эти настройки действуют при поступлении оповещений.</translation>
+        </message>
+        <message>
+            <source>Snapshots &amp; clips</source>
+            <translation>Снимки и клипы</translation>
+        </message>
+        <message>
+            <source>Snapshot folder</source>
+            <translation>Папка для снимков</translation>
+        </message>
+        <message>
+            <source>Change…</source>
+            <translation>Изменить…</translation>
+        </message>
+        <message>
+            <source>Clip export folder</source>
+            <translation>Папка для экспорта клипов</translation>
+        </message>
+    </context>
+    <context>
+        <name>TopBar</name>
+        <message>
+            <source>Search cameras, groups, views, clips, events…</source>
+            <translation>Поиск камер, групп, видов, клипов, событий…</translation>
+        </message>
+        <message>
+            <source>Online</source>
+            <translation>Онлайн</translation>
+        </message>
+        <message>
+            <source>Offline</source>
+            <translation>Не в сети</translation>
+        </message>
+        <message>
+            <source>Not Rec</source>
+            <translation>Нет записи</translation>
+        </message>
+        <message>
+            <source>Preferences</source>
+            <translation>Настройки</translation>
+        </message>
+        <message>
+            <source>Sign out</source>
+            <translation>Выйти</translation>
+        </message>
+    </context>
+    <context>
+        <name>VideoTest</name>
+        <message>
+            <source>Watchtower — video test</source>
+            <translation>Watchtower — тест видео</translation>
+        </message>
+    </context>
+</TS>

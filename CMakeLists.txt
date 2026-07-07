@@ -16,7 +16,7 @@ set(CMAKE_AUTOMOC ON)
 # toolchain is Qt 6.12 (build against ~/Qt/6.12.0 — see CMakePresets.json / run.sh);
 # Qt 6.8.3 LTS is a supported fallback (the 8.8 h-validated runtime). Both use Qt's
 # mature FFmpeg media backend.
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Multimedia)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql Network Multimedia LinguistTools)
 
 # Video is played through QtMultimedia (QML MediaPlayer + VideoOutput), which on
 # Linux uses the GStreamer backend with VA-API hardware decode. The opt-in
@@ -176,6 +176,19 @@ qt_add_qml_module(watchtower
         src/models/SiteMapModel.cpp
         src/models/MemTelemetry.h
         src/models/MemTelemetry.cpp
+        src/models/LanguageController.h
+        src/models/LanguageController.cpp
+)
+
+# UI translations (EN/RU). Builds .qm from the committed .ts at build time and embeds
+# them at :/i18n/ in the binary — so it works identically on Linux and Windows with no
+# external files. Regenerate the .ts after adding/changing qsTr() strings with:
+#   cmake --build <dir> --target update_translations   (runs lupdate)
+qt_add_translations(watchtower
+    TS_FILES
+        i18n/watchtower_en.ts
+        i18n/watchtower_ru.ts
+    RESOURCE_PREFIX "/i18n"
 )
 
 # Self-hosted fonts (Space Grotesk + JetBrains Mono, OFL) embedded at :/fonts/.

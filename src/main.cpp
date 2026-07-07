@@ -41,6 +41,7 @@
 #include "models/CvImageProvider.h"
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
+#include "models/LanguageController.h"
 
 namespace {
 
@@ -292,6 +293,13 @@ int main(int argc, char *argv[])
     // Exposed to QML as a context property (not a module type) so it does not
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
+
+    // UI language (EN/RU). Default follows the OS language; the operator's choice in
+    // Preferences overrides + persists. Install the initial translator BEFORE load so
+    // the first frame is already in the right language; switching later is live.
+    auto *language = new LanguageController(&engine, &app);
+    engine.rootContext()->setContextProperty("Language", language);
+    language->applyInitial();
 
     // Field memory telemetry — periodic [MEMTEL] log of RSS + cumulative active-playback seconds + open
     // count, so a real shift self-reports whether the residual per-open RSS growth is shift-breaking.

@@ -109,7 +109,7 @@ Item {
                     font.weight: Font.DemiBold; font.letterSpacing: -0.24
                 }
                 Text {
-                    text: "Sign in to the surveillance backend"; color: Theme.ink2
+                    text: qsTr("Sign in to the surveillance backend"); color: Theme.ink2
                     font.family: Theme.fontSans; font.pixelSize: Theme.fsSmall
                 }
             }
@@ -120,7 +120,7 @@ Item {
                 Layout.topMargin: Theme.s8
                 spacing: 0
                 Repeater {
-                    model: [ { id: "password", lbl: "Password" }, { id: "token", lbl: "Token" } ]
+                    model: [ { id: "password", lbl: qsTr("Password") }, { id: "token", lbl: qsTr("Token") } ]
                     delegate: Item {
                         id: tabBtn
                         required property var modelData
@@ -160,7 +160,7 @@ Item {
 
             Field {
                 id: serverField
-                label: "Server"
+                label: qsTr("Server")
                 placeholder: "http://host:8000"
                 Component.onCompleted: text = AuthController.baseUrl
             }
@@ -170,8 +170,8 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.s16
                 visible: root.tab === "password"
-                Field { id: userField; label: "Username"; placeholder: "operator" }
-                Field { id: passField; label: "Password"; echoMode: TextInput.Password }
+                Field { id: userField; label: qsTr("Username"); placeholder: qsTr("operator") }
+                Field { id: passField; label: qsTr("Password"); echoMode: TextInput.Password }
             }
 
             // token tab
@@ -180,7 +180,7 @@ Item {
                 spacing: 6
                 visible: root.tab === "token"
                 Text {
-                    text: "TOKEN"; color: Theme.ink2; font.family: Theme.fontMono
+                    text: qsTr("TOKEN"); color: Theme.ink2; font.family: Theme.fontMono
                     font.pixelSize: Theme.fsLabel; font.capitalization: Font.AllUppercase
                     font.letterSpacing: 1.0
                 }
@@ -210,7 +210,7 @@ Item {
                     }
                 }
                 Text {
-                    text: "Paste a token issued by Cilex Vision."
+                    text: qsTr("Paste a token issued by Cilex Vision.")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: Theme.fsSmall
                 }
             }
@@ -241,7 +241,7 @@ Item {
                 Keys.onSpacePressed: root.submit()
                 Text {
                     anchors.centerIn: parent
-                    text: AuthController.busy ? "Signing in…" : "Sign in"
+                    text: AuthController.busy ? qsTr("Signing in…") : qsTr("Sign in")
                     color: Theme.bg; font.family: Theme.fontSans
                     font.pixelSize: Theme.fsBody; font.weight: Font.DemiBold
                 }

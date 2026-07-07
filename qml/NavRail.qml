@@ -48,11 +48,11 @@ Item {
 
             Repeater {
                 model: [
-                    { id: "live",   icon: "monitor", label: "Live" },
-                    { id: "groups", icon: "layers",  label: "Groups" },
-                    { id: "views",  icon: "grid",    label: "Views" },
-                    { id: "events", icon: "bell",    label: "Events" },
-                    { id: "health", icon: "pulse",   label: "Health" }
+                    { id: "live",   icon: "monitor", label: qsTr("Live") },
+                    { id: "groups", icon: "layers",  label: qsTr("Groups") },
+                    { id: "views",  icon: "grid",    label: qsTr("Views") },
+                    { id: "events", icon: "bell",    label: qsTr("Events") },
+                    { id: "health", icon: "pulse",   label: qsTr("Health") }
                 ]
                 delegate: Item {
                     id: navItem

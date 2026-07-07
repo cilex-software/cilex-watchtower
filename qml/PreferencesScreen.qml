@@ -31,13 +31,13 @@ Item {
 
     FolderDialog {
         id: dirDialog
-        title: "Choose the snapshot folder"
+        title: qsTr("Choose the snapshot folder")
         onAccepted: Artifacts.snapshotDir = dirDialog.selectedFolder
     }
 
     FolderDialog {
         id: exportDirDialog
-        title: "Choose the clip export folder"
+        title: qsTr("Choose the clip export folder")
         onAccepted: Artifacts.exportDir = exportDirDialog.selectedFolder
     }
 
@@ -163,21 +163,21 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "Preferences"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 24; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                Text { text: qsTr("Preferences"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 24; font.weight: Font.DemiBold; Layout.fillWidth: true }
                 Rectangle {
                     implicitWidth: backT.implicitWidth + 24; implicitHeight: 32
                     color: backMa.containsMouse ? Theme.panel : "transparent"
                     border.width: 1; border.color: backMa.containsMouse ? Theme.accent : Theme.line2
-                    Text { id: backT; anchors.centerIn: parent; text: "Back to monitoring"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                    Text { id: backT; anchors.centerIn: parent; text: qsTr("Back to monitoring"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     MouseArea { id: backMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.closed() }
                 }
             }
 
             PrefSection {
-                title: "Workspace"
+                title: qsTr("Workspace")
                 PrefRow {
-                    label: "Default landing screen"
-                    desc: "Where Watchtower opens on launch."
+                    label: qsTr("Default landing screen")
+                    desc: qsTr("Where Watchtower opens on launch.")
                     PrefDropdown {
                         options: root.landingOptions()
                         currentValue: Settings.defaultLanding
@@ -185,17 +185,17 @@ Item {
                     }
                 }
                 PrefRow {
-                    label: "Theme"
-                    desc: "Light and System themes are planned for a later phase."
-                    Text { text: "Dark"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
+                    label: qsTr("Theme")
+                    desc: qsTr("Light and System themes are planned for a later phase.")
+                    Text { text: qsTr("Dark"); color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
                 }
             }
 
             PrefSection {
-                title: "Video"
+                title: qsTr("Video")
                 PrefRow {
-                    label: "Default stream quality (focused view)"
-                    desc: "Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile."
+                    label: qsTr("Default stream quality (focused view)")
+                    desc: qsTr("Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile.")
                     // SD / HD segmented toggle
                     Rectangle {
                         Layout.preferredHeight: 32
@@ -220,10 +220,10 @@ Item {
                 }
                 PrefRow {
                     visible: AuthController.isAdmin
-                    label: "Live video transport (admin)"
-                    desc: "How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision."
+                    label: qsTr("Live video transport (admin)")
+                    desc: qsTr("How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision.")
                     Segmented {
-                        opts: [{ k: "go2rtc", v: "go2rtc" }, { k: "Direct RTSP", v: "rtsp" }]
+                        opts: [{ k: "go2rtc", v: "go2rtc" }, { k: qsTr("Direct RTSP"), v: "rtsp" }]
                         value: Settings.liveTransport
                         segW: 96
                         onPicked: (v) => Settings.liveTransport = v
@@ -232,32 +232,32 @@ Item {
             }
 
             PrefSection {
-                title: "Live tile overlay"
+                title: qsTr("Live tile overlay")
                 PrefRow {
-                    label: "Camera name"
-                    desc: "Show the camera name/model on each live tile."
+                    label: qsTr("Camera name")
+                    desc: qsTr("Show the camera name/model on each live tile.")
                     Segmented {
-                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
                         value: Settings.overlayShowName
                         segW: 56
                         onPicked: (v) => Settings.overlayShowName = v
                     }
                 }
                 PrefRow {
-                    label: "IP address"
-                    desc: "Show the camera's IP address on each live tile."
+                    label: qsTr("IP address")
+                    desc: qsTr("Show the camera's IP address on each live tile.")
                     Segmented {
-                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
                         value: Settings.overlayShowIp
                         segW: 56
                         onPicked: (v) => Settings.overlayShowIp = v
                     }
                 }
                 PrefRow {
-                    label: "Camera ID"
-                    desc: "Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile."
+                    label: qsTr("Camera ID")
+                    desc: qsTr("Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile.")
                     Segmented {
-                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
                         value: Settings.overlayShowId
                         segW: 56
                         onPicked: (v) => Settings.overlayShowId = v
@@ -266,36 +266,47 @@ Item {
             }
 
             PrefSection {
-                title: "Time & language"
+                title: qsTr("Time & language")
                 PrefRow {
-                    label: "Time format"
-                    desc: "How clocks are shown across the app."
+                    label: qsTr("Time format")
+                    desc: qsTr("How clocks are shown across the app.")
                     Segmented {
-                        opts: [{ k: "24-hour", v: true }, { k: "12-hour", v: false }]
+                        opts: [{ k: qsTr("24-hour"), v: true }, { k: qsTr("12-hour"), v: false }]
                         value: Settings.time24h
                         segW: 80
                         onPicked: (v) => Settings.time24h = v
                     }
                 }
+                PrefRow {
+                    label: qsTr("Language")
+                    desc: qsTr("Interface language. Defaults to your operating system's language; changes apply immediately.")
+                    // Endonyms shown in each language's own name (not translated), per i18n convention.
+                    Segmented {
+                        opts: [{ k: "English", v: "en" }, { k: "Русский", v: "ru" }]
+                        value: Language.language
+                        segW: 92
+                        onPicked: (v) => Language.setLanguage(v)
+                    }
+                }
             }
 
             PrefSection {
-                title: "Alerts"
+                title: qsTr("Alerts")
                 PrefRow {
-                    label: "Alert sound"
-                    desc: "Play a sound when a camera raises an alert."
+                    label: qsTr("Alert sound")
+                    desc: qsTr("Play a sound when a camera raises an alert.")
                     Segmented {
-                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
                         value: Settings.alertSound
                         segW: 56
                         onPicked: (v) => Settings.alertSound = v
                     }
                 }
                 PrefRow {
-                    label: "Desktop notifications"
-                    desc: "Show an OS notification for alerts even when Watchtower isn't focused."
+                    label: qsTr("Desktop notifications")
+                    desc: qsTr("Show an OS notification for alerts even when Watchtower isn't focused.")
                     Segmented {
-                        opts: [{ k: "Off", v: false }, { k: "On", v: true }]
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
                         value: Settings.desktopNotifications
                         segW: 56
                         onPicked: (v) => Settings.desktopNotifications = v
@@ -303,34 +314,34 @@ Item {
                 }
                 Text {
                     Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.bottomMargin: 12
-                    text: "Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive."
+                    text: qsTr("Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive.")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
             }
 
             PrefSection {
-                title: "Snapshots & clips"
+                title: qsTr("Snapshots & clips")
                 PrefRow {
-                    label: "Snapshot folder"
+                    label: qsTr("Snapshot folder")
                     desc: Artifacts.snapshotDir
                     Rectangle {
                         Layout.preferredHeight: 32
                         implicitWidth: chT.implicitWidth + 24
                         color: chMa.containsMouse ? Theme.panel2 : Theme.bg
                         border.width: 1; border.color: chMa.containsMouse ? Theme.accent : Theme.line2
-                        Text { id: chT; anchors.centerIn: parent; text: "Change…"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { id: chT; anchors.centerIn: parent; text: qsTr("Change…"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: chMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: dirDialog.open() }
                     }
                 }
                 PrefRow {
-                    label: "Clip export folder"
+                    label: qsTr("Clip export folder")
                     desc: Artifacts.exportDir
                     Rectangle {
                         Layout.preferredHeight: 32
                         implicitWidth: exT.implicitWidth + 24
                         color: exMa.containsMouse ? Theme.panel2 : Theme.bg
                         border.width: 1; border.color: exMa.containsMouse ? Theme.accent : Theme.line2
-                        Text { id: exT; anchors.centerIn: parent; text: "Change…"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { id: exT; anchors.centerIn: parent; text: qsTr("Change…"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: exMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: exportDirDialog.open() }
                     }
                 }

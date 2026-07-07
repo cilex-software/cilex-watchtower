@@ -105,7 +105,7 @@ Item {
                 }
                 Text {
                     anchors { left: searchIcon.right; leftMargin: 12; right: kbdBox.left; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                    text: "Search cameras, groups, views, clips, events…"
+                    text: qsTr("Search cameras, groups, views, clips, events…")
                     color: Theme.ink3
                     font.family: Theme.fontSans
                     font.pixelSize: 13
@@ -146,21 +146,21 @@ Item {
                     id: strip
                     height: 38
                     StatusSummaryChip {
-                        label: "Online"; dotColor: Theme.good
+                        label: qsTr("Online"); dotColor: Theme.good
                         count: root.cameraModel ? root.cameraModel.onlineCount : 0
                         active: root.statusFilter === "online"
                         onClicked: root.statusChipClicked("online")
                     }
                     Rectangle { width: 1; height: 38; color: Theme.line }
                     StatusSummaryChip {
-                        label: "Offline"; dotColor: Theme.bad
+                        label: qsTr("Offline"); dotColor: Theme.bad
                         count: root.cameraModel ? root.cameraModel.offlineCount : 0
                         active: root.statusFilter === "offline"
                         onClicked: root.statusChipClicked("offline")
                     }
                     Rectangle { width: 1; height: 38; color: Theme.line }
                     StatusSummaryChip {
-                        label: "Not Rec"; dotColor: Theme.accent
+                        label: qsTr("Not Rec"); dotColor: Theme.accent
                         count: root.cameraModel ? root.cameraModel.notRecordingCount : 0
                         active: root.statusFilter === "notrec"
                         onClicked: root.statusChipClicked("notrec")
@@ -321,7 +321,7 @@ Item {
                             color: prefMa.containsMouse ? Theme.panel2 : "transparent"
                             Text {
                                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
-                                text: "Preferences"; color: Theme.ink
+                                text: qsTr("Preferences"); color: Theme.ink
                                 font.family: Theme.fontSans; font.pixelSize: 13
                             }
                             MouseArea {
@@ -335,7 +335,7 @@ Item {
                             color: outMa.containsMouse ? Theme.panel2 : "transparent"
                             Text {
                                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
-                                text: "Sign out"; color: Theme.bad
+                                text: qsTr("Sign out"); color: Theme.bad
                                 font.family: Theme.fontSans; font.pixelSize: 13
                             }
                             MouseArea {
