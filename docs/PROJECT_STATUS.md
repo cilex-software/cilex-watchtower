@@ -1,8 +1,31 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-07-06. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-07-08. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-07-07/08) — RU i18n shipped; W2 core gates green on real GPU; frame-step planned
+
+- **Russian language support shipped** (`b452783`) — EN/RU, OS-language default (`QLocale::system()`),
+  live in-profile switch (Preferences → Time & language, `QQmlApplicationEngine::retranslate()`),
+  `.qm` embedded via `qt_add_translations` (LinguistTools ships in BASE Qt — not an aqt module).
+  ~65 chrome strings translated; remaining screens extend incrementally (`update_translations`).
+  Verified: Linux screenshots both locales + Windows CI green.
+- **Windows W2/W3 advanced on the laptop session** — W2 core gates GREEN on GTX 1070 (launch, d3d11
+  HW decode, live pipelines, RSS bounded; `4fd72b4`); export re-encode switched to libopenh264
+  (`53b6e28`); gstd3d11 decode closure bundled (`fb15f72`); W3 soak supervisor ported to PowerShell +
+  smoke-green (`91a0a0f`, `56078c2`). Remaining: W2 eyes-on gates + overnight Win10/11 soaks (W3), W5 matrix.
+- **`/streams` `functions.playback` split wired same-day** (CV migration 0052): playback/timeline/export
+  now gate on the new `playback` key (`playbackEnabled`, fail-safe true); live tiles stay on `live_view`.
+  Reply letter `docs/letters/2026-06-16-request-function-state-in-streams.reply2.md`. Verified + Windows CI green.
+- **Frame-by-frame stepping researched + planned** — deep-research (25 sources, 23 verified claims):
+  [`docs/research/2026-07-07-frame-by-frame-playback-vms.md`](research/2026-07-07-frame-by-frame-playback-vms.md);
+  implementation plan (P0 spike → P4, ~3–4 days, on the existing QMediaPlayer stack — key constraint:
+  paused seeks render nothing → play-flush primitive; TS seek imprecision → verify-after-step):
+  [`docs/plans/2026-07-08-frame-step-plan.md`](plans/2026-07-08-frame-step-plan.md). **Next: execute P0.**
+- Open with CV: go2rtc ask-4 reply (needs product steer: `[MEMTEL]` exposure + demand-history UI);
+  optional letter on CV's `/live` page black-tiles-with-valid-go2rtc-frames finding; `.67` camera
+  still needs its operator power-cycle (login lockout).
 
 ## Current status (2026-07-06) — Linux client hardened; **Windows port in progress (W0/W1/W4 done, W2/W3 need a Windows GPU box)**
 
