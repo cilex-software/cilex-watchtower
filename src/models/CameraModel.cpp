@@ -410,10 +410,15 @@ void CameraModel::applyFunctions(const QJsonObject &funcs)
     };
     const bool rec = on("recording");
     const bool live = on("live_view");
-    if (rec == m_recordingEnabled && live == m_liveViewEnabled)
+    // `playback` split out of `live_view` (CV migration 0052, 2026-07-07): live_view now
+    // gates live streaming only; playback/timeline/export gate on this NEW key. Fail-safe
+    // true (missing key => enabled) keeps older backends that don't emit it working.
+    const bool pb = on("playback");
+    if (rec == m_recordingEnabled && live == m_liveViewEnabled && pb == m_playbackEnabled)
         return;
     m_recordingEnabled = rec;
     m_liveViewEnabled = live;
+    m_playbackEnabled = pb;
     emit functionsChanged();
 }
 

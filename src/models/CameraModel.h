@@ -38,6 +38,7 @@ class CameraModel : public QAbstractListModel
     // "switched off" instead of a fault. See docs/letters/2026-06-16-function-state*.
     Q_PROPERTY(bool recordingEnabled READ recordingEnabled NOTIFY functionsChanged)
     Q_PROPERTY(bool liveViewEnabled READ liveViewEnabled NOTIFY functionsChanged)
+    Q_PROPERTY(bool playbackEnabled READ playbackEnabled NOTIFY functionsChanged)
 
 public:
     enum Roles {
@@ -136,6 +137,7 @@ public:
 
     bool recordingEnabled() const { return m_recordingEnabled; }
     bool liveViewEnabled() const { return m_liveViewEnabled; }
+    bool playbackEnabled() const { return m_playbackEnabled; }
 
 signals:
     void countsChanged();
@@ -167,6 +169,7 @@ private:
     bool m_loading = false;
     bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
     bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
+    bool m_playbackEnabled = true;    // /streams `functions.playback` (fail-safe true)
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

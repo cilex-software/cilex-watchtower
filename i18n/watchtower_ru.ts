@@ -75,6 +75,17 @@
         </message>
     </context>
     <context>
+        <name>PlaybackScreen</name>
+        <message>
+            <source>Playback unavailable</source>
+            <translation>Воспроизведение недоступно</translation>
+        </message>
+        <message>
+            <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
+            <translation>Воспроизведение отключено — просмотр записей и экспорт приостановлены. Это настройка оператора, а не сбой.</translation>
+        </message>
+    </context>
+    <context>
         <name>PreferencesScreen</name>
         <message>
             <source>Choose the snapshot folder</source>

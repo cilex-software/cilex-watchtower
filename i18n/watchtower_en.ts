@@ -75,6 +75,17 @@
     </message>
 </context>
 <context>
+    <name>PlaybackScreen</name>
+    <message>
+        <source>Playback unavailable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PreferencesScreen</name>
     <message>
         <source>Choose the snapshot folder</source>

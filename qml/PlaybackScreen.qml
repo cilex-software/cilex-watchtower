@@ -555,10 +555,11 @@ Item {
     }
     function tryOpen() {
         if (!_pendingOpen || !client || !camera) return;
-        // Live View off → playback-service is stopped; no session can be created.
+        // Playback off → playback-service is stopped; no session can be created.
         // Skip the doomed attempt (the player overlay explains it) and keep
-        // _pendingOpen so re-enabling Live View re-creates the session.
-        if (root.cameraModel && root.cameraModel.liveViewEnabled === false) {
+        // _pendingOpen so re-enabling Playback re-creates the session. (CV split
+        // playback out of live_view — migration 0052, 2026-07-07.)
+        if (root.cameraModel && root.cameraModel.playbackEnabled === false) {
             loading = false; errorText = "";
             return;
         }
@@ -865,14 +866,14 @@ Item {
         function onChanged() { root.rebuildEvents(); }   // first page is enough for points + recent list
     }
 
-    // Live View came back on → (re)create the playback session if we're showing
+    // Playback came back on → (re)create the playback session if we're showing
     // this screen for a camera (covers a gated open, and a session that died when
-    // Live View was switched off mid-playback).
+    // Playback was switched off mid-review).
     Connections {
         target: root.cameraModel
         function onFunctionsChanged() {
             if (root.visible && root.camera && root.cameraModel
-                && root.cameraModel.liveViewEnabled !== false) {
+                && root.cameraModel.playbackEnabled !== false) {
                 root._pendingOpen = true;
                 root.tryOpen();
             }
@@ -1060,12 +1061,13 @@ Item {
                         color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13 }
                 }
 
-                // Live View switched off → playback-service is stopped, so no
-                // recorded playback / mosaic session can be created. Calm; explains
-                // the deliberate state instead of a spinning or broken player.
+                // Playback switched off → playback-service is stopped, so no recorded
+                // playback / mosaic session can be created. Calm; explains the deliberate
+                // state instead of a spinning or broken player. (CV split playback out of
+                // live_view — migration 0052; gate on the playback function, not live_view.)
                 Rectangle {
                     anchors.fill: parent
-                    visible: root.cameraModel && root.cameraModel.liveViewEnabled === false
+                    visible: root.cameraModel && root.cameraModel.playbackEnabled === false
                     color: "#1d2120"
                     Column {
                         anchors.centerIn: parent
@@ -1073,11 +1075,11 @@ Item {
                         width: parent.width
                         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 34; color: Theme.accent }
                         Text { anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Playback unavailable"; color: Theme.ink
+                            text: qsTr("Playback unavailable"); color: Theme.ink
                             font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
                         Text { anchors.horizontalCenter: parent.horizontalCenter
                             width: Math.min(440, parent.width - 48); horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                            text: "Live View is switched off — recorded playback and export are paused. This is an operator setting, not a fault."
+                            text: qsTr("Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.")
                             color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                 }
