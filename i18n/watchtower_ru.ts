@@ -2,6 +2,33 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
     <context>
+        <name>CameraTile</name>
+        <message>
+            <source>STREAM UNAVAILABLE</source>
+            <translation>ПОТОК НЕДОСТУПЕН</translation>
+        </message>
+        <message>
+            <source>RECORDING STALLED</source>
+            <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
+        </message>
+        <message>
+            <source>since</source>
+            <translation>с</translation>
+        </message>
+        <message>
+            <source>LIVE, NO RECORDING</source>
+            <translation>ЭФИР БЕЗ ЗАПИСИ</translation>
+        </message>
+        <message>
+            <source>STREAM DEGRADED</source>
+            <translation>СБОИ ПОТОКА</translation>
+        </message>
+        <message>
+            <source>VIEW ISSUE</source>
+            <translation>ПОДРОБНЕЕ</translation>
+        </message>
+    </context>
+    <context>
         <name>LoginScreen</name>
         <message>
             <source>Sign in to the surveillance backend</source>

@@ -28,6 +28,7 @@ Item {
     signal snapshotSaved(string path, string camName)
     signal cameraOpened(var cam)
     signal cameraPlaybackRequested(var cam)
+    signal cameraIssueRequested(var cam)      // VIEW ISSUE on a tile → Health screen, camera selected
     signal wallPlaybackRequested()
     signal groupRequested(string groupId, string label)   // quick group switch from the header
     signal hdLimitReached()                               // a tile asked for HD past the cap
@@ -1136,6 +1137,7 @@ Item {
                                 onSnapshotSaved: (p, n) => root.snapshotSaved(p, n)
                                 onOpened: root.cameraOpened(cellWrap.modelData)
                                 onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)
+                                onIssueRequested: root.cameraIssueRequested(cellWrap.modelData)
                                 onOpenedNewTab: root.cameraOpened(cellWrap.modelData)
                                 // Favorite is persisted in CameraModel (keyed by camera_id);
                                 // flip the tile optimistically so it reflects instantly (the

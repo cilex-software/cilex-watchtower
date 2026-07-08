@@ -266,7 +266,7 @@ Item {
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "alert"; size: 26; color: Theme.warn }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "STREAM UNAVAILABLE"; color: Theme.warn
+                    text: qsTr("STREAM UNAVAILABLE"); color: Theme.warn
                     font.family: Theme.fontMono; font.pixelSize: 12; font.letterSpacing: 1.0
                 }
             }
@@ -365,6 +365,9 @@ Item {
         // ---- inline issue strip (stalled / not-recording / degraded) ----
         Rectangle {
             visible: root.isDegraded || (!root.recOff && (root.isNotRec || root.isStalled))
+            // Above the hover action row: their bands nearly touch in short tiles, and
+            // the VIEW ISSUE link must never lose clicks to an overlapping panel.
+            z: 5
             anchors { left: parent.left; leftMargin: 8; bottom: parent.bottom; bottomMargin: 34 }
             implicitWidth: issueRow.implicitWidth + 20
             width: Math.min(implicitWidth, parent.width - 16)
@@ -391,18 +394,28 @@ Item {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.isStalled
-                          ? ("RECORDING STALLED" + (root.lastSegmentAt !== "" ? "  ·  since " + Settings.clock(new Date(root.lastSegmentAt).getTime(), false) : ""))
-                          : (root.isNotRec ? "LIVE, NO RECORDING" : "STREAM DEGRADED")
+                          ? (qsTr("RECORDING STALLED") + (root.lastSegmentAt !== "" ? "  ·  " + qsTr("since") + " " + Settings.clock(new Date(root.lastSegmentAt).getTime(), false) : ""))
+                          : (root.isNotRec ? qsTr("LIVE, NO RECORDING") : qsTr("STREAM DEGRADED"))
                     color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 10
                     font.weight: Font.DemiBold; font.letterSpacing: 0.6
                 }
                 Text {
                     visible: root.isNotRec || root.isStalled
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "VIEW ISSUE ›"; color: Theme.accent
+                    text: qsTr("VIEW ISSUE") + " ›"; color: Theme.accent
                     font.family: Theme.fontMono; font.pixelSize: 10
                     font.weight: Font.DemiBold; font.letterSpacing: 0.6
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.issueRequested() }
+                    // A link must read as one: underline on hover (the cursor alone
+                    // wasn't enough affordance), and a padded hit area so it wins
+                    // clicks even at tile edges.
+                    font.underline: issueMa.containsMouse
+                    MouseArea {
+                        id: issueMa
+                        anchors.fill: parent; anchors.margins: -5
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.issueRequested()
+                    }
                 }
             }
         }

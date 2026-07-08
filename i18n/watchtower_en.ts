@@ -2,6 +2,33 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
+    <name>CameraTile</name>
+    <message>
+        <source>STREAM UNAVAILABLE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RECORDING STALLED</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>since</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>LIVE, NO RECORDING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>STREAM DEGRADED</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>VIEW ISSUE</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LoginScreen</name>
     <message>
         <source>Sign in to the surveillance backend</source>

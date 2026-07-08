@@ -743,6 +743,12 @@ Window {
                         win.playbackCamera = cam;
                         playbackScreen.openFor(cam, 60);
                     }
+                    // VIEW ISSUE on a tile: land on Health with that camera's detail
+                    // panel open — the issue explanation lives there.
+                    onCameraIssueRequested: (cam) => {
+                        healthScreen.sel = cam;
+                        win.section = "health";
+                    }
                     onWallPlaybackRequested: win.enterWallPlayback()
                     onHdLimitReached: toastHost.show(
                         "HD limit reached",
@@ -823,6 +829,7 @@ Window {
                 }
 
                 HealthScreen {
+                    id: healthScreen
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null
