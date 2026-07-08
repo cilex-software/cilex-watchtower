@@ -34,11 +34,20 @@ QString ClipTranscoder::fontFile()
 // Escape a filesystem path for use INSIDE an ffmpeg -vf filtergraph option value
 // (drawtext fontfile=/textfile=), where ':' separates options and '\' escapes. No-op on
 // POSIX paths (no colon/backslash); on Windows converts C:\Windows\Fonts\arial.ttf ->
-// C\:/Windows/Fonts/arial.ttf, the form the filtergraph parser accepts.
+// C\\:/Windows/Fonts/arial.ttf, the form the filtergraph parser accepts.
+//
+// The drive-letter colon needs the TWO-LEVEL escape `\\:` (a backslash to survive the
+// filterchain-description parse, escaping a backslash that then escapes the colon at the
+// option-value parse). A single `\:` was tolerated by the ffmpeg bundled through 2026-07-06
+// (N-125444) but is REJECTED by the 7.1.3 release the Windows CI now bundles — an unquoted
+// `fontfile=C\:/...` fails with "No option name near '/...'" (exit -22), which silently broke
+// every compress/burn export that carries a name/timestamp overlay. Measured + fixed on-box
+// 2026-07-08: `\\:` encodes clean on 7.1.3, overlays render. See
+// docs/perf/2026-07-08-win-export-drawtext-ffmpeg71.md.
 static QString escFilterPath(QString p)
 {
     p.replace(QLatin1Char('\\'), QLatin1Char('/'));
-    p.replace(QLatin1Char(':'), QStringLiteral("\\:"));
+    p.replace(QLatin1Char(':'), QStringLiteral("\\\\:"));
     return p;
 }
 
