@@ -65,4 +65,17 @@ The operator power-cycled `.67`. The lock cleared (`ISAPI userCheck: lockStatus=
 
 Operator-side resolution in progress: factory-reset + re-activation of `.67` with a known password (details our side); once the camera's real password matches the registry's `Qwerty12!`, the existing registration heals with no CV-side change.
 
+## UPDATE 3 (same day, ~14:03 UTC) — **OUTAGE OVER: both cameras recording.** Full root-cause chain + what your side should still fix
+
+Verified: `.67` = 6 fragments H.264 1920×1080 hot (gap 42 s), `.201` = 2 fragments HEVC 2560×1440 hot (gap 65 s), both climbing on a 30-s segment cadence. The complete chain, for the record — **four independent faults stacked**:
+
+1. **`.67` wrong registry password** (UPDATE 2) → operator factory-reset + re-activated the camera with `Qwerty12!`, making the existing registration correct. Verified: recorder ISAPI writes now succeed against it.
+2. **The recorder's continuous engine only reconciles at startup.** After `.67` became healthy, zero pull attempts for 20+ minutes; a profile re-assign reached the recorder (it executed the motion-policy write) but did NOT start the continuous pipeline. A `recorder-service` restart registered `cam-192-168-1-67 [main+sub] (mode=continuous)` and started ffmpeg within seconds. **Ask: reconcile continuous recorders at runtime** (on camera recovery / profile assignment), not only at boot.
+3. **`.201`'s motion control is vetoed by `camera_clock_drift`** (~3 s; the server is NTP-true — verified). The supervisor logs `camera time not trusted for control` at ~3 lines/second (3 000+ per 15 min) and **no recording ever triggers** — silently, from the operator's perspective. **Asks:** surface persistent clock-drift as a camera health state (it's currently only a log flood); rate-limit the warning; and have the provisioner configure camera NTP at activation.
+4. **The fail-safe that would have saved `.201` excluded it *because* it was armed.** Your reconcile records motion-mode cameras that are *not* motion-active as "recording continuous as fail-safe until armed + ready" — but a clock-vetoed camera counts as motion-active, so it got neither motion recording nor the fail-safe. **Ask: extend the fail-safe to cameras whose motion control is persistently vetoed** (clock-drift, dead event stream). Workaround applied by us: disarmed `.201`'s motion (backup saved by your API) → the fail-safe engaged → continuous recording. We'll fix the camera clock (web UI) and re-arm; treat the disarm as temporary.
+
+Also observed during recovery: the restarted recorder immediately spawns ffmpeg for all **31 unplugged cameras** (62 pipelines of `No route to host` retry storms) — the inventory-hygiene ask from the first UPDATE would clean this too.
+
+`.201`'s dead ISAPI event subscription (last event: `videoloss` 2026-07-03T09:27Z, nothing for 5 days) remains worth a look even after the clock fix — whatever killed the event stream then didn't self-heal either.
+
 — Watchtower
