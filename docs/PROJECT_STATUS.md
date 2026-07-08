@@ -34,9 +34,12 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   **P3 DONE** (¼×/½× speeds, Shift+arrows ±5f, .mmm paused readout, freeze-frame veil). **P4 DONE**
   (stepper on the events hero; playback soak regression green). Feature CODE-COMPLETE; manual passes
   open: veil eyes-on, 5-min paused session, hero step on real footage (blocked by the recording outage).
-- **🔴 Operational (found by the spike): NO camera has recorded since 2026-07-01 15:16 UTC** —
-  `live_gap_s≈6.3 days` while `functions.recording.enabled=true`. `.67` = known login lockout, but
-  `.201` also stopped Jul 1 → the fleet currently records nothing. Needs CV-side investigation.
+- **🔴 Operational: NO footage recorded since 2026-07-01 15:16 UTC** (~7 d) while `recording.enabled=true`.
+  Letter sent: [`docs/letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md`](letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md)
+  — split: previously-recording cams (.106/.120…) went offline ~Jul 1 (env?); `.67` = login lockout
+  (power-cycle pending, bad go2rtc entry already parked); **`.201` = the backend question** (go2rtc
+  pulls it fine, never records beyond a 2.3-min sliver). Also flagged: silent-failure signal +
+  motion_not_ready warning flood (305/1000 newest events, 2 cams).
 - Open with CV: go2rtc ask-4 reply (needs product steer: `[MEMTEL]` exposure + demand-history UI);
   optional letter on CV's `/live` page black-tiles-with-valid-go2rtc-frames finding; `.67` camera
   still needs its operator power-cycle (login lockout).
