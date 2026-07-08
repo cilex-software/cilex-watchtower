@@ -15,6 +15,24 @@
 
 **Main ask: diagnose why `.201` doesn't record.** It's the one camera where every observable link (camera → RTSP → go2rtc) is green.
 
+## UPDATE (same day) — operator confirmed the fleet picture; the environmental branch is fact
+
+The operator has confirmed: **all DS-I456Z(B) cameras were personally unplugged** (they're being installed at a client site). So branch 1 above is closed — not a backend fault — and the *entire* current physical fleet is four cameras:
+
+| Camera | IP | State |
+|---|---|---|
+| **DS-I402(D)** | `.201` | activated — **the ask: never records** (go2rtc pulls it fine) |
+| **IPC-B020(C)** | `.67` | activated but **login-locked** (power-cycle pending, our side; the bad go2rtc entry that caused it is parked) |
+| **DS-I259M(C)** | `.64` (factory default) | **not activated yet** — heads-up: we found and parked a stale `cam-2`/`.64` go2rtc entry with a wrong password (`go2rtc.yaml`, backup `.bak-2026-07-08`, live streams deregistered) — left in place it would have illegal-login-locked this camera the moment it's activated, exactly like `.67` |
+| **Trassir TR-D2121CL3** | MAC `f0:23:b9:72:ac:e3` | awaiting Provisioner support for this vendor (known pending task on your side) |
+
+This refines the asks:
+
+- **Ask 1 (`.201`) is now the whole recording story** — it is the *only* currently-recordable camera; until it records (or `.67` is power-cycled back), system-wide coverage stays at zero.
+- **New ask — inventory hygiene:** how should the ~29 unplugged DS-I456Z(B) registrations be handled (deactivate/archive)? They currently linger in `/streams` (33 cameras listed), and two of them (`.106`, `.120`) are the source of the `motion_not_ready` warning flood — health-checking cameras that were deliberately removed is pure noise. A "decommissioned" state (or bulk removal path) would clean `/streams`, the health checks, and the events feed in one move.
+- The **`motion_not_ready` dedup/coverage ask (3)** stands, but note the immediate fix for the flood is the inventory cleanup above.
+- When Trassir provisioning lands, `.64`'s DS-I259M(C) activation + a correct-credential go2rtc entry for it should go together (see the parked `cam-2` note above) so the `.67` lockout pattern can't repeat.
+
 ## Evidence (all reproducible, timestamps UTC)
 
 1. **Manifest clip point:** `POST /review/sessions` for `.201` with a recent window (probed 2026-07-07T22:01Z) returns `clipped_to_finalized: true`, `wall_end = 2026-07-01T15:16:00.925Z`, `live_gap_s = 542 769` (≈6.28 d then, ≈6.7 d now). Same clip point for every camera we tried.
@@ -35,6 +53,6 @@
 2. **Silent failure:** when recording produces zero bytes fleet-wide for days, `functions.recording.enabled=true` is misleading. Could `/streams` carry a per-camera (or global) "last-recorded-at" / recording-health signal — even just a `blocked_reason`-style string — so Watchtower can show an honest banner instead of implying coverage?
 3. **`motion_not_ready` semantics:** is a warning every few minutes per unreachable camera intended? Should these be deduplicated/stateful (one active warning per camera), and should the ISAPI health check cover all registered cameras (it currently warns for 2 of the ~31 unreachable ones, and never for `.67`)?
 
-On our side: we'll power-cycle `.67` (and confirm the lockout stays clear now that the bad go2rtc entry is parked), and we'll confirm whether the `.106`/`.120`-class cameras were physically decommissioned around Jul 1 so you can rule the environmental part in or out.
+On our side: we'll power-cycle `.67` (and confirm the lockout stays clear now that both bad go2rtc entries are parked). The fleet confirmation is in the UPDATE above — the environmental branch is closed, `.201` is yours.
 
 — Watchtower

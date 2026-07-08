@@ -34,12 +34,16 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   **P3 DONE** (¼×/½× speeds, Shift+arrows ±5f, .mmm paused readout, freeze-frame veil). **P4 DONE**
   (stepper on the events hero; playback soak regression green). Feature CODE-COMPLETE; manual passes
   open: veil eyes-on, 5-min paused session, hero step on real footage (blocked by the recording outage).
-- **🔴 Operational: NO footage recorded since 2026-07-01 15:16 UTC** (~7 d) while `recording.enabled=true`.
-  Letter sent: [`docs/letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md`](letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md)
-  — split: previously-recording cams (.106/.120…) went offline ~Jul 1 (env?); `.67` = login lockout
-  (power-cycle pending, bad go2rtc entry already parked); **`.201` = the backend question** (go2rtc
-  pulls it fine, never records beyond a 2.3-min sliver). Also flagged: silent-failure signal +
-  motion_not_ready warning flood (305/1000 newest events, 2 cams).
+- **🔴 Operational: NO footage recorded since 2026-07-01 15:16 UTC** while `recording.enabled=true`.
+  Letter (updated same day with the operator-confirmed fleet):
+  [`docs/letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md`](letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md).
+  **Fleet reality (operator, 07-08): all DS-I456Z(B) unplugged for client-site install.** Present: `.201`
+  DS-I402(D) activated — **never records; THE CV ask**; `.67` IPC-B020(C) — login-locked, power-cycle
+  pending (bad go2rtc `cam-1` parked 07-07); `.64` DS-I259M(C) — unactivated (stale go2rtc `cam-2`
+  wrong-password entry **parked 07-08** before it could lock this one out too; backup `.bak-2026-07-08`);
+  Trassir TR-D2121CL3 (MAC f0:23:b9:72:ac:e3) — awaiting CV Provisioner vendor support. Also asked CV:
+  inventory hygiene for the 29 ghost registrations (kills the motion_not_ready flood) + a
+  last-recorded-at signal (silent-failure fix).
 - Open with CV: go2rtc ask-4 reply (needs product steer: `[MEMTEL]` exposure + demand-history UI);
   optional letter on CV's `/live` page black-tiles-with-valid-go2rtc-frames finding; `.67` camera
   still needs its operator power-cycle (login lockout).
