@@ -42,6 +42,7 @@
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
 #include "models/FrameClock.h"
+#include "models/FrameCache.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -310,6 +311,8 @@ int main(int argc, char *argv[])
     // Inert until a QML surface attaches its videoSink. WT_STEPSPIKE=<reps> runs the P0
     // measurement sequence in PlaybackScreen and quits.
     engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
+    // Decoded-frame cache: instant hot backward steps (capture is step-gated inside FrameStepper).
+    engine.rootContext()->setContextProperty("FrameCache", new FrameCache(&app));
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
     engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));

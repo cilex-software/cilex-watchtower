@@ -175,6 +175,7 @@ Item {
         return best;
     }
     function seekToWall(ms) {
+        stepper.invalidate();   // a real seek supersedes any cache-step state / in-flight step
         // A far-seek open is in flight: route straight to seekFar, which COALESCES
         // (replaces the pending target — last click wins). Deterministic, instead of
         // depending on the stopped-mid-swap player's seekable/duration quirks, where
@@ -239,6 +240,7 @@ Item {
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
     function seekFar(ms, preserveMark) {
         if (!client || !camera) return;
+        stepper.invalidate();   // a re-open supersedes any cache-step state / in-flight step
         // A far target in DEAD AIR (most of a sparse day) must not open a ±30 min
         // session around nothing — that returns zero ready fragments and strands the
         // player unloaded while the scrubber still shows footage (reported 2026-07-02,
@@ -339,6 +341,9 @@ Item {
     readonly property bool advancing: !paused && frags.length > 0
     function applyTransport() {
         if (paused || frags.length === 0) { scanTimer.stop(); player.pause(); return; }
+        // Resuming while a cache-stepped frame is shown: park the player just behind
+        // the shown frame first, so playback continues from what the operator sees.
+        if (stepper.diverged) stepper.resumeForPlay();
         if (playSpeed <= maxDecodeRate) {
             scanTimer.stop();
             player.playbackRate = playSpeed;
@@ -790,6 +795,7 @@ Item {
             }
             root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
             scanTimer.stop(); player.playbackRate = 1;
+            stepper.invalidate();                       // new source: cached frames are stale
             player.source = root.client.playlistUrl(sid);
             if (typeof MemTel !== "undefined") MemTel.noteOpen();
             player.play();
@@ -902,14 +908,31 @@ Item {
         else if (e.key === Qt.Key_Right && root.paused) { stepper.stepForward(); e.accepted = true; }
     }
 
-    // Single-frame stepping (docs/plans/2026-07-08-frame-step-plan.md P1). The busy-guard
+    // Single-frame stepping (docs/plans/2026-07-08-frame-step-plan.md P1+P2). The busy-guard
     // inside drops auto-repeat overflow; requestPause routes through the transport so the
-    // scan timer / speed machinery stay consistent with the paused state.
+    // scan timer / speed machinery stay consistent with the paused state. Edge/boundary
+    // steps route into seekToWall (the far/re-open machinery).
     FrameStepper {
         id: stepper
         mediaPlayer: player
         videoSink: vout.videoSink
         requestPause: function() { if (!root.paused) { root.paused = true; root.applyTransport(); } }
+        crossesDisc: function(fromMs, toMs) { return root._crossesBoundary(fromMs / 1000, toMs / 1000); }
+        edgeFallback: function(dir) {
+            var dur = FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50;
+            root.seekToWall(root.playheadMs + dir * Math.max(40, dur));
+        }
+    }
+    // While the shown frame comes from the cache, the player's position is parked
+    // elsewhere — drive the playhead marker from the stepper's cursor instead.
+    Connections {
+        target: stepper
+        function onStepped(dir, ptsDeltaMs, latMs, retries) {
+            if (stepper.diverged) {
+                root._smoothMs = Math.max(0, stepper.cursorPosEstMs);
+                root._scanPos = root._smoothMs;
+            }
+        }
     }
 
     // Drives the playhead during high-speed scan (playSpeed > maxDecodeRate):
@@ -1073,68 +1096,77 @@ Item {
         }
     }
 
-    // ---- WT_STEPTEST=<N>: FrameStepper acceptance (P1: N forward steps + a 5-step backward
-    // smoke; P2 grows this into the alternating soak). Drives the REAL stepper API, chained
-    // on its signals; logs [STEPT] lines; quits with a summary. Inert unless set.
+    // ---- WT_STEPTEST=<N>: FrameStepper alternating soak (P2 acceptance). Alternating
+    // blocks of 10 forward / 12 backward until ~N steps — the net 2-frame backward drift
+    // per cycle pushes below the cache bottom so every path gets exercised (cache hits,
+    // direct seeks, overseek+walk refills). Asserts step direction per step, tallies the
+    // path histogram + per-direction latency percentiles; [STEPT] lines; quits. Inert
+    // unless set.
     Item {
         id: stepTest
         readonly property bool on: (typeof wtStepTest !== "undefined") && wtStepTest > 0
-        property int fwdTarget: on ? wtStepTest : 0
+        readonly property int total: on ? wtStepTest : 0
         property int done: 0
-        property int backDone: 0
-        property string mode: "fwd"        // fwd → back → done
-        property var lats: []
-        property var deltas: []
+        property int inBlock: 0
+        property bool backBlock: false     // start forward (warm the cache going up)
+        property int wrongWay: 0           // fwd steps that didn't move fwd / back that didn't move back
         property int fails: 0
+        property var fwdLats: []
+        property var backLats: []
+        property var paths: ({})
 
         Timer {                            // arm when footage renders; pause first for a clean baseline
             interval: 400; repeat: true
-            running: stepTest.on && stepTest.mode === "fwd" && stepTest.done === 0
-                     && root._frameSeq > 8 && root.frags.length > 0
+            running: stepTest.on && stepTest.done === 0 && root._frameSeq > 8 && root.frags.length > 0
             onTriggered: {
                 running = false;
                 root.paused = true; root.applyTransport();
-                console.log("[STEPT] START fwd=" + stepTest.fwdTarget + " qt=" + wtQtRuntime);
+                console.log("[STEPT] START total=" + stepTest.total + " pattern=10fwd/12back qt=" + wtQtRuntime);
                 kick.start();
             }
         }
-        Timer { id: kick; interval: 250; onTriggered: stepper.stepForward() }
+        Timer { id: kick; interval: 250; onTriggered: stepTest.next() }
+
+        function next() {
+            if (done >= total) { finish(); return; }
+            var blockLen = backBlock ? 12 : 10;
+            if (inBlock >= blockLen) { backBlock = !backBlock; inBlock = 0; }
+            inBlock++;
+            if (backBlock) stepper.stepBackward(); else stepper.stepForward();
+        }
 
         Connections {
             target: stepper
             enabled: stepTest.on
             function onStepped(dir, ptsDeltaMs, latMs, retries) {
-                stepTest.lats.push(latMs); stepTest.deltas.push(ptsDeltaMs);
-                if (stepTest.mode === "fwd") {
-                    stepTest.done++;
-                    if (stepTest.done < stepTest.fwdTarget) { stepper.stepForward(); return; }
-                    stepTest.mode = "back";
-                    console.log("[STEPT] fwd phase complete, backward smoke x5");
-                    stepper.stepBackward();
-                } else {
-                    stepTest.backDone++;
-                    if (stepTest.backDone < 5) { stepper.stepBackward(); return; }
-                    stepTest.finish();
-                }
+                stepTest.done++;
+                stepTest.paths[stepper.lastPath] = (stepTest.paths[stepper.lastPath] || 0) + 1;
+                if (dir > 0) { stepTest.fwdLats.push(latMs); if (ptsDeltaMs <= 0.5) stepTest.wrongWay++; }
+                else { stepTest.backLats.push(latMs); if (ptsDeltaMs >= -0.5) stepTest.wrongWay++; }
+                if (stepTest.done % 25 === 0)
+                    console.log("[STEPT] " + stepTest.done + "/" + stepTest.total
+                                + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB");
+                stepTest.next();
             }
             function onStepFailed(dir, reason) {
+                stepTest.done++;
                 stepTest.fails++;
-                console.log("[STEPT] FAIL dir=" + dir + " reason=" + reason);
-                if (stepTest.fails > 5) { stepTest.finish(); return; }
-                if (stepTest.mode === "fwd") { stepTest.done++; stepper.stepForward(); }
-                else { stepTest.backDone++; if (stepTest.backDone < 5) stepper.stepBackward(); else stepTest.finish(); }
+                console.log("[STEPT] FAIL dir=" + dir + " reason=" + reason + " at " + stepTest.done);
+                if (stepTest.fails > 8) { stepTest.finish(); return; }
+                stepTest.next();
             }
         }
+        function pct(a, p) {
+            if (!a.length) return -1;
+            var s = a.slice().sort(function(x, y) { return x - y; });
+            return s[Math.floor(s.length * p)];
+        }
         function finish() {
-            var lat = lats.slice().sort(function(a, b) { return a - b; });
-            var fwdD = deltas.slice(0, done), backD = deltas.slice(done);
-            var fwdMoved = fwdD.filter(function(d) { return d > 0.5; }).length;
-            var backMoved = backD.filter(function(d) { return d < -0.5; }).length;
-            console.log("[STEPT] SUMMARY fwd=" + done + " fwdMoved=" + fwdMoved
-                        + " back=" + backDone + " backMoved=" + backMoved
-                        + " fails=" + fails
-                        + " latP50=" + (lat.length ? lat[Math.floor(lat.length * 0.5)] : -1)
-                        + " latP95=" + (lat.length ? lat[Math.floor(lat.length * 0.95)] : -1));
+            console.log("[STEPT] SUMMARY steps=" + done + " wrongWay=" + wrongWay + " fails=" + fails
+                        + " paths=" + JSON.stringify(paths)
+                        + " fwd(n=" + fwdLats.length + " p50=" + pct(fwdLats, 0.5) + " p95=" + pct(fwdLats, 0.95) + ")"
+                        + " back(n=" + backLats.length + " p50=" + pct(backLats, 0.5) + " p95=" + pct(backLats, 0.95) + ")"
+                        + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB");
             console.log("[STEPT] DONE");
             Qt.quit();
         }
@@ -1380,7 +1412,7 @@ Item {
                         anchors.left: parent.left; anchors.leftMargin: 16
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
-                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var p = Math.max(0, player.position - 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var b = root._smoothMs; stepper.invalidate(); var p = Math.max(0, b - 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
                         Ctl { name: "stepBack"; tip: qsTr("Step back one frame") + " (,)"
                             enabled: !stepper.busy
                             onClicked: stepper.stepBackward() }
@@ -1390,7 +1422,7 @@ Item {
                         Ctl { name: "stepFwd"; tip: qsTr("Step forward one frame") + " (.)"
                             enabled: !stepper.busy
                             onClicked: stepper.stepForward() }
-                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var p = Math.min(player.duration, player.position + 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var b = root._smoothMs; stepper.invalidate(); var p = Math.min(player.duration, b + 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
                         // speed — popup of x1…x200 (x20+ scans, since the decoder caps ~14×)
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter

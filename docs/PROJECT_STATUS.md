@@ -26,7 +26,12 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   same day (GO):** PTS 100% valid; **paused seeks RENDER on Qt 6.12** (EvHeroPlayer's "render nothing"
   note is stale) → backward step = paused seek + PTS verify, no play/pause cycle; no keyframe snapping;
   GOP 30–60f; cameras are TRUE VFR (25/50/100 ms deltas) so PTS-exact targets are the main path.
-  Findings: [`docs/perf/2026-07-08-frame-step-spike.md`](perf/2026-07-08-frame-step-spike.md). **Next: P1.**
+  Findings: [`docs/perf/2026-07-08-frame-step-spike.md`](perf/2026-07-08-frame-step-spike.md).
+  **P1 DONE** (`3985458`): FrameStepper + |◀ ▶| transport buttons + keys (,/./arrows/Space) + RU
+  i18n; forward 100/100 exact. **P2 DONE**: FrameCache decoded-frame cache (hot back-step
+  ~3400→~0 ms, ≥95 % cache hits), window-edge/disc fallbacks, alternating soaks green on both
+  codecs (0 wrong-way in 260 steps) — [`docs/perf/2026-07-08-frame-step-p2-soak.md`](perf/2026-07-08-frame-step-p2-soak.md).
+  **Next: P3 (UX polish) + P4 (events-hero reuse).**
 - **🔴 Operational (found by the spike): NO camera has recorded since 2026-07-01 15:16 UTC** —
   `live_gap_s≈6.3 days` while `functions.recording.enabled=true`. `.67` = known login lockout, but
   `.201` also stopped Jul 1 → the fleet currently records nothing. Needs CV-side investigation.
