@@ -316,6 +316,25 @@
         </message>
     </context>
     <context>
+        <name>RecordingStatusBadge</name>
+        <message>
+            <source>now</source>
+            <translation>сейчас</translation>
+        </message>
+        <message>
+            <source>m</source>
+            <translation>м</translation>
+        </message>
+        <message>
+            <source>h</source>
+            <translation>ч</translation>
+        </message>
+        <message>
+            <source>d</source>
+            <translation>д</translation>
+        </message>
+    </context>
+    <context>
         <name>TopBar</name>
         <message>
             <source>Search cameras, groups, views, clips, events…</source>

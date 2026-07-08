@@ -288,12 +288,30 @@ void EventModel::fetchPage(bool append)
         m_fetched += int(arr.size());      // raw rows consumed (drives the next page offset)
         QVector<wt::EventData> out;
         out.reserve(arr.size());
+        bool motionAdvanced = false;
         for (const auto &v : arr) {
             const auto o = v.toObject();
-            if (isSuppressedType(o.value("event_type").toString().toLower()))
+            const QString t = o.value("event_type").toString().toLower();
+            // Per-camera motion freshness (ARMED badge): count EVERY motion_* row —
+            // including display-suppressed motion_detected — except motion_not_ready,
+            // which is a health warning, not motion.
+            if (t.startsWith(QLatin1String("motion_")) && t != QLatin1String("motion_not_ready")) {
+                const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+                if (dt.isValid()) {
+                    const QString cid = o.value("camera_id").toString();
+                    const qint64 ms = dt.toMSecsSinceEpoch();
+                    auto it = m_lastMotion.constFind(cid);
+                    if (it == m_lastMotion.constEnd() || ms > it.value()) {
+                        m_lastMotion.insert(cid, ms);
+                        motionAdvanced = true;
+                    }
+                }
+            }
+            if (isSuppressedType(t))
                 continue;              // drop motion_detected — see isSuppressedType()
             out.push_back(parseRow(o));
         }
+        if (motionAdvanced) { ++m_motionRev; emit motionRevChanged(); }
         // No applyAcks() on the live path: the backend's triage_state is now the
         // authoritative ack/disposition state (parseRow derives `ack` from it).
         if (append && !out.isEmpty()) {

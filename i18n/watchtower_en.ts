@@ -316,6 +316,25 @@
     </message>
 </context>
 <context>
+    <name>RecordingStatusBadge</name>
+    <message>
+        <source>now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>m</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>d</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>TopBar</name>
     <message>
         <source>Search cameras, groups, views, clips, events…</source>

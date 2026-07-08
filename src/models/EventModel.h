@@ -71,6 +71,20 @@ public:
     // feed). Powers the Live screen's "Recent events" filter.
     Q_INVOKABLE QStringList recentCameraIds(qint64 windowMs) const;
 
+    // Newest motion_* event time (ms epoch) seen for a camera across every fetched
+    // page — feeds the ARMED badge's event-freshness readout ("armed" alone says the
+    // mode is on, not that events actually flow; a clock-vetoed or subscription-dead
+    // camera looks identical without this). Includes display-suppressed
+    // motion_detected rows; excludes motion_not_ready (a health warning, not motion).
+    // -1 = no motion event seen for that camera in the loaded feed.
+    Q_INVOKABLE double lastMotionAtMs(const QString &cameraId) const
+    { return double(m_lastMotion.value(cameraId, -1)); }
+    // Bumped once per fetch that advanced any camera's last-motion time — QML binds
+    // to this to re-evaluate lastMotionAtMs() without re-paging camera rows (tile
+    // recreation restarts RTSP pipelines, so row updates are deliberately avoided).
+    Q_PROPERTY(int motionRev READ motionRev NOTIFY motionRevChanged)
+    int motionRev() const { return m_motionRev; }
+
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);
     // Shared, server-persisted triage actions (cilex-vision 2026-06-18). POST the
@@ -88,6 +102,7 @@ public:
 signals:
     void changed();
     void operatorsChanged();
+    void motionRevChanged();
 
 private:
     void fetchPage(bool append);
@@ -106,6 +121,8 @@ private:
     QString m_qCameraId, m_qStart, m_qEnd;
     int m_pageSize = 100;
     int m_serverTotal = 0;   // DB rows matching the query (raw count from /events)
+    QHash<QString, qint64> m_lastMotion;   // camera_id → newest motion_* start_time (ms)
+    int m_motionRev = 0;
     int m_fetched = 0;       // rows received from the server so far = next page offset.
                              // Distinct from m_all.size(): we drop motion_detected, so
                              // kept rows can be fewer than rows fetched.

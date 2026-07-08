@@ -12,6 +12,12 @@ Item {
 
     property string camName: ""
     property string camId: ""
+    // Events feed (EventModel) for the ARMED badge's motion-freshness readout.
+    // Bound via motionRev (a cheap counter) — deliberately NOT via camera-row
+    // updates, which would re-page tiles and restart their RTSP pipelines.
+    property var eventsModel: null
+    readonly property double lastMotionAtMs:
+        eventsModel ? (eventsModel.motionRev, eventsModel.lastMotionAtMs(camId)) : -1
     property string ip: ""
     property string groupId: ""
 
@@ -358,7 +364,10 @@ Item {
                     }
                 }
                 LiveStatusBadge { state: root.live }
-                RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : root.recording }
+                RecordingStatusBadge {
+                    state: root.recOff ? CameraStatus.Disabled : root.recording
+                    lastMotionAtMs: root.lastMotionAtMs
+                }
             }
         }
 
