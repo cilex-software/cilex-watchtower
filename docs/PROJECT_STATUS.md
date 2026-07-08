@@ -14,7 +14,19 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
 - **Windows W2/W3 advanced on the laptop session** — W2 core gates GREEN on GTX 1070 (launch, d3d11
   HW decode, live pipelines, RSS bounded; `4fd72b4`); export re-encode switched to libopenh264
   (`53b6e28`); gstd3d11 decode closure bundled (`fb15f72`); W3 soak supervisor ported to PowerShell +
-  smoke-green (`91a0a0f`, `56078c2`). Remaining: W2 eyes-on gates + overnight Win10/11 soaks (W3), W5 matrix.
+  smoke-green (`91a0a0f`, `56078c2`).
+- **Windows session-2 (2026-07-08) on the fresh `f725784` artifact** — W2 core gates re-baselined
+  GREEN; **HW decode double-confirmed at the GPU-counter level** (Video-Decode engine busy, not just
+  the log). **Frame-stepping verified on d3d11** (HEVC 1440p, `[STEPT] wrongWay=0 fails=0 back
+  p50=0ms` — PTS valid, hot back-cache, VA-API parity). **RU i18n verified on Windows** (EN OS-default;
+  RU `.qm` loads/renders/persists on the MSVC build). **Found + fixed a real export regression**: the
+  CI bundle moved to FFmpeg 7.1.3, whose filtergraph parser rejects the single-`\:` drive-letter escape
+  `ClipTranscoder::escFilterPath` emitted → every compress/burn overlay export silently failed;
+  fixed to the canonical `\\:` (`bacfe48`, measured before/after on-box; needs CI rebuild + a drawer
+  re-test). **W3 overnight soak launched** (pinned `.106`/06-22 heavy day, procdump-armed). Results:
+  `docs/perf/2026-07-08-win-w2w3-session2-results.md`, `-frame-step-windows.md`,
+  `-win-export-drawtext-ffmpeg71.md`. Remaining: overnight-soak morning triage, export drawer re-test
+  post-rebuild, Win11 box + mixed-DPI/sleep-resume eyes-on, W5 matrix.
 - **`/streams` `functions.playback` split wired same-day** (CV migration 0052): playback/timeline/export
   now gate on the new `playback` key (`playbackEnabled`, fail-safe true); live tiles stay on `live_view`.
   Reply letter `docs/letters/2026-06-16-request-function-state-in-streams.reply2.md`. Verified + Windows CI green.
