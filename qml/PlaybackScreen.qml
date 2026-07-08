@@ -482,6 +482,15 @@ Item {
     property int retentionDays: 35         // longest tier retention = calendar span
     property var footageDays: []           // dates with recorded footage
     property bool coveragePending: true    // coverage API not yet answered/available
+    // Coverage is fetched at open, but footage keeps accruing while the operator
+    // reviews (e.g. a camera recovering mid-shift) — refresh quietly once a minute
+    // so today's dot appears without re-opening the screen. (2026-07-08: .201
+    // resumed recording after 7 days; the calendar kept showing Jul 1 as last.)
+    Timer {
+        interval: 60000; repeat: true
+        running: root.visible && root.camId !== "" && root.client !== null
+        onTriggered: root.client.fetchCoverage(root.camId)
+    }
 
     function openFor(cam, spanMin) {
         camera = cam;

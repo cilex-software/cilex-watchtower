@@ -63,6 +63,13 @@ Item {
     property int retentionDays: 35
     property var footageDays: []
     property bool coveragePending: true
+    // Quiet 60s refresh while the wall is shown — footage accrues during review
+    // and today's dot must appear without re-entering (see PlaybackScreen's note).
+    Timer {
+        interval: 60000; repeat: true
+        running: root.visible && root.client !== null
+        onTriggered: { var ids = root.camIds(); if (ids.length > 0) root.client.fetchCoverageUnion(ids); }
+    }
 
     // ---- user-assigned wall cameras (picker) -------------------------------
     // The wall is seeded from the live page on entry, but the operator can
