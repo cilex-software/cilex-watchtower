@@ -65,7 +65,7 @@ On real footage, both cameras, via a temporary `WT_TRACE` probe:
 
 **Output:** `docs/perf/2026-07-XX-frame-step-spike.md` + go decision on `FrameClock` (C++) and retry policy. **Abort criterion:** if direct seeks can't land within ±1 frame even with over-seek+retry, stop and reassess against QtAVPlayer (D1 fallback) before writing feature code.
 
-### P1 — Step engine + Forward step + UI (~1 day)
+### P1 — Step engine + Forward step + UI (~1 day) — ✅ DONE 2026-07-08 (forward 100/100 exact, 0 fails, paint p95 ≈100 ms; backward shipped too — always-correct via direct→overseek→walk, but the HOT case costs ~3.4 s: any seek into the recently-stepped zone snaps to its head frame (measured), so only a sequential walk can enter it, and walking re-heats it. That measured pathology PROMOTES the decoded-frame cache from P5 to P2's core.)
 - `FrameStepper.qml` (new, shared component): takes `player`, `videoSink`, callbacks into the host's seek machinery; implements D2's primitive, D3's frameDur estimation, the busy-guard, `[WT-STEP]` trace. (Component, not inline — P4 reuses it on the hero player.)
 - Forward step wired into `PlaybackScreen`: pause-if-playing → play-until-next-frame.
 - **UI:** `stepBack`/`stepFwd` glyphs in `Icon.qml`; two `Ctl` buttons flanking play/pause in the left transport cluster (`|◀` `▶|`), enabled when `frags.length > 0`, tooltips `qsTr("Step back one frame")` / `qsTr("Step forward one frame")`.
@@ -73,7 +73,7 @@ On real footage, both cameras, via a temporary `WT_TRACE` probe:
 - **i18n:** lupdate + RU translations for the new strings (ride-along: wrap the existing transport tooltips — "Back 10s", "Play / pause", "Forward 10s", "Snapshot", "Fullscreen" — in `qsTr()` while touching this file).
 - Acceptance: 100 scripted forward steps → 100 distinct frames (or ≤1 % overshoot with correction noted), p95 < 150 ms, no watchdog trips.
 
-### P2 — Backward step (~1–2 days, the hard one)
+### P2 — Backward step (~1–2 days, the hard one) — RE-SCOPED 2026-07-08: the core is now the bounded decoded-frame cache (promoted from P5) — P1 measured that seeks (either direction) into the decoder's recently-stepped zone snap to its head frame, so seek-based hot back-steps cost ~3.4 s and can't amortize; caching the last ~2 GOPs of displayed frames (sysmem copies, LRU, repaint via QVideoSink::setVideoFrame + position resync on the next real transport op) makes the hot path instant. The verify/edge/soak items below stand.
 - Mid-interval targeting + play-flush + verify/retry per D2/D3; clamp ≥ 0; EOS headroom respected (no forward step past `compactDuration − 0.4 s`).
 - **Edges:** target < window start, or the step crosses a `disc` boundary (`_crossesBoundary`) → route via `seekToWall(playheadWallMs − wallFrameDur)` (the far/re-open slow path; the step completes on the pending-seek-after-session-ready path; traced as `path=far`).
 - Cross-gap semantics documented + asserted in test: back-step at an island head lands on the previous island's tail frame.

@@ -84,6 +84,38 @@
         <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Export Clip</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Back 10s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Step back one frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play / pause</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Step forward one frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Forward 10s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Snapshot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fullscreen</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>PreferencesScreen</name>

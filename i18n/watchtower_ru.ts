@@ -84,6 +84,38 @@
             <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
             <translation>Воспроизведение отключено — просмотр записей и экспорт приостановлены. Это настройка оператора, а не сбой.</translation>
         </message>
+        <message>
+            <source>Export Clip</source>
+            <translation>Экспорт клипа</translation>
+        </message>
+        <message>
+            <source>Back 10s</source>
+            <translation>Назад 10 с</translation>
+        </message>
+        <message>
+            <source>Step back one frame</source>
+            <translation>На кадр назад</translation>
+        </message>
+        <message>
+            <source>Play / pause</source>
+            <translation>Воспроизведение / пауза</translation>
+        </message>
+        <message>
+            <source>Step forward one frame</source>
+            <translation>На кадр вперёд</translation>
+        </message>
+        <message>
+            <source>Forward 10s</source>
+            <translation>Вперёд 10 с</translation>
+        </message>
+        <message>
+            <source>Snapshot</source>
+            <translation>Снимок</translation>
+        </message>
+        <message>
+            <source>Fullscreen</source>
+            <translation>Во весь экран</translation>
+        </message>
     </context>
     <context>
         <name>PreferencesScreen</name>

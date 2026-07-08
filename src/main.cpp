@@ -311,6 +311,8 @@ int main(int argc, char *argv[])
     // measurement sequence in PlaybackScreen and quits.
     engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
+    // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
+    engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));
 
     // Events section routing. The EventsArea redesign is now the DEFAULT (fed by
     // the live cilex-vision /events feed). WT_DEMO runs the same redesign on the

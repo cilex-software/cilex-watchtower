@@ -122,6 +122,7 @@ qt_add_qml_module(watchtower
         qml/SingleCameraDetail.qml
         qml/LiveThumb.qml
         qml/PlaybackScreen.qml
+        qml/FrameStepper.qml
         qml/PlaybackCalendar.qml
         qml/WallPlayback.qml
         qml/ExportDrawer.qml

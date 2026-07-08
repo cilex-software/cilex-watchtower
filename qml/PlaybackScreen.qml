@@ -882,13 +882,34 @@ Item {
 
     // pause streams when hidden; tidy player on hide
     focus: true
-    onVisibleChanged: { if (visible) forceActiveFocus(); else { player.stop(); scanTimer.stop() } }
-    // Timeline zoom keys (Premiere-style): +/- around the playhead, 0 to fit.
+    onVisibleChanged: {
+        if (visible) { forceActiveFocus(); FrameClock.attach(vout.videoSink); }  // warm the PTS ring for frame steps
+        else { player.stop(); scanTimer.stop() }
+    }
+    // Review keys. Frame steps follow the VMS/NLE conventions from the frame-step research
+    // (docs/research/2026-07-07-frame-by-frame-playback-vms.md §5): ,/. always step (pausing
+    // first if playing); ←/→ step ONLY while paused (kept free during play for future use);
+    // Space toggles play/pause. Timeline zoom stays Premiere-style: +/- around the playhead, 0 to fit.
     Keys.onPressed: (e) => {
         if (root.frags.length === 0) return;
         if (e.key === Qt.Key_Plus || e.key === Qt.Key_Equal) { root.zoomView(0.5, root.playheadMs); e.accepted = true; }
         else if (e.key === Qt.Key_Minus || e.key === Qt.Key_Underscore) { root.zoomView(2.0, root.playheadMs); e.accepted = true; }
         else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) { root.resetView(); e.accepted = true; }
+        else if (e.key === Qt.Key_Space) { root.togglePlay(); e.accepted = true; }
+        else if (e.key === Qt.Key_Comma) { stepper.stepBackward(); e.accepted = true; }
+        else if (e.key === Qt.Key_Period) { stepper.stepForward(); e.accepted = true; }
+        else if (e.key === Qt.Key_Left && root.paused) { stepper.stepBackward(); e.accepted = true; }
+        else if (e.key === Qt.Key_Right && root.paused) { stepper.stepForward(); e.accepted = true; }
+    }
+
+    // Single-frame stepping (docs/plans/2026-07-08-frame-step-plan.md P1). The busy-guard
+    // inside drops auto-repeat overflow; requestPause routes through the transport so the
+    // scan timer / speed machinery stay consistent with the paused state.
+    FrameStepper {
+        id: stepper
+        mediaPlayer: player
+        videoSink: vout.videoSink
+        requestPause: function() { if (!root.paused) { root.paused = true; root.applyTransport(); } }
     }
 
     // Drives the playhead during high-speed scan (playSpeed > maxDecodeRate):
@@ -1048,6 +1069,73 @@ Item {
             slog("PTS-SUMMARY valid=" + FrameClock.validPts + " invalid=" + FrameClock.invalidPts
                  + " medianFrameDurMs=" + FrameClock.medianFrameDurMs.toFixed(1));
             slog("DONE");
+            Qt.quit();
+        }
+    }
+
+    // ---- WT_STEPTEST=<N>: FrameStepper acceptance (P1: N forward steps + a 5-step backward
+    // smoke; P2 grows this into the alternating soak). Drives the REAL stepper API, chained
+    // on its signals; logs [STEPT] lines; quits with a summary. Inert unless set.
+    Item {
+        id: stepTest
+        readonly property bool on: (typeof wtStepTest !== "undefined") && wtStepTest > 0
+        property int fwdTarget: on ? wtStepTest : 0
+        property int done: 0
+        property int backDone: 0
+        property string mode: "fwd"        // fwd → back → done
+        property var lats: []
+        property var deltas: []
+        property int fails: 0
+
+        Timer {                            // arm when footage renders; pause first for a clean baseline
+            interval: 400; repeat: true
+            running: stepTest.on && stepTest.mode === "fwd" && stepTest.done === 0
+                     && root._frameSeq > 8 && root.frags.length > 0
+            onTriggered: {
+                running = false;
+                root.paused = true; root.applyTransport();
+                console.log("[STEPT] START fwd=" + stepTest.fwdTarget + " qt=" + wtQtRuntime);
+                kick.start();
+            }
+        }
+        Timer { id: kick; interval: 250; onTriggered: stepper.stepForward() }
+
+        Connections {
+            target: stepper
+            enabled: stepTest.on
+            function onStepped(dir, ptsDeltaMs, latMs, retries) {
+                stepTest.lats.push(latMs); stepTest.deltas.push(ptsDeltaMs);
+                if (stepTest.mode === "fwd") {
+                    stepTest.done++;
+                    if (stepTest.done < stepTest.fwdTarget) { stepper.stepForward(); return; }
+                    stepTest.mode = "back";
+                    console.log("[STEPT] fwd phase complete, backward smoke x5");
+                    stepper.stepBackward();
+                } else {
+                    stepTest.backDone++;
+                    if (stepTest.backDone < 5) { stepper.stepBackward(); return; }
+                    stepTest.finish();
+                }
+            }
+            function onStepFailed(dir, reason) {
+                stepTest.fails++;
+                console.log("[STEPT] FAIL dir=" + dir + " reason=" + reason);
+                if (stepTest.fails > 5) { stepTest.finish(); return; }
+                if (stepTest.mode === "fwd") { stepTest.done++; stepper.stepForward(); }
+                else { stepTest.backDone++; if (stepTest.backDone < 5) stepper.stepBackward(); else stepTest.finish(); }
+            }
+        }
+        function finish() {
+            var lat = lats.slice().sort(function(a, b) { return a - b; });
+            var fwdD = deltas.slice(0, done), backD = deltas.slice(done);
+            var fwdMoved = fwdD.filter(function(d) { return d > 0.5; }).length;
+            var backMoved = backD.filter(function(d) { return d < -0.5; }).length;
+            console.log("[STEPT] SUMMARY fwd=" + done + " fwdMoved=" + fwdMoved
+                        + " back=" + backDone + " backMoved=" + backMoved
+                        + " fails=" + fails
+                        + " latP50=" + (lat.length ? lat[Math.floor(lat.length * 0.5)] : -1)
+                        + " latP95=" + (lat.length ? lat[Math.floor(lat.length * 0.95)] : -1));
+            console.log("[STEPT] DONE");
             Qt.quit();
         }
     }
@@ -1268,7 +1356,7 @@ Item {
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             implicitWidth: expTxt.implicitWidth + 16; implicitHeight: 22; color: Theme.accent
-                            Text { id: expTxt; anchors.centerIn: parent; text: "Export Clip"; color: Theme.bg
+                            Text { id: expTxt; anchors.centerIn: parent; text: qsTr("Export Clip"); color: Theme.bg
                                 font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openExportDrawer() }
                         }
@@ -1292,11 +1380,17 @@ Item {
                         anchors.left: parent.left; anchors.leftMargin: 16
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
-                        Ctl { name: "jumpBack"; tip: "Back 10s"; onClicked: { var p = Math.max(0, player.position - 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var p = Math.max(0, player.position - 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: "stepBack"; tip: qsTr("Step back one frame") + " (,)"
+                            enabled: !stepper.busy
+                            onClicked: stepper.stepBackward() }
                         Ctl { name: root.advancing ? "pause" : "play"
-                            tip: "Play / pause"
+                            tip: qsTr("Play / pause")
                             onClicked: root.togglePlay() }
-                        Ctl { name: "jumpFwd"; tip: "Forward 10s"; onClicked: { var p = Math.min(player.duration, player.position + 10000); player.position = p; root._scanPos = p; } }
+                        Ctl { name: "stepFwd"; tip: qsTr("Step forward one frame") + " (.)"
+                            enabled: !stepper.busy
+                            onClicked: stepper.stepForward() }
+                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var p = Math.min(player.duration, player.position + 10000); player.position = p; root._scanPos = p; } }
                         // speed — popup of x1…x200 (x20+ scans, since the decoder caps ~14×)
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
@@ -1334,8 +1428,8 @@ Item {
                         anchors.right: parent.right; anchors.rightMargin: 16
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
-                        Ctl { name: "shot"; tip: "Snapshot"; onClicked: root.snapshot() }
-                        Ctl { name: "full"; tip: "Fullscreen"; onClicked: root.fullscreenRequested() }
+                        Ctl { name: "shot"; tip: qsTr("Snapshot"); onClicked: root.snapshot() }
+                        Ctl { name: "full"; tip: qsTr("Fullscreen"); onClicked: root.fullscreenRequested() }
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             implicitWidth: rtlRow.implicitWidth + 18; implicitHeight: 30

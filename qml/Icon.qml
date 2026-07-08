@@ -41,6 +41,8 @@ Item {
         "fwd":      { "p": "M9 6l6 6-6 6" },
         "jumpBack": { "p": "M11 8L5 12l6 4 M5 12h11a4 4 0 010 8" },
         "jumpFwd":  { "p": "M13 8l6 4-6 4 M19 12H8a4 4 0 100 8" },
+        "stepBack": { "p": "M8 6v12 M17 7l-7 5 7 5" },
+        "stepFwd":  { "p": "M16 6v12 M7 7l7 5-7 5" },
         "full":     { "p": "M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5" },
         "shot":     { "p": "M3 6h18v14h-18z M8 13 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M9 6l2-2h2l2 2" },
         "bookmark": { "p": "M6 4h12v16l-6-4-6 4V4z" },
