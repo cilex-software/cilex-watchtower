@@ -1,7 +1,7 @@
 # Frame-by-frame stepping (Step Forward / Step Backward) — implementation plan
 
 **Date:** 2026-07-08
-**Status:** P0 DONE (GO — see `docs/perf/2026-07-08-frame-step-spike.md`; §D2's primitive is superseded by the spike's simpler one: paused seeks RENDER on Qt 6.12, PTS 100% valid, no keyframe snapping). P1 next.
+**Status:** P0–P4 ALL DONE 2026-07-08 — the feature is code-complete on both review surfaces. See per-phase markers below + `docs/perf/2026-07-08-frame-step-spike.md` (P0/P1) and `docs/perf/2026-07-08-frame-step-p2-soak.md` (P2/P3). Open manual passes: veil eyes-on, 5-min paused session, hero step on real footage (blocked by the Jul-1 recording outage). P5 items remain deferred.
 **Research input:** `docs/research/2026-07-07-frame-by-frame-playback-vms.md` (25 sources, 23 verified claims — all citations below refer to it).
 **Scope:** single-frame Step Forward/Backward on the playback review surfaces (PlaybackScreen first, events hero player second), plus the supporting review UX (paused-only gating, keyboard conventions, fractional slow-motion). Jog/shuttle hardware, true reverse *play*, and mosaic-wall stepping are explicitly deferred (P5).
 
@@ -87,7 +87,7 @@ On real footage, both cameras, via a temporary `WT_TRACE` probe:
 - Step buttons: pressed-flash on step-complete (the operator feels the frame land).
 - i18n for anything new; RU check.
 
-### P4 — Events hero player reuse (~½ day)
+### P4 — Events hero player reuse (~½ day) — ✅ DONE 2026-07-08 (stepper + |◀ ▶| buttons + veil + resume/invalidate hooks mounted; playback soak regression green — 80 steps, 0 wrong-way, no singleton contention. CAVEAT: end-to-end hero step on real footage is blocked by the backend recording outage — the newest 100 events all return 0-ready-fragment manifests (HTTP 200, empty; the Jul-1 recording stop). Engine is identical to the soak-proven PlaybackScreen path; verify on the first footage-bearing event once recording resumes.)
 - Mount `FrameStepper` in `EvHeroPlayer` (it already has `_frameSeq`, the sink connection, `seekToWall`, `_speed`); step buttons in its control row; same keys when the hero has focus. Event clips are short single-fragment sessions — the simple path throughout (no window-edge cases).
 - Acceptance: step through a motion clip frame-by-frame both directions; `WT_HERO_TEST` unaffected.
 

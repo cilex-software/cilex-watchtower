@@ -31,7 +31,9 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   i18n; forward 100/100 exact. **P2 DONE**: FrameCache decoded-frame cache (hot back-step
   ~3400→~0 ms, ≥95 % cache hits), window-edge/disc fallbacks, alternating soaks green on both
   codecs (0 wrong-way in 260 steps) — [`docs/perf/2026-07-08-frame-step-p2-soak.md`](perf/2026-07-08-frame-step-p2-soak.md).
-  **Next: P3 (UX polish) + P4 (events-hero reuse).**
+  **P3 DONE** (¼×/½× speeds, Shift+arrows ±5f, .mmm paused readout, freeze-frame veil). **P4 DONE**
+  (stepper on the events hero; playback soak regression green). Feature CODE-COMPLETE; manual passes
+  open: veil eyes-on, 5-min paused session, hero step on real footage (blocked by the recording outage).
 - **🔴 Operational (found by the spike): NO camera has recorded since 2026-07-01 15:16 UTC** —
   `live_gap_s≈6.3 days` while `functions.recording.enabled=true`. `.67` = known login lockout, but
   `.201` also stopped Jul 1 → the fleet currently records nothing. Needs CV-side investigation.

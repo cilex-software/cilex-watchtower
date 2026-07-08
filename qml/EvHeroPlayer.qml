@@ -114,12 +114,14 @@ Item {
     onSurfacedChanged: if (!surfaced && player.playbackState === MediaPlayer.PlayingState) player.pause()
 
     function _reset() {
+        heroStepper.invalidate();   // cached frames belong to the torn-down clip
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false;
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
         seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
     }
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
+        heroStepper.invalidate();   // fresh session: cache/divergence are stale
         _started = true;
         if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
@@ -145,6 +147,7 @@ Item {
     //    the target — the A1 PlaybackScreen workaround. Either way the episode timeline (tl*) is kept.
     function seekToWall(wall) {
         if (!_started) return;
+        heroStepper.invalidate();   // a real seek supersedes any cache-step state / in-flight step
         wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
         if (_continuous) {
             if (_armed && _frags.length > 0 && _crossesBoundary(_playheadWallMs, wall)) { _seekFar(wall); return; }
@@ -165,6 +168,7 @@ Item {
     }
     function _seekFar(wall) {
         if (!ev || !playbackClient) return;
+        heroStepper.invalidate();   // re-open supersedes cache/divergence
         var ep = EventsStore.episodeWindow(ev);
         if (_htOn) console.log("[HT] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count = the leak proxy
         seekWatch.stop(); _seekWatchSeq = -1;                            // a re-open supersedes any pending direct-seek watch
@@ -204,7 +208,40 @@ Item {
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
     function toggle() {   // Space / play button: first press loads the recording on demand
         if (!hp._started) { hp._open(); return; }
-        player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play();
+        if (player.playbackState === MediaPlayer.PlayingState) {
+            player.pause();
+        } else {
+            heroStepper.resumeForPlay();   // if a cache-stepped frame is shown, play from IT
+            player.play();
+        }
+    }
+
+    // Single-frame stepping on the hero player (docs/plans/2026-07-08-frame-step-plan.md P4)
+    // — the same engine as PlaybackScreen. Event clips are short single-window sessions,
+    // so the simple paths dominate; edge steps route into the hero's own wall-seek.
+    FrameStepper {
+        id: heroStepper
+        mediaPlayer: player
+        videoSink: vout.videoSink
+        requestPause: function() { if (player.playbackState === MediaPlayer.PlayingState) player.pause(); }
+        crossesDisc: function(fromMs, toMs) {
+            return hp._armed && hp._frags.length > 0
+                   && hp._crossesBoundary(hp._posToWall(fromMs), hp._posToWall(toMs));
+        }
+        edgeFallback: function(dir) {
+            var dur = FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50;
+            hp.seekToWall(hp._playheadWallMs + dir * Math.max(40, dur));
+        }
+        veilGrab: function() {
+            vout.grabToImage(function(res) { hp._veilRes = res; heroVeil.source = res.url; });
+        }
+    }
+    property var _veilRes: null   // keeps the grab result alive while the veil shows it
+    Connections {                 // playhead follows the step cursor while diverged
+        target: heroStepper
+        function onStepped(dir, ptsDeltaMs, latMs, retries) {
+            if (heroStepper.diverged) hp._smoothMs = Math.max(0, heroStepper.cursorPosEstMs);
+        }
     }
 
     Connections {
@@ -256,6 +293,15 @@ Item {
             color: "#000"; clip: true
 
             VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
+            // Freeze-frame veil: holds the pre-step image while a backward step's
+            // recovery (overseek + frame-walk) churns frames underneath.
+            Image {
+                id: heroVeil
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectFit
+                cache: false
+                visible: heroStepper.veiled && status === Image.Ready
+            }
             MediaPlayer {
                 id: player
                 videoOutput: vout
@@ -360,6 +406,14 @@ Item {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 9
 
+                Rectangle {                                // step back one frame (paused-only engine; pauses first)
+                    Layout.preferredWidth: 30; Layout.preferredHeight: 34
+                    color: sb.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sb.containsMouse ? Theme.ink3 : Theme.line2
+                    opacity: heroStepper.busy || !hp._started ? 0.4 : 1
+                    Icon { anchors.centerIn: parent; name: "stepBack"; size: 14; color: Theme.ink }
+                    MouseArea { id: sb; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: if (hp._started && !heroStepper.busy) heroStepper.stepBackward() }
+                }
                 Rectangle {                                // play / pause
                     Layout.preferredWidth: 34; Layout.preferredHeight: 34
                     color: pp.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: pp.containsMouse ? Theme.ink3 : Theme.line2
@@ -368,6 +422,14 @@ Item {
                     EvIcon { anchors.centerIn: parent; visible: player.playbackState !== MediaPlayer.PlayingState; name: "play"; size: 15; color: Theme.ink }
                     MouseArea { id: pp; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: hp.toggle() }
+                }
+                Rectangle {                                // step forward one frame
+                    Layout.preferredWidth: 30; Layout.preferredHeight: 34
+                    color: sf.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sf.containsMouse ? Theme.ink3 : Theme.line2
+                    opacity: heroStepper.busy || !hp._started ? 0.4 : 1
+                    Icon { anchors.centerIn: parent; name: "stepFwd"; size: 14; color: Theme.ink }
+                    MouseArea { id: sf; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: if (hp._started && !heroStepper.busy) heroStepper.stepForward() }
                 }
                 Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b1.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b1.containsMouse ? Theme.ink3 : Theme.line2
                     Text { anchors.centerIn: parent; text: "−10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
