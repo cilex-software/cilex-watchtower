@@ -43,6 +43,12 @@ Item {
     readonly property bool busy: _state !== _Idle
     // Shown frame came from the cache; the player is parked elsewhere (at _cohPts).
     property bool diverged: false
+    // The recovery machinery (overseek + walk) is churning frames the operator must
+    // not see — the host shows a freeze-frame of the pre-step image while this is up.
+    property bool veiled: false
+    // Host hook: grab the currently shown frame (async) so the veil has an image to
+    // hold. Called at the start of every seek-path back-step, before any seek moves.
+    property var veilGrab: null
     // Position-domain estimate of the SHOWN frame (for host playhead sync while diverged).
     readonly property double cursorPosEstMs: FrameClock.lastPtsMs + _anchorOff
     property string lastPath: ""              // flush | cache | direct | walk | edge
@@ -84,6 +90,7 @@ Item {
         _anchorOff = mediaPlayer.position - landedPts;
         _cohPts = landedPts;
         diverged = false;
+        veiled = false;
         FrameCache.capturing = false;
         _state = _Idle;
         watchdog.stop();
@@ -95,6 +102,7 @@ Item {
         FrameCache.clear();
         FrameCache.capturing = false;
         diverged = false;
+        veiled = false;
         if (_state !== _Idle) { _state = _Idle; watchdog.stop(); settle.stop(); _tr("invalidated mid-step"); }
     }
     // Host calls before resuming playback while diverged: park the player just
@@ -177,6 +185,7 @@ Item {
             stepFailed(-1, "window edge");
             return false;
         }
+        if (veilGrab) veilGrab();             // freeze-frame source, ready if recovery kicks in
         _dir = -1; _retries = 0; _walked = 0; _overMs = 300; _tPaint = -1;
         _ptsBefore = cursor;
         _tCmd = Date.now();
@@ -191,6 +200,7 @@ Item {
     function _overseek() {
         _retries++;
         _state = _BackOverseek;
+        veiled = true;                        // recovery churn starts — hold the pre-step frame
         watchdog.restart();
         var newPos = Math.max(0, Math.round(_targetPts - _overMs + _anchorOff));
         mediaPlayer.position = newPos;
@@ -256,7 +266,7 @@ Item {
                     stepper._overMs = Math.min(stepper._overMs * 2, 1600);   // still in the zone: further behind
                     stepper._overseek();
                 } else {
-                    stepper._state = stepper._Idle; watchdog.stop(); FrameCache.capturing = false;
+                    stepper._state = stepper._Idle; watchdog.stop(); FrameCache.capturing = false; stepper.veiled = false;
                     stepper._tr("back FAILED: overseek could not get behind target (landed=" + landed.toFixed(1) + ")");
                     stepper.stepFailed(-1, "seek stuck");
                 }
@@ -276,7 +286,7 @@ Item {
                     watchdog.restart();
                     stepper.mediaPlayer.play();
                 } else {
-                    stepper._state = stepper._Idle; watchdog.stop(); FrameCache.capturing = false;
+                    stepper._state = stepper._Idle; watchdog.stop(); FrameCache.capturing = false; stepper.veiled = false;
                     stepper._tr("back FAILED: walk exhausted before target");
                     stepper.stepFailed(-1, "walk exhausted");
                 }
@@ -294,6 +304,7 @@ Item {
             var dir = stepper._dir;
             stepper._state = stepper._Idle;
             FrameCache.capturing = false;
+            stepper.veiled = false;
             if (stepper.mediaPlayer) stepper.mediaPlayer.pause();            // never leave it rolling
             stepper._tr("WATCHDOG dir=" + dir + " (no frame in " + interval + "ms)");
             stepper.stepFailed(dir, "timeout");

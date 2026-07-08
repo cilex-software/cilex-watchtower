@@ -333,8 +333,11 @@ Item {
     // maxDecodeRate we "scan": the player keeps playing (so frames render) while
     // a timer jumps the playhead forward by rate×interval — a true high-speed
     // fast-forward (how VMS clients race through hours of footage).
-    readonly property var speeds: [1, 2, 4, 10, 20, 50, 100, 200]
+    // ¼×/½× = slow-motion review (research §1: fractional rates for detail analysis
+    // without clicking); they ride the same playbackRate path as 2×/4×.
+    readonly property var speeds: [0.25, 0.5, 1, 2, 4, 10, 20, 50, 100, 200]
     readonly property real maxDecodeRate: 10
+    function fmtSpeed(s) { return s === 0.25 ? "¼×" : s === 0.5 ? "½×" : s + "×"; }
     property real playSpeed: 1
     property bool paused: false
     property double _scanPos: -1          // scan accumulator (compact ms)
@@ -904,8 +907,30 @@ Item {
         else if (e.key === Qt.Key_Space) { root.togglePlay(); e.accepted = true; }
         else if (e.key === Qt.Key_Comma) { stepper.stepBackward(); e.accepted = true; }
         else if (e.key === Qt.Key_Period) { stepper.stepForward(); e.accepted = true; }
+        else if (e.key === Qt.Key_Left && root.paused && (e.modifiers & Qt.ShiftModifier)) { root.stepBurst(-1, 5); e.accepted = true; }
+        else if (e.key === Qt.Key_Right && root.paused && (e.modifiers & Qt.ShiftModifier)) { root.stepBurst(1, 5); e.accepted = true; }
         else if (e.key === Qt.Key_Left && root.paused) { stepper.stepBackward(); e.accepted = true; }
         else if (e.key === Qt.Key_Right && root.paused) { stepper.stepForward(); e.accepted = true; }
+    }
+
+    // Shift+←/→ = ±5 frames (the Premiere "step many" convention, research §5): a burst
+    // of single steps chained on the stepper's completion — the busy-guard stays intact
+    // and any failure (edge/timeout) cancels the remainder.
+    property int _burstLeft: 0
+    property int _burstDir: 0
+    function stepBurst(dir, n) {
+        if (stepper.busy) return;
+        _burstDir = dir; _burstLeft = n - 1;
+        if (!(dir > 0 ? stepper.stepForward() : stepper.stepBackward())) _burstLeft = 0;
+    }
+    Connections {
+        target: stepper
+        function onStepped(dir, ptsDeltaMs, latMs, retries) {
+            if (root._burstLeft <= 0) return;
+            root._burstLeft--;
+            if (!(root._burstDir > 0 ? stepper.stepForward() : stepper.stepBackward())) root._burstLeft = 0;
+        }
+        function onStepFailed(dir, reason) { root._burstLeft = 0; }
     }
 
     // Single-frame stepping (docs/plans/2026-07-08-frame-step-plan.md P1+P2). The busy-guard
@@ -922,7 +947,11 @@ Item {
             var dur = FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50;
             root.seekToWall(root.playheadMs + dir * Math.max(40, dur));
         }
+        veilGrab: function() {
+            vout.grabToImage(function(res) { root._veilRes = res; veilImg.source = res.url; });
+        }
     }
+    property var _veilRes: null   // keeps the grab result alive while the veil shows it
     // While the shown frame comes from the cache, the player's position is parked
     // elsewhere — drive the playhead marker from the stepper's cursor instead.
     Connections {
@@ -1240,6 +1269,16 @@ Item {
                 clip: true
 
                 VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
+                // Freeze-frame veil: while a backward step's recovery machinery
+                // (overseek + frame-walk) churns frames underneath, hold the pre-step
+                // image so the operator sees their frame "held", then the target lands.
+                Image {
+                    id: veilImg
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectFit
+                    cache: false
+                    visible: stepper.veiled && status === Image.Ready
+                }
                 MediaPlayer {
                     id: player
                     videoOutput: vout
@@ -1366,8 +1405,11 @@ Item {
                         Text { text: root.camera ? root.camera.name : ""; color: "#fff"
                             font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
                         Item { Layout.fillWidth: true }
-                        // primary playhead readout — the main time reference while reviewing
+                        // primary playhead readout — the main time reference while reviewing.
+                        // Paused adds milliseconds so single-frame steps are visibly counted
+                        // (frames are 25-100 ms apart on this fleet); playing keeps the calm clock.
                         Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") + " · " + root.fmtClock(root.playheadMs)
+                                     + (root.paused ? "." + String(Math.floor(root.playheadMs % 1000)).padStart(3, "0") : "")
                             color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 22; font.weight: Font.DemiBold
                             font.letterSpacing: 0.5; visible: root.frags.length > 0 }
                     }
@@ -1428,7 +1470,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             implicitWidth: 48; implicitHeight: 30; color: spdMa.containsMouse ? Theme.accent : Qt.rgba(0,0,0,0.5)
                             border.width: 1; border.color: spdMa.containsMouse ? Theme.accent : Theme.line2
-                            Text { anchors.centerIn: parent; text: root.playSpeed + "×"; color: spdMa.containsMouse ? Theme.bg : "#fff"
+                            Text { anchors.centerIn: parent; text: root.fmtSpeed(root.playSpeed); color: spdMa.containsMouse ? Theme.bg : "#fff"
                                 font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
                             MouseArea { id: spdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                 onClicked: spdPopup.open() }
@@ -1444,7 +1486,7 @@ Item {
                                             required property var modelData
                                             width: 66; height: 30
                                             color: spdOptMa.containsMouse ? Theme.panel2 : "transparent"
-                                            Text { anchors.centerIn: parent; text: modelData + "×"
+                                            Text { anchors.centerIn: parent; text: root.fmtSpeed(modelData)
                                                 color: root.playSpeed === modelData ? Theme.accent : Theme.ink
                                                 font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
                                             MouseArea { id: spdOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

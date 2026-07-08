@@ -80,7 +80,7 @@ On real footage, both cameras, via a temporary `WT_TRACE` probe:
 - `WT_STEPTEST` harness: N alternating fwd/back steps → monotonic-alternation check (every back-step must move strictly back, every fwd strictly forward — by PTS when readable, by `player.position` else), stall count 0, p95 back < 500 ms (GOP-bound; re-baseline against P0's GOP finding).
 - Acceptance: 200-step alternating soak clean on **both** cameras (H.264 + HEVC), plus a manual eyes-on pass (step through a motion event; verify no black flashes, no watchdog re-opens, session survives 5 min of paused stepping).
 
-### P3 — Review-UX polish (~½–1 day)
+### P3 — Review-UX polish (~½–1 day) — ✅ DONE 2026-07-08 (¼×/½× speeds in the popup via the existing playbackRate path; Shift+←/→ = ±5-frame burst chained on the stepper's signals; .mmm readout while paused; freeze-frame veil holds the pre-step image while overseek+walk recovery churns — 120-step regression soak green, 0 wrong-way, 0 fails)
 - **Fractional speeds:** prepend ¼× and ½× to `speeds` (`playbackRate` carries them natively; `scanTimer` path untouched; the popup renders "¼×" style labels).
 - **Shift+←/→** = ±5 frames (loop of the step primitive with the busy-guard).
 - **Milliseconds readout while paused:** the primary playhead readout gains `.mmm` when `paused` (steps must be *visibly* counted; playing keeps the calm HH:MM:SS).
