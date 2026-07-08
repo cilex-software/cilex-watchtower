@@ -91,7 +91,7 @@ On real footage, both cameras, via a temporary `WT_TRACE` probe:
 - Mount `FrameStepper` in `EvHeroPlayer` (it already has `_frameSeq`, the sink connection, `seekToWall`, `_speed`); step buttons in its control row; same keys when the hero has focus. Event clips are short single-fragment sessions — the simple path throughout (no window-edge cases).
 - Acceptance: step through a motion clip frame-by-frame both directions; `WT_HERO_TEST` unaffected.
 
-### P5 — Deferred (documented, not scheduled)
+### P5 — Deferred (documented, not scheduled) — PARTIALLY DELIVERED 2026-07-08 evening: the jog/shuttle UX arrived as the FILMSTRIP FRAME MODE (`c8d7023`, operator-requested): `F` toggles a big-thumbnail strip (cache-served, current centered/accented), held arrows ramp 400→66 ms (the software jog), thumb-click jumps. Still deferred: true reverse play, hardware jog devices, mosaic stepping, server-side thumbnail API (strip slots for unvisited ranges).
 - **GOP decoded-frame ring cache** (C++): bounded (~24–48 frames, sysmem copies — never retain HW-pool frames), LRU, repaint via `QVideoSink::setVideoFrame()` → instant repeated back-steps + smooth reverse-jog. This is the mpv `reverse_queue`/patent-LRU design; only worth it if P2's seek-per-back-step latency annoys in practice.
 - **True reverse playback** (`J`, −1×…−8×): needs the cache above + sustained reverse pipelines; substantial.
 - **Jog/shuttle UI + hardware jog** (Contour-class devices): jog = step, shuttle = speed — maps 1:1 onto `FrameStepper` + `setSpeed()` when wanted.

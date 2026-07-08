@@ -4,6 +4,26 @@ _Last updated: 2026-07-08. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-08 evening) — outage resolved; review-UX burst (filmstrip frame mode, ARMED freshness, calendar refresh, VIEW ISSUE fix)
+
+- **Frame-by-frame FILMSTRIP MODE** (`c8d7023`): `F` in playback swaps the toolbar row for a
+  big-thumbnail strip (current frame centered/accented, per-frame `.mmm` labels; thumbs served from
+  the decoded-frame cache via `image://fcache`, store now mutex-guarded); `←/→` tap = 1 frame, HELD =
+  slow→fast shuttle ramp (400→66 ms); thumb click jumps; veiled ~0.7 s warmup pre-fills; F/Esc exits.
+  `WT_FRAME_MODE` dev hook. Verified live on `.201`'s same-hour footage; Windows CI green.
+- **ARMED badge shows motion-event freshness** (`190176f`): `ARMED · 4m/2h/3d/now`, dot pulses on a
+  fresh event, amber after >24 h eventless — the "visible movement but no events" mismatch is now
+  glanceable. Per-camera last-motion tracked in EventModel (motionRev counter binding — deliberately
+  no row re-paging, which restarts tile RTSP). Visual proof pending a motion-armed camera.
+- **Footage calendar refreshes while open** (`e7a8cd7`): 60 s quiet re-fetch (both calendars) — the
+  "recording resumed but the calendar still says Jul 1" report; verified live with today's dot.
+- **VIEW ISSUE tile link fixed** (`f725784`): the signal was emitted but handled nowhere; now lands on
+  Health with the camera's detail panel open; hover underline + padded hit area; strip z-raised.
+- **Recording outage RESOLVED** — see the 4-fault chain above / letter UPDATE 3. **Still pending:
+  operator fixes `.201` clock (Provisioner) → re-arm motion (one API call, ours) → events return →
+  ARMED-freshness + hero frame-step get real-world verification.**
+- Windows session-2 prompt for the laptop: `docs/plans/windows-port/2026-07-08-w2w3-session2.prompt.md`.
+
 ## Current status (2026-07-07/08) — RU i18n shipped; W2 core gates green on real GPU; frame-step planned
 
 - **Russian language support shipped** (`b452783`) — EN/RU, OS-language default (`QLocale::system()`),
