@@ -55,4 +55,14 @@ This refines the asks:
 
 On our side: we'll power-cycle `.67` (and confirm the lockout stays clear now that both bad go2rtc entries are parked). The fleet confirmation is in the UPDATE above — the environmental branch is closed, `.201` is yours.
 
+## UPDATE 2 (same day, post-power-cycle) — `.67`'s real root cause: the registry credentials are WRONG
+
+The operator power-cycled `.67`. The lock cleared (`ISAPI userCheck: lockStatus=unlock`) — and with the lock out of the way, **`admin:Qwerty12!` got a clean 401**. The password in your camera registry (the one go2rtc's `cam-192-168-1-67` URLs carry) **is not this camera's admin password.** Consequences:
+
+- The perpetual lockout was never (only) the parked stale entries: **the registry's own retries are the wrong-password source**, so the camera re-locks within minutes of any unlock, indefinitely, until the credentials are fixed.
+- There is **no API path to fix it**: `PATCH /cameras/{camera_id}` only accepts `restricted`/`events_enabled` — no credential update, no way to pause pulling. Registry credentials appear editable only out-of-band.
+- **Ask (adds to the list): a credential-update path for a registered camera** (API or admin-console), plus ideally an auth-failure circuit-breaker in the puller: N consecutive 401s → back off for minutes and surface a "credentials rejected" camera state, instead of retrying into the camera's illegal-login lock forever. Today the system converts one wrong password into a permanent, silent camera outage.
+
+Operator-side resolution in progress: factory-reset + re-activation of `.67` with a known password (details our side); once the camera's real password matches the registry's `Qwerty12!`, the existing registration heals with no CV-side change.
+
 — Watchtower

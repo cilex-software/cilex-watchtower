@@ -38,8 +38,9 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   Letter (updated same day with the operator-confirmed fleet):
   [`docs/letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md`](letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md).
   **Fleet reality (operator, 07-08): all DS-I456Z(B) unplugged for client-site install.** Present: `.201`
-  DS-I402(D) activated — **never records; THE CV ask**; `.67` IPC-B020(C) — login-locked, power-cycle
-  pending (bad go2rtc `cam-1` parked 07-07); `.64` DS-I259M(C) — unactivated (stale go2rtc `cam-2`
+  DS-I402(D) activated — **never records; THE CV ask**; `.67` IPC-B020(C) — **registry password WRONG** (post-power-cycle:
+  unlock + clean 401 on `Qwerty12!`); the registry's own retries re-lock it perpetually; fix =
+  factory-reset + re-activate with `Qwerty12!` (operator); `.64` DS-I259M(C) — unactivated (stale go2rtc `cam-2`
   wrong-password entry **parked 07-08** before it could lock this one out too; backup `.bak-2026-07-08`);
   Trassir TR-D2121CL3 (MAC f0:23:b9:72:ac:e3) — awaiting CV Provisioner vendor support. Also asked CV:
   inventory hygiene for the 29 ghost registrations (kills the motion_not_ready flood) + a
