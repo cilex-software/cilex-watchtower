@@ -143,6 +143,14 @@
             <source>Fullscreen</source>
             <translation>Во весь экран</translation>
         </message>
+        <message>
+            <source>FRAME-BY-FRAME</source>
+            <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
+        </message>
+        <message>
+            <source>F / Esc to exit</source>
+            <translation>F / Esc — выход</translation>
+        </message>
     </context>
     <context>
         <name>PreferencesScreen</name>

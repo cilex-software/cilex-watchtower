@@ -311,9 +311,14 @@ int main(int argc, char *argv[])
     // Inert until a QML surface attaches its videoSink. WT_STEPSPIKE=<reps> runs the P0
     // measurement sequence in PlaybackScreen and quits.
     engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
-    // Decoded-frame cache: instant hot backward steps (capture is step-gated inside FrameStepper).
-    engine.rootContext()->setContextProperty("FrameCache", new FrameCache(&app));
+    // Decoded-frame cache: instant hot backward steps (capture is step-gated inside
+    // FrameStepper) + the frame-by-frame filmstrip's thumbnails (image://fcache/...).
+    auto *frameCache = new FrameCache(&app);
+    engine.rootContext()->setContextProperty("FrameCache", frameCache);
+    engine.addImageProvider(QStringLiteral("fcache"), new FrameCacheImageProvider(frameCache));
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
+    // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
+    engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));
     // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
     engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));
 

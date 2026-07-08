@@ -913,6 +913,16 @@ Item {
         if (e.key === Qt.Key_Plus || e.key === Qt.Key_Equal) { root.zoomView(0.5, root.playheadMs); e.accepted = true; }
         else if (e.key === Qt.Key_Minus || e.key === Qt.Key_Underscore) { root.zoomView(2.0, root.playheadMs); e.accepted = true; }
         else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) { root.resetView(); e.accepted = true; }
+        else if (e.key === Qt.Key_F && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier)) && !e.isAutoRepeat) {
+            root.frameMode ? root.exitFrameMode() : root.enterFrameMode(); e.accepted = true;
+        }
+        else if (e.key === Qt.Key_Escape && root.frameMode) { root.exitFrameMode(); e.accepted = true; }
+        // frameMode arrows: single step on tap; HELD, they ramp slow→fast (own cadence —
+        // the key's autorepeat events are swallowed, rampT drives the pace).
+        else if (root.frameMode && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
+            if (!e.isAutoRepeat) root.rampStart(e.key === Qt.Key_Right ? 1 : -1);
+            e.accepted = true;
+        }
         else if (e.key === Qt.Key_Space) { root.togglePlay(); e.accepted = true; }
         else if (e.key === Qt.Key_Comma) { stepper.stepBackward(); e.accepted = true; }
         else if (e.key === Qt.Key_Period) { stepper.stepForward(); e.accepted = true; }
@@ -920,6 +930,98 @@ Item {
         else if (e.key === Qt.Key_Right && root.paused && (e.modifiers & Qt.ShiftModifier)) { root.stepBurst(1, 5); e.accepted = true; }
         else if (e.key === Qt.Key_Left && root.paused) { stepper.stepBackward(); e.accepted = true; }
         else if (e.key === Qt.Key_Right && root.paused) { stepper.stepForward(); e.accepted = true; }
+    }
+    Keys.onReleased: (e) => {
+        if (root.frameMode && !e.isAutoRepeat && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
+            root.rampStop(); e.accepted = true;
+        }
+    }
+
+    // ---- frame-by-frame MODE (F): filmstrip UI + hold-to-shuttle arrows ----------
+    // The bottom toolbar row swaps for a big-thumbnail filmstrip (current frame
+    // centered/accented); ←/→ step one frame and, held, ramp from slow to fast.
+    property bool frameMode: false
+    function enterFrameMode() {
+        if (frags.length === 0) return;
+        paused = true; applyTransport();
+        FrameClock.attach(vout.videoSink);
+        FrameCache.attach(vout.videoSink);
+        frameMode = true;
+        warmup.begin();
+    }
+    function exitFrameMode() {
+        frameMode = false;
+        rampStop();
+        warmup.active = false;
+    }
+    // Map a cached frame's PTS to a wall clock with milliseconds (filmstrip labels).
+    function frameClockOf(pts) {
+        var wall = posToWall((pts + stepper.anchorOffMs) / 1000);
+        return fmtClock(wall) + "." + String(Math.floor(wall % 1000)).padStart(3, "0");
+    }
+    // Hold-to-shuttle ramp: first step immediate, then accelerating cadence
+    // 400→66 ms (×0.85 per step) — a held arrow grows from careful single steps
+    // into a fast scrub. Backward rides the cache (instant); forward flushes
+    // (~60–130 ms) naturally cap near the ramp floor.
+    property int _rampDir: 0
+    property real _rampIv: 400
+    function rampStart(dir) {
+        if (rampT.running && _rampDir === dir) return;
+        _rampDir = dir; _rampIv = 400;
+        _rampStep();
+        rampT.interval = _rampIv; rampT.restart();
+    }
+    function rampStop() { _rampDir = 0; rampT.stop(); }
+    function _rampStep() {
+        if (_rampDir > 0) stepper.stepForward();
+        else if (_rampDir < 0) stepper.stepBackward();
+    }
+    Timer {
+        id: rampT; repeat: true
+        onTriggered: {
+            if (root._rampDir === 0) { stop(); return; }
+            root._rampStep();
+            root._rampIv = Math.max(66, root._rampIv * 0.85);
+            interval = root._rampIv;
+        }
+    }
+    // Mode-entry warmup: pre-fill the filmstrip's forward neighbors (4 flush steps,
+    // then 4 instant cache-steps back to the origin), veiled so the operator sees
+    // their frame held while the strip populates. Skipped when already cached.
+    Item {
+        id: warmup
+        property bool active: false
+        property int fwdLeft: 0
+        property int backLeft: 0
+        function begin() {
+            if (stepper.busy || !stepper.ready) return;
+            if (FrameCache.cachedAround(FrameClock.lastPtsMs, 0, 3).length >= 3) return;
+            if (stepper.veilGrab) stepper.veilGrab();
+            active = true; fwdLeft = 4; backLeft = 4;
+            stepper.stepForward();
+        }
+        Connections {
+            target: stepper
+            enabled: warmup.active
+            function onStepped(dir, ptsDeltaMs, latMs, retries) {
+                if (warmup.fwdLeft > 0) {
+                    warmup.fwdLeft--;
+                    if (warmup.fwdLeft > 0) { stepper.stepForward(); return; }
+                    stepper.stepBackward(); return;          // return leg (cache, instant)
+                }
+                if (warmup.backLeft > 0) {
+                    warmup.backLeft--;
+                    if (warmup.backLeft > 0) { stepper.stepBackward(); return; }
+                }
+                warmup.active = false;
+            }
+            function onStepFailed(dir, reason) { warmup.active = false; }
+        }
+    }
+    Timer {                    // dev/test hook: WT_FRAME_MODE auto-enters once footage renders
+        interval: 500; repeat: true
+        running: (typeof wtFrameMode !== "undefined") && wtFrameMode && !root.frameMode
+        onTriggered: if (root._frameSeq > 8 && root.frags.length > 0) root.enterFrameMode()
     }
 
     // Shift+←/→ = ±5 frames (the Premiere "step many" convention, research §5): a burst
@@ -1286,7 +1388,7 @@ Item {
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectFit
                     cache: false
-                    visible: stepper.veiled && status === Image.Ready
+                    visible: (stepper.veiled || warmup.active) && status === Image.Ready
                 }
                 MediaPlayer {
                     id: player
@@ -1646,13 +1748,36 @@ Item {
         // ---- timeline ----------------------------------------------------
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 124
+            // frameMode swaps the 22px controls row for the ~96px filmstrip
+            Layout.preferredHeight: root.frameMode ? 200 : 124
+            Behavior on Layout.preferredHeight { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
             color: Theme.bg
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
+
+            // frame-by-frame filmstrip (frameMode) — replaces the controls row
+            FrameStrip {
+                id: frameStripItem
+                visible: root.frameMode
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 8
+                height: 96
+                currentPts: FrameClock.lastPtsMs
+                clockOf: function(pts) { return root.frameClockOf(pts); }
+                onJumpRequested: (pts) => stepper.jumpToCachedPts(pts)
+                Rectangle {                        // mode chip: what this is + how to leave
+                    anchors.right: parent.right; anchors.top: parent.top
+                    implicitWidth: fmChip.implicitWidth + 14; implicitHeight: 18
+                    color: Qt.rgba(0, 0, 0, 0.65); border.width: 1; border.color: Theme.accent
+                    Text { id: fmChip; anchors.centerIn: parent
+                        text: qsTr("FRAME-BY-FRAME") + " · " + qsTr("F / Esc to exit") + " · ← →"
+                        color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.8 }
+                }
+            }
 
             // controls row
             RowLayout {
                 id: tlControls
+                visible: !root.frameMode
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
                 anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 12
                 height: 22; spacing: 8
@@ -1689,7 +1814,8 @@ Item {
             Rectangle {
                 id: bar
                 anchors.left: parent.left; anchors.right: parent.right
-                anchors.top: tlControls.bottom; anchors.topMargin: 10
+                anchors.top: root.frameMode ? frameStripItem.bottom : tlControls.bottom
+                anchors.topMargin: 10
                 anchors.leftMargin: 16; anchors.rightMargin: 16
                 height: 78
                 color: "#16140f"; border.width: 1; border.color: Theme.line

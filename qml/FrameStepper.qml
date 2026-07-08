@@ -51,6 +51,8 @@ Item {
     property var veilGrab: null
     // Position-domain estimate of the SHOWN frame (for host playhead sync while diverged).
     readonly property double cursorPosEstMs: FrameClock.lastPtsMs + _anchorOff
+    // PTS→position offset for mapping arbitrary cached PTS to wall time (filmstrip labels).
+    readonly property double anchorOffMs: _anchorOff
     property string lastPath: ""              // flush | cache | direct | walk | edge
 
     signal stepped(int dir, real ptsDeltaMs, int latMs, int retries)
@@ -115,6 +117,22 @@ Item {
         _tr("resumeForPlay → pos=" + pos + " (300ms behind shown frame)");
         diverged = false;
         FrameCache.clear();
+    }
+
+    // Jump straight to a cached frame (filmstrip thumbnail click). Instant repaint;
+    // divergence bookkeeping matches the cache step paths.
+    function jumpToCachedPts(pts) {
+        if (!ready || busy) { _tr("drop jump (busy)"); return false; }
+        _attach();
+        requestPause();
+        var cursor = FrameClock.lastPtsMs;
+        var landed = FrameCache.repaint(pts, _tol());
+        if (landed < 0) { _tr("jump miss pts=" + pts.toFixed(1)); return false; }
+        diverged = !(_cohPts >= 0 && Math.abs(landed - _cohPts) <= _tol());
+        lastPath = "cache";
+        _tr("jump cache pts=" + landed.toFixed(1));
+        stepped(landed >= cursor ? 1 : -1, landed - cursor, 0, 0);
+        return true;
     }
 
     function stepForward() {

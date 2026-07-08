@@ -143,6 +143,14 @@
         <source>Fullscreen</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>FRAME-BY-FRAME</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F / Esc to exit</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>PreferencesScreen</name>

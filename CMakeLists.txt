@@ -123,6 +123,7 @@ qt_add_qml_module(watchtower
         qml/LiveThumb.qml
         qml/PlaybackScreen.qml
         qml/FrameStepper.qml
+        qml/FrameStrip.qml
         qml/PlaybackCalendar.qml
         qml/WallPlayback.qml
         qml/ExportDrawer.qml
