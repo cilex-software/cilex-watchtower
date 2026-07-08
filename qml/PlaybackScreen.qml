@@ -911,6 +911,147 @@ Item {
         }
     }
 
+    // ---- P0 frame-step spike (WT_STEPSPIKE=<D-phase reps>) ------------------------------------
+    // Measures, on the REAL playback path, the unknowns that gate the frame-step design
+    // (docs/plans/2026-07-08-frame-step-plan.md §P0): (A) QVideoFrame PTS validity + cadence,
+    // (B) whether a paused seek renders, (C) seek landing accuracy at sub-frame offsets,
+    // (D) forward play→pause-on-first-frame advance/overshoot + latency. Logs [SPIKE] lines
+    // and quits. Inert unless WT_STEPSPIKE is set.
+    Item {
+        id: spike
+        visible: false
+        readonly property bool on: (typeof wtStepSpike !== "undefined") && wtStepSpike > 0
+        property string phase: "idle"      // idle → cruise → pausedSeek → landing → flush → done
+        property int rep: 0
+        property int subIdx: 0
+        readonly property var landingDeltas: [25, 50, 75, 250]   // ms; ½/1/1.5/5 frames at 20fps
+        property double ptsBefore: -1
+        property double posBefore: -1
+        property int seqBefore: -1
+        property bool waitFlush: false     // pause on the NEXT rendered frame
+        property double tCmd: 0
+        property var flushAdv: []          // D: frames advanced per rep
+        property var flushPts: []          // D: pts advance per rep (ms)
+        property var flushLat: []          // D: latency per rep (ms)
+        readonly property int flushReps: (typeof wtStepSpike !== "undefined" && wtStepSpike > 1) ? wtStepSpike : 100
+
+        function slog(s) { console.log("[SPIKE] " + s); }
+
+        Timer {                            // arm once footage is open and rendering
+            interval: 300; repeat: true
+            running: spike.on && spike.phase === "idle"
+            onTriggered: if (root._frameSeq > 8 && root.frags.length > 0) spike.start()
+        }
+        function start() {
+            FrameClock.attach(vout.videoSink);
+            phase = "cruise";
+            root.paused = false; root.applyTransport();
+            spike.slog("START frags=" + root.frags.length + " qt=" + wtQtRuntime);
+            cruiseT.start();
+        }
+        Timer { id: cruiseT; interval: 6000; onTriggered: spike.phaseB() }
+
+        function phaseB() {
+            slog("A frames=" + FrameClock.frameCount + " validPts=" + FrameClock.validPts
+                 + " invalidPts=" + FrameClock.invalidPts
+                 + " medianFrameDurMs=" + FrameClock.medianFrameDurMs.toFixed(1)
+                 + " lastPtsMs=" + FrameClock.lastPtsMs.toFixed(1) + " posMs=" + player.position);
+            phase = "pausedSeek"; rep = 0;
+            root.paused = true; player.pause();
+            settleT.restart();
+        }
+        Timer { id: settleT; interval: 700; onTriggered: spike.tick() }
+
+        function tick() {
+            if (phase === "pausedSeek") {
+                if (rep >= 3) { phaseC(); return; }
+                seqBefore = root._frameSeq;
+                player.position = Math.max(0, player.position - 2000);
+                rep++;
+                judgeT.restart();
+            } else if (phase === "landing") {
+                if (subIdx >= landingDeltas.length) { phaseD(); return; }
+                if (rep >= 5) { rep = 0; subIdx++; tick(); return; }
+                ptsBefore = FrameClock.lastPtsMs; posBefore = player.position;
+                player.position = Math.max(0, posBefore - landingDeltas[subIdx]);
+                waitFlush = true; tCmd = Date.now();
+                player.play();             // flush — the first rendered frame is the landing
+                rep++;
+            } else if (phase === "flush") {
+                if (rep >= flushReps) { finish(); return; }
+                ptsBefore = FrameClock.lastPtsMs; seqBefore = root._frameSeq;
+                waitFlush = true; tCmd = Date.now();
+                player.play();
+                rep++;
+            }
+        }
+        Timer {                            // B: did the paused seek paint anything?
+            id: judgeT; interval: 1500
+            onTriggered: {
+                if (spike.phase !== "pausedSeek") return;
+                spike.slog("B rep=" + spike.rep + " paused_seek_rendered=" + (root._frameSeq > spike.seqBefore)
+                           + " framesDelta=" + (root._frameSeq - spike.seqBefore) + " posMs=" + player.position);
+                spike.tick();
+            }
+        }
+        function phaseC() {
+            phase = "landing"; rep = 0; subIdx = 0;
+            slog("C landing-accuracy deltas=" + JSON.stringify(landingDeltas) + " x5 each");
+            tick();
+        }
+        function phaseD() {
+            phase = "flush"; rep = 0;
+            slog("D forward-flush x" + flushReps);
+            tick();
+        }
+        Connections {                      // C/D: first frame after play() → freeze + measure
+            target: vout.videoSink
+            enabled: spike.on && spike.waitFlush
+            function onVideoFrameChanged() {
+                if (!spike.waitFlush) return;
+                spike.waitFlush = false;
+                player.pause();
+                measureT.restart();
+            }
+        }
+        Timer {
+            id: measureT; interval: 300    // let pause take hold; then read the FINAL displayed frame
+            onTriggered: {
+                if (spike.phase === "landing") {
+                    spike.slog("C d=" + spike.landingDeltas[spike.subIdx] + " rep=" + spike.rep
+                               + " ptsDeltaMs=" + (FrameClock.lastPtsMs - spike.ptsBefore).toFixed(1)
+                               + " posDeltaMs=" + (player.position - spike.posBefore)
+                               + " latMs=" + (Date.now() - spike.tCmd));
+                    spike.tick();
+                } else if (spike.phase === "flush") {
+                    spike.flushAdv.push(root._frameSeq - spike.seqBefore);
+                    spike.flushPts.push(FrameClock.lastPtsMs - spike.ptsBefore);
+                    spike.flushLat.push(Date.now() - spike.tCmd);
+                    if (spike.rep % 20 === 0)
+                        spike.slog("D rep=" + spike.rep + "/" + spike.flushReps);
+                    spike.tick();
+                }
+            }
+        }
+        function finish() {
+            var h = ({}); var i;
+            for (i = 0; i < flushAdv.length; i++) h[flushAdv[i]] = (h[flushAdv[i]] || 0) + 1;
+            var hp = ({});
+            for (i = 0; i < flushPts.length; i++) {
+                var b = Math.round(flushPts[i] / 25) * 25;   // bucket pts-advance to 25ms
+                hp[b] = (hp[b] || 0) + 1;
+            }
+            var lat = flushLat.slice().sort(function(a, b) { return a - b; });
+            slog("D-SUMMARY advHist=" + JSON.stringify(h) + " ptsAdvHist=" + JSON.stringify(hp)
+                 + " latP50=" + lat[Math.floor(lat.length * 0.5)]
+                 + " latP95=" + lat[Math.floor(lat.length * 0.95)] + " n=" + lat.length);
+            slog("PTS-SUMMARY valid=" + FrameClock.validPts + " invalid=" + FrameClock.invalidPts
+                 + " medianFrameDurMs=" + FrameClock.medianFrameDurMs.toFixed(1));
+            slog("DONE");
+            Qt.quit();
+        }
+    }
+
     // ======================================================================
     ColumnLayout {
         anchors.fill: parent

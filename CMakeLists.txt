@@ -178,6 +178,8 @@ qt_add_qml_module(watchtower
         src/models/MemTelemetry.cpp
         src/models/LanguageController.h
         src/models/LanguageController.cpp
+        src/models/FrameClock.h
+        src/models/FrameClock.cpp
 )
 
 # UI translations (EN/RU). Builds .qm from the committed .ts at build time and embeds

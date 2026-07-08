@@ -41,6 +41,7 @@
 #include "models/CvImageProvider.h"
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
+#include "models/FrameClock.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -304,6 +305,12 @@ int main(int argc, char *argv[])
     // Field memory telemetry — periodic [MEMTEL] log of RSS + cumulative active-playback seconds + open
     // count, so a real shift self-reports whether the residual per-open RSS growth is shift-breaking.
     engine.rootContext()->setContextProperty("MemTel", new MemTelemetry(&app));
+
+    // Frame-PTS probe/clock for frame stepping (docs/plans/2026-07-08-frame-step-plan.md).
+    // Inert until a QML surface attaches its videoSink. WT_STEPSPIKE=<reps> runs the P0
+    // measurement sequence in PlaybackScreen and quits.
+    engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
+    engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
 
     // Events section routing. The EventsArea redesign is now the DEFAULT (fed by
     // the live cilex-vision /events feed). WT_DEMO runs the same redesign on the

@@ -1,7 +1,7 @@
 # Frame-by-frame stepping (Step Forward / Step Backward) — implementation plan
 
 **Date:** 2026-07-08
-**Status:** PLAN — ready to execute (P0 first; each phase lands independently).
+**Status:** P0 DONE (GO — see `docs/perf/2026-07-08-frame-step-spike.md`; §D2's primitive is superseded by the spike's simpler one: paused seeks RENDER on Qt 6.12, PTS 100% valid, no keyframe snapping). P1 next.
 **Research input:** `docs/research/2026-07-07-frame-by-frame-playback-vms.md` (25 sources, 23 verified claims — all citations below refer to it).
 **Scope:** single-frame Step Forward/Backward on the playback review surfaces (PlaybackScreen first, events hero player second), plus the supporting review UX (paused-only gating, keyboard conventions, fractional slow-motion). Jog/shuttle hardware, true reverse *play*, and mosaic-wall stepping are explicitly deferred (P5).
 
@@ -55,7 +55,7 @@ Step is enabled only when paused; step-while-playing pauses first (Genetec model
 
 ## 4. Phases
 
-### P0 — Spike: measure the five unknowns (~½ day) — GATES D2/D3
+### P0 — Spike: measure the five unknowns (~½ day) — GATES D2/D3 — ✅ DONE 2026-07-08 (GO; findings + revised primitive in `docs/perf/2026-07-08-frame-step-spike.md`)
 On real footage, both cameras, via a temporary `WT_TRACE` probe:
 1. **`QVideoFrame.startTime()/endTime()` validity** over our HLS-TS (drives: PTS-verified stepping vs mid-interval-only).
 2. **Paused-seek rendering** on Qt 6.12 (re-confirm the `EvHeroPlayer` comment still holds; if 6.12 now renders paused seeks, the primitive simplifies — keep it anyway for 6.8 fallback parity).

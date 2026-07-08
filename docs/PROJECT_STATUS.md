@@ -22,7 +22,14 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   [`docs/research/2026-07-07-frame-by-frame-playback-vms.md`](research/2026-07-07-frame-by-frame-playback-vms.md);
   implementation plan (P0 spike → P4, ~3–4 days, on the existing QMediaPlayer stack — key constraint:
   paused seeks render nothing → play-flush primitive; TS seek imprecision → verify-after-step):
-  [`docs/plans/2026-07-08-frame-step-plan.md`](plans/2026-07-08-frame-step-plan.md). **Next: execute P0.**
+  [`docs/plans/2026-07-08-frame-step-plan.md`](plans/2026-07-08-frame-step-plan.md). **P0 spike DONE
+  same day (GO):** PTS 100% valid; **paused seeks RENDER on Qt 6.12** (EvHeroPlayer's "render nothing"
+  note is stale) → backward step = paused seek + PTS verify, no play/pause cycle; no keyframe snapping;
+  GOP 30–60f; cameras are TRUE VFR (25/50/100 ms deltas) so PTS-exact targets are the main path.
+  Findings: [`docs/perf/2026-07-08-frame-step-spike.md`](perf/2026-07-08-frame-step-spike.md). **Next: P1.**
+- **🔴 Operational (found by the spike): NO camera has recorded since 2026-07-01 15:16 UTC** —
+  `live_gap_s≈6.3 days` while `functions.recording.enabled=true`. `.67` = known login lockout, but
+  `.201` also stopped Jul 1 → the fleet currently records nothing. Needs CV-side investigation.
 - Open with CV: go2rtc ask-4 reply (needs product steer: `[MEMTEL]` exposure + demand-history UI);
   optional letter on CV's `/live` page black-tiles-with-valid-go2rtc-frames finding; `.67` camera
   still needs its operator power-cycle (login lockout).
