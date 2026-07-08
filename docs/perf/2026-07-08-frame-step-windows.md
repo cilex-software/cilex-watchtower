@@ -64,6 +64,23 @@ around `tgt=15:29:45`.
 5. **Forward-step overshoot** — none material. `fwd` deltas are a clean `+50`/`+100` (single-frame, with
    the occasional VFR double), no 2-frame runaway; `wrongWay=0` on the forward half too.
 
+## Second run — `.201`, fresh same-day (07-08) footage
+Requested corroboration on a different camera + *live-recorded* footage (not an aged archive):
+`.201` (`hiwatch-0c75d29549ad`, DS-I402(D)), day **2026-07-08**, boot instant `18:00:00` local
+(mid-window; `.201` recorded ~7.5 h today, 15:02–22:32 local, near-continuous, after the recording
+outage lifted). Session `session_ready dt=481ms frags=901`; the recorded main stream also decodes as
+`hevc (Main) 2560×1440 ~20fps` (the "hot" tier — so this is fresh same-day HEVC 1440p; the live-wall
+`[WT-DEC] d3d11h264dec` line is the separate SD substream).
+
+```
+[STEPT] SUMMARY steps=100 wrongWay=0 fails=0 paths={"flush":28,"cache":70,"walk":2}
+        fwd(n=50 p50=132 p95=233) back(n=50 p50=0 p95=0) cache=24f/11.2MB
+```
+
+Byte-for-byte the same verdict as the `.106` run — wrongWay=0, fails=0, back p50=0 ms (70/100 cache
+hits), fwd p50=132 ms, one clean overseek+walk fallback (`dPts=-50.0 fullMs=1535`). Frame stepping
+holds on a second camera and on **freshly recorded** footage, not just historical archives.
+
 ## Conclusion
 Frame stepping is **at parity on Windows/d3d11 with the Linux/VA-API baseline** — PTS-verified direction,
 hot-cache back-steps at ~0 ms, exact forward flush, clean overseek+walk fallback, 0 fails, 0 fatals, no
