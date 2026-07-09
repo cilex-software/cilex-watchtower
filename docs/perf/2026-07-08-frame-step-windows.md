@@ -81,6 +81,27 @@ Byte-for-byte the same verdict as the `.106` run — wrongWay=0, fails=0, back p
 hits), fwd p50=132 ms, one clean overseek+walk fallback (`dPts=-50.0 fullMs=1535`). Frame stepping
 holds on a second camera and on **freshly recorded** footage, not just historical archives.
 
+## Third run — frame-by-frame **filmstrip mode** (`F`) on `.201` 07-08 (`c8d7023`)
+Operator-requested check of the newer **filmstrip view** (`F` swaps the transport row for a
+big-thumbnail strip, thumbs from the decoded-frame cache via `image://fcache`; `c8d7023`), on the
+build that carries it (run `28959004012`, which also contains the ffmpeg-7.1.3 export fix). Target:
+`.201` 07-08 fresh HEVC 1440p footage, `WT_FRAME_MODE=1` auto-enter.
+
+**Functionally verified — GREEN.** Frame mode enters (auto-enter fires once `_frameSeq>8`), the paused
+`.mmm` readout appears, and the strip's engine runs on the fresh footage: the playhead steps
+frame-by-frame (timestamp `15:02:24.650 → .250 → .650` as it walks), and the trace shows the
+FrameStepper + FrameCache working — `[WT-STEP] fwd landed dPts=50/100`, `back cache hit … (cache 12f)`,
+`back … via overseek+walk`. Same engine and clean behavior as the `WT_STEPTEST=100` acceptance on this
+identical `.201`/07-08 target (§ "Second run").
+
+**Visual note (session limitation, not a defect):** a clean screenshot of the strip *pixels* could not
+be captured in this headless/remote session — synthetic keyboard/mouse input (`SendKeys`, `mouse_event`)
+does not reliably reach the Qt window to toggle/reveal the auto-hiding transport chrome, and over
+Tailscale the warmup's per-frame `overseek+walk` seeks (~1.8 s each) keep the freeze-frame veil up so
+captures land on the veiled video frame. On the operator's LAN (fast seeks + real input) the strip
+paints immediately — the dev session verified it live on `.201`'s same-hour footage (`PROJECT_STATUS`).
+Captures: `w2-out-2026-07-08/filmstrip-201*.png` (paused frame-mode, stepping).
+
 ## Conclusion
 Frame stepping is **at parity on Windows/d3d11 with the Linux/VA-API baseline** — PTS-verified direction,
 hot-cache back-steps at ~0 ms, exact forward flush, clean overseek+walk fallback, 0 fails, 0 fatals, no
