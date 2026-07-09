@@ -42,10 +42,15 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   RU `.qm` loads/renders/persists on the MSVC build). **Found + fixed a real export regression**: the
   CI bundle moved to FFmpeg 7.1.3, whose filtergraph parser rejects the single-`\:` drive-letter escape
   `ClipTranscoder::escFilterPath` emitted → every compress/burn overlay export silently failed;
-  fixed to the canonical `\\:` (`bacfe48`, measured before/after on-box; needs CI rebuild + a drawer
-  re-test). **W3 overnight soak launched** (pinned `.106`/06-22 heavy day, procdump-armed). Results:
-  `docs/perf/2026-07-08-win-w2w3-session2-results.md`, `-frame-step-windows.md`,
-  `-win-export-drawtext-ffmpeg71.md`. Remaining: overnight-soak morning triage, export drawer re-test
+  fixed to the canonical `\\:` (`bacfe48`, measured before/after on-box, CI green; a drawer re-test on
+  the rebuilt artifact is still owed). **W3 overnight soak GREEN** — two clean supervised runs (7 h +
+  8 h, 0 crashes / 0 hangs, RSS bounded, procdump never fired; matches the Linux bar). **Filmstrip
+  mode (`F`, `c8d7023`) functionally verified** on `.201`'s fresh 07-08 HEVC 1440p footage (frame mode
+  enters, FrameStepper + FrameCache step the footage; clean strip screenshot blocked only by
+  remote-session input/Tailscale-veil, not a defect). **Soak tooling fix** (`b70d1e0`): the export
+  sidecar re-logged undeletable 0-byte exports every sweep (474 k lines for ~520 clips) — now logs each
+  clip once, on actual removal. Results: `docs/perf/2026-07-08-win-w2w3-session2-results.md`,
+  `-frame-step-windows.md`, `-win-export-drawtext-ffmpeg71.md`. Remaining: export drawer re-test
   post-rebuild, Win11 box + mixed-DPI/sleep-resume eyes-on, W5 matrix.
 - **`/streams` `functions.playback` split wired same-day** (CV migration 0052): playback/timeline/export
   now gate on the new `playback` key (`playbackEnabled`, fail-safe true); live tiles stay on `live_view`.
