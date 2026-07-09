@@ -76,11 +76,25 @@ Launched `night_soak_supervisor.ps1` on the fresh build, pinned to the heavy his
 (`WT_SOAK_FIX_CAM=192.168.1.106 WT_SOAK_FIX_DAY=2026-06-22`, ~5.2 h / 4760 frags — the dense
 open/seek/export churn that stresses the 2026-07-03 GC-wedge path). procdump present
 (`C:\wt\procdump\procdump64.exe`) for wedge capture; AC sleep already disabled (standby idle = never).
-4-min smoke first (`crashes=0 hangs=0 samples=16 exports_sized=7`, RSS 541→686 MB, no incidents),
-then the **overnight run is live** (spawned detached, `until Thu 07:00`, ~15.5 h; armed + heartbeating
-on the 06-22 footage, RSS ~614 MB). Logs: `%USERPROFILE%\watchtower-soak\night_soak\`
-(`supervisor.log`, `incidents.log`, `samples.csv`, `export_sizes.log`).
-Endurance verdict + morning triage: <!-- SOAK PENDING: crashes/hangs/RSS-trend/heartbeat-gaps from incidents.log + samples.csv -->
+**Endurance verdict — GREEN (two clean overnight runs).** The night split into two supervised runs
+(the first was paused ~6 min for the operator-requested `.201` filmstrip test, then restarted):
+
+| run | window | duration | launches | crashes | hangs | RSS min/median/max |
+|---|---|---|---|---|---|---|
+| `night_soak`    | 15:27→22:39 | ~7 h 12 m | **1** (continuous) | **0** | **0** | 438 / 925 / 1007 MB |
+| `night_soak_r2` | 22:43→07:00 | ~8 h 17 m | **1** (continuous) | **0** | **0** | 474 / 539 / 757 MB |
+
+Both ran to their end time as a single unbroken process (no relaunch), **0 crashes, 0 hangs, 0
+`[WT-FATAL]`**, RSS bounded (run 1 plateaued ~0.9–1.0 GB; run 2 flatter, ended 509 MB). procdump
+never had to fire. **This matches the Linux W3 bar** (0 crashes/wedges, RSS bounded) on the fresh
+`f725784` build, pinned to the dense 06-22 churn. Logs:
+`%USERPROFILE%\watchtower-soak\{night_soak,night_soak_r2}\`.
+
+*Minor tooling note (not a product issue):* run 2's `export_sizes.log` bloated to 474 901 lines but
+only **522 unique clips** — the sidecar sweep re-logs the same undeletable `size=0` exports (empty
+backend exports from the soak's occasional out-of-footage random range picks) every 15 s pass. No
+disk fill (`Videos\Watchtower` = 25 MB / 513 files). Worth a dedupe/guard in the sweep; the endurance
+result is unaffected.
 
 Note: the export sidecar sweep only touches clips created at/after supervisor start (the operator's
 pre-existing clips are safe). Backend recording resumed on `.67`/`.201` today ("OUTAGE OVER" — Linux
