@@ -98,14 +98,21 @@ Item {
         watchdog.stop();
     }
 
-    // Host must call on any real transport op (scrubber/far seek, session load,
-    // speed change): drops the cache, divergence and any in-flight step.
+    // Full reset — session re-opens ONLY (seekFar / source change): the position↔PTS
+    // domain changes, so cached frames' keys go stale and must drop.
     function invalidate() {
         FrameCache.clear();
+        cancelStep();
+        _tr("invalidated (cache dropped)");
+    }
+    // Light reset — in-session transport ops (scrubber direct seeks, ±10s jumps,
+    // speed changes): cancel any in-flight step and divergence, but KEEP the cache —
+    // PTS→frame mappings stay valid within a session, so the filmstrip survives.
+    function cancelStep() {
         FrameCache.capturing = false;
         diverged = false;
         veiled = false;
-        if (_state !== _Idle) { _state = _Idle; watchdog.stop(); settle.stop(); _tr("invalidated mid-step"); }
+        if (_state !== _Idle) { _state = _Idle; watchdog.stop(); settle.stop(); _tr("step cancelled"); }
     }
     // Host calls before resuming playback while diverged: park the player just
     // behind the shown frame so play continues from what the operator sees
@@ -115,8 +122,7 @@ Item {
         var pos = Math.max(0, Math.round(FrameClock.lastPtsMs - 300 + _anchorOff));
         mediaPlayer.position = pos;
         _tr("resumeForPlay → pos=" + pos + " (300ms behind shown frame)");
-        diverged = false;
-        FrameCache.clear();
+        diverged = false;      // cache kept — its PTS keys stay valid within the session
     }
 
     // Jump straight to a cached frame (filmstrip thumbnail click). Instant repaint;

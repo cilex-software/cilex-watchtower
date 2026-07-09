@@ -175,7 +175,7 @@ Item {
         return best;
     }
     function seekToWall(ms) {
-        stepper.invalidate();   // a real seek supersedes any cache-step state / in-flight step
+        stepper.cancelStep();   // cancel any in-flight step; cache stays (in-session pts remain valid)
         // A far-seek open is in flight: route straight to seekFar, which COALESCES
         // (replaces the pending target — last click wins). Deterministic, instead of
         // depending on the stopped-mid-swap player's seekable/duration quirks, where
@@ -993,11 +993,15 @@ Item {
         property bool active: false
         property int fwdLeft: 0
         property int backLeft: 0
-        function begin() {
+        property int taken: 0              // forward steps actually landed (return-leg length)
+        property double lastEndPts: -1     // EOS memo: don't re-prefetch at the same spot
+        function begin(k) {
+            k = k || 4;
             if (stepper.busy || !stepper.ready) return;
-            if (FrameCache.cachedAround(FrameClock.lastPtsMs, 0, 3).length >= 3) return;
+            if (Math.abs(FrameClock.lastPtsMs - lastEndPts) < 1) return;   // at footage end — nothing ahead
+            if (FrameCache.cachedAround(FrameClock.lastPtsMs, 0, k).length >= k) return;
             if (stepper.veilGrab) stepper.veilGrab();
-            active = true; fwdLeft = 4; backLeft = 4;
+            active = true; fwdLeft = k; backLeft = k; taken = 0;
             stepper.stepForward();
         }
         Connections {
@@ -1005,8 +1009,9 @@ Item {
             enabled: warmup.active
             function onStepped(dir, ptsDeltaMs, latMs, retries) {
                 if (warmup.fwdLeft > 0) {
-                    warmup.fwdLeft--;
+                    warmup.fwdLeft--; warmup.taken++;
                     if (warmup.fwdLeft > 0) { stepper.stepForward(); return; }
+                    warmup.backLeft = warmup.taken;
                     stepper.stepBackward(); return;          // return leg (cache, instant)
                 }
                 if (warmup.backLeft > 0) {
@@ -1015,7 +1020,28 @@ Item {
                 }
                 warmup.active = false;
             }
-            function onStepFailed(dir, reason) { warmup.active = false; }
+            function onStepFailed(dir, reason) {
+                if (reason === "end") warmup.lastEndPts = FrameClock.lastPtsMs;
+                // mid-forward-leg failure (EOS/timeout): walk back to where the operator was
+                if (warmup.fwdLeft > 0 && warmup.taken > 0) {
+                    warmup.fwdLeft = 0;
+                    warmup.backLeft = warmup.taken;
+                    stepper.stepBackward(); return;
+                }
+                warmup.active = false;
+            }
+        }
+    }
+    // Rolling prefetch: while the filmstrip is idle, quietly keep sideSlots frames
+    // cached AHEAD of the current one (a veiled mini-warmup that returns) — the
+    // strip's right side stays populated instead of going dark at the visit edge.
+    Timer {
+        interval: 450; repeat: true
+        running: root.frameMode && !stepper.busy && !warmup.active && root.frags.length > 0
+        onTriggered: {
+            var want = frameStripItem.sideSlots;
+            var ahead = FrameCache.cachedAround(FrameClock.lastPtsMs, 0, want).length;
+            if (ahead < want) warmup.begin(want - ahead + 1);
         }
     }
     Timer {                    // dev/test hook: WT_FRAME_MODE auto-enters once footage renders
@@ -1055,8 +1081,14 @@ Item {
         requestPause: function() { if (!root.paused) { root.paused = true; root.applyTransport(); } }
         crossesDisc: function(fromMs, toMs) { return root._crossesBoundary(fromMs / 1000, toMs / 1000); }
         edgeFallback: function(dir) {
-            var dur = FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50;
-            root.seekToWall(root.playheadMs + dir * Math.max(40, dur));
+            var dur = Math.max(40, FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50);
+            var target = root.playheadMs + dir * dur;
+            // At the absolute head/tail of footage there is nowhere to go — leave the
+            // shown frame and the filmstrip intact instead of issuing a no-op seek
+            // (which used to wipe the strip; operator-reported 2026-07-09).
+            if (dir < 0 && target <= root.tlStartMs + 40) return;
+            if (dir > 0 && target >= root.tlEndMs - 40) return;
+            root.seekToWall(target);
         }
         veilGrab: function() {
             vout.grabToImage(function(res) { root._veilRes = res; veilImg.source = res.url; });
@@ -1244,8 +1276,8 @@ Item {
     // unless set.
     Item {
         id: stepTest
-        readonly property bool on: (typeof wtStepTest !== "undefined") && wtStepTest > 0
-        readonly property int total: on ? wtStepTest : 0
+        readonly property bool on: (typeof wtStepTest !== "undefined") && wtStepTest !== 0
+        readonly property int total: on ? Math.abs(wtStepTest) : 0
         property int done: 0
         property int inBlock: 0
         property bool backBlock: false     // start forward (warm the cache going up)
@@ -1269,6 +1301,8 @@ Item {
 
         function next() {
             if (done >= total) { finish(); return; }
+            // Negative WT_STEPTEST = pure backward run of |N| steps (repro tooling).
+            if ((typeof wtStepTest !== "undefined") && wtStepTest < 0) { inBlock++; stepper.stepBackward(); return; }
             var blockLen = backBlock ? 12 : 10;
             if (inBlock >= blockLen) { backBlock = !backBlock; inBlock = 0; }
             inBlock++;
@@ -1565,7 +1599,7 @@ Item {
                         anchors.left: parent.left; anchors.leftMargin: 16
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
-                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var b = root._smoothMs; stepper.invalidate(); var p = Math.max(0, b - 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
+                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var b = root._smoothMs; stepper.cancelStep(); var p = Math.max(0, b - 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
                         Ctl { name: "stepBack"; tip: qsTr("Step back one frame") + " (,)"
                             enabled: !stepper.busy
                             onClicked: stepper.stepBackward() }
@@ -1575,7 +1609,7 @@ Item {
                         Ctl { name: "stepFwd"; tip: qsTr("Step forward one frame") + " (.)"
                             enabled: !stepper.busy
                             onClicked: stepper.stepForward() }
-                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var b = root._smoothMs; stepper.invalidate(); var p = Math.min(player.duration, b + 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
+                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var b = root._smoothMs; stepper.cancelStep(); var p = Math.min(player.duration, b + 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
                         // speed — popup of x1…x200 (x20+ scans, since the decoder caps ~14×)
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
