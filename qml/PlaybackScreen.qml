@@ -501,6 +501,12 @@ Item {
         _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         errorText = ""; selStartMs = -1; selEndMs = -1;
+        // Fresh screen entry: no frame-mode leftovers, no stale timeline. (Operator-
+        // reported 2026-07-09: re-entering playback on an empty day still showed the
+        // previous visit's filmstrip + green footage bars.)
+        exitFrameMode();
+        stepper.invalidate();
+        frags = []; tlFrags = [];
         if (!client) return;
         client.ensureReady();
         if (root.camId !== "") client.fetchCoverage(root.camId);
@@ -942,7 +948,7 @@ Item {
     // centered/accented); ←/→ step one frame and, held, ramp from slow to fast.
     property bool frameMode: false
     function enterFrameMode() {
-        if (frags.length === 0) return;
+        if (frags.length === 0 || !stepper.ready) return;
         paused = true; applyTransport();
         FrameClock.attach(vout.videoSink);
         FrameCache.attach(vout.videoSink);
@@ -995,12 +1001,14 @@ Item {
         property int backLeft: 0
         property int taken: 0              // forward steps actually landed (return-leg length)
         property double lastEndPts: -1     // EOS memo: don't re-prefetch at the same spot
+        property double originPts: -1      // the operator's frame — the strip stays pinned here
         function begin(k) {
             k = k || 4;
             if (stepper.busy || !stepper.ready) return;
             if (Math.abs(FrameClock.lastPtsMs - lastEndPts) < 1) return;   // at footage end — nothing ahead
             if (FrameCache.cachedAround(FrameClock.lastPtsMs, 0, k).length >= k) return;
             if (stepper.veilGrab) stepper.veilGrab();
+            originPts = FrameClock.lastPtsMs;
             active = true; fwdLeft = k; backLeft = k; taken = 0;
             stepper.stepForward();
         }
@@ -1795,7 +1803,11 @@ Item {
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
                 anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 8
                 height: 96
-                currentPts: FrameClock.lastPtsMs
+                // Pinned to the operator's frame while warmup/prefetch cycles step the
+                // player underneath (they return) — otherwise every harvest step shifted
+                // the whole strip and the center thumb rebound per frame (the reported
+                // flicker, worst at the center).
+                currentPts: warmup.active ? warmup.originPts : FrameClock.lastPtsMs
                 clockOf: function(pts) { return root.frameClockOf(pts); }
                 onJumpRequested: (pts) => stepper.jumpToCachedPts(pts)
                 Rectangle {                        // mode chip: what this is + how to leave

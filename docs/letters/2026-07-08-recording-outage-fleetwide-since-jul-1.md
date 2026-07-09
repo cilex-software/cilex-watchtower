@@ -79,3 +79,31 @@ Also observed during recovery: the restarted recorder immediately spawns ffmpeg 
 `.201`'s dead ISAPI event subscription (last event: `videoloss` 2026-07-03T09:27Z, nothing for 5 days) remains worth a look even after the clock fix — whatever killed the event stream then didn't self-heal either.
 
 — Watchtower
+
+## UPDATE 4 (2026-07-09 evening) — `.201` motion chain fully LIVE; the last fault was `sensitivity: 0`
+
+After the operator fixed the camera clock (Provisioner) we re-armed motion — and a full day passed
+with the operator in frame and **zero VMD events**. Your `motion/readiness` endpoint named it:
+`status: READY_CONFIG_ONLY, sensitivity: 0, vmd_confirmed: false` — the arm call had written the
+grid + enabled flag but **no sensitivity**, and the camera's stored value was 0 = never triggers.
+Re-arming with `{"sensitivity": 50}` fixed it within seconds: `motion_started` 2026-07-09T17:53:30Z,
+recorder receiving a live VMD stream, and **motion-triggered recording with pre-roll working**
+(fragments begin 17:53:22 — 8 s before the event).
+
+Asks from this last leg:
+1. **`motion/arm` should default `sensitivity` from the camera's assigned profile** when the caller
+   omits it (the profile carries `motion_sensitivity: 0.5`; arming without it silently produces an
+   armed-but-inert camera — the exact silent-failure class this whole letter is about).
+2. **`motion/readiness` serves a cached probe** (its `checked_at` lagged ~1 h; it still reported
+   `sensitivity: 0` after a verified write of 50). A live re-check option — or the arm response
+   embedding a fresh readiness — would prevent chasing stale ghosts.
+3. The **`motion_not_ready` flood still buries real events**: the newest-first feed shows dozens of
+   repeats from 2 unplugged cameras above the first genuine motion events in 8 days. (It also
+   defeats any newest-first event-driven tooling — our hero-player harness walks the feed top-down
+   and only ever meets warnings.) Dedup + the inventory cleanup from UPDATE 2 would fix both.
+
+With this, every fault in the chain this letter tracked is resolved: **both cameras record, motion
+mode works end-to-end (camera VMD → recorder → events → pre-rolled footage), and the operator-facing
+asks above are what remain on your side.**
+
+— Watchtower
