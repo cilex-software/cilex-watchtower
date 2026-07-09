@@ -44,6 +44,18 @@ void FrameCache::onFrame(const QVideoFrame &frame)
 {
     if (!m_capturing)
         return;
+    captureFrame(frame, true);                        // operator-side capture anchors eviction
+}
+
+void FrameCache::onHarvestFrame(const QVideoFrame &frame)
+{
+    if (!m_harvestCapturing)
+        return;
+    captureFrame(frame, false);                       // harvest never moves the anchor
+}
+
+void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
+{
     const qint64 stUs = frame.startTime();
     if (stUs < 0)
         return;                                       // our own repaints carry PTS; raw invalids skipped
@@ -53,7 +65,7 @@ void FrameCache::onFrame(const QVideoFrame &frame)
         if (m_store.contains(pts))
             return;
     }
-    const QImage img = frame.toImage();               // GPU readback — capture is step-gated, never at play rate
+    const QImage img = frame.toImage();               // GPU readback (operator steps + harvester only)
     if (img.isNull())
         return;
     QByteArray jpg;
@@ -65,11 +77,38 @@ void FrameCache::onFrame(const QVideoFrame &frame)
         QMutexLocker l(&m_mx);
         m_store.insert(pts, jpg);
         m_bytes += jpg.size();
-        m_anchorPts = pts;
+        if (moveAnchor || m_anchorPts < 0)
+            m_anchorPts = pts;
         evictIfNeededLocked();
     }
     ++m_rev;
     emit changed();
+}
+
+void FrameCache::attachHarvest(QObject *videoSink)
+{
+    auto *sink = qobject_cast<QVideoSink *>(videoSink);
+    if (m_harvestSink == sink)
+        return;
+    if (m_harvestSink)
+        disconnect(m_harvestSink, nullptr, this, nullptr);
+    m_harvestSink = sink;
+    if (m_harvestSink)
+        connect(m_harvestSink, &QVideoSink::videoFrameChanged, this, &FrameCache::onHarvestFrame);
+}
+
+void FrameCache::setHarvestCapturing(bool on)
+{
+    if (m_harvestCapturing == on)
+        return;
+    m_harvestCapturing = on;
+    emit changed();
+}
+
+void FrameCache::setAnchorPts(double ptsMs)
+{
+    QMutexLocker l(&m_mx);
+    m_anchorPts = qint64(ptsMs);
 }
 
 void FrameCache::evictIfNeededLocked()

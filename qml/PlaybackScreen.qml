@@ -952,13 +952,11 @@ Item {
         paused = true; applyTransport();
         FrameClock.attach(vout.videoSink);
         FrameCache.attach(vout.videoSink);
-        frameMode = true;
-        warmup.begin();
+        frameMode = true;      // the harvester activates off this and fills the strip
     }
     function exitFrameMode() {
         frameMode = false;
         rampStop();
-        warmup.active = false;
     }
     // Map a cached frame's PTS to a wall clock with milliseconds (filmstrip labels).
     function frameClockOf(pts) {
@@ -989,67 +987,6 @@ Item {
             root._rampStep();
             root._rampIv = Math.max(66, root._rampIv * 0.85);
             interval = root._rampIv;
-        }
-    }
-    // Mode-entry warmup: pre-fill the filmstrip's forward neighbors (4 flush steps,
-    // then 4 instant cache-steps back to the origin), veiled so the operator sees
-    // their frame held while the strip populates. Skipped when already cached.
-    Item {
-        id: warmup
-        property bool active: false
-        property int fwdLeft: 0
-        property int backLeft: 0
-        property int taken: 0              // forward steps actually landed (return-leg length)
-        property double lastEndPts: -1     // EOS memo: don't re-prefetch at the same spot
-        property double originPts: -1      // the operator's frame — the strip stays pinned here
-        function begin(k) {
-            k = k || 4;
-            if (stepper.busy || !stepper.ready) return;
-            if (Math.abs(FrameClock.lastPtsMs - lastEndPts) < 1) return;   // at footage end — nothing ahead
-            if (FrameCache.cachedAround(FrameClock.lastPtsMs, 0, k).length >= k) return;
-            if (stepper.veilGrab) stepper.veilGrab();
-            originPts = FrameClock.lastPtsMs;
-            active = true; fwdLeft = k; backLeft = k; taken = 0;
-            stepper.stepForward();
-        }
-        Connections {
-            target: stepper
-            enabled: warmup.active
-            function onStepped(dir, ptsDeltaMs, latMs, retries) {
-                if (warmup.fwdLeft > 0) {
-                    warmup.fwdLeft--; warmup.taken++;
-                    if (warmup.fwdLeft > 0) { stepper.stepForward(); return; }
-                    warmup.backLeft = warmup.taken;
-                    stepper.stepBackward(); return;          // return leg (cache, instant)
-                }
-                if (warmup.backLeft > 0) {
-                    warmup.backLeft--;
-                    if (warmup.backLeft > 0) { stepper.stepBackward(); return; }
-                }
-                warmup.active = false;
-            }
-            function onStepFailed(dir, reason) {
-                if (reason === "end") warmup.lastEndPts = FrameClock.lastPtsMs;
-                // mid-forward-leg failure (EOS/timeout): walk back to where the operator was
-                if (warmup.fwdLeft > 0 && warmup.taken > 0) {
-                    warmup.fwdLeft = 0;
-                    warmup.backLeft = warmup.taken;
-                    stepper.stepBackward(); return;
-                }
-                warmup.active = false;
-            }
-        }
-    }
-    // Rolling prefetch: while the filmstrip is idle, quietly keep sideSlots frames
-    // cached AHEAD of the current one (a veiled mini-warmup that returns) — the
-    // strip's right side stays populated instead of going dark at the visit edge.
-    Timer {
-        interval: 450; repeat: true
-        running: root.frameMode && !stepper.busy && !warmup.active && root.frags.length > 0
-        onTriggered: {
-            var want = frameStripItem.sideSlots;
-            var ahead = FrameCache.cachedAround(FrameClock.lastPtsMs, 0, want).length;
-            if (ahead < want) warmup.begin(want - ahead + 1);
         }
     }
     Timer {                    // dev/test hook: WT_FRAME_MODE auto-enters once footage renders
@@ -1103,6 +1040,18 @@ Item {
         }
     }
     property var _veilRes: null   // keeps the grab result alive while the veil shows it
+    // Hidden second decoder: keeps the frame cache filled around the operator's
+    // position while frame mode is on, so steps and strip slots are always
+    // cache-served (docs/plans/2026-07-08-frame-step-plan.md — filmstrip v2).
+    FrameHarvester {
+        id: harvester
+        source: player.source
+        active: root.frameMode && root.frags.length > 0
+        userPts: FrameClock.lastPtsMs
+        anchorOffMs: stepper.anchorOffMs
+        frameDurMs: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
+    }
+
     // While the shown frame comes from the cache, the player's position is parked
     // elsewhere — drive the playhead marker from the stepper's cursor instead.
     Connections {
@@ -1430,7 +1379,7 @@ Item {
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectFit
                     cache: false
-                    visible: (stepper.veiled || warmup.active) && status === Image.Ready
+                    visible: stepper.veiled && status === Image.Ready
                 }
                 MediaPlayer {
                     id: player
@@ -1803,11 +1752,7 @@ Item {
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
                 anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 8
                 height: 96
-                // Pinned to the operator's frame while warmup/prefetch cycles step the
-                // player underneath (they return) — otherwise every harvest step shifted
-                // the whole strip and the center thumb rebound per frame (the reported
-                // flicker, worst at the center).
-                currentPts: warmup.active ? warmup.originPts : FrameClock.lastPtsMs
+                currentPts: FrameClock.lastPtsMs
                 clockOf: function(pts) { return root.frameClockOf(pts); }
                 onJumpRequested: (pts) => stepper.jumpToCachedPts(pts)
                 Rectangle {                        // mode chip: what this is + how to leave

@@ -124,6 +124,7 @@ qt_add_qml_module(watchtower
         qml/PlaybackScreen.qml
         qml/FrameStepper.qml
         qml/FrameStrip.qml
+        qml/FrameHarvester.qml
         qml/PlaybackCalendar.qml
         qml/WallPlayback.qml
         qml/ExportDrawer.qml

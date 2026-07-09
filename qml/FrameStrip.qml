@@ -4,14 +4,20 @@ import Watchtower
 // Frame-by-frame FILMSTRIP (playback frameMode, toggled with F): big neighbor
 // thumbnails around the current frame, current one centered and accented.
 // Thumbs come straight from the decoded-frame cache (image://fcache/<pts>);
-// slots the cache doesn't hold yet render as quiet placeholders and fill in as
-// frames are visited (entry warmup + rolling prefetch keep the right side fed).
+// the hidden harvester keeps the cache filled ahead/behind, so slots are
+// normally always populated.
 //
-// Anti-flicker: the Repeater's model is a FIXED slot count — delegates persist
-// and only their pts (→ Image.source) rebinds. A cached JPEG for a given PTS is
-// immutable, so URLs carry NO revision cache-buster: a thumb whose pts didn't
-// change never reloads (the first cut rebuilt every delegate and re-fetched
-// every image on each capture — the whole strip flickered while filling).
+// Smoothness rules (operator-driven, 2026-07-09):
+// • FIXED slot count — delegates persist; only their pts rebinds.
+// • Each tile is DOUBLE-BUFFERED: the old frame stays painted until the new
+//   one has decoded, so a tile never blanks to black mid-swap.
+// • Neighbors must be ADJACENT: slots chain outward from the center with a
+//   max gap of ~2.6×frame-duration — a cached frame from some other region
+//   (an earlier visit) can never masquerade as "the next frame". Beyond a
+//   chain break the slot shows a quiet placeholder until the harvester fills
+//   the true neighbors.
+// • URLs are only minted for frames that EXIST in the cache (a miss would pin
+//   a black pixmap to that URL in Qt's image cache forever).
 Item {
     id: strip
 
@@ -20,32 +26,37 @@ Item {
     property var clockOf: null                  // function(ptsMs) → "HH:mm:ss.mmm"
     signal jumpRequested(double pts)
 
-    // pts for slot `i` (0..2*sideSlots; center = sideSlots). Depends on the cache
-    // revision + current frame: re-evaluated on either, but the VALUE only changes
-    // when the mapping really moved — persistent delegates then keep their image.
-    //
-    // EVERY returned pts — the center included — is a key that EXISTS in the cache:
-    // a URL for an uncached frame would miss in the provider and Qt's pixmap cache
-    // would pin the miss to that URL forever (the black-thumbnails bug). The center
-    // shows its placeholder for the ~1s until the entry warmup caches the origin.
+    readonly property real _dur: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
+    readonly property real _chainLim: 2.6 * _dur
+
     function ptsForIndex(i) {
-        var rev = FrameCache.rev;               // dependency for re-evaluation
+        var rev = FrameCache.rev;               // dependency: re-evaluate on cache changes
         if (currentPts <= 0) return -1;
         var off = i - sideSlots;
-        if (off === 0) {
-            var c = FrameCache.cachedAround(currentPts + 2, 1, 0);   // nearest key ≤ current
-            return (c.length > 0 && Math.abs(c[c.length - 1] - currentPts) <= 2) ? c[c.length - 1] : -1;
+        // center: the cursor's own frame, only if actually cached
+        var c = FrameCache.cachedAround(currentPts + 2, 1, 0);
+        var center = (c.length > 0 && Math.abs(c[c.length - 1] - currentPts) <= 2) ? c[c.length - 1] : -1;
+        if (off === 0) return center;
+        var base = center >= 0 ? center : currentPts;
+        if (off > 0) {
+            var above = FrameCache.cachedAround(base, 0, sideSlots);
+            var prev = base, n = 0;
+            for (var a = 0; a < above.length; a++) {
+                if (above[a] - prev > _chainLim) break;      // chain broken — another region
+                prev = above[a]; n++;
+                if (n === off) return above[a];
+            }
+            return -1;
         }
-        if (off < 0) {
-            var below = FrameCache.cachedAround(currentPts, sideSlots + 1, 0);
-            var left = [];
-            for (var b = 0; b < below.length; b++)
-                if (currentPts - below[b] > 2) left.push(below[b]);
-            var idx = left.length + off;        // off is negative: -1 → last of left
-            return idx >= 0 ? left[idx] : -1;
+        var below = FrameCache.cachedAround(base, sideSlots + 1, 0);
+        var left = [], p = base;
+        for (var b = below.length - 1; b >= 0; b--) {
+            if (below[b] >= base - 2) continue;              // skip the base key itself
+            if (p - below[b] > _chainLim) break;             // chain broken
+            left.unshift(below[b]); p = below[b];
         }
-        var above = FrameCache.cachedAround(currentPts, 0, sideSlots);
-        return (off - 1) < above.length ? above[off - 1] : -1;
+        var idx = left.length + off;                          // off negative: -1 → rightmost of left
+        return idx >= 0 ? left[idx] : -1;
     }
 
     Row {
@@ -54,49 +65,74 @@ Item {
         Repeater {
             model: 2 * strip.sideSlots + 1      // FIXED count — delegates persist
             delegate: Rectangle {
+                id: tile
                 required property int index
                 readonly property bool cur: index === strip.sideSlots
                 readonly property double pts: strip.ptsForIndex(index)
-                readonly property bool has: pts > 0
+                property double shownPts: -1    // what's actually painted right now
+                property bool frontA: true
                 width: cur ? Math.round(strip.height * 16 / 9) : Math.round(strip.height * 0.78 * 16 / 9)
                 height: cur ? strip.height : Math.round(strip.height * 0.78)
                 anchors.verticalCenter: parent.verticalCenter
                 color: "#101010"
                 border.width: cur ? 2 : 1
                 border.color: cur ? Theme.accent : Theme.line2
-                opacity: cur ? 1.0 : (has ? 0.85 : 0.45)
+                opacity: cur ? 1.0 : (shownPts > 0 ? 0.85 : 0.45)
 
+                function _url(p) { return "image://fcache/" + Math.round(p); }
+                // Double-buffer: load the NEW frame into the back image; swap only
+                // when it's decoded — the front keeps the previous frame painted.
+                onPtsChanged: {
+                    if (pts <= 0) { shownPts = -1; imgA.source = ""; imgB.source = ""; return; }
+                    if (Math.abs(pts - shownPts) < 1) return;
+                    (frontA ? imgB : imgA).source = _url(pts);
+                }
+                function _swapIfReady(img, isA) {
+                    if (img.status !== Image.Ready) return;
+                    if (isA === frontA) return;                       // it's the front already
+                    if (tile.pts > 0 && String(img.source) === _url(tile.pts)) {
+                        frontA = isA;
+                        shownPts = tile.pts;
+                    }
+                }
                 Image {
-                    anchors.fill: parent
-                    anchors.margins: parent.cur ? 2 : 1
-                    visible: parent.has
+                    id: imgA
+                    anchors.fill: parent; anchors.margins: tile.cur ? 2 : 1
+                    visible: tile.frontA && tile.shownPts > 0
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
-                    // no ?rev= — a cached frame's JPEG never changes; stable URL = no reload
-                    source: parent.has ? "image://fcache/" + Math.round(parent.pts) : ""
+                    onStatusChanged: tile._swapIfReady(imgA, true)
                 }
-                Text {                            // placeholder slot — frame not cached yet
+                Image {
+                    id: imgB
+                    anchors.fill: parent; anchors.margins: tile.cur ? 2 : 1
+                    visible: !tile.frontA && tile.shownPts > 0
+                    asynchronous: true
+                    fillMode: Image.PreserveAspectFit
+                    onStatusChanged: tile._swapIfReady(imgB, false)
+                }
+                Text {                            // placeholder — nothing painted yet
                     anchors.centerIn: parent
-                    visible: !parent.has
+                    visible: tile.shownPts <= 0
                     text: "·"
                     color: Theme.ink3; font.pixelSize: 18
                 }
-                Rectangle {                       // per-thumb timestamp footer
-                    visible: parent.has
+                Rectangle {                       // per-thumb timestamp footer (only over a real frame)
+                    visible: tile.shownPts > 0
                     anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
                     height: 14; color: Qt.rgba(0, 0, 0, 0.62)
                     Text {
                         anchors.centerIn: parent
-                        text: parent.parent.has && strip.clockOf ? strip.clockOf(parent.parent.pts) : ""
-                        color: parent.parent.cur ? Theme.accent : Theme.ink2
+                        text: tile.shownPts > 0 && strip.clockOf ? strip.clockOf(tile.shownPts) : ""
+                        color: tile.cur ? Theme.accent : Theme.ink2
                         font.family: Theme.fontMono; font.pixelSize: 9
                     }
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: parent.has && !parent.cur
+                    enabled: tile.pts > 0 && !tile.cur
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: strip.jumpRequested(parent.pts)
+                    onClicked: strip.jumpRequested(tile.pts)
                 }
             }
         }

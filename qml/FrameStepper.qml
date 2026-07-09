@@ -146,23 +146,23 @@ Item {
         _attach();
         requestPause();
         var cursor = FrameClock.lastPtsMs;
-        // Re-tracing cached ground: repaint forward instantly until we reach the
-        // frame the player is actually parked at, then hand back to real decode.
-        if (diverged) {
-            var np = FrameCache.nextPts(cursor + 0.5);
-            if (np >= 0) {
-                var landed = FrameCache.repaint(np, _tol());
-                if (landed >= 0) {
-                    if (_cohPts >= 0 && Math.abs(landed - _cohPts) <= _tol()) diverged = false;  // re-converged
-                    lastPath = "cache";
-                    _tr("fwd cache hit pts=" + landed.toFixed(1) + (diverged ? "" : " (re-converged)"));
-                    stepped(1, landed - cursor, 0, 0);
-                    return true;
-                }
+        // Cache-first BOTH directions: with the harvester decoding ahead, the next
+        // frame is normally already cached — an instant repaint, no decode on the
+        // operator's player. Adjacency-guarded (≤2.2×dur) so a cached frame from a
+        // FARTHER region never masquerades as "the next frame" — a real gap falls
+        // through to the flush, which decodes the true successor.
+        var np = FrameCache.nextPts(cursor + 0.5);
+        if (np >= 0 && np - cursor <= 2.2 * _frameDur()) {
+            var landed = FrameCache.repaint(np, _tol());
+            if (landed >= 0) {
+                diverged = !(_cohPts >= 0 && Math.abs(landed - _cohPts) <= _tol());
+                lastPath = "cache";
+                _tr("fwd cache hit pts=" + landed.toFixed(1) + (diverged ? "" : " (converged)"));
+                stepped(1, landed - cursor, 0, 0);
+                return true;
             }
-            // Cache exhausted below the parked frame (tolerance edge) — treat as converged.
-            diverged = false;
         }
+        if (diverged) diverged = false;   // stepping past cached ground onto real decode
         if (mediaPlayer.position >= mediaPlayer.duration - 500) {
             _tr("fwd blocked: end of footage");
             stepFailed(1, "end");

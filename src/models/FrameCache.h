@@ -43,6 +43,15 @@ public:
     explicit FrameCache(QObject *parent = nullptr) : QObject(parent) {}
 
     Q_INVOKABLE void attach(QObject *videoSink);      // capture tap + repaint target
+    // Second, capture-only tap for the hidden HARVESTER player (it decodes ahead of
+    // the operator so the filmstrip/steps are always cache-served). Harvest inserts
+    // never move the eviction anchor — the anchor stays at the operator's cursor.
+    Q_INVOKABLE void attachHarvest(QObject *videoSink);
+    Q_PROPERTY(bool harvestCapturing READ harvestCapturing WRITE setHarvestCapturing NOTIFY changed)
+    bool harvestCapturing() const { return m_harvestCapturing; }
+    void setHarvestCapturing(bool on);
+    // Explicit eviction anchor (the operator's cursor pts).
+    Q_INVOKABLE void setAnchorPts(double ptsMs);
     Q_INVOKABLE void clear();
 
     int frames() const { QMutexLocker l(&m_mx); return m_store.size(); }
@@ -72,17 +81,21 @@ signals:
 
 private:
     void onFrame(const QVideoFrame &frame);
+    void onHarvestFrame(const QVideoFrame &frame);
+    void captureFrame(const QVideoFrame &frame, bool moveAnchor);
     void evictIfNeededLocked();
 
     QVideoSink *m_sink = nullptr;
+    QVideoSink *m_harvestSink = nullptr;
     bool m_capturing = false;
+    bool m_harvestCapturing = false;
     mutable QMutex m_mx;
     QMap<qint64, QByteArray> m_store;                 // ptsMs → JPEG
     qint64 m_bytes = 0;
     qint64 m_anchorPts = -1;                          // eviction reference (last insert/repaint)
     int m_rev = 0;
-    static constexpr int kMaxFrames = 96;             // ~4.8 s @ 20 fps
-    static constexpr qint64 kMaxBytes = 56LL * 1024 * 1024;
+    static constexpr int kMaxFrames = 288;            // ~14 s @ 20 fps (harvester head-room)
+    static constexpr qint64 kMaxBytes = 144LL * 1024 * 1024;
 };
 
 // image://fcache/<ptsMs>?r=<rev> — thumbnails for the frame-by-frame filmstrip,
