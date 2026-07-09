@@ -663,8 +663,13 @@ Window {
     }
 
     // keyboard shortcuts (design §30)
-    Shortcut { sequence: "F"; onActivated: win.fullscreen = !win.fullscreen }
-    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
+    // F is context-split: on the playback screen it toggles frame-by-frame mode
+    // (handled by PlaybackScreen's own key handling — this app-wide shortcut would
+    // otherwise steal the key before the screen ever sees it); everywhere else it
+    // stays the fullscreen toggle. F11 = fullscreen always (desktop standard).
+    Shortcut { sequence: "F"; enabled: !playbackScreen.visible; onActivated: win.fullscreen = !win.fullscreen }
+    Shortcut { sequence: "F11"; onActivated: win.fullscreen = !win.fullscreen }
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.frameMode) playbackScreen.exitFrameMode(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
