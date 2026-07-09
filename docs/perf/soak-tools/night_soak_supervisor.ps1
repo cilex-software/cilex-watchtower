@@ -94,10 +94,17 @@ function Invoke-ExportSweep {
     Get-ChildItem -Path $ExportDir -Filter *.mp4 -ErrorAction SilentlyContinue | ForEach-Object {
         if ($_.LastWriteTime -lt $START) { return }                                   # SAFETY: never the operator's pre-existing clips
         if (((Get-Date) - $_.LastWriteTime).TotalSeconds -lt 3) { return }            # not still being written
-        $sz = $_.Length
-        ("{0} size={1} bytes={2} file={3}" -f (Get-Date -Format 'HH:mm:ss'), $sz, ("{0:N1}MB" -f ($sz/1MB)), $_.Name) |
-            Out-File -FilePath $XSZ -Append -Encoding ascii
-        Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        $sz = $_.Length; $name = $_.Name
+        # Log the size ONLY once the clip is actually removed. Previously we logged-then-deleted with
+        # -SilentlyContinue, so a clip the app still held open (a 0-byte failed/empty export) survived
+        # the delete and got re-logged every sweep -- an 8 h run bloated export_sizes.log to ~475k
+        # lines for ~520 unique clips. Now an undeletable clip is retried silently next sweep (cheap;
+        # the handle frees on the next app relaunch) and logged exactly once, when it is swept.
+        try {
+            Remove-Item $_.FullName -Force -ErrorAction Stop
+            ("{0} size={1} bytes={2} file={3}" -f (Get-Date -Format 'HH:mm:ss'), $sz, ("{0:N1}MB" -f ($sz/1MB)), $name) |
+                Out-File -FilePath $XSZ -Append -Encoding ascii
+        } catch { }   # still locked -- leave it; retried next sweep, not re-logged
     }
 }
 
