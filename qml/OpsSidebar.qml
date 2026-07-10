@@ -17,6 +17,14 @@ Item {
 
     function eventIcon(type) { return EventStyle.icon(type); }
     function eventColor(type) { return EventStyle.color(type); }
+    function relTime(tsMs) {
+        if (!tsMs || tsMs <= 0) return "";
+        var s = Math.max(0, (Date.now() - tsMs) / 1000);
+        if (s < 60) return qsTr("now");
+        if (s < 3600) return Math.floor(s / 60) + qsTr("m");
+        if (s < 86400) return Math.floor(s / 3600) + qsTr("h");
+        return Math.floor(s / 86400) + qsTr("d");
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -126,7 +134,17 @@ Item {
                 }
             }
 
-            // ---- event feed ----
+            // ---- event feed: one row per motion INCIDENT, real mid-event still ----
+            // (CV spec 2026-07-10: substance mirrored — mid-incident thumbnails via the
+            // governed /events/{id}/snapshot?pos=mid, IP-first camera line, one row per
+            // incident — rendered in Watchtower's own style. Stills load through
+            // CvImageProvider's 2-concurrent gate + 503 retry, so a feed of thumbs can
+            // never shed to black; placeholder is a neutral tile with a camera glyph.)
+            Timer {
+                interval: 15000; repeat: true; triggeredOnStart: true
+                running: root.visible && root.eventModel !== null
+                onTriggered: root.eventModel.fetchLiveFeed()
+            }
             ListView {
                 id: feed
                 Layout.fillWidth: true
@@ -135,19 +153,17 @@ Item {
                 Layout.rightMargin: 16
                 Layout.bottomMargin: 12
                 clip: true
-                model: root.eventModel
+                spacing: 0
+                model: root.eventModel ? root.eventModel.liveFeed : []
 
                 delegate: Item {
                     id: row
                     required property int index
-                    required property string type
-                    required property string desc
-                    required property string camName
-                    required property string time
-                    required property bool ack
+                    required property var modelData
+                    readonly property double tsMs: modelData.tsMs
 
                     width: ListView.view.width
-                    height: 56
+                    height: 66
 
                     Rectangle {
                         anchors { left: parent.left; right: parent.right; top: parent.top }
@@ -158,46 +174,106 @@ Item {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.topMargin: 10
-                        anchors.bottomMargin: 10
+                        anchors.topMargin: 6
+                        anchors.bottomMargin: 6
                         spacing: 10
 
-                        Item {
-                            Layout.preferredWidth: 22
-                            Layout.preferredHeight: 22
-                            Layout.alignment: Qt.AlignTop
-                            Icon {
+                        // mid-incident still — 16:9, never black
+                        Rectangle {
+                            Layout.preferredWidth: 96
+                            Layout.preferredHeight: 54
+                            Layout.alignment: Qt.AlignVCenter
+                            color: Theme.panel2
+                            border.width: 1
+                            border.color: Theme.line2
+                            clip: true
+                            Image {
+                                id: still
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                asynchronous: true
+                                fillMode: Image.PreserveAspectCrop
+                                sourceSize.width: 192
+                                source: row.modelData.hasClip
+                                        ? "image://cvframe/events/" + row.modelData.id + "/snapshot?pos=mid"
+                                        : ""
+                                visible: status === Image.Ready
+                            }
+                            Rectangle {                     // shimmer while the queued fetch runs
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                visible: still.status === Image.Loading
+                                color: Theme.panel3
+                                SequentialAnimation on opacity {
+                                    running: still.status === Image.Loading
+                                    loops: Animation.Infinite
+                                    NumberAnimation { to: 0.45; duration: 600; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                                }
+                            }
+                            Icon {                          // no clip / no recorded video → muted glyph
                                 anchors.centerIn: parent
-                                name: root.eventIcon(row.type)
-                                size: 14
-                                color: root.eventColor(row.type)
+                                visible: still.status !== Image.Ready && still.status !== Image.Loading
+                                name: "shot"
+                                size: 16
+                                color: Theme.ink3
                             }
                         }
+
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 3
-                            Text {
+                            Layout.alignment: Qt.AlignVCenter
+                            spacing: 4
+                            RowLayout {                     // title row: ● label + relative time
                                 Layout.fillWidth: true
-                                text: row.desc
-                                color: row.ack ? Theme.ink2 : Theme.ink
-                                font.family: Theme.fontSans
-                                font.pixelSize: 12
-                                font.weight: Font.Medium
-                                elide: Text.ElideRight
+                                spacing: 6
+                                Rectangle {
+                                    Layout.preferredWidth: 6; Layout.preferredHeight: 6
+                                    color: root.eventColor(row.modelData.type)
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: EventStyle.label(row.modelData.type)
+                                    color: row.modelData.ack ? Theme.ink2 : Theme.ink
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: 12
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: root.relTime(row.tsMs)
+                                    color: Theme.ink3
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 10
+                                }
                             }
-                            Text {
-                                text: row.camName + " · " + row.time
-                                color: Theme.ink3
-                                font.family: Theme.fontMono
-                                font.pixelSize: 10
+                            RowLayout {                     // camera line: IP first, never clipped
+                                Layout.fillWidth: true
+                                spacing: 6
+                                Text {
+                                    text: row.modelData.ip
+                                    visible: text !== ""
+                                    color: Theme.ink2
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 10
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: row.modelData.camName
+                                    color: Theme.ink3
+                                    font.family: Theme.fontSans
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                }
                             }
                         }
+
                         Rectangle {
-                            visible: !row.ack
+                            visible: !row.modelData.ack
                             Layout.preferredWidth: 6
                             Layout.preferredHeight: 6
                             Layout.alignment: Qt.AlignTop
-                            Layout.topMargin: 2
+                            Layout.topMargin: 6
                             color: Theme.bad
                         }
                     }
@@ -205,7 +281,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.eventActivated(row.index)
+                        onClicked: root.viewAllEvents()
                     }
                 }
             }

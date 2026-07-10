@@ -97,6 +97,14 @@ public:
     // MOTION indicator's latency (true sub-second needs a push feed — CV ask).
     Q_INVOKABLE void pollMotion();
 
+    // Live Events sidebar feed: one row per motion INCIDENT (the deduped
+    // motion_detected event, which carries the clip → has a mid-event still),
+    // via the server-side exclude_types filter (CV spec 2026-07-10). Kept
+    // separate from the triage list model on purpose — different content rules.
+    Q_PROPERTY(QVariantList liveFeed READ liveFeed NOTIFY liveFeedChanged)
+    QVariantList liveFeed() const { return m_liveFeed; }
+    Q_INVOKABLE void fetchLiveFeed();
+
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);
     // Shared, server-persisted triage actions (cilex-vision 2026-06-18). POST the
@@ -115,6 +123,7 @@ signals:
     void changed();
     void operatorsChanged();
     void motionRevChanged();
+    void liveFeedChanged();
 
 private:
     void fetchPage(bool append);
@@ -137,6 +146,8 @@ private:
     QHash<QString, qint64> m_lastMotion;   // camera_id → newest motion_* start_time (ms)
     QHash<QString, qint64> m_lastStarted;  // camera_id → newest motion_started (ms)
     QHash<QString, qint64> m_lastEnded;    // camera_id → newest motion_ended (ms)
+    QVariantList m_liveFeed;
+    QString m_liveFeedSig;                 // change signature — skip emits when identical
     int m_motionRev = 0;
     int m_fetched = 0;       // rows received from the server so far = next page offset.
                              // Distinct from m_all.size(): we drop motion_detected, so

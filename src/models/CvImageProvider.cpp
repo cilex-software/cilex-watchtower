@@ -4,6 +4,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPointer>
+#include <QQueue>
 #include <QThread>
 #include <QTimer>
 
@@ -16,6 +18,16 @@ static constexpr int kMaxSnapshotRetries = 3;
 // thumbnail path stays authorized and to attribute pool pressure.
 static const bool s_imgLog = qEnvironmentVariableIsSet("WT_TRACE");
 
+// Client-side pacing for the governed snapshot extractor (CV spec 2026-07-10):
+// the backend admits ~2 concurrent ffmpeg extractions and SHEDS the rest with
+// 503 (measured there: 8 concurrent → 6×503). A wall of thumbnails must queue
+// client-side at the same width — 2 concurrent → zero shed (their measurement),
+// no blank tiles, and the 503-retry below becomes the rare path, not the norm.
+// GUI-thread only (start()/finished both run there), so no locking.
+static constexpr int kSnapMaxConcurrent = 2;
+static int s_snapInFlight = 0;
+static QQueue<QPointer<CvImageResponse>> s_snapQueue;
+
 CvImageResponse::~CvImageResponse()
 {
     if (m_reply)
@@ -24,13 +36,42 @@ CvImageResponse::~CvImageResponse()
 
 void CvImageResponse::cancel()
 {
+    m_cancelled = true;
     if (m_reply)
-        m_reply->abort();
+        m_reply->abort();               // finished lambda releases the slot + emits
+    else if (m_queued)
+        emit finished();                // still queued: the dequeuer will skip us
+}
+
+void CvImageResponse::releaseSnapshotSlot()
+{
+    if (!m_gated)
+        return;
+    m_gated = false;
+    --s_snapInFlight;
+    while (!s_snapQueue.isEmpty()) {
+        QPointer<CvImageResponse> next = s_snapQueue.dequeue();
+        if (next && !next->m_cancelled) {
+            next->m_queued = false;
+            QMetaObject::invokeMethod(next, &CvImageResponse::start, Qt::QueuedConnection);
+            break;
+        }
+    }
 }
 
 void CvImageResponse::start()
 {
     if (!m_auth || !m_nam) { emit finished(); return; }
+    if (m_cancelled) { releaseSnapshotSlot(); emit finished(); return; }
+    // Governed-extractor gate: only /snapshot paths (the ffmpeg extraction) queue.
+    if (!m_gated && m_path.contains(QLatin1String("/snapshot"))) {
+        if (s_snapInFlight >= kSnapMaxConcurrent) {
+            if (!m_queued) { m_queued = true; s_snapQueue.enqueue(this); }
+            return;                     // resumed by releaseSnapshotSlot()
+        }
+        m_gated = true;
+        ++s_snapInFlight;
+    }
     m_timer.start();
     // Optional leading "wtp<N>/" token carries a network-scheduling priority set by
     // the caller (EvSnapshot): 2=High (focal/visible still), 0=Low (background
@@ -94,6 +135,7 @@ void CvImageResponse::start()
         }
         r->deleteLater();
         m_reply = nullptr;
+        releaseSnapshotSlot();
         emit finished();
     });
 }

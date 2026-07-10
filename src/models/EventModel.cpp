@@ -16,6 +16,7 @@
 #include <QDateTime>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
 
@@ -553,5 +554,65 @@ void EventModel::pollMotion()
         for (const auto &v : arr)
             trackMotionRow(v.toObject(), &advanced);
         if (advanced) { ++m_motionRev; emit motionRevChanged(); }
+    });
+}
+
+// Live Events sidebar: one row per motion incident. Server-side exclude_types
+// keeps lifecycle bookends and readiness warnings out; every returned row is a
+// real incident with a clip (=> a mid-event still exists for it).
+void EventModel::fetchLiveFeed()
+{
+    if (m_baseUrl.isEmpty())
+        return;                                        // WT_DEMO / logged out
+    QUrl url(m_baseUrl + "/events");
+    QUrlQuery q;
+    q.addQueryItem("limit", "14");
+    q.addQueryItem("exclude_types", "motion_not_ready,motion_started,motion_ended");
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;                                    // transient — keep the last list
+        const auto arr = QJsonDocument::fromJson(reply->readAll()).object()
+                             .value("events").toArray();
+        static const QRegularExpression ipRe(
+            QStringLiteral("\\s*\\((\\d{1,3}(?:\\.\\d{1,3}){3})\\)\\s*$"));
+        QVariantList out;
+        QString sig;
+        bool advanced = false;
+        for (const auto &v : arr) {
+            const auto o = v.toObject();
+            trackMotionRow(o, &advanced);              // the feed doubles as a motion-freshness source
+            QVariantMap m;
+            const QString id = o.value("event_id").toString();
+            m.insert("id", id);
+            m.insert("type", o.value("event_type").toString().toLower());
+            // Camera line, IP-first: the provisioner bakes "(ip)" into the name —
+            // split it out so the IP renders un-clipped and isn't printed twice.
+            QString name = o.value("camera_name").toString();
+            QString ip;
+            const auto match = ipRe.match(name);
+            if (match.hasMatch()) {
+                ip = match.captured(1);
+                name = name.left(match.capturedStart()).trimmed();
+            }
+            m.insert("ip", ip);
+            m.insert("camName", name.isEmpty() ? o.value("camera_id").toString() : name);
+            const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+            m.insert("tsMs", dt.isValid() ? double(dt.toMSecsSinceEpoch()) : -1.0);
+            m.insert("hasClip", !o.value("clip_url").toString().isEmpty());
+            const bool ack = !o.value("triage_state").toString().isEmpty()
+                             && o.value("triage_state").toString() != QLatin1String("new");
+            m.insert("ack", ack);
+            out.append(m);
+            sig += id + QLatin1Char(ack ? '1' : '0') + QLatin1Char('|');
+        }
+        if (advanced) { ++m_motionRev; emit motionRevChanged(); }
+        if (sig == m_liveFeedSig)
+            return;                                    // identical — no delegate churn
+        m_liveFeedSig = sig;
+        m_liveFeed = out;
+        emit liveFeedChanged();
     });
 }

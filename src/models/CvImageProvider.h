@@ -45,6 +45,8 @@ public slots:
     void start();                       // runs on the GUI thread (NAM's thread)
 
 private:
+    void releaseSnapshotSlot();         // pass the governed-extractor slot to the next queued fetch
+    friend class CvImageProvider;
     AuthController *m_auth = nullptr;
     QNetworkAccessManager *m_nam = nullptr;   // the provider's private NAM (GUI-thread affine)
     QString m_path;
@@ -54,6 +56,9 @@ private:
     QPointer<QNetworkReply> m_reply;
     QElapsedTimer m_timer;              // per-attempt fetch latency ([EVIMG] diagnostics)
     int m_attempt = 0;                  // 503 (governor shed) retries — honors Retry-After
+    bool m_gated = false;               // holds one of the 2 snapshot-extractor slots
+    bool m_queued = false;              // waiting in the snapshot queue
+    bool m_cancelled = false;
 };
 
 class CvImageProvider : public QQuickAsyncImageProvider
