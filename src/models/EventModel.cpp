@@ -292,21 +292,7 @@ void EventModel::fetchPage(bool append)
         for (const auto &v : arr) {
             const auto o = v.toObject();
             const QString t = o.value("event_type").toString().toLower();
-            // Per-camera motion freshness (ARMED badge): count EVERY motion_* row —
-            // including display-suppressed motion_detected — except motion_not_ready,
-            // which is a health warning, not motion.
-            if (t.startsWith(QLatin1String("motion_")) && t != QLatin1String("motion_not_ready")) {
-                const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
-                if (dt.isValid()) {
-                    const QString cid = o.value("camera_id").toString();
-                    const qint64 ms = dt.toMSecsSinceEpoch();
-                    auto it = m_lastMotion.constFind(cid);
-                    if (it == m_lastMotion.constEnd() || ms > it.value()) {
-                        m_lastMotion.insert(cid, ms);
-                        motionAdvanced = true;
-                    }
-                }
-            }
+            trackMotionRow(o, &motionAdvanced);
             if (isSuppressedType(t))
                 continue;              // drop motion_detected — see isSuppressedType()
             out.push_back(parseRow(o));
@@ -515,4 +501,57 @@ QVariantList EventModel::all() const
     for (const wt::EventData &e : m_all)
         list.append(toMap(e));
     return list;
+}
+
+// Per-camera motion tracking off one /events row: freshness (ARMED badge age) +
+// episode state (live MOTION indicator). Counts every motion_* row — including
+// display-suppressed motion_detected — except motion_not_ready (a health warning).
+void EventModel::trackMotionRow(const QJsonObject &o, bool *advanced)
+{
+    const QString t = o.value("event_type").toString().toLower();
+    if (!t.startsWith(QLatin1String("motion_")) || t == QLatin1String("motion_not_ready"))
+        return;
+    const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+    if (!dt.isValid())
+        return;
+    const QString cid = o.value("camera_id").toString();
+    const qint64 ms = dt.toMSecsSinceEpoch();
+    auto bump = [&](QHash<QString, qint64> &h) {
+        auto it = h.constFind(cid);
+        if (it == h.constEnd() || ms > it.value()) { h.insert(cid, ms); *advanced = true; }
+    };
+    bump(m_lastMotion);
+    if (t == QLatin1String("motion_started")) bump(m_lastStarted);
+    else if (t == QLatin1String("motion_ended")) bump(m_lastEnded);
+}
+
+bool EventModel::motionActive(const QString &cameraId) const
+{
+    const qint64 started = m_lastStarted.value(cameraId, -1);
+    if (started < 0)
+        return false;
+    if (m_lastEnded.value(cameraId, -1) >= started)
+        return false;
+    // lost/late motion_ended safety: an "active" episode older than 10 min is stale
+    return QDateTime::currentMSecsSinceEpoch() - started < 10 * 60 * 1000;
+}
+
+void EventModel::pollMotion()
+{
+    if (m_baseUrl.isEmpty())
+        return;                                        // WT_DEMO / logged out
+    QUrl url(m_baseUrl + "/events");
+    QUrlQuery q;
+    q.addQueryItem("limit", "100");     // deep enough that the motion_not_ready flood can't bury real motion rows
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const auto arr = obj.value("events").toArray();
+        bool advanced = false;
+        for (const auto &v : arr)
+            trackMotionRow(v.toObject(), &advanced);
+        if (advanced) { ++m_motionRev; emit motionRevChanged(); }
+    });
 }

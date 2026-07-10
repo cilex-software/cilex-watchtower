@@ -18,6 +18,24 @@ Item {
     property var eventsModel: null
     readonly property double lastMotionAtMs:
         eventsModel ? (eventsModel.motionRev, eventsModel.lastMotionAtMs(camId)) : -1
+    // LIVE "events are registering" indicator (distinct from ARMED, which only says
+    // the MODE is on): hot while a motion episode is active (started with no ended)
+    // or a motion event landed within the last ~45 s. Latency = the wall's motion
+    // poll (~5 s); sub-second needs a push feed from the backend (CV ask).
+    property int _motionTick: 0
+    Timer {
+        interval: 5000; repeat: true
+        running: root.visible && root.eventsModel !== null && root.lastMotionAtMs > 0
+        onTriggered: root._motionTick++
+    }
+    readonly property bool motionHot: {
+        _motionTick;
+        if (!eventsModel) return false;
+        var rev = eventsModel.motionRev;
+        if (eventsModel.motionActive(camId)) return true;
+        var last = eventsModel.lastMotionAtMs(camId);
+        return last > 0 && (Date.now() - last) < 45000;
+    }
     property string ip: ""
     property string groupId: ""
 
@@ -362,6 +380,12 @@ Item {
                         id: snapLbl; anchors.centerIn: parent; text: "◌ SNAPSHOT"
                         color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 0.6
                     }
+                }
+                StatusBadge {                     // live event-registration signal
+                    visible: root.motionHot
+                    label: qsTr("MOTION")
+                    fg: Theme.accent; bgColor: Theme.accentDim
+                    dotColor: Theme.accent; dotPulse: true; dotHollow: false
                 }
                 LiveStatusBadge { state: root.live }
                 RecordingStatusBadge {

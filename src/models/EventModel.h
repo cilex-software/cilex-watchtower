@@ -85,6 +85,18 @@ public:
     Q_PROPERTY(int motionRev READ motionRev NOTIFY motionRevChanged)
     int motionRev() const { return m_motionRev; }
 
+    // Is a motion EPISODE currently active on this camera (motion_started seen with
+    // no matching motion_ended yet)? Safety-capped at 10 min so a lost ended event
+    // can't pin a tile hot forever. Drives the live MOTION tile indicator.
+    Q_INVOKABLE bool motionActive(const QString &cameraId) const;
+
+    // Lightweight motion poll: fetches the newest events page and updates ONLY the
+    // per-camera motion tracking (lastMotionAtMs / started / ended) — never touches
+    // the list model, so the Live Events sidebar doesn't churn. Cheap enough to run
+    // every few seconds while the wall is visible: that poll interval IS the live
+    // MOTION indicator's latency (true sub-second needs a push feed — CV ask).
+    Q_INVOKABLE void pollMotion();
+
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);
     // Shared, server-persisted triage actions (cilex-vision 2026-06-18). POST the
@@ -121,7 +133,10 @@ private:
     QString m_qCameraId, m_qStart, m_qEnd;
     int m_pageSize = 100;
     int m_serverTotal = 0;   // DB rows matching the query (raw count from /events)
+    void trackMotionRow(const QJsonObject &o, bool *advanced);
     QHash<QString, qint64> m_lastMotion;   // camera_id → newest motion_* start_time (ms)
+    QHash<QString, qint64> m_lastStarted;  // camera_id → newest motion_started (ms)
+    QHash<QString, qint64> m_lastEnded;    // camera_id → newest motion_ended (ms)
     int m_motionRev = 0;
     int m_fetched = 0;       // rows received from the server so far = next page offset.
                              // Distinct from m_all.size(): we drop motion_detected, so

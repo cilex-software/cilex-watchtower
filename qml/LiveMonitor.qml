@@ -322,6 +322,14 @@ Item {
         if (cameraModel && eventModel)
             cameraModel.setRecentCameras(eventModel.recentCameraIds(recentWindowMs));
     }
+    // Live MOTION tile indicator feed: a lightweight motion-only poll (never touches
+    // the list model, so the sidebar doesn't churn) every 5s while the wall shows.
+    // This poll interval IS the indicator's latency; push events = CV ask.
+    Timer {
+        interval: 5000; repeat: true; triggeredOnStart: true
+        running: root.visible && root.eventModel !== null
+        onTriggered: root.eventModel.pollMotion()
+    }
     // While "Recent events" is the active filter and the screen is shown, pull the
     // latest events and re-evaluate the window every 30s (also ages cameras out).
     Timer {

@@ -8,6 +8,10 @@
             <translation>ПОТОК НЕДОСТУПЕН</translation>
         </message>
         <message>
+            <source>MOTION</source>
+            <translation>ДВИЖЕНИЕ</translation>
+        </message>
+        <message>
             <source>RECORDING STALLED</source>
             <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
         </message>
