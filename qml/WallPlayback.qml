@@ -41,6 +41,15 @@ Item {
     property string selectedDay: ""
     property bool loading: false
     property string errorText: ""     // honest pending/error message
+    Connections {
+        target: cameraModel
+        function onFunctionsChanged() {
+            if (root.visible && root.cameraModel && root.cameraModel.playbackEnabled !== false
+                    && root.errorText.indexOf(qsTr("Playback is switched off")) === 0
+                    && root.winEndMs > root.winStartMs && root.winStartMs > 0)
+                root._open(root.winStartMs, root.winEndMs);
+        }
+    }
     property bool pending: false      // true = backend compositing not available yet
 
     // In/Out clip selection on the master timeline (wall ms; -1 = none)
@@ -478,6 +487,15 @@ Item {
         player.source = "";
         var ids = camIds();
         if (ids.length === 0) { loading = false; errorText = "These cameras aren't in the recording backend."; return; }
+        // Playback switched off (operator setting) → playback-service is stopped and the
+        // mosaic session would connect-refuse. Same calm gate as the Playback screen,
+        // same fail-safe-open key (CV letter 2026-06-16.reply3: the recorded wall is
+        // playback-service; /streams keeps serving `functions` even when it's down).
+        if (cameraModel && cameraModel.playbackEnabled === false) {
+            loading = false;
+            errorText = qsTr("Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.");
+            return;
+        }
         var d = gridDims(ids.length);
         client.ensureReady();
         client.fetchCoverageUnion(ids);

@@ -380,4 +380,15 @@
             <translation>Watchtower — тест видео</translation>
         </message>
     </context>
+    <context>
+        <name>WallPlayback</name>
+        <message>
+            <source>Playback is switched off</source>
+            <translation>Воспроизведение отключено</translation>
+        </message>
+        <message>
+            <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
+            <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
+        </message>
+    </context>
 </TS>

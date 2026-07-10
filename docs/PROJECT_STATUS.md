@@ -19,9 +19,14 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   "recording resumed but the calendar still says Jul 1" report; verified live with today's dot.
 - **VIEW ISSUE tile link fixed** (`f725784`): the signal was emitted but handled nowhere; now lands on
   Health with the camera's detail panel open; hover underline + padded hit area; strip z-raised.
-- **Recording outage RESOLVED** — see the 4-fault chain above / letter UPDATE 3. **Still pending:
-  operator fixes `.201` clock (Provisioner) → re-arm motion (one API call, ours) → events return →
-  ARMED-freshness + hero frame-step get real-world verification.**
+- **Recording outage FULLY CLOSED (07-10)** — after the clock fix (Provisioner) a 5th fault surfaced:
+  `motion/arm` without `sensitivity` had left the camera at 0 (armed-but-inert; letter UPDATE 4);
+  re-armed with 50 → motion chain live within seconds (event → pre-rolled recording). **Overnight
+  alert-stream survival CONFIRMED 07-10** (first office entry 10:12:55Z → event + clip after ~16 idle
+  hours; recorder readiness `vmd_confirmed: true`). Also shipped: **filmstrip v2** (hidden harvester
+  decoder — steps are 0 ms cache repaints both ways) and the **live MOTION tile badge** (pulsing amber
+  while events register; ~5 s poll latency, SSE push = CV ask). CV closed the functions thread
+  (reply3): mosaic wall gated on `playback` — wired same day (`WallPlayback` calm overlay + auto-retry).
 - Windows session-2 prompt for the laptop: `docs/plans/windows-port/2026-07-08-w2w3-session2.prompt.md`.
 
 ## Current status (2026-07-07/08) — RU i18n shipped; W2 core gates green on real GPU; frame-step planned

@@ -380,4 +380,15 @@
         <translation type="unfinished"></translation>
     </message>
 </context>
+<context>
+    <name>WallPlayback</name>
+    <message>
+        <source>Playback is switched off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
 </TS>
