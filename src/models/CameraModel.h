@@ -142,10 +142,15 @@ public:
     bool liveViewEnabled() const { return m_liveViewEnabled; }
     bool playbackEnabled() const { return m_playbackEnabled; }
     int stateRev() const { return m_stateRev; }
-    // Epoch ms when the camera's live / recording state was OBSERVED to change to
-    // its current value; -1 = onset unknown (state predates this session's watch).
+    // Live-state onset for the badge timers. Prefers the backend's authoritative
+    // `status_since` (trigger-stamped + backfilled — CV letter 2026-07-10.reply,
+    // correct from first render and restart-proof); falls back to the onset this
+    // session OBSERVED. -1 = unknown.
     Q_INVOKABLE double liveSinceMs(const QString &cameraId) const
-    { return double(m_liveSince.value(cameraId, -1)); }
+    {
+        const qint64 a = m_statusSinceAuth.value(cameraId, -1);
+        return double(a > 0 ? a : m_liveSince.value(cameraId, -1));
+    }
     Q_INVOKABLE double recSinceMs(const QString &cameraId) const
     { return double(m_recSince.value(cameraId, -1)); }
 
@@ -181,7 +186,8 @@ private:
     bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
     bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
     bool m_playbackEnabled = true;    // /streams `functions.playback` (fail-safe true)
-    QHash<QString, qint64> m_liveSince;   // camera_id → observed live-state onset (ms)
+    QHash<QString, qint64> m_liveSince;       // camera_id → observed live-state onset (ms)
+    QHash<QString, qint64> m_statusSinceAuth; // camera_id → backend status_since (authoritative)
     QHash<QString, qint64> m_recSince;    // camera_id → observed rec-state onset (ms)
     int m_stateRev = 0;
     int m_online = 0;
