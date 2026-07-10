@@ -54,6 +54,10 @@ public:
     explicit FrameCache(QObject *parent = nullptr) : QObject(parent) {}
 
     Q_INVOKABLE void attach(QObject *videoSink);      // capture tap + repaint target
+    // Capture the sink's CURRENTLY displayed frame right now (frame-mode entry:
+    // the shown frame is the filmstrip's center tile — no need to wait for the
+    // harvester). GUI thread; the sink owns the frame it hands back.
+    Q_INVOKABLE bool captureCurrent();
     // Capture-only sink for the hidden HARVESTER player (it decodes ahead of the
     // operator so the filmstrip/steps are always cache-served). Owned here and
     // never rendered: harvested frames go straight to toImage on the delivery

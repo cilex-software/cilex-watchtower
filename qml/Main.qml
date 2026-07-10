@@ -444,6 +444,7 @@ Window {
         property double t0: 0             // state-entry timestamp
         property double tOpen: 0
         property double tFm: 0
+        property int openSeq: 0           // _frameSeq at open — the counter is cumulative
         property bool hot: false          // this cycle ends with a hot day-switch
         property int stepsLeft: 0
         property int violations: 0
@@ -457,8 +458,8 @@ Window {
         // slots chained within the strip's own adjacency limit (2.6×frameDur).
         function stripChained() {
             var c = FrameClock.lastPtsMs;
-            if (c <= 0) return 0;
-            var lim = 2.6 * dur();
+            if (c < 0) return 0;          // pts 0 is a valid cursor (day start)
+            var lim = Math.max(2.6 * dur(), 130);   // VFR floor — mirrors the strip
             var a = FrameCache.cachedAround(c, 3, 3);
             var center = -1;
             for (var i = 0; i < a.length; i++) if (Math.abs(a[i] - c) <= 2) { center = i; break; }
@@ -510,22 +511,54 @@ Window {
                 hot = (n % 4 === 3);
                 var c = cams[curPair.ip];
                 win.focusedCamera = c; win.playbackCamera = c;
-                if (playbackScreen.camera !== c) playbackScreen.camera = c;
                 console.log("[FSOAK] t=" + now + " n=" + n + " open cam=" + curPair.ip + " day=" + curPair.day
                             + " hot=" + (playbackScreen.frameMode ? "arrived-in-fm" : "no")
                             + " cache=" + FrameCache.frames + "f");
                 tOpen = now;
-                playbackScreen.openForDay(curPair.day);
-                go("play");
+                openSeq = playbackScreen._frameSeq;
+                if (playbackScreen.camera !== c) {
+                    // Camera change goes through the real operator flow — openFor
+                    // resets + refetches coverage. Setting .camera directly left the
+                    // PREVIOUS camera's footageDays in place and openForDay's
+                    // no-footage short-circuit fired on days that exist (round-1
+                    // false "No footage" violations).
+                    playbackScreen.openFor(c, 60);
+                    go("cover");
+                } else {
+                    playbackScreen.openForDay(curPair.day);
+                    go("play");
+                }
+                return;
+            }
+            if (state === "cover") {                               // wait for the new camera's coverage
+                if (!playbackScreen.coveragePending) {
+                    playbackScreen.openForDay(curPair.day);
+                    tOpen = now; openSeq = playbackScreen._frameSeq;
+                    go("play");
+                } else if (now - t0 > 12000) {
+                    fail("coverage_timeout");
+                    playbackScreen.openForDay(curPair.day);        // open anyway (pending bypasses the short-circuit)
+                    tOpen = now; openSeq = playbackScreen._frameSeq;
+                    go("play");
+                }
                 return;
             }
             if (state === "play") {
-                if (playbackScreen.frags.length > 0 && playbackScreen.advancing) {
+                if (playbackScreen.frags.length > 0 && playbackScreen.advancing
+                        && playbackScreen._frameSeq > openSeq + 8) { // frames of THIS session rendered (the counter is cumulative)
                     console.log("[FSOAK] t=" + now + " n=" + n + " playing ttff_ms=" + (now - tOpen)
                                 + " frags=" + playbackScreen.frags.length);
                     go((n % 3 === 1) ? "preseek" : "fm");
                 } else if (playbackScreen.errorText !== "") {
                     fail("open_error", "err=\"" + playbackScreen.errorText + "\"");
+                    // A day the app's coverage rejects (e.g. aged past retention
+                    // mid-soak) will reject forever — drop the pair from rotation.
+                    if (playbackScreen.errorText.indexOf("No footage recorded on this day") >= 0) {
+                        for (var pi = pairs.length - 1; pi >= 0; pi--)
+                            if (pairs[pi].ip === curPair.ip && pairs[pi].day === curPair.day) pairs.splice(pi, 1);
+                        console.log("[FSOAK] pruned " + curPair.ip + "/" + curPair.day + " -> pairs=" + pairs.length);
+                        if (!pairs.length) { console.log("[FSOAK] plan exhausted"); running = false; return; }
+                    }
                     nextCycle(false);
                 } else if (now - t0 > 25000) {
                     fail("open_timeout", "ttff>25s frags=" + playbackScreen.frags.length);
@@ -538,8 +571,11 @@ Window {
                 var fr = playbackScreen.frags;
                 if (fr.length > 3) {
                     var k = (n * 7) % fr.length;
-                    console.log("[FSOAK] t=" + now + " n=" + n + " preseek frag#" + k + "/" + fr.length);
-                    playbackScreen.seekToWall(fr[k][2] + 300);
+                    // frags rows are OBJECTS ({cs,ce,ws,...}); [2] read undefined and
+                    // seekToWall(NaN) nuked the session into a fake "empty manifest"
+                    // (rounds 1-3: every fm_refused + "transient" empty was this).
+                    console.log("[FSOAK] t=" + now + " n=" + n + " preseek frag#" + k + "/" + fr.length + " ws=" + fr[k].ws);
+                    playbackScreen.seekToWall(fr[k].ws + 300);
                 }
                 go("fm"); t0 = now + 1200;                         // brief settle after the click
                 return;
@@ -559,16 +595,24 @@ Window {
             }
             if (state === "strip") {
                 var ch = stripChained();
-                if (ch >= 5) {
+                // At the session head there is nothing behind pts 0 — 4 chained
+                // (center + 3 ahead) is ALL SEVEN slots that can exist there.
+                var need = (FrameClock.lastPtsMs < 4 * dur()) ? 4 : 5;
+                if (ch >= need) {
                     var ms = now - tFm;
                     console.log("[FSOAK] t=" + now + " n=" + n + " strip_ms=" + ms + " chained=" + ch
                                 + " cache=" + FrameCache.frames + "f "
                                 + (ms <= 1000 ? "PASS" : "SLOW"));
-                    if (ms > 1000) fail("strip_slow", "strip_ms=" + ms);
+                    if (ms > 1000) fail("strip_slow", "strip_ms=" + ms
+                        + " c=" + FrameClock.lastPtsMs.toFixed(1) + " dur=" + dur().toFixed(1)
+                        + " around=" + JSON.stringify(FrameCache.cachedAround(FrameClock.lastPtsMs, 3, 3)));
                     stepsLeft = 10;
                     go("steps");
                 } else if (now - tFm > 6000) {
-                    fail("strip_timeout", "chained=" + ch + " after 6s cache=" + FrameCache.frames + "f harvest=" + FrameCache.harvestCapturing);
+                    fail("strip_timeout", "chained=" + ch + " after 6s cache=" + FrameCache.frames
+                         + "f harvest=" + FrameCache.harvestCapturing
+                         + " c=" + FrameClock.lastPtsMs.toFixed(1) + " dur=" + dur().toFixed(1)
+                         + " around=" + JSON.stringify(FrameCache.cachedAround(FrameClock.lastPtsMs, 3, 3)));
                     stepsLeft = 6;                                 // exercise anyway — stalls surface in steps
                     go("steps");
                 }

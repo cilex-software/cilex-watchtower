@@ -15,6 +15,12 @@ Item {
 
     property url source: ""            // MUST be the main player's playlist (same pts domain)
     property bool active: false
+    // Pre-arm: load the source (paused, no decode) ahead of frame mode so
+    // activation skips the manifest+probe cold start. Churn-safe: same
+    // single-swap rule as activation, source is never cleared.
+    property bool prearm: false
+    onPrearmChanged: if (prearm && !active && source != Qt.url("") && player.source !== source)
+                         player.source = source;
     property double userPts: -1        // operator's shown frame (FrameClock.lastPtsMs)
     property double anchorOffMs: 0     // pts → player-position mapping (from the stepper)
     property double frameDurMs: 50
@@ -55,7 +61,7 @@ Item {
             _tr("inactive (source kept — churn-safe)");
         }
     }
-    onSourceChanged: if (active && source != Qt.url("")) { player.stop(); player.source = source; mode = "idle"; }
+    onSourceChanged: if ((active || prearm) && source != Qt.url("")) { player.stop(); player.source = source; mode = "idle"; }
 
     // Host bridge: does the position-domain jump [fromMs,toMs] cross a kept
     // discontinuity? Raw seeks ACROSS one stall the FFmpeg HLS demuxer (the very
@@ -67,7 +73,7 @@ Item {
     // Frames cached CONTIGUOUSLY ahead of the cursor (gaps ≤ chainGap×dur count as
     // adjacent — VFR streams legitimately mix 25/50/100 ms intervals).
     function chainedAhead() {
-        var lim = chainGap * frameDurMs;
+        var lim = Math.max(chainGap * frameDurMs, 130);   // VFR floor (see FrameStrip)
         var above = FrameCache.cachedAround(userPts, 0, aheadTarget);
         var prev = userPts, n = 0;
         for (var i = 0; i < above.length; i++) {
@@ -78,7 +84,7 @@ Item {
     }
     // Lowest pts chained backward from the cursor (the usable strip floor).
     function chainFloor() {
-        var lim = chainGap * frameDurMs;
+        var lim = Math.max(chainGap * frameDurMs, 130);   // VFR floor
         var below = FrameCache.cachedAround(userPts, behindChunk + behindLow, 0);
         var p = userPts;
         for (var i = below.length - 1; i >= 0; i--) {
@@ -93,7 +99,10 @@ Item {
         id: evalT
         interval: 300; repeat: true
         onTriggered: {
-            if (!hv.active || hv.userPts <= 0 || player.source == Qt.url("")) return;
+            // userPts < 0 = no cursor yet; EXACTLY 0 is a legitimate pts (heavy-day
+            // bounded bootstrap lands at 00:00:00 — first frame pts 0.0; fsoak
+            // window-2: the <=0 guard idled the harvester there for the full 6 s).
+            if (!hv.active || hv.userPts < 0 || player.source == Qt.url("")) return;
             // stall watch: playing but nothing new captured for 2.5 s → park (EOS/cold)
             if (player.playbackState === MediaPlayer.PlayingState) {
                 if (FrameCache.rev !== hv._lastRev) { hv._lastRev = FrameCache.rev; hv._lastRevAt = Date.now(); }

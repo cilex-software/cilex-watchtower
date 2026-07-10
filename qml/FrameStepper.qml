@@ -152,7 +152,7 @@ Item {
         // FARTHER region never masquerades as "the next frame" — a real gap falls
         // through to the flush, which decodes the true successor.
         var np = FrameCache.nextPts(cursor + 0.5);
-        if (np >= 0 && np - cursor <= 2.2 * _frameDur()) {
+        if (np >= 0 && np - cursor <= Math.max(2.2 * _frameDur(), 130)) {   // VFR floor (see FrameStrip)
             var landed = FrameCache.repaint(np, _tol());
             if (landed >= 0) {
                 diverged = !(_cohPts >= 0 && Math.abs(landed - _cohPts) <= _tol());

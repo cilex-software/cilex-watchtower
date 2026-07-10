@@ -176,6 +176,7 @@ Item {
         return best;
     }
     function seekToWall(ms) {
+        if (!isFinite(ms)) { console.warn("[PB] seekToWall(non-finite) ignored"); return; }
         stepper.cancelStep();   // cancel any in-flight step; cache stays (in-session pts remain valid)
         // A far-seek open is in flight: route straight to seekFar, which COALESCES
         // (replaces the pending target — last click wins). Deterministic, instead of
@@ -239,8 +240,14 @@ Item {
     // Re-open a short session beginning ~15s before a far seek target (then seek to it on load), so the
     // demuxer never has to seek across the full session's discontinuities. The target lands near the
     // start of a fresh short HLS and renders. Mirrors EvHeroPlayer's event-open window.
+    property double _lastFarMs: -1        // last far-seek target (empty-manifest retry replays it)
     function seekFar(ms, preserveMark) {
         if (!client || !camera) return;
+        // A non-finite target would serialize as "Invalid Date" and open a session
+        // the backend answers with an empty manifest — tearing down a healthy
+        // player for nothing (soak rounds 1-3, NaN wall-times from a bad caller).
+        if (!isFinite(ms)) { console.warn("[PB] seekFar(non-finite) ignored"); return; }
+        _lastFarMs = ms;
         stepper.invalidate();   // a re-open supersedes any cache-step state / in-flight step
         // A far target in DEAD AIR (most of a sparse day) must not open a ±30 min
         // session around nothing — that returns zero ready fragments and strands the
@@ -476,6 +483,15 @@ Item {
         id: emptyRetry
         interval: 1500; repeat: false
         onTriggered: { root._pendingOpen = true; root.tryOpen(); }
+    }
+    // Same transient, far-seek flavor (soak-caught 2026-07-10): a fragment click on
+    // an archived day re-opened via seekFar and the backend answered 200 with ZERO
+    // fragments in 19 ms — for a window that provably holds fragments (the click
+    // target). One silent replay of the same target before the honest error.
+    Timer {
+        id: farEmptyRetry
+        interval: 900; repeat: false
+        onTriggered: if (root._lastFarMs > 0) root.seekFar(root._lastFarMs)
     }
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
@@ -753,12 +769,21 @@ Item {
             root.frags = out;
             if (out.length === 0) {
                 if (root._seekReopen) {
-                    // A far-seek window came back empty. Shouldn't happen now that far
-                    // targets snap to footage first — kept as a safety net: keep the
-                    // timeline, clear the re-open flag, and say how to recover (any
-                    // footage click re-opens via seekToWall's unloaded-player branch).
+                    // A far-seek window came back empty. Far targets snap to footage
+                    // first, so this is either the transient empty-manifest blip
+                    // (retry once, same target) or genuinely gone footage (honest
+                    // error; any footage click re-opens via seekToWall's
+                    // unloaded-player branch).
                     root._seekReopen = false;
-                    root.errorText = "No footage at that moment — click a green section of the timeline.";
+                    if (!root._emptyRetried && root._lastFarMs > 0) {
+                        root._emptyRetried = true;
+                        root.loading = true;
+                        if (typeof wtTrace !== "undefined" && wtTrace)
+                            console.log("[PB] empty-manifest retry (seekfar) target=" + root._lastFarMs);
+                        farEmptyRetry.restart();
+                    } else {
+                        root.errorText = "No footage at that moment — click a green section of the timeline.";
+                    }
                 } else if (!root._emptyRetried) {
                     // Transient backend blip (empty manifest with 200 under load) —
                     // retry ONCE silently before declaring the range footage-less.
@@ -830,7 +855,7 @@ Item {
         function onSessionFailed(err) {
             root.loading = false; root.errorText = err; root._ttffPending = false;
             root._farInFlight = false; root._farLatestMs = -1;   // coalescing must not outlive a failed open
-            emptyRetry.stop();                                   // a real failure outranks a pending blip-retry
+            emptyRetry.stop(); farEmptyRetry.stop();             // a real failure outranks a pending blip-retry
             if (player) player.source = "";   // we kept the old source for the swap; a failed open must clear it (rare path, not the churn hot path)
         }
         function onCamerasResolved() {
@@ -953,6 +978,7 @@ Item {
         paused = true; applyTransport();
         FrameClock.attach(vout.videoSink);
         FrameCache.attach(vout.videoSink);
+        FrameCache.captureCurrent();   // the shown frame IS the strip's center tile — instantly
         frameMode = true;      // the harvester activates off this and fills the strip
     }
     function exitFrameMode() {
@@ -1047,6 +1073,11 @@ Item {
     FrameHarvester {
         id: harvester
         source: player.source
+        // Pre-arm (load the playlist, stay paused) as soon as a session is up: the
+        // manifest+probe cost (~0.5-1.5 s) is paid BEFORE the operator presses F,
+        // so the filmstrip fills in hundreds of ms, not seconds (fsoak strip_ms
+        // p95 finding, 2026-07-10). Decode still only runs in frame mode.
+        prearm: root.visible && root.frags.length > 0 && !root.loading
         // loading-gated: during session swaps the fragment list flaps empty — the
         // harvester pauses instead of tearing down (churn-safe either way, but no
         // point burning decode on a session that's being replaced).
@@ -1356,7 +1387,7 @@ Item {
                 if (churnTest.done > 0 && churnTest.done <= wtChurnTest && root.frags.length > 3) {
                     var k = (churnTest.done * 7) % root.frags.length;
                     console.log("[CHURN] poke frag#" + k + " (of " + root.frags.length + ")");
-                    root.seekToWall(root.frags[k][2] + 300);
+                    root.seekToWall(root.frags[k].ws + 300);   // rows are objects, not arrays
                 }
             }
         }

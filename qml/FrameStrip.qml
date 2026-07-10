@@ -27,7 +27,11 @@ Item {
     signal jumpRequested(double pts)
 
     readonly property real _dur: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
-    readonly property real _chainLim: 2.6 * _dur
+    // Floor at 130 ms: VFR streams mix 40/80/100 ms intervals while the MEDIAN can
+    // sit at 30-50 ms — 2.6×median then knife-edges below a real 80 ms gap and the
+    // strip drops tiles that ARE cached (fsoak window-3). 130 ms still can't stitch
+    // across true region jumps (those are seconds apart).
+    readonly property real _chainLim: Math.max(2.6 * _dur, 130)
 
     function ptsForIndex(i) {
         var rev = FrameCache.rev;               // dependency: re-evaluate on cache changes
@@ -113,7 +117,7 @@ Item {
                 }
                 Text {                            // placeholder — nothing painted yet
                     anchors.centerIn: parent
-                    visible: tile.shownPts <= 0
+                    visible: tile.shownPts < 0   // pts 0 is a real frame (day start), not a placeholder
                     text: "·"
                     color: Theme.ink3; font.pixelSize: 18
                 }

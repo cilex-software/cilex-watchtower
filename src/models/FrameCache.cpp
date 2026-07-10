@@ -26,6 +26,18 @@ void FrameCache::attach(QObject *videoSink)
                 Qt::DirectConnection);
 }
 
+bool FrameCache::captureCurrent()
+{
+    if (!m_sink)
+        return false;
+    const QVideoFrame f = m_sink->videoFrame();
+    if (!f.isValid())
+        return false;
+    const int before = frames();
+    captureFrame(f, true);
+    return frames() > before || f.startTime() >= 0;
+}
+
 void FrameCache::clear()
 {
     {
