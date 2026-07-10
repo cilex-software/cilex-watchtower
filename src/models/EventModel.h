@@ -104,6 +104,9 @@ public:
     Q_PROPERTY(QVariantList liveFeed READ liveFeed NOTIFY liveFeedChanged)
     QVariantList liveFeed() const { return m_liveFeed; }
     Q_INVOKABLE void fetchLiveFeed();
+    // Fast top-merge sync (no model reset): new incidents prepend, known rows'
+    // triage fields patch in place. Drives the Events screen's 10s live refresh.
+    Q_INVOKABLE void refreshIncremental();
 
     Q_INVOKABLE void acknowledge(int row, const QString &by);
     Q_INVOKABLE void acknowledgeById(const QString &id);

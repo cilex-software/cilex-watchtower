@@ -47,9 +47,16 @@ QString descForType(const QString &type, qint64 durMs)
 // motion_ended lifecycle, so we drop the redundant middle row. Safe because
 // motion_started/_ended fire for every episode while motion_detected is a strict
 // subset — hiding it can never drop a motion event.
-bool isSuppressedType(const QString &type)
+// The feed is INCIDENT-centric everywhere since 2026-07-10 (CV spec + operator
+// sync ask): the server-side exclude_types filter drops the motion lifecycle
+// bookends (started/ended) and readiness warnings, leaving one deduped
+// motion_detected row per incident (the one carrying the clip). Nothing is
+// suppressed client-side anymore — motion_detected IS the content now.
+static const char *kExcludeTypes = "motion_not_ready,motion_started,motion_ended";
+
+bool isSuppressedType(const QString &)
 {
-    return type == QLatin1String("motion_detected");
+    return false;
 }
 
 // [EVTIME] — WT_TRACE-gated latency/pool diagnostics for the events queries (the
@@ -262,6 +269,7 @@ void EventModel::fetchPage(bool append)
     QUrlQuery q;
     q.addQueryItem("limit", QString::number(m_pageSize));
     q.addQueryItem("offset", QString::number(append ? m_fetched : 0));
+    q.addQueryItem("exclude_types", QLatin1String(kExcludeTypes));
     if (!m_qCameraId.isEmpty()) q.addQueryItem("camera_id", m_qCameraId);
     if (!m_qStart.isEmpty())    q.addQueryItem("start", m_qStart);
     if (!m_qEnd.isEmpty())      q.addQueryItem("end", m_qEnd);
@@ -567,7 +575,7 @@ void EventModel::fetchLiveFeed()
     QUrl url(m_baseUrl + "/events");
     QUrlQuery q;
     q.addQueryItem("limit", "14");
-    q.addQueryItem("exclude_types", "motion_not_ready,motion_started,motion_ended");
+    q.addQueryItem("exclude_types", QLatin1String(kExcludeTypes));
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -614,5 +622,68 @@ void EventModel::fetchLiveFeed()
         m_liveFeedSig = sig;
         m_liveFeed = out;
         emit liveFeedChanged();
+    });
+}
+
+// Fast, churn-free sync for the Events screen (10s while visible): fetch the
+// newest page and TOP-MERGE — genuinely new incidents insert at row 0, known
+// rows get their triage/ack fields patched in place. No model reset, so the
+// four tabs (Triage/Verify/Timeline/Map, all fed off changed() -> ingestReal)
+// update rapidly without delegate churn; selection is id-based and survives.
+void EventModel::refreshIncremental()
+{
+    if (m_baseUrl.isEmpty() || m_loading)
+        return;
+    if (!m_qCameraId.isEmpty() || !m_qStart.isEmpty() || !m_qEnd.isEmpty())
+        return;                                        // a scoped search is active — don't fight it
+    QUrl url(m_baseUrl + "/events");
+    QUrlQuery q;
+    q.addQueryItem("limit", QString::number(m_pageSize));
+    q.addQueryItem("exclude_types", QLatin1String(kExcludeTypes));
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const auto arr = obj.value("events").toArray();
+        QHash<QString, int> byId;
+        for (int i = 0; i < m_all.size(); ++i)
+            byId.insert(m_all[i].id, i);
+        QVector<wt::EventData> fresh;
+        bool patched = false, motionAdvanced = false;
+        for (const auto &v : arr) {
+            const auto o = v.toObject();
+            trackMotionRow(o, &motionAdvanced);
+            if (isSuppressedType(o.value("event_type").toString().toLower()))
+                continue;
+            wt::EventData e = parseRow(o);
+            const auto it = byId.constFind(e.id);
+            if (it != byId.constEnd()) {
+                wt::EventData &cur = m_all[*it];
+                if (cur.triageState != e.triageState || cur.disposition != e.disposition
+                    || cur.assignedTo != e.assignedTo || cur.bookmarked != e.bookmarked
+                    || cur.ack != e.ack) {
+                    cur = e;
+                    const QModelIndex idx = index(*it);
+                    emit dataChanged(idx, idx);
+                    patched = true;
+                }
+            } else {
+                fresh.append(e);
+            }
+        }
+        if (motionAdvanced) { ++m_motionRev; emit motionRevChanged(); }
+        if (!fresh.isEmpty()) {
+            beginInsertRows(QModelIndex(), 0, int(fresh.size()) - 1);
+            for (int i = int(fresh.size()) - 1; i >= 0; --i)
+                m_all.prepend(fresh[i]);
+            endInsertRows();
+            m_fetched += int(fresh.size());
+        }
+        m_serverTotal = obj.value("total").toInt(m_serverTotal);
+        if (!fresh.isEmpty() || patched)
+            emit changed();                            // -> EventsArea re-ingests all four tabs
     });
 }

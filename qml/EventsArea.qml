@@ -71,6 +71,15 @@ Item {
         }
         return lk;
     }
+    // Rapid sync (operator ask 2026-07-10): while the Events screen is visible,
+    // top-merge the newest incidents every 10s — same incident model as the Live
+    // sidebar, so the two can never drift. Identical payloads emit nothing.
+    Timer {
+        interval: 10000; repeat: true; triggeredOnStart: true
+        running: area.visible && !area.demo && area.eventModel !== null
+        onTriggered: area.eventModel.refreshIncremental()
+    }
+
     function _ingestReal() {
         if (!eventModel) { EventsStore.loadMock(); return; }
         var fullLk = area._buildLookup();
