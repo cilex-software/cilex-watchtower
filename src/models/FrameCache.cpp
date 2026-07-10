@@ -16,8 +16,14 @@ void FrameCache::attach(QObject *videoSink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;
     clear();
+    // DIRECT connection — run on the backend's delivery thread, inside the
+    // emission, while the decoder still owns the frame's hw surface. Queued
+    // delivery (AutoConnection) let session churn destroy the decoder between
+    // emission and delivery; toImage() then dereferenced a freed
+    // AVHWFramesContext → SIGSEGV (P0 2026-07-10, gdb-confirmed).
     if (m_sink)
-        connect(m_sink, &QVideoSink::videoFrameChanged, this, &FrameCache::onFrame);
+        connect(m_sink, &QVideoSink::videoFrameChanged, this, &FrameCache::onFrame,
+                Qt::DirectConnection);
 }
 
 void FrameCache::clear()
@@ -34,28 +40,31 @@ void FrameCache::clear()
 
 void FrameCache::setCapturing(bool on)
 {
-    if (m_capturing == on)
+    if (m_capturing.load(std::memory_order_relaxed) == on)
         return;
-    m_capturing = on;
+    m_capturing.store(on, std::memory_order_relaxed);
     emit changed();
 }
 
 void FrameCache::onFrame(const QVideoFrame &frame)
 {
-    if (!m_capturing)
+    if (!m_capturing.load(std::memory_order_relaxed))
         return;
     captureFrame(frame, true);                        // operator-side capture anchors eviction
 }
 
 void FrameCache::onHarvestFrame(const QVideoFrame &frame)
 {
-    if (!m_harvestCapturing)
+    if (!m_harvestCapturing.load(std::memory_order_relaxed))
         return;
     captureFrame(frame, false);                       // harvest never moves the anchor
 }
 
+// Runs on the media backend's frame-delivery thread (DirectConnection).
 void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
 {
+    if (!frame.isValid())
+        return;
     const qint64 stUs = frame.startTime();
     if (stUs < 0)
         return;                                       // our own repaints carry PTS; raw invalids skipped
@@ -65,7 +74,10 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
         if (m_store.contains(pts))
             return;
     }
-    const QImage img = frame.toImage();               // GPU readback (operator steps + harvester only)
+    // GPU readback. A corrupt-packet frame whose VA surface fails to sync comes
+    // back null here (Qt logs "Cannot map a video frame in ReadOnly mode!") —
+    // drop it and let the harvester roll on.
+    const QImage img = frame.toImage();
     if (img.isNull())
         return;
     QByteArray jpg;
@@ -85,23 +97,21 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
     emit changed();
 }
 
-void FrameCache::attachHarvest(QObject *videoSink)
+QVideoSink *FrameCache::harvestSink()
 {
-    auto *sink = qobject_cast<QVideoSink *>(videoSink);
-    if (m_harvestSink == sink)
-        return;
-    if (m_harvestSink)
-        disconnect(m_harvestSink, nullptr, this, nullptr);
-    m_harvestSink = sink;
-    if (m_harvestSink)
-        connect(m_harvestSink, &QVideoSink::videoFrameChanged, this, &FrameCache::onHarvestFrame);
+    if (!m_harvestSink) {
+        m_harvestSink = new QVideoSink(this);
+        connect(m_harvestSink, &QVideoSink::videoFrameChanged, this, &FrameCache::onHarvestFrame,
+                Qt::DirectConnection);                // see attach() — same UAF rationale
+    }
+    return m_harvestSink;
 }
 
 void FrameCache::setHarvestCapturing(bool on)
 {
-    if (m_harvestCapturing == on)
+    if (m_harvestCapturing.load(std::memory_order_relaxed) == on)
         return;
-    m_harvestCapturing = on;
+    m_harvestCapturing.store(on, std::memory_order_relaxed);
     emit changed();
 }
 

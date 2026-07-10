@@ -7,8 +7,9 @@
 #include <QImage>
 #include <QQuickImageProvider>
 #include <QVariantList>
+#include <QVideoSink>
+#include <atomic>
 
-class QVideoSink;
 class QVideoFrame;
 
 // Bounded decoded-frame cache for instant hot backward stepping
@@ -29,7 +30,17 @@ class QVideoFrame;
 // from the last repaint/insert point (the operator steps locally).
 //
 // The store is mutex-guarded: FrameCacheImageProvider serves thumbnails from
-// Quick's image-loader threads while the GUI thread inserts/evicts.
+// Quick's image-loader threads while capture threads insert/evict.
+//
+// THREAD MODEL (P0 2026-07-10): capture taps connect with Qt::DirectConnection
+// and run ON the media backend's frame-delivery thread, synchronously inside
+// the videoFrameChanged emission — while the decoder still owns the frame's
+// VA-API surface. The previous AutoConnection queued the raw QVideoFrame to the
+// GUI thread; a session swap could destroy the decoder's AVHWFramesContext
+// before delivery, and toImage() on the stale frame walked freed memory —
+// SIGSEGV in qImageFromVideoFrame under session churn (caught under gdb, thread
+// 1, FrameCache::captureFrame in the backtrace). Converting at emission closes
+// that window, and moves the GPU-readback + JPEG cost off the GUI thread.
 class FrameCache : public QObject
 {
     Q_OBJECT
@@ -43,22 +54,28 @@ public:
     explicit FrameCache(QObject *parent = nullptr) : QObject(parent) {}
 
     Q_INVOKABLE void attach(QObject *videoSink);      // capture tap + repaint target
-    // Second, capture-only tap for the hidden HARVESTER player (it decodes ahead of
-    // the operator so the filmstrip/steps are always cache-served). Harvest inserts
-    // never move the eviction anchor — the anchor stays at the operator's cursor.
-    Q_INVOKABLE void attachHarvest(QObject *videoSink);
+    // Capture-only sink for the hidden HARVESTER player (it decodes ahead of the
+    // operator so the filmstrip/steps are always cache-served). Owned here and
+    // never rendered: harvested frames go straight to toImage on the delivery
+    // thread — no VideoOutput, no scene-graph texture import of a frame whose
+    // decoder may be mid-teardown (the render-thread flavor of the same UAF),
+    // and no GPU upload at 2× rate for pixels nobody paints. Assign it to the
+    // harvester MediaPlayer's videoOutput. Harvest inserts never move the
+    // eviction anchor — the anchor stays at the operator's cursor.
+    Q_PROPERTY(QVideoSink *harvestSink READ harvestSink CONSTANT)
+    QVideoSink *harvestSink();
     Q_PROPERTY(bool harvestCapturing READ harvestCapturing WRITE setHarvestCapturing NOTIFY changed)
-    bool harvestCapturing() const { return m_harvestCapturing; }
+    bool harvestCapturing() const { return m_harvestCapturing.load(std::memory_order_relaxed); }
     void setHarvestCapturing(bool on);
     // Explicit eviction anchor (the operator's cursor pts).
     Q_INVOKABLE void setAnchorPts(double ptsMs);
     Q_INVOKABLE void clear();
 
     int frames() const { QMutexLocker l(&m_mx); return m_store.size(); }
-    bool capturing() const { return m_capturing; }
+    bool capturing() const { return m_capturing.load(std::memory_order_relaxed); }
     void setCapturing(bool on);
     double bytesMB() const { QMutexLocker l(&m_mx); return double(m_bytes) / (1024.0 * 1024.0); }
-    int rev() const { return m_rev; }
+    int rev() const { return m_rev.load(std::memory_order_relaxed); }
 
     // Nearest cached PTS strictly before/after the given ms; -1 when none.
     Q_INVOKABLE double prevPts(double beforeMs) const;
@@ -86,14 +103,14 @@ private:
     void evictIfNeededLocked();
 
     QVideoSink *m_sink = nullptr;
-    QVideoSink *m_harvestSink = nullptr;
-    bool m_capturing = false;
-    bool m_harvestCapturing = false;
+    QVideoSink *m_harvestSink = nullptr;              // owned, render-less (harvestSink())
+    std::atomic<bool> m_capturing{false};             // set on GUI, read on delivery threads
+    std::atomic<bool> m_harvestCapturing{false};
     mutable QMutex m_mx;
     QMap<qint64, QByteArray> m_store;                 // ptsMs → JPEG
     qint64 m_bytes = 0;
     qint64 m_anchorPts = -1;                          // eviction reference (last insert/repaint)
-    int m_rev = 0;
+    std::atomic<int> m_rev{0};                        // bumped on delivery threads, read from QML
     static constexpr int kMaxFrames = 288;            // ~14 s @ 20 fps (harvester head-room)
     static constexpr qint64 kMaxBytes = 144LL * 1024 * 1024;
 };

@@ -1,8 +1,34 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-07-08. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-07-10. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-07-10) — 🔴→🟢 P0 frame-mode segfault RESOLVED; live-events/status burst
+
+- **P0 SIGSEGV under frame-mode session churn — root-caused and fixed same day.** Three stacked
+  faults behind one report (blank filmstrip on today's gappy footage → freezes on fragment clicks →
+  crash): (1) frame-level use-after-free — capture taps queued raw `QVideoFrame`s to the GUI thread
+  and session swaps freed the decoder's VA-API context before delivery (`toImage()` → SIGSEGV,
+  caught under gdb) → taps now convert at emission via `Qt::DirectConnection`; (2) harvester issued
+  raw seeks across kept discontinuities + the 4a14650 `source=""` churn pattern → churn-safe
+  lifecycle + `crossesDisc` bridge; (3) live-edge "at end" park starved behind-fill → blank strip on
+  any today-footage → eval falls through to history fill. Harvest frames are no longer rendered at
+  all (`FrameCache.harvestSink`). New `WT_CHURNTEST` harness: pre-fix crash in <1 min; post-fix
+  20/20 day-switches + pokes clean, 146 corrupt packets absorbed, strip populated at the live edge.
+  Full postmortem: [`docs/perf/2026-07-10-frame-mode-churn-segfault.md`](perf/2026-07-10-frame-mode-churn-segfault.md).
+- **Live Events feed rebuilt to the CV thumbnails spec** — real mid-incident stills
+  (`/events/{id}/snapshot?pos=mid`) through a 2-concurrent client gate (0×503 measured), shimmer/glyph
+  placeholders (never black), IP-first camera line, one row per incident, 15 s refresh.
+- **Events screen ↔ Live sidebar now in sync** — incident model everywhere
+  (`exclude_types=motion_not_ready,motion_started,motion_ended`), 10 s `refreshIncremental()`
+  top-merge (prepend new, patch triage in place — no model resets, no thumbnail refetch).
+- **Authoritative status-badge timers** — CV shipped `status_since`/`recording_since`/`last_seen_at`
+  same-day (letter + reply closed); badges prefer backend stamps (`LIVE · 9d` matches to the minute),
+  observed-onset fallback kept for the ≤30 s `recording_since` null window. Badge-timer toggle in
+  Preferences (default ON); clickable "Last motion" sidebar row.
+- Windows CI: build job green on the full tree; artifact upload still sheds against GitHub's stale
+  quota counter after the 6.5 GB purge (`retention-days: 3` now set) — next runs should clear.
 
 ## Current status (2026-07-08 evening) — outage resolved; review-UX burst (filmstrip frame mode, ARMED freshness, calendar refresh, VIEW ISSUE fix)
 

@@ -321,6 +321,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));
     // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
     engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));
+    // WT_CHURNTEST=<N>: session-churn soak (P0 2026-07-10) — N openForDay switches between
+    // WT_PLAYBACK_DAY and WT_CHURN_ALT with frame mode active, then quit. Inert unless set.
+    engine.rootContext()->setContextProperty("wtChurnTest", qEnvironmentVariableIntValue("WT_CHURNTEST"));
+    engine.rootContext()->setContextProperty("wtChurnAlt", qEnvironmentVariable("WT_CHURN_ALT"));
 
     // Events section routing. The EventsArea redesign is now the DEFAULT (fed by
     // the live cilex-vision /events feed). WT_DEMO runs the same redesign on the

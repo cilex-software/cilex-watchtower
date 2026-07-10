@@ -1047,10 +1047,14 @@ Item {
     FrameHarvester {
         id: harvester
         source: player.source
-        active: root.frameMode && root.frags.length > 0
+        // loading-gated: during session swaps the fragment list flaps empty — the
+        // harvester pauses instead of tearing down (churn-safe either way, but no
+        // point burning decode on a session that's being replaced).
+        active: root.frameMode && root.frags.length > 0 && !root.loading
         userPts: FrameClock.lastPtsMs
         anchorOffMs: stepper.anchorOffMs
         frameDurMs: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
+        crossesDisc: function(fromMs, toMs) { return root._crossesBoundary(fromMs / 1000, toMs / 1000); }
     }
 
     // While the shown frame comes from the cache, the player's position is parked
@@ -1301,6 +1305,76 @@ Item {
                         + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB");
             console.log("[STEPT] DONE");
             Qt.quit();
+        }
+    }
+
+    // ---- WT_CHURNTEST=<N>: session-churn soak (P0 2026-07-10 segfault repro). With
+    // frame mode held active (pair with WT_FRAME_MODE=1), alternates openForDay between
+    // the boot day (WT_PLAYBACK_DAY — use a gappy motion day) and WT_CHURN_ALT (a
+    // continuous day) every 4.5 s, with a mid-session fragment click 2.6 s after each
+    // switch — the operator gesture that crashed 2026-07-10: the harvester is mid-fill
+    // (often stalled on a kept discontinuity) when the session churns under it. Pass =
+    // all switches survived, frames still rendering, fragments loaded. Inert unless set.
+    Item {
+        id: churnTest
+        readonly property bool on: (typeof wtChurnTest !== "undefined") && wtChurnTest > 0
+        readonly property string baseDay: (typeof wtPlaybackDay !== "undefined") && wtPlaybackDay !== "" ? wtPlaybackDay.split("T")[0] : ""
+        readonly property string altDay: (typeof wtChurnAlt !== "undefined") ? wtChurnAlt : ""
+        property int done: 0
+        property bool toAlt: true
+
+        Timer {                        // arm once the first session actually renders
+            interval: 400; repeat: true
+            running: churnTest.on && churnTest.done === 0 && !switchT.running
+                     && root._frameSeq > 8 && root.frags.length > 0
+            onTriggered: {
+                running = false;
+                console.log("[CHURN] START switches=" + wtChurnTest + " base=" + churnTest.baseDay
+                            + " alt=" + churnTest.altDay + " qt=" + wtQtRuntime);
+                switchT.start();
+            }
+        }
+        Timer {
+            id: switchT
+            interval: 4500; repeat: true
+            onTriggered: {
+                if (churnTest.done >= wtChurnTest) { stop(); churnSettleT.start(); return; }
+                var d = churnTest.toAlt ? churnTest.altDay : churnTest.baseDay;
+                churnTest.toAlt = !churnTest.toAlt;
+                churnTest.done++;
+                console.log("[CHURN] " + churnTest.done + "/" + wtChurnTest + " openForDay " + d
+                            + " (frameMode=" + root.frameMode + " frags=" + root.frags.length
+                            + " cache=" + FrameCache.frames + "f harv=" + harvester.mode + ")");
+                root.openForDay(d);
+                poke.restart();
+            }
+        }
+        Timer {                        // the "clicked another fragment" poke, mid-fill
+            id: poke
+            interval: 2600
+            onTriggered: {
+                if (churnTest.done > 0 && churnTest.done <= wtChurnTest && root.frags.length > 3) {
+                    var k = (churnTest.done * 7) % root.frags.length;
+                    console.log("[CHURN] poke frag#" + k + " (of " + root.frags.length + ")");
+                    root.seekToWall(root.frags[k][2] + 300);
+                }
+            }
+        }
+        Timer {
+            id: churnSettleT
+            interval: 12000          // final poke's re-open + harvester refill must land
+            onTriggered: {
+                // PASS = the final (gappy) day is fully alive: fragments loaded, frames
+                // rendered, and the harvester actually cached strip content — the exact
+                // "blank filmstrip on today's footage" symptom from the P0 report.
+                var pass = root.frags.length > 0 && root._frameSeq > 8 && FrameCache.frames > 0;
+                console.log("[CHURN] SUMMARY switches=" + churnTest.done + " frags=" + root.frags.length
+                            + " frameSeq=" + root._frameSeq + " frameMode=" + root.frameMode
+                            + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB"
+                            + " harv=" + harvester.mode + " -> " + (pass ? "PASS" : "FAIL"));
+                console.log("[CHURN] DONE");
+                Qt.quit();
+            }
         }
     }
 

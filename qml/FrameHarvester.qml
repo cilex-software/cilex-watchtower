@@ -32,9 +32,17 @@ Item {
     readonly property bool _trace: typeof wtTrace !== "undefined" && wtTrace
     function _tr(s) { if (_trace) console.log("[WT-HARVEST] " + s); }
 
+    // CHURN-SAFE lifecycle (the 4a14650 rule, now on this second player too):
+    // NEVER clear the source on deactivation — `source = ""` tears down the FFmpeg
+    // backend's media objects, and a frame/state event its decode thread already
+    // posted, delivered after that teardown, is a use-after-free (SIGSEGV in
+    // libffmpegmediaplugin under rapid session churn; reproduced P0 2026-07-10:
+    // fragment clicks flap `active` while re-opens swap sources). Deactivate =
+    // stop + capture off, source stays; the next activation/source change does a
+    // SINGLE setSource swap, which transitions the backend in one step.
     onActiveChanged: {
         if (active) {
-            player.source = source;
+            if (player.source !== source) player.source = source;   // single-swap
             FrameCache.harvestCapturing = true;
             _lastRev = -1;
             evalT.start();
@@ -42,13 +50,19 @@ Item {
         } else {
             evalT.stop();
             FrameCache.harvestCapturing = false;
-            player.stop();
-            player.source = "";
+            player.pause();
             mode = "idle";
-            _tr("inactive");
+            _tr("inactive (source kept — churn-safe)");
         }
     }
-    onSourceChanged: if (active) { player.stop(); player.source = source; mode = "idle"; }
+    onSourceChanged: if (active && source != Qt.url("")) { player.stop(); player.source = source; mode = "idle"; }
+
+    // Host bridge: does the position-domain jump [fromMs,toMs] cross a kept
+    // discontinuity? Raw seeks ACROSS one stall the FFmpeg HLS demuxer (the very
+    // reason seekToWall re-opens) — the harvester must never issue them. Playing
+    // THROUGH a boundary is fine, so ahead-fill just keeps rolling; behind-fill
+    // across a gap is skipped (the stepper's edge fallback owns cross-gap moves).
+    property var crossesDisc: function(fromMs, toMs) { return false; }
 
     // Frames cached CONTIGUOUSLY ahead of the cursor (gaps ≤ chainGap×dur count as
     // adjacent — VFR streams legitimately mix 25/50/100 ms intervals).
@@ -86,8 +100,14 @@ Item {
                 else if (Date.now() - hv._lastRevAt > 2500) { hv._park("stall"); return; }
             }
             var ahead = hv.chainedAhead();
-            if (ahead.count < hv.aheadLow) { hv._fillAhead(ahead); return; }
-            if (hv.mode === "ahead" && ahead.count >= hv.aheadTarget) { hv._park("ahead full"); }
+            // At the live edge (today's footage opens there) there is nothing ahead to
+            // fill — do NOT early-return into a park loop, or the behind branch below
+            // never runs and the strip stays blank (the P0 "all black squares on
+            // today's footage" symptom). Fall through and fill history instead.
+            var aheadBase = (ahead.count > 0 ? ahead.endPts : hv.userPts) + hv.anchorOffMs;
+            var atEnd = player.duration > 0 && aheadBase >= player.duration - 450;
+            if (ahead.count < hv.aheadLow && !atEnd) { hv._fillAhead(ahead); return; }
+            if (hv.mode === "ahead" && (ahead.count >= hv.aheadTarget || atEnd)) hv._park(atEnd ? "at end" : "ahead full");
             var floor = hv.chainFloor();
             var behindFrames = (hv.userPts - floor) / Math.max(1, hv.frameDurMs);
             if (behindFrames < hv.behindLow && floor > hv.frameDurMs) { hv._fillBehind(floor); return; }
@@ -98,11 +118,18 @@ Item {
     function _fillAhead(ahead) {
         var wantPos = Math.max(0, Math.round((ahead.count > 0 ? ahead.endPts : userPts) + anchorOffMs - 150));
         if (player.duration > 0 && wantPos >= player.duration - 300) { _park("at end"); return; }
-        // reposition only when idle/off-track — while cruising ahead just keep playing
+        // reposition only when idle/off-track — while cruising ahead just keep playing.
+        // A repositioning that would cross a kept discontinuity is NOT issued (it
+        // stalls the demuxer): keep playing from where we are — playback traverses
+        // the boundary correctly on its own.
         if (mode !== "ahead" || player.playbackState !== MediaPlayer.PlayingState
                 || Math.abs(player.position - wantPos) > 4000) {
-            player.position = wantPos;
-            _tr("fill-ahead from pos=" + wantPos + " (chained=" + ahead.count + ")");
+            if (!crossesDisc(player.position, wantPos)) {
+                player.position = wantPos;
+                _tr("fill-ahead from pos=" + wantPos + " (chained=" + ahead.count + ")");
+            } else {
+                _tr("fill-ahead rolls through a boundary (no cross-disc seek) pos=" + player.position);
+            }
         }
         mode = "ahead";
         player.playbackRate = 2.0;
@@ -111,6 +138,9 @@ Item {
     }
     function _fillBehind(floor) {
         var startPos = Math.max(0, Math.round(floor + anchorOffMs - behindChunk * frameDurMs - 150));
+        // Behind-fill never seeks across a kept discontinuity: cross-gap backward
+        // moves belong to the stepper's edge fallback (wall re-open), not raw seeks.
+        if (crossesDisc(startPos, Math.round(floor + anchorOffMs))) { _park("behind is across a gap"); return; }
         if (mode !== "behind") {
             player.position = startPos;
             _tr("fill-behind from pos=" + startPos + " (floor=" + floor.toFixed(0) + ")");
@@ -126,11 +156,12 @@ Item {
         mode = "idle";
     }
 
-    VideoOutput { id: sink; visible: false; width: 16; height: 9 }
+    // Render-less output: frames go straight to FrameCache's owned capture sink
+    // (toImage on the delivery thread) — never into the scene graph. No texture
+    // import of churning-session frames, no GPU upload at 2× for unseen pixels.
     MediaPlayer {
         id: player
-        videoOutput: sink
+        videoOutput: FrameCache.harvestSink
         audioOutput: null
     }
-    Component.onCompleted: FrameCache.attachHarvest(sink.videoSink)
 }
