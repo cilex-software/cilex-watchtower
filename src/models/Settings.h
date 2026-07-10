@@ -33,6 +33,8 @@ class Settings : public QObject
     Q_PROPERTY(QString liveTransport READ liveTransport WRITE setLiveTransport NOTIFY liveTransportChanged)
     // Show the motion/events lane on the playback scrubber (default on).
     Q_PROPERTY(bool eventsOnScrubber READ eventsOnScrubber WRITE setEventsOnScrubber NOTIFY eventsOnScrubberChanged)
+    // Status-badge timers ("REC · 4m", "OFFLINE · 2h" …): on by default.
+    Q_PROPERTY(bool badgeTimers READ badgeTimers WRITE setBadgeTimers NOTIFY badgeTimersChanged)
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
@@ -68,6 +70,8 @@ public:
     void setLiveTransport(const QString &v);
 
     bool eventsOnScrubber() const { return m_eventsOnScrubber; }
+    bool badgeTimers() const { return m_badgeTimers; }
+    void setBadgeTimers(bool v);
     void setEventsOnScrubber(bool v);
 
     QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
@@ -104,6 +108,7 @@ signals:
     void overlayShowIdChanged();
     void liveTransportChanged();
     void eventsOnScrubberChanged();
+    void badgeTimersChanged();
     void hiddenScrubberEventTypesChanged();
 
 private:
@@ -118,5 +123,6 @@ private:
     bool m_overlayShowId = false;
     QString m_liveTransport = QStringLiteral("go2rtc");
     bool m_eventsOnScrubber = true;
+    bool m_badgeTimers = true;
     QStringList m_hiddenScrubberEventTypes;
 };

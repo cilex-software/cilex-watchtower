@@ -11,6 +11,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QJsonDocument>
+#include <QDateTime>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QPair>
@@ -482,6 +483,7 @@ void CameraModel::pollStatuses()
             return;
         }
 
+        // (stateRev emit happens after the loop below)
         // Patch matched rows in place; emit dataChanged per changed row so tile
         // bindings (live/REC badge) and the group-filtered wall refresh without
         // delegate teardown. Group membership is patched the same way, so a
@@ -495,10 +497,15 @@ void CameraModel::pollStatuses()
         // MediaPlayer was destroyed and recreated → the whole wall flashed green (a
         // fresh, not-yet-decoded VA-API surface) every 15s. A segment-only advance
         // must refresh the row's data WITHOUT touching counts / the grid array.
-        bool countChanged = false, groupChanged = false;
+        bool countChanged = false, groupChanged = false, sinceAdvanced = false;
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
         for (int i = 0; i < m_all.size(); ++i) {
             const auto it = incoming.constFind(m_all[i].id);
             if (it == incoming.constEnd()) continue;
+            // Badge timers: timestamp OBSERVED state transitions (the backend does not
+            // report onsets; before the first observed change the onset stays unknown).
+            if (m_all[i].live != it->live) { m_liveSince.insert(m_all[i].id, nowMs); sinceAdvanced = true; }
+            if (m_all[i].recording != it->rec) { m_recSince.insert(m_all[i].id, nowMs); sinceAdvanced = true; }
             const bool liveRecChanged = (m_all[i].live != it->live || m_all[i].recording != it->rec);
             if (liveRecChanged || m_all[i].lastSegmentAt != it->lastSeg) {
                 m_all[i].live = it->live;
@@ -516,6 +523,7 @@ void CameraModel::pollStatuses()
                 emit dataChanged(idx, idx, { GroupIdRole, GroupNameRole });
             }
         }
+        if (sinceAdvanced) { ++m_stateRev; emit stateRevChanged(); }
         if (countChanged || groupChanged)
             recompute();   // refresh TopBar counts — only on a genuine live/recording flip
         if (groupChanged) {

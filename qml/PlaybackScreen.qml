@@ -15,6 +15,7 @@ Item {
     property var camera: null          // camera map (name, ip, mac, groupName, …)
     property var client: null          // PlaybackClient
     property var cameraModel: null
+    property var eventsModel: null   // events feed: Last-motion row + sidebar badge freshness
 
     signal closed()                    // back — returns to the previous (detail) view
     signal returnToLive()              // red control — back to Live Monitor
@@ -1646,12 +1647,40 @@ Item {
                         Text { text: root.camera ? root.camera.name : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
                         Text { text: root.camera ? root.camera.groupName : ""; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                         Row { spacing: 4; topPadding: 4
-                            LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
-                            RecordingStatusBadge { state: root.camera ? root.camera.recording : CameraStatus.RecUnknown }
+                            LiveStatusBadge {
+                                state: root.camera ? root.camera.live : CameraStatus.LiveUnknown
+                                sinceMs: root.cameraModel ? (root.cameraModel.stateRev, root.cameraModel.liveSinceMs(root.camId)) : -1
+                            }
+                            RecordingStatusBadge {
+                                state: root.camera ? root.camera.recording : CameraStatus.RecUnknown
+                                stateSinceMs: root.cameraModel ? (root.cameraModel.stateRev, root.cameraModel.recSinceMs(root.camId)) : -1
+                                lastMotionAtMs: root.eventsModel ? (root.eventsModel.motionRev, root.eventsModel.lastMotionAtMs(root.camId)) : -1
+                            }
                         }
                     }
                     Hdr { text: "Status" }
                     KV { k: "Playhead"; v: root.frags.length ? root.fmtClock(root.playheadMs) : "—" }
+                    // Last motion — CLICK seeks playback onto the episode (pre-roll included).
+                    RowLayout {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
+                        readonly property double lm: root.eventsModel
+                            ? (root.eventsModel.motionRev, root.eventsModel.lastMotionAtMs(root.camId)) : -1
+                        Text { text: qsTr("Last motion"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 120 }
+                        Text {
+                            text: parent.lm > 0 ? (root.fmtClock(parent.lm) + " ›") : "—"
+                            color: parent.lm > 0 ? Theme.accent : Theme.ink
+                            font.family: Theme.fontSans; font.pixelSize: 12
+                            font.underline: lmMa.containsMouse
+                            Layout.fillWidth: true; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
+                            MouseArea {
+                                id: lmMa
+                                anchors.fill: parent; anchors.margins: -4
+                                enabled: parent.parent.lm > 0
+                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: root.seekToWall(parent.parent.lm)
+                            }
+                        }
+                    }
                     KV { k: "Quality"; v: { var f = root.fragAt(player.position/1000);
                             if (!f) return "—";
                             var c = f.codec === "hevc" ? "HEVC" : "H.264";

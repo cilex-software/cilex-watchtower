@@ -17,6 +17,10 @@ StatusBadge {
     // ms epoch of the newest motion_* event seen for this camera (-1 = none seen
     // in the loaded feed — shows plain ARMED, no claim either way).
     property double lastMotionAtMs: -1
+    // Observed onset of the CURRENT recording state (badge timer, e.g. "REC · 12m").
+    // ARMED deliberately keeps its motion-EVENT age instead (more useful there).
+    property double stateSinceMs: -1
+    sinceMs: state === CameraStatus.Armed ? -1 : stateSinceMs
 
     property int _nowTick: 0
     Timer {

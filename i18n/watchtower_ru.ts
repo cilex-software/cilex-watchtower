@@ -148,6 +148,10 @@
             <translation>Во весь экран</translation>
         </message>
         <message>
+            <source>Last motion</source>
+            <translation>Последнее движение</translation>
+        </message>
+        <message>
             <source>FRAME-BY-FRAME</source>
             <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
         </message>
@@ -237,6 +241,14 @@
         <message>
             <source>Off</source>
             <translation>Выкл</translation>
+        </message>
+        <message>
+            <source>Status badge timers</source>
+            <translation>Таймеры статусов</translation>
+        </message>
+        <message>
+            <source>Show how long each camera has been in its current state (LIVE, REC, OFFLINE…). Times count from when Watchtower observed the change.</source>
+            <translation>Показывать, как долго камера находится в текущем состоянии (LIVE, REC, OFFLINE…). Отсчёт — с момента, когда Watchtower зафиксировал изменение.</translation>
         </message>
         <message>
             <source>On</source>
@@ -329,6 +341,25 @@
     </context>
     <context>
         <name>RecordingStatusBadge</name>
+        <message>
+            <source>now</source>
+            <translation>сейчас</translation>
+        </message>
+        <message>
+            <source>m</source>
+            <translation>м</translation>
+        </message>
+        <message>
+            <source>h</source>
+            <translation>ч</translation>
+        </message>
+        <message>
+            <source>d</source>
+            <translation>д</translation>
+        </message>
+    </context>
+    <context>
+        <name>StatusBadge</name>
         <message>
             <source>now</source>
             <translation>сейчас</translation>

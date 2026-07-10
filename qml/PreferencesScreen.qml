@@ -185,6 +185,15 @@ Item {
                     }
                 }
                 PrefRow {
+                    label: qsTr("Status badge timers")
+                    desc: qsTr("Show how long each camera has been in its current state (LIVE, REC, OFFLINE…). Times count from when Watchtower observed the change.")
+                    Segmented {
+                        opts: [{ k: qsTr("On"), v: true }, { k: qsTr("Off"), v: false }]
+                        value: Settings.badgeTimers
+                        onPicked: (v) => Settings.badgeTimers = v
+                    }
+                }
+                PrefRow {
                     label: qsTr("Theme")
                     desc: qsTr("Light and System themes are planned for a later phase.")
                     Text { text: qsTr("Dark"); color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }

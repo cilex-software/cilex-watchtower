@@ -813,6 +813,7 @@ Window {
                     id: playbackScreen
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    eventsModel: eventModel
                     visible: win.playbackCamera !== null
                     client: playbackClient
                     cameraModel: cameraModel

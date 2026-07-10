@@ -148,6 +148,10 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Last motion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>FRAME-BY-FRAME</source>
         <translation type="unfinished"></translation>
     </message>
@@ -236,6 +240,14 @@
     </message>
     <message>
         <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Status badge timers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show how long each camera has been in its current state (LIVE, REC, OFFLINE…). Times count from when Watchtower observed the change.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -329,6 +341,25 @@
 </context>
 <context>
     <name>RecordingStatusBadge</name>
+    <message>
+        <source>now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>m</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>d</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>StatusBadge</name>
     <message>
         <source>now</source>
         <translation type="unfinished"></translation>

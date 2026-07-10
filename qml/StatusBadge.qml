@@ -8,6 +8,25 @@ Rectangle {
     id: root
 
     property string label: ""
+    // Badge timer: epoch ms when this state was OBSERVED to begin; -1 = onset
+    // unknown (no suffix). Rendered as "LABEL · 4m", gated by Settings.badgeTimers
+    // (Preferences → Display). Ticks every 30 s.
+    property double sinceMs: -1
+    property int _tick: 0
+    Timer {
+        interval: 30000; repeat: true
+        running: root.visible && root.sinceMs > 0 && Settings.badgeTimers
+        onTriggered: root._tick++
+    }
+    readonly property string ageSuffix: {
+        _tick;
+        if (!Settings.badgeTimers || sinceMs <= 0) return "";
+        var s = Math.max(0, (Date.now() - sinceMs) / 1000);
+        if (s < 60) return " · " + qsTr("now");
+        if (s < 3600) return " · " + Math.floor(s / 60) + qsTr("m");
+        if (s < 86400) return " · " + Math.floor(s / 3600) + qsTr("h");
+        return " · " + Math.floor(s / 86400) + qsTr("d");
+    }
     property color fg: Theme.ink3
     property color bgColor: Theme.line
     property color dotColor: Theme.ink3
@@ -45,7 +64,7 @@ Rectangle {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.label
+            text: root.label + root.ageSuffix
             color: root.fg
             font.family: Theme.fontMono
             font.pixelSize: Theme.fsBadge   // 9

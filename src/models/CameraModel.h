@@ -39,6 +39,9 @@ class CameraModel : public QAbstractListModel
     Q_PROPERTY(bool recordingEnabled READ recordingEnabled NOTIFY functionsChanged)
     Q_PROPERTY(bool liveViewEnabled READ liveViewEnabled NOTIFY functionsChanged)
     Q_PROPERTY(bool playbackEnabled READ playbackEnabled NOTIFY functionsChanged)
+    // Bumped when any camera's observed live/recording state CHANGES between polls —
+    // badge timers bind to this (invokables below), avoiding per-row re-paging.
+    Q_PROPERTY(int stateRev READ stateRev NOTIFY stateRevChanged)
 
 public:
     enum Roles {
@@ -138,6 +141,13 @@ public:
     bool recordingEnabled() const { return m_recordingEnabled; }
     bool liveViewEnabled() const { return m_liveViewEnabled; }
     bool playbackEnabled() const { return m_playbackEnabled; }
+    int stateRev() const { return m_stateRev; }
+    // Epoch ms when the camera's live / recording state was OBSERVED to change to
+    // its current value; -1 = onset unknown (state predates this session's watch).
+    Q_INVOKABLE double liveSinceMs(const QString &cameraId) const
+    { return double(m_liveSince.value(cameraId, -1)); }
+    Q_INVOKABLE double recSinceMs(const QString &cameraId) const
+    { return double(m_recSince.value(cameraId, -1)); }
 
 signals:
     void countsChanged();
@@ -145,6 +155,7 @@ signals:
     void groupCreated(const QString &groupId);
     void loadingChanged();
     void functionsChanged();
+    void stateRevChanged();
 
 private:
     void recompute();
@@ -170,6 +181,9 @@ private:
     bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
     bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
     bool m_playbackEnabled = true;    // /streams `functions.playback` (fail-safe true)
+    QHash<QString, qint64> m_liveSince;   // camera_id → observed live-state onset (ms)
+    QHash<QString, qint64> m_recSince;    // camera_id → observed rec-state onset (ms)
+    int m_stateRev = 0;
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

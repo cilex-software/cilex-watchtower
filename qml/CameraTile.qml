@@ -16,6 +16,13 @@ Item {
     // Bound via motionRev (a cheap counter) — deliberately NOT via camera-row
     // updates, which would re-page tiles and restart their RTSP pipelines.
     property var eventsModel: null
+    // CameraModel (for observed state-onset badge timers) — same rev-binding
+    // pattern as eventsModel: no row re-paging.
+    property var camModel: null
+    readonly property double liveSinceMs:
+        camModel ? (camModel.stateRev, camModel.liveSinceMs(camId)) : -1
+    readonly property double recSinceMs:
+        camModel ? (camModel.stateRev, camModel.recSinceMs(camId)) : -1
     readonly property double lastMotionAtMs:
         eventsModel ? (eventsModel.motionRev, eventsModel.lastMotionAtMs(camId)) : -1
     // LIVE "events are registering" indicator (distinct from ARMED, which only says
@@ -387,10 +394,11 @@ Item {
                     fg: Theme.accent; bgColor: Theme.accentDim
                     dotColor: Theme.accent; dotPulse: true; dotHollow: false
                 }
-                LiveStatusBadge { state: root.live }
+                LiveStatusBadge { state: root.live; sinceMs: root.liveSinceMs }
                 RecordingStatusBadge {
                     state: root.recOff ? CameraStatus.Disabled : root.recording
                     lastMotionAtMs: root.lastMotionAtMs
+                    stateSinceMs: root.recSinceMs
                 }
             }
         }

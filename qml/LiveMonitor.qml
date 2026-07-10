@@ -1099,6 +1099,7 @@ Item {
                                 anchors.fill: parent
                                 gridMode: true
                                 eventsModel: root.eventModel   // ARMED badge motion-freshness
+                                camModel: root.cameraModel     // badge state timers
                                 // Live View off (go2rtc stopped by an operator) = a
                                 // calm "switched off" tile, not a red fault.
                                 liveViewEnabled: !(root.cameraModel && root.cameraModel.liveViewEnabled === false)

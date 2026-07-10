@@ -15,6 +15,7 @@ Settings::Settings(QObject *parent)
     m_overlayShowId = m_settings.value(QStringLiteral("overlay/showId"), false).toBool();
     m_liveTransport = m_settings.value(QStringLiteral("video/liveTransport"), QStringLiteral("go2rtc")).toString();
     m_eventsOnScrubber = m_settings.value(QStringLiteral("playback/eventsOnScrubber"), true).toBool();
+    m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
 }
 
@@ -160,4 +161,13 @@ void Settings::setLiveLayout(const QString &groupId, const QStringList &ids)
 void Settings::clearLiveLayout(const QString &groupId)
 {
     m_settings.remove(liveLayoutKey(groupId));
+}
+
+void Settings::setBadgeTimers(bool v)
+{
+    if (m_badgeTimers == v)
+        return;
+    m_badgeTimers = v;
+    m_settings.setValue(QStringLiteral("ui/badgeTimers"), v);
+    emit badgeTimersChanged();
 }
