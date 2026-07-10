@@ -137,22 +137,36 @@ Item {
         _lastRevAt = Date.now();
     }
     function _fillBehind(floor) {
-        var startPos = Math.max(0, Math.round(floor + anchorOffMs - behindChunk * frameDurMs - 150));
-        // Behind-fill never seeks across a kept discontinuity: cross-gap backward
-        // moves belong to the stepper's edge fallback (wall re-open), not raw seeks.
-        if (crossesDisc(startPos, Math.round(floor + anchorOffMs))) { _park("behind is across a gap"); return; }
+        var target = Math.round(floor + anchorOffMs);
+        var chunkMs = behindChunk * frameDurMs + 150;
+        // Behind-fill never seeks across a kept discontinuity — but a boundary
+        // close behind the cursor must CLAMP the window, not starve the fill
+        // (fsoak finding, 2026-07-10: at the live edge the cursor sits ~2 s into
+        // the day's final motion clip; the full 2.5 s window crossed the clip's
+        // leading boundary -> silent park loop -> empty filmstrip until stepping
+        // forced main-tap captures). Halve the window until it fits the run;
+        // only park when even a few frames back would cross (cursor at run head
+        // -- cross-gap moves belong to the stepper's edge fallback).
+        while (chunkMs > 4 * frameDurMs && crossesDisc(Math.max(0, target - chunkMs), target))
+            chunkMs = chunkMs / 2;
+        var startPos = Math.max(0, target - chunkMs);
+        if (crossesDisc(startPos, target)) { _park("behind is across a gap"); return; }
         if (mode !== "behind") {
             player.position = startPos;
-            _tr("fill-behind from pos=" + startPos + " (floor=" + floor.toFixed(0) + ")");
+            _tr("fill-behind from pos=" + startPos + " (floor=" + floor.toFixed(0) + " chunkMs=" + chunkMs.toFixed(0) + ")");
         }
         mode = "behind";
         player.playbackRate = 2.0;
         player.play();
         _lastRevAt = Date.now();
     }
+    property string _lastPark: ""
     function _park(why) {
         if (player.playbackState === MediaPlayer.PlayingState) player.pause();
-        if (mode !== "idle") _tr("park (" + why + ")");
+        // Trace on reason CHANGE, not only on mode change -- a repeating idle park
+        // (the live-edge starvation above) was invisible in the log.
+        if (mode !== "idle" || _lastPark !== why) _tr("park (" + why + ")");
+        _lastPark = why;
         mode = "idle";
     }
 

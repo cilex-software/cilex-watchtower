@@ -325,6 +325,10 @@ int main(int argc, char *argv[])
     // WT_PLAYBACK_DAY and WT_CHURN_ALT with frame mode active, then quit. Inert unless set.
     engine.rootContext()->setContextProperty("wtChurnTest", qEnvironmentVariableIntValue("WT_CHURNTEST"));
     engine.rootContext()->setContextProperty("wtChurnAlt", qEnvironmentVariable("WT_CHURN_ALT"));
+    // WT_FSOAK=1 + WT_FSOAK_PLAN=<json>: extended filmstrip soak across cameras/days
+    // (2026-07-10 operator ask) — see the fsoak harness in Main.qml. Inert unless set.
+    engine.rootContext()->setContextProperty("wtFsoak", qEnvironmentVariableIsSet("WT_FSOAK"));
+    engine.rootContext()->setContextProperty("wtFsoakPlan", qEnvironmentVariable("WT_FSOAK_PLAN"));
 
     // Events section routing. The EventsArea redesign is now the DEFAULT (fed by
     // the live cilex-vision /events feed). WT_DEMO runs the same redesign on the

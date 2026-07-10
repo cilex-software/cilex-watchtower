@@ -417,6 +417,184 @@ Window {
         }
     }
     // ========================================================================
+    // WT_FSOAK — extended FILMSTRIP soak (2026-07-10, operator ask). Drives the
+    // frame-by-frame review flow across cameras and days the way an operator does:
+    // open a (camera, day) from the plan, let it play, sometimes click a fragment,
+    // enter frame mode, MEASURE how long the filmstrip takes to populate (gate:
+    // <1000 ms), exercise arrow-steps both ways, then jump to another day — 25% of
+    // jumps are HOT (frame mode kept on across the day switch, the churn gesture
+    // that segfaulted pre-4aa4ed7). Plan comes from WT_FSOAK_PLAN JSON:
+    //   [{"ip":"192.168.1.201","days":["2026-07-10",...]}, ...]
+    // flattened to (ip,day) pairs walked with a coprime stride so consecutive
+    // cycles hop camera AND day. [FSOAK] lines carry all metrics; [HB] 500 ms
+    // heartbeat exposes GUI stalls as timestamp gaps. Inert unless WT_FSOAK set.
+    Timer {
+        id: fsoakHb
+        interval: 500; repeat: true
+        running: (typeof wtFsoak !== "undefined") && wtFsoak
+        onTriggered: console.log("[HB] " + Date.now())
+    }
+    Timer {
+        id: fsoak
+        readonly property bool on: (typeof wtFsoak !== "undefined") && wtFsoak
+        property var pairs: []            // flattened [{ip,day}]
+        property var cams: ({})           // ip → camera object
+        property int n: 0                 // completed cycles
+        property string state: "roster"   // roster|open|play|preseek|fm|strip|steps|linger
+        property double t0: 0             // state-entry timestamp
+        property double tOpen: 0
+        property double tFm: 0
+        property bool hot: false          // this cycle ends with a hot day-switch
+        property int stepsLeft: 0
+        property int violations: 0
+        property var curPair: null
+
+        interval: 250; repeat: true
+        running: on
+        function pair() { return pairs[(n * 13) % pairs.length]; }
+        function dur() { return FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50; }
+        // Filmstrip "loaded" = center frame cached (±2 ms) and ≥5 of the 7 visible
+        // slots chained within the strip's own adjacency limit (2.6×frameDur).
+        function stripChained() {
+            var c = FrameClock.lastPtsMs;
+            if (c <= 0) return 0;
+            var lim = 2.6 * dur();
+            var a = FrameCache.cachedAround(c, 3, 3);
+            var center = -1;
+            for (var i = 0; i < a.length; i++) if (Math.abs(a[i] - c) <= 2) { center = i; break; }
+            if (center < 0) return 0;
+            var chained = 1;
+            for (i = center - 1; i >= 0; i--) { if (a[i + 1] - a[i] > lim) break; chained++; }
+            for (i = center + 1; i < a.length; i++) { if (a[i] - a[i - 1] > lim) break; chained++; }
+            return chained;
+        }
+        function go(st) { state = st; t0 = Date.now(); }
+        function fail(what, extra) {
+            violations++;
+            console.log("[FSOAK] VIOLATION n=" + n + " what=" + what + " cam=" + (curPair ? curPair.ip : "?")
+                        + " day=" + (curPair ? curPair.day : "?") + " " + (extra || "")
+                        + " violations=" + violations);
+        }
+        function nextCycle(keepFm) {
+            n++;
+            if (!keepFm && playbackScreen.frameMode) playbackScreen.exitFrameMode();
+            go("open");
+        }
+        onTriggered: {
+            var now = Date.now();
+            if (state === "roster") {
+                if (!pairs.length) {
+                    var plan;
+                    try { plan = JSON.parse(wtFsoakPlan); } catch (e) { console.log("[FSOAK] BAD PLAN: " + e); running = false; return; }
+                    var all = cameraModel.page("", "", "default", 1, 50);
+                    if (!all.length) return;                       // roster not ready
+                    var flat = [];
+                    for (var p = 0; p < plan.length; p++) {
+                        var camObj = null;
+                        for (var i = 0; i < all.length; i++) if (all[i].ip === plan[p].ip) { camObj = all[i]; break; }
+                        if (!camObj) { console.log("[FSOAK] cam not in roster: " + plan[p].ip); continue; }
+                        cams[plan[p].ip] = camObj;
+                        for (var d = 0; d < plan[p].days.length; d++)
+                            flat.push({ ip: plan[p].ip, day: plan[p].days[d] });
+                    }
+                    if (!flat.length) { console.log("[FSOAK] EMPTY PLAN after roster match"); running = false; return; }
+                    pairs = flat;
+                    console.log("[FSOAK] START pairs=" + pairs.length + " qt=" + wtQtRuntime
+                                + " plan=" + wtFsoakPlan);
+                }
+                go("open");
+                return;
+            }
+            if (state === "open") {
+                curPair = pair();
+                hot = (n % 4 === 3);
+                var c = cams[curPair.ip];
+                win.focusedCamera = c; win.playbackCamera = c;
+                if (playbackScreen.camera !== c) playbackScreen.camera = c;
+                console.log("[FSOAK] t=" + now + " n=" + n + " open cam=" + curPair.ip + " day=" + curPair.day
+                            + " hot=" + (playbackScreen.frameMode ? "arrived-in-fm" : "no")
+                            + " cache=" + FrameCache.frames + "f");
+                tOpen = now;
+                playbackScreen.openForDay(curPair.day);
+                go("play");
+                return;
+            }
+            if (state === "play") {
+                if (playbackScreen.frags.length > 0 && playbackScreen.advancing) {
+                    console.log("[FSOAK] t=" + now + " n=" + n + " playing ttff_ms=" + (now - tOpen)
+                                + " frags=" + playbackScreen.frags.length);
+                    go((n % 3 === 1) ? "preseek" : "fm");
+                } else if (playbackScreen.errorText !== "") {
+                    fail("open_error", "err=\"" + playbackScreen.errorText + "\"");
+                    nextCycle(false);
+                } else if (now - t0 > 25000) {
+                    fail("open_timeout", "ttff>25s frags=" + playbackScreen.frags.length);
+                    nextCycle(false);
+                }
+                return;
+            }
+            if (state === "preseek") {                             // operator clicks a fragment first
+                if (now - t0 < 1500) return;                       // let playback settle a beat
+                var fr = playbackScreen.frags;
+                if (fr.length > 3) {
+                    var k = (n * 7) % fr.length;
+                    console.log("[FSOAK] t=" + now + " n=" + n + " preseek frag#" + k + "/" + fr.length);
+                    playbackScreen.seekToWall(fr[k][2] + 300);
+                }
+                go("fm"); t0 = now + 1200;                         // brief settle after the click
+                return;
+            }
+            if (state === "fm") {
+                if (now < t0) return;                              // settle wait from preseek
+                if (!playbackScreen.frameMode) {
+                    playbackScreen.enterFrameMode();
+                    if (!playbackScreen.frameMode) {               // guard refused (no frags/stepper)
+                        if (now - tOpen > 30000) { fail("fm_refused"); nextCycle(false); }
+                        return;
+                    }
+                }
+                tFm = Date.now();
+                go("strip");
+                return;
+            }
+            if (state === "strip") {
+                var ch = stripChained();
+                if (ch >= 5) {
+                    var ms = now - tFm;
+                    console.log("[FSOAK] t=" + now + " n=" + n + " strip_ms=" + ms + " chained=" + ch
+                                + " cache=" + FrameCache.frames + "f "
+                                + (ms <= 1000 ? "PASS" : "SLOW"));
+                    if (ms > 1000) fail("strip_slow", "strip_ms=" + ms);
+                    stepsLeft = 10;
+                    go("steps");
+                } else if (now - tFm > 6000) {
+                    fail("strip_timeout", "chained=" + ch + " after 6s cache=" + FrameCache.frames + "f harvest=" + FrameCache.harvestCapturing);
+                    stepsLeft = 6;                                 // exercise anyway — stalls surface in steps
+                    go("steps");
+                }
+                return;
+            }
+            if (state === "steps") {                               // arrow-step both directions
+                if (now - t0 < 400) return;                        // ~2 bursts/s
+                if (stepsLeft > 0) {
+                    playbackScreen.stepBurst(stepsLeft > 5 ? 1 : -1, 2);
+                    stepsLeft--;
+                    t0 = now;
+                } else {
+                    go("linger");
+                }
+                return;
+            }
+            if (state === "linger") {                              // let the harvester breathe post-steps
+                if (now - t0 < 2000) return;
+                console.log("[FSOAK] t=" + now + " n=" + n + " cycle-done cam=" + curPair.ip + " day=" + curPair.day
+                            + " hotNext=" + hot + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB");
+                nextCycle(hot);                                    // hot → frame mode SURVIVES the day jump
+                return;
+            }
+        }
+    }
+    // ========================================================================
     // WT_NIGHT_SOAK — comprehensive overnight endurance/stress harness (2026-07-02).
     // Drives the operator's real historic-playback flow — pick a RANDOM camera →
     // Open playback → RANDOM calendar day → seek to a RANDOM instant — with rigorous
