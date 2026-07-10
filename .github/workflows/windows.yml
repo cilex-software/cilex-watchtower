@@ -31,6 +31,8 @@ env:
 jobs:
   build:
     runs-on: windows-2022
+    permissions:
+      contents: write        # publish the built exe to a rolling Release (below)
     steps:
       - uses: actions/checkout@v4
 
@@ -165,8 +167,34 @@ jobs:
         working-directory: packaging/windows
         run: makensis installer.nsi
 
+      # The Actions ARTIFACT storage quota is account-wide and recalculates only
+      # every 6-12h, so a backlog blocks upload-artifact for hours (it did on
+      # 2026-07-10: every build went green through compile/deploy/installer and
+      # died on "Artifact storage quota has been hit"). RELEASE assets live in
+      # separate storage NOT subject to that quota — publish the portable zip +
+      # installer to a rolling prerelease so the latest Windows build is always
+      # downloadable (gh release download windows-latest) regardless of quota.
+      - name: Publish rolling windows-latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $dist = "build-windows/dist"
+          if (-not (Test-Path "$dist/watchtower.exe")) { throw "no watchtower.exe under $dist" }
+          Compress-Archive -Path "$dist/*" -DestinationPath "watchtower-windows-portable.zip" -Force
+          $assets = @((Resolve-Path "watchtower-windows-portable.zip").Path)
+          $installer = Get-ChildItem packaging/windows/CilexWatchtower-*-setup.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($installer) { $assets += $installer.FullName }
+          $tag = "windows-latest"
+          gh release delete $tag --yes --cleanup-tag 2>$null   # native exit ignored; recreated below
+          gh release create $tag $assets --prerelease --target $env:GITHUB_SHA `
+            --title "Windows CI build (latest main)" `
+            --notes "Rolling CI build of $env:GITHUB_SHA. Ephemeral — overwritten on every build."
+
+      # Kept for backward compat, but non-fatal: the quota can reject these (see above).
       - name: Upload portable (exe + runtime)
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: watchtower-portable
           path: build-windows/dist
@@ -178,6 +206,7 @@ jobs:
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: watchtower-setup
           path: packaging/windows/CilexWatchtower-*-setup.exe
