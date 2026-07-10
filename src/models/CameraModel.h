@@ -151,8 +151,14 @@ public:
         const qint64 a = m_statusSinceAuth.value(cameraId, -1);
         return double(a > 0 ? a : m_liveSince.value(cameraId, -1));
     }
+    // Recording-state onset: prefers the backend's recording_since (30s flip
+    // tracker, CV 2026-07-10.reply rev2). The field is NULL in the ≤30s window
+    // right after a transition (per contract) — the observed onset covers it.
     Q_INVOKABLE double recSinceMs(const QString &cameraId) const
-    { return double(m_recSince.value(cameraId, -1)); }
+    {
+        const qint64 a = m_recSinceAuth.value(cameraId, -1);
+        return double(a > 0 ? a : m_recSince.value(cameraId, -1));
+    }
 
 signals:
     void countsChanged();
@@ -188,6 +194,7 @@ private:
     bool m_playbackEnabled = true;    // /streams `functions.playback` (fail-safe true)
     QHash<QString, qint64> m_liveSince;       // camera_id → observed live-state onset (ms)
     QHash<QString, qint64> m_statusSinceAuth; // camera_id → backend status_since (authoritative)
+    QHash<QString, qint64> m_recSinceAuth;    // camera_id → backend recording_since (null post-flip ≤30s)
     QHash<QString, qint64> m_recSince;    // camera_id → observed rec-state onset (ms)
     int m_stateRev = 0;
     int m_online = 0;

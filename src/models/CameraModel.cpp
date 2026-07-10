@@ -340,10 +340,14 @@ void CameraModel::fetchCameras()
             c.groupName = o.value("group_name").toString();
 
             const QString st = o.value("status").toString();
-            {   // authoritative state onset (status_since; additive field, may be absent)
+            {   // authoritative state onsets (additive fields; recording_since is null ≤30s post-flip)
+                const QString cid = o.value("camera_id").toString();
                 const QDateTime ss = QDateTime::fromString(o.value("status_since").toString(), Qt::ISODate);
                 if (ss.isValid())
-                    m_statusSinceAuth.insert(o.value("camera_id").toString(), ss.toMSecsSinceEpoch());
+                    m_statusSinceAuth.insert(cid, ss.toMSecsSinceEpoch());
+                const QDateTime rs = QDateTime::fromString(o.value("recording_since").toString(), Qt::ISODate);
+                if (rs.isValid())
+                    m_recSinceAuth.insert(cid, rs.toMSecsSinceEpoch());
             }
             c.live = (st == QLatin1String("online"))  ? CameraStatus::Live
                    : (st == QLatin1String("offline")) ? CameraStatus::Offline
@@ -454,7 +458,7 @@ void CameraModel::pollStatuses()
 
         // Build {camera_id -> {live, recording, lastSegmentAt, group}} from the response.
         struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec;
-                          QString lastSeg; QString gid; QString gname; qint64 statusSince; };
+                          QString lastSeg; QString gid; QString gname; qint64 statusSince; qint64 recSince; };
         QHash<QString, Incoming> incoming;
         incoming.reserve(int(arr.size()));
         for (const auto &v : arr) {
@@ -468,11 +472,13 @@ void CameraModel::pollStatuses()
                                                                  ? CameraStatus::Degraded
                                                                  : CameraStatus::LiveUnknown;
             const QDateTime ss = QDateTime::fromString(o.value(QStringLiteral("status_since")).toString(), Qt::ISODate);
+            const QDateTime rs = QDateTime::fromString(o.value(QStringLiteral("recording_since")).toString(), Qt::ISODate);
             incoming.insert(camId, { live, recStateFrom(o.value(QStringLiteral("recording")).toString()),
                                      o.value(QStringLiteral("last_segment_at")).toString(),
                                      o.value(QStringLiteral("group_id")).toString(),
                                      o.value(QStringLiteral("group_name")).toString(),
-                                     ss.isValid() ? ss.toMSecsSinceEpoch() : -1 });
+                                     ss.isValid() ? ss.toMSecsSinceEpoch() : -1,
+                                     rs.isValid() ? rs.toMSecsSinceEpoch() : -1 });
         }
 
         // Roster change (a camera added or removed in admin) → full refetch, since
@@ -514,6 +520,10 @@ void CameraModel::pollStatuses()
             if (m_all[i].live != it->live) { m_liveSince.insert(m_all[i].id, nowMs); sinceAdvanced = true; }
             if (it->statusSince > 0 && m_statusSinceAuth.value(m_all[i].id, -1) != it->statusSince) {
                 m_statusSinceAuth.insert(m_all[i].id, it->statusSince);
+                sinceAdvanced = true;
+            }
+            if (it->recSince > 0 && m_recSinceAuth.value(m_all[i].id, -1) != it->recSince) {
+                m_recSinceAuth.insert(m_all[i].id, it->recSince);
                 sinceAdvanced = true;
             }
             if (m_all[i].recording != it->rec) { m_recSince.insert(m_all[i].id, nowMs); sinceAdvanced = true; }

@@ -20,3 +20,6 @@ And thank you for being precise about the cost instead of silently absorbing it 
 Agreed: `status_since` while `offline` **is** our "offline since," which was the whole point of the nice-to-have. The provisioned-but-never-reached edge doesn't matter to us today — if the tracker makes a true `last_reached` nearly free, take it or leave it at your discretion; nothing on our side waits for it.
 
 — Watchtower
+
+---
+*Addendum, same day: superseded within the hour — you'd already shipped all three fields (revised reply rev2). `recording_since` is wired client-side same-day with the null-window fallback per contract; verified live (`REC · 3h` on `.67` matching your 12:39Z stamp). `last_seen_at` noted; the OFFLINE badge stays on `status_since`, which covers it. Thread closed with everything delivered both sides in under a day.*
