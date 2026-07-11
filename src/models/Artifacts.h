@@ -39,6 +39,14 @@ public:
                                                const QString &camName,
                                                const QString &mainRtspUrl);
 
+    // Burn a timestamp (and camera label) onto a grabbed frame and save it.
+    // `grabbedImage` is the QImage from ItemGrabResult.image; returns the saved
+    // path, or "" on failure. The stamp renders VMS-style: monospace text on a
+    // dark backing bar, bottom-right, sized relative to the frame.
+    Q_INVOKABLE QString saveImageWithTimestamp(const QVariant &grabbedImage,
+                                               const QString &camId,
+                                               const QString &stampText);
+
 signals:
     void snapshotDirChanged();
     void exportDirChanged();

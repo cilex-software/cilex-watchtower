@@ -44,7 +44,12 @@ Item {
         "stepBack": { "p": "M8 6v12 M17 7l-7 5 7 5" },
         "stepFwd":  { "p": "M16 6v12 M7 7l7 5-7 5" },
         "full":     { "p": "M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5" },
-        "shot":     { "p": "M3 6h18v14h-18z M8 13 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M9 6l2-2h2l2 2" },
+        // Camera body starts at x=4: the old x=3 edge sat on the stroke boundary
+        // and the LEFT BAR vanished at some pixel alignments (operator screenshot
+        // 2026-07-11, playback toolbar) — keep every edge ≥1.25 units inboard.
+        "shot":     { "p": "M4 7h16v12h-16z M8.5 13.5 a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0 M9.5 7l1.5-2h2l1.5 2" },
+        // Snapshot + burned timestamp: the same camera with a clock badge.
+        "shotStamp":{ "p": "M4 7h16v9h-7 M9.5 7l1.5-2h2l1.5 2 M8.5 12.5 a3.5 3.5 0 1 1 3 4.4 M16.5 17.5 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M16.5 15.6v1.9l1.4 1.2" },
         "bookmark": { "p": "M6 4h12v16l-6-4-6 4V4z" },
         "star":     { "p": "M12 3l2.7 6.3 6.8.5-5.2 4.5 1.6 6.7L12 17.5l-5.9 3.5 1.6-6.7L2.5 9.8l6.8-.5L12 3z" },
         "newtab":   { "p": "M14 4h6v6 M20 4l-9 9 M19 13v6H5V5h6" },

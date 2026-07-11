@@ -45,6 +45,17 @@ Item {
                 root.snapshotSaved(path, root.camName);
         });
     }
+    // Same grab, with the capture instant (live = now) burned bottom-right.
+    function captureSnapshotStamped() {
+        var t = (vsurf.playing) ? vsurf : playerArea;
+        var stamp = Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm:ss") + "  " + root.camName;
+        t.grabToImage(function(result) {
+            var path = Artifacts.saveImageWithTimestamp(result.image,
+                            root.camera ? root.camera.camId : "cam", stamp);
+            if (path !== "")
+                root.snapshotSaved(path, root.camName);
+        });
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -153,7 +164,8 @@ Item {
                         bgColor: Qt.rgba(0, 0, 0, 0.55); borderColor: Theme.line2
                         iconColor: "#ffffff"; hoverBg: Theme.accent; hoverBorder: Theme.accent; hoverIcon: Theme.bg
                     }
-                    CtlButton { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
+                    CtlButton { name: "shot"; tip: qsTr("Capture snapshot"); onClicked: root.captureSnapshot() }
+                    CtlButton { name: "shotStamp"; tip: qsTr("Snapshot with timestamp"); onClicked: root.captureSnapshotStamped() }
                     // bookmark / open-in-new-tab removed: they had no handlers — dead
                     // controls violate the no-silent-no-op rule; restore WITH behavior
                     // if/when those features exist for the maximized view.

@@ -1743,6 +1743,7 @@ Item {
                         anchors.bottom: parent.bottom; anchors.bottomMargin: 12
                         spacing: 6
                         Ctl { name: "shot"; tip: qsTr("Snapshot"); onClicked: root.snapshot() }
+                        Ctl { name: "shotStamp"; tip: qsTr("Snapshot with timestamp"); onClicked: root.snapshotStamped() }
                         Ctl { name: "full"; tip: qsTr("Fullscreen"); onClicked: root.fullscreenRequested() }
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
@@ -2234,6 +2235,18 @@ Item {
 
     signal fullscreenRequested()
     signal snapshotSaved(string path, string camName)
+    // Snapshot with the PLAYHEAD instant burned in — the recorded frame's wall
+    // clock (matches the header readout), not the capture time.
+    function snapshotStamped() {
+        var stamp = Qt.formatDate(new Date(root.playheadMs), "yyyy-MM-dd") + " "
+                    + root.fmtClock(root.playheadMs)
+                    + "  " + (root.camera ? root.camera.name : "");
+        vout.grabToImage(function(res) {
+            var p = Artifacts.saveImageWithTimestamp(res.image,
+                        root.camera ? root.camera.camId : "cam", stamp);
+            if (p !== "") root.snapshotSaved(p, root.camera ? root.camera.name : "");
+        });
+    }
 
     function snapshot() {
         vout.grabToImage(function(res) {

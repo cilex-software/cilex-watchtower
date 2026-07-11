@@ -1,5 +1,8 @@
 #include "Artifacts.h"
 
+#include <QPainter>
+#include <QFontMetrics>
+
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -52,6 +55,39 @@ QString Artifacts::newSnapshotPath(const QString &camId) const
     safeId.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9._-]")), QStringLiteral("_"));
     const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"));
     return snapshotDir() + QStringLiteral("/%1_%2.png").arg(safeId, stamp);
+}
+
+QString Artifacts::saveImageWithTimestamp(const QVariant &grabbedImage,
+                                          const QString &camId,
+                                          const QString &stampText)
+{
+    QImage img = grabbedImage.value<QImage>();
+    if (img.isNull() || stampText.isEmpty())
+        return QString();
+    if (img.format() != QImage::Format_RGB32 && img.format() != QImage::Format_ARGB32)
+        img = img.convertToFormat(QImage::Format_RGB32);
+
+    QPainter pt(&img);
+    pt.setRenderHint(QPainter::Antialiasing);
+    pt.setRenderHint(QPainter::TextAntialiasing);
+    QFont f(QStringLiteral("monospace"));
+    f.setStyleHint(QFont::Monospace);
+    f.setPixelSize(qMax(14, img.width() / 72));
+    pt.setFont(f);
+    const QFontMetrics fm(f);
+    const int padX = fm.height() / 2, padY = fm.height() / 4;
+    const QRect text = fm.boundingRect(stampText);
+    const int barW = text.width() + 2 * padX;
+    const int barH = fm.height() + 2 * padY;
+    const int margin = fm.height() / 2;
+    const QRect bar(img.width() - barW - margin, img.height() - barH - margin, barW, barH);
+    pt.fillRect(bar, QColor(0, 0, 0, 190));
+    pt.setPen(QColor(255, 255, 255));
+    pt.drawText(bar.adjusted(padX, 0, -padX, 0), Qt::AlignVCenter | Qt::AlignLeft, stampText);
+    pt.end();
+
+    const QString path = newSnapshotPath(camId);
+    return img.save(path) ? path : QString();
 }
 
 QString Artifacts::defaultExportDir() const

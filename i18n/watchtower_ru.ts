@@ -163,6 +163,10 @@
             <translation>Снимок</translation>
         </message>
         <message>
+            <source>Snapshot with timestamp</source>
+            <translation>Снимок с меткой времени</translation>
+        </message>
+        <message>
             <source>Fullscreen</source>
             <translation>Во весь экран</translation>
         </message>
@@ -441,4 +445,15 @@
             <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
         </message>
     </context>
+<context>
+    <name>SingleCameraDetail</name>
+        <message>
+            <source>Capture snapshot</source>
+            <translation>Сделать снимок</translation>
+        </message>
+        <message>
+            <source>Snapshot with timestamp</source>
+            <translation>Снимок с меткой времени</translation>
+        </message>
+</context>
 </TS>
