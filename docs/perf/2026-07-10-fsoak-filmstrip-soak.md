@@ -103,11 +103,22 @@ cases are the two bounded server-cold classes (first touch of a cold archive
 region; fragment-click deep into a fresh session then immediate F — now ~2-3 s
 worst, was 5.7-6 s).
 
+13. **Pre-emptive re-open for never-rendered deep targets** (round 10): a seek
+    >5 min past anything rendered this session skips the doomed direct seek —
+    the re-open starts the remux AT the target. Fragment-click worst case
+    4.2-5.5 s → ~1.7-3 s; window 12 validation: **A 211/213 strips <1 s (p50
+    715 / p95 965), the periodic slow-triplets gone**, first burst-free A
+    window since 5. Server-side floor documented + optioned in
+    `docs/letters/2026-07-11-cold-offset-first-segment-latency.md`.
+
 ## Bottom line
 
-The <1 s filmstrip gate **holds on every current-footage cycle and 73/74 archive
-cycles**; the single exceedance is the backend's documented cold-archive tail. No
-crash, no freeze, no leak across ~190 open→frame-mode→step→jump cycles on 6
-cameras × 14 day-pairs including live-edge today, sparse motion days, and
-warm-tier archives. Soak continues with longer windows; harness + watchdog are
-reusable (`WT_FSOAK`, `WT_FSOAK_PLAN`, `~/watchtower-soak/fsoak-2026-07-10/`).
+Final state after 12 windows / 2 days / **~4,300 combined cycles**: the <1 s
+filmstrip gate holds at **p50 ~715 ms / p95 <1 s on both instances**; the only
+exceedances are isolated first-touches of server-cold offsets (bounded ~2-3 s,
+floor documented to CV with options). **One crash total** (Qt 6.12 converter on
+poison frames — latched off), auto-recovered by the supervisor; **zero GUI
+freezes; zero leaks** (RSS plateau/declining). B's untouched control run: 1,925
+cycles, 1,923 <1 s, including surviving a live backend deploy. Harness +
+watchdog are reusable (`WT_FSOAK`, `WT_FSOAK_PLAN`,
+`~/watchtower-soak/fsoak-2026-07-10/`).
