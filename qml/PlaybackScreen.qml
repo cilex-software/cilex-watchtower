@@ -214,7 +214,7 @@ Item {
                 // instant direct path (15-173 ms measured).
                 if (pd > root._maxPosSeen + 300000) { seekFar(ms); return; }
                 player.position = pd; root._scanPos = pd;
-                _seekWatchSeq = _frameSeq; _seekWatchWall = ms;
+                _seekWatchSeq = _frameSeq; _seekWatchWall = ms; _seekWatchPosMs = pd;
                 seekWatch.interval = (pd > root._maxPosSeen + 60000) ? 2500 : 6000;
                 seekWatch.restart();
                 return;
@@ -297,11 +297,25 @@ Item {
     // <1 s because the fresh session starts remuxing AT the target). Cold-region
     // seeks get a fast 2.5 s watchdog; warm regions keep the patient 6 s.
     property double _maxPosSeen: 0
+    property double _seekWatchPosMs: -1
     Timer {
         id: seekWatch; interval: 6000; repeat: false
         onTriggered: {
-            if (root._seekWatchSeq >= 0 && root._frameSeq <= root._seekWatchSeq) root.seekFar(root._seekWatchWall);
-            root._seekWatchSeq = -1;
+            // Landed = frames advanced AND they came from NEAR THE TARGET. A cold
+            // direct seek can fail silently: position reports the target while the
+            // demuxer resumes rendering from its old buffer (fsoak n=142: clicked
+            // 35 s, watched 0.2 s — frames advanced, the watchdog was satisfied,
+            // the operator was at the wrong moment). Continuous sessions restamp
+            // pts ≈ position, so rendered pts far from the target = not landed.
+            var mislanded = root._seekWatchPosMs >= 0 && FrameClock.lastPtsMs >= 0
+                            && Math.abs(FrameClock.lastPtsMs - root._seekWatchPosMs) > 8000;
+            if (root._seekWatchSeq >= 0 && (root._frameSeq <= root._seekWatchSeq || mislanded)) {
+                if (mislanded && (typeof wtTrace !== "undefined") && wtTrace)
+                    console.log("[PB] seek MISLANDED (pts=" + FrameClock.lastPtsMs.toFixed(0)
+                                + " target=" + root._seekWatchPosMs + ") — re-opening");
+                root.seekFar(root._seekWatchWall);
+            }
+            root._seekWatchSeq = -1; root._seekWatchPosMs = -1;
         }
     }
     Connections {

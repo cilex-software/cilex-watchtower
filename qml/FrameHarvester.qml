@@ -161,9 +161,15 @@ Item {
         var np = FrameCache.nextPts(userPts);
         var overshoot = ahead.count === 0 && np > 0 && np > userPts + 8 * frameDurMs;
         var backoff = overshoot ? 2400 : 150;
+        // mainPosMs can LIE after a silently-failed cold seek (position reports
+        // the target, frames render elsewhere — fsoak n=142: 35 s vs 0.2 s).
+        // Continuous sessions restamp pts ≈ position, so when the two diverge
+        // wildly the rendered pts IS the trustworthy position.
+        var posTruth = (mainPosMs >= 0 && Math.abs(mainPosMs - userPts) < 5000)
+                       ? mainPosMs : userPts;
         var wantPos = ahead.count > 0
             ? Math.max(0, Math.round(ahead.endPts + anchorOffMs - 150))
-            : Math.max(0, Math.round((mainPosMs >= 0 ? mainPosMs : userPts + anchorOffMs) - backoff));
+            : Math.max(0, Math.round(posTruth - backoff));
         if (overshoot) _tr("fill-ahead overshoot detected (next=" + np.toFixed(0) + " cursor=" + userPts.toFixed(0) + ") — backing off " + backoff + "ms");
         if (player.duration > 0 && wantPos >= player.duration - 300) { _park("at end"); return; }
         // reposition only when idle/off-track — while cruising ahead just keep playing.
@@ -190,9 +196,9 @@ Item {
         if (repositioned) _lastRevAt = Date.now();
     }
     function _fillBehind(floor) {
-        // Same anchor rule as _fillAhead: no chain behind → MAIN position is truth.
-        var target = (floor === userPts && mainPosMs >= 0) ? Math.round(mainPosMs)
-                                                           : Math.round(floor + anchorOffMs);
+        // Same anchor rule as _fillAhead: no chain behind → trusted position.
+        var target = (floor === userPts && mainPosMs >= 0 && Math.abs(mainPosMs - userPts) < 5000)
+                     ? Math.round(mainPosMs) : Math.round(floor + anchorOffMs);
         var chunkMs = behindChunk * frameDurMs + 150;
         // Behind-fill never seeks across a kept discontinuity — but a boundary
         // close behind the cursor must CLAMP the window, not starve the fill
