@@ -23,6 +23,9 @@ Item {
                          player.source = source;
     property double userPts: -1        // operator's shown frame (FrameClock.lastPtsMs)
     property double anchorOffMs: 0     // pts → player-position mapping (from the stepper)
+    property double mainPosMs: -1      // MAIN player's position — ground truth for the cursor
+                                       // (this file's `player` is the HARVESTER's own; its
+                                       // position is 0 on a fresh session — round-6 regression)
     property double frameDurMs: 50
 
     readonly property int aheadTarget: 48        // keep ~2.4 s cached ahead @ 20 fps
@@ -34,9 +37,10 @@ Item {
     property string mode: "idle"                 // idle | ahead | behind (debug/telemetry)
     property int _lastRev: -1
     property double _lastRevAt: 0
+    property int _nudges: 0                      // consecutive stall-nudges (cap 3, then park)
 
     readonly property bool _trace: typeof wtTrace !== "undefined" && wtTrace
-    function _tr(s) { if (_trace) console.log("[WT-HARVEST] " + s); }
+    function _tr(s) { if (_trace) console.log("[WT-HARVEST] t=" + Date.now() + " " + s); }
 
     // CHURN-SAFE lifecycle (the 4a14650 rule, now on this second player too):
     // NEVER clear the source on deactivation — `source = ""` tears down the FFmpeg
@@ -103,10 +107,29 @@ Item {
             // bounded bootstrap lands at 00:00:00 — first frame pts 0.0; fsoak
             // window-2: the <=0 guard idled the harvester there for the full 6 s).
             if (!hv.active || hv.userPts < 0 || player.source == Qt.url("")) return;
-            // stall watch: playing but nothing new captured for 2.5 s → park (EOS/cold)
+            // stall watch: playing but nothing new captured for 2.5 s. A park +
+            // same-spot refill re-enters the wedge (truncated-TS joint from an
+            // interrupted fetch, corrupt-packet recovery, cold segment) — measured
+            // as a uniform ~5.7 s strip (2 stall cycles + fill). NUDGE forward past
+            // the wedge instead; park only after 3 fruitless nudges.
             if (player.playbackState === MediaPlayer.PlayingState) {
-                if (FrameCache.rev !== hv._lastRev) { hv._lastRev = FrameCache.rev; hv._lastRevAt = Date.now(); }
-                else if (Date.now() - hv._lastRevAt > 2500) { hv._park("stall"); return; }
+                if (FrameCache.rev !== hv._lastRev) {
+                    hv._lastRev = FrameCache.rev; hv._lastRevAt = Date.now(); hv._nudges = 0;
+                } else if (Date.now() - hv._lastRevAt > 2500) {
+                    if (hv._nudges < 3) {
+                        hv._nudges++;
+                        var npos = Math.min(Math.max(0, player.position + 500),
+                                            Math.max(0, player.duration - 300));
+                        if (!crossesDisc(player.position, npos)) {
+                            player.position = npos;
+                            hv._lastRevAt = Date.now();
+                            player.play();
+                            hv._tr("stall-nudge #" + hv._nudges + " -> pos=" + npos);
+                            return;
+                        }
+                    }
+                    hv._park("stall"); hv._nudges = 0; return;
+                }
             }
             var ahead = hv.chainedAhead();
             // At the live edge (today's footage opens there) there is nothing ahead to
@@ -125,16 +148,24 @@ Item {
     }
 
     function _fillAhead(ahead) {
-        var wantPos = Math.max(0, Math.round((ahead.count > 0 ? ahead.endPts : userPts) + anchorOffMs - 150));
+        // Empty chain → base on the MAIN player's position, not userPts+anchorOffMs:
+        // right after a re-open the stepper's anchor still maps the PREVIOUS session
+        // (fsoak: fills landed +1.7 s past the cursor → center-only strip until the
+        // 6 s timeout). Paused on the shown frame, main position IS the cursor.
+        var wantPos = ahead.count > 0
+            ? Math.max(0, Math.round(ahead.endPts + anchorOffMs - 150))
+            : Math.max(0, Math.round((mainPosMs >= 0 ? mainPosMs : userPts + anchorOffMs) - 150));
         if (player.duration > 0 && wantPos >= player.duration - 300) { _park("at end"); return; }
         // reposition only when idle/off-track — while cruising ahead just keep playing.
         // A repositioning that would cross a kept discontinuity is NOT issued (it
         // stalls the demuxer): keep playing from where we are — playback traverses
         // the boundary correctly on its own.
+        var repositioned = false;
         if (mode !== "ahead" || player.playbackState !== MediaPlayer.PlayingState
                 || Math.abs(player.position - wantPos) > 4000) {
             if (!crossesDisc(player.position, wantPos)) {
                 player.position = wantPos;
+                repositioned = true;
                 _tr("fill-ahead from pos=" + wantPos + " (chained=" + ahead.count + ")");
             } else {
                 _tr("fill-ahead rolls through a boundary (no cross-disc seek) pos=" + player.position);
@@ -143,10 +174,15 @@ Item {
         mode = "ahead";
         player.playbackRate = 2.0;
         player.play();
-        _lastRevAt = Date.now();
+        // Only NEW work resets the stall clock — resetting on every keep-playing
+        // eval pass (300 ms) starved the stall detector: the nudge/park could
+        // never fire (fsoak: nudges=0 through a 5.7 s wedge).
+        if (repositioned) _lastRevAt = Date.now();
     }
     function _fillBehind(floor) {
-        var target = Math.round(floor + anchorOffMs);
+        // Same anchor rule as _fillAhead: no chain behind → MAIN position is truth.
+        var target = (floor === userPts && mainPosMs >= 0) ? Math.round(mainPosMs)
+                                                           : Math.round(floor + anchorOffMs);
         var chunkMs = behindChunk * frameDurMs + 150;
         // Behind-fill never seeks across a kept discontinuity — but a boundary
         // close behind the cursor must CLAMP the window, not starve the fill
@@ -163,11 +199,11 @@ Item {
         if (mode !== "behind") {
             player.position = startPos;
             _tr("fill-behind from pos=" + startPos + " (floor=" + floor.toFixed(0) + " chunkMs=" + chunkMs.toFixed(0) + ")");
+            _lastRevAt = Date.now();               // new work only (see _fillAhead)
         }
         mode = "behind";
         player.playbackRate = 2.0;
         player.play();
-        _lastRevAt = Date.now();
     }
     property string _lastPark: ""
     function _park(why) {

@@ -65,6 +65,44 @@ burst / interval.
    days that age past retention mid-soak auto-prune from rotation (.120/06-06
    crossed the 35-day line at midnight during window 4).
 
+## Rounds 5-9 (2026-07-11, second soak day)
+
+8. **Delivery-thread converter crash (gdb-caught) → poison latch.** ~2 h in, a
+   corrupt-packet storm (truncated-TS joints from interrupted segment fetches —
+   stored segments verified clean via ffprobe) made VA-API surface sync fail;
+   Qt printed one graceful "Cannot map a video frame in ReadOnly mode!" then
+   SIGSEGV'd inside `qImageFromVideoFrame` on the NEXT frame of the storm, whose
+   map falsely succeeds (Qt 6.12 defect; crash was on the delivery thread with a
+   live frame — the DirectConnection design held). Supervisor relaunched
+   seamlessly. Fix: first graceful map failure latches ALL capture off for 3 s —
+   storms pass, the harvester self-heals.
+9. **Stale-anchor fills after re-opens** (+1.7 s past the cursor, center-only
+   strip) → empty-chain fills now base on the MAIN player's position
+   (`mainPosMs`, host-fed), which IS the cursor when paused. (First attempt read
+   the harvester's own `player.position` — 0 on fresh sessions; the harness
+   caught the regression within five cycles.)
+10. **Uniform ~5.7 s strips on deep fragment clicks** decomposed with timestamped
+    traces: an in-window direct seek into a region of a JUST-OPENED session hits
+    the serve-time remux cold → main player renders nothing for the full 6 s
+    freeze-watchdog; the watchdog's re-open then lands in <1 s (fresh session
+    remuxes AT the target). Fix: **adaptive watchdog** — 2.5 s when the target
+    is >60 s past the highest position rendered this session (cold region), 6 s
+    otherwise. Measured: the click-deep+F gesture dropped 5.7 s → ~2.0-3.0 s.
+11. **Stall detector never fired** — `_fillAhead` reset the stall clock on every
+    300 ms eval pass. New-work-only resets; the stall nudge (skip forward past a
+    demuxer wedge instead of park-and-reseek into it) now has a fair clock.
+12. Environmental, correctly survived: Cilex Vision deployed query-api mid-soak
+    (~16:00, connection-refused for ~1 min) — instance B rode through with
+    honest errors, no crash, no wedge; .120's June 6 aged past 35-day retention
+    at midnight → honest refusal (harness auto-prunes such days).
+
+Cumulative through window 10: **B (untouched control): 1656 cycles, 1654/1656
+strips <1 s (worst 2.9 s = cold-archive first touch), 0 crashes.** A (fix
+carrier, restarted per round): p50 715 ms steady in every window; remaining >1 s
+cases are the two bounded server-cold classes (first touch of a cold archive
+region; fragment-click deep into a fresh session then immediate F — now ~2-3 s
+worst, was 5.7-6 s).
+
 ## Bottom line
 
 The <1 s filmstrip gate **holds on every current-footage cycle and 73/74 archive

@@ -4,6 +4,19 @@ _Last updated: 2026-07-10. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-11) — extended filmstrip soak: 9 fix-rounds, <1 s gate holds
+
+- **WT_FSOAK extended soak (operator-ordered)** — 2 isolated instances, ~2200+ cycles over 2 days
+  across .201/.67 (current, live-edge) + .106/.120/.101/.110 (warm archives): **0 unrecovered
+  crashes, 0 GUI freezes; filmstrip <1 s on every current-footage cycle** (p50 ~715 ms); the only
+  >1 s classes are server-cold (first touch of a cold archive region; fragment-click deep into a
+  fresh session — cut 5.7 s → ~2-3 s via an adaptive freeze-watchdog). One delivery-thread Qt
+  converter crash (poison-frame storm) caught under gdb → **poison latch**; plus live-edge
+  behind-fill clamp, harvester pre-arm + instant center tile, pts-0 legitimacy, VFR chain floor,
+  NaN-seek guards, far-seek empty retry, honest stall clock + stall nudge, adaptive seekWatch.
+  Full chronicle: [`docs/perf/2026-07-10-fsoak-filmstrip-soak.md`](perf/2026-07-10-fsoak-filmstrip-soak.md).
+  Soak continues (harness: `WT_FSOAK`/`WT_FSOAK_PLAN`; runner `~/watchtower-soak/fsoak-2026-07-10/`).
+
 ## Current status (2026-07-10) — 🔴→🟢 P0 frame-mode segfault RESOLVED; live-events/status burst
 
 - **P0 SIGSEGV under frame-mode session churn — root-caused and fixed same day.** Three stacked

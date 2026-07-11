@@ -207,7 +207,9 @@ Item {
                 if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);
                 var pd = Math.round(Math.max(0, pos) * 1000);
                 player.position = pd; root._scanPos = pd;
-                _seekWatchSeq = _frameSeq; _seekWatchWall = ms; seekWatch.restart();
+                _seekWatchSeq = _frameSeq; _seekWatchWall = ms;
+                seekWatch.interval = (pd > root._maxPosSeen + 60000) ? 2500 : 6000;
+                seekWatch.restart();
                 return;
             }
             seekFar(ms);
@@ -282,6 +284,12 @@ Item {
     // Freeze-watchdog (LAST RESORT): on a continuous session direct seeks land — slow ones are cold BASE
     // renditions (S3 fetch, ~2-4s) that DO land, and re-opening hits the same cold base, so this is long: it
     // re-opens only a genuine >6s hang, never the cold tail. _frameSeq ticks on every rendered frame.
+    // Highest position actually RENDERED this session — a direct seek into a
+    // region never played yet hits the serve-time remux cold (measured on .67
+    // bounded sessions: ~6 s of nothing, then the watchdog re-open lands in
+    // <1 s because the fresh session starts remuxing AT the target). Cold-region
+    // seeks get a fast 2.5 s watchdog; warm regions keep the patient 6 s.
+    property double _maxPosSeen: 0
     Timer {
         id: seekWatch; interval: 6000; repeat: false
         onTriggered: {
@@ -293,6 +301,7 @@ Item {
         target: vout.videoSink
         function onVideoFrameChanged(frame) {
             root._frameSeq++;
+            if (player.position > root._maxPosSeen) root._maxPosSeen = player.position;
             if (root._ttffPending) {       // first frame of a fresh open — the TTFF endpoint
                 root._ttffPending = false;
                 root.lastTtffMs = Date.now() - root._obT0;
@@ -750,6 +759,7 @@ Item {
             var farNext = root._farLatestMs; root._farLatestMs = -1;
             root._pendingArmed = true;     // fragments below are now THIS session's — safe to apply a pending seek
             root.sessionId = sid;
+            root._maxPosSeen = 0;              // fresh session → all regions cold
             root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
@@ -1084,6 +1094,7 @@ Item {
         active: root.frameMode && root.frags.length > 0 && !root.loading
         userPts: FrameClock.lastPtsMs
         anchorOffMs: stepper.anchorOffMs
+        mainPosMs: player.position
         frameDurMs: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
         crossesDisc: function(fromMs, toMs) { return root._crossesBoundary(fromMs / 1000, toMs / 1000); }
     }

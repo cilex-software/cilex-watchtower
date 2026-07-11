@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QBuffer>
 #include <QColor>
+#include <QDateTime>
 #include <QDebug>
 
 void FrameCache::attach(QObject *videoSink)
@@ -77,6 +78,9 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
 {
     if (!frame.isValid())
         return;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (nowMs < m_poisonUntilMs.load(std::memory_order_relaxed))
+        return;                                       // decoder mid corrupt-packet storm — hands off
     const qint64 stUs = frame.startTime();
     if (stUs < 0)
         return;                                       // our own repaints carry PTS; raw invalids skipped
@@ -88,10 +92,14 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
     }
     // GPU readback. A corrupt-packet frame whose VA surface fails to sync comes
     // back null here (Qt logs "Cannot map a video frame in ReadOnly mode!") —
-    // drop it and let the harvester roll on.
+    // drop it AND latch: the NEXT frame from the same storm can crash inside
+    // Qt's converter (map falsely succeeds; see m_poisonUntilMs).
     const QImage img = frame.toImage();
-    if (img.isNull())
+    if (img.isNull()) {
+        m_poisonUntilMs.store(nowMs + 3000, std::memory_order_relaxed);
+        qWarning("[FrameCache] unmappable frame (pts %lld) — capture latched off 3s", (long long)pts);
         return;
+    }
     QByteArray jpg;
     QBuffer buf(&jpg);
     buf.open(QIODevice::WriteOnly);
