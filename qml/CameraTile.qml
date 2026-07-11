@@ -535,6 +535,18 @@ Item {
         }
 
         HoverHandler { id: hover }
-        TapHandler { enabled: root.tapToOpen; onTapped: root.opened() }
+        TapHandler {
+            enabled: root.tapToOpen
+            // The tap handler's passive grab fires EVEN WHEN a hover-row button's
+            // MouseArea handled the click (same Qt semantics the arrange overlay
+            // comment above documents) — so a snapshot/action click also opened
+            // the camera full-screen (operator report 2026-07-11). A tap that
+            // lands inside the actions row belongs to its buttons alone.
+            onTapped: (eventPoint) => {
+                var local = actions.mapFromGlobal(eventPoint.globalPosition.x, eventPoint.globalPosition.y);
+                if (!(actions.visible && actions.contains(Qt.point(local.x, local.y))))
+                    root.opened();
+            }
+        }
     }
 }

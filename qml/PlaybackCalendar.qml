@@ -49,9 +49,19 @@ ColumnLayout {
         }
         _cells = cells;
         _rangeLabel = Qt.formatDate(windowStart, "d MMM") + " – " + Qt.formatDate(today, "d MMM yyyy");
+        _builtFor = ymd(today);
     }
     Component.onCompleted: rebuild()
     onRetentionDaysChanged: rebuild()
+    // The grid froze "today" at component creation: an instance left running past
+    // midnight grayed the new day out as FUTURE and hid its footage dot even
+    // though coverage listed it (operator screenshot 2026-07-11: range ended
+    // "10 Jul", Jul 11 unclickable, backend had 306 s of Jul-11 footage).
+    property string _builtFor: ""
+    Timer {
+        interval: 60000; repeat: true; running: cal.visible
+        onTriggered: if (cal.ymd(new Date()) !== cal._builtFor) cal.rebuild()
+    }
 
     // header: "FOOTAGE" + status (pending / N days)
     RowLayout {

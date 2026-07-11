@@ -154,8 +154,9 @@ Item {
                         iconColor: "#ffffff"; hoverBg: Theme.accent; hoverBorder: Theme.accent; hoverIcon: Theme.bg
                     }
                     CtlButton { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
-                    CtlButton { name: "bookmark"; tip: "Add bookmark" }
-                    CtlButton { name: "newtab"; tip: "Open in new tab" }
+                    // bookmark / open-in-new-tab removed: they had no handlers — dead
+                    // controls violate the no-silent-no-op rule; restore WITH behavior
+                    // if/when those features exist for the maximized view.
 
                     Item { Layout.fillWidth: true }
 
