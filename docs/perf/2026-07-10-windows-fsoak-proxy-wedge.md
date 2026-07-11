@@ -106,15 +106,60 @@ under rapid `player.stop()`-driven aborts.
 source — it never recreates the poisoned proxy/player, so the wedge is permanent
 until app restart.
 
-## Recommended fixes (in priority order)
+## Root-cause capture (cdb, 2026-07-11)
 
-1. **Root-cause the proxy-thread stall.** Reproduce with the harness
-   (`WT_FSOAK` + `plan-current`, single instance wedges in a few minutes), attach
-   WinDbg/procdump to the wedged `watchtower.exe`, and dump the proxy `QThread`
-   stack to see where it's parked. Likely levers: cap concurrent upstream
-   requests in `HlsProxy` (prefetch `kReadAhead` + main + 503-retries can pile
-   up), and/or reuse connections instead of `Connection: close` per segment (the
-   half-closed-socket churn on Windows is real).
+Installed WinDbg via winget (cdb copied to `C:\wt\dbg`), reproduced the wedge under
+2-instance contention, and auto-attached `cdb` to dump all 44 thread stacks (MS
+public symbols). Findings:
+
+- **The proxy event loop is ALIVE, not deadlocked.** With `WT_PROXY_STATS=1`, the
+  proxy-thread timer keeps firing (~10×/15 s across the two proxies) *during* a
+  stall; and **no thread is blocked on a lock with a Qt6Network/Qt6Core/watchtower
+  caller** — the 19 `NtWaitForSingleObject` threads are FFmpeg demuxers + the
+  NVIDIA D3D pool (`nvwgf2umx.dll`), and there are 9 live `MsgWaitForMultipleObjectsEx`
+  event loops (GUI + the two proxies + workers).
+- **The FFmpeg demuxer is blocked in `avformat_open_input`** (`av_probe_input_format3`
+  → `WaitForSingleObject`) — i.e., stuck reading from the proxy's loopback socket,
+  which is the direct wedge mechanism.
+- **Pending upstream replies at the stall** (`PROXYSTATS … inflight=1 sockets=2
+  replies=3`) with no gross backlog — the proxy has issued upstream GETs that have
+  not completed.
+- Two regimes: **frequent transient** stalls (an open exceeds 25 s then recovers)
+  and a **rare permanent** hang (the bare-`/` probe timed out in one earlier run;
+  did not recur across 13 min of 2-instance hunting).
+
+**Conclusion:** the loopback socket that FFmpeg's `avformat_open_input` blocks on is
+only ever written from the upstream reply's `finished` handler, and that upstream
+GET has **no timeout** — so a single hung reply pins the socket (and the demuxer's
+open) until Qt's avio interrupt gives up ("Immediate exit requested"), with the
+stuck reply/socket/inflight entry never reclaimed. The proxy loop staying alive +
+pending replies + demuxer-blocked-in-open all fit this.
+
+## Fix applied (2026-07-11)
+
+**Bound the proxy's upstream fetches** (`HlsProxy::forward()` + `startPrefetch()`):
+`QNetworkRequest::setTransferTimeout(s_upstreamTimeoutMs)` (idle-based — resets on
+each byte, so slow-but-progressing fetches are untouched; default 10 s, env
+`WT_HLS_UPSTREAM_TIMEOUT_MS`). A hung reply now aborts → `forward()` writes a **502**
+to the loopback socket → the FFmpeg demuxer's own segment-retry re-asks instead of
+blocking forever, and the reply/socket/inflight entry is reclaimed. Safe/additive:
+it changes only the hung-reply path; healthy fetches behave identically. Verifying
+via re-soak (no playback regression + stalls reduced).
+
+## Further hardening (if residual stalls remain after the timeout)
+
+1. **Self-heal watchdog (mechanism-agnostic, additive — only fires when already
+   wedged).** In `PlaybackScreen`, arm a timer on each session open; if no first
+   frame arrives and `mediaStatus` shows failure/stall, restart the `HlsProxy`
+   (tear down + re-`init()` on a fresh port) and re-open the current window. Covers
+   the rare permanent hang regardless of mechanism. Must respect the churn-safe
+   lifecycle in `docs/perf/2026-07-10-frame-mode-churn-segfault.md`.
+2. **Reduce socket churn.** `Connection: close` per segment creates a high socket
+   turnover that stresses Qt's Windows socket notifier; keep-alive would cut it —
+   *but* FFmpeg's HLS reader may not reuse connections (`http_persistent`), so
+   confirm effectiveness before investing.
+3. **Reduce the trigger.** Rate-limit / coalesce `seekFar` re-opens; rapid operator
+   seeking + day-hopping is legitimate and should not be able to wedge playback.
 2. **Self-heal watchdog (mechanism-agnostic, additive — safe because it only fires
    when already wedged).** In `PlaybackScreen`, arm a timer on each session open;
    if no first frame arrives and `mediaStatus` shows failure/stall, treat it as a

@@ -31,6 +31,25 @@ const int s_slowMs = qEnvironmentVariableIntValue("WT_HLS_SLOW_MS");
 // so the full soak flow (seeks/exports/drawer grabs) keeps running WITH a starved
 // in-flight read usually present — the GUI-wedge repro cocktail.
 const int s_slowEvery = qMax(1, qEnvironmentVariableIntValue("WT_HLS_SLOW_EVERY"));
+
+// Upstream idle-timeout (ms). QNetworkRequest::setTransferTimeout aborts a reply
+// that transfers NO bytes for this long (it resets on each byte, so a slow-but-
+// progressing fetch is never aborted). Without it, forward()/startPrefetch() have
+// no bound: on Windows under heavy-day seekFar re-open churn, an upstream segment/
+// playlist GET can occasionally hang with no response — and because the loopback
+// socket is only written from that reply's finished handler, the socket (and the
+// FFmpeg demuxer blocked reading it in avformat_open_input) hangs until Qt's avio
+// interrupt fires ("Immediate exit requested"), permanently wedging playback with
+// no recovery (verified: cdb showed the proxy event loop ALIVE with pending
+// replies; docs/perf/2026-07-10-windows-fsoak-proxy-wedge.md). Bounding the fetch
+// turns a hung upstream into a fast 502 → the demuxer's own segment-retry re-asks,
+// and the stuck reply/socket/inflight entry is reclaimed. WT_HLS_UPSTREAM_TIMEOUT_MS
+// overrides (0 disables). 10 s clears genuine hangs while tolerating cold-tier
+// remux (which returns 503s promptly, handled by the retry loop, not this timeout).
+const int s_upstreamTimeoutMs = []{
+    const int v = qEnvironmentVariableIntValue("WT_HLS_UPSTREAM_TIMEOUT_MS");
+    return v != 0 ? v : 10000;
+}();
 }
 
 HlsProxy::HlsProxy(QObject *parent)
@@ -193,6 +212,7 @@ void HlsProxy::startPrefetch(const QString &path)
     QNetworkRequest req{QUrl(m_upstream + path)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, path]() {
         reply->deleteLater();
@@ -213,6 +233,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     QNetworkRequest req{QUrl(m_upstream + path)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
     QNetworkReply *reply = m_nam->get(req);          // cookie auto-attached by shared jar
     QElapsedTimer fetchTimer;
     fetchTimer.start();
