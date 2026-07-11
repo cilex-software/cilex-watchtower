@@ -79,7 +79,8 @@ and fill this table's Windows rows.
 
 ## 4. Visual no-regression (Test 3 — Linux)
 
-Screenshots (scratchpad `fm-entry.png`, `fm-step-45500.png`): frame-mode entry
+Screenshots (`2026-07-11-twotier-fm-entry.png`, `2026-07-11-twotier-fm-stepped.png`,
+this directory): frame-mode entry
 and a mid-fsoak stepped-to frame — the big view is full-resolution crisp
 (2560×1440 HEVC), all 7 strip slots populated with sharp slot-sized thumbnails,
 `.mmm` labels intact. The stepped shot was taken mid-cycle after 10 step-bursts
@@ -110,8 +111,8 @@ only ever touches detached `QImage`s and re-checks liveness under the mutex).
 
 ## Residuals / limitations
 
-- Linux HEVC p95 sits ~1.0 s: the tail is the server cold-offset first-segment
-  class, out of scope here (CV letter on file). p50 has real margin.
+- Linux AFTER maxima (1.2-1.7 s singles) are the server cold-offset first-touch
+  class, out of scope here (CV letter on file); p50/p95 both have real margin.
 - Windows halves of Tests 1-6 pending on the Windows instance (next CI build
   carries this change; `windows-latest` rolling release publishes it).
 - The upgrade repaint targets only the currently-shown pts — stepped-past
