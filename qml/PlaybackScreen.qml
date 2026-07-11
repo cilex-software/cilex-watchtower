@@ -206,6 +206,13 @@ Item {
             if (inWindow && !_crossesBoundary(player.position / 1000, pos)) {
                 if (compactDuration > 3) pos = Math.min(pos, compactDuration - 3);
                 var pd = Math.round(Math.max(0, pos) * 1000);
+                // Deep never-rendered target: the serve-time remux at a fresh
+                // offset is cold (fsoak-measured: 2-4 s of nothing) — a direct
+                // seek just burns the cold-watchdog before re-opening anyway.
+                // Re-open straight away: the fresh session starts remuxing AT
+                // the target (first frame ~1-2 s). Rendered regions stay on the
+                // instant direct path (15-173 ms measured).
+                if (pd > root._maxPosSeen + 300000) { seekFar(ms); return; }
                 player.position = pd; root._scanPos = pd;
                 _seekWatchSeq = _frameSeq; _seekWatchWall = ms;
                 seekWatch.interval = (pd > root._maxPosSeen + 60000) ? 2500 : 6000;
