@@ -1,0 +1,26 @@
+diff --git a/src/plugins/multimedia/ffmpeg/qffmpegvideobuffer.cpp b/src/plugins/multimedia/ffmpeg/qffmpegvideobuffer.cpp
+index cd89c9b..8f4f4d6 100644
+--- a/src/plugins/multimedia/ffmpeg/qffmpegvideobuffer.cpp
++++ b/src/plugins/multimedia/ffmpeg/qffmpegvideobuffer.cpp
+@@ -154,13 +154,19 @@ QAbstractVideoBuffer::MapData QFFmpegVideoBuffer::map(QVideoFrame::MapMode mode)
+ {
+     if (!m_swFrame) {
+         Q_ASSERT(m_hwFrame && m_hwFrame->hw_frames_ctx);
+-        m_swFrame = makeAVFrame();
++        auto swFrame = makeAVFrame();
+         /* retrieve data from GPU to CPU */
+-        int ret = av_hwframe_transfer_data(m_swFrame.get(), m_hwFrame.get(), 0);
++        const int ret = av_hwframe_transfer_data(swFrame.get(), m_hwFrame.get(), 0);
+         if (ret < 0) {
++            // Commit m_swFrame only on success: a retained blank frame would make
++            // the next map() skip the transfer and report a *successful* MapData
++            // (planeCount = nplanes) whose data pointers are all null — the CPU
++            // converter then crashes. av_hwframe_transfer_data() documents the
++            // destination as untouched/blank on failure.
+             qWarning() << "Error transferring the data to system memory:" << ret;
+             return {};
+         }
++        m_swFrame = std::move(swFrame);
+         convertSWFrame();
+     }
+ 

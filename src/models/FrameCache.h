@@ -131,13 +131,11 @@ private:
     void evictFullLocked();
     qint64 m_anchorPts = -1;                          // eviction reference (last insert/repaint)
     std::atomic<int> m_rev{0};                        // bumped on delivery threads, read from QML
-    // Poison latch: a corrupt-packet storm makes VA-API surface sync fail; Qt's
-    // map path fails gracefully once ("Cannot map a video frame in ReadOnly
-    // mode!") and then SIGSEGVs inside qImageFromVideoFrame on a subsequent
-    // frame whose map pretends success (Qt 6.12 VA-API map-failure path; caught
-    // twice under gdb on the delivery thread, fsoak 2026-07-11). On the first
-    // graceful failure we stop touching frames from that decoder for a beat —
-    // the storm passes, the harvester's stall watchdog re-parks/refills.
+    // Storm damper (root cause now fully understood — see the PRE-MAP GUARD in
+    // captureFrame, which is the actual crash prevention): after a detected
+    // transfer failure / poisoned buffer, skip capture briefly — during a
+    // corrupt-packet storm every frame would fail its transfer anyway, so
+    // probing each one just burns readback attempts.
     std::atomic<qint64> m_poisonUntilMs{0};
     static constexpr int kMaxFrames = 288;            // thumbnail tier: ~14 s @ 20 fps
     static constexpr qint64 kMaxBytes = 144LL * 1024 * 1024;   // shared budget (both tiers)
