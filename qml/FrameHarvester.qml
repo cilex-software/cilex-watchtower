@@ -152,9 +152,19 @@ Item {
         // right after a re-open the stepper's anchor still maps the PREVIOUS session
         // (fsoak: fills landed +1.7 s past the cursor → center-only strip until the
         // 6 s timeout). Paused on the shown frame, main position IS the cursor.
+        // Overshoot correction: a fill-seek issued right after the pre-arm load
+        // can snap ONE SEGMENT (~2 s) past the requested position on cold
+        // offsets — frames land ahead of the cursor, never chaining to it, and
+        // ahead-first evaluation starves the strip to timeout (fsoak n=373,
+        // twice on .201/07-09). If frames exist ahead but none chain, restart a
+        // full segment earlier so the decode rolls THROUGH the cursor.
+        var np = FrameCache.nextPts(userPts);
+        var overshoot = ahead.count === 0 && np > 0 && np > userPts + 8 * frameDurMs;
+        var backoff = overshoot ? 2400 : 150;
         var wantPos = ahead.count > 0
             ? Math.max(0, Math.round(ahead.endPts + anchorOffMs - 150))
-            : Math.max(0, Math.round((mainPosMs >= 0 ? mainPosMs : userPts + anchorOffMs) - 150));
+            : Math.max(0, Math.round((mainPosMs >= 0 ? mainPosMs : userPts + anchorOffMs) - backoff));
+        if (overshoot) _tr("fill-ahead overshoot detected (next=" + np.toFixed(0) + " cursor=" + userPts.toFixed(0) + ") — backing off " + backoff + "ms");
         if (player.duration > 0 && wantPos >= player.duration - 300) { _park("at end"); return; }
         // reposition only when idle/off-track — while cruising ahead just keep playing.
         // A repositioning that would cross a kept discontinuity is NOT issued (it
