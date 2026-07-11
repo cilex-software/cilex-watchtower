@@ -143,8 +143,18 @@ each byte, so slow-but-progressing fetches are untouched; default 10 s, env
 `WT_HLS_UPSTREAM_TIMEOUT_MS`). A hung reply now aborts → `forward()` writes a **502**
 to the loopback socket → the FFmpeg demuxer's own segment-retry re-asks instead of
 blocking forever, and the reply/socket/inflight entry is reclaimed. Safe/additive:
-it changes only the hung-reply path; healthy fetches behave identically. Verifying
-via re-soak (no playback regression + stalls reduced).
+it changes only the hung-reply path; healthy fetches behave identically.
+
+**Verified (2026-07-11)** — re-soaked the fixed build under the *exact* 2-instance
+`plan-current` contention that permanently wedged instance A at cycle 13 pre-fix:
+**52 cycles / ~15 min, 0 sustained wedges** (pre-fix: `cache=0f`, every open >25 s
+from cycle 14 on). Only **3 isolated transient `open_timeout`s, each recovered**
+(strips kept flowing 14→90); all four proxy ports answered **404 in ~1 ms** at the
+end; **0 crashes**; strip pass-rate unchanged (residual SLOW is the separate
+HEVC-1440p readback item, Finding 1). The timeout converts a hung fetch into a fast
+502→retry, so a transient stall now recovers instead of cascading to a permanent
+wedge. (The rare permanent hang did not recur in-window; the self-heal below stays
+the belt-and-suspenders for it.)
 
 ## Further hardening (if residual stalls remain after the timeout)
 
