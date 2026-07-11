@@ -78,7 +78,7 @@ public:
     int frames() const { QMutexLocker l(&m_mx); return m_store.size(); }
     bool capturing() const { return m_capturing.load(std::memory_order_relaxed); }
     void setCapturing(bool on);
-    double bytesMB() const { QMutexLocker l(&m_mx); return double(m_bytes) / (1024.0 * 1024.0); }
+    double bytesMB() const { QMutexLocker l(&m_mx); return double(m_bytes + m_fullBytes) / (1024.0 * 1024.0); }
     int rev() const { return m_rev.load(std::memory_order_relaxed); }
 
     // Nearest cached PTS strictly before/after the given ms; -1 when none.
@@ -99,6 +99,9 @@ public:
 
 signals:
     void changed();
+    // Full-res tier landed for pts (async pool encode) — a shown frame that was
+    // painted from its thumbnail can now upgrade via repaint().
+    void fullResReady(double ptsMs);
 
 private:
     void onFrame(const QVideoFrame &frame);
@@ -111,8 +114,21 @@ private:
     std::atomic<bool> m_capturing{false};             // set on GUI, read on delivery threads
     std::atomic<bool> m_harvestCapturing{false};
     mutable QMutex m_mx;
-    QMap<qint64, QByteArray> m_store;                 // ptsMs → JPEG
+    // TWO-TIER STORE (2026-07-11 handoff spec, docs/plans/2026-07-11-hevc-
+    // filmstrip-thumbnail-cache.prompt.md): the strip's critical path pays only
+    // a thumbnail-sized encode on the delivery thread (m_store, drives rev/
+    // strip_ms); full resolution for the big stepped view encodes ASYNC on the
+    // thread pool into m_fullStore (small window around the anchor). The
+    // frame-mode ENTRY frame (moveAnchor=true) encodes full-res synchronously
+    // so the big view is instantly crisp. repaint() prefers full-res, falls
+    // back to the thumbnail for one paint, and the fullResReady upgrade
+    // repaints when the full encode lands.
+    QMap<qint64, QByteArray> m_store;                 // ptsMs → THUMBNAIL JPEG (strip tier)
     qint64 m_bytes = 0;
+    QMap<qint64, QByteArray> m_fullStore;             // ptsMs → full-res JPEG (stepped view)
+    qint64 m_fullBytes = 0;
+    void insertFullLocked(qint64 pts, const QByteArray &jpg);
+    void evictFullLocked();
     qint64 m_anchorPts = -1;                          // eviction reference (last insert/repaint)
     std::atomic<int> m_rev{0};                        // bumped on delivery threads, read from QML
     // Poison latch: a corrupt-packet storm makes VA-API surface sync fail; Qt's
@@ -123,8 +139,10 @@ private:
     // graceful failure we stop touching frames from that decoder for a beat —
     // the storm passes, the harvester's stall watchdog re-parks/refills.
     std::atomic<qint64> m_poisonUntilMs{0};
-    static constexpr int kMaxFrames = 288;            // ~14 s @ 20 fps (harvester head-room)
-    static constexpr qint64 kMaxBytes = 144LL * 1024 * 1024;
+    static constexpr int kMaxFrames = 288;            // thumbnail tier: ~14 s @ 20 fps
+    static constexpr qint64 kMaxBytes = 144LL * 1024 * 1024;   // shared budget (both tiers)
+    static constexpr int kMaxFullFrames = 48;         // full-res window around the anchor
+    static constexpr qint64 kMaxFullBytes = 64LL * 1024 * 1024;
 };
 
 // image://fcache/<ptsMs>?r=<rev> — thumbnails for the frame-by-frame filmstrip,

@@ -1077,6 +1077,16 @@ Item {
     // inside drops auto-repeat overflow; requestPause routes through the transport so the
     // scan timer / speed machinery stay consistent with the paused state. Edge/boundary
     // steps route into seekToWall (the far/re-open machinery).
+    // A frame stepped-to before its async full-res encode landed was painted
+    // from its thumbnail — upgrade it in place the moment the full JPEG exists.
+    Connections {
+        target: FrameCache
+        enabled: root.frameMode
+        function onFullResReady(pts) {
+            if (Math.abs(FrameClock.lastPtsMs - pts) <= 2)
+                FrameCache.repaint(pts, 5);
+        }
+    }
     FrameStepper {
         id: stepper
         mediaPlayer: player

@@ -7,6 +7,21 @@
 #include <QColor>
 #include <QDateTime>
 #include <QDebug>
+#include <QElapsedTimer>
+#include <QThreadPool>
+
+namespace {
+// Strip thumbnail width (px). The strip's largest slot is ~171 px wide (height
+// 96 × 16:9), so 256 keeps it crisp with headroom; WT_STRIP_THUMB_PX overrides
+// for the A/B sweep.
+const int s_thumbPx = []{
+    const int v = qEnvironmentVariableIntValue("WT_STRIP_THUMB_PX");
+    return v > 0 ? v : 256;
+}();
+// WT_CACHE_TIMING=1 → per-frame cost breakdown ([CACHETIME] lines) for the
+// spec's Test 1 (toImage readback vs thumb encode vs full encode).
+const bool s_cacheTiming = qEnvironmentVariableIsSet("WT_CACHE_TIMING");
+}
 
 void FrameCache::attach(QObject *videoSink)
 {
@@ -45,6 +60,8 @@ void FrameCache::clear()
         QMutexLocker l(&m_mx);
         m_store.clear();
         m_bytes = 0;
+        m_fullStore.clear();
+        m_fullBytes = 0;
         m_anchorPts = -1;
     }
     ++m_rev;
@@ -100,21 +117,98 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
         qWarning("[FrameCache] unmappable frame (pts %lld) — capture latched off 3s", (long long)pts);
         return;
     }
-    QByteArray jpg;
-    QBuffer buf(&jpg);
-    buf.open(QIODevice::WriteOnly);
-    if (!img.save(&buf, "JPG", 88))
-        return;
+    QElapsedTimer tt;
+    if (s_cacheTiming)
+        tt.start();
+    // THUMBNAIL TIER — the strip's critical path. A ~256 px encode is ~1-2
+    // orders of magnitude cheaper than 1440p; strip_ms waits only on this.
+    const QImage thumb = (img.width() > s_thumbPx)
+        ? img.scaledToWidth(s_thumbPx, Qt::SmoothTransformation) : img;
+    QByteArray tjpg;
+    {
+        QBuffer buf(&tjpg);
+        buf.open(QIODevice::WriteOnly);
+        if (!thumb.save(&buf, "JPG", 85))
+            return;
+    }
+    const qint64 tThumb = s_cacheTiming ? tt.elapsed() : 0;
     {
         QMutexLocker l(&m_mx);
-        m_store.insert(pts, jpg);
-        m_bytes += jpg.size();
+        if (m_store.contains(pts))
+            return;                                   // raced with another tap
+        m_store.insert(pts, tjpg);
+        m_bytes += tjpg.size();
         if (moveAnchor || m_anchorPts < 0)
             m_anchorPts = pts;
         evictIfNeededLocked();
     }
     ++m_rev;
     emit changed();
+
+    // FULL-RES TIER — off the critical path. The entry/operator frame
+    // (moveAnchor) encodes synchronously so the big view is instantly crisp;
+    // harvest frames defer to the pool. Only the QImage (a decoder-independent
+    // CPU copy) crosses threads — NEVER the QVideoFrame (P0 UAF rule).
+    if (moveAnchor) {
+        QByteArray fjpg;
+        QBuffer fbuf(&fjpg);
+        fbuf.open(QIODevice::WriteOnly);
+        if (img.save(&fbuf, "JPG", 88)) {
+            QMutexLocker l(&m_mx);
+            insertFullLocked(pts, fjpg);
+        }
+        if (s_cacheTiming)
+            qInfo("[CACHETIME] pts=%lld toImage+thumb=%lldms full_sync=%lldms res=%dx%d",
+                  (long long)pts, (long long)tThumb, (long long)(tt.elapsed() - tThumb),
+                  img.width(), img.height());
+    } else {
+        const QImage fullCopy = img;                  // implicit-shared CPU buffer, thread-safe
+        QThreadPool::globalInstance()->start([this, fullCopy, pts]() {
+            QElapsedTimer ft;
+            if (s_cacheTiming)
+                ft.start();
+            QByteArray fjpg;
+            QBuffer fbuf(&fjpg);
+            fbuf.open(QIODevice::WriteOnly);
+            if (!fullCopy.save(&fbuf, "JPG", 88))
+                return;
+            {
+                QMutexLocker l(&m_mx);
+                if (!m_store.contains(pts))
+                    return;                           // evicted/cleared meanwhile — don't resurrect
+                insertFullLocked(pts, fjpg);
+            }
+            if (s_cacheTiming)
+                qInfo("[CACHETIME] pts=%lld full_async=%lldms", (long long)pts, (long long)ft.elapsed());
+            emit fullResReady(double(pts));
+        });
+        if (s_cacheTiming)
+            qInfo("[CACHETIME] pts=%lld toImage+thumb=%lldms res=%dx%d",
+                  (long long)pts, (long long)tThumb, img.width(), img.height());
+    }
+}
+
+void FrameCache::insertFullLocked(qint64 pts, const QByteArray &jpg)
+{
+    if (m_fullStore.contains(pts))
+        return;
+    m_fullStore.insert(pts, jpg);
+    m_fullBytes += jpg.size();
+    evictFullLocked();
+}
+
+void FrameCache::evictFullLocked()
+{
+    while (m_fullStore.size() > kMaxFullFrames || m_fullBytes > kMaxFullBytes
+           || m_bytes + m_fullBytes > kMaxBytes) {
+        auto first = m_fullStore.begin();
+        auto last = std::prev(m_fullStore.end());
+        const bool dropFirst = m_anchorPts < 0
+            || qAbs(first.key() - m_anchorPts) >= qAbs(last.key() - m_anchorPts);
+        auto it = dropFirst ? first : last;
+        m_fullBytes -= it.value().size();
+        m_fullStore.erase(it);
+    }
 }
 
 QVideoSink *FrameCache::harvestSink()
@@ -195,7 +289,9 @@ double FrameCache::repaint(double ptsMs, double tolMs)
         }
         if (best < 0)
             return -1;
-        jpg = m_store.value(best);
+        // Full-res when the async encode has landed; the thumbnail otherwise
+        // (one soft paint — fullResReady triggers the upgrade repaint).
+        jpg = m_fullStore.contains(best) ? m_fullStore.value(best) : m_store.value(best);
         m_anchorPts = best;
     }
     QImage img = QImage::fromData(jpg, "JPG");
