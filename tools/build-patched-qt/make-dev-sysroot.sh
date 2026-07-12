@@ -42,6 +42,18 @@ if [[ -d "$LIBDIR" ]]; then
     fi
   done
 fi
+# CMake package configs pin VERSIONED imported locations (e.g. libzstd.so.1.5.x)
+# relative to their prefix — mirror the installed versioned runtime libs for
+# every library family present in the sysroot.
+if [[ -d "$LIBDIR" ]]; then
+  find "$LIBDIR" -maxdepth 1 -name "lib*.so" | while read -r l; do
+    fam=$(basename "$l" .so)
+    for real in /usr/lib/x86_64-linux-gnu/"$fam".so.*; do
+      [[ -e "$real" ]] && ln -sfn "$real" "$LIBDIR/$(basename "$real")"
+    done
+  done
+fi
+
 # Same for .pc prefix paths: point them at the sysroot.
 find "$SYSROOT/usr" -name "*.pc" -exec sed -i "s|^prefix=/usr|prefix=$SYSROOT/usr|" {} +
 
