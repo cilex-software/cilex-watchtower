@@ -6,6 +6,14 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
 
 ## Current status (2026-07-12) — Qt FFmpeg-backend crash OWNED end-to-end (patched binaries + proof)
 
+- **Patched Qt is now the DEFAULT runtime** (operator decision, same day): plain `./run.sh` resolves
+  `~/Qt/6.12.0-patched-beta1` when present (BuildID-verified at launch review), falls back to the SDK
+  with a loud notice elsewhere; `WT_QT_PREFIX` still overrides. Rollback = `WT_QT_PREFIX=~/Qt/6.12.0/gcc_64 ./run.sh`.
+- **Thumbnail-endpoint spec answered** (`docs/letters/2026-07-12-thumbnail-endpoint-spec-reply.md`):
+  frame-strip case solved client-side (two-tier cache) → CV's one-decode-N-frames variant parked;
+  v1 adopted for minutes-apart consumers (scrubber hover previews + 24-tile day-overview, keyframe
+  precision), sprites requested for count=24 only.
+
 - **The poison-frame SIGSEGV is fixed at the Qt source, not just guarded.** Root cause proven:
   `QFFmpegVideoBuffer::map()` commits `m_swFrame` before `av_hwframe_transfer_data()`, so after one
   transfer failure every later map returns fake-success MapData (planeCount>0, null planes) and a

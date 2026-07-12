@@ -16,7 +16,25 @@
 # it would load whatever libQt6*.so the system linker finds. Hence: always this script.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-QT="${WT_QT_PREFIX:-$HOME/Qt/6.12.0/gcc_64}"
+# DEFAULT RUNTIME (2026-07-12, operator decision): the internally PATCHED Qt
+# overlay — Qt 6.12 (v6.12.0-beta1 stack) with third_party/qt-patches/6.12/
+# applied (poison-frame fix at the source + adjacent defects; validated 13/13,
+# docs/qt-upstream/2026-07-12-delivery-report.md). Built by
+# tools/build-patched-qt/build.sh. On machines without the patched prefix we
+# fall back to the SDK with a loud notice (the in-app pre-map guard still
+# intercepts the upstream defect there). WT_QT_PREFIX always overrides.
+QT_PATCHED="$HOME/Qt/6.12.0-patched-beta1"
+QT_SDK="$HOME/Qt/6.12.0/gcc_64"
+if [[ -n "${WT_QT_PREFIX:-}" ]]; then
+    QT="$WT_QT_PREFIX"
+elif [[ -d "$QT_PATCHED/lib" ]]; then
+    QT="$QT_PATCHED"
+else
+    QT="$QT_SDK"
+    echo "watchtower: patched Qt not found at $QT_PATCHED — running on UNPATCHED SDK Qt" >&2
+    echo "            (upstream poison-frame defect present; the in-app guard covers it)." >&2
+    echo "            Build it: tools/build-patched-qt/make-dev-sysroot.sh && tools/build-patched-qt/build.sh" >&2
+fi
 BUILD="${WT_BUILD_DIR:-$DIR/build}"
 
 if [[ ! -d "$QT/lib" ]]; then
