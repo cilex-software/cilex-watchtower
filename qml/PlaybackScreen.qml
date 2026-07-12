@@ -525,6 +525,70 @@ Item {
     }
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
+    // ---- /review/thumbnails consumers (CV v1, frozen contract 2026-07-12) ----
+    // #1 hover preview: 1 keyframe tile near the hovered instant (json format).
+    // #2 day-overview strip: 24 keyframe tiles across the loaded day (sprite).
+    property var hoverThumb: null          // {dataUrl, wallTime} | null
+    property double _hoverWallMs: -1
+    property var _hoverCache: ({})         // minute-bucket → tile (session-scoped)
+    property var dayTiles: []              // 24 sprite tiles (x/width/wallTime or gap)
+    property string daySprite: ""          // data: URL of the sheet
+    property string _dayTilesFor: ""       // camId|day the strip belongs to
+    // Strip shows only when it carries at least one REAL tile: on sparse
+    // motion days the 24 even samples can all land in dead air — a row of 24
+    // gap glyphs is noise, not information (honest-empty ≠ empty-noise).
+    readonly property bool _dayHasTiles: {
+        for (var i = 0; i < dayTiles.length; i++)
+            if (dayTiles[i].tileUrl && dayTiles[i].tileUrl !== "") return true;
+        return false;
+    }
+    readonly property bool _dayStripOn: selectedDay !== "" && _dayHasTiles && !frameMode
+    function requestHoverThumb(wallMs) {
+        _hoverWallMs = wallMs;
+        var bucket = camId + "|" + Math.round(wallMs / 60000);
+        if (_hoverCache[bucket]) { hoverThumb = _hoverCache[bucket]; return; }
+        hoverDebounce.restart();
+    }
+    Timer {
+        id: hoverDebounce
+        interval: 160
+        onTriggered: {
+            if (root._hoverWallMs < 0 || !root.client || root.camId === "") return;
+            root.client.fetchThumbnails(root.camId, "hover|" + Math.round(root._hoverWallMs / 60000),
+                new Date(root._hoverWallMs - 30000).toISOString(),
+                new Date(root._hoverWallMs + 30000).toISOString(), 1, 96);
+        }
+    }
+    function requestDayStrip() {
+        if (!client || camId === "" || selectedDay === "") return;
+        var key = camId + "|" + selectedDay;
+        if (_dayTilesFor === key && dayTiles.length) return;      // cached this session
+        var start = new Date(selectedDay + "T00:00:00");
+        var end = new Date(Math.min(start.getTime() + 86400000, Date.now()));
+        client.fetchThumbnails(camId, "daystrip|" + key,
+                               start.toISOString(), end.toISOString(),
+                               24, 96, "keyframe", "sprite");
+    }
+    Connections {
+        target: root.client
+        function onThumbnailsReady(cameraId, tag, tiles, spriteDataUrl) {
+            if (cameraId !== root.camId) return;
+            if (tag.indexOf("hover|") === 0) {
+                var t = (tiles.length && tiles[0].tileUrl !== "") ? tiles[0] : null;
+                root._hoverCache[cameraId + "|" + tag.substring(6)] = t;
+                // apply only if the pointer is still near this bucket
+                if (Math.abs(Math.round(root._hoverWallMs / 60000) - parseInt(tag.substring(6))) <= 1)
+                    root.hoverThumb = t;
+            } else if (tag.indexOf("daystrip|") === 0) {
+                var key = tag.substring(9);
+                if (key !== root.camId + "|" + root.selectedDay) return;   // stale day
+                root.dayTiles = tiles;
+                root.daySprite = spriteDataUrl;
+                root._dayTilesFor = key;
+            }
+        }
+    }
+
     // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
     property int retentionDays: 35         // longest tier retention = calendar span
     property var footageDays: []           // dates with recorded footage
@@ -547,6 +611,7 @@ Item {
         _farInFlight = false; _farLatestMs = -1;
         _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
+        dayTiles = []; daySprite = ""; _dayTilesFor = ""; hoverThumb = null; _hoverCache = ({});
         errorText = ""; selStartMs = -1; selEndMs = -1;
         // Fresh screen entry: no frame-mode leftovers, no stale timeline. (Operator-
         // reported 2026-07-09: re-entering playback on an empty day still showed the
@@ -843,6 +908,7 @@ Item {
                 root.tlFrags = out;
                 root.resetView();           // fresh open → scrubber shows the full window
                 root.loadMotionEvents();    // point events + recent list (EventModel)
+            if (root.selectedDay !== "") root.requestDayStrip();
                 root.loadTimeline();        // motion episode spans from /events/timeline
                 if (typeof wtTrace !== "undefined" && wtTrace)
                     console.log("[PB] fresh open: timeline=" + Math.round((root.tlEndMs - root.tlStartMs) / 60000) + "min");
@@ -1917,7 +1983,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             // frameMode swaps the 22px controls row for the ~96px filmstrip
-            Layout.preferredHeight: root.frameMode ? 200 : 124
+            Layout.preferredHeight: root.frameMode ? 200 : (root._dayStripOn ? 182 : 124)
             Behavior on Layout.preferredHeight { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
             color: Theme.bg
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
@@ -1978,17 +2044,90 @@ Item {
                 Chip { visible: root.tlZoomed; label: "Fit"; onClicked: root.resetView() }
             }
 
+            // Day-overview strip (CV /review/thumbnails, 24 keyframe tiles as one
+            // sprite): one glance at the loaded day; click a tile to jump there.
+            // Gaps are honest holes (never packed into the sheet) — dark cell +
+            // glyph. Tile x/width come PER-TILE off the metadata (mixed aspect
+            // ratios are legitimate; frozen contract 2026-07-12).
+            Item {
+                id: dayStripItem
+                visible: root._dayStripOn
+                anchors.left: parent.left; anchors.right: parent.right
+                anchors.top: tlControls.bottom
+                anchors.topMargin: root._dayStripOn ? 8 : 0
+                anchors.leftMargin: 16; anchors.rightMargin: 16
+                height: root._dayStripOn ? 50 : 0
+                Row {
+                    anchors.fill: parent
+                    spacing: 2
+                    Repeater {
+                        model: root.dayTiles
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool gap: !modelData.tileUrl || modelData.tileUrl === ""
+                            width: (dayStripItem.width - 2 * (root.dayTiles.length - 1)) / root.dayTiles.length
+                            height: 48
+                            color: "#16140f"
+                            border.width: dsMa.containsMouse ? 1 : 1
+                            border.color: dsMa.containsMouse ? Theme.accent : Theme.line
+                            Image {
+                                visible: !parent.gap
+                                anchors.fill: parent; anchors.margins: 1
+                                source: parent.gap ? "" : parent.modelData.tileUrl
+                                sourceSize.height: 96
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
+                            Icon { visible: parent.gap; anchors.centerIn: parent; name: "shot"; size: 12; color: Theme.ink3 }
+                            MouseArea {
+                                id: dsMa
+                                anchors.fill: parent; hoverEnabled: true
+                                cursorShape: parent.gap ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                onClicked: if (!parent.gap) root.seekToWall(Date.parse(parent.modelData.wallTime))
+                            }
+                            C.ToolTip.visible: dsMa.containsMouse
+                            C.ToolTip.delay: 300
+                            C.ToolTip.text: gap ? qsTr("No recording") : root.fmtClock(Date.parse(modelData.wallTime))
+                        }
+                    }
+                }
+            }
+
             // bar
             Rectangle {
                 id: bar
                 anchors.left: parent.left; anchors.right: parent.right
-                anchors.top: root.frameMode ? frameStripItem.bottom : tlControls.bottom
+                anchors.top: root.frameMode ? frameStripItem.bottom
+                             : (root._dayStripOn ? dayStripItem.bottom : tlControls.bottom)
                 anchors.topMargin: 10
                 anchors.leftMargin: 16; anchors.rightMargin: 16
                 height: 78
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
                 clip: true   // footage/selection outside the zoomed view are clipped
+                property double hoverX: -1
+                // Hover preview (CV /review/thumbnails, 1 keyframe tile near the
+                // hovered instant): a real frame from that moment, not a guess.
+                Rectangle {
+                    visible: bar.hoverMs > 0 && root.hoverThumb !== null && !root.frameMode
+                    x: Math.max(2, Math.min(bar.width - width - 2, bar.hoverX - width / 2))
+                    y: 2
+                    z: 40
+                    width: 110; height: 74
+                    color: Theme.panel; border.width: 1; border.color: Theme.line2
+                    Image {
+                        anchors { top: parent.top; left: parent.left; right: parent.right; margins: 2 }
+                        height: 58
+                        source: root.hoverThumb ? root.hoverThumb.tileUrl : ""
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                    }
+                    Text {
+                        anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 1 }
+                        text: bar.hoverMs > 0 ? root.fmtClock(bar.hoverMs) : ""
+                        color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
+                    }
+                }
                 readonly property double span: Math.max(1, root.viewEndMs - root.viewStartMs)
                 function xOf(ms) { return (ms - root.viewStartMs) / span * width }
                 function msOf(x) { return root.viewStartMs + (x / width) * span }
@@ -2210,12 +2349,14 @@ Item {
                     onPressed: (m) => { pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1 }
                     onPositionChanged: (m) => {
                         bar.hoverMs = bar.msOf(m.x);
+                        bar.hoverX = m.x;
+                        if (!root.frameMode) root.requestHoverThumb(bar.hoverMs);
                         if (pressMs < 0) return;
                         var cur = bar.msOf(m.x);
                         root.selStartMs = Math.min(pressMs, cur);
                         root.selEndMs = Math.max(pressMs, cur);
                     }
-                    onExited: bar.hoverMs = -1
+                    onExited: { bar.hoverMs = -1; root.hoverThumb = null; }
                     onReleased: (m) => {
                         var cur = bar.msOf(m.x);
                         if (Math.abs(cur - pressMs) < bar.span / bar.width * 4) {  // a click, not a drag

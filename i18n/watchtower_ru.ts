@@ -167,6 +167,10 @@
             <translation>Снимок с меткой времени</translation>
         </message>
         <message>
+            <source>No recording</source>
+            <translation>Нет записи</translation>
+        </message>
+        <message>
             <source>Fullscreen</source>
             <translation>Во весь экран</translation>
         </message>

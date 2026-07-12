@@ -43,6 +43,7 @@
 #include "models/MemTelemetry.h"
 #include "models/FrameClock.h"
 #include "models/FrameCache.h"
+#include "models/PlaybackClient.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -316,6 +317,7 @@ int main(int argc, char *argv[])
     auto *frameCache = new FrameCache(&app);
     engine.rootContext()->setContextProperty("FrameCache", frameCache);
     engine.addImageProvider(QStringLiteral("fcache"), new FrameCacheImageProvider(frameCache));
+    engine.addImageProvider(QStringLiteral("thumbtile"), new ThumbTileProvider());
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));

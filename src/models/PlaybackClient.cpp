@@ -1,4 +1,8 @@
 #include "PlaybackClient.h"
+
+#include <QMutex>
+#include <QColor>
+#include <QImage>
 #include "HlsProxy.h"
 #include <QThread>
 #include "AuthController.h"
@@ -304,6 +308,96 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
         emit sessionReady(sid, compactDuration, frags, meta);
+    });
+}
+
+namespace {
+QMutex s_thumbMx;
+QHash<QString, QImage> s_thumbTiles;      // "<tag>#<index>" → decoded tile
+}
+
+QImage PlaybackClient::thumbTile(const QString &key)
+{
+    QMutexLocker l(&s_thumbMx);
+    return s_thumbTiles.value(key);
+}
+
+void PlaybackClient::fetchThumbnails(const QString &cameraId, const QString &tag,
+                                     const QString &wallStartIso, const QString &wallEndIso,
+                                     int count, int height,
+                                     const QString &precision, const QString &format)
+{
+    if (cameraId.isEmpty() || !m_loggedIn)
+        return;
+    QUrl url(m_baseUrl + "/review/thumbnails");
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("camera_id"), cameraId);
+    q.addQueryItem(QStringLiteral("wall_start"), wallStartIso);   // Z-suffixed UTC (contract: +00:00 422s)
+    q.addQueryItem(QStringLiteral("wall_end"), wallEndIso);
+    q.addQueryItem(QStringLiteral("count"), QString::number(count));
+    q.addQueryItem(QStringLiteral("height"), QString::number(height));
+    q.addQueryItem(QStringLiteral("precision"), precision);
+    if (format != QLatin1String("json"))
+        q.addQueryItem(QStringLiteral("format"), format);
+    url.setQuery(q);
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, tag]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+        if (trace) {
+            const QByteArray st = reply->rawHeader("Server-Timing");
+            qInfo().noquote() << QStringLiteral("[THUMBS] tag=%1 code=%2 Server-Timing=%3")
+                                 .arg(tag).arg(code).arg(QString::fromLatin1(st));
+        }
+        if (code != 200) {
+            emit thumbnailsReady(cameraId, tag, {}, {});          // honest empty — caller shows nothing
+            return;
+        }
+        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        // Decode ONCE here (sheet or per-tile b64), crop tiles, and hand QML
+        // provider URLs — per-tile x/width read off the metadata (NOT uniform;
+        // mixed aspect ratios are legitimate), gaps never occupy a sheet slot.
+        // sprite is an OBJECT {jpeg_b64,width,height} (probed live 2026-07-12).
+        const QString spriteB64 = obj.value(QStringLiteral("sprite")).toObject()
+                                     .value(QStringLiteral("jpeg_b64")).toString();
+        QImage sheet;
+        if (!spriteB64.isEmpty())
+            sheet = QImage::fromData(QByteArray::fromBase64(spriteB64.toLatin1()), "JPG");
+        QVariantList tiles;
+        int idx = 0;
+        for (const auto &tv : obj.value(QStringLiteral("thumbnails")).toArray()) {
+            const auto to = tv.toObject();
+            QVariantMap t;
+            t.insert(QStringLiteral("wallTime"), to.value(QStringLiteral("wall_time")).toString());
+            t.insert(QStringLiteral("reason"), to.value(QStringLiteral("reason")).toString());
+            QImage tileImg;
+            const QString b64 = to.value(QStringLiteral("jpeg_b64")).toString();
+            if (!b64.isEmpty())
+                tileImg = QImage::fromData(QByteArray::fromBase64(b64.toLatin1()), "JPG");
+            else if (!sheet.isNull() && to.contains(QStringLiteral("x")))
+                tileImg = sheet.copy(to.value(QStringLiteral("x")).toInt(), 0,
+                                     to.value(QStringLiteral("width")).toInt(), sheet.height());
+            if (!tileImg.isNull()) {
+                // URL-proof key: '#' becomes a fragment, '|' is illegal in URLs —
+                // both truncate/mangle the provider id (tiles paint dark filler).
+                // A hash of the tag sidesteps every reserved character forever.
+                const QString key = QString::number(qHash(tag)) + QStringLiteral("_") + QString::number(idx);
+                {
+                    QMutexLocker l(&s_thumbMx);
+                    s_thumbTiles.insert(key, tileImg);
+                    // bound the store: drop oldest-ish beyond 256 entries
+                    while (s_thumbTiles.size() > 256)
+                        s_thumbTiles.erase(s_thumbTiles.begin());
+                }
+                t.insert(QStringLiteral("tileUrl"), QStringLiteral("image://thumbtile/") + key);
+            } else {
+                t.insert(QStringLiteral("tileUrl"), QString());
+            }
+            tiles.append(t);
+            ++idx;
+        }
+        emit thumbnailsReady(cameraId, tag, tiles, QString());
     });
 }
 
@@ -738,4 +832,21 @@ void PlaybackClient::runPostProcess(const QString &jobId, const QString &srcPath
               post.value(QStringLiteral("label")).toString(),
               post.value(QStringLiteral("startEpochMs")).toLongLong(),
               post.value(QStringLiteral("durationMs")).toLongLong());
+}
+
+QImage ThumbTileProvider::requestImage(const QString &id, QSize *size, const QSize &requested)
+{
+    QImage img = PlaybackClient::thumbTile(id);
+    if (img.isNull()) {
+        static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+        if (trace)
+            qInfo().noquote() << QStringLiteral("[THUMBTILE] MISS id=%1").arg(id);
+        img = QImage(16, 9, QImage::Format_RGB32);
+        img.fill(QColor(0x16, 0x14, 0x0f));
+    }
+    if (requested.isValid() && requested.width() > 0)
+        img = img.scaled(requested, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (size)
+        *size = img.size();
+    return img;
 }

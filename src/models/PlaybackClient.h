@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QQuickImageProvider>
+
 #include <QObject>
 #include <QHash>
 #include <QStringList>
@@ -40,6 +42,19 @@ public:
 
     // Open a review session over [wallStartIso, wallEndIso] (<=24h). Emits
     // sessionReady(sessionId, compactDuration, fragments, meta) or sessionFailed.
+    // Decoded thumbnail tiles served to QML via image://thumbtile/<key>
+    // (data: URLs proved unreliable in QQuickImage here; the provider path is
+    // the same battle-tested route CvImageProvider uses).
+    static QImage thumbTile(const QString &key);
+
+    // Fetch operator-facing thumbnails (CV /review/thumbnails). `tag` echoes
+    // through thumbnailsReady so callers can route hover vs day-strip replies.
+    // format: "json" (per-tile data URLs) or "sprite" (one sheet + x/width).
+    Q_INVOKABLE void fetchThumbnails(const QString &cameraId, const QString &tag,
+                                     const QString &wallStartIso, const QString &wallEndIso,
+                                     int count, int height,
+                                     const QString &precision = QStringLiteral("keyframe"),
+                                     const QString &format = QStringLiteral("json"));
     Q_INVOKABLE void openSession(const QString &cameraId, const QString &wallStartIso,
                                  const QString &wallEndIso, bool hevcCapable = true);
 
@@ -130,6 +145,11 @@ signals:
     void exportProgress(const QString &jobId, const QString &state);
     void exportSaved(const QString &jobId, const QString &localPath);
     void exportFailed(const QString &jobId, const QString &error);
+    // /review/thumbnails (CV v1, frozen contract 2026-07-12): tiles carry
+    // wallTime + tileUrl (image://thumbtile/...) or an empty tileUrl + reason
+    // for gaps (never packed into the sheet).
+    void thumbnailsReady(const QString &cameraId, const QString &tag,
+                         const QVariantList &tiles, const QString &spriteDataUrl);
     void coverageReady(const QString &cameraId, bool available, int retentionDays,
                        const QVariantList &days);
     void timelineReady(const QString &cameraId, const QString &mode, const QVariantList &blocks);
@@ -169,4 +189,13 @@ private:
     LastExport m_lastExport;
     void runPostProcess(const QString &jobId, const QString &srcPath,
                         const QString &dstPath, const QVariantMap &post);
+};
+
+// image://thumbtile/<tag>~<index> — decoded /review/thumbnails tiles
+// (PlaybackClient::thumbTile store).
+class ThumbTileProvider : public QQuickImageProvider
+{
+public:
+    ThumbTileProvider() : QQuickImageProvider(QQuickImageProvider::Image) {}
+    QImage requestImage(const QString &id, QSize *size, const QSize &requested) override;
 };
