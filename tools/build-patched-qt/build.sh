@@ -26,6 +26,14 @@ MODULES=(qtbase qtshadertools qtdeclarative qtwayland qtmultimedia)
 mkdir -p "$WORK" "$PREFIX"
 cd "$WORK"
 
+# Root-free dev sysroot (make-dev-sysroot.sh) — headers/.pc/symlinks for the
+# system runtime libs; lets the stack build without sudo.
+if [[ -f "$WORK/dev-sysroot/env.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$WORK/dev-sysroot/env.sh"
+    echo "using dev sysroot: $QTPATCH_DEV_SYSROOT"
+fi
+
 echo "== sources @ $TAG =="
 : > "$HERE/REVISIONS"
 echo "toolchain: $(gcc --version | head -1)" >> "$HERE/REVISIONS"
