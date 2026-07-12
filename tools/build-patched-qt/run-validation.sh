@@ -58,6 +58,7 @@ wait $wtpid 2>/dev/null
 v=$(grep -q "RUNNING ON PATCHED ARTIFACTS" "$OUT/runtime-evidence.txt" && echo PASS || echo FAIL); verdict $v
 row "runtime evidence: patched artifacts loaded" $v "runtime-evidence.txt"
 
+[ -x "$REPO/build/watchtower" ] || { echo "FATAL: $REPO/build/watchtower missing — run this script IN PLACE from the repo"; exit 3; }
 wt() { # name env-extra timeout
   env $(qtenv "$PREFIX") $wtenv $2 LD_PRELOAD="$SEAM" timeout $3 "$REPO/build/watchtower" > "$OUT/wt-$1.log" 2>&1
   grep -cE "received signal SIGSEGV|\[WT-FATAL\] killed by signal 11" "$OUT/wt-$1.log"
@@ -66,23 +67,26 @@ guardcount() { grep -cE "first map|poisoned buffer" "$OUT/wt-$1.log"; }
 
 # ---------- 4-7. failure matrix on full app (patched Qt) ----------
 c=$(wt single "XFER_FAIL_AFTER=300 XFER_FAIL_COUNT=1 WT_NO_POISON_LATCH=1" 60); g=$(guardcount single)
-v=$([ "$c" = 0 ] && echo PASS || echo FAIL); verdict $v
+v=$([ "$c" = 0 ] && [ "$g" -ge 1 ] && echo PASS || echo FAIL); verdict $v
 row "app+patched: single forced failure" $v "crashes=$c guard=$g"
 
 c=$(wt burst60 "XFER_FAIL_AFTER=300 XFER_FAIL_COUNT=60 WT_NO_POISON_LATCH=1" 75); g=$(guardcount burst60)
-v=$([ "$c" = 0 ] && echo PASS || echo FAIL); verdict $v
+v=$([ "$c" = 0 ] && [ "$g" -ge 1 ] && echo PASS || echo FAIL); verdict $v
 row "app+patched: 60-failure burst" $v "crashes=$c guard=$g"
 
 c=$(wt burst80 "XFER_FAIL_AFTER=250 XFER_FAIL_COUNT=80 WT_NO_POISON_LATCH=1" 75); g=$(guardcount burst80)
-v=$([ "$c" = 0 ] && echo PASS || echo FAIL); verdict $v
+v=$([ "$c" = 0 ] && [ "$g" -ge 1 ] && echo PASS || echo FAIL); verdict $v
 row "app+patched: 80-failure burst" $v "crashes=$c guard=$g"
 
 c=$(wt torture "XFER_FAIL_AFTER=1 XFER_FAIL_COUNT=999999 WT_NO_POISON_LATCH=1" 70); g=$(guardcount torture)
-v=$([ "$c" = 0 ] && echo PASS || echo FAIL); verdict $v
+v=$([ "$c" = 0 ] && [ "$g" -ge 1 ] && echo PASS || echo FAIL); verdict $v
 row "app+patched: every-transfer-fails torture" $v "crashes=$c guard=$g"
 
 # recovery: forced window ends; captures must resume (seam logs first REAL transfer)
-c=$(wt recovery "XFER_FAIL_AFTER=200 XFER_FAIL_COUNT=30 WT_NO_POISON_LATCH=1" 75)
+# Reachable window: a normal-decode run makes FEW hwframe transfers (RHI render is
+# zero-copy; transfers happen on capture), so fail transfers 3-4, then any later
+# transfer proves recovery.
+c=$(wt recovery "XFER_FAIL_AFTER=3 XFER_FAIL_COUNT=2 WT_NO_POISON_LATCH=1" 75)
 rec=$(grep -c "first REAL transfer after forced window" "$OUT/wt-recovery.log")
 v=$([ "$c" = 0 ] && [ "$rec" -ge 1 ] && echo PASS || echo FAIL); verdict $v
 row "app+patched: failure→recovery" $v "crashes=$c realTransferAfterWindow=$rec"

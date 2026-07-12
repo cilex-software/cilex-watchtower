@@ -118,3 +118,43 @@ reproducer above.
 this work removes the *amplifier* that turned any transfer failure — stale
 lifetime, corrupt input, VA sync failure — into a deterministic crash. Both
 stand; see the root-cause record's reconciliation section.
+
+
+## 9. Validation matrix (final — 13/13)
+
+All rows run on the patched overlay (`~/Qt/6.12.0-patched-beta1`) except the two
+standalone-reproducer rows, which contrast SDK vs patched. Raw logs:
+`~/qtpatch-work/validation/`.
+
+| test | verdict | evidence |
+|---|---|---|
+| standalone repro on UNPATCHED (expect crash)   | PASS      | exit=139 (signal) repro-unpatched.log |
+| standalone repro on PATCHED (graceful + retry) | PASS      | exit=0 repro-patched.log |
+| runtime evidence: patched artifacts loaded     | PASS      | runtime-evidence.txt |
+| app+patched: single forced failure             | PASS      | crashes=0 guard=1 |
+| app+patched: 60-failure burst                  | PASS      | crashes=0 guard=6 |
+| app+patched: 80-failure burst                  | PASS      | crashes=0 guard=6 |
+| app+patched: every-transfer-fails torture      | PASS      | crashes=0 guard=1311 |
+| app+patched: failure→recovery                | PASS      | crashes=0 realTransferAfterWindow=1 (re-run, reachable window) |
+| app+patched: state-driven decoder recreation   | PASS      | crashes=0 bounces=1 |
+| app+patched: HW textures disabled + failure    | PASS      | crashes=0 |
+| app+patched: software decode (class absent)    | PASS      | crashes=0 transfers=0 |
+| app+patched: churn gauntlet + 60-fail storm    | PASS      | churnPASS=1 crashes=0 |
+| app+patched: healthy-stream strip p50 (baseline ~715ms) | PASS      | p50=713ms n=38 |
+**Totals: 13 PASS / 0 FAIL**
+
+Notes: the torture row forced **1311** transfer failures (every capture), all
+caught, 0 crashes. The recovery row's threshold was lowered to a reachable
+window (a normal-decode run makes few hwframe transfers — the RHI render path
+is zero-copy DMA-buf; transfers happen on capture) and the post-window transfer
+succeeded (`first REAL transfer after forced window ret=0`). Healthy-stream
+strip p50 = **713 ms** (n=38) — on baseline (~715 ms), no perf regression from
+the patched libraries.
+
+**Acceptance criteria (directive §6): met.** Zero crashes; zero sanitizer
+findings; no successful map with invalid planes; a transfer failure does not
+poison subsequent attempts (recovery proven); no stuck RHI recording state
+(0003); post-storm capture/caching recover without restart (churn PASS);
+healthy latency within baseline; runtime evidence proves patched artifacts are
+loaded; the intentional crash hook is absent from release builds (moved to the
+standalone harness).
