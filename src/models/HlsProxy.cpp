@@ -184,6 +184,18 @@ void HlsProxy::cachePut(const QString &path, const QByteArray &body, const QByte
 }
 
 // Prefetch the next kReadAhead segments after `path` (.../<n>.ts) into cache.
+//
+// MEASURED LATENCY PROPERTY — DO NOT SERIALISE (CV cold-offset thread, closed
+// 2026-07-12, reply3). Each prefetch is an INDEPENDENT async QNetworkReply that
+// runs CONCURRENTLY with the forward() serving the operator's requested
+// segment. On a cold mid-session seek the demuxer fetches target + successor;
+// because these overlap, the successor hides in the target's shadow and our
+// in-window first-touch seek costs ~285 ms (target cold serve ~204 ms + demuxer
+// open/RTT ~80 ms) instead of the ~340 ms a serial target-then-successor would
+// cost. A future refactor that makes segment fetches serial (a blocking
+// forward, a single-flight queue over the shared NAM, dropping the async
+// prefetch) would silently add ~55 ms per seek with no visible cause. Keep the
+// fetches independent and concurrent.
 void HlsProxy::prefetchAround(const QString &path)
 {
     if (qEnvironmentVariableIsSet("WT_NO_PREFETCH")) return;   // leak bisect: isolate the read-ahead path
