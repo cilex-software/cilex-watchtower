@@ -103,19 +103,25 @@ fi
 export PKG_CONFIG_PATH="$WORK/ffprefix/lib/pkgconfig:$WORK/vaprefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
 echo "== qtbase =="
+rm -f b-qtbase/CMakeCache.txt          # clean retry after failed configures
 cmake -S qtbase -B b-qtbase -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" \
-    -DQT_BUILD_EXAMPLES=OFF -DQT_BUILD_TESTS=OFF -DFEATURE_icu=ON > b-qtbase.configure.log 2>&1
-cmake --build b-qtbase --parallel "$JOBS" > b-qtbase.build.log 2>&1
+    -DQT_BUILD_EXAMPLES=OFF -DQT_BUILD_TESTS=OFF > b-qtbase.configure.log 2>&1 \
+    || { echo "CMake Error: qtbase configure failed"; tail -40 b-qtbase.configure.log; exit 1; }
+grep -E "XCB \.+ yes|Wayland|ICU" b-qtbase.configure.log | head -5 || true
+cmake --build b-qtbase --parallel "$JOBS" > b-qtbase.build.log 2>&1 \
+    || { echo "ninja: build stopped (qtbase)"; tail -30 b-qtbase.build.log; exit 1; }
 cmake --install b-qtbase > b-qtbase.install.log 2>&1
 
 module() {
     local m="$1"; shift
     echo "== $m =="
+    rm -f "b-$m/CMakeCache.txt"
     mkdir -p "b-$m" && ( cd "b-$m" && "$PREFIX/bin/qt-configure-module" "$WORK/$m" -- \
         -DCMAKE_BUILD_TYPE=Release -DQT_BUILD_EXAMPLES=OFF -DQT_BUILD_TESTS=OFF "$@" \
-        > configure.log 2>&1 ) || { tail -30 "b-$m/configure.log"; exit 1; }
-    cmake --build "b-$m" --parallel "$JOBS" > "b-$m/build.log" 2>&1
+        > configure.log 2>&1 ) || { echo "CMake Error: $m configure failed"; tail -30 "b-$m/configure.log"; exit 1; }
+    cmake --build "b-$m" --parallel "$JOBS" > "b-$m/build.log" 2>&1 \
+        || { echo "ninja: build stopped ($m)"; tail -30 "b-$m/build.log"; exit 1; }
     cmake --install "b-$m" > "b-$m/install.log" 2>&1
 }
 
@@ -126,7 +132,7 @@ module qtwayland
 echo "== apply patch series to qtmultimedia =="
 git -C qtmultimedia checkout -- .
 git -C qtmultimedia apply --verbose "$REPO/third_party/qt-patches/6.12/0001-qffmpegvideobuffer-commit-swframe-on-success.patch"
-python3 "$HERE/apply-0002.py" "$WORK/qtmultimedia/src/multimedia/video/qvideoframe.cpp"
+python3 "$HERE/apply-anchored.py" "$WORK/qtmultimedia"
 
 module qtmultimedia -DFFMPEG_DIR="$WORK/ffprefix" -DINPUT_ffmpeg=ON
 
