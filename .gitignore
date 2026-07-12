@@ -39,3 +39,4 @@ Thumbs.db
 w2-out/
 *.dmp
 aqtinstall.log
+buildasan/
