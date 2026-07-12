@@ -1,0 +1,4 @@
+/home/cilex-vision/Qt/6.12.0-patched-beta1/lib/libQt6Multimedia.so.6.12.0 afa36e2e7a624e5a0bb6d9ae948c3e1931fd2917
+/home/cilex-vision/Qt/6.12.0-patched-beta1/plugins/multimedia/libffmpegmediaplugin.so dc12cddb807cdf463ca57cb69069e49deffcdc5f
+/home/cilex-vision/Qt/6.12.0-patched-beta1/lib/libQt6Core.so.6.12.0 e068399e28c3fd02ff97d7e195f651ca07d6a542
+/home/cilex-vision/Qt/6.12.0-patched-beta1/lib/libQt6Qml.so.6.12.0 e8b6ade2b42bfe8471df0151d60ff732874a286c

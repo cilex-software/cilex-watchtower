@@ -21,9 +21,12 @@ PKGS=(
   libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev libxcb-shape0-dev
   libxcb-randr0-dev libxcb-render0-dev libxcb-render-util0-dev libxcb-util-dev
   libxcb-util0-dev libxcb-xinerama0-dev libxcb-xkb-dev libxcb-cursor-dev
-  libxrender-dev libxi-dev libxext-dev libxfixes-dev
+  libxrender-dev libxi-dev libxext-dev libxfixes-dev libxrandr-dev libxtst-dev libxcb-shm0-dev
   libvulkan-dev libva-dev libdrm-dev
   libbrotli-dev libpng-dev zlib1g-dev libzstd-dev
+  libasound2-dev libpulse-dev
+  libpipewire-0.3-dev libspa-0.2-dev
+  libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 )
 for p in "${PKGS[@]}"; do
   apt-get download "$p" >/dev/null 2>&1 || echo "  (skip: $p not downloadable)"

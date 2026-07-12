@@ -144,6 +144,15 @@ python3 "$HERE/apply-anchored.py" "$WORK/qtmultimedia"
 
 module qtmultimedia -DFFMPEG_DIR="$WORK/ffprefix" -DINPUT_ffmpeg=ON
 
+echo "== bundle FFmpeg runtime libs + dlopen stubs (self-contained prefix for run.sh) =="
+# The patched multimedia links the same FFmpeg 61.x runtime as the SDK (headers
+# n7.1.1, libs SDK-shipped) and Qt's FFmpegStub-* dlopen shims (loader shims
+# for libva/ssl/crypto — generated artifacts, NOT patched code; version-matched
+# to the 6.12 line). Bundle both so WT_QT_PREFIX=$PREFIX ./run.sh is self-contained.
+for l in "$SDK"/lib/libav*.so* "$SDK"/lib/libsw*.so* "$SDK"/lib/libQt6FFmpegStub*.so*; do
+    cp -P "$l" "$PREFIX/lib/"
+done
+
 echo "== artifact manifest =="
 ( cd "$PREFIX" && find lib plugins -name "*.so*" -type f \
     | sort | xargs sha256sum ) > "$HERE/ARTIFACTS.sha256"
