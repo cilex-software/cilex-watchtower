@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(qvf-repro LANGUAGES CXX)
+find_package(Qt6 REQUIRED COMPONENTS Gui Multimedia)
+qt_standard_project_setup()
+qt_add_executable(qvf-repro qvf-repro.cpp)
+target_link_libraries(qvf-repro PRIVATE Qt6::Gui Qt6::Multimedia)

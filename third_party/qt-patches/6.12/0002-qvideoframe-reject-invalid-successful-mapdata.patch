@@ -1,0 +1,30 @@
+Defense-in-depth: a buffer map() must not report success with invalid planes.
+
+A QAbstractVideoBuffer::map() implementation that returns planeCount > 0 with
+null plane pointers (e.g. the retained-blank-m_swFrame state fixed by patch
+0001) currently propagates as a *successful* QVideoFrame::map(); the CPU
+converter then dereferences the null planes. Validate every reported plane at
+the narrowest safe layer and fail the map instead.
+
+--- a/src/multimedia/video/qvideoframe.cpp
++++ b/src/multimedia/video/qvideoframe.cpp
+@@ -xx,6 +xx,17 @@ bool QVideoFrame::map(QVideoFrame::MapMode mode)
+     d->mapData = d->videoBuffer->map(mode);
+     if (d->mapData.planeCount == 0)
+         return false;
+ 
++    // Reject a "successful" map whose required planes are unusable: a null
++    // data pointer, a negative stride, or a negative size on any reported
++    // plane means the underlying buffer failed without saying so. Treating
++    // it as success hands invalid planes to the pixel converters.
++    for (int i = 0; i < d->mapData.planeCount; ++i) {
++        if (d->mapData.data[i] == nullptr || d->mapData.bytesPerLine[i] < 0
++            || d->mapData.dataSize[i] < 0) {
++            qWarning("QVideoFrame::map: buffer reported %d planes but plane %d is invalid",
++                     d->mapData.planeCount, i);
++            d->mapData = {};
++            return false;
++        }
++    }
++
+     d->mapMode = mode;

@@ -22,15 +22,12 @@ const int s_thumbPx = []{
 // WT_CACHE_TIMING=1 → per-frame cost breakdown ([CACHETIME] lines) for the
 // spec's Test 1 (toImage readback vs thumb encode vs full encode).
 const bool s_cacheTiming = qEnvironmentVariableIsSet("WT_CACHE_TIMING");
-// --- QTBUG repro gates (2026-07-12 root-cause investigation; inert unless set) ---
-// WT_NO_POISON_LATCH=1 disables the 3 s capture latch so the underlying Qt
-// defect can manifest. WT_POISON_REPRO=1: after a graceful null toImage(),
-// immediately call toImage() AGAIN on the same (explicitly shared) frame —
-// the minimal legal-API sequence that the retained-blank-m_swFrame defect
-// turns into a SIGSEGV (second map skips the transfer and reports fake
-// success with null planes).
+// WT_NO_POISON_LATCH=1 disables the storm damper (diagnostic/soak use only —
+// the damper is LOAD protection, never correctness; the pre-map guard below is
+// the crash prevention). The destructive reproduction hook that used to live
+// here (WT_POISON_REPRO) moved to the standalone harness:
+// docs/qt-upstream/repro/ — release builds carry no intentional crash call.
 const bool s_noLatch = qEnvironmentVariableIsSet("WT_NO_POISON_LATCH");
-const bool s_poisonRepro = qEnvironmentVariableIsSet("WT_POISON_REPRO");
 }
 
 void FrameCache::attach(QObject *videoSink)
@@ -121,20 +118,25 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
     // back null here (Qt logs "Cannot map a video frame in ReadOnly mode!") —
     // drop it AND latch: the NEXT frame from the same storm can crash inside
     // Qt's converter (map falsely succeeds; see m_poisonUntilMs).
-    // PRE-MAP GUARD (root-caused 2026-07-12; upstream: docs/qt-upstream/):
-    // Qt 6.12's QFFmpegVideoBuffer::map() commits m_swFrame BEFORE
-    // av_hwframe_transfer_data(); on transfer failure the blank frame is
-    // retained, and the NEXT map of the same buffer skips the transfer and
-    // reports a *successful* MapData whose plane pointers are all null — the
-    // CPU converter then segfaults INSIDE a single toImage() (texture path
-    // maps first and fails gracefully; the converter fallback maps second and
-    // walks the nulls). toImage() offers no safe probe, so map ourselves:
-    //  - map() returns false  → transfer failed NOW (first map): skip + latch.
-    //  - map() returns true with bits(0)==nullptr → an EARLIER map failed and
-    //    we're holding the fake-success blank: skip + latch — calling
-    //    toImage() here is the exact production SIGSEGV.
-    // On healthy frames the extra map is ~free: the transfer happens once and
-    // toImage()'s own map reuses the committed m_swFrame.
+    // PRE-MAP GUARD (root cause proven 2026-07-12; internal Qt patch series in
+    // third_party/qt-patches/6.12/): Qt 6.12's QFFmpegVideoBuffer::map()
+    // commits m_swFrame BEFORE av_hwframe_transfer_data(); on transfer failure
+    // the blank frame is retained, and any LATER map of that same buffer skips
+    // the transfer and reports a *successful* MapData (planeCount > 0, null
+    // plane pointers). The production crashes were a SINGLE toImage() call
+    // double-mapping internally: the texture path maps first (graceful
+    // failure), the CPU-converter fallback maps second (fake success) and
+    // walks the null planes. toImage() offers no safe probe, so map ourselves:
+    //  - map() returns false → the transfer failed NOW (first map of this
+    //    buffer): skip the frame.
+    //  - map() returns true with any null plane pointer → an EARLIER map
+    //    failed and this is the fake-success blank: skip — a toImage() here
+    //    is the exact production SIGSEGV on unpatched Qt.
+    // Every successful map is balanced with unmap(). On healthy frames the
+    // extra map is ~free (the transfer runs once; toImage()'s own map reuses
+    // the committed m_swFrame). The storm damper below is LOAD protection
+    // during corrupt-packet bursts — elapsed time is not treated as
+    // correctness or recovery; the guard re-probes every frame regardless.
     {
         QVideoFrame probe(frame);
         if (!probe.map(QVideoFrame::ReadOnly)) {
@@ -144,17 +146,17 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
                 m_poisonUntilMs.store(nowMs + 3000, std::memory_order_relaxed);
             return;
         }
-        const bool fakeSuccess = probe.bits(0) == nullptr;
+        bool fakeSuccess = false;
+        for (int pl = 0; pl < probe.planeCount(); ++pl) {
+            if (probe.bits(pl) == nullptr) {
+                fakeSuccess = true;
+                break;
+            }
+        }
         probe.unmap();
         if (fakeSuccess) {
             qWarning("[FrameCache] poisoned buffer detected (fake-success map, pts %lld) — frame skipped",
                      (long long)pts);
-            if (s_poisonRepro) {
-                qWarning("[FrameCache] POISON-REPRO: calling toImage() on the poisoned frame anyway…");
-                const QImage boom = frame.toImage();   // SIGSEGV on unpatched Qt 6.12
-                qWarning("[FrameCache] POISON-REPRO: toImage returned %s (fixed Qt)",
-                         boom.isNull() ? "null" : "an image");
-            }
             if (!s_noLatch)
                 m_poisonUntilMs.store(nowMs + 3000, std::memory_order_relaxed);
             return;
