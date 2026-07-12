@@ -52,6 +52,21 @@ CameraStatus::RecState recStateFrom(const QString &rec)
     if (rec == QLatin1String("recording_gap")) return CameraStatus::RecordingGap;
     return CameraStatus::RecUnknown;
 }
+
+// Reachability keys off `status`, NEVER off `recording` (CV letter reply,
+// 2026-07-12): the backend's recording_state resolves `armed` BEFORE it checks
+// online, so an OFFLINE motion-enrolled camera reports recording:"armed" —
+// rendering a dead camera as healthy ARMED and counting it recording-healthy
+// in the site counters (.106/.120 do exactly this today). An unreachable
+// camera's recording state is unknowable → RecUnknown ("REC ?").
+CameraStatus::RecState effectiveRec(CameraStatus::RecState rec, int live)
+{
+    const bool unreachable = (live == CameraStatus::Offline || live == CameraStatus::Degraded);
+    if (unreachable && (rec == CameraStatus::Armed || rec == CameraStatus::Recording
+                        || rec == CameraStatus::Stalled || rec == CameraStatus::RecordingGap))
+        return CameraStatus::RecUnknown;
+    return rec;
+}
 }
 
 CameraModel::CameraModel(QObject *parent)
@@ -359,7 +374,7 @@ void CameraModel::fetchCameras()
             // is absent (today) every tile stays "REC ?" (Unknown), but the
             // moment the backend ships it the badges go truthful with no client
             // change beyond this parse.
-            c.recording = recStateFrom(o.value(QStringLiteral("recording")).toString());
+            c.recording = effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), c.live);
             c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
@@ -473,7 +488,7 @@ void CameraModel::pollStatuses()
                                                                  : CameraStatus::LiveUnknown;
             const QDateTime ss = QDateTime::fromString(o.value(QStringLiteral("status_since")).toString(), Qt::ISODate);
             const QDateTime rs = QDateTime::fromString(o.value(QStringLiteral("recording_since")).toString(), Qt::ISODate);
-            incoming.insert(camId, { live, recStateFrom(o.value(QStringLiteral("recording")).toString()),
+            incoming.insert(camId, { live, effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), live),
                                      o.value(QStringLiteral("last_segment_at")).toString(),
                                      o.value(QStringLiteral("group_id")).toString(),
                                      o.value(QStringLiteral("group_name")).toString(),
