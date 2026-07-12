@@ -9,6 +9,13 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
 - **Patched Qt is now the DEFAULT runtime** (operator decision, same day): plain `./run.sh` resolves
   `~/Qt/6.12.0-patched-beta1` when present (BuildID-verified at launch review), falls back to the SDK
   with a loud notice elsewhere; `WT_QT_PREFIX` still overrides. Rollback = `WT_QT_PREFIX=~/Qt/6.12.0/gcc_64 ./run.sh`.
+- **Thumbnails wired (consumers #1+#2 live)** — CV `/review/thumbnails` v1 (green light, `cf0716a`): a
+  24-tile keyframe **day-overview strip** (one sprite, once per day-open, session-cached, click-to-seek,
+  suppressed on all-gap days) + a **scrubber hover preview** (1 keyframe tile ±30s, debounced/cached).
+  Decoded once in C++, served via `image://thumbtile`; per-tile x/width honored (mixed aspect), honest
+  gap glyphs. **Badge trap CV flagged FIXED** (`7732e50`): reachability now keys off `status` not
+  `recording` — offline motion-enrolled cams (.106/.120) no longer wear healthy ARMED (verified: 31
+  offline tiles read `REC ? · 2d`).
 - **Thumbnail-endpoint spec answered** (`docs/letters/2026-07-12-thumbnail-endpoint-spec-reply.md`):
   frame-strip case solved client-side (two-tier cache) → CV's one-decode-N-frames variant parked;
   v1 adopted for minutes-apart consumers (scrubber hover previews + 24-tile day-overview, keyframe
