@@ -4,6 +4,23 @@ _Last updated: 2026-07-10. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-12) — Qt FFmpeg-backend crash OWNED end-to-end (patched binaries + proof)
+
+- **The poison-frame SIGSEGV is fixed at the Qt source, not just guarded.** Root cause proven:
+  `QFFmpegVideoBuffer::map()` commits `m_swFrame` before `av_hwframe_transfer_data()`, so after one
+  transfer failure every later map returns fake-success MapData (planeCount>0, null planes) and a
+  single `toImage()` self-crashes (texture map + CPU-fallback map). Internal Qt patch series
+  `third_party/qt-patches/6.12/` (0001 transactional commit + retry restore; 0002 map rejects invalid
+  planes; 0003 RHI offscreen-frame balance; 0004 vaSyncSurface check; 0005 corrupt-flag surfacing).
+- **Patched Qt 6.12 overlay built from source, root-free** (`tools/build-patched-qt/`: dev sysroot via
+  apt-get download, v6.12.0-beta1 across qtbase/shadertools/declarative/wayland/multimedia, self-contained
+  ffmpeg+stub bundle). **Decisive proof** (real Wayland/VA-API, one forced transfer failure): unpatched
+  SDK → SIGSEGV; patched → CLEAN, transfer re-attempted next frame. Watchtower confirmed **RUNNING ON
+  PATCHED ARTIFACTS** (runtime-evidence.sh, all BuildIDs match). ASan/UBSan clean on the guard path.
+- App hardening retained (pre-map guard all-planes, state-driven decoder recreation, storm damper as
+  load-only). Deploy: `WT_QT_PREFIX=~/Qt/6.12.0-patched-beta1 ./run.sh`; rollback: plain `./run.sh`.
+  Full delivery report: [`docs/qt-upstream/2026-07-12-delivery-report.md`](qt-upstream/2026-07-12-delivery-report.md).
+
 ## Current status (2026-07-11) — extended filmstrip soak: 9 fix-rounds, <1 s gate holds
 
 - **WT_FSOAK extended soak (operator-ordered)** — 2 isolated instances, ~2200+ cycles over 2 days
