@@ -99,6 +99,11 @@ public:
 
 signals:
     void changed();
+    // A frame was skipped by the pre-map guard (transfer failure or poisoned
+    // fake-success map). Consumers use this to count PERSISTENT damage and
+    // recreate their decoder explicitly — recovery is state-driven, never a
+    // sleep. Emitted from the delivery thread (auto-queued to QML).
+    void poisonedFrame();
     // Full-res tier landed for pts (async pool encode) — a shown frame that was
     // painted from its thumbnail can now upgrade via repaint().
     void fullResReady(double ptsMs);

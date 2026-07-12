@@ -1,0 +1,27 @@
+Log corrupt/damaged decoder output; optionally drop it.
+
+The decoder delivers frames carrying AV_FRAME_FLAG_CORRUPT/decode_error_flags
+as if healthy — nothing in the plugin ever inspects them. Downstream consumers
+(render, capture, conversion) get smeared or partially-decoded frames with no
+signal. Log them (rate-limited by burst) and, opt-in via
+QT_FFMPEG_DROP_CORRUPT_FRAMES=1, drop them at the source. Default behavior
+(deliver) is unchanged.
+
+--- a/src/plugins/multimedia/ffmpeg/playbackengine/qffmpegstreamdecoder.cpp
++++ b/src/plugins/multimedia/ffmpeg/playbackengine/qffmpegstreamdecoder.cpp
+@@ (anchors; apply with tools/build-patched-qt/apply-0005.py)
+         if (receiveFrameResult < 0) {
+             emit error(QMediaPlayer::FormatError, err2str(receiveFrameResult));
+             break;
+         }
+ 
++        if (avFrame->flags & AV_FRAME_FLAG_CORRUPT || avFrame->decode_error_flags) {
++            static const bool dropCorrupt = qEnvironmentVariableIsSet("QT_FFMPEG_DROP_CORRUPT_FRAMES");
++            qCDebug(qLcStreamDecoder) << "damaged decoder output: flags" << avFrame->flags
++                                      << "decode_error_flags" << avFrame->decode_error_flags
++                                      << (dropCorrupt ? "- dropping" : "- delivering");
++            if (dropCorrupt)
++                continue;
++        }
++
+         // Avoid starvation on FFmpeg decoders with fixed size frame pool

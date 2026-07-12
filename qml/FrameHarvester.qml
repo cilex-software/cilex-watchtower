@@ -221,6 +221,27 @@ Item {
         player.playbackRate = 2.0;
         player.play();
     }
+    // Explicit decoder recreation on PERSISTENT damage: ≥6 poisoned frames
+    // inside 4 s means the decoder context itself is wounded (not a lone
+    // corrupt packet) — bounce it with a churn-safe single setSource swap.
+    // State-driven recovery; the storm damper's 3 s is load-shedding only.
+    property int _poisonCount: 0
+    property double _poisonWinStart: 0
+    Connections {
+        target: FrameCache
+        enabled: hv.active || hv.prearm
+        function onPoisonedFrame() {
+            var now = Date.now();
+            if (now - hv._poisonWinStart > 4000) { hv._poisonWinStart = now; hv._poisonCount = 0; }
+            if (++hv._poisonCount >= 6) {
+                hv._poisonCount = 0;
+                hv._tr("persistent decoder damage — recreating (single-swap bounce)");
+                player.stop();
+                player.source = source;   // churn-safe: single swap, never ""
+                mode = "idle";
+            }
+        }
+    }
     property string _lastPark: ""
     function _park(why) {
         if (player.playbackState === MediaPlayer.PlayingState) player.pause();

@@ -131,3 +131,22 @@ happens once; toImage's own map reuses the committed frame). Note for other
 users: an earlier 3-second "latch after a null toImage" mitigation was
 INEFFECTIVE against this defect — toImage never returns null here, it crashes;
 only the pre-map probe intercepts the poisoned state.
+
+
+## Reconciliation with the 2026-07-10 queued-frame UAF postmortem
+
+Both postmortems stand; they describe two DIFFERENT layers that the corrupt-
+packet storms exercise in sequence:
+
+- The 07-10 finding (queued raw QVideoFrames converted after their decoder's
+  AVHWFramesContext died) is a real lifetime hazard — stale lifetime IS one way
+  `av_hwframe_transfer_data()` comes to fail. The DirectConnection fix removed
+  that failure *source* for our taps.
+- THIS finding is what turns any such transfer failure — stale lifetime,
+  corrupt input, VA sync failure — from a recoverable error into a
+  deterministic crash: Qt retains the blank m_swFrame and the next map lies.
+
+I.e. 07-10 removed one trigger; 07-12 removes the amplifier that made every
+remaining trigger fatal. The adjacent patches (0003 RHI frame balance, 0004
+vaSyncSurface check, 0005 corrupt-flag surfacing) close the remaining paths
+that let damaged surfaces travel silently.

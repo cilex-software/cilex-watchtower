@@ -1,0 +1,29 @@
+Balance beginOffscreenFrame() on every fallback path.
+
+After rhi->beginOffscreenFrame() SUCCEEDS, two failure fallbacks
+(createTextures failing — which is exactly the poisoned-buffer path fixed
+by 0001 — and updateTextures failing) return into convertCPU() WITHOUT
+rhi->endOffscreenFrame(). The shared converter RHI is left permanently
+recording (isRecordingFrame() stuck true): every later toImage() then fails
+beginOffscreenFrame and silently degrades to CPU conversion, and the open
+frame's resources are never reclaimed. Consume the pending resource-update
+batch and end the frame before falling back.
+
+--- a/src/multimedia/video/qvideoframeconverter.cpp
++++ b/src/multimedia/video/qvideoframeconverter.cpp
+@@ (anchors; apply with tools/build-patched-qt/apply-0003.py)
+     auto videoFrameTextures = QVideoTextureHelper::createTextures(frameTmp, *rhi, *rub, texturesTmp);
+     if (!videoFrameTextures) {
+         qCDebug(qLcVideoFrameConverter) << "Failed obtain textures. Using CPU conversion.";
++        cb->resourceUpdate(rub);
++        rhi->endOffscreenFrame();
+         return convertCPU(frame, transformation);
+     }
+ 
+     if (!updateTextures(rhi, uniformBuffer, textureSampler, shaderResourceBindings,
+                         graphicsPipeline, renderPass, frameTmp, videoFrameTextures)) {
+         qCDebug(qLcVideoFrameConverter) << "Failed to update textures. Using CPU conversion.";
++        cb->resourceUpdate(rub);
++        rhi->endOffscreenFrame();
+         return convertCPU(frame, transformation);
+     }

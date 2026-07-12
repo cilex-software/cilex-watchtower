@@ -144,6 +144,7 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
                      (long long)pts);
             if (!s_noLatch)
                 m_poisonUntilMs.store(nowMs + 3000, std::memory_order_relaxed);
+            emit poisonedFrame();
             return;
         }
         bool fakeSuccess = false;
@@ -159,6 +160,7 @@ void FrameCache::captureFrame(const QVideoFrame &frame, bool moveAnchor)
                      (long long)pts);
             if (!s_noLatch)
                 m_poisonUntilMs.store(nowMs + 3000, std::memory_order_relaxed);
+            emit poisonedFrame();
             return;
         }
     }

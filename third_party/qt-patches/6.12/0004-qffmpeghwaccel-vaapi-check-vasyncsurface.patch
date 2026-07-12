@@ -1,0 +1,19 @@
+Check vaSyncSurface() before importing the surface.
+
+qffmpeghwaccel_vaapi.cpp exports the surface handle (checked), then calls
+vaSyncSurface() IGNORING its status — the code's own "### Check" comment sits
+right above it. Importing an unsynchronized/failed surface hands the render
+pipeline undefined pixel data (the corrupt-packet storms that trigger the
+0001 defect produce exactly these sync failures). On failure, bail to the
+non-zero-copy path; the existing QScopeGuard already closes the exported fds.
+
+--- a/src/plugins/multimedia/ffmpeg/qffmpeghwaccel_vaapi.cpp
++++ b/src/plugins/multimedia/ffmpeg/qffmpeghwaccel_vaapi.cpp
+@@ (anchors; apply with tools/build-patched-qt/apply-0004.py)
+-    // ### Check that prime.fourcc is what we expect
+-    vaSyncSurface(vaDisplay, vaSurface);
++    // ### Check that prime.fourcc is what we expect
++    if (VAStatus st = vaSyncSurface(vaDisplay, vaSurface); st != VA_STATUS_SUCCESS) {
++        qWarning() << "vaSyncSurface failed:" << st << "- not importing the surface";
++        return nullptr;   // closeObjectsGuard closes the exported fds
++    }
