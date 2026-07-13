@@ -88,10 +88,14 @@ while [ "$(date +%s)" -lt "$END" ]; do
       done
     fi
   } >> "$INC"
-  kill -9 "$APP" 2>/dev/null; pkill -9 -x watchtower 2>/dev/null
+  kill -9 "$APP" 2>/dev/null
+  # WT_SOAK_BROAD_KILL=0 => kill only OUR child; never sweep other instances
+  # (the operator's own app may be running while a daytime-ending soak is up).
+  [ "${WT_SOAK_BROAD_KILL:-1}" = 1 ] && pkill -9 -x watchtower 2>/dev/null
   log "$tag run #$run (alive ${alive}s) — recorded; relaunching"
   sleep 3
 done
-kill -9 "$SAMPLER" "$XSIDE" 2>/dev/null; pkill -9 -x watchtower 2>/dev/null
+kill -9 "$SAMPLER" "$XSIDE" 2>/dev/null
+[ "${WT_SOAK_BROAD_KILL:-1}" = 1 ] && pkill -9 -x watchtower 2>/dev/null
 log "DONE — $run launch(es), crashes=$(grep -c 'CRASH/KILL' "$INC" 2>/dev/null), hangs=$(grep -c 'HANG/GUI-WEDGE' "$INC" 2>/dev/null), samples=$(wc -l < "$D/samples.csv" 2>/dev/null), exports_sized=$(wc -l < "$XSZ" 2>/dev/null)"
 echo "NIGHT_SOAK_COMPLETE"
