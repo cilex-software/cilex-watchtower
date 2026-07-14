@@ -214,7 +214,10 @@ Item {
                 // instant direct path (15-173 ms measured).
                 if (pd > root._maxPosSeen + 300000) { seekFar(ms); return; }
                 player.position = pd; root._scanPos = pd;
+                // Operator aimed somewhere new: the same-target recovery budget resets.
+                if (Math.abs(ms - root._mislandWall) > 2000) { root._mislandWall = -1; root._mislandCount = 0; }
                 _seekWatchSeq = _frameSeq; _seekWatchWall = ms; _seekWatchPosMs = pd;
+                _seekWatchGen = _openGen;
                 seekWatch.interval = (pd > root._maxPosSeen + 60000) ? 2500 : 6000;
                 seekWatch.restart();
                 return;
@@ -298,9 +301,27 @@ Item {
     // seeks get a fast 2.5 s watchdog; warm regions keep the patient 6 s.
     property double _maxPosSeen: 0
     property double _seekWatchPosMs: -1
+    // Watch lifecycle scoping (night3x 2026-07-14): a watch armed under one open
+    // must never judge — or re-open toward — a LATER open. _openGen bumps on every
+    // fresh openFor/openForDay; the watch captures it at arm time.
+    property int _openGen: 0
+    property int _seekWatchGen: -1
+    // Same-target recovery budget: re-opening cannot fix a target whose footage
+    // genuinely sits elsewhere (sparse day, snapped landing) — unbounded
+    // watch→seekFar→watch cycles churned a fresh session every ~6 s (night3x
+    // chains up to 9 deep). Two recoveries, then accept what renders.
+    property double _mislandWall: -1
+    property int _mislandCount: 0
     Timer {
         id: seekWatch; interval: 6000; repeat: false
         onTriggered: {
+            // Stale watch from a previous open: the operator has moved on (new
+            // day/camera). Firing here hijacked the fresh open back to the old
+            // target (night3x: fired 3.4 s into the next day-open). Void it.
+            if (root._seekWatchGen !== root._openGen) {
+                root._seekWatchSeq = -1; root._seekWatchPosMs = -1;
+                return;
+            }
             // Landed = frames advanced AND they came from NEAR THE TARGET. A cold
             // direct seek can fail silently: position reports the target while the
             // demuxer resumes rendering from its old buffer (fsoak n=142: clicked
@@ -310,10 +331,19 @@ Item {
             var mislanded = root._seekWatchPosMs >= 0 && FrameClock.lastPtsMs >= 0
                             && Math.abs(FrameClock.lastPtsMs - root._seekWatchPosMs) > 8000;
             if (root._seekWatchSeq >= 0 && (root._frameSeq <= root._seekWatchSeq || mislanded)) {
-                if (mislanded && (typeof wtTrace !== "undefined") && wtTrace)
-                    console.log("[PB] seek MISLANDED (pts=" + FrameClock.lastPtsMs.toFixed(0)
-                                + " target=" + root._seekWatchPosMs + ") — re-opening");
-                root.seekFar(root._seekWatchWall);
+                if (Math.abs(root._seekWatchWall - root._mislandWall) < 2000) root._mislandCount++;
+                else { root._mislandWall = root._seekWatchWall; root._mislandCount = 1; }
+                if (root._mislandCount <= 2) {
+                    if (mislanded && (typeof wtTrace !== "undefined") && wtTrace)
+                        console.log("[PB] seek MISLANDED (pts=" + FrameClock.lastPtsMs.toFixed(0)
+                                    + " target=" + root._seekWatchPosMs + ") — re-opening");
+                    root.seekFar(root._seekWatchWall);
+                } else if ((typeof wtTrace !== "undefined") && wtTrace) {
+                    console.log("[PB] seek-watch GIVE-UP after 2 recoveries (target="
+                                + root._seekWatchPosMs + ") — accepting rendered position");
+                }
+            } else {
+                root._mislandWall = -1; root._mislandCount = 0;   // landed clean: budget resets
             }
             root._seekWatchSeq = -1; root._seekWatchPosMs = -1;
         }
@@ -609,6 +639,7 @@ Item {
         _obMark("span" + zoomMin);
         _explicitStart = -1; _explicitEnd = -1; selectedDay = ""; _pendingSeekMs = -1; _seekReopen = false;
         _farInFlight = false; _farLatestMs = -1;
+        seekWatch.stop(); _seekWatchSeq = -1; _seekWatchPosMs = -1; _openGen++;   // void any pending watch
         _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         dayTiles = []; daySprite = ""; _dayTilesFor = ""; hoverThumb = null; _hoverCache = ({});
@@ -637,6 +668,7 @@ Item {
         zoomMin = 1440;
         errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1; _seekReopen = false;
         _farInFlight = false; _farLatestMs = -1;
+        seekWatch.stop(); _seekWatchSeq = -1; _seekWatchPosMs = -1; _openGen++;   // void any pending watch
         _emptyRetried = false; emptyRetry.stop();
         // Coverage already tells us this day has no recorded footage (it has no
         // calendar dot) — show an honest empty state instead of opening a session
