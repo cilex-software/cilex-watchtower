@@ -38,7 +38,14 @@ QML_IMPORT_PATH=$QT/qml QML2_IMPORT_PATH=$QT/qml \
 WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0} DISPLAY=${DISPLAY:-:0} XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/1000} \
 XDG_CONFIG_HOME=$1/config XDG_DATA_HOME=$1/data WT_CV_AUTOLOGIN=1 WT_TRACE=1"
 }
-S1_PLAN='[{"ip":"192.168.1.201","days":["2026-07-10"]},{"ip":"192.168.1.106","days":["2026-06-14"]}]'
+# Footage discovery — hardcoded days rot (2026-07-16: every day that served the
+# 07-14 soak was already pruned). Builds S1_PLAN + churn pair from live coverage.
+DISC=$(python3 "$HERE/discover-plan.py" "http://192.168.1.79:8000" \
+       "${WT_CV_USER:-admin}" "${WT_CV_PASS:-admin}") || { echo "FATAL: $DISC"; exit 3; }
+eval "$DISC"
+echo "footage discovery: $DISC_NOTE"
+echo "S1 plan: $S1_PLAN"
+echo "S2 churn: $CHURN_IP $CHURN_DAY <-> $CHURN_ALT"
 
 [ -f "$OUT" ] || cat > "$OUT" <<EOF
 # netem impairment matrix — $DATE
@@ -64,8 +71,8 @@ for PR in $PROFILES; do
   env $(wtenv "$D") WT_FSOAK=1 WT_FSOAK_PLAN="$S1_PLAN" \
     timeout -k 20 300 "$REPO/build/watchtower" > "$D/s1.log" 2>&1
   # S2 churn
-  env $(wtenv "$D") WT_PLAYBACK_IP=192.168.1.201 WT_PLAYBACK_DAY=2026-07-10 \
-    WT_CHURN_ALT=2026-07-08 WT_CHURNTEST=10 WT_FRAME_MODE=1 \
+  env $(wtenv "$D") WT_PLAYBACK_IP="$CHURN_IP" WT_PLAYBACK_DAY="$CHURN_DAY" \
+    WT_CHURN_ALT="$CHURN_ALT" WT_CHURNTEST=10 WT_FRAME_MODE=1 \
     timeout -k 20 240 "$REPO/build/watchtower" > "$D/s2.log" 2>&1
   "$HERE/impair.sh" off >/dev/null 2>&1
 
