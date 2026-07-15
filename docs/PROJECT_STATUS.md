@@ -28,11 +28,18 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   variants 12 h in parallel on patched Qt — 0 crashes/hangs/wedges; found+fixed the
   stale seek-watch hijack + unbounded mislanded recovery (751e656); 853a234 validated
   at volume; first 12 h endurance certification of the patched-Qt default runtime.
-- **⚠ Backend footage wipe observed 2026-07-16 ~01:00 MSK:** /review/coverage shows
-  ZERO recorded days fleet-wide except .67+.50 starting 2026-07-15 ~21:29 UTC —
-  everything that served the 07-14 soak (.201 07-08..07-13, .106/.120 June archive)
-  is gone despite retention_days=35. Backend-side event (disk was 96-97 %); operator
-  to decide whether to raise with CV.
+- **🔴 Backend incident 2026-07-16 (~22:00 UTC 07-15): ALL playback blind.** Diagnosed
+  past coverage into sessions: (1) pre-07-15 recordings deleted (coverage empty in UTC,
+  sessions serve `availability:no_recording` for .201 07-10 etc.); (2) even the FRESH
+  .67/.50 footage the UTC index lists (07-15 21:29–21:55Z) serves `no_recording` —
+  index/data disagree both ways; (3) seaweed hot+warm volumes were VACUUMING tonight
+  (deletion compaction, vol 1990 hot 19:31Z, 575/726 warm 22:09Z); (4) no container
+  restarts, /health/storage 200 — NOT the storage-agent re-push signature, nothing
+  restarted from our side. Two letters filed with verbatim repro:
+  `2026-07-16-recordings-unplayable-data-loss.md` (URGENT) and
+  `2026-07-16-coverage-tz-empty.md` (non-UTC tz always returns days:[] — operator
+  calendar blind; found during, may share root). netem matrix baseline is BLOCKED on
+  backend recovery (harness + footage discovery are ready and committed).
 
 ## Current status (2026-07-12) — Qt FFmpeg-backend crash OWNED end-to-end (patched binaries + proof)
 

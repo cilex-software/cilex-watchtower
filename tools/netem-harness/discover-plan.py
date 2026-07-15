@@ -6,6 +6,14 @@ Prints shell-safe assignments on stdout; exits 1 with a reason if no footage."""
 import json, sys, urllib.request
 
 base, user, pw = sys.argv[1], sys.argv[2], sys.argv[3]
+# Coverage days must be in the OPERATOR's tz — the client opens LOCAL days
+# (UTC day labels put last-night footage on the wrong date; found 2026-07-16).
+import subprocess
+try:
+    tz = subprocess.run(["timedatectl", "show", "-p", "Timezone", "--value"],
+                        capture_output=True, text=True, timeout=5).stdout.strip() or "Europe/Moscow"
+except Exception:
+    tz = "Europe/Moscow"
 
 def req(path, token=None, data=None):
     r = urllib.request.Request(base + path,
@@ -25,7 +33,7 @@ for c in cams:
     if not cid or not ip:
         continue
     try:
-        cov = req(f"/review/coverage?camera_id={cid}", tok)
+        cov = req(f"/review/coverage?camera_id={cid}&tz={tz}", tok)
     except Exception:
         continue
     days = [d["date"] for d in cov.get("days", []) if d.get("has_footage")]
