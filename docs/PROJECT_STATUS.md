@@ -1,8 +1,38 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-07-10. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-07-16. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-07-16) — PTZ/lens control shipped (honest-pending); netem harness; night-3x soak certified
+
+- **PTZ / motorized-lens control (client side COMPLETE, backend endpoint pending):**
+  maximized live view gains a PTZ button on capable hardware only (gate from the
+  backend-reported model: 31×DS-I456Z(B) motorized-lens fleet get it; fixed
+  DS-I402(D)/.201 + DS-I259M(C)/.50 correctly do not). Panel: pan/tilt pad (full-PTZ
+  class only), zoom/focus hold-to-move rows, autofocus, keyboard drive, and the
+  **single "Restore defaults" button** (home preset / lens default + AF). `PtzClient`
+  probes `GET /cameras/{id}/ptz` — today's 404 renders an honest pending banner;
+  the panel activates on CV's deploy with no client release. Spec letter:
+  `docs/letters/2026-07-16-ptz-lens-control-endpoint.md`. Dev pilots: `WT_DETAIL_IP`,
+  `WT_PTZ_OPEN`, `WT_PTZ_DEMO` (mock caps for panel verification). All three panel
+  states screenshot-verified; RU strings added.
+- **netem network-impairment harness** (`tools/netem-harness/`): port-scoped lo
+  shaping (8000/8554/1984 both directions via docker-proxy path, verified), 13
+  literature-grounded profiles, matrix runner reusing the soak gates, measured-RTT
+  verify per row, operator-session guard, EXIT-trap teardown. Needs one-time
+  `sudo tools/netem-harness/setup-root.sh` (tc-only sudoers rule) for impaired rows;
+  baseline row runs unprivileged. Footage discovery built in (`discover-plan.py`)
+  after hardcoded days rotted same-day.
+- **Night-3x soak (07-14, `docs/perf/2026-07-14-night-3x-soak.md`):** all three soak
+  variants 12 h in parallel on patched Qt — 0 crashes/hangs/wedges; found+fixed the
+  stale seek-watch hijack + unbounded mislanded recovery (751e656); 853a234 validated
+  at volume; first 12 h endurance certification of the patched-Qt default runtime.
+- **⚠ Backend footage wipe observed 2026-07-16 ~01:00 MSK:** /review/coverage shows
+  ZERO recorded days fleet-wide except .67+.50 starting 2026-07-15 ~21:29 UTC —
+  everything that served the 07-14 soak (.201 07-08..07-13, .106/.120 June archive)
+  is gone despite retention_days=35. Backend-side event (disk was 96-97 %); operator
+  to decide whether to raise with CV.
 
 ## Current status (2026-07-12) — Qt FFmpeg-backend crash OWNED end-to-end (patched binaries + proof)
 
