@@ -44,6 +44,7 @@
 #include "models/FrameClock.h"
 #include "models/FrameCache.h"
 #include "models/PlaybackClient.h"
+#include "models/PtzClient.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -318,6 +319,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("FrameCache", frameCache);
     engine.addImageProvider(QStringLiteral("fcache"), new FrameCacheImageProvider(frameCache));
     engine.addImageProvider(QStringLiteral("thumbtile"), new ThumbTileProvider());
+    // PTZ / motorized-lens control (backend-mediated; honest-pending until the
+    // cilex-vision endpoint ships — letter 2026-07-16).
+    engine.rootContext()->setContextProperty("Ptz", new PtzClient(&app));
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));
@@ -378,6 +382,11 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtTestIp", qEnvironmentVariable("WT_TEST_IP"));
     // Optional initial section (dev: WT_SECTION=groups|live|...).
     engine.rootContext()->setContextProperty("wtSection", qEnvironmentVariable("WT_SECTION"));
+    // Dev pilots for the maximized live detail: WT_DETAIL_IP opens the detail for
+    // that camera at startup; WT_PTZ_OPEN=1 opens its PTZ/lens panel (screenshot
+    // verification + deterministic PTZ testing once the backend endpoint ships).
+    engine.rootContext()->setContextProperty("wtDetailIp", qEnvironmentVariable("WT_DETAIL_IP"));
+    engine.rootContext()->setContextProperty("wtPtzOpen", qEnvironmentVariableIsSet("WT_PTZ_OPEN"));
     // Optional initial Events sub-view (dev: WT_EVENTS_VIEW=triage|review|timeline|map).
     engine.rootContext()->setContextProperty("wtEventsView", qEnvironmentVariable("WT_EVENTS_VIEW"));
     // Optional initial Live status filter (dev: WT_STATUS_FILTER=recent|online|offline|...).

@@ -459,5 +459,84 @@
             <source>Snapshot with timestamp</source>
             <translation>Снимок с меткой времени</translation>
         </message>
+        <message>
+            <source>PTZ / lens control</source>
+            <translation>Управление PTZ/объективом</translation>
+        </message>
+</context>
+<context>
+    <name>PtzPanel</name>
+        <message>
+            <source>PTZ / LENS</source>
+            <translation>PTZ / ОБЪЕКТИВ</translation>
+        </message>
+        <message>
+            <source>Close</source>
+            <translation>Закрыть</translation>
+        </message>
+        <message>
+            <source>Checking camera capabilities…</source>
+            <translation>Проверка возможностей камеры…</translation>
+        </message>
+        <message>
+            <source>This camera&apos;s lens is remotely controllable, but the backend does not expose PTZ/lens control yet. Specification sent to Cilex Vision (2026-07-16).</source>
+            <translation>Объектив этой камеры управляется дистанционно, но серверная часть ещё не поддерживает управление PTZ/объективом. Спецификация отправлена Cilex Vision (16.07.2026).</translation>
+        </message>
+        <message>
+            <source>Tilt up</source>
+            <translation>Наклон вверх</translation>
+        </message>
+        <message>
+            <source>Tilt down</source>
+            <translation>Наклон вниз</translation>
+        </message>
+        <message>
+            <source>Pan left</source>
+            <translation>Поворот влево</translation>
+        </message>
+        <message>
+            <source>Pan right</source>
+            <translation>Поворот вправо</translation>
+        </message>
+        <message>
+            <source>Zoom</source>
+            <translation>Зум</translation>
+        </message>
+        <message>
+            <source>Zoom out (wide)</source>
+            <translation>Отдалить (широкий угол)</translation>
+        </message>
+        <message>
+            <source>Zoom in (tele)</source>
+            <translation>Приблизить (теле)</translation>
+        </message>
+        <message>
+            <source>Focus</source>
+            <translation>Фокус</translation>
+        </message>
+        <message>
+            <source>Focus near</source>
+            <translation>Фокус ближе</translation>
+        </message>
+        <message>
+            <source>Focus far</source>
+            <translation>Фокус дальше</translation>
+        </message>
+        <message>
+            <source>Auto</source>
+            <translation>Авто</translation>
+        </message>
+        <message>
+            <source>Restore defaults</source>
+            <translation>Восстановить настройки по умолчанию</translation>
+        </message>
+        <message>
+            <source>Restoring…</source>
+            <translation>Восстановление…</translation>
+        </message>
+        <message>
+            <source>Command failed</source>
+            <translation>Команда не выполнена</translation>
+        </message>
 </context>
 </TS>

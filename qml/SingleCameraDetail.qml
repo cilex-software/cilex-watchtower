@@ -17,6 +17,19 @@ Item {
     readonly property bool recOff:  cameraModel ? (cameraModel.recordingEnabled === false) : false
     readonly property bool liveOff: cameraModel ? (cameraModel.liveViewEnabled === false) : false
     property bool useMain: Settings.defaultStreamHd   // focused view follows the global SD/HD preference; the HD toggle overrides
+    property bool ptzOpen: typeof wtPtzOpen !== "undefined" && wtPtzOpen   // dev: WT_PTZ_OPEN=1 opens the panel
+    // Hardware pre-gate for the PTZ/lens button, derived ONLY from the backend-
+    // reported model string (no invented capability): HiWatch/Hikvision motorized-
+    // lens models carry a digit+"Z" designator (fleet: DS-I456Z(B) = 2.8–12 mm
+    // motorized; DS-I259M = fixed), and PTZ domes advertise "PTZ". The panel then
+    // probes the backend for truth (letter 2026-07-16-ptz-lens-control-endpoint.md).
+    readonly property bool ptzCapable: {
+        var m = camera ? String(camera.model || "") : "";
+        return /PTZ/i.test(m) || /\dZ[\s(]/.test(m) || /\dZ$/.test(m);
+    }
+    // A stale panel must never drive the next camera (the WT_PTZ_OPEN dev pilot
+    // keeps it open across switches for deterministic verification).
+    onCameraChanged: ptzOpen = (typeof wtPtzOpen !== "undefined" && wtPtzOpen && camera !== null)
 
     signal closed()
     signal openPlayback(string mac)
@@ -138,6 +151,14 @@ Item {
                 }
             }
 
+            // PTZ / lens panel — sits above the bottom control bar, right-aligned.
+            PtzPanel {
+                visible: root.ptzOpen && root.ptzCapable
+                camera: root.camera
+                anchors { right: parent.right; bottom: parent.bottom; rightMargin: 16; bottomMargin: 64 }
+                onClosed: root.ptzOpen = false
+            }
+
             // bottom controls
             Rectangle {
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -166,6 +187,8 @@ Item {
                     }
                     CtlButton { name: "shot"; tip: qsTr("Capture snapshot"); onClicked: root.captureSnapshot() }
                     CtlButton { name: "shotStamp"; tip: qsTr("Snapshot with timestamp"); onClicked: root.captureSnapshotStamped() }
+                    CtlButton { name: "ptz"; visible: root.ptzCapable; tip: qsTr("PTZ / lens control")
+                                onClicked: root.ptzOpen = !root.ptzOpen }
                     // bookmark / open-in-new-tab removed: they had no handlers — dead
                     // controls violate the no-silent-no-op rule; restore WITH behavior
                     // if/when those features exist for the maximized view.

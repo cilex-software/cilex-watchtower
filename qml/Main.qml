@@ -323,6 +323,24 @@ Window {
         }
     }
     // Dev hook: WT_PLAYBACK_IP boots straight into Playback (S06) for that camera.
+    // Dev pilot: WT_DETAIL_IP opens the maximized live detail for that camera once
+    // the roster has loaded (mirrors playbackBootHook; inert unless set).
+    Timer {
+        id: detailBootHook
+        interval: 500; repeat: true
+        running: typeof wtDetailIp !== "undefined" && wtDetailIp !== ""
+        onTriggered: {
+            var all = cameraModel.page("", "", "default", 1, 50);
+            for (var i = 0; i < all.length; i++)
+                if (all[i].ip === wtDetailIp) {
+                    detailBootHook.running = false;
+                    win.section = "live";
+                    win.focusedCamera = all[i];
+                    break;
+                }
+        }
+    }
+
     // Repeats until the camera roster has loaded (one-shot raced the /streams fetch).
     Timer {
         id: playbackBootHook

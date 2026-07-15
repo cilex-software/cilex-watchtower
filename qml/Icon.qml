@@ -62,7 +62,12 @@ Item {
         "rec":      { "p": "M6 12 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0", "f": true },
         "motion":   { "p": "M10 6 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M9 12l3-3 3 3-2 3v6 M9 21v-6" },
         "check":    { "p": "M5 12l5 5L20 7", "w": 2 },
-        "funnel":   { "p": "M4 5h16l-6 7v6l-4-2v-4z" }
+        "funnel":   { "p": "M4 5h16l-6 7v6l-4-2v-4z" },
+        // PTZ: four outward chevrons around a center dot (pan/tilt pad).
+        "ptz":      { "p": "M9 5.5l3-3 3 3 M9 18.5l3 3 3-3 M5.5 9l-3 3 3 3 M18.5 9l3 3-3 3 M10.75 12 a1.25 1.25 0 1 0 2.5 0 a1.25 1.25 0 1 0 -2.5 0" },
+        // Restore PTZ defaults: the app's counter-clockwise replay ring (same
+        // family as "playback"/"history") around a center home dot.
+        "ptzReset": { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4 M10.75 12 a1.25 1.25 0 1 0 2.5 0 a1.25 1.25 0 1 0 -2.5 0" }
     })
 
     readonly property var _cur: _icons[name] ? _icons[name] : null

@@ -120,6 +120,7 @@ qt_add_qml_module(watchtower
         qml/LiveMonitor.qml
         qml/CameraGroups.qml
         qml/SingleCameraDetail.qml
+        qml/PtzPanel.qml
         qml/LiveThumb.qml
         qml/PlaybackScreen.qml
         qml/FrameStepper.qml
@@ -165,6 +166,8 @@ qt_add_qml_module(watchtower
         src/models/HlsProxy.cpp
         src/models/PlaybackClient.h
         src/models/PlaybackClient.cpp
+        src/models/PtzClient.h
+        src/models/PtzClient.cpp
         src/models/ClipTranscoder.h
         src/models/ClipTranscoder.cpp
         src/models/SnapshotModel.h
