@@ -30,7 +30,14 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   the panel activates on CV's deploy with no client release. Spec letter:
   `docs/letters/2026-07-16-ptz-lens-control-endpoint.md`. Dev pilots: `WT_DETAIL_IP`,
   `WT_PTZ_OPEN`, `WT_PTZ_DEMO` (mock caps for panel verification). All three panel
-  states screenshot-verified; RU strings added.
+  states screenshot-verified; RU strings added. **UPDATE same day: CV SHIPPED all
+  five endpoints to the exact contract (25 tests; per-camera serialize with 409,
+  8 s server max-move backstop, pooled digest client + NEW auth-failure cooldown,
+  423 verbatim, audit rows, RBAC, `PTZ_CONTROL_ENABLED` flag→501) and DEPLOYED —
+  probe returns `lens` for Z-models; panel READY state live-verified in real mode
+  on .106. Remaining: hardware walk-test when the Z fleet returns (CV flags
+  autofocus/reset ISAPI shapes as best-effort until then; lens "wide" approximated
+  via bounded zoom-out).**
 - **netem network-impairment harness** (`tools/netem-harness/`): port-scoped lo
   shaping (8000/8554/1984 both directions via docker-proxy path, verified), 13
   literature-grounded profiles, matrix runner reusing the soak gates, measured-RTT
@@ -42,6 +49,20 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
   variants 12 h in parallel on patched Qt — 0 crashes/hangs/wedges; found+fixed the
   stale seek-watch hijack + unbounded mislanded recovery (751e656); 853a234 validated
   at volume; first 12 h endurance certification of the patched-Qt default runtime.
+- **🟢 CLOSED — backend incident 2026-07-16 (recordings wipe):** root cause was the
+  recorder's emergency disk-pressure evictor measuring the WRONG DISK (root SSD at
+  96%, not the 3.6 TB video disk) — it chased an unreachable free-space target for
+  ~9 h, eating the archive oldest-first (catalog rows unconditionally; ~269 GB of
+  raw bytes survived but unattributable). Operator decision: **loss is final**;
+  history grows from 2026-07-16 03:59Z. CV fix `4666fc4` (right disk, 24 h min-age
+  floor, no-progress abort) + FIVE independent deletion defenses (API floor, DB
+  CHECK constraints, recorder clamp, single audited chokepoint, hourly deletion
+  circuit breaker that latches + pages). Serve path re-verified healthy both sides.
+  Standing watch: report if `no_recording` disagrees with coverage >1 poll cycle.
+  Thread: `…-recordings-unplayable-data-loss.md` + `.reply.md` + `.reply2.md`.
+  (coverage-tz letter remains its own OPEN thread — today's footage can't
+  discriminate it while UTC and MSK agree on the date; tonight's will.)
+- (superseded incident note kept for the record below)
 - **🔴 Backend incident 2026-07-16 (~22:00 UTC 07-15): ALL playback blind.** Diagnosed
   past coverage into sessions: (1) pre-07-15 recordings deleted (coverage empty in UTC,
   sessions serve `availability:no_recording` for .201 07-10 etc.); (2) even the FRESH
