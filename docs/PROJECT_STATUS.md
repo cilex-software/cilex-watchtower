@@ -6,7 +6,11 @@ the design spec is `designs/design_handoff_watchtower/README.md`._
 
 ## Current status (2026-07-16) — PTZ/lens + audio-state surfaces shipped (honest-pending); netem harness; night-3x soak certified
 
-- **Audio-recording state surface (client COMPLETE, backend fields pending):** ear icon
+- **Audio-recording state surface (SHIPPED BOTH SIDES, verified live 07-16):** CV
+  shipped `audio:{supported,recording_enabled}` on /streams same day (device-derived
+  via ISAPI `<Audio>` block, migration 0055, online-cams-only rollout) — real-mode
+  verified: .50/.67 muted ears, .201 earless, offline fleet unknown/earless. Thread
+  closed (`…audio-recording-fields.reply.reply.md`). Original scope: ear icon
   on wall tiles + camera detail when a camera records audio; struck-through ear when
   supported-but-disabled; NO ear when unsupported/unknown (honest absence — zero audio
   fields exist backend-side today, verified against OpenAPI + /streams). Parses
