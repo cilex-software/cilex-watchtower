@@ -63,6 +63,10 @@ Item {
         "motion":   { "p": "M10 6 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M9 12l3-3 3 3-2 3v6 M9 21v-6" },
         "check":    { "p": "M5 12l5 5L20 7", "w": 2 },
         "funnel":   { "p": "M4 5h16l-6 7v6l-4-2v-4z" },
+        // Audio recording: an ear (outer helix + inner curve to the lobe).
+        "ear":      { "p": "M6.5 8.5 a5.5 5.5 0 1 1 11 0 c0 4.8 -4.8 4.9 -4.8 8.6 a3 3 0 0 1 -6 0 M14.2 8.6 a2.7 2.7 0 0 0 -5.4 0" },
+        // Audio recording disabled: the same ear, struck through.
+        "earMute":  { "p": "M6.5 8.5 a5.5 5.5 0 1 1 11 0 c0 4.8 -4.8 4.9 -4.8 8.6 a3 3 0 0 1 -6 0 M14.2 8.6 a2.7 2.7 0 0 0 -5.4 0 M4.5 3.5l15 17" },
         // PTZ: four outward chevrons around a center dot (pan/tilt pad).
         "ptz":      { "p": "M9 5.5l3-3 3 3 M9 18.5l3 3 3-3 M5.5 9l-3 3 3 3 M18.5 9l3 3-3 3 M10.75 12 a1.25 1.25 0 1 0 2.5 0 a1.25 1.25 0 1 0 -2.5 0" },
         // Restore PTZ defaults: the app's counter-clockwise replay ring (same

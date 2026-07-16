@@ -1112,7 +1112,8 @@ Item {
                                 live: cellWrap.modelData.live
                                 recording: cellWrap.modelData.recording
                                 favorite: cellWrap.modelData.favorite
-                                hasAudio: cellWrap.modelData.hasAudio
+                                hasAudio: cellWrap.modelData.hasAudio === true
+                                audioRecording: cellWrap.modelData.audioRecording === true
                                 timestamp: cellWrap.modelData.timestamp
                                 lastSeen: cellWrap.modelData.lastSeen
                                 lastSegmentAt: cellWrap.modelData.lastSegmentAt

@@ -67,6 +67,27 @@ CameraStatus::RecState effectiveRec(CameraStatus::RecState rec, int live)
         return CameraStatus::RecUnknown;
     return rec;
 }
+
+// Per-camera audio-recording state (letter 2026-07-16-audio-recording-fields.md):
+// `audio: {supported, recording_enabled}` on /streams + the status poll. Absent
+// key = unknown -> caller keeps prior state and the UI shows NO ear (honest
+// absence; never an invented capability). WT_AUDIO_DEMO (dev-only) fakes states:
+// every camera supported, odd last-octet IPs "recording", even "disabled".
+static bool parseAudio(const QJsonObject &o, const QString &ip, bool &supported, bool &recording)
+{
+    static const bool demo = qEnvironmentVariableIsSet("WT_AUDIO_DEMO");
+    if (demo) {
+        supported = true;
+        recording = (ip.section(QLatin1Char('.'), 3, 3).toInt() % 2) == 1;
+        return true;
+    }
+    if (!o.contains(QStringLiteral("audio")))
+        return false;
+    const QJsonObject au = o.value(QStringLiteral("audio")).toObject();
+    supported = au.value(QStringLiteral("supported")).toBool(false);
+    recording = au.value(QStringLiteral("recording_enabled")).toBool(false);
+    return true;
+}
 }
 
 CameraModel::CameraModel(QObject *parent)
@@ -376,6 +397,7 @@ void CameraModel::fetchCameras()
             // change beyond this parse.
             c.recording = effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), c.live);
             c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
+            parseAudio(o, c.ip, c.hasAudio, c.audioRecording);
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
             // an admin client may also receive raw direct_rtsp_* and select them via
@@ -473,7 +495,8 @@ void CameraModel::pollStatuses()
 
         // Build {camera_id -> {live, recording, lastSegmentAt, group}} from the response.
         struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec;
-                          QString lastSeg; QString gid; QString gname; qint64 statusSince; qint64 recSince; };
+                          QString lastSeg; QString gid; QString gname; qint64 statusSince; qint64 recSince;
+                          bool audPresent; bool audSup; bool audRec; };
         QHash<QString, Incoming> incoming;
         incoming.reserve(int(arr.size()));
         for (const auto &v : arr) {
@@ -488,12 +511,15 @@ void CameraModel::pollStatuses()
                                                                  : CameraStatus::LiveUnknown;
             const QDateTime ss = QDateTime::fromString(o.value(QStringLiteral("status_since")).toString(), Qt::ISODate);
             const QDateTime rs = QDateTime::fromString(o.value(QStringLiteral("recording_since")).toString(), Qt::ISODate);
+            bool audSup = false, audRec = false;
+            const bool audPresent = parseAudio(o, o.value(QStringLiteral("ip")).toString(), audSup, audRec);
             incoming.insert(camId, { live, effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), live),
                                      o.value(QStringLiteral("last_segment_at")).toString(),
                                      o.value(QStringLiteral("group_id")).toString(),
                                      o.value(QStringLiteral("group_name")).toString(),
                                      ss.isValid() ? ss.toMSecsSinceEpoch() : -1,
-                                     rs.isValid() ? rs.toMSecsSinceEpoch() : -1 });
+                                     rs.isValid() ? rs.toMSecsSinceEpoch() : -1,
+                                     audPresent, audSup, audRec });
         }
 
         // Roster change (a camera added or removed in admin) → full refetch, since
@@ -551,6 +577,13 @@ void CameraModel::pollStatuses()
                 const QModelIndex idx = index(i);
                 emit dataChanged(idx, idx, { LiveRole, RecordingRole, LastSegmentAtRole });
             }
+            if (it->audPresent && (m_all[i].hasAudio != it->audSup
+                                   || m_all[i].audioRecording != it->audRec)) {
+                m_all[i].hasAudio = it->audSup;
+                m_all[i].audioRecording = it->audRec;
+                const QModelIndex idx = index(i);
+                emit dataChanged(idx, idx, { HasAudioRole, AudioRecordingRole });
+            }
             if (m_all[i].groupId != it->gid || m_all[i].groupName != it->gname) {
                 m_all[i].groupId = it->gid;
                 m_all[i].groupName = it->gname;
@@ -590,6 +623,7 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case LiveRole:      return c.live;
     case RecordingRole: return c.recording;
     case HasAudioRole:  return c.hasAudio;
+    case AudioRecordingRole: return c.audioRecording;
     case FavoriteRole:  return c.favorite;
     case TimestampRole: return c.timestamp;
     case LastSeenRole:  return c.lastSeen;
@@ -618,6 +652,7 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { LiveRole,      "live" },
         { RecordingRole, "recording" },
         { HasAudioRole,  "hasAudio" },
+        { AudioRecordingRole, "audioRecording" },
         { FavoriteRole,  "favorite" },
         { TimestampRole, "timestamp" },
         { LastSeenRole,  "lastSeen" },
@@ -647,6 +682,7 @@ QVariantMap CameraModel::get(int row) const
     m["live"] = c.live;
     m["recording"] = c.recording;
     m["hasAudio"] = c.hasAudio;
+    m["audioRecording"] = c.audioRecording;
     m["favorite"] = c.favorite;
     m["timestamp"] = c.timestamp;
     m["lastSeen"] = c.lastSeen;

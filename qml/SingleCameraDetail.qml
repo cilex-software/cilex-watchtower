@@ -147,6 +147,25 @@ Item {
                         spacing: 4
                         LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
                         RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : (root.camera ? root.camera.recording : CameraStatus.RecUnknown) }
+                        // Audio-recording state — ear only when the camera CAN record
+                        // audio (backend `audio` fields; letter 2026-07-16). Muted ear
+                        // = supported but disabled. Nothing = unsupported/unknown.
+                        Item {
+                            visible: root.camera ? (root.camera.hasAudio === true) : false
+                            width: 18; height: 18
+                            anchors.verticalCenter: parent.verticalCenter
+                            Icon {
+                                anchors.centerIn: parent
+                                name: (root.camera && root.camera.audioRecording === true) ? "ear" : "earMute"
+                                size: 14
+                                color: (root.camera && root.camera.audioRecording === true) ? Theme.good : Theme.ink3
+                            }
+                            MouseArea { id: earMa; anchors.fill: parent; hoverEnabled: true }
+                            ToolTip.text: (root.camera && root.camera.audioRecording === true)
+                                          ? qsTr("Recording audio") : qsTr("Audio recording disabled")
+                            ToolTip.visible: earMa.containsMouse
+                            ToolTip.delay: 400
+                        }
                     }
                 }
             }
@@ -248,6 +267,8 @@ Item {
                         : root.camera.recording === CameraStatus.Disabled ? "Disabled"
                         : root.camera.recording === CameraStatus.NotRecording ? "Not recording"
                         : root.camera.recording === CameraStatus.RecordingGap ? "Recording gap" : "Unknown" }
+                KV { k: "Audio"; v: !(root.camera && root.camera.hasAudio === true) ? "—"
+                        : root.camera.audioRecording === true ? qsTr("Recording") : qsTr("Disabled") }
                 KV { k: "Last recording"; v: (root.camera && root.camera.lastSegmentAt)
                         ? Qt.formatDateTime(new Date(root.camera.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
                 KV { k: "Quality"; v: root.useMain ? "HD (main)" : "SD (substream)" }

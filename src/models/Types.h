@@ -24,7 +24,8 @@ struct CameraData {
     QString groupName;
     int live = CameraStatus::Live;        // CameraStatus::LiveState
     int recording = CameraStatus::Recording;  // CameraStatus::RecState
-    bool hasAudio = false;
+    bool hasAudio = false;          // audio SUPPORTED (mic present; backend `audio.supported`)
+    bool audioRecording = false;    // audio track recorded (backend `audio.recording_enabled`)
     bool favorite = false;
     QString timestamp;   // live time label, e.g. "17:42:08"
     QString lastSeen;    // e.g. "14:22" (shown when offline)

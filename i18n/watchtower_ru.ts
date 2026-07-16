@@ -463,6 +463,22 @@
             <source>PTZ / lens control</source>
             <translation>Управление PTZ/объективом</translation>
         </message>
+        <message>
+            <source>Recording audio</source>
+            <translation>Идёт запись звука</translation>
+        </message>
+        <message>
+            <source>Audio recording disabled</source>
+            <translation>Запись звука отключена</translation>
+        </message>
+        <message>
+            <source>Recording</source>
+            <translation>Идёт запись</translation>
+        </message>
+        <message>
+            <source>Disabled</source>
+            <translation>Отключена</translation>
+        </message>
 </context>
 <context>
     <name>PtzPanel</name>

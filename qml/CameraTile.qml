@@ -66,7 +66,8 @@ Item {
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
     property bool favorite: false
-    property bool hasAudio: false
+    property bool hasAudio: false          // audio supported (mic present, backend-reported)
+    property bool audioRecording: false    // audio track recorded (ear vs muted ear)
     property string timestamp: ""
     property string lastSeen: ""
     property string lastSegmentAt: ""   // ISO of the last recorded segment (for the stalled strip)
@@ -399,6 +400,15 @@ Item {
                     state: root.recOff ? CameraStatus.Disabled : root.recording
                     lastMotionAtMs: root.lastMotionAtMs
                     stateSinceMs: root.recSinceMs
+                }
+                // Audio-recording state (backend `audio` fields; letter 2026-07-16).
+                // No ear at all when the camera can't record audio / state unknown.
+                Icon {
+                    visible: root.hasAudio
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: root.audioRecording ? "ear" : "earMute"
+                    size: 13
+                    color: root.audioRecording ? Theme.good : Theme.ink3
                 }
             }
         }

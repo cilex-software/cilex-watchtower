@@ -4,7 +4,17 @@ _Last updated: 2026-07-16. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
-## Current status (2026-07-16) — PTZ/lens control shipped (honest-pending); netem harness; night-3x soak certified
+## Current status (2026-07-16) — PTZ/lens + audio-state surfaces shipped (honest-pending); netem harness; night-3x soak certified
+
+- **Audio-recording state surface (client COMPLETE, backend fields pending):** ear icon
+  on wall tiles + camera detail when a camera records audio; struck-through ear when
+  supported-but-disabled; NO ear when unsupported/unknown (honest absence — zero audio
+  fields exist backend-side today, verified against OpenAPI + /streams). Parses
+  `audio:{supported,recording_enabled}` forward-compatibly at both payload sites
+  (fetch + 15 s status poll with per-row change signals); detail adds an "Audio" status
+  row + tooltips; RU strings; `WT_AUDIO_DEMO` dev states. Reused the mock-era
+  `hasAudio` field/role. Letter: `docs/letters/2026-07-16-audio-recording-fields.md`.
+  Both states screenshot-verified (wall + .50 detail).
 
 - **PTZ / motorized-lens control (client side COMPLETE, backend endpoint pending):**
   maximized live view gains a PTZ button on capable hardware only (gate from the

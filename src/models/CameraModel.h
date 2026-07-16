@@ -52,6 +52,7 @@ public:
         LiveRole,
         RecordingRole,
         HasAudioRole,
+        AudioRecordingRole,
         FavoriteRole,
         TimestampRole,
         LastSeenRole,
