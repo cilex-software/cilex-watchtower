@@ -6,18 +6,26 @@ gates under each profile, producing a matrix report. Fills the #1 coverage gap
 from the 2026-07-16 research: every prior test ran over an unimpaired localhost
 path.
 
-## How the traffic is scoped (verified 2026-07-16)
+## How the traffic is scoped (CORRECTED 2026-07-18, packet-proven)
 
-- The backend (`192.168.1.79:8000` query-api, `:8554`/`:1984` go2rtc) is
-  **this box**, published through **userland docker-proxy** (checked: proxy
-  processes hold the listens). Client↔proxy is a host-process conversation on
-  the box's own IP → it traverses **`lo` egress in both directions**
-  (requests match `dport`, responses match `sport`).
-- Impairment = `prio` root qdisc on `lo`, a `netem` branch (plus optional
-  `tbf` child for rate caps), and `u32` filters steering **only ports
-  8000/8554/1984** into the branch. Everything else on `lo` — and all
-  docker inter-container traffic (bridge network, never `lo`) — stays clean.
-- docker-proxy↔container hop is unshaped by design: that's server-internal.
+The original lo-based design was wrong and the pre-flight smoke caught it
+(lo qdisc counters stayed at **0 packets** while curls completed): Docker's
+**OUTPUT-chain DNAT** rewrites locally-generated traffic to published ports
+toward the container IPs *before routing*, so it rides the **docker bridge**
+(`br-…`, the 10.0.0.0/24 network), not loopback. docker-proxy only fronts the
+127.0.0.1 path, which the client doesn't use.
+
+- **Requests (host→container):** `prio` root on the bridge egress, `netem`
+  branch, `u32 dport` filters for 8000/8554/1984 only. Proven: 50 ms profile →
+  connect 0.2 ms → 50.2 ms, 17 pkts on the netem counter.
+- **Responses (container→host):** bridge **ingress** qdisc with `u32 sport`
+  filters redirecting (mirred) to **`ifb0`**, which carries the same `netem`
+  plus the `tbf` rate cap — the download direction is where bandwidth caps
+  belong. `ifb0` is created once by `setup-root.sh` (root required for ifb).
+- Inter-container traffic switches through the bridge at L2 and never enters
+  the host qdisc — server-internal hops stay unshaped, as intended.
+- `verify` now expects connect ≈ 2× delay (SYN shaped egress, SYN-ACK shaped
+  via ifb).
 
 ## One-time root setup (run in YOUR terminal)
 
