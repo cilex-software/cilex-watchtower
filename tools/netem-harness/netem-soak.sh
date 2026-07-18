@@ -19,6 +19,14 @@ while [ $# -gt 0 ]; do case "$1" in
   *) echo "unknown arg $1"; exit 2;;
 esac; shift; done
 
+# SINGLE-RUNNER LOCK (2026-07-18): two concurrent runners raced the same qdiscs
+# and interleaved garbage rows into the matrix (a harness-tracked launch survived
+# its kill as an untracked orphan while a second was started). flock makes the
+# rig single-controller by construction.
+exec 9>"$HOME/watchtower-soak/.netem-soak.lock"
+flock -n 9 || { echo "FATAL: another netem-soak runner holds the lock (pgrep -f netem-soak.sh)"; exit 5; }
+echo $$ > "$HOME/watchtower-soak/.netem-soak.runner.pid"
+
 [ -x "$REPO/build/watchtower" ] || { echo "FATAL: build/watchtower missing"; exit 3; }
 curl -so /dev/null --connect-timeout 4 "http://192.168.1.79:8000/" || { echo "FATAL: backend not reachable"; exit 3; }
 # refuse to impair an operator's live session (baseline-only never impairs)
