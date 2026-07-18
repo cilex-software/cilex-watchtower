@@ -2058,10 +2058,12 @@ Item {
                         font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8; font.capitalization: Font.AllUppercase }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
                 }
-                Chip { label: "Last hour"; onClicked: root.setZoom(60) }
-                Chip { label: "Last 15 min"; onClicked: root.setZoom(15) }
+                // The handoff's left group (Last hour / Yesterday / Exact time) merged into
+                // other affordances: its jump-presets collapsed into the zoom ladder on the
+                // right (identical setZoom targets, operator-reported duplication 2026-07-19),
+                // "Yesterday" became the footage calendar, "Exact time" the timeline seeks.
                 Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                 Item { Layout.fillWidth: true }
                 Chip { label: "Events"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 // Window presets re-open the session; they de-highlight once you
