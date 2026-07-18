@@ -20,6 +20,11 @@ DRY=0; [ "${1:-}" = "--dry" ] && { DRY=1; shift; }
 CMD="${1:-status}"; PROFILE="${2:-}"
 
 BR="${WT_NETEM_DEV:-$(ip route get 10.0.0.9 2>/dev/null | grep -oP 'dev \K\S+' | head -1)}"
+# Host's own bridge address: scoping filters to it exempts every OTHER backend
+# client (e.g. Cilex Pro Mobile on the LAN, whose DNAT'd packets keep their
+# 192.168.1.x source) — only Watchtower<->backend traffic is impaired, and
+# external clients can't drain the tbf bucket mid-row (2026-07-18).
+HOSTIP="${WT_NETEM_HOSTIP:-$(ip route get 10.0.0.9 2>/dev/null | grep -oP 'src \K\S+' | head -1)}"
 IFB=ifb0
 
 # profile -> "netem args|tbf args-or-empty"  (values are PER-DIRECTION)
@@ -85,12 +90,14 @@ apply)
   tc_priv qdisc add dev "$BR" root handle 1: prio bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 || exit 4
   tc_priv qdisc add dev "$BR" parent 1:4 handle 40: netem $NETEM || exit 4
   for P in $PORTS; do
-    tc_priv filter add dev "$BR" protocol ip parent 1: prio 1 u32 match ip dport $P 0xffff flowid 1:4 || exit 4
+    tc_priv filter add dev "$BR" protocol ip parent 1: prio 1 u32 \
+            match ip src "$HOSTIP"/32 match ip dport $P 0xffff flowid 1:4 || exit 4
   done
   # RESPONSE direction: bridge ingress -> ifb0 (sport-scoped), netem [+ tbf] there
   tc_priv qdisc add dev "$BR" handle ffff: ingress || exit 4
   for P in $PORTS; do
-    tc_priv filter add dev "$BR" parent ffff: protocol ip prio 1 u32 match ip sport $P 0xffff \
+    tc_priv filter add dev "$BR" parent ffff: protocol ip prio 1 u32 \
+            match ip dst "$HOSTIP"/32 match ip sport $P 0xffff \
             action mirred egress redirect dev $IFB || exit 4
   done
   tc_priv qdisc add dev $IFB root handle 2: netem $NETEM || exit 4
