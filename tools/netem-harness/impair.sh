@@ -24,7 +24,11 @@ BR="${WT_NETEM_DEV:-$(ip route get 10.0.0.9 2>/dev/null | grep -oP 'dev \K\S+' |
 # client (e.g. Cilex Pro Mobile on the LAN, whose DNAT'd packets keep their
 # 192.168.1.x source) — only Watchtower<->backend traffic is impaired, and
 # external clients can't drain the tbf bucket mid-row (2026-07-18).
-HOSTIP="${WT_NETEM_HOSTIP:-$(ip route get 10.0.0.9 2>/dev/null | grep -oP 'src \K\S+' | head -1)}"
+# Proven 2026-07-18: host sockets to the published port bind the LAN IP (source
+# selection happens BEFORE Docker's OUTPUT-DNAT), so the LAN address is the one
+# that matters; the bridge IP is kept as belt-and-braces for any proxied/hairpin
+# flows. A LAN client (mobile) matches neither.
+HOSTIPS="${WT_NETEM_HOSTIP:-${BACKEND%%:*} $(ip route get 10.0.0.9 2>/dev/null | grep -oP 'src \K\S+' | head -1)}"
 IFB=ifb0
 
 # profile -> "netem args|tbf args-or-empty"  (values are PER-DIRECTION)
@@ -89,17 +93,17 @@ apply)
   # REQUEST direction: bridge egress, dport-scoped
   tc_priv qdisc add dev "$BR" root handle 1: prio bands 4 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 || exit 4
   tc_priv qdisc add dev "$BR" parent 1:4 handle 40: netem $NETEM || exit 4
-  for P in $PORTS; do
+  for P in $PORTS; do for H in $HOSTIPS; do
     tc_priv filter add dev "$BR" protocol ip parent 1: prio 1 u32 \
-            match ip src "$HOSTIP"/32 match ip dport $P 0xffff flowid 1:4 || exit 4
-  done
+            match ip src "$H"/32 match ip dport $P 0xffff flowid 1:4 || exit 4
+  done; done
   # RESPONSE direction: bridge ingress -> ifb0 (sport-scoped), netem [+ tbf] there
   tc_priv qdisc add dev "$BR" handle ffff: ingress || exit 4
-  for P in $PORTS; do
+  for P in $PORTS; do for H in $HOSTIPS; do
     tc_priv filter add dev "$BR" parent ffff: protocol ip prio 1 u32 \
-            match ip dst "$HOSTIP"/32 match ip sport $P 0xffff \
+            match ip dst "$H"/32 match ip sport $P 0xffff \
             action mirred egress redirect dev $IFB || exit 4
-  done
+  done; done
   tc_priv qdisc add dev $IFB root handle 2: netem $NETEM || exit 4
   [ -n "$TBF" ] && { tc_priv qdisc add dev $IFB parent 2: handle 20: tbf $TBF || exit 4; }
   echo "applied '$PROFILE' on $BR<->$IFB ports [$PORTS]: netem[$NETEM] tbf[${TBF:-none}] (per-direction)" ;;
