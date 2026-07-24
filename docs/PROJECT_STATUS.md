@@ -1,8 +1,38 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-07-16. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-07-25) — shell chrome: real window buttons + view tabs
+
+Two operator-reported shell gaps, both closed:
+
+- **Window buttons (minimize / maximize / close).** The app had none: under
+  GNOME/Wayland the host chrome is Qt's own `bradient` decoration, which paints a
+  title strip with no usable buttons. The window is now **frameless** and draws the
+  handoff's own 36px title bar (`qml/TitleBar.qml`: 70px spacer · `WATCHTOWER`
+  wordmark · current view in ink-2 · three 14px round buttons, close in `--bad`,
+  glyphs at 0.5 opacity — exactly the design's `TitleBar`, which had been skipped as
+  "replaced by host"). Move/resize go back to the compositor via
+  `startSystemMove()`/`startSystemResize()`; the move grab starts past a 3px
+  threshold so double-click-to-maximize still works, and `resizeFrame` lays 4px
+  edge / 14px corner grips around the shell. Verified: buttons render (glyph crop),
+  the login gate stops below the bar so a signed-out window is still closable.
+
+- **"Open in new tab" was a lie.** The tile action existed but opened the same
+  full-screen detail as "Open" and left nothing behind — indistinguishable, and a
+  silent no-op by our own rule. There is now a **view-tab strip** (`qml/TabStrip.qml`)
+  above the content: `tabs[0]` is the main tab (the nav-rail section, which may hold a
+  camera opened *in place*), `tabs[1..]` are cameras opened in new tabs. Non-obstructive
+  by construction — the strip does not exist until a camera tab does, and hides during
+  playback and in fullscreen. Per-tab live status dot + IP-preserving middle elision
+  (fleet names all end in the IP), close ×/middle-click, Ctrl+W · Ctrl+Tab ·
+  Ctrl+Shift+Tab. **Only the active tab renders**, so N tabs are never N pipelines;
+  `activateTab` re-resolves the camera against `CameraModel` so a tab opened minutes
+  ago carries current status. Rail/palette/map hand-offs navigate the main tab and
+  leave open tabs standing. 29-assertion self-test (`WT_TABS_TEST=1`) PASS; RU strings
+  shipped; screenshot-verified on the wall and on a camera tab.
 
 ## Current status (2026-07-16) — PTZ/lens + audio-state surfaces shipped (honest-pending); netem harness; night-3x soak certified
 

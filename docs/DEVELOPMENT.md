@@ -69,6 +69,8 @@ caveats:
 | `WT_DEMO=1` | Use the mock dataset (cameras + events). **Off by default** — real persisted data is the source of truth. Mock is dev-only. |
 | `WT_SECTION=live\|groups\|events\|health\|…` | Boot directly into a nav section. |
 | `WT_FOCUS_IP=<ip>` | Boot into Single Camera Detail for that camera. |
+| `WT_TABS=<ip>[,<ip>…]` | Open those cameras as **view tabs** on boot (`WT_TABS_HOME=1` then returns to the main tab — the state that proves tabs outlive going back to the wall). |
+| `WT_TABS_TEST=1` | Headless self-test of the view-tab bookkeeping against the shipping functions — logs `[TABTEST]` per assertion, then `PASS`/`FAIL`, and quits. Run it after touching `openCameraHere`/`openCameraTab`/`activateTab`/`closeTab`. |
 | `WT_PLAYBACK_IP=<ip>` | Boot into Playback for that camera. (`WT_PLAYBACK_DAY=yyyy-MM-dd[Thh:mm:ss]` opens a specific day / instant.) |
 | `WT_TTFF_DAYS=d1,d2,…` | Playback open-latency harness: opens each day in turn, logs `[TTFF]` (calendar-click → first rendered frame) + `[PBTIME]` stage breakdowns, quits. Pair with `WT_PLAYBACK_IP`. `WT_TRACE=1` alone also enables the `[PBTIME]` logs. |
 | `WT_TEST_IP=<ip>` | Restrict live streaming to one camera during dev (avoid hammering cameras — see lockout caveat). |
@@ -86,6 +88,8 @@ caveats:
   - `GroupModel`, `SavedViewModel` (persisted views), `SnapshotModel` (lists the local snapshot dir for the Clips library), `StorageHealth` (authenticated poll of `GET /health/storage`), `Settings`, `Artifacts` (snapshot dir), `MockData` (WT_DEMO).
 - **`qml/`** — screens (`Main`, `LiveMonitor`, `SingleCameraDetail`, `PlaybackScreen`, `ExportDrawer`, `HealthScreen`, `EventsScreen`, `PreferencesScreen`, `CameraGroups`) + components (`Theme` singleton tokens, `Icon`, `IconButton`, status badges, `PlaceholderVid`, `VideoSurface`, `Toast`/`ToastHost`).
 - **`Theme.qml`** — design tokens (warm graphite palette, amber accent, Space Grotesk + JetBrains Mono, 4px spacing, 0-radius geometry). Match the handoff exactly.
+- **Window chrome is ours (`TitleBar.qml`, frameless `Window`)** — the handoff's 36px title bar was drawn as "generic OS-style, replaced by host", but the host chrome under GNOME/Wayland is Qt's own `bradient` decoration, which paints a title with **no usable minimize/maximize/close buttons**. So `Main.qml` sets `Qt.FramelessWindowHint` and `TitleBar.qml` draws the designed bar (wordmark · current view · three round buttons). Move/resize are handed back to the compositor with `QWindow::startSystemMove()` / `startSystemResize()` (both are `Q_SLOTS`, so QML can call them): the title bar starts a move past a 3px threshold — starting on press would eat the double-click-to-maximize — and `resizeFrame` in `Main.qml` lays 4px edge / 14px corner grips over the shell. Consequence to keep in mind: the outermost 4px of the window is a resize handle, not content.
+- **View tabs (`TabStrip.qml`)** — `Main.qml` owns `tabs` / `activeTab` / `mainTabCamera`. `tabs[0]` is the main tab (the nav-rail section, which may hold a camera opened **in place** — `openCameraHere`); `tabs[1..]` are cameras opened with a tile's "Open in new tab" (`openCameraTab`), which is what makes that action differ from "Open". Only the ACTIVE tab renders, so N tabs never mean N live pipelines — a background tab is a camera reference, and `activateTab` re-resolves it against `CameraModel` so it carries current status/urls. The strip only exists while a camera tab does (and hides during playback). Regression-test the index math with `WT_TABS_TEST=1`.
 
 ## cilex-vision integration
 

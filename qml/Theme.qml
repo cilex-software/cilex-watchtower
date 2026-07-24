@@ -35,6 +35,9 @@ QtObject {
 
     readonly property color windowBackdrop: "#0d0c0b"  // OS-level chrome backdrop
     readonly property color tileBg:         "#0a0908"  // near-black warm camera tile bg
+    // Title-bar surface (design: linear-gradient(#252220, #1c1a17) over a black hairline).
+    readonly property color titleBarTop:    "#252220"
+    readonly property color titleBarBottom: "#1c1a17"
 
     // ----------------------------------------------------------- Typography
     // Two families only. Mono is used for timestamps, IDs, counts, uppercase
@@ -73,6 +76,7 @@ QtObject {
     readonly property int radius: 0  // orthogonal everywhere; only status dots are round
 
     readonly property int titleBarHeight:  36
+    readonly property int tabStripHeight:  34   // view tabs, only while camera tabs are open
     readonly property int topBarHeight:     64
     readonly property int subBarHeight:     56
     readonly property int railWidth:        72

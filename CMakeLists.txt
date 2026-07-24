@@ -115,6 +115,8 @@ qt_add_qml_module(watchtower
         qml/EmptyState.qml
         qml/LoadingState.qml
         qml/NavRail.qml
+        qml/TitleBar.qml
+        qml/TabStrip.qml
         qml/TopBar.qml
         qml/OpsSidebar.qml
         qml/LiveMonitor.qml

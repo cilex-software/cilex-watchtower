@@ -12,6 +12,13 @@ Window {
     visible: true
     color: Theme.bg
     title: qsTr("Watchtower")
+    // Frameless — Watchtower draws the designed 36px title bar itself (TitleBar.qml).
+    // The host chrome we get under GNOME/Wayland is Qt's own client-side decoration,
+    // which paints a title strip with NO usable minimize/maximize/close buttons
+    // (operator report 2026-07-25). Move and resize are handed straight back to the
+    // compositor via startSystemMove()/startSystemResize() — see TitleBar.qml and
+    // `resizeFrame` at the bottom of this file.
+    flags: Qt.Window | Qt.FramelessWindowHint
 
     property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
     property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
@@ -28,6 +35,96 @@ Window {
     property var playbackCamera: null   // shows Playback (S06) when non-null
     property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
     property bool opsSidebarOpen: true  // Live page right-hand panel (OpsSidebar) — toggled from the Live toolbar
+
+    // ------------------------------------------------------------- View tabs
+    // tabs[0] is the MAIN tab: whatever the nav rail points at, which may itself
+    // hold a camera opened IN PLACE (a tile's "Open"). tabs[1..] are cameras
+    // opened with a tile's "Open in new tab" — they survive going back to the
+    // wall or to another section, which is the only thing that ever made that
+    // control different from "Open". Until 2026-07-25 it opened the identical
+    // full-screen view and left nothing behind (operator report), so the strip
+    // (TabStrip.qml) is what makes the action real; it appears only once a
+    // camera tab exists.
+    property var tabs: [ { "kind": "main" } ]
+    property int activeTab: 0
+    property var mainTabCamera: null    // camera opened in place inside tabs[0]
+
+    function sectionLabel(sid) {
+        return sid === "live" ? qsTr("Live wall")
+             : sid === "groups" ? qsTr("Groups")
+             : sid === "views" ? qsTr("Views")
+             : sid === "events" ? qsTr("Events")
+             : sid === "health" ? qsTr("Health")
+             : sid === "clips" ? qsTr("Clips")
+             : sid === "preferences" ? qsTr("Preferences") : sid;
+    }
+    function homeTabLabel() {
+        return mainTabCamera ? mainTabCamera.name : sectionLabel(section);
+    }
+    function activeTabLabel() {
+        if (playbackCamera) return qsTr("Playback") + " · " + playbackCamera.name;
+        if (activeTab > 0 && activeTab < tabs.length && tabs[activeTab].cam)
+            return tabs[activeTab].cam.name;
+        return homeTabLabel();
+    }
+
+    // Open a camera in the CURRENT tab — a tile's "Open", the command palette,
+    // Health/Groups hand-offs, a sibling thumbnail. Navigates in place: the main
+    // tab remembers it, a camera tab re-points at the new camera.
+    function openCameraHere(cam) {
+        if (!cam) return;
+        if (activeTab > 0 && activeTab < tabs.length) {
+            var t = tabs.slice();
+            t[activeTab] = { "kind": "camera", "camId": cam.camId, "cam": cam };
+            tabs = t;
+        } else {
+            mainTabCamera = cam;
+        }
+        focusedCamera = cam;
+    }
+
+    // Open a camera in a NEW tab (a tile's "Open in new tab"). A camera that
+    // already has a tab is raised rather than duplicated — a second tab on the
+    // same camera would be indistinguishable from the first.
+    function openCameraTab(cam) {
+        if (!cam) return;
+        for (var i = 1; i < tabs.length; i++) {
+            if (tabs[i].camId === cam.camId) { activateTab(i); return; }
+        }
+        tabs = tabs.concat([{ "kind": "camera", "camId": cam.camId, "cam": cam }]);
+        activateTab(tabs.length - 1);
+    }
+
+    function activateTab(i) {
+        if (i < 0 || i >= tabs.length) return;
+        playbackCamera = null;      // playback is a focus mode inside a tab, not a tab
+        activeTab = i;
+        if (i === 0) { focusedCamera = mainTabCamera; return; }
+        // Re-resolve against the model so a tab opened minutes ago carries current
+        // status/stream urls rather than the snapshot it was created from.
+        var live = cameraModel ? cameraModel.cameraByBackendId(tabs[i].camId) : null;
+        focusedCamera = (live && live.camId !== undefined && live.camId !== "") ? live : tabs[i].cam;
+    }
+
+    function closeTab(i) {
+        if (i <= 0 || i >= tabs.length) return;     // the main tab never closes
+        // Closing the active tab lands on the one to its RIGHT (the browser rule),
+        // or on the left neighbour when it was the last tab.
+        var next = (activeTab === i) ? Math.min(i, tabs.length - 2)
+                 : (activeTab > i ? activeTab - 1 : activeTab);
+        var t = tabs.slice();
+        t.splice(i, 1);
+        tabs = t;
+        activateTab(Math.max(0, Math.min(next, tabs.length - 1)));
+    }
+
+    // Leave the camera view in the current tab (the detail view's back arrow):
+    // in a camera tab that IS closing the tab; in the main tab it returns to the
+    // section underneath.
+    function closeCameraHere() {
+        if (activeTab > 0) closeTab(activeTab);
+        else { mainTabCamera = null; focusedCamera = null; }
+    }
 
     // --- Resize stress-test driver (WT_RESIZE_TEST): drives programmatic resizes for the external
     //     CPU/RSS sampler. Phase 1 (0-120s) random non-extreme sizes; phase 2 (120-240s) degenerate
@@ -74,8 +171,8 @@ Window {
             if (c && c.camId) cams.push(c);
         }
         if (cams.length === 0) return;
-        focusedCamera = null;
-        playbackCamera = null;
+        mainTabCamera = null;
+        activateTab(0);              // lands on the main tab (also clears playback)
         section = "live";
         wallMode = "playback";
         wallPlayback.openWithCameras(cams);
@@ -93,8 +190,8 @@ Window {
         statusFilter = "";                 // show every selected camera regardless of status
         groupFilter = "__selected__";
         groupLabel = "Selected (" + ids.length + ")";
-        focusedCamera = null;
-        playbackCamera = null;
+        mainTabCamera = null;
+        activateTab(0);
         wallMode = "live";
         section = "live";
     }
@@ -105,9 +202,11 @@ Window {
     // `section` alone leaves them up and the rail looks dead — e.g. clicking LIVE
     // while already in wall playback (section is already "live") wouldn't exit it.
     // Clear every overlay so a rail click always lands on that section's main view.
+    // Camera TABS are left standing — the rail navigates the main tab, it doesn't
+    // close the other places the operator is keeping open.
     function goToSection(sid) {
-        focusedCamera = null;
-        playbackCamera = null;
+        mainTabCamera = null;
+        activateTab(0);
         wallMode = "live";
         section = sid;
     }
@@ -128,8 +227,8 @@ Window {
         function _randCam() { var c = guardSoak._roster(); return c.length ? c[Math.floor(Math.random() * c.length)] : null; }
         function _randCamId() { var c = guardSoak._randCam(); return c ? c.camId : ""; }
         function _perPage() { return ({ "1": 1, "4": 4, "9": 9, "16": 16 })[win.gridLayout] || 16; }
-        function _fs() { var c = guardSoak._randCam(); if (c) win.focusedCamera = c; }       // double-click → fullscreen
-        function _fsExit() { win.focusedCamera = null; }
+        function _fs() { var c = guardSoak._randCam(); if (c) win.openCameraHere(c); }       // double-click → fullscreen
+        function _fsExit() { win.closeCameraHere(); }
         // right-click → pick a replacement camera for a random tile, N times (the swap-leak path)
         function _replaceN(n) {
             for (var i = 0; i < n; i++) {
@@ -306,7 +405,109 @@ Window {
         onTriggered: {
             var all = cameraModel.page("", "", "default", 1, 50);
             for (var i = 0; i < all.length; i++)
-                if (all[i].ip === wtFocusIp) { win.focusedCamera = all[i]; break; }
+                if (all[i].ip === wtFocusIp) { win.openCameraHere(all[i]); break; }
+        }
+    }
+    // Dev hook: WT_TABS=<ip>[,<ip>…] opens those cameras as view tabs once the
+    // roster has loaded (screenshot verification + soak coverage for the strip).
+    Timer {
+        id: tabsBootHook
+        interval: 500; repeat: true
+        running: typeof wtTabs !== "undefined" && wtTabs !== ""
+        onTriggered: {
+            var all = cameraModel.page("", "", "default", 1, 64);
+            if (all.length === 0) return;
+            var want = ("" + wtTabs).split(",");
+            for (var w = 0; w < want.length; w++) {
+                var ip = want[w].trim();
+                for (var i = 0; i < all.length; i++)
+                    if (all[i].ip === ip) { win.openCameraTab(all[i]); break; }
+            }
+            if (typeof wtTabsHome !== "undefined" && wtTabsHome) win.activateTab(0);
+            tabsBootHook.running = false;
+        }
+    }
+    // Dev self-test: WT_TABS_TEST=1 drives the tab bookkeeping over the real roster
+    // and asserts each outcome ([TABTEST] lines, then PASS/FAIL). Runs against the
+    // shipping functions — index math (open · raise · navigate-in-place · close) is
+    // exactly the part that silently rots, and it is not visible in a screenshot.
+    Timer {
+        id: tabTest
+        interval: 500; repeat: true
+        running: typeof wtTabsTest !== "undefined" && wtTabsTest
+        property int fails: 0
+        function ck(label, got, want) {
+            var ok = (String(got) === String(want));
+            if (!ok) tabTest.fails++;
+            console.log("[TABTEST] " + (ok ? "ok  " : "FAIL") + " " + label + " got=" + got + " want=" + want);
+        }
+        function camIdOf(c) { return c ? c.camId : "null"; }
+        onTriggered: {
+            var all = cameraModel.page("", "", "default", 1, 8);
+            if (all.length < 3) return;                       // wait for the roster
+            tabTest.running = false;
+            var a = all[0], b = all[1], c = all[2];
+
+            tabTest.ck("start.len", win.tabs.length, 1);
+            tabTest.ck("start.active", win.activeTab, 0);
+
+            win.openCameraHere(a);                            // a tile's "Open" from the wall
+            tabTest.ck("openHere.len", win.tabs.length, 1);   // no tab: it lives in the main tab
+            tabTest.ck("openHere.focus", tabTest.camIdOf(win.focusedCamera), a.camId);
+
+            win.openCameraTab(b);                             // "Open in new tab"
+            tabTest.ck("newTab.len", win.tabs.length, 2);
+            tabTest.ck("newTab.active", win.activeTab, 1);
+            tabTest.ck("newTab.focus", tabTest.camIdOf(win.focusedCamera), b.camId);
+
+            win.openCameraTab(c);
+            tabTest.ck("newTab2.len", win.tabs.length, 3);
+            tabTest.ck("newTab2.active", win.activeTab, 2);
+
+            win.openCameraTab(b);                             // already open → raised, not duplicated
+            tabTest.ck("dedupe.len", win.tabs.length, 3);
+            tabTest.ck("dedupe.active", win.activeTab, 1);
+
+            win.activateTab(0);                               // main tab keeps what was opened in it
+            tabTest.ck("home.focus", tabTest.camIdOf(win.focusedCamera), a.camId);
+            tabTest.ck("home.len", win.tabs.length, 3);
+
+            win.activateTab(2);
+            win.openCameraHere(a);                            // navigate the CURRENT tab in place
+            tabTest.ck("inplace.len", win.tabs.length, 3);
+            tabTest.ck("inplace.tab2", win.tabs[2].camId, a.camId);
+
+            win.closeTab(2);                                  // active + last → left neighbour
+            tabTest.ck("closeLast.len", win.tabs.length, 2);
+            tabTest.ck("closeLast.active", win.activeTab, 1);
+
+            win.openCameraTab(c);                             // [main, b, c], active 2
+            win.activateTab(1);
+            win.closeTab(1);                                  // active, has a right → that one
+            tabTest.ck("closeMid.len", win.tabs.length, 2);
+            tabTest.ck("closeMid.active", win.activeTab, 1);
+            tabTest.ck("closeMid.tab1", win.tabs[1].camId, c.camId);
+
+            win.closeCameraHere();                            // back arrow inside a camera tab
+            tabTest.ck("back.len", win.tabs.length, 1);
+            tabTest.ck("back.active", win.activeTab, 0);
+            tabTest.ck("back.focus", tabTest.camIdOf(win.focusedCamera), a.camId);   // main tab's camera
+
+            win.closeCameraHere();                            // again, in the main tab → the section
+            tabTest.ck("back2.focus", tabTest.camIdOf(win.focusedCamera), "null");
+
+            win.openCameraTab(b);
+            win.goToSection("events");                        // rail navigates the MAIN tab only
+            tabTest.ck("rail.len", win.tabs.length, 2);
+            tabTest.ck("rail.active", win.activeTab, 0);
+            tabTest.ck("rail.focus", tabTest.camIdOf(win.focusedCamera), "null");
+            tabTest.ck("rail.section", win.section, "events");
+
+            win.closeTab(0);                                  // the main tab never closes
+            tabTest.ck("mainPinned.len", win.tabs.length, 2);
+
+            console.log("[TABTEST] " + (tabTest.fails === 0 ? "PASS" : "FAIL") + " fails=" + tabTest.fails);
+            Qt.quit();
         }
     }
     // Dev hook: WT_GROUP boots the Live grid filtered to that group (by name);
@@ -335,7 +536,7 @@ Window {
                 if (all[i].ip === wtDetailIp) {
                     detailBootHook.running = false;
                     win.section = "live";
-                    win.focusedCamera = all[i];
+                    win.openCameraHere(all[i]);
                     break;
                 }
         }
@@ -915,9 +1116,39 @@ Window {
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
     Shortcut { sequence: "4"; onActivated: win.setLayout("16") }
     Shortcut { sequence: "Ctrl+K"; onActivated: commandPalette.open() }
+    // View tabs. Disabled (not silently inert) when there is nothing to act on, and
+    // during playback, where the strip is hidden and a stray Ctrl+Tab would drop the
+    // operator out of a review session.
+    Shortcut {
+        sequence: "Ctrl+W"
+        enabled: win.activeTab > 0 && win.playbackCamera === null
+        onActivated: win.closeTab(win.activeTab)
+    }
+    Shortcut {
+        sequence: "Ctrl+Tab"
+        enabled: win.tabs.length > 1 && win.playbackCamera === null
+        onActivated: win.activateTab((win.activeTab + 1) % win.tabs.length)
+    }
+    Shortcut {
+        sequence: "Ctrl+Shift+Tab"
+        enabled: win.tabs.length > 1 && win.playbackCamera === null
+        onActivated: win.activateTab((win.activeTab + win.tabs.length - 1) % win.tabs.length)
+    }
+
+    // Window title bar (frameless window — see `flags` above). Hidden in the app's
+    // own fullscreen mode along with the rest of the chrome; F11/Esc still exit.
+    TitleBar {
+        id: titleBar
+        anchors { left: parent.left; right: parent.right; top: parent.top }
+        z: 900
+        win: win
+        visible: !win.fullscreen
+        subtitle: AuthController.authenticated ? win.activeTabLabel() : ""
+    }
 
     RowLayout {
         anchors.fill: parent
+        anchors.topMargin: titleBar.visible ? titleBar.height : 0
         spacing: 0
         visible: AuthController.authenticated   // shell hidden until signed in
 
@@ -953,6 +1184,21 @@ Window {
                 onToggleSidePanelRequested: win.opsSidebarOpen = !win.opsSidebarOpen
             }
 
+            // View tabs — present only while a camera tab is open, so the default
+            // shell keeps every pixel it has today. Hidden during playback, which
+            // is a full-focus mode inside whichever tab opened it.
+            TabStrip {
+                Layout.fillWidth: true
+                visible: win.tabs.length > 1 && !win.fullscreen && win.playbackCamera === null
+                tabs: win.tabs
+                activeIndex: win.activeTab
+                cameraModel: cameraModel
+                homeLabel: win.homeTabLabel()
+                homeIsCamera: win.mainTabCamera !== null
+                onActivated: (i) => win.activateTab(i)
+                onCloseRequested: (i) => win.closeTab(i)
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -982,9 +1228,12 @@ Window {
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
-                    onCameraOpened: (cam) => win.focusedCamera = cam
+                    // "Open" navigates the tab the operator is in; "Open in new tab"
+                    // adds a tab that outlives going back to the wall.
+                    onCameraOpened: (cam) => win.openCameraHere(cam)
+                    onCameraOpenedNewTab: (cam) => win.openCameraTab(cam)
                     onCameraPlaybackRequested: (cam) => {
-                        win.focusedCamera = cam;
+                        win.openCameraHere(cam);
                         win.playbackCamera = cam;
                         playbackScreen.openFor(cam, 60);
                     }
@@ -1029,7 +1278,7 @@ Window {
                         win.gridPage = 1;
                         win.section = "live";
                     }
-                    onOpenCamera: (cam) => win.focusedCamera = cam
+                    onOpenCamera: (cam) => win.openCameraHere(cam)
                 }
 
                 SingleCameraDetail {
@@ -1038,8 +1287,10 @@ Window {
                     visible: win.focusedCamera !== null && win.playbackCamera === null
                     cameraModel: cameraModel
                     camera: win.focusedCamera
-                    onClosed: win.focusedCamera = null
-                    onSwitchCamera: (cam) => win.focusedCamera = cam
+                    // Back = leave this camera view: in a camera tab that closes the
+                    // tab; in the main tab it drops back to the section underneath.
+                    onClosed: win.closeCameraHere()
+                    onSwitchCamera: (cam) => win.openCameraHere(cam)
                     onOpenPlayback: (mac) => {
                         win.playbackCamera = win.focusedCamera;
                         playbackScreen.openFor(win.focusedCamera, 60);
@@ -1058,7 +1309,7 @@ Window {
                     client: playbackClient
                     cameraModel: cameraModel
                     onClosed: win.playbackCamera = null
-                    onReturnToLive: { win.playbackCamera = null; win.focusedCamera = null }
+                    onReturnToLive: { win.mainTabCamera = null; win.activateTab(0) }
                     onFullscreenRequested: win.fullscreen = true
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
@@ -1081,8 +1332,8 @@ Window {
                     visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null
                     cameraModel: cameraModel
                     storageHealth: storageHealth
-                    onOpenLive: (cam) => { win.section = "live"; win.focusedCamera = cam }
-                    onOpenPlayback: (cam) => { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
+                    onOpenLive: (cam) => { win.section = "live"; win.openCameraHere(cam) }
+                    onOpenPlayback: (cam) => { win.openCameraHere(cam); win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
                     onOpenEvents: (cam) => win.section = "events"
                 }
 
@@ -1124,7 +1375,7 @@ Window {
                     cameraModel: cameraModel
                     onOpenPlayback: (camId, atMs) => {
                         var cam = cameraModel.cameraByBackendId(camId);
-                        if (cam && cam.camId) { win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.openAt(cam, atMs) }
+                        if (cam && cam.camId) { win.openCameraHere(cam); win.playbackCamera = cam; playbackScreen.openAt(cam, atMs) }
                     }
                     // Export a 1-minute clip around the event (15s lead-in → 45s after)
                     // straight to the Clips library. The shared auth cookie is already
@@ -1195,11 +1446,91 @@ Window {
         }
     }
 
-    // Login gate — covers the shell until a valid session is held.
+    // Login gate — covers the shell until a valid session is held. Stops below the
+    // title bar: the window must stay closable/movable while signed out.
     LoginScreen {
         anchors.fill: parent
+        anchors.topMargin: titleBar.visible ? titleBar.height : 0
         visible: !AuthController.authenticated
         z: 1000
+    }
+
+    // ------------------------------------------------- frameless resize edges
+    // A frameless window has no border for the compositor to grab, so the edges
+    // are ours: each grip hands a resize back to the compositor via
+    // startSystemResize(). They overlay the outermost 4px of the shell (the nav
+    // rail's outer margin, a sliver of the ops sidebar's scrollbar) — the usual
+    // client-side-decoration trade, and every control stays reachable inboard of
+    // it. Absent while maximized/fullscreen, where there is nothing to drag.
+    Item {
+        id: resizeFrame
+        anchors.fill: parent
+        z: 1100
+        // Kept live in the app's chrome-hidden fullscreen mode too — that mode hides
+        // the title bar but the window is still an ordinary resizable window.
+        visible: win.visibility !== Window.Maximized && win.visibility !== Window.FullScreen
+
+        readonly property int t: 4      // edge thickness
+        readonly property int c: 14     // corner reach
+
+        component Grip: MouseArea {
+            property int edges: 0
+            hoverEnabled: true
+            onPressed: win.startSystemResize(edges)
+        }
+
+        Grip {
+            edges: Qt.LeftEdge; cursorShape: Qt.SizeHorCursor; width: resizeFrame.t
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom
+                      topMargin: resizeFrame.c; bottomMargin: resizeFrame.c }
+        }
+        Grip {
+            edges: Qt.RightEdge; cursorShape: Qt.SizeHorCursor; width: resizeFrame.t
+            anchors { right: parent.right; top: parent.top; bottom: parent.bottom
+                      topMargin: resizeFrame.c; bottomMargin: resizeFrame.c }
+        }
+        Grip {
+            edges: Qt.TopEdge; cursorShape: Qt.SizeVerCursor; height: resizeFrame.t
+            anchors { top: parent.top; left: parent.left; right: parent.right
+                      leftMargin: resizeFrame.c; rightMargin: resizeFrame.c }
+        }
+        Grip {
+            edges: Qt.BottomEdge; cursorShape: Qt.SizeVerCursor; height: resizeFrame.t
+            anchors { bottom: parent.bottom; left: parent.left; right: parent.right
+                      leftMargin: resizeFrame.c; rightMargin: resizeFrame.c }
+        }
+        Grip {
+            edges: Qt.TopEdge | Qt.LeftEdge; cursorShape: Qt.SizeFDiagCursor
+            width: resizeFrame.c; height: resizeFrame.c
+            anchors { top: parent.top; left: parent.left }
+        }
+        Grip {
+            edges: Qt.TopEdge | Qt.RightEdge; cursorShape: Qt.SizeBDiagCursor
+            width: resizeFrame.c; height: resizeFrame.c
+            anchors { top: parent.top; right: parent.right }
+        }
+        Grip {
+            edges: Qt.BottomEdge | Qt.LeftEdge; cursorShape: Qt.SizeBDiagCursor
+            width: resizeFrame.c; height: resizeFrame.c
+            anchors { bottom: parent.bottom; left: parent.left }
+        }
+        Grip {
+            edges: Qt.BottomEdge | Qt.RightEdge; cursorShape: Qt.SizeFDiagCursor
+            width: resizeFrame.c; height: resizeFrame.c
+            anchors { bottom: parent.bottom; right: parent.right }
+        }
+    }
+
+    // The design's window outline (box-shadow: 0 0 0 1px #000) — the only edge a
+    // frameless window has against the desktop. Pointer-transparent (no handlers),
+    // so the grips above keep working through it.
+    Rectangle {
+        anchors.fill: parent
+        z: 1200
+        visible: resizeFrame.visible
+        color: "transparent"
+        border.width: 1
+        border.color: "#000000"
     }
 
     // Clip-export feedback from the playback backend.
@@ -1246,16 +1577,18 @@ Window {
         savedViewModel: savedViewModel
         eventModel: eventModel
         snapshotModel: snapshotModel
-        onOpenCamera: (cam) => { win.section = "live"; win.focusedCamera = cam }
-        onOpenClips: { win.focusedCamera = null; win.playbackCamera = null; win.section = "clips" }
-        onOpenGroup: (gid, label) => { win.focusedCamera = null; win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.section = "live" }
+        // A palette jump navigates the tab the operator is in (cameras) or lands on
+        // the main tab (sections) — it never closes the tabs they left open.
+        onOpenCamera: (cam) => { win.section = "live"; win.openCameraHere(cam) }
+        onOpenClips: win.goToSection("clips")
+        onOpenGroup: (gid, label) => { win.groupFilter = gid; win.groupLabel = label; win.gridPage = 1; win.goToSection("live") }
         onOpenView: (view) => {
-            win.focusedCamera = null;
             var cg = win.resolveGroup(view.groupId, view.groupLabel);
             win.gridLayout = view.layout; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
-            win.groupFilter = cg.id; win.groupLabel = cg.label; win.gridPage = 1; win.section = "live";
+            win.groupFilter = cg.id; win.groupLabel = cg.label; win.gridPage = 1;
+            win.goToSection("live");
             savedViewModel.touch(view.viewId);
         }
-        onOpenEvents: { win.focusedCamera = null; win.playbackCamera = null; win.section = "events" }
+        onOpenEvents: win.goToSection("events")
     }
 }

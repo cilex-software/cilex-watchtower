@@ -395,6 +395,14 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtGroup", qEnvironmentVariable("WT_GROUP"));
     // Optional camera to open focused on boot, by IP (dev: WT_FOCUS_IP=192.168.1.108).
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
+    // Optional cameras to open as VIEW TABS on boot, by IP, comma-separated
+    // (dev: WT_TABS=192.168.1.125,192.168.1.67) — deterministic tab-strip runs.
+    // WT_TABS_HOME=1 then returns to the main tab, the state that proves the tabs
+    // outlive going back to the wall.
+    engine.rootContext()->setContextProperty("wtTabs", qEnvironmentVariable("WT_TABS"));
+    engine.rootContext()->setContextProperty("wtTabsHome", qEnvironmentVariableIsSet("WT_TABS_HOME"));
+    // Headless self-test of the view-tab bookkeeping (WT_TABS_TEST=1 → [TABTEST] PASS/FAIL).
+    engine.rootContext()->setContextProperty("wtTabsTest", qEnvironmentVariableIsSet("WT_TABS_TEST"));
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.

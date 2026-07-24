@@ -27,6 +27,7 @@ Item {
     signal saveViewRequested()
     signal snapshotSaved(string path, string camName)
     signal cameraOpened(var cam)
+    signal cameraOpenedNewTab(var cam)        // tile action "Open in new tab" → a view tab
     signal cameraPlaybackRequested(var cam)
     signal cameraIssueRequested(var cam)      // VIEW ISSUE on a tile → Health screen, camera selected
     signal wallPlaybackRequested()
@@ -1149,7 +1150,7 @@ Item {
                                 onOpened: root.cameraOpened(cellWrap.modelData)
                                 onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)
                                 onIssueRequested: root.cameraIssueRequested(cellWrap.modelData)
-                                onOpenedNewTab: root.cameraOpened(cellWrap.modelData)
+                                onOpenedNewTab: root.cameraOpenedNewTab(cellWrap.modelData)
                                 // Favorite is persisted in CameraModel (keyed by camera_id);
                                 // flip the tile optimistically so it reflects instantly (the
                                 // paged snapshot won't re-fetch until the next page() call).
