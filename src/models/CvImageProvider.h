@@ -9,6 +9,8 @@
 #include <QSize>
 #include <QString>
 
+#include <atomic>
+
 class AuthController;
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -43,9 +45,17 @@ public:
 
 public slots:
     void start();                       // runs on the GUI thread (NAM's thread)
+    void cancelOnOwnThread();           // cancel(), hopped off the pixmap-reader thread
 
 private:
     void releaseSnapshotSlot();         // pass the governed-extractor slot to the next queued fetch
+    // EXACTLY-ONCE finished(). Qt deletes the response as soon as finished() reaches
+    // the reader thread (`response->deleteLater()`, qquickpixmapcache.cpp:766, run
+    // unconditionally — even for a job it has already cancelled). A SECOND emission is
+    // therefore delivered to a sender Qt has already deleted, and that handler
+    // dereferences it → the 2026-07-25 P0 SIGSEGV (reader thread, QObject::deleteLater,
+    // 9.5 h uptime). Every exit path in this class goes through finish().
+    void finish();
     friend class CvImageProvider;
     AuthController *m_auth = nullptr;
     QNetworkAccessManager *m_nam = nullptr;   // the provider's private NAM (GUI-thread affine)
@@ -58,7 +68,9 @@ private:
     int m_attempt = 0;                  // 503 (governor shed) retries — honors Retry-After
     bool m_gated = false;               // holds one of the 2 snapshot-extractor slots
     bool m_queued = false;              // waiting in the snapshot queue
-    bool m_cancelled = false;
+    bool m_finished = false;            // GUI thread only — finish() is never called elsewhere
+    // Written by cancel() on the PIXMAP-READER thread, read on the GUI thread.
+    std::atomic<bool> m_cancelled { false };
 };
 
 class CvImageProvider : public QQuickAsyncImageProvider

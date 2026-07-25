@@ -4,6 +4,38 @@ _Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-25, evening) — 🔴→🟢 P0: image-provider double-completion (reader-thread SIGSEGV)
+
+- **Symptom:** SIGSEGV after 9.5 h uptime, RSS 267 MB (so not OOM), backtrace
+  `QQuickPixmapReader::run` → `QQuickPixmapReader::asyncResponseFinished` →
+  `QObject::deleteLater`. Not the scene graph — the **async image-provider**
+  thread (`CvImageProvider`, every camera thumbnail and event still).
+- **Root cause:** `CvImageResponse` could emit `finished()` more than once.
+  `asyncResponseFinished()` runs `response->deleteLater()` **unconditionally**
+  (qquickpixmapcache.cpp:766, verified in our own Qt tree), so emission #1 hands
+  the object to Qt for deletion and emission #2 is delivered to a sender Qt has
+  already deleted → dereference → crash. The narrow window that produced it: a
+  non-atomic `m_cancelled` read in the governed-snapshot dequeuer racing
+  `cancel()` on the reader thread, which let a queued `start()` complete a job
+  that `cancel()` had already completed. Two further latent faults on the same
+  three lines: `cancel()` emitted `finished()` **synchronously on the pixmap-reader
+  thread from inside `processJobs()` while it holds that reader's mutex** — a
+  recursive lock of a non-recursive `QMutex` (`quick_pixmap_cache_threaded_download`
+  is on in this build) — and it called `m_reply->abort()` on a GUI-thread
+  `QNetworkReply` from that same foreign thread.
+- **Fix (`CvImageProvider`):** every exit path goes through a one-shot `finish()`
+  latch; `cancel()` only sets an **atomic** flag and hops to the response's own
+  thread; the destructor `disconnect()`s the reply before aborting (abort emits
+  `finished()` synchronously, which otherwise re-entered our lambda from inside
+  the destructor) and can no longer strand a governed-extractor slot.
+- **Evidence:** an 11.5 min churn soak (`WT_GUARD_SOAK` + 700 ms thumbnail
+  refresh, saturating and cancelling the 2-slot `/snapshot` queue) suppressed
+  **318 duplicate completions** with zero crashes — i.e. the double-completion
+  was happening constantly, and only the rare interleaving reached the freed
+  pointer. After short-circuiting the benign post-completion cancel, the same
+  soak logs **0** duplicates, so `[EVIMG] duplicate finish suppressed` is now a
+  genuine regression alarm rather than routine noise.
+
 ## Current status (2026-07-25) — shell chrome: real window buttons + view tabs
 
 Two operator-reported shell gaps, both closed:

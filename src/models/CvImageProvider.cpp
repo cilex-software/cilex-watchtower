@@ -28,19 +28,63 @@ static constexpr int kSnapMaxConcurrent = 2;
 static int s_snapInFlight = 0;
 static QQueue<QPointer<CvImageResponse>> s_snapQueue;
 
+// Duplicate finish()es are suppressed rather than crashing — but a suppression means
+// a real double-completion happened, so count them and say so once (WT_TRACE prints
+// every one). If this ever climbs, the exit paths below have grown a new leak.
+static int s_dupFinish = 0;
+
 CvImageResponse::~CvImageResponse()
 {
-    if (m_reply)
+    // GUI thread (Qt deleteLater()s us). Drop the reply's connection BEFORE aborting:
+    // abort() emits QNetworkReply::finished SYNCHRONOUSLY, and our lambda would then
+    // run inside this destructor and emit our own finished() again — on an object Qt
+    // is already deleting.
+    if (m_reply) {
+        m_reply->disconnect(this);
         m_reply->abort();
+        m_reply->deleteLater();
+        m_reply = nullptr;
+    }
+    releaseSnapshotSlot();              // never strand a governed-extractor slot
 }
 
+// Qt calls cancel() on the PIXMAP-READER thread, from inside
+// QQuickPixmapReader::processJobs() while it holds that reader's mutex. So this must
+// do two things only: raise the flag, and hop. It must NOT touch m_reply — a
+// GUI-thread QNetworkReply — and it must NOT emit finished() synchronously, which
+// would re-enter QQuickPixmapReader::asyncResponseFinished() under its own lock and,
+// worse, race a queued start() into a second completion (the P0 above).
 void CvImageResponse::cancel()
 {
-    m_cancelled = true;
-    if (m_reply)
-        m_reply->abort();               // finished lambda releases the slot + emits
-    else if (m_queued)
-        emit finished();                // still queued: the dequeuer will skip us
+    m_cancelled.store(true);
+    QMetaObject::invokeMethod(this, &CvImageResponse::cancelOnOwnThread, Qt::QueuedConnection);
+}
+
+// GUI thread. Qt has already removed us from its response map, but it still deletes
+// us only when finished() arrives — so every branch must end the job exactly once.
+void CvImageResponse::cancelOnOwnThread()
+{
+    if (m_finished)
+        return;                         // the job beat the cancel here — nothing to stop
+    if (m_reply) {
+        m_reply->abort();               // → the finished lambda releases the slot + finish()es
+        return;
+    }
+    releaseSnapshotSlot();              // queued / retry-pending / never started
+    finish();
+}
+
+void CvImageResponse::finish()
+{
+    if (m_finished) {
+        ++s_dupFinish;
+        if (s_imgLog || s_dupFinish == 1)
+            qWarning("[EVIMG] duplicate finish suppressed (n=%d) %s", s_dupFinish,
+                     qPrintable(m_path.right(44)));
+        return;
+    }
+    m_finished = true;
+    emit finished();
 }
 
 void CvImageResponse::releaseSnapshotSlot()
@@ -61,8 +105,8 @@ void CvImageResponse::releaseSnapshotSlot()
 
 void CvImageResponse::start()
 {
-    if (!m_auth || !m_nam) { emit finished(); return; }
-    if (m_cancelled) { releaseSnapshotSlot(); emit finished(); return; }
+    if (!m_auth || !m_nam) { releaseSnapshotSlot(); finish(); return; }
+    if (m_cancelled) { releaseSnapshotSlot(); finish(); return; }
     // Governed-extractor gate: only /snapshot paths (the ffmpeg extraction) queue.
     if (!m_gated && m_path.contains(QLatin1String("/snapshot"))) {
         if (s_snapInFlight >= kSnapMaxConcurrent) {
@@ -98,7 +142,7 @@ void CvImageResponse::start()
     m_reply = m_nam->get(req);
     connect(m_reply, &QNetworkReply::finished, this, [this]() {
         QNetworkReply *r = m_reply;
-        if (!r) { emit finished(); return; }
+        if (!r) { releaseSnapshotSlot(); finish(); return; }
         const int code = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (s_imgLog)
             qInfo("[EVIMG] code=%d ms=%lld %s", code, (long long)m_timer.elapsed(),
@@ -136,7 +180,7 @@ void CvImageResponse::start()
         r->deleteLater();
         m_reply = nullptr;
         releaseSnapshotSlot();
-        emit finished();
+        finish();
     });
 }
 
