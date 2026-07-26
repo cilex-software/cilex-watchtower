@@ -1,0 +1,46 @@
+# wt-warden configuration — copy to ~/.config/watchtower-warden/warden.conf
+# (or /etc/watchtower-warden.conf for machine-wide). KEY=VALUE, # comments.
+# Env override: WT_WARDEN_<KEY>.
+
+# cilex-vision backend (the same LAN server that serves footage).
+BACKEND_URL=http://192.168.1.79:8000
+
+# Station ingest token (X-Cilex-Station-Token). Pilot value for dev/chaos:
+#   watchtower-warden-2026-a
+# The SHIPPING secret is minted at installer-cut and delivered out-of-band —
+# it must never appear in a repo (letters 2026-07-26-client-crash-report-ingest*).
+STATION_TOKEN=
+
+# How to launch Watchtower. Warden is the app's PARENT — always the launcher
+# script (it pins the patched-Qt runtime), never the bare binary.
+APP_CMD=/home/cilex-vision/projects/cilex-watchtower/run.sh
+
+# Extra env for the app, comma-separated (e.g. autologin on a kiosk box).
+APP_ENV=WT_CV_AUTOLOGIN=1
+
+# App data dir (flightrec/, crash/). Empty = ~/.local/share/Cilex Vision/Watchtower.
+DATA_DIR=
+
+# Warden home (spool, console captures). Empty = ~/.local/share/watchtower-warden.
+WARDEN_DIR=
+
+# Flightrec silence -> hang verdict, seconds (MEMTEL heartbeats every 30 s;
+# the in-app watchdog usually aborts first at WT_WATCHDOG_S=60).
+HANG_S=120
+
+# CV contract numbers — do not raise MAX_BUNDLE_MB above the server's 512.
+MAX_BUNDLE_MB=512
+
+# Minting policy (reply4 — contractual: <=4 new reports/min, <=6/hour).
+LOOP_WINDOW_S=600
+LOOP_SINGLES=3
+LOOP_QUIET_S=1800
+MANIFEST_PUT_MIN_S=60
+
+# Local sent/ retention (server keeps 365 d; this is just disk hygiene).
+SENT_KEEP_DAYS=14
+
+# Optional alarm hook: executable run as <cmd> <kind> <text> on ALARM events
+# (crash-loop, upload-401/400/413, hang). Wire Telegram/webhook here later
+# without touching the frozen install (CW-13).
+ALARM_CMD=

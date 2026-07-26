@@ -1,0 +1,25 @@
+# wt-warden — supervises Cilex Watchtower on a guard workstation (Warden CW-07).
+# USER unit: install to ~/.config/systemd/user/ (install-linux.sh does this),
+#   systemctl --user enable --now wt-warden
+# systemd keeps WARDEN alive; Warden keeps WATCHTOWER alive (parent-child, so
+# exit causes are captured directly). Tied to the graphical session — the app
+# needs the compositor.
+[Unit]
+Description=Watchtower Warden (supervisor + crash collector + uploader)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/lib/watchtower-warden/warden.py run
+Restart=always
+RestartSec=2
+# The app inherits this: core dumps land in the crash dir (setup-root.sh sets
+# kernel.core_pattern; without it collection still works, just core-less).
+LimitCORE=infinity
+# Never give up — a crash-looping Warden is Warden's own restart-loop policy's
+# problem, not systemd's.
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=graphical-session.target

@@ -4,6 +4,36 @@ _Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-26) — Warden v1 LIVE on Linux: CW-01…CW-12 done, first real bundles in CV's store
+
+The "oops it crashed, just restart it" era is over. Built and verified today
+(plan: `docs/plans/warden-build-plan.md`; contract letters:
+`docs/letters/2026-07-26-client-crash-report-ingest*.md`, frozen same day
+across 4 rounds with CV — endpoints deployed their side, migration 0060):
+
+- **In-app half (frozen at install):** CW-01 flight recorder (rotating log tee,
+  SIGKILL-durable — already caught lines a killed pipe lost); CW-02
+  modules/BuildID snapshots (offline symbolization — born from hand-symbolizing
+  the 07-25 P0); CW-03 async-signal-safe crash marker w/ pre-minted report_id;
+  CW-04 Windows minidump (compile-guarded, VM validation = CW-18); CW-05
+  view-state persistence (restart lands the guard where they were; seed/verify
+  self-test, kill −9 durable); CW-08 GUI-thread watchdog (60 s → abort → marked
+  crash — a frozen wall must die loudly, never lie).
+- **Warden (`warden/`):** parent-supervisor (restart 1→60 s backoff), collector
+  (boot replay, token scrub, core cap), reply4 minting policy (3 singles →
+  restart-loop; quiet-close bug found+fixed), two-PUT uploader with the full §4
+  code table, USB export/reimport, systemd unit + install scripts.
+- **Chaos-verified against the real pilot store (its first-ever uploads):**
+  sigsegv, markerless sigkill (unknown-trigger flagged, by design),
+  restart-loop open at death #4, SIGSTOP → hang-watchdog, manifest re-PUT →
+  server `manifest_revisions=2`, stored-skip dedup ("bundle already held", 0
+  bytes resent), clean stop → no report. Admin read side lists 5 reports, all
+  `stored`.
+- **Open:** CW-13 alarms blocked on the operator channel choice; CW-14/15
+  remaining scope (reboot-mid-collection, ≥24 h endurance); Windows leg
+  CW-16…18; heartbeat letter CW-19 after v1 bake; shipping secret CW-20 at
+  installer-cut.
+
 ## Current status (2026-07-25, evening) — 🔴→🟢 P0: image-provider double-completion (reader-thread SIGSEGV)
 
 - **Symptom:** SIGSEGV after 9.5 h uptime, RSS 267 MB (so not OOM), backtrace

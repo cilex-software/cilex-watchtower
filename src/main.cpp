@@ -15,6 +15,10 @@
 #include <csignal>
 #include <cstring>
 #include <cstdio>
+#include <atomic>
+#include <chrono>
+#include <ctime>
+#include <thread>               // GUI-thread hang watchdog (Warden CW-08)
 // Platform split: the RSS reader, the crash handler, the fd-limit raise, the glibc arena
 // tuning and the Yama ptrace opt-in are all OS-specific. Qt is included above, so Q_OS_WIN /
 // Q_OS_LINUX (from <QtGlobal>) are already defined here. Everything outside these blocks is
@@ -221,6 +225,46 @@ int main(int argc, char *argv[])
 
     QGuiApplication app(argc, argv);
     FlightRecorder::startPeriodic(&app);   // CW-02: modules/BuildID snapshots (30 s, on change)
+
+    // GUI-thread hang watchdog (Warden CW-08, app half). A frozen wall that keeps
+    // painting its last frame is worse than a crash — the guard trusts a lie. A
+    // detached thread posts a ping to the GUI thread and aborts the process when
+    // the ping goes unanswered for WT_WATCHDOG_S seconds (default 60 — far above
+    // the known ~20 s iGPU relayout wedge, which recovers; hangs we kill are the
+    // permanent kind). abort() → SIGABRT → the fatal handler writes the crash
+    // marker + backtrace, and Warden restarts us into the restored view (CW-05).
+    // CLOCK_MONOTONIC pauses across suspend on Linux, so a resumed laptop doesn't
+    // false-trigger. WT_WATCHDOG_OFF=1 disables (soak harnesses that SIGSTOP us).
+    if (!qEnvironmentVariableIsSet("WT_WATCHDOG_OFF")) {
+        int hangS = qEnvironmentVariableIntValue("WT_WATCHDOG_S");
+        if (hangS <= 0) hangS = 60;
+        static std::atomic<long long> s_lastAckMs;
+        auto mono = []() -> long long {
+#if defined(Q_OS_WIN)
+            return (long long)GetTickCount64();
+#else
+            struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+            return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#endif
+        };
+        s_lastAckMs.store(mono());
+        std::thread([hangS, mono]() {
+            for (;;) {
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+                // Queued onto the GUI thread; runs only if the event loop is alive.
+                QMetaObject::invokeMethod(qApp, [mono]() { s_lastAckMs.store(mono()); },
+                                          Qt::QueuedConnection);
+                const long long age = mono() - s_lastAckMs.load();
+                if (age > (long long)hangS * 1000) {
+                    std::fprintf(stderr, "\n[WT-HANG] GUI thread unresponsive for %llds "
+                                         "(watchdog %ds) — aborting for Warden to restart.\n",
+                                 age / 1000, hangS);
+                    std::fflush(stderr);
+                    std::abort();
+                }
+            }
+        }).detach();
+    }
 
     // --- per-open RSS retention control (the dominant memory growth during a review shift) ---
     // Playback churns large transient buffers every recording open — decoded frames (~5.5 MB at
