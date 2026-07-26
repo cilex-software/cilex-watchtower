@@ -190,6 +190,8 @@ qt_add_qml_module(watchtower
         src/models/FrameClock.cpp
         src/models/FrameCache.h
         src/models/FrameCache.cpp
+        src/models/FlightRecorder.h
+        src/models/FlightRecorder.cpp
 )
 
 # UI translations (EN/RU). Builds .qm from the committed .ts at build time and embeds

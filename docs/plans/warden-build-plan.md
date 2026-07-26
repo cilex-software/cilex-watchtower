@@ -11,7 +11,7 @@ atomic and guard boxes are frozen at install)._
 | Id | Description | Status |
 |---|---|---|
 | CW-00 | Ingest contract with Cilex Vision: two-PUT wire format, TOFU auth, four numbers, re-arm/last-write-wins semantics, rate cap 10/min+30/h (letters + replies 1–4) | ✅ done (frozen both sides) |
-| CW-01 | Flight recorder: `qInstallMessageHandler` tee → rotating files (~5×10 MB) in the data dir — the journal on Windows, journald's backup on Linux | pending |
+| CW-01 | Flight recorder: `qInstallMessageHandler` tee → rotating files (~5×10 MB) in the data dir — the journal on Windows, journald's backup on Linux | ✅ done (`src/models/FlightRecorder.*`; verified: tee+banner, 4 KB-cap rotation, SIGKILL durability, off-switch, console unchanged, TABTEST green) |
 | CW-02 | Modules/BuildID snapshot refreshed on the MEMTEL tick (`/proc/self/maps` on Linux, `modules.txt` on Windows) — offline symbolization without a core | pending |
 | CW-03 | Crash marker from the fatal handler: async-signal-safe preformatted record (signal, uptime, RSS, pre-minted next-crash `report_id`) | pending |
 | CW-04 | Windows minidump: `MiniDumpWriteDump` in the existing `wtUnhandledException` (WER LocalDumps registry as installer belt-and-braces) | pending |

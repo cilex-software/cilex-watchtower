@@ -71,6 +71,7 @@ caveats:
 | `WT_FOCUS_IP=<ip>` | Boot into Single Camera Detail for that camera. |
 | `WT_TABS=<ip>[,<ip>…]` | Open those cameras as **view tabs** on boot (`WT_TABS_HOME=1` then returns to the main tab — the state that proves tabs outlive going back to the wall). |
 | `WT_TABS_TEST=1` | Headless self-test of the view-tab bookkeeping against the shipping functions — logs `[TABTEST]` per assertion, then `PASS`/`FAIL`, and quits. Run it after touching `openCameraHere`/`openCameraTab`/`activateTab`/`closeTab`. |
+| `WT_FLIGHTREC_OFF=1`, `WT_FLIGHTREC_DIR`, `WT_FLIGHTREC_BYTES`, `WT_FLIGHTREC_KEEP` | Flight recorder (Warden CW-01): every Qt log line is teed to rotating files in `<AppData>/flightrec/` (default 10 MB × 5) — the raw material Warden bundles after a crash. Console/journald output is untouched (previous handler chained). Off/dir/size/count knobs; lines are flushed to the kernel per write, so they survive SIGKILL (verified). |
 | `WT_PLAYBACK_IP=<ip>` | Boot into Playback for that camera. (`WT_PLAYBACK_DAY=yyyy-MM-dd[Thh:mm:ss]` opens a specific day / instant.) |
 | `WT_TTFF_DAYS=d1,d2,…` | Playback open-latency harness: opens each day in turn, logs `[TTFF]` (calendar-click → first rendered frame) + `[PBTIME]` stage breakdowns, quits. Pair with `WT_PLAYBACK_IP`. `WT_TRACE=1` alone also enables the `[PBTIME]` logs. |
 | `WT_TEST_IP=<ip>` | Restrict live streaming to one camera during dev (avoid hammering cameras — see lockout caveat). |

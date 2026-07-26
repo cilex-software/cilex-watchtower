@@ -39,6 +39,7 @@
 
 #include "AuthController.h"
 #include "models/CvImageProvider.h"
+#include "models/FlightRecorder.h"
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
 #include "models/FrameClock.h"
@@ -193,10 +194,20 @@ int main(int argc, char *argv[])
         prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
 #endif
 
-    QGuiApplication app(argc, argv);
+    // Application identity BEFORE the app object: the flight recorder derives its
+    // dir from it (QStandardPaths honours the static setters), and installing the
+    // recorder before QGuiApplication captures QPA/plugin startup warnings too —
+    // on Windows this file is the only journal there is.
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
     QGuiApplication::setOrganizationName(QStringLiteral("Cilex Vision"));
+#ifdef WT_GIT_SHA
+    FlightRecorder::install(WT_GIT_SHA);
+#else
+    FlightRecorder::install("dev");
+#endif
+
+    QGuiApplication app(argc, argv);
 
     // --- per-open RSS retention control (the dominant memory growth during a review shift) ---
     // Playback churns large transient buffers every recording open — decoded frames (~5.5 MB at
