@@ -126,6 +126,105 @@ Window {
         else { mainTabCamera = null; focusedCamera = null; }
     }
 
+    // ---------------------------------------- View-state persistence (Warden CW-05)
+    // A restart — Warden's crash-restart above all — must land the guard exactly
+    // where they were: same section, layout, group, page, open tabs, focused
+    // camera. The blob stores only IDs that re-resolve against the live roster
+    // (never invented content); playback position is deliberately NOT restored —
+    // a review session can't be resumed blindly later, so a camera that was in
+    // playback restores to its live view instead.
+    //
+    // Persistence is ACTIVE only on a clean operator boot: any boot-shaping dev
+    // hook (WT_SECTION, WT_TABS, soak drivers…) makes the run ineligible, so
+    // synthetic states never overwrite the guard's real view. Saves arm only
+    // after the restore attempt resolves — boot defaults must not clobber the
+    // saved state while the roster is still loading.
+    readonly property bool restoreEligible:
+        !wtRestoreOff && !wtDemo && !wtTabsTest && !wtEventsTest && !wtHeroTest
+        && wtSection === "" && wtTabs === "" && wtStatusFilter === ""
+        && wtFocusIp === "" && wtDetailIp === "" && wtPlaybackIp === "" && wtGroup === ""
+        && wtWallDay === "" && !wtGuardSoak && !wtFsoak && !wtNightSoak && !wtCalStress
+        && !wtResizeTest && wtChurnTest === 0
+    property bool _vsArmed: false    // saves allowed (post-restore)
+    property bool _vsDone: false     // restore attempt resolved
+
+    function _vsCapture() {
+        var t = [];
+        for (var i = 1; i < tabs.length; i++) t.push(tabs[i].camId);
+        return JSON.stringify({
+            v: 1, at: Date.now(),
+            section: section, layout: gridLayout, page: gridPage,
+            status: statusFilter, sort: sortMode,
+            // The map-selection pseudo-group is session-local — never persist it.
+            group: groupFilter === "__selected__" ? "" : groupFilter,
+            groupLabel: groupFilter === "__selected__" ? "All cameras" : groupLabel,
+            sidebar: opsSidebarOpen,
+            mainCam: mainTabCamera ? mainTabCamera.camId : "",
+            tabs: t, active: activeTab
+        });
+    }
+    // The binding reads every shell property, so ANY navigation refreshes the
+    // blob; the debounce collapses a click-burst into one sync()ed write.
+    property string _vsBlob: _vsCapture()
+    on_VsBlobChanged: if (_vsArmed && restoreEligible) vsSaveDebounce.restart()
+    Timer { id: vsSaveDebounce; interval: 1000; onTriggered: Settings.saveViewState(win._vsBlob) }
+
+    function _vsFinish(outcome) {
+        if (outcome !== "applied") console.log("[RESTORE] skipped (" + outcome + ")");
+        _vsDone = true;
+        _vsArmed = true;
+    }
+    Timer {
+        id: vsRestore
+        interval: 700; repeat: true
+        running: win.restoreEligible && !win._vsDone
+        property int tries: 0
+        onTriggered: {
+            tries++;
+            var raw = Settings.viewState();
+            if (raw === "") { win._vsFinish("none"); return; }
+            // Tabs/cameras resolve against the roster — wait for it (bounded:
+            // a backendless boot must still arm saves eventually).
+            if (!AuthController.authenticated || cameraModel.total === 0) {
+                if (tries > 60) win._vsFinish("timeout-no-roster");
+                return;
+            }
+            var s;
+            try { s = JSON.parse(raw); } catch (e) { win._vsFinish("corrupt"); return; }
+            if (!s || s.v !== 1) { win._vsFinish("unknown-version"); return; }
+            if ((Date.now() - (s.at || 0)) > 24 * 3600 * 1000) { win._vsFinish("stale"); return; }
+            win.gridLayout = s.layout || "16";
+            win.gridPage = s.page || 1;
+            win.statusFilter = s.status || "";
+            win.sortMode = s.sort || "live";
+            win.groupFilter = s.group || "";
+            win.groupLabel = s.groupLabel || "All cameras";
+            win.opsSidebarOpen = s.sidebar !== false;
+            win.section = s.section || "live";
+            var t = [{ "kind": "main" }];
+            var lost = 0;
+            var saved = s.tabs || [];
+            for (var i = 0; i < saved.length; i++) {
+                var c = cameraModel.cameraByBackendId(saved[i]);
+                if (c && c.camId) t.push({ "kind": "camera", "camId": c.camId, "cam": c });
+                else lost++;                       // camera left the roster — drop honestly
+            }
+            win.tabs = t;
+            if (s.mainCam) {
+                var mc = cameraModel.cameraByBackendId(s.mainCam);
+                win.mainTabCamera = (mc && mc.camId) ? mc : null;
+            } else {
+                win.mainTabCamera = null;
+            }
+            win.activateTab(Math.max(0, Math.min(s.active || 0, t.length - 1)));
+            console.log("[RESTORE] applied section=" + win.section + " layout=" + win.gridLayout
+                        + " tabs=" + (t.length - 1) + (lost ? " lost=" + lost : "")
+                        + " active=" + win.activeTab
+                        + " age_s=" + Math.round((Date.now() - s.at) / 1000));
+            win._vsFinish("applied");
+        }
+    }
+
     // --- Resize stress-test driver (WT_RESIZE_TEST): drives programmatic resizes for the external
     //     CPU/RSS sampler. Phase 1 (0-120s) random non-extreme sizes; phase 2 (120-240s) degenerate
     //     edge cases. Logs requested + actual-granted size each tick (timestamps align with the sampler).
@@ -425,6 +524,48 @@ Window {
             }
             if (typeof wtTabsHome !== "undefined" && wtTabsHome) win.activateTab(0);
             tabsBootHook.running = false;
+        }
+    }
+    // Dev self-test (CW-05): WT_RESTORE_TEST=seed navigates to a known state on a
+    // fresh profile and persists it; WT_RESTORE_TEST=verify (same profile, new
+    // process) asserts the restore reproduced it. [RESTTEST] PASS/FAIL.
+    Timer {
+        id: restTest
+        interval: 600; repeat: true
+        running: wtRestoreTest !== ""
+        property int fails: 0
+        function ck(label, got, want) {
+            var ok = String(got) === String(want);
+            if (!ok) restTest.fails++;
+            console.log("[RESTTEST] " + (ok ? "ok  " : "FAIL") + " " + label + " got=" + got + " want=" + want);
+        }
+        onTriggered: {
+            if (!win._vsDone) return;                       // restore attempt first
+            if (!AuthController.authenticated || cameraModel.total === 0) return;
+            if (wtRestoreTest === "seed") {
+                var all = cameraModel.page("", "", "default", 1, 8);
+                if (all.length < 3) return;
+                restTest.running = false;
+                win.openCameraHere(all[0]);                 // camera in the main tab
+                win.openCameraTab(all[1]);
+                win.openCameraTab(all[2]);
+                win.activateTab(1);
+                win.setLayout("9");
+                Settings.saveViewState(win._vsCapture());   // deterministic (no debounce wait)
+                console.log("[RESTTEST] SEEDED main=" + all[0].camId + " tabs=2 active=1 layout=9");
+                Qt.quit();
+            } else {
+                restTest.running = false;
+                restTest.ck("tabs.len", win.tabs.length, 3);
+                restTest.ck("active", win.activeTab, 1);
+                restTest.ck("layout", win.gridLayout, "9");
+                restTest.ck("section", win.section, "live");
+                restTest.ck("mainCam", win.mainTabCamera ? "set" : "null", "set");
+                restTest.ck("focused", win.focusedCamera ? win.focusedCamera.camId : "null",
+                            win.tabs.length > 1 ? win.tabs[1].camId : "?");
+                console.log("[RESTTEST] " + (restTest.fails === 0 ? "PASS" : "FAIL") + " fails=" + restTest.fails);
+                Qt.quit();
+            }
         }
     }
     // Dev self-test: WT_TABS_TEST=1 drives the tab bookkeeping over the real roster

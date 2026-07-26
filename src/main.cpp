@@ -427,6 +427,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtTabsHome", qEnvironmentVariableIsSet("WT_TABS_HOME"));
     // Headless self-test of the view-tab bookkeeping (WT_TABS_TEST=1 → [TABTEST] PASS/FAIL).
     engine.rootContext()->setContextProperty("wtTabsTest", qEnvironmentVariableIsSet("WT_TABS_TEST"));
+    // View-state restore (Warden CW-05): WT_RESTORE_OFF=1 disables persistence entirely;
+    // WT_RESTORE_TEST=seed|verify drives the two-phase self-test ([RESTTEST] PASS/FAIL).
+    engine.rootContext()->setContextProperty("wtRestoreOff", qEnvironmentVariableIsSet("WT_RESTORE_OFF"));
+    engine.rootContext()->setContextProperty("wtRestoreTest", qEnvironmentVariable("WT_RESTORE_TEST"));
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.

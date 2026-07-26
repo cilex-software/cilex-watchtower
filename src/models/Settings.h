@@ -97,6 +97,14 @@ public:
     Q_INVOKABLE void setLiveLayout(const QString &groupId, const QStringList &ids);
     Q_INVOKABLE void clearLiveLayout(const QString &groupId);
 
+    // Persisted shell view state (Warden CW-05): an opaque JSON blob owned by
+    // Main.qml (section, layout, tabs, focused camera, …) so a restart —
+    // Warden's crash-restart above all — lands the guard exactly where they
+    // were. sync() on every save: the write must be on disk BEFORE the crash,
+    // by definition. Empty string = none saved.
+    Q_INVOKABLE QString viewState() const;
+    Q_INVOKABLE void saveViewState(const QString &json);
+
 signals:
     void defaultStreamHdChanged();
     void defaultLandingChanged();

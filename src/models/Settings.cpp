@@ -163,6 +163,19 @@ void Settings::clearLiveLayout(const QString &groupId)
     m_settings.remove(liveLayoutKey(groupId));
 }
 
+QString Settings::viewState() const
+{
+    return m_settings.value(QStringLiteral("workspace/viewState")).toString();
+}
+
+void Settings::saveViewState(const QString &json)
+{
+    m_settings.setValue(QStringLiteral("workspace/viewState"), json);
+    // Crash-durable by contract: Warden restarts us after SIGKILL — a lazily
+    // flushed QSettings would restore the guard to a stale view.
+    m_settings.sync();
+}
+
 void Settings::setBadgeTimers(bool v)
 {
     if (m_badgeTimers == v)
