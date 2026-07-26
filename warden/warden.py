@@ -113,10 +113,26 @@ def machine_id_hash():
     return ""
 
 
+def core_pattern_ok():
+    """True when kernel cores will actually land in our crash dir. On stock
+    Ubuntu, apport owns kernel.core_pattern (a `|pipe`), which silently makes
+    core-writing a no-op for us — CV's reply6 spotted exactly that in the first
+    five bundles. The gap must be self-announcing: annotated in every manifest
+    (a core-less bundle then explains itself server-side) and alarmed once at
+    startup. Fix on a box: sudo warden/setup-root.sh."""
+    try:
+        pat = Path("/proc/sys/kernel/core_pattern").read_text().strip()
+    except OSError:
+        return False, ""
+    return pat.startswith(str(CRASH)), pat
+
+
 def os_facts():
+    ok, pat = core_pattern_ok()
     facts = {"host": socket.gethostname(), "machine_id_hash": machine_id_hash(),
              "os": "", "kernel": "", "display": os.environ.get(
-                 "XDG_SESSION_TYPE", "wayland" if os.environ.get("WAYLAND_DISPLAY") else "")}
+                 "XDG_SESSION_TYPE", "wayland" if os.environ.get("WAYLAND_DISPLAY") else ""),
+             "cores_available": ok, "core_pattern": pat[:120]}
     try:
         for line in Path("/etc/os-release").read_text().splitlines():
             if line.startswith("PRETTY_NAME="):
@@ -574,6 +590,11 @@ class Supervisor:
             return 2
         signal.signal(signal.SIGTERM, lambda *_: setattr(self, "stopping", True))
         signal.signal(signal.SIGINT, lambda *_: setattr(self, "stopping", True))
+        ok, pat = core_pattern_ok()
+        if not ok:
+            alarm("no-cores", f"kernel.core_pattern is '{pat[:80]}' — crash bundles "
+                              f"will carry NO core (backtrace+logs only). "
+                              f"Fix: sudo warden/setup-root.sh")
         self.boot_replay()
         Uploader().start()
         prune_sent()
