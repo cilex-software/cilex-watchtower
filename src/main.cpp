@@ -98,6 +98,10 @@ LONG WINAPI wtUnhandledException(EXCEPTION_POINTERS *info)
     if (len > 0)
         ::fwrite(line, 1, size_t(len), stderr);
     ::fflush(stderr);
+    // Warden CW-03/04: crash marker + our own minidump. CONTINUE_SEARCH still
+    // lets WER produce its LocalDumps copy (belt-and-braces for filter-bypassing
+    // crash classes — fast-fail, /GS — which never reach this filter at all).
+    FlightRecorder::writeCrashArtifacts(code, rss, info);
     return EXCEPTION_CONTINUE_SEARCH;   // let WER/procdump produce the dump, then terminate
 }
 
@@ -126,6 +130,14 @@ void wtFatalHandler(int sig)
         void *bt[64];
         int n = ::backtrace(bt, 64);
         ::backtrace_symbols_fd(bt, n, STDERR_FILENO);   // async-signal-safe (unlike _symbols)
+        // Warden CW-03: the same backtrace into the crash marker — the durable
+        // copy that survives a guard closing the terminal or rebooting. SIGTERM
+        // deliberately mints NO marker (normal supervisor stop is not a crash).
+        const int mfd = FlightRecorder::openCrashMarker(sig, rss);
+        if (mfd >= 0) {
+            ::backtrace_symbols_fd(bt, n, mfd);
+            ::close(mfd);
+        }
     }
     ::signal(sig, SIG_DFL);
     ::raise(sig);
@@ -208,6 +220,7 @@ int main(int argc, char *argv[])
 #endif
 
     QGuiApplication app(argc, argv);
+    FlightRecorder::startPeriodic(&app);   // CW-02: modules/BuildID snapshots (30 s, on change)
 
     // --- per-open RSS retention control (the dominant memory growth during a review shift) ---
     // Playback churns large transient buffers every recording open — decoded frames (~5.5 MB at

@@ -259,7 +259,8 @@ if(WIN32)
 
     # PSAPI: GetProcessMemoryInfo — the Windows RSS reader in main.cpp / MemTelemetry.cpp
     # (the /proc/self/statm equivalent). SetUnhandledExceptionFilter is in kernel32 (auto-linked).
-    target_link_libraries(watchtower PRIVATE psapi)
+    # DBGHELP: MiniDumpWriteDump — the crash-time minidump (FlightRecorder, Warden CW-04).
+    target_link_libraries(watchtower PRIVATE psapi dbghelp)
 
     # Bundle the runtime: windeployqt (Qt DLLs/QML/plugins) + the GStreamer LGPL subset.
     # Explicit target:  cmake --build <dir> --target deploy-windows

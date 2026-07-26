@@ -19,13 +19,38 @@
 // Env knobs: WT_FLIGHTREC_OFF=1 disables; WT_FLIGHTREC_DIR overrides the dir;
 // WT_FLIGHTREC_BYTES per-file rotation size (default 10 MB); WT_FLIGHTREC_KEEP
 // rotated-file count (default 5).
+class QObject;
+
 namespace FlightRecorder
 {
-// Install the tee. Call once, as early as possible after the application
-// identity (org/app name) is set — the default dir derives from it.
+// Install the tee AND arm the crash marker (CW-03). Call once, as early as
+// possible after the application identity (org/app name) is set — the default
+// dirs derive from it. Marker arming is unconditional; WT_FLIGHTREC_OFF only
+// disables the log tee + module snapshots, never crash forensics.
 void install(const char *buildSha);
+
+// Start the periodic module/BuildID snapshot (CW-02) — needs a running event
+// loop, so it's a separate call made right after the QGuiApplication exists.
+// Writes <flightrec>/modules.txt (+ maps.txt on Linux) whenever the loaded
+// module set changes; that is what lets a bare [WT-FATAL] backtrace be
+// symbolized offline against the exact binaries the guard box was running
+// (the 2026-07-25 P0 was symbolized by hand for want of exactly this file).
+void startPeriodic(QObject *parent);
 
 // Where the recorder is writing ("" when disabled) — Warden's collector reads
 // this dir; also logged at install so the location is discoverable post-mortem.
 QString directory();
+
+// ---- crash-time API (called from the fatal handler in main.cpp) ----
+#if defined(Q_OS_WIN)
+// Windows: write the marker JSON + a minidump (MiniDumpWriteDump) next to it.
+// Runs inside the unhandled-exception filter — normal CRT is permitted there.
+void writeCrashArtifacts(unsigned long exceptionCode, long rssMb, void *exceptionPointers);
+#else
+// Linux: async-signal-safe. Opens <AppData>/crash/marker-<report_id>.json and
+// writes the one-line JSON header (signal, epoch, uptime, rss, build, qt, pid);
+// returns the fd so the caller can append backtrace_symbols_fd() lines, or -1
+// when unarmed. First line JSON, rest raw backtrace — Warden parses leniently.
+int openCrashMarker(int sig, long rssMb);
+#endif
 }
