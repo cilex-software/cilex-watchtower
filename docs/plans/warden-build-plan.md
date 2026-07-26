@@ -24,14 +24,14 @@ atomic and guard boxes are frozen at install)._
 | CW-11 | Spool state machine + uploader: two-phase PUTs, §4 code table, TOFU station token | ✅ done (live 201/201s ×5; re-PUT → server `manifest_revisions=2`; stored-skip dedup live; 4xx/413 paths coded — provoked-error runs pending on CV's side or a fault-injection pass) |
 | CW-12 | USB path: `warden export <dest>` + `reimport` (manifest-first dedup) | ✅ done (export verified; reimport shares the proven stored-skip path) |
 | CW-13 | Operator alerting: restart / crash-loop / 401 / quarantine alarms to Roman's channel | ⛔ blocked — channel choice (Telegram / webhook / email) still open |
-| CW-14 | Chaos rig vs pilot box: kill -9 singles, kill loop (verify 3+1 minting + coalescing server-side), hang-abort, reboot-mid-collection; measure time-to-video-back; **first real upload** + CV cross-confirm | pending |
+| CW-14 | Chaos rig vs pilot box: kill singles, kill loop (3+1 minting), hang-abort, reboot-mid-collection; **first real upload** + CV cross-confirm | ◐ mostly done (2026-07-26: sigsegv/sigkill/loop-open/hang all uploaded — the store's first 5 reports, all `stored`, re-PUT rev=2, dedup live; **remaining:** reboot-mid-collection boot-replay on a real power cycle, CV's cross-confirmation reply) |
 | CW-15 | Endurance: ≥ 24 h soak under Warden supervision — restore fidelity, no double-collection, spool bounded, zero guard-visible artifacts beyond the ~2 s blink | pending |
 | CW-16 | Windows Warden: same Python core → PyInstaller single exe, Scheduled Task at-logon (never a service), NSIS installer wires LocalDumps + autologon + task | pending |
 | CW-17 | CI archives PDBs per Windows release tag — minidumps are unreadable without them; worthless if done after the first field crash | pending |
 | CW-18 | Windows chaos validation in a plain Win 10/11 VM (`taskkill /f`, suspend-as-hang, reboot mid-collection) — no GPU needed, not parked behind W2/W3 | pending |
 | CW-19 | Dead-man heartbeat letter to CV (station liveness; their Prometheus→Alertmanager→ntfy plumbing) — both sides agree it's "the one with teeth" | pending — after v1, by agreement |
 | CW-20 | Shipping bootstrap secret: CV mints real random value at installer-cut, delivered out-of-band, never in a repo | ⛔ blocked — on installer cut (pilot token in use meanwhile) |
-| CW-21 | Docs: `warden/README.md`, DEVELOPMENT.md section, PROJECT_STATUS entries — rolls with each phase | pending |
+| CW-21 | Docs: `warden/README.md`, DEVELOPMENT.md section, PROJECT_STATUS entries — rolls with each phase | ◐ rolling (README + dev-hook rows + PROJECT_STATUS 07-26 entry done; DEVELOPMENT.md architecture paragraph pending) |
 
 **Build order:** CW-01…05 (in-app half, no CV dependency) → CW-06…12 (Linux Warden v1)
 → CW-14/15 (validation, first real upload) → CW-16…18 (Windows leg) → CW-19/20 (post-v1).
