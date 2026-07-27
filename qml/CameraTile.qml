@@ -136,6 +136,10 @@ Item {
     signal favoriteToggled()
     signal openedNewTab()
     signal issueRequested()
+    // Merged-cell tile (cell spans): true when this tile occupies a merged region;
+    // the hover row then offers Split (the wall handles the geometry).
+    property bool spanned: false
+    signal splitRequested()
     // Asks the wall to promote/demote this tile's HD stream. In the grid the wall
     // gates promotion against a concurrency cap (go2rtc transcode budget) rather
     // than letting the tile flip itself; a focused (non-grid) tile flips freely.
@@ -542,6 +546,8 @@ Item {
                 onClicked: root.favoriteToggled()
             }
             TileAction { name: "newtab"; tip: "Open in new tab"; onClicked: root.openedNewTab() }
+            TileAction { visible: root.spanned; name: "split"; tip: qsTr("Split into 1×1 cells")
+                         onClicked: root.splitRequested() }
         }
 
         HoverHandler { id: hover }

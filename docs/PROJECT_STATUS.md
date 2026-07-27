@@ -4,6 +4,25 @@ _Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-27, night) — merged cells on the Live wall (operator feature request)
+
+Shift+drag across wall tiles → merge into one big tile (e.g. 4×1×1 → one 2×2 for
+the entrance camera). Excel/iVMS grammar chosen after an industry survey
+(select-then-merge over Nx-style corner-drag; **modifier-gated so plain drag stays
+reserved for future drag-swap** — operator's call). Anchor (drag-start) camera
+fills the region and auto-promotes to HD within the transcode cap; displaced
+cameras reflow honestly; swallow-rule for overlapping merges; Split via hover
+action / M / Ctrl+click; floating pill with honest hints (never a silent no-op);
+footer hint for discoverability. Spans persist per (group, layout) — Saved Views
+and the CW-05 crash-restore carry them for free — and the grid dims are CAPTURED
+from the auto-fit net at first merge, so a merge means what it meant on screen.
+Renders on the existing fixed-net path (manual x/y/w/h — no delegate rebuilds, the
+green-wall rule holds). Self-test `WT_MERGE_TEST=seed|verify` PASS ×2 processes
+(11 assertions incl. anchor-camera continuity + slot math); screenshot-verified
+(13 slots, `1–13 of 34`, paging correct); TABTEST/RESTTEST green; RU strings 0
+unfinished. Phase 2 (playback wall = server composite) filed as
+`docs/letters/2026-07-27-wall-composite-cell-spans.md` — not blocking.
+
 ## Current status (2026-07-27, late) — heartbeat CLOSED both sides; CW-13 decided; endurance GREEN
 
 - **CW-15 endurance:** 24 h under Warden, GREEN all gates (report

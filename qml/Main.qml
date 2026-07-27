@@ -148,6 +148,7 @@ Window {
     // saved state while the roster is still loading.
     readonly property bool restoreEligible:
         !wtRestoreOff && !wtDemo && !wtTabsTest && !wtEventsTest && !wtHeroTest
+        && wtMergeTest === ""
         && wtSection === "" && wtTabs === "" && wtStatusFilter === ""
         && wtFocusIp === "" && wtDetailIp === "" && wtPlaybackIp === "" && wtGroup === ""
         && wtWallDay === "" && !wtGuardSoak && !wtFsoak && !wtNightSoak && !wtCalStress
@@ -542,6 +543,61 @@ Window {
             }
             if (typeof wtTabsHome !== "undefined" && wtTabsHome) win.activateTab(0);
             tabsBootHook.running = false;
+        }
+    }
+    // Dev self-test (merged cells): WT_MERGE_TEST=seed drives Shift-drag-equivalent
+    // selection + merge on a fresh profile and quits; =verify (new process, same
+    // profile) asserts persistence, then splits and asserts restoration.
+    // [MERGETEST] PASS/FAIL. Exercises the exact shipping functions.
+    Timer {
+        id: mergeTest
+        interval: 600; repeat: true
+        running: wtMergeTest !== ""
+        property int fails: 0
+        function ck(label, got, want) {
+            var ok = String(got) === String(want);
+            if (!ok) mergeTest.fails++;
+            console.log("[MERGETEST] " + (ok ? "ok  " : "FAIL") + " " + label + " got=" + got + " want=" + want);
+        }
+        function region5() {   // the expected slot-5 region of a (1,1)-(2,2) merge on 4×4
+            var c = liveMonitor.lcells[5];
+            return c.c + "," + c.r + "," + c.cw + "," + c.ch;
+        }
+        onTriggered: {
+            if (!AuthController.authenticated || cameraModel.total < 16) return;
+            if (win.section !== "live") win.goToSection("live");
+            if (win.gridLayout !== "16") { win.setLayout("16"); return; }   // next tick re-enters
+            if (!liveMonitor.visible) return;
+            mergeTest.running = false;
+            if (wtMergeTest === "seed") {
+                var anchorBefore = liveMonitor.pagedCameras.length > 5 ? liveMonitor.pagedCameras[5].camId : "?";
+                liveMonitor.startSel({ c: 1, r: 1 });
+                liveMonitor.extendSel({ c: 2, r: 2 });
+                mergeTest.ck("sel", liveMonitor._selW + "x" + liveMonitor._selH, "2x2");
+                mergeTest.ck("selName", liveMonitor.selAnchorName !== "", true);
+                mergeTest.ck("merged", liveMonitor.mergeSelection(), true);
+                mergeTest.ck("perPage", liveMonitor.perPage, 13);
+                mergeTest.ck("region@5", region5(), "1,1,2,2");
+                mergeTest.ck("anchorCamKept",
+                             liveMonitor.pagedCameras.length > 5 ? liveMonitor.pagedCameras[5].camId : "?",
+                             anchorBefore);
+                console.log("[MERGETEST] SEEDED " + (mergeTest.fails === 0 ? "PASS" : "FAIL")
+                            + " fails=" + mergeTest.fails);
+                Qt.quit();
+            } else {                                            // verify
+                mergeTest.ck("persisted.perPage", liveMonitor.perPage, 13);
+                mergeTest.ck("persisted.region@5", region5(), "1,1,2,2");
+                mergeTest.ck("selectRegion.split", (function () {
+                    liveMonitor.mergeSel = { c0: 1, r0: 1, c1: 2, r1: 2, ac: 1, ar: 1 };
+                    var wasSplitMode = liveMonitor.selIsRegion;
+                    return wasSplitMode && liveMonitor.mergeSelection();
+                })(), true);
+                mergeTest.ck("split.perPage", liveMonitor.perPage, 16);
+                mergeTest.ck("spans.cleared", liveMonitor.hasSpans, false);
+                console.log("[MERGETEST] " + (mergeTest.fails === 0 ? "PASS" : "FAIL")
+                            + " fails=" + mergeTest.fails);
+                Qt.quit();
+            }
         }
     }
     // Dev self-test (CW-05): WT_RESTORE_TEST=seed navigates to a known state on a
@@ -1269,7 +1325,7 @@ Window {
     // stays the fullscreen toggle. F11 = fullscreen always (desktop standard).
     Shortcut { sequence: "F"; enabled: !playbackScreen.visible; onActivated: win.fullscreen = !win.fullscreen }
     Shortcut { sequence: "F11"; onActivated: win.fullscreen = !win.fullscreen }
-    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.frameMode) playbackScreen.exitFrameMode(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.frameMode) playbackScreen.exitFrameMode(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0 || liveMonitor.mergeSel !== null)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }

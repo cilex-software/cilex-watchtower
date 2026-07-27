@@ -67,6 +67,8 @@ Item {
         "ear":      { "p": "M6.5 8.5 a5.5 5.5 0 1 1 11 0 c0 4.8 -4.8 4.9 -4.8 8.6 a3 3 0 0 1 -6 0 M14.2 8.6 a2.7 2.7 0 0 0 -5.4 0" },
         // Audio recording disabled: the same ear, struck through.
         "earMute":  { "p": "M6.5 8.5 a5.5 5.5 0 1 1 11 0 c0 4.8 -4.8 4.9 -4.8 8.6 a3 3 0 0 1 -6 0 M14.2 8.6 a2.7 2.7 0 0 0 -5.4 0 M4.5 3.5l15 17" },
+        // Split a merged wall cell back into 1×1 cells: outer frame + inner cross.
+        "split":    { "p": "M4 4h16v16h-16z M12 4v16 M4 12h16" },
         // PTZ: four outward chevrons around a center dot (pan/tilt pad).
         "ptz":      { "p": "M9 5.5l3-3 3 3 M9 18.5l3 3 3-3 M5.5 9l-3 3 3 3 M18.5 9l3 3-3 3 M10.75 12 a1.25 1.25 0 1 0 2.5 0 a1.25 1.25 0 1 0 -2.5 0" },
         // Restore PTZ defaults: the app's counter-clockwise replay ring (same

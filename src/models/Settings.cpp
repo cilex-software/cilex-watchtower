@@ -166,6 +166,28 @@ void Settings::clearLiveLayout(const QString &groupId)
     m_settings.remove(liveLayoutKey(groupId));
 }
 
+static QString liveSpansKey(const QString &groupId, const QString &layout)
+{
+    return QStringLiteral("liveSpans/%1/%2")
+        .arg(groupId.isEmpty() ? QStringLiteral("all") : groupId, layout);
+}
+
+QString Settings::liveSpans(const QString &groupId, const QString &layout) const
+{
+    return m_settings.value(liveSpansKey(groupId, layout)).toString();
+}
+
+void Settings::setLiveSpans(const QString &groupId, const QString &layout, const QString &json)
+{
+    m_settings.setValue(liveSpansKey(groupId, layout), json);
+    m_settings.sync();   // crash-durable, same contract as the view state (CW-05)
+}
+
+void Settings::clearLiveSpans(const QString &groupId, const QString &layout)
+{
+    m_settings.remove(liveSpansKey(groupId, layout));
+}
+
 QString Settings::viewState() const
 {
     return m_settings.value(QStringLiteral("workspace/viewState")).toString();

@@ -73,7 +73,51 @@ Item {
     readonly property var lspec: LayoutSpec.params(layout)
     readonly property int cols: lspec.cols
     readonly property int rows: lspec.rows
-    readonly property var lcells: LayoutSpec.cellRects(lspec.cols, lspec.rows, lspec.big)
+
+    // ---- Merged cells (cell spans) — operator-created big tiles ---------------
+    // A span set turns the page into a FIXED net (like the plus4/center13 feature
+    // layouts): {cols, rows, regions:[{c,r,cw,ch}]}, persisted per (group, layout)
+    // beside the manual arrangement — so Saved Views and the CW-05 crash restore
+    // carry merges for free. The grid dims are CAPTURED at first merge from the
+    // grid the operator was actually looking at (the auto-fit net), so a merge
+    // means what it meant on screen, not what the layout id implies.
+    property int spansRev: 0
+    readonly property var spanState: {
+        spansRev;
+        if (isFeatureLayout) return null;              // feature layouts keep their fixed big tile
+        var raw = Settings.liveSpans(groupId, layout);
+        if (raw === "") return null;
+        try {
+            var s = JSON.parse(raw);
+            return (s && s.cols > 0 && s.rows > 0 && s.regions && s.regions.length > 0) ? s : null;
+        } catch (e) { return null; }
+    }
+    readonly property bool hasSpans: spanState !== null
+    // Row-major cell enumeration with merged regions emitted at their anchor
+    // (top-left) scan position — so the camera that was in the anchor cell is the
+    // one that fills the merged tile, with no reflow surprises.
+    function _spanCells(s) {
+        var covered = ({}), regionAt = ({});
+        for (var i = 0; i < s.regions.length; i++) {
+            var g = s.regions[i];
+            regionAt[g.c + "," + g.r] = g;
+            for (var c = g.c; c < g.c + g.cw; c++)
+                for (var r = g.r; r < g.r + g.ch; r++)
+                    covered[c + "," + r] = true;
+        }
+        var out = [];
+        for (var rr = 0; rr < s.rows; rr++)
+            for (var cc = 0; cc < s.cols; cc++) {
+                var reg = regionAt[cc + "," + rr];
+                if (reg) out.push({ c: reg.c, r: reg.r, cw: reg.cw, ch: reg.ch });
+                else if (!covered[cc + "," + rr]) out.push({ c: cc, r: rr, cw: 1, ch: 1 });
+            }
+        return out;
+    }
+    readonly property var lcells: hasSpans ? _spanCells(spanState)
+                                           : LayoutSpec.cellRects(lspec.cols, lspec.rows, lspec.big)
+    // Spans render on the fixed net exactly like feature layouts do.
+    readonly property bool useFixedNet: isFeatureLayout || hasSpans
     readonly property int perPage: lcells.length
     // Feature layouts (big-tile / center) keep their fixed cell geometry; symmetric
     // and custom grids AUTO-FIT to the number of cameras on the page — largest tiles,
@@ -313,8 +357,129 @@ Item {
     // leave arrange mode and return to the normal Live view. Per-cell changes are
     // already persisted (Settings.setLiveLayout), so exiting discards nothing.
     function escapeArrange() {
+        if (mergeSel !== null) { mergeSel = null; return; }
         if (pickerCell >= 0) { pickerCell = -1; return; }
         arrangeMode = false;
+    }
+
+    // ---- merge selection (Shift+drag / Shift+click extend / Ctrl+click) -------
+    // mergeSel = {c0,r0,c1,r1, ac,ar} — normalized inclusive rect + the ANCHOR
+    // cell (where the drag started; its camera is the one that goes big).
+    property var mergeSel: null
+    onLayoutChanged: mergeSel = null
+    onGroupIdChanged: mergeSel = null
+    onPageChanged: mergeSel = null
+    // Selection normalization: swallow any merged region the rect touches (the
+    // Excel rule) — the highlight always shows the TRUE result of the merge.
+    function _normSel(ac, ar, bc, br) {
+        var c0 = Math.min(ac, bc), r0 = Math.min(ar, br);
+        var c1 = Math.max(ac, bc), r1 = Math.max(ar, br);
+        var regs = spanState ? spanState.regions : [];
+        var grew = true;
+        while (grew) {
+            grew = false;
+            for (var i = 0; i < regs.length; i++) {
+                var g = regs[i];
+                var gx1 = g.c + g.cw - 1, gy1 = g.r + g.ch - 1;
+                if (g.c <= c1 && gx1 >= c0 && g.r <= r1 && gy1 >= r0) {   // intersects
+                    if (g.c < c0) { c0 = g.c; grew = true; }
+                    if (g.r < r0) { r0 = g.r; grew = true; }
+                    if (gx1 > c1) { c1 = gx1; grew = true; }
+                    if (gy1 > r1) { r1 = gy1; grew = true; }
+                }
+            }
+        }
+        return { c0: c0, r0: r0, c1: c1, r1: r1, ac: ac, ar: ar };
+    }
+    function startSel(c) { mergeSel = _normSel(c.c, c.r, c.c, c.r); }
+    function extendSel(c) {
+        if (mergeSel === null) { startSel(c); return; }
+        mergeSel = _normSel(mergeSel.ac, mergeSel.ar, c.c, c.r);
+    }
+    // Region whose rect contains cell (c,r) — or null.
+    function regionAt(c, r) {
+        if (!spanState) return null;
+        for (var i = 0; i < spanState.regions.length; i++) {
+            var g = spanState.regions[i];
+            if (c >= g.c && c < g.c + g.cw && r >= g.r && r < g.r + g.ch) return g;
+        }
+        return null;
+    }
+    // Slot index (position in lcells / pagedCameras) whose cell rect contains (c,r).
+    function slotIndexForCell(c, r) {
+        for (var i = 0; i < lcells.length; i++) {
+            var g = lcells[i];
+            if (c >= g.c && c < g.c + g.cw && r >= g.r && r < g.r + g.ch) return i;
+        }
+        return -1;
+    }
+    readonly property int _selW: mergeSel ? (mergeSel.c1 - mergeSel.c0 + 1) : 0
+    readonly property int _selH: mergeSel ? (mergeSel.r1 - mergeSel.r0 + 1) : 0
+    // Selection == exactly one existing region → the action is Split, not Merge.
+    readonly property bool selIsRegion: {
+        if (!mergeSel) return false;
+        var g = regionAt(mergeSel.c0, mergeSel.r0);
+        return g !== null && g.c === mergeSel.c0 && g.r === mergeSel.r0
+            && g.cw === _selW && g.ch === _selH;
+    }
+    readonly property string selAnchorName: {
+        if (!mergeSel) return "";
+        var i = slotIndexForCell(mergeSel.ac, mergeSel.ar);
+        return (i >= 0 && i < pagedCameras.length) ? pagedCameras[i].name : "";
+    }
+    function _saveSpans(s) {
+        if (!s || s.regions.length === 0) Settings.clearLiveSpans(groupId, layout);
+        else Settings.setLiveSpans(groupId, layout, JSON.stringify(s));
+        spansRev++;
+    }
+    // Merge the current selection — or split it, when it IS a merged region.
+    function mergeSelection() {
+        if (mergeSel === null || isFeatureLayout) return false;
+        if (selIsRegion) { var ok = splitAt(mergeSel.c0, mergeSel.r0); mergeSel = null; return ok; }
+        if (_selW * _selH < 2) return false;
+        var s = spanState ? JSON.parse(JSON.stringify(spanState))
+                          : { cols: gridFrame.fitGrid.cols, rows: gridFrame.fitGrid.rows, regions: [] };
+        if (mergeSel.c1 >= s.cols || mergeSel.r1 >= s.rows) return false;
+        // The drag-start camera goes big: if the anchor isn't the rect's top-left,
+        // swap the two cameras (assignToCell's exact persistence pattern) BEFORE
+        // the span lands, while slot indices still describe the pre-merge grid.
+        var iA = slotIndexForCell(mergeSel.ac, mergeSel.ar);
+        var iT = slotIndexForCell(mergeSel.c0, mergeSel.r0);
+        if (iA >= 0 && iT >= 0 && iA !== iT) {
+            var ids = _fullIds(), s0 = (page - 1) * perPage;
+            if (s0 + iA < ids.length && s0 + iT < ids.length) {
+                var t = ids[s0 + iT]; ids[s0 + iT] = ids[s0 + iA]; ids[s0 + iA] = t;
+                Settings.setLiveLayout(groupId, ids);
+                arrangeRev++;
+            }
+        }
+        // Swallowed regions are inside the rect by normalization — drop them.
+        s.regions = s.regions.filter(function (g) {
+            return !(g.c >= mergeSel.c0 && g.c + g.cw - 1 <= mergeSel.c1
+                     && g.r >= mergeSel.r0 && g.r + g.ch - 1 <= mergeSel.r1);
+        });
+        s.regions.push({ c: mergeSel.c0, r: mergeSel.r0, cw: _selW, ch: _selH });
+        _saveSpans(s);
+        mergeSel = null;
+        return true;
+    }
+    function splitAt(c, r) {
+        var g = regionAt(c, r);
+        if (!g || !spanState) return false;
+        var s = JSON.parse(JSON.stringify(spanState));
+        s.regions = s.regions.filter(function (x) { return !(x.c === g.c && x.r === g.r); });
+        _saveSpans(s);
+        return true;
+    }
+    Shortcut {
+        sequence: "M"
+        enabled: root.visible && root.mergeSel !== null && !root.arrangeMode && root.pickerCell < 0
+        onActivated: root.mergeSelection()
+    }
+    Shortcut {
+        sequence: "Return"
+        enabled: root.visible && root.mergeSel !== null && !root.arrangeMode && root.pickerCell < 0
+        onActivated: root.mergeSelection()
     }
 
     // ---- "Recent events" filter: cameras with activity in the last hour --------
@@ -1057,7 +1222,9 @@ Item {
                 // The grid the tiles actually render in: feature layouts keep their
                 // fixed cols×rows; everything else auto-fits to the cameras on the page
                 // (recomputes on resize via width/height).
-                readonly property var fitGrid: root.isFeatureLayout
+                readonly property var fitGrid: root.hasSpans
+                    ? ({ cols: root.spanState.cols, rows: root.spanState.rows })
+                    : root.isFeatureLayout
                     ? ({ cols: root.cols, rows: root.rows })
                     : LayoutSpec.bestGrid(root.fillCount, width, height, 16 / 9)
 
@@ -1086,10 +1253,26 @@ Item {
                             readonly property var modelData: cam   // alias so the bindings below read unchanged
                             // Feature layouts place each tile in its fixed net cell
                             // (big tile spans); auto-fit grids place tiles row-major.
-                            readonly property var cell: root.isFeatureLayout
+                            readonly property var cell: root.useFixedNet
                                 ? (index < root.lcells.length ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 }))
                                 : ({ c: index % gridFrame.fitGrid.cols,
                                      r: Math.floor(index / gridFrame.fitGrid.cols), cw: 1, ch: 1 })
+                            // Merged tile: auto-promote to HD within the wall's transcode
+                            // budget — a 2×2 tile in SD would look worse than what it
+                            // replaced. Demotion on split frees the slot.
+                            readonly property bool isSpanned: cell.cw > 1 || cell.ch > 1
+                            onIsSpannedChanged: {
+                                if (isSpanned && !liveTile.useMainStream)
+                                    liveTile.useMainStream = root.requestHdPromotion(false);
+                                else if (!isSpanned && liveTile.useMainStream) {
+                                    root.releaseHd(true);
+                                    liveTile.useMainStream = false;
+                                }
+                            }
+                            Component.onCompleted: {
+                                if (isSpanned && !liveTile.useMainStream)
+                                    liveTile.useMainStream = root.requestHdPromotion(false);
+                            }
                             x: cell.c * (gridArea.cellW + gridArea.gSpace)
                             y: cell.r * (gridArea.cellH + gridArea.gSpace)
                             width: cell.cw * gridArea.cellW + (cell.cw - 1) * gridArea.gSpace
@@ -1151,6 +1334,8 @@ Item {
                                 onPlayed: root.cameraPlaybackRequested(cellWrap.modelData)
                                 onIssueRequested: root.cameraIssueRequested(cellWrap.modelData)
                                 onOpenedNewTab: root.cameraOpenedNewTab(cellWrap.modelData)
+                                spanned: cellWrap.isSpanned
+                                onSplitRequested: root.splitAt(cellWrap.cell.c, cellWrap.cell.r)
                                 // Favorite is persisted in CameraModel (keyed by camera_id);
                                 // flip the tile optimistically so it reflects instantly (the
                                 // paged snapshot won't re-fetch until the next page() call).
@@ -1201,7 +1386,7 @@ Item {
                     // intentional empty cells (camera-tile background) rather than the gray
                     // grid frame bleeding through. Feature layouts manage their own cells.
                     Repeater {
-                        model: root.isFeatureLayout ? 0
+                        model: root.useFixedNet ? 0
                              : Math.max(0, gridFrame.fitGrid.cols * gridFrame.fitGrid.rows - root.fillCount)
                         delegate: Rectangle {
                             required property int index
@@ -1211,6 +1396,126 @@ Item {
                             width: gridArea.cellW
                             height: gridArea.cellH
                             color: Theme.tileBg
+                        }
+                    }
+
+                    // ---- merge selection: Shift+drag rubber-band -----------------
+                    // A modifier gate keeps plain click (open camera) and plain drag
+                    // (reserved for future drag-swap) untouched: an unmodified press
+                    // is rejected and falls through to the tiles below.
+                    MouseArea {
+                        id: selMa
+                        anchors.fill: parent
+                        z: 60
+                        enabled: !root.arrangeMode && root.pickerCell < 0
+                        acceptedButtons: Qt.LeftButton
+                        property bool draggingSel: false
+                        function cellAt(px, py) {
+                            var c = Math.floor(px / (gridArea.cellW + gridArea.gSpace));
+                            var r = Math.floor(py / (gridArea.cellH + gridArea.gSpace));
+                            if (c < 0 || r < 0 || c >= gridArea.gCols || r >= gridArea.gRows) return null;
+                            return { c: c, r: r };
+                        }
+                        onPressed: (m) => {
+                            if (!(m.modifiers & Qt.ShiftModifier) && !(m.modifiers & Qt.ControlModifier)) {
+                                m.accepted = false;             // plain press → the tile handles it
+                                return;
+                            }
+                            var c = cellAt(m.x, m.y);
+                            if (c === null) { m.accepted = false; return; }
+                            if (m.modifiers & Qt.ControlModifier) {
+                                // Ctrl+click: select a merged tile whole (arms Split),
+                                // else grow the rectangle to include this cell.
+                                var g = root.regionAt(c.c, c.r);
+                                if (g && root.mergeSel === null)
+                                    root.mergeSel = { c0: g.c, r0: g.r, c1: g.c + g.cw - 1,
+                                                      r1: g.r + g.ch - 1, ac: g.c, ar: g.r };
+                                else root.extendSel(c);
+                            } else {
+                                // Shift: extend from the existing anchor (Excel), else start.
+                                if (root.mergeSel !== null) root.extendSel(c);
+                                else root.startSel(c);
+                                draggingSel = true;
+                            }
+                        }
+                        onPositionChanged: (m) => {
+                            if (!draggingSel) return;
+                            var c = cellAt(m.x, m.y);
+                            if (c !== null) root.extendSel(c);
+                        }
+                        onReleased: draggingSel = false
+                    }
+                    // Selection highlight — the arrange overlay's visual language.
+                    Rectangle {
+                        visible: root.mergeSel !== null
+                        z: 55
+                        x: root.mergeSel ? root.mergeSel.c0 * (gridArea.cellW + gridArea.gSpace) : 0
+                        y: root.mergeSel ? root.mergeSel.r0 * (gridArea.cellH + gridArea.gSpace) : 0
+                        width: root.mergeSel ? root._selW * gridArea.cellW + (root._selW - 1) * gridArea.gSpace : 0
+                        height: root.mergeSel ? root._selH * gridArea.cellH + (root._selH - 1) * gridArea.gSpace : 0
+                        color: Theme.accentSoft
+                        border.width: 2
+                        border.color: Theme.accent
+                    }
+                    // Floating action pill: Merge / Split / honest hint. Never a
+                    // silent no-op — an unusable selection says why.
+                    Rectangle {
+                        id: mergePill
+                        visible: root.mergeSel !== null
+                        z: 70
+                        readonly property bool canAct: !root.isFeatureLayout
+                            && (root.selIsRegion || root._selW * root._selH >= 2)
+                        readonly property string label:
+                            root.isFeatureLayout ? qsTr("Merging isn't available on this layout")
+                            : root.selIsRegion ? qsTr("Split %1×%2").arg(root._selW).arg(root._selH) + "  —  M"
+                            : (root._selW * root._selH >= 2)
+                              ? qsTr("Merge %1×%2").arg(root._selW).arg(root._selH)
+                                + (root.selAnchorName !== "" ? " · " + root.selAnchorName : "") + "  —  M"
+                              : qsTr("Shift+drag to select cells to merge")
+                        x: {
+                            if (!root.mergeSel) return 0;
+                            var cx = (root.mergeSel.c0 + root._selW / 2) * (gridArea.cellW + gridArea.gSpace);
+                            return Math.max(4, Math.min(gridArea.width - width - 4, cx - width / 2));
+                        }
+                        y: {
+                            if (!root.mergeSel) return 0;
+                            var by = (root.mergeSel.r1 + 1) * (gridArea.cellH + gridArea.gSpace) + 6;
+                            return (by + height > gridArea.height - 4)
+                                   ? Math.max(4, root.mergeSel.r0 * (gridArea.cellH + gridArea.gSpace) - height - 6)
+                                   : by;
+                        }
+                        width: pillRow.implicitWidth + 24
+                        height: 34
+                        color: pillMa.containsMouse && canAct ? Theme.accent : Theme.panel
+                        border.width: 1
+                        border.color: canAct ? Theme.accent : Theme.line2
+                        Row {
+                            id: pillRow
+                            anchors.centerIn: parent
+                            spacing: 8
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: root.selIsRegion ? "split" : "grid"
+                                size: 13
+                                color: pillMa.containsMouse && mergePill.canAct ? Theme.bg
+                                     : mergePill.canAct ? Theme.accent : Theme.ink3
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: mergePill.label
+                                color: pillMa.containsMouse && mergePill.canAct ? Theme.bg
+                                     : mergePill.canAct ? Theme.ink : Theme.ink2
+                                font.family: Theme.fontSans
+                                font.pixelSize: 12
+                                font.weight: Font.Medium
+                            }
+                        }
+                        MouseArea {
+                            id: pillMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: mergePill.canAct ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: if (mergePill.canAct) root.mergeSelection()
                         }
                     }
                 }
@@ -1283,6 +1588,18 @@ Item {
                     color: Theme.ink3
                     font.family: Theme.fontMono
                     font.pixelSize: Theme.fsMono
+                }
+                // Discoverability for the modifier gesture (the cost of not burning
+                // plain drag): a quiet standing hint, brighter while a selection is up.
+                Text {
+                    visible: !root.isFeatureLayout
+                    text: root.mergeSel !== null
+                          ? qsTr("M — merge · Esc — cancel").toUpperCase()
+                          : qsTr("⇧ drag — merge cells").toUpperCase()
+                    color: root.mergeSel !== null ? Theme.accent : Theme.ink3
+                    font.family: Theme.fontMono
+                    font.pixelSize: 9
+                    font.letterSpacing: 0.8
                 }
                 Item { Layout.fillWidth: true }
                 PaginationControl {

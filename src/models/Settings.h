@@ -97,6 +97,14 @@ public:
     Q_INVOKABLE void setLiveLayout(const QString &groupId, const QStringList &ids);
     Q_INVOKABLE void clearLiveLayout(const QString &groupId);
 
+    // Merged-cell spans on the Live wall, per (group, layout): an opaque JSON blob
+    // owned by LiveMonitor ({cols, rows, regions:[{c,r,cw,ch}]}). Stored beside the
+    // manual arrangement so Saved Views and the CW-05 crash-restore get them for
+    // free (both restore group+layout; the spans key off exactly that pair).
+    Q_INVOKABLE QString liveSpans(const QString &groupId, const QString &layout) const;
+    Q_INVOKABLE void setLiveSpans(const QString &groupId, const QString &layout, const QString &json);
+    Q_INVOKABLE void clearLiveSpans(const QString &groupId, const QString &layout);
+
     // Persisted shell view state (Warden CW-05): an opaque JSON blob owned by
     // Main.qml (section, layout, tabs, focused camera, …) so a restart —
     // Warden's crash-restart above all — lands the guard exactly where they

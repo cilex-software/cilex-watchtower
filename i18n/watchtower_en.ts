@@ -4,38 +4,76 @@
 <context>
     <name>CameraTile</name>
     <message>
-        <location filename="../qml/CameraTile.qml" line="301"/>
+        <location filename="../qml/CameraTile.qml" line="305"/>
         <source>STREAM UNAVAILABLE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="394"/>
+        <location filename="../qml/CameraTile.qml" line="398"/>
         <source>MOTION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="448"/>
+        <location filename="../qml/CameraTile.qml" line="452"/>
         <source>RECORDING STALLED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="448"/>
+        <location filename="../qml/CameraTile.qml" line="452"/>
         <source>since</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="449"/>
+        <location filename="../qml/CameraTile.qml" line="453"/>
         <source>LIVE, NO RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="449"/>
+        <location filename="../qml/CameraTile.qml" line="453"/>
         <source>STREAM DEGRADED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="456"/>
+        <location filename="../qml/CameraTile.qml" line="460"/>
         <source>VIEW ISSUE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraTile.qml" line="549"/>
+        <source>Split into 1×1 cells</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>LiveMonitor</name>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1469"/>
+        <source>Merging isn&apos;t available on this layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1470"/>
+        <source>Split %1×%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1472"/>
+        <source>Merge %1×%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1474"/>
+        <source>Shift+drag to select cells to merge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1597"/>
+        <source>M — merge · Esc — cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="1598"/>
+        <source>⇧ drag — merge cells</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -101,42 +139,42 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="51"/>
+        <location filename="../qml/Main.qml" line="60"/>
         <source>Live wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="52"/>
+        <location filename="../qml/Main.qml" line="61"/>
         <source>Groups</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="53"/>
+        <location filename="../qml/Main.qml" line="62"/>
         <source>Views</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="54"/>
+        <location filename="../qml/Main.qml" line="63"/>
         <source>Events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="55"/>
+        <location filename="../qml/Main.qml" line="64"/>
         <source>Health</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="56"/>
+        <location filename="../qml/Main.qml" line="65"/>
         <source>Clips</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="57"/>
+        <location filename="../qml/Main.qml" line="66"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="63"/>
+        <location filename="../qml/Main.qml" line="72"/>
         <source>Playback</source>
         <translation type="unfinished"></translation>
     </message>
@@ -689,7 +727,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TabStrip.qml" line="185"/>
+        <location filename="../qml/TabStrip.qml" line="186"/>
         <source>Main view</source>
         <translation type="unfinished"></translation>
     </message>
