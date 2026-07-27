@@ -44,6 +44,12 @@ Rectangle {
     property int _tick: 0
     property bool _showA: true          // which buffer is on screen
     property bool _everLoaded: false
+    // Error backoff (CW-15 endurance finding F3): a detail view whose siblings are
+    // OFFLINE retried every refreshMs and each 404 logged a QQuickImage warning —
+    // ~10 warn/s into the flight recorder (~4 MB/h of noise) for an EXPECTED
+    // state. After 3 straight failures the poll drops to 15 s until one succeeds.
+    property int _errStreak: 0
+    readonly property int _effectiveMs: _errStreak >= 3 ? 15000 : refreshMs
     function _refresh() {
         if (_base === "") return;
         _tick++;
@@ -51,7 +57,7 @@ Rectangle {
         if (_showA) imgB.source = url; else imgA.source = url;   // load the off-screen buffer
     }
     function _reset() {
-        _everLoaded = false; _showA = true; _tick = 0;
+        _everLoaded = false; _showA = true; _tick = 0; _errStreak = 0;
         imgA.source = ""; imgB.source = "";
         if (_base !== "") imgA.source = _provBase + _sep + "0";
     }
@@ -64,7 +70,10 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 220 } }
-        onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; }
+        onStatusChanged: {
+            if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; thumb._errStreak = 0; }
+            else if (status === Image.Error) thumb._errStreak++;
+        }
     }
     Image {
         id: imgB
@@ -72,7 +81,10 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 0 : 1
         Behavior on opacity { NumberAnimation { duration: 220 } }
-        onStatusChanged: if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; }
+        onStatusChanged: {
+            if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; thumb._errStreak = 0; }
+            else if (status === Image.Error) thumb._errStreak++;
+        }
     }
     Icon {   // placeholder until the first frame loads (offline / loading)
         anchors.centerIn: parent; visible: !thumb._everLoaded
@@ -97,7 +109,8 @@ Rectangle {
             color: Qt.rgba(1, 1, 1, 0.82); font.family: Theme.fontMono; font.pixelSize: 10
         }
     }
-    // periodic live refresh — only while the host view is shown
-    Timer { interval: thumb.refreshMs; repeat: true; running: thumb.active && thumb._base !== ""; onTriggered: thumb._refresh() }
+    // periodic live refresh — only while the host view is shown (interval backs
+    // off to 15 s after 3 straight failures; recovers on the first success)
+    Timer { interval: thumb._effectiveMs; repeat: true; running: thumb.active && thumb._base !== ""; onTriggered: thumb._refresh() }
     MouseArea { id: tMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: thumb.clicked() }
 }

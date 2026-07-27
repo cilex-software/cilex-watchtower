@@ -524,6 +524,18 @@ class Supervisor:
             collect(self.loop_id, "restart-loop", head, console, marker, core)
         else:
             self.loop_count += 1
+            # Consume the folded death's marker (CW-15 endurance finding F2): an
+            # unconsumed marker gets boot-replayed as a FRESH single after a
+            # warden restart — double-counting a death the loop report already
+            # owns. Filed into the loop's report dir, it becomes evidence instead.
+            if marker and marker.exists():
+                for base in (PENDING, SENT):
+                    rd = base / self.loop_id
+                    if rd.exists():
+                        marker.rename(rd / f"marker.death-{self.loop_count}.json")
+                        break
+                else:
+                    marker.rename(marker.with_suffix(".consumed"))
         self.update_loop(head, trigger)
 
     def update_loop(self, head, last_trigger):

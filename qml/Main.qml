@@ -168,6 +168,17 @@ Window {
     property string _vsBlob: _vsCapture()
     on_VsBlobChanged: if (_vsArmed && restoreEligible) vsSaveDebounce.restart()
     Timer { id: vsSaveDebounce; interval: 1000; onTriggered: Settings.saveViewState(win._vsBlob) }
+    // Idle-age heartbeat (CW-15 endurance finding F1): an untouched session never
+    // changes the blob, so `at` never refreshed and a guard who simply WATCHED the
+    // wall all day crossed the 24 h freshness window — a crash after that restored
+    // nothing. The freshness rule targets machines that were OFF for days, not
+    // sessions that ran quietly; an hourly re-save keeps a running session forever
+    // inside the window at the cost of one small write.
+    Timer {
+        interval: 3600000; repeat: true
+        running: win._vsArmed && win.restoreEligible
+        onTriggered: Settings.saveViewState(win._vsCapture())
+    }
 
     function _vsFinish(outcome) {
         if (outcome !== "applied") console.log("[RESTORE] skipped (" + outcome + ")");
