@@ -32,6 +32,7 @@ atomic and guard boxes are frozen at install)._
 | CW-19 | Dead-man heartbeat letter to CV (station liveness; their Prometheus→Alertmanager→ntfy plumbing) — both sides agree it's "the one with teeth" | pending — after v1, by agreement |
 | CW-20 | Shipping bootstrap secret: CV mints real random value at installer-cut, delivered out-of-band, never in a repo | ⛔ blocked — on installer cut (pilot token in use meanwhile) |
 | CW-21 | Docs: `warden/README.md`, DEVELOPMENT.md section, PROJECT_STATUS entries — rolls with each phase | ◐ rolling (README + dev-hook rows + PROJECT_STATUS 07-26 entry done; DEVELOPMENT.md architecture paragraph pending) |
+| CW-22 | **Linux station installer** — the answer to "how does Warden get on the guard's machine": self-contained `watchtower-station-<sha>.tar.gz` (app binary + patched-Qt runtime + warden/ + unit + setup-root) with one root `install.sh`: kiosk user + autologin + linger, `/opt/watchtower/<sha>` + `current` symlink + pinning launcher, warden.conf (site backend URL + CW-20 bootstrap secret), core_pattern, enable wt-warden, and a `bundle-now` smoke that must reach CV before the install declares success. Updates = new installer at a site visit (USB), atomic dir swap, same station identity | pending — blocks first real guard-box deploy; Windows equivalent rides CW-16's NSIS |
 
 **Build order:** CW-01…05 (in-app half, no CV dependency) → CW-06…12 (Linux Warden v1)
 → CW-14/15 (validation, first real upload) → CW-16…18 (Windows leg) → CW-19/20 (post-v1).
