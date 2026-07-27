@@ -4,6 +4,33 @@ _Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-07-27, late) — heartbeat CLOSED both sides; CW-13 decided; endurance GREEN
+
+- **CW-15 endurance:** 24 h under Warden, GREEN all gates (report
+  `docs/perf/2026-07-27-warden-endurance-cw15.md`); surfaced + same-day-fixed 3
+  defects (idle-age cliff → hourly heartbeat re-save; loop-marker leak → folded
+  markers filed as evidence; offline-thumb warning storm → 15 s backoff).
+- **CW-19 dead-man heartbeat:** CV built the server side unprompted (contract
+  frozen, migration 0062, 7 Prometheus rules); client half shipped same-day
+  (Warden 1.1.0: intent-carrying `app_state`, final `warden_stopping` beat,
+  shutdown-intent marker on `Window.onClosing`, `backend_unreachable_since`).
+  Live handshake: first beat armed monitoring; deliberate stop **quiet**;
+  kill -9 with the wall up **paged at exactly +10 min**; and the resolve window
+  **exposed a real bug in CV's `expected` logic** (killed Warden froze
+  `app_state=running` forever) — their fix `69cc2fe`, their words: "my own live
+  testing missed this and yours caught it." §3 done-list items 1–2 closed.
+- **CW-13 alarm channel:** closed by CV's decision — the channel IS the server
+  (Prometheus→Alertmanager→ntfy); `ALARM_CMD` ships default-empty as a per-site
+  escalation hook. Every on-box channel a guard could perceive was already
+  forbidden by rule 1 ("the guard must never be the detector").
+- **`minidump_written`** added to the station block (Windows analogue of
+  `cores_available`), collector consumes `.dmp`s like markers; fake-.dmp verified.
+- **Next per agreed sequence:** Windows leg CW-16…18 (identity formula +
+  Scheduler resurrection pattern already specced in the reply letter) → CW-22
+  installer → CW-20 secret. Owed to CV from the operator: batch-install size,
+  target fleet size. Owed on this box: `sudo warden/setup-root.sh` for the first
+  core-carrying bundle.
+
 ## Current status (2026-07-26) — Warden v1 LIVE on Linux: CW-01…CW-12 done, first real bundles in CV's store
 
 The "oops it crashed, just restart it" era is over. Built and verified today

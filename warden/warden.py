@@ -253,7 +253,19 @@ def collect(report_id, trigger, head, console_file, marker_path=None, core=None)
         arts.append(("console.log", scrubbed(console_file, 2 * 1024 * 1024)))
     if core and core.exists():
         arts.append((f"core/{core.name}", core))
+    # Windows analogue of cores_available (CV reply² §3d): the in-app exception
+    # filter writes crash/minidump-<report_id>.dmp (CW-04). A bundle that explains
+    # its own gaps beats a thread nobody remembers — so the station block says
+    # whether the dump was written, and the .dmp ships when it exists. Harmless
+    # no-op on Linux (the file never exists there).
+    dump = CRASH / f"minidump-{report_id}.dmp"
+    if sys.platform == "win32" or dump.exists():
+        manifest["station"]["minidump_written"] = dump.exists()
+    if dump.exists():
+        arts.append((f"minidump/{dump.name}", dump))
     package(rd, manifest, arts)
+    if dump.exists():
+        dump.rename(rd / "minidump.consumed.dmp")   # consumed like markers: no double-collect
     (rd / "state.json").write_text(json.dumps(
         {"phase": "manifest", "attempts": 0, "next_retry": 0}))
     if marker_path and marker_path.exists():
