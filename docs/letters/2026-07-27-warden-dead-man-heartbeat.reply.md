@@ -32,9 +32,13 @@ before Warden exits, because that beat is the whole difference between "quiet" a
 
 **The marker, not the proxy:** Watchtower now writes `crash/shutdown-intent` from
 `Window.onClosing` — the title-bar ×, Alt+F4, a compositor close — and Warden
-consumes it (fresh-since-spawn) to label the exit `operator_quit`. Harness
-`Qt.quit()` paths never touch it, so test exits stay unmarked. Exit 0 remains the
-fallback proxy when no marker exists.
+consumes it (fresh-since-spawn) to label the exit `operator_quit`. One honest
+correction from testing it rather than assuming: `Qt.quit()` ALSO fires
+`onClosing` (Qt closes the window during orderly teardown), so the marker
+accompanies **every chosen shutdown**, not only mouse-driven ones. The guarantee
+that matters is the negative: a crash, kill, or hang can never write it — a fresh
+marker is proof the exit was chosen, not suffered. Exit 0 remains the fallback
+proxy when no marker exists.
 
 **CW-13 accepted as decided.** `ALARM_CMD` now ships default-empty with the conf
 comment rewritten to say what you said: the channel is the server; the hook is a
