@@ -1,6 +1,9 @@
 #include "Settings.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QStandardPaths>
 
 Settings::Settings(QObject *parent)
     : QObject(parent)
@@ -174,6 +177,18 @@ void Settings::saveViewState(const QString &json)
     // Crash-durable by contract: Warden restarts us after SIGKILL — a lazily
     // flushed QSettings would restore the guard to a stale view.
     m_settings.sync();
+}
+
+void Settings::markOperatorQuit() const
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                        + QStringLiteral("/crash");
+    QDir().mkpath(dir);
+    QFile f(dir + QStringLiteral("/shutdown-intent"));
+    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        f.write(QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8());
+        f.write("\n");
+    }
 }
 
 void Settings::setBadgeTimers(bool v)

@@ -105,6 +105,12 @@ public:
     Q_INVOKABLE QString viewState() const;
     Q_INVOKABLE void saveViewState(const QString &json);
 
+    // Explicit shutdown intent (Warden CW-19, heartbeat contract §4): called on
+    // Window.onClosing — the guard's close button / compositor close — so Warden
+    // can report `operator_quit` from a MARKER rather than guessing from exit 0.
+    // "Exit 0 is a decent proxy; a marker is the truth."
+    Q_INVOKABLE void markOperatorQuit() const;
+
 signals:
     void defaultStreamHdChanged();
     void defaultLandingChanged();

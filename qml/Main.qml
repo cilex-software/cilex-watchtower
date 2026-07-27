@@ -19,6 +19,12 @@ Window {
     // compositor via startSystemMove()/startSystemResize() — see TitleBar.qml and
     // `resizeFrame` at the bottom of this file.
     flags: Qt.Window | Qt.FramelessWindowHint
+    // Explicit shutdown intent for Warden (heartbeat contract §4): the guard
+    // closing the window — our title-bar ×, Alt+F4, compositor close — writes a
+    // marker so the exit reads as operator_quit, never as a crash Warden failed
+    // to recover. Harness Qt.quit() paths do NOT come through here, so test
+    // exits stay unmarked (correct: nobody chose those at the box).
+    onClosing: Settings.markOperatorQuit()
 
     property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
     property string gridLayout: "16"     // canonical layout id (see LayoutSpec)

@@ -36,7 +36,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-WARDEN_VERSION = "1.0.0"
+WARDEN_VERSION = "1.1.0"          # 1.1: dead-man heartbeat (CW-19 client half)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -55,7 +55,12 @@ DEFAULTS = {
     "LOOP_QUIET_S": "1800",
     "MANIFEST_PUT_MIN_S": "60",
     "SENT_KEEP_DAYS": "14",
-    "ALARM_CMD": "",                    # optional hook: run with $1=kind $2=text (CW-13)
+    # CW-13 (decided in 2026-07-27-warden-dead-man-heartbeat.md §8): the alarm
+    # channel IS the server (Prometheus→Alertmanager→ntfy, fed by the heartbeat).
+    # ALARM_CMD ships EMPTY by design — it is a per-site escalation hook wired by
+    # installers (local relay, GPIO buzzer…), never a product behaviour.
+    "ALARM_CMD": "",
+    "HEARTBEAT_S": "60",                # CW-19 contract cadence (server stale window 180 s)
 }
 
 
@@ -275,6 +280,122 @@ def find_core(death_ts, pid):
     return best
 
 
+# ---------------------------------------------------------------- heartbeat
+
+# Shared, GIL-safe state. HB is written by the Supervisor (app lifecycle) and
+# read by the heartbeat thread; CONTACT is touched by both HTTP paths.
+HB = {"app_state": "stopped_expected", "app_state_reason": "warden_stopping",
+      "app_pid": None, "app_spawned": None, "backoff_s": 1, "loop_open": False,
+      "deaths_1h": [], "warden_started": time.time()}
+CONTACT = {"last_ok": None, "unreachable_since": None}
+
+
+def contact_ok():
+    """Any 2xx from the backend (ingest ack or heartbeat). unreachable_since is
+    cleared only AFTER it has ridden one successful heartbeat (see payload) —
+    the retroactive marker CV asked for in the CW-13 letter §8: the first beat
+    after a network gap must still carry when the gap began, so silence gets
+    attributed to the network instead of a dead Warden."""
+    CONTACT["last_ok"] = time.time()
+
+
+def contact_failed():
+    if CONTACT["unreachable_since"] is None:
+        CONTACT["unreachable_since"] = time.time()
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts)) if ts else None
+
+
+class Heartbeat(threading.Thread):
+    """CW-19 client half (contract: 2026-07-27-warden-dead-man-heartbeat.md §3).
+    Rules encoded from that letter: NEVER spooled, never counted against upload
+    pacing, fire-and-forget with a short timeout, and sent whether or not the
+    app is running — a beat saying 'stopped on purpose' is what keeps the
+    server quiet; silence is what alarms."""
+    daemon = True
+
+    def __init__(self):
+        super().__init__(name="heartbeat")
+        self.stale_after = 180.0
+
+    def payload(self):
+        now = time.time()
+        HB["deaths_1h"] = [t for t in HB["deaths_1h"] if now - t < 3600]
+        pend = list(PENDING.iterdir()) if PENDING.exists() else []
+        oldest = min((p.stat().st_mtime for p in pend), default=None)
+        facts = os_facts()
+        p = {
+            "machine_id_hash": facts["machine_id_hash"],
+            "station": {"host": facts["host"], "machine_id_hash": facts["machine_id_hash"]},
+            "warden_version": WARDEN_VERSION,
+            "warden_started_at": iso(HB["warden_started"]),
+            "app_state": HB["app_state"],
+            "app_state_reason": HB["app_state_reason"],
+            "app_pid": HB["app_pid"],
+            "app_uptime_s": int(now - HB["app_spawned"]) if HB["app_spawned"] else None,
+            "restarts_1h": len(HB["deaths_1h"]),
+            "backoff_s": HB["backoff_s"],
+            "loop_open": HB["loop_open"],
+            "flightrec_age_s": None,
+            "cores_available": facts.get("cores_available", False),
+            "spool": {"pending": len(pend),
+                      "sent": len(list(SENT.iterdir())) if SENT.exists() else 0,
+                      "quarantine": len(list(QUAR.iterdir())) if QUAR.exists() else 0,
+                      "oldest_pending_age_s": int(now - oldest) if oldest else None},
+            "upload_frozen": UPLOAD_FROZEN.get("frozen", False),
+            "spool_free_mb": int(shutil.disk_usage(str(W)).free / (1024 * 1024)),
+            "last_successful_contact_at": iso(CONTACT["last_ok"]),
+            "backend_unreachable_since": iso(CONTACT["unreachable_since"]),
+        }
+        try:
+            p["flightrec_age_s"] = int(now - (FLTREC / "watchtower.log").stat().st_mtime)
+        except OSError:
+            pass
+        return p
+
+    def send(self):
+        gap_being_reported = CONTACT["unreachable_since"]
+        req = urllib.request.Request(
+            CFG["BACKEND_URL"] + "/client/stations/heartbeat",
+            data=json.dumps(self.payload()).encode(), method="POST",
+            headers={"Content-Type": "application/json",
+                     "X-Cilex-Station-Token": CFG["STATION_TOKEN"]})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                body = json.loads(r.read().decode() or "{}")
+                contact_ok()
+                if gap_being_reported:
+                    # The gap has now been reported once post-recovery — clear it.
+                    CONTACT["unreachable_since"] = None
+                    log(f"heartbeat: backend reachable again (gap since "
+                        f"{iso(gap_being_reported)} reported)")
+                sa = body.get("stale_after_s")
+                if sa:
+                    self.stale_after = float(sa)
+                return True
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError,
+                json.JSONDecodeError) as e:
+            contact_failed()
+            return False
+
+    def run(self):
+        first = True
+        while True:
+            if CFG["STATION_TOKEN"]:
+                ok = self.send()
+                if first and ok:
+                    log(f"heartbeat: first beat accepted (stale_after={self.stale_after}s) "
+                        f"— station monitoring is now ARMED server-side, permanently")
+                    first = False
+            # Contract cadence 60 s; never slower than a third of the server's
+            # stale window even if the server widens it.
+            time.sleep(min(int(CFG["HEARTBEAT_S"]), max(20, int(self.stale_after / 3))))
+
+
+UPLOAD_FROZEN = {"frozen": False}
+
 # ---------------------------------------------------------------- uploader
 
 class Uploader(threading.Thread):
@@ -284,7 +405,14 @@ class Uploader(threading.Thread):
 
     def __init__(self):
         super().__init__(name="uploader")
-        self.frozen = False              # 401 -> stop everything, alarm, human fixes token
+
+    @property
+    def frozen(self):
+        return UPLOAD_FROZEN["frozen"]   # shared with the heartbeat (upload_frozen field)
+
+    @frozen.setter
+    def frozen(self, v):
+        UPLOAD_FROZEN["frozen"] = v
 
     def put(self, path, data, ctype, timeout):
         req = urllib.request.Request(
@@ -293,8 +421,10 @@ class Uploader(threading.Thread):
                      "X-Cilex-Station-Token": CFG["STATION_TOKEN"]})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
+                contact_ok()
                 return r.status, json.loads(r.read().decode() or "{}"), {}
         except urllib.error.HTTPError as e:
+            contact_ok()                 # an HTTP status IS the backend answering
             hdrs = {k.lower(): v for k, v in e.headers.items()}
             try:
                 body = json.loads(e.read().decode() or "{}")
@@ -302,6 +432,7 @@ class Uploader(threading.Thread):
                 body = {}
             return e.code, body, hdrs
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+            contact_failed()
             return -1, {"error": str(e)}, {}
 
     def run(self):
@@ -441,6 +572,8 @@ class Supervisor:
                 stdout=fh, stderr=subprocess.STDOUT,
                 start_new_session=True)  # our SIGTERM never reaches the child implicitly
         log(f"spawned watchtower pid={proc.pid} console={out.name}")
+        HB.update(app_state="running", app_state_reason=None,
+                  app_pid=proc.pid, app_spawned=time.time())
         return proc, out
 
     def flightrec_age(self):
@@ -483,6 +616,20 @@ class Supervisor:
                         proc.kill()
                         proc.wait()
                 return "hung"
+
+    # Explicit shutdown intent (heartbeat-contract §4: "a marker is the truth").
+    # The app writes crash/shutdown-intent on Window.onClosing (the guard's close
+    # button / compositor close); a fresh marker turns an exit into operator_quit.
+    def consume_quit_marker(self, spawn_ts):
+        f = CRASH / "shutdown-intent"
+        try:
+            if f.exists() and f.stat().st_mtime >= spawn_ts - 1:
+                f.unlink()
+                return True
+            f.unlink(missing_ok=True)    # stale marker from an older run — discard
+        except OSError:
+            pass
+        return False
 
     def death_facts(self, proc, spawn_ts, hung):
         rc = proc.returncode
@@ -609,6 +756,8 @@ class Supervisor:
                               f"Fix: sudo warden/setup-root.sh")
         self.boot_replay()
         Uploader().start()
+        hb = Heartbeat()
+        hb.start()
         prune_sent()
         while not self.stopping:
             spawn_ts = time.time()
@@ -620,18 +769,40 @@ class Supervisor:
             death_ts = time.time()
             trigger, head, marker = self.death_facts(proc, spawn_ts, why == "hung")
             alive_s = death_ts - spawn_ts
-            if trigger.startswith("exit-") and trigger == "exit-0":
-                log("clean exit 0 — kiosk restart, no report")
+            HB["deaths_1h"].append(death_ts)
+            operator_quit = trigger == "exit-0" and self.consume_quit_marker(spawn_ts)
+            if trigger == "exit-0":
+                # Heartbeat intent (§4): exit 0 reads as deliberate — with the
+                # app's shutdown-intent marker as the stronger truth when present.
+                HB.update(app_state="stopped_expected", app_state_reason="operator_quit",
+                          app_pid=None, app_spawned=None)
+                log("clean exit 0 — kiosk restart, no report"
+                    + (" (operator quit marker consumed)" if operator_quit else ""))
             else:
+                reason = ("restart_loop" if self.loop_id else
+                          "killed" if trigger == "sigkill" else
+                          "failed_start" if alive_s < 10 else "crashed")
+                HB.update(app_state="stopped_unexpected", app_state_reason=reason,
+                          app_pid=None, app_spawned=None)
                 self.mint(trigger, head, marker, console, death_ts, proc.pid)
             self.loop_tick()
+            HB["loop_open"] = self.loop_id is not None
             # Restart backoff: reset after a healthy run, escalate through a loop.
             self.backoff_idx = 0 if alive_s > 120 else min(self.backoff_idx + 1, 4)
             delay = [1, 5, 15, 60, 60][self.backoff_idx] if alive_s <= 120 else 1
+            HB["backoff_s"] = delay
             log(f"restart in {delay}s (alive {int(alive_s)}s, cause {trigger})")
             t0 = time.time()
             while time.time() - t0 < delay and not self.stopping:
                 time.sleep(0.5)
+        # Going down ON PURPOSE (systemd stop / host shutdown): one final beat
+        # carrying the intent — this is what keeps the server quiet instead of
+        # paging about a dead Warden (the case the whole design bends around).
+        HB.update(app_state="stopped_expected", app_state_reason="warden_stopping",
+                  app_pid=None, app_spawned=None)
+        if CFG["STATION_TOKEN"]:
+            hb.send()
+            log("final heartbeat sent (stopped_expected/warden_stopping)")
         return 0
 
 
