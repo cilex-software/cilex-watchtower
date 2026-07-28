@@ -59,9 +59,22 @@ Section "Install"
     WriteRegStr   HKCU "${REGKEY}" "UninstallString" "$INSTDIR\uninstall.exe"
     WriteRegDWORD HKCU "${REGKEY}" "NoModify" 1
     WriteRegDWORD HKCU "${REGKEY}" "NoRepair" 1
+
+    ; Warden (CW-16): register the supervisor — Scheduled Task (at-logon +
+    ; 30-min resurrection), WER LocalDumps, config skeleton. The STATION_TOKEN
+    ; is deliberately NOT baked here (CW-20: out-of-band at installer-cut) —
+    ; without it Warden supervises/collects locally and uploads stay off.
+    ; Needs admin for HKLM (WER); the ps1 throws loudly if not elevated.
+    IfFileExists "$INSTDIR\warden\install-windows.ps1" 0 +2
+    ExecWait 'powershell -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\warden\install-windows.ps1" -AppExe "$INSTDIR\${EXE}" -WardenExe "$INSTDIR\warden\warden.exe"'
 SectionEnd
 
 Section "Uninstall"
+    ; Warden teardown: stop + drop the task and the WER key. The spool
+    ; (%LOCALAPPDATA%\watchtower-warden) is EVIDENCE and survives uninstall.
+    ExecWait 'schtasks /End /TN "wt-warden"'
+    ExecWait 'schtasks /Delete /F /TN "wt-warden"'
+    DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\watchtower.exe"
     Delete "$SMPROGRAMS\${APPNAME}.lnk"
     Delete "$DESKTOP\${APPNAME}.lnk"
     DeleteRegKey HKCU "${REGKEY}"

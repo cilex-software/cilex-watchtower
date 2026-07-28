@@ -22,6 +22,7 @@ Config: /etc/watchtower-warden.conf then ~/.config/watchtower-warden/warden.conf
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import signal
@@ -36,7 +37,9 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-WARDEN_VERSION = "1.1.0"          # 1.1: dead-man heartbeat (CW-19 client half)
+WIN = sys.platform == "win32"
+
+WARDEN_VERSION = "1.2.0"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -79,9 +82,13 @@ def load_config():
     for k in cfg:
         cfg[k] = os.environ.get("WT_WARDEN_" + k, cfg[k])
     if not cfg["DATA_DIR"]:
-        cfg["DATA_DIR"] = str(Path.home() / ".local/share/Cilex Vision/Watchtower")
+        # Must equal Qt's AppDataLocation for the app (flightrec/, crash/ live there):
+        # %APPDATA%/Cilex Vision/Watchtower on Windows, XDG data dir on Linux.
+        cfg["DATA_DIR"] = str(Path(os.environ["APPDATA"]) / "Cilex Vision/Watchtower") if WIN \
+            else str(Path.home() / ".local/share/Cilex Vision/Watchtower")
     if not cfg["WARDEN_DIR"]:
-        cfg["WARDEN_DIR"] = str(Path.home() / ".local/share/watchtower-warden")
+        cfg["WARDEN_DIR"] = str(Path(os.environ["LOCALAPPDATA"]) / "watchtower-warden") if WIN \
+            else str(Path.home() / ".local/share/watchtower-warden")
     return cfg
 
 
@@ -108,11 +115,90 @@ def alarm(kind, text):
             log(f"alarm hook failed: {e}")
 
 
+# ---- station identity ----------------------------------------------------
+# CV keys every station (quota, monitoring grace, crash history) on this hash.
+# The two silent failure modes their letter warned about: an UNSTABLE source
+# fragments a box's history; a NON-UNIQUE one (golden-image cloning) collapses
+# several boxes into one station that looks supervised when its twins are dead.
+# Formula per 2026-07-27-warden-dead-man-heartbeat.reply.md §3a, in CV's spec.
+
+def _smbios_blank(u):
+    """Vendor-blank SMBIOS UUIDs (real on cheap boards) carry no identity."""
+    if not u:
+        return True
+    v = u.strip().upper()
+    return ("FILLED" in v                                    # "To be filled by O.E.M."
+            or v.replace("F", "").replace("-", "") == ""     # all-FF
+            or v.replace("0", "").replace("-", "") == ""     # all-zero
+            or v == "03000200-0400-0500-0006-000700080009")  # known vendor default
+
+
+def _station_seed():
+    """First-run UUID file — the belt-and-braces component. Regenerated only if
+    missing, so a golden image captured BEFORE first run (the install rule)
+    yields a fresh seed per box."""
+    f = W / "station-seed"
+    try:
+        seed = f.read_text().strip()
+        if seed:
+            return seed
+    except OSError:
+        pass
+    seed = str(uuid.uuid4())
+    try:
+        W.mkdir(parents=True, exist_ok=True)
+        f.write_text(seed + "\n")
+    except OSError:
+        return ""
+    return seed
+
+
+def identity_material(smbios, machine_guid, seed):
+    """Pure — unit-testable on any OS. sha256('wt1|SMBIOS|GUID|seed')."""
+    if _smbios_blank(smbios):
+        smbios = ""
+    return "sha256:" + hashlib.sha256(
+        f"wt1|{smbios}|{machine_guid}|{seed}".encode()).hexdigest()
+
+
+_MID_CACHE = None
+
+
 def machine_id_hash():
+    # Cached: on Windows the SMBIOS read shells out (~1 s) and this is called
+    # from every heartbeat; identity is immutable for the process lifetime anyway.
+    global _MID_CACHE
+    if _MID_CACHE is not None:
+        return _MID_CACHE
+    if WIN:
+        guid = ""
+        try:
+            import winreg
+            k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                               r"SOFTWARE\Microsoft\Cryptography", 0,
+                               winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+            guid = str(winreg.QueryValueEx(k, "MachineGuid")[0])
+        except OSError:
+            pass
+        smbios = ""
+        try:
+            out = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "(Get-CimInstance Win32_ComputerSystemProduct).UUID"],
+                capture_output=True, text=True, timeout=20)
+            smbios = (out.stdout or "").strip()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        if _smbios_blank(smbios) and smbios:
+            log(f"WARN: vendor-blank SMBIOS UUID '{smbios}' — identity rides "
+                f"MachineGuid + station seed only (see reply letter §3a)")
+        _MID_CACHE = identity_material(smbios, guid, _station_seed())
+        return _MID_CACHE
     for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
         try:
             mid = Path(p).read_text().strip()
-            return "sha256:" + hashlib.sha256(mid.encode()).hexdigest()
+            _MID_CACHE = "sha256:" + hashlib.sha256(mid.encode()).hexdigest()
+            return _MID_CACHE
         except OSError:
             continue
     return ""
@@ -124,12 +210,34 @@ def core_pattern_ok():
     core-writing a no-op for us — CV's reply6 spotted exactly that in the first
     five bundles. The gap must be self-announcing: annotated in every manifest
     (a core-less bundle then explains itself server-side) and alarmed once at
-    startup. Fix on a box: sudo warden/setup-root.sh."""
+    startup. Fix on a box: sudo warden/setup-root.sh.
+    Windows has no cores at all — always (False, "") per the contract letters
+    (`cores_available:false`, empty pattern; minidump_written is the analogue).
+    The WER belt-and-braces check lives in wer_localdumps_ok() instead."""
+    if WIN:
+        return False, ""
     try:
         pat = Path("/proc/sys/kernel/core_pattern").read_text().strip()
     except OSError:
         return False, ""
     return pat.startswith(str(CRASH)), pat
+
+
+def wer_localdumps_ok():
+    """Windows only: is the WER LocalDumps key armed for watchtower.exe? That's
+    the filter-bypassing-crash net (fast-fail, /GS) the installer must set —
+    same self-announcing rule as core_pattern on Linux."""
+    if not WIN:
+        return True
+    try:
+        import winreg
+        winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                       r"SOFTWARE\Microsoft\Windows\Windows Error Reporting"
+                       r"\LocalDumps\watchtower.exe", 0,
+                       winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+        return True
+    except OSError:
+        return False
 
 
 def os_facts():
@@ -138,6 +246,11 @@ def os_facts():
              "os": "", "kernel": "", "display": os.environ.get(
                  "XDG_SESSION_TYPE", "wayland" if os.environ.get("WAYLAND_DISPLAY") else ""),
              "cores_available": ok, "core_pattern": pat[:120]}
+    if WIN:
+        facts["os"] = f"Windows {platform.release()}"
+        facts["kernel"] = platform.version()
+        facts["display"] = "windows"
+        return facts
     try:
         for line in Path("/etc/os-release").read_text().splitlines():
             if line.startswith("PRETTY_NAME="):
@@ -146,8 +259,8 @@ def os_facts():
         pass
     try:
         facts["kernel"] = os.uname().release
-    except OSError:
-        pass
+    except (OSError, AttributeError):
+        facts["kernel"] = platform.release()
     return facts
 
 
@@ -578,11 +691,14 @@ class Supervisor:
         for old in sorted(CONSOLE.glob("console-*.log"))[:-5]:
             old.unlink(missing_ok=True)
         out = CONSOLE / f"console-{int(time.time())}.log"
+        # Detach the child from our signal fate: POSIX = new session; Windows =
+        # new process group (so a CTRL_BREAK aimed at Warden never hits the app).
+        kw = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if WIN \
+             else {"start_new_session": True}
         with out.open("wb") as fh:       # Popen dups the fd; don't leak ours per spawn
             proc = subprocess.Popen(
                 [CFG["APP_CMD"]], env=self.app_env(),
-                stdout=fh, stderr=subprocess.STDOUT,
-                start_new_session=True)  # our SIGTERM never reaches the child implicitly
+                stdout=fh, stderr=subprocess.STDOUT, **kw)
         log(f"spawned watchtower pid={proc.pid} console={out.name}")
         HB.update(app_state="running", app_state_reason=None,
                   app_pid=proc.pid, app_spawned=time.time())
@@ -615,6 +731,18 @@ class Supervisor:
                     proc.kill()
                 return "stopped"
             if hang_s > 0 and self.flightrec_age() > hang_s:
+                if WIN:
+                    # No SIGABRT delivery on Windows — the in-app watchdog
+                    # (WT_WATCHDOG_S) is the marker-writing path there; the
+                    # outer net just ends the frozen process.
+                    alarm("hang", f"flightrec silent {int(self.flightrec_age())}s — "
+                                  f"terminating pid={proc.pid}")
+                    proc.kill()
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        pass
+                    return "hung"
                 alarm("hang", f"flightrec silent {int(self.flightrec_age())}s — "
                               f"SIGABRT pid={proc.pid} for a marked crash")
                 try:
@@ -645,9 +773,23 @@ class Supervisor:
 
     def death_facts(self, proc, spawn_ts, hung):
         rc = proc.returncode
-        sig = -rc if rc is not None and rc < 0 else None
+        # POSIX: a negative return code IS the signal. Windows: the code is the
+        # NTSTATUS (signed 32-bit) — e.g. 0xC0000005 arrives as -1073741819; the
+        # trigger becomes exception-c0000005 (stored + flagged as an unknown
+        # trigger server-side, by design — same as sigkill was).
+        sig = None
+        exc = None
+        if rc is not None and rc < 0:
+            if WIN:
+                exc = f"{rc & 0xFFFFFFFF:08x}"
+            else:
+                sig = -rc
+        elif WIN and rc is not None and rc >= 0x40000000:
+            exc = f"{rc & 0xFFFFFFFF:08x}"      # some launchers report unsigned NTSTATUS
         head = {"epoch": int(time.time()), "uptime_s": int(time.time() - spawn_ts),
                 "signal": sig, "build": "unknown", "qt": ""}
+        if exc:
+            head["exception"] = "0x" + exc.upper()
         marker = None
         if CRASH.exists():
             fresh = [m for m in CRASH.glob("marker-*.json")
@@ -661,6 +803,8 @@ class Supervisor:
             trigger = "hang-watchdog"
         elif sig is not None:
             trigger = TRIG.get(sig, f"signal-{sig}")
+        elif exc:
+            trigger = "exception-" + exc      # e.g. exception-c0000005 (access violation)
         else:
             trigger = f"exit-{rc}"
         return trigger, head, marker
@@ -743,7 +887,12 @@ class Supervisor:
                 m.rename(m.with_suffix(".unparsed"))
                 continue
             rid = head.get("report_id") or str(uuid.uuid4())
-            trigger = TRIG.get(head.get("signal"), "signal-unknown")
+            if head.get("signal") is not None:
+                trigger = TRIG.get(head.get("signal"), "signal-unknown")
+            elif head.get("exception"):
+                trigger = "exception-" + str(head["exception"]).replace("0x", "").lower()
+            else:
+                trigger = "signal-unknown"
             log(f"boot replay: marker {m.name} -> report {rid}")
             self.mint_replay(rid, trigger, head, m)
 
@@ -761,11 +910,19 @@ class Supervisor:
             return 2
         signal.signal(signal.SIGTERM, lambda *_: setattr(self, "stopping", True))
         signal.signal(signal.SIGINT, lambda *_: setattr(self, "stopping", True))
-        ok, pat = core_pattern_ok()
-        if not ok:
-            alarm("no-cores", f"kernel.core_pattern is '{pat[:80]}' — crash bundles "
-                              f"will carry NO core (backtrace+logs only). "
-                              f"Fix: sudo warden/setup-root.sh")
+        if hasattr(signal, "SIGBREAK"):     # Windows: CTRL_BREAK is the deliverable stop
+            signal.signal(signal.SIGBREAK, lambda *_: setattr(self, "stopping", True))
+        if WIN:
+            if not wer_localdumps_ok():
+                alarm("no-wer", "WER LocalDumps key for watchtower.exe is missing — "
+                                "filter-bypassing crashes (fast-fail, /GS) will leave no "
+                                "dump. Fix: run warden/install-windows.ps1 as admin")
+        else:
+            ok, pat = core_pattern_ok()
+            if not ok:
+                alarm("no-cores", f"kernel.core_pattern is '{pat[:80]}' — crash bundles "
+                                  f"will carry NO core (backtrace+logs only). "
+                                  f"Fix: sudo warden/setup-root.sh")
         self.boot_replay()
         Uploader().start()
         hb = Heartbeat()

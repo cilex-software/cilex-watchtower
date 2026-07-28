@@ -43,6 +43,28 @@ systemd --user (Linux) / Task Scheduler at-logon (Windows, CW-16)
   `warden.py reimport <dir>` on any connected box — the manifest PUT answers
   `bundle_state=stored`, so an already-held half-GB never crosses the wire.
 
+## Install (Windows — CW-16)
+
+`warden.exe` (PyInstaller single binary, built by CI into the dist → portable zip
++ NSIS installer) + `install-windows.ps1` (run as admin), which sets up: config
+skeleton, **WER LocalDumps** for `watchtower.exe` (the filter-bypassing-crash
+net; Warden alarms `no-wer` if the key is missing — the Windows analogue of the
+Linux `no-cores` alarm), and the **Scheduled Task** — *never a service* —
+at-logon start + restart-on-failure (3×1 min) + a 30-minute resurrection
+trigger, so a Warden that dies mid-session is dark ≤30 min (CV's alert text
+carries that number). The NSIS installer runs the script automatically;
+`STATION_TOKEN` is set at deployment (CW-20, out-of-band), never baked in.
+
+Windows specifics baked into `warden.py` (all platform-gated, Linux behaviour
+unchanged): station identity `sha256("wt1|SMBIOS_UUID|MachineGuid|station-seed)`
+per the reply letter §3a (vendor-blank SMBIOS detected; seed = first-run UUID
+file; identity cached — the SMBIOS read shells out); crash exit codes classify
+as `exception-<ntstatus>` (e.g. `exception-c0000005`, stored+flagged server-side
+like `sigkill` was); the hang outer net terminates rather than SIGABRTs (the
+in-app watchdog owns marker-writing there); `CTRL_BREAK`/`SIGBREAK` is a clean
+stop; `cores_available` is always `false` with `minidump_written` as the
+per-report analogue. Runtime chaos validation on a real VM = CW-18.
+
 ## Install (Linux)
 
 ```
