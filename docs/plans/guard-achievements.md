@@ -1,5 +1,9 @@
 # The Watch — guard progression & achievements (design)
 
+> **STATUS: PARKED (operator decision, 2026-07-28).** Design complete, CV letter
+> written but NOT sent, no implementation started. Resume = send the letter,
+> then §8 rollout order.
+
 _2026-07-28. Product design for the guard gamification feature: check-in identity,
 rank ladder, a two-dimensional achievement matrix, badge art descriptions (for
 image generation), UX, and the client/backend split. Backend ask:
