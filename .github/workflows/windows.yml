@@ -142,6 +142,24 @@ jobs:
           -QmlDir (Resolve-Path qml).Path
           -GstRuntime $env:GSTREAMER_ROOT
 
+      # Warden (CW-16): single-exe supervisor/crash collector, staged into dist so
+      # the portable zip and the NSIS installer carry it wholesale.
+      - name: Build warden.exe (PyInstaller)
+        shell: pwsh
+        run: pwsh packaging/windows/build-warden.ps1 -Dist build-windows/dist
+
+      # CW-17: PDBs or the minidumps are garbage. RelWithDebInfo (CMakePresets)
+      # makes MSVC emit watchtower.pdb; it MUST travel with every release the
+      # exe does — a dump without its matching PDB symbolizes to nothing, and
+      # this is worthless if started after the first field crash.
+      - name: Stage watchtower.pdb
+        shell: pwsh
+        run: |
+          $pdb = Get-ChildItem build-windows -Filter watchtower.pdb -Recurse | Select-Object -First 1
+          if (-not $pdb) { throw "watchtower.pdb not found - RelWithDebInfo regressed?" }
+          Copy-Item $pdb.FullName watchtower.pdb
+          Write-Host "PDB staged: $($pdb.FullName) ($([math]::Round($pdb.Length/1MB,1)) MB)"
+
       # Compliance: every GStreamer plugin we actually SHIP must be documented in the LGPL
       # inventory — a bundled-but-undocumented plugin is a licence drift, so fail on it.
       - name: License compliance (shipped plugins are documented)
@@ -185,6 +203,11 @@ jobs:
           $assets = @((Resolve-Path "watchtower-windows-portable.zip").Path)
           $installer = Get-ChildItem packaging/windows/CilexWatchtower-*-setup.exe -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($installer) { $assets += $installer.FullName }
+          # CW-17: the PDB rides every release its exe does (same commit, same tag).
+          if (Test-Path watchtower.pdb) {
+            Compress-Archive -Path watchtower.pdb -DestinationPath "watchtower-pdb.zip" -Force
+            $assets += (Resolve-Path "watchtower-pdb.zip").Path
+          }
           $tag = "windows-latest"
           gh release delete $tag --yes --cleanup-tag 2>$null   # native exit ignored; recreated below
           gh release create $tag $assets --prerelease --target $env:GITHUB_SHA `
@@ -213,6 +236,17 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      # CW-17: PDB artifact for the v* tag release job (short retention is fine —
+      # the durable copies are the release assets, which escape the quota).
+      - name: Upload PDB
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: watchtower-pdb
+          path: watchtower.pdb
+          if-no-files-found: error
+          retention-days: 3
+
   # Optional: publish a permanent versioned installer on a v* tag.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -223,7 +257,16 @@ jobs:
         with:
           name: watchtower-setup
           path: dist
-      - name: Attach installer to the GitHub Release
+      # CW-17: versioned releases archive the PDB FOREVER — a field minidump
+      # from any shipped build must symbolize years later.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: watchtower-pdb
+          path: dist
+      - name: Attach installer + PDB to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*-setup.exe
+          files: |
+            dist/*-setup.exe
+            dist/watchtower.pdb
