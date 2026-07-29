@@ -55,8 +55,15 @@ Item {
     property double selEndMs: -1
     readonly property bool hasSelection: selStartMs >= 0 && selEndMs > selStartMs
 
-    readonly property string camId: (client && camera)
+    // client.loggedIn is read for its NOTIFY: cameraIdForIp() is a plain lookup
+    // into a map that only fills once the client's /streams resolves — without
+    // the loggedIn dependency, a fast boot evaluated this to "" and it STAYED ""
+    // (silently disabling hover thumbs, the day strip, everything camId-keyed).
+    readonly property string camId: (client && client.loggedIn && camera)
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
+    // The day strip is requested ONCE at open — if that ran before camId resolved
+    // (the same boot race), re-request it the moment the id lands.
+    onCamIdChanged: if (camId !== "" && selectedDay !== "" && dayTiles.length === 0) requestDayStrip()
 
     // ---- events on the scrubber: motion episodes + point events ----------
     // Motion = amber spans; other event types = point ticks. Sources below:
@@ -587,6 +594,20 @@ Item {
             root.client.fetchThumbnails(root.camId, "hover|" + Math.round(root._hoverWallMs / 60000),
                 new Date(root._hoverWallMs - 30000).toISOString(),
                 new Date(root._hoverWallMs + 30000).toISOString(), 1, 96);
+        }
+    }
+    // Dev pilot: WT_HOVERSHOT=1 forces the scrubber hover preview at ~62% of the
+    // view once the timeline is live — deterministic screenshot verification of
+    // its placement (the card must float ABOVE the track, never cover it).
+    Timer {
+        interval: 1200; repeat: true
+        running: typeof wtHoverShot !== "undefined" && wtHoverShot && root.visible
+        onTriggered: {
+            if (!(root.tlEndMs > root.tlStartMs)) return;
+            var ms = root.viewStartMs + 0.62 * (root.viewEndMs - root.viewStartMs);
+            bar.hoverMs = ms;
+            bar.hoverX = bar.xOf(ms);
+            root.requestHoverThumb(ms);
         }
     }
     function requestDayStrip() {
@@ -2127,6 +2148,45 @@ Item {
                 }
             }
 
+            // Hover preview (CV /review/thumbnails, 1 keyframe tile near the hovered
+            // instant): a real frame from that moment, not a guess. A SIBLING of the
+            // scrubber, floating with its bottom edge just ABOVE the track — never
+            // covering the region being scrubbed (it used to render inside the bar,
+            // hiding the very timeline under the cursor; operator report 2026-07-28).
+            // z above the bar and the day/frame strips; x clamped to the bar's width.
+            Rectangle {
+                id: hoverPreview
+                visible: bar.hoverMs > 0 && root.hoverThumb !== null && !root.frameMode
+                x: bar.x + Math.max(2, Math.min(bar.width - width - 2, bar.hoverX - width / 2))
+                y: Math.max(0, bar.y - height - 6)
+                z: 40
+                width: 110; height: 74
+                color: Theme.panel; border.width: 1; border.color: Theme.line2
+                Image {
+                    anchors { top: parent.top; left: parent.left; right: parent.right; margins: 2 }
+                    height: 58
+                    source: root.hoverThumb ? root.hoverThumb.tileUrl : ""
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                }
+                Text {
+                    anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 1 }
+                    text: bar.hoverMs > 0 ? root.fmtClock(bar.hoverMs) : ""
+                    color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
+                }
+                // Pointer caret: ties the floating card to the exact hovered instant.
+                Rectangle {
+                    anchors.top: parent.bottom
+                    x: Math.max(4, Math.min(parent.width - 12,
+                                            (bar.x + bar.hoverX) - hoverPreview.x - 4))
+                    width: 8; height: 8
+                    rotation: 45
+                    anchors.topMargin: -4
+                    color: Theme.panel
+                    border.width: 1; border.color: Theme.line2
+                }
+            }
+
             // bar
             Rectangle {
                 id: bar
@@ -2140,28 +2200,10 @@ Item {
 
                 clip: true   // footage/selection outside the zoomed view are clipped
                 property double hoverX: -1
-                // Hover preview (CV /review/thumbnails, 1 keyframe tile near the
-                // hovered instant): a real frame from that moment, not a guess.
-                Rectangle {
-                    visible: bar.hoverMs > 0 && root.hoverThumb !== null && !root.frameMode
-                    x: Math.max(2, Math.min(bar.width - width - 2, bar.hoverX - width / 2))
-                    y: 2
-                    z: 40
-                    width: 110; height: 74
-                    color: Theme.panel; border.width: 1; border.color: Theme.line2
-                    Image {
-                        anchors { top: parent.top; left: parent.left; right: parent.right; margins: 2 }
-                        height: 58
-                        source: root.hoverThumb ? root.hoverThumb.tileUrl : ""
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                    }
-                    Text {
-                        anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 1 }
-                        text: bar.hoverMs > 0 ? root.fmtClock(bar.hoverMs) : ""
-                        color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
-                    }
-                }
+                // The hover preview used to live HERE, inside the (clipped) bar —
+                // which drew it ON TOP of the very track being scrubbed (operator
+                // report 2026-07-28). It is now the `hoverPreview` SIBLING declared
+                // just above this bar, floating over the strip area instead.
                 readonly property double span: Math.max(1, root.viewEndMs - root.viewStartMs)
                 function xOf(ms) { return (ms - root.viewStartMs) / span * width }
                 function msOf(x) { return root.viewStartMs + (x / width) * span }

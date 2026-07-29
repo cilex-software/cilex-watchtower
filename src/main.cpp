@@ -477,6 +477,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtRestoreTest", qEnvironmentVariable("WT_RESTORE_TEST"));
     // Merged-cells self-test (WT_MERGE_TEST=seed|verify → [MERGETEST] PASS/FAIL).
     engine.rootContext()->setContextProperty("wtMergeTest", qEnvironmentVariable("WT_MERGE_TEST"));
+    // Force the scrubber hover preview for screenshot verification (WT_HOVERSHOT=1).
+    engine.rootContext()->setContextProperty("wtHoverShot", qEnvironmentVariableIsSet("WT_HOVERSHOT"));
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
