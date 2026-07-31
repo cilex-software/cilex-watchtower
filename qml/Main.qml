@@ -148,7 +148,7 @@ Window {
     // saved state while the roster is still loading.
     readonly property bool restoreEligible:
         !wtRestoreOff && !wtDemo && !wtTabsTest && !wtEventsTest && !wtHeroTest
-        && wtMergeTest === ""
+        && wtMergeTest === "" && wtSeek10k === ""
         && wtSection === "" && wtTabs === "" && wtStatusFilter === ""
         && wtFocusIp === "" && wtDetailIp === "" && wtPlaybackIp === "" && wtGroup === ""
         && wtWallDay === "" && !wtGuardSoak && !wtFsoak && !wtNightSoak && !wtCalStress
@@ -545,6 +545,141 @@ Window {
             tabsBootHook.running = false;
         }
     }
+    // ---- WT_SEEK10K: large-scale scrubber seek-latency harness -------------
+    // Measures the OPERATOR metric: the click-equivalent seekToWall() call →
+    // the first RENDERED frame within ±3 s of the target while playback is
+    // advancing (frame truth via FrameClock.lastPtsMs mapped through
+    // posToWall — "position moved" is never trusted as "landed"). Landing is
+    // checked on every rendered-frame event (~40 ms resolution); the timer
+    // only drives the state machine and the 20 s timeout. One log line per
+    // seek:
+    //   [SEEK10K] i=N cam=<ip> day=<d> tgt=<s-into-day> dist=<s> reopen=0|1 dt=<ms>
+    // dt=-1 marks a timeout (give-up path) — counted, never hidden. Targets
+    // are drawn ONLY from real footage fragments (tlFrags spans >15 s), so a
+    // measurement is always "video should exist here".
+    readonly property int _s10kFrameSeq: playbackScreen._frameSeq
+    on_S10kFrameSeqChanged: seek10k.checkLanding()
+    Timer {
+        id: seek10k
+        interval: 120; repeat: true
+        running: wtSeek10k !== ""
+        property var flat: []          // [{ip, day}] round-robin
+        property int planIdx: 0
+        property int done: 0
+        readonly property int total: wtSeek10kN > 0 ? wtSeek10kN : 10000
+        property int perOpen: 25       // seeks per day-open (amortizes opens)
+        property int inOpen: 0
+        property string st: "boot"
+        property double t0: 0
+        property double target: 0
+        property double prevWall: 0
+        property int genAtSeek: 0
+        property int waitTicks: 0
+        property int timeouts: 0
+        property int openFails: 0
+        property int seqAtSeek: 0
+        // Landing = NSEEK's proven recipe (the night-soak seek verifier): a NEW
+        // rendered frame since the click (frameSeq advance — defuses the
+        // position-moved-early trap: during a far-seek re-anchor the OLD player
+        // keeps rendering, so playhead-nearness alone would lie) AND playheadMs
+        // (absolute wall) within ±5 s of the target. Evaluated on every rendered
+        // frame → ~frame-interval precision. FrameClock.lastPtsMs is deliberately
+        // NOT used: it is segment-relative on this pipeline (probed 2026-07-31).
+        function checkLanding() {
+            if (st !== "watch") return;
+            if (playbackScreen._frameSeq <= seqAtSeek) return;
+            if (Math.abs(playbackScreen.playheadMs - target) > 5000) return;
+            var dt = Date.now() - t0;
+            var e = flat[planIdx % flat.length];
+            console.log("[SEEK10K] i=" + (done + 1) + " cam=" + e.ip + " day=" + e.day
+                        + " tgt=" + Math.round((target - playbackScreen.tlStartMs) / 1000)
+                        + " dist=" + Math.round(Math.abs(target - prevWall) / 1000)
+                        + " reopen=" + (playbackScreen._openGen !== genAtSeek ? 1 : 0)
+                        + " dt=" + dt);
+            done++; inOpen++; st = "settle"; waitTicks = 0;
+        }
+        function pickTarget() {
+            var fr = playbackScreen.tlFrags, spans = [], tot = 0;
+            for (var i = 0; i < fr.length; i++) {
+                var d = fr[i].we - fr[i].ws;
+                if (d > 15000) { spans.push(fr[i]); tot += d - 7000; }
+            }
+            if (spans.length === 0 || tot <= 0) return -1;
+            var r = Math.random() * tot;
+            for (var j = 0; j < spans.length; j++) {
+                var usable = spans[j].we - spans[j].ws - 7000;
+                if (r <= usable) return spans[j].ws + 2000 + r;
+                r -= usable;
+            }
+            return spans[0].ws + 2000;
+        }
+        onTriggered: {
+            if (st === "boot") {
+                if (!AuthController.authenticated || cameraModel.total === 0) return;
+                try { var plan = JSON.parse(wtSeek10k); } catch (e) { console.log("[SEEK10K] BAD PLAN"); running = false; return; }
+                flat = [];
+                for (var p = 0; p < plan.length; p++)
+                    for (var d = 0; d < plan[p].days.length; d++)
+                        flat.push({ ip: plan[p].ip, day: plan[p].days[d] });
+                if (flat.length === 0) { console.log("[SEEK10K] EMPTY PLAN"); running = false; return; }
+                console.log("[SEEK10K] START total=" + total + " combos=" + flat.length + " perOpen=" + perOpen);
+                st = "open";
+            } else if (st === "open") {
+                var e = flat[planIdx % flat.length];
+                var all = cameraModel.page("", "", "default", 1, 64), cam = null;
+                for (var i = 0; i < all.length; i++) if (all[i].ip === e.ip) { cam = all[i]; break; }
+                if (!cam) { console.log("[SEEK10K] cam gone: " + e.ip); planIdx++; return; }
+                win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.camera = cam;
+                playbackScreen.openForDay(e.day);
+                inOpen = 0; waitTicks = 0; st = "await";
+            } else if (st === "await") {
+                if (playbackScreen.tlEndMs > playbackScreen.tlStartMs && playbackScreen.advancing) {
+                    waitTicks = 0; st = "settle";
+                } else if (++waitTicks > 620) {                       // 75 s — cold cams synth slowly; skip dead combo
+                    console.log("[SEEK10K] OPEN-TIMEOUT cam=" + flat[planIdx % flat.length].ip
+                                + " day=" + flat[planIdx % flat.length].day);
+                    openFails++; planIdx++; st = "open";
+                }
+            } else if (st === "seek") {
+                target = pickTarget();
+                if (target < 0) { console.log("[SEEK10K] no usable footage, skipping combo"); planIdx++; st = "open"; return; }
+                prevWall = playbackScreen.playheadMs > 0 ? playbackScreen.playheadMs
+                                                         : playbackScreen.tlStartMs;
+                genAtSeek = playbackScreen._openGen;
+                seqAtSeek = playbackScreen._frameSeq;
+                t0 = Date.now();
+                playbackScreen.seekToWall(target);
+                waitTicks = 0; st = "watch";
+            } else if (st === "watch") {
+                checkLanding();                                       // belt: poll besides the frame event
+                if (waitTicks > 0 && waitTicks % 42 === 0)
+                    console.log("[SEEK10K][probe] ph=" + Math.round((playbackScreen.playheadMs - playbackScreen.tlStartMs) / 1000)
+                                + " tgt=" + Math.round((target - playbackScreen.tlStartMs) / 1000)
+                                + " seq=" + playbackScreen._frameSeq + "/" + seqAtSeek
+                                + " adv=" + playbackScreen.advancing
+                                + " gen=" + playbackScreen._openGen + "/" + genAtSeek);
+                if (++waitTicks > 167) {                              // 20 s — honest give-up
+                    var e2 = flat[planIdx % flat.length];
+                    console.log("[SEEK10K] i=" + (done + 1) + " cam=" + e2.ip + " day=" + e2.day
+                                + " tgt=" + Math.round((target - playbackScreen.tlStartMs) / 1000)
+                                + " dist=" + Math.round(Math.abs(target - prevWall) / 1000)
+                                + " reopen=" + (playbackScreen._openGen !== genAtSeek ? 1 : 0)
+                                + " dt=-1");
+                    timeouts++; done++; inOpen++; st = "settle"; waitTicks = 0;
+                }
+            } else if (st === "settle") {
+                if (++waitTicks < 3) return;                          // ~360 ms between seeks
+                if (done >= total) {
+                    console.log("[SEEK10K] DONE done=" + done + " timeouts=" + timeouts
+                                + " openFails=" + openFails);
+                    Qt.quit(); return;
+                }
+                if (inOpen >= perOpen) { planIdx++; st = "open"; }
+                else st = "seek";
+            }
+        }
+    }
+
     // Dev self-test (merged cells): WT_MERGE_TEST=seed drives Shift-drag-equivalent
     // selection + merge on a fresh profile and quits; =verify (new process, same
     // profile) asserts persistence, then splits and asserts restoration.

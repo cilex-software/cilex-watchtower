@@ -335,7 +335,21 @@ Item {
             // 35 s, watched 0.2 s — frames advanced, the watchdog was satisfied,
             // the operator was at the wrong moment). Continuous sessions restamp
             // pts ≈ position, so rendered pts far from the target = not landed.
-            var mislanded = root._seekWatchPosMs >= 0 && FrameClock.lastPtsMs >= 0
+            //
+            // BUT the pts check is only meaningful when frame pts actually spans
+            // the position domain. On some serves (observed 2026-07-31, cold-tier
+            // days) QVideoFrame::startTime is SEGMENT-RELATIVE — it cycles 0..~6 s
+            // forever — and comparing it to a >8 s in-window position declared
+            // EVERY far seek mislanded: re-open → play 6 s → mislanded again →
+            // budget burned → settled ~15 s BEHIND the target (caught by the
+            // 10k-seek harness; the playhead visibly walked backwards). Gate:
+            // trust pts for the misland verdict only if it has plausibly LEFT the
+            // segment-relative range (> 12 s ≈ 2 segments), or the target itself
+            // is inside that range. Otherwise fall back to frames-advanced only —
+            // an undetected misland degrades to the operator re-clicking, which
+            // beats an automatic loop that reliably lands them in the wrong place.
+            var ptsUsable = FrameClock.lastPtsMs > 12000 || root._seekWatchPosMs < 12000;
+            var mislanded = ptsUsable && root._seekWatchPosMs >= 0 && FrameClock.lastPtsMs >= 0
                             && Math.abs(FrameClock.lastPtsMs - root._seekWatchPosMs) > 8000;
             if (root._seekWatchSeq >= 0 && (root._frameSeq <= root._seekWatchSeq || mislanded)) {
                 if (Math.abs(root._seekWatchWall - root._mislandWall) < 2000) root._mislandCount++;
@@ -529,6 +543,14 @@ Item {
     property double _explicitStart: -1
     property double _explicitEnd: -1
     property double _pendingSeekMs: -1     // after the session loads, seek here (event open-at, −15s lead-in)
+    property int _pendingTries: 0          // verify-and-retry budget for the pending seek (see applyPendingSeek)
+    // Drives applyPendingSeek until the position PROVABLY lands (or the budget
+    // caps). Signals alone lost seeks on same-duration source swaps.
+    Timer {
+        interval: 150; repeat: true
+        running: root._pendingArmed && root._pendingSeekMs >= 0
+        onTriggered: player.applyPendingSeek()
+    }
     property bool _pendingArmed: false     // true only once THIS open's session is ready (race-safe deferred seek)
     // Far-seek COALESCING (2026-07-03, operator report "click the bar fast → freezes"):
     // rapid chaotic scrubber clicks used to dispatch one session re-open PER CLICK —
@@ -897,6 +919,7 @@ Item {
             root._farInFlight = false;     // this open landed — the far-click coalescing window is over
             var farNext = root._farLatestMs; root._farLatestMs = -1;
             root._pendingArmed = true;     // fragments below are now THIS session's — safe to apply a pending seek
+            root._pendingTries = 0;        // fresh verify-and-retry budget for this open
             root.sessionId = sid;
             root._maxPosSeen = 0;              // fresh session → all regions cold
             root.compactDuration = dur;
@@ -1685,14 +1708,44 @@ Item {
                             root._pendingSeekMs = -1;
                             return;
                         }
-                        root.seekToWall(bestWall);
-                        root._pendingSeekMs = -1;
+                        // VERIFY-AND-RETRY (2026-07-31, found by the 10k-seek harness):
+                        // a not-yet-prerolled pipeline SILENTLY DROPS position sets — and
+                        // no signal reliably marks "now it would stick" across a source
+                        // swap into a same-duration window (seekable/duration don't
+                        // re-fire; LoadedMedia is still too early on cold serves). So the
+                        // pending seek stays ARMED until the player's position provably
+                        // lands within 2 s of the wanted spot; the retry timer below
+                        // re-issues every 150 ms, capped at ~4.5 s before giving up loudly.
+                        var wantedPos = root.wallToPos(bestWall) * 1000;
+                        if (Math.abs(position - wantedPos) < 2000) {
+                            root._pendingSeekMs = -1;               // landed — done
+                            return;
+                        }
+                        if (++root._pendingTries > 30) {
+                            if ((typeof wtTrace !== "undefined") && wtTrace)
+                                console.log("[PB] pending seek DROPPED after " + root._pendingTries
+                                            + " tries (pos=" + position + " wanted=" + Math.round(wantedPos) + ")");
+                            root._pendingSeekMs = -1;
+                            return;
+                        }
+                        root.seekToWall(bestWall);                  // keep pending; verified next tick
                     }
                     onSeekableChanged: applyPendingSeek()
                     onDurationChanged: applyPendingSeek()
                     onMediaStatusChanged: {
                         if (root._pbTime) console.log("[PBTIME] mediaStatus=" + mediaStatus
                                                       + " dt=" + (Date.now() - root._obT0) + "ms")
+                        // Third application edge for the deferred open-at seek. seekable/
+                        // durationChanged are NOT re-emitted when a source swap lands a
+                        // window with the SAME duration/seekability — which is every
+                        // far-seek-after-far-seek (identical 30 min windows), so the
+                        // pending seek was silently dropped and the player ran from the
+                        // window head, ~15 s behind the target (caught by the 10k-seek
+                        // harness 2026-07-31: uniform ~11.5 s "landings" = 10 s of playing
+                        // to within tolerance instead of one seek). mediaStatus provably
+                        // fires on every swap; the guards inside keep this idempotent.
+                        if (mediaStatus === MediaPlayer.LoadedMedia || mediaStatus === MediaPlayer.BufferedMedia)
+                            applyPendingSeek()
                         // WINDOW ROLL-OVER: with a bounded player window (far-seek re-open or
                         // the heavy-day bootstrap), reaching the end of the LOADED window must
                         // not halt the review — open the next window at the following footage

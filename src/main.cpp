@@ -481,6 +481,12 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtHoverShot", qEnvironmentVariableIsSet("WT_HOVERSHOT"));
     // Warden version, for the supervision indicator's tooltip (set by warden.py).
     engine.rootContext()->setContextProperty("wtWardenVersion", qEnvironmentVariable("WT_WARDEN_VERSION"));
+    // Large-scale scrubber seek-latency harness: WT_SEEK10K = plan json
+    // [{ip,days:[...]},…], WT_SEEK10K_N = total seeks (default 10000). Logs one
+    // [SEEK10K] line per seek: click-equivalent seekToWall() → first rendered
+    // frame within ±3s of target. See docs/perf/soak-tools/seek10k.sh.
+    engine.rootContext()->setContextProperty("wtSeek10k", qEnvironmentVariable("WT_SEEK10K"));
+    engine.rootContext()->setContextProperty("wtSeek10kN", qEnvironmentVariableIntValue("WT_SEEK10K_N"));
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
