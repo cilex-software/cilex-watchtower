@@ -563,11 +563,33 @@ Window {
         id: seek10k
         interval: 120; repeat: true
         running: wtSeek10k !== ""
-        property var flat: []          // [{ip, day}] round-robin
+        property var flat: []          // [{ip, day}] shuffled; combos retire when cold-dry
         property int planIdx: 0
         property int done: 0
         readonly property int total: wtSeek10kN > 0 ? wtSeek10kN : 10000
-        property int perOpen: 25       // seeks per day-open (amortizes opens)
+        property int perOpen: 12       // seeks per day-open (amortizes opens, keeps date variety)
+        // Cold-run bookkeeping: exclMap = warm shadows from PRIOR runs (env file),
+        // usedMap = this run's own touches. A target must sit ≥ minSepS from every
+        // entry of both for its combo — first-touch cold, or it isn't measured.
+        property var exclMap: ({})
+        property var usedMap: ({})
+        readonly property int minSepS: 120
+        function comboKey(e) { return e.ip + "|" + e.day; }
+        function isCold(e, offSec) {
+            var lists = [exclMap[comboKey(e)], usedMap[comboKey(e)]];
+            for (var l = 0; l < 2; l++) {
+                var a = lists[l];
+                if (!a) continue;
+                for (var i = 0; i < a.length; i++)
+                    if (Math.abs(a[i] - offSec) < minSepS) return false;
+            }
+            return true;
+        }
+        function markUsed(e, offSec) {
+            var k = comboKey(e);
+            if (!usedMap[k]) usedMap[k] = [];
+            usedMap[k].push(offSec);
+        }
         property int inOpen: 0
         property string st: "boot"
         property double t0: 0
@@ -605,13 +627,22 @@ Window {
                 if (d > 15000) { spans.push(fr[i]); tot += d - 7000; }
             }
             if (spans.length === 0 || tot <= 0) return -1;
-            var r = Math.random() * tot;
-            for (var j = 0; j < spans.length; j++) {
-                var usable = spans[j].we - spans[j].ws - 7000;
-                if (r <= usable) return spans[j].ws + 2000 + r;
-                r -= usable;
+            // Rejection-sample a COLD offset: up to 80 draws avoiding the warm
+            // shadow of every prior touch (both runs). No luck = the day's cold
+            // pockets are spent → -2 retires the combo (honest, never recycled warm).
+            var e = flat[planIdx % flat.length];
+            for (var t = 0; t < 80; t++) {
+                var r = Math.random() * tot, cand = -1;
+                for (var j = 0; j < spans.length; j++) {
+                    var usable = spans[j].we - spans[j].ws - 7000;
+                    if (r <= usable) { cand = spans[j].ws + 2000 + r; break; }
+                    r -= usable;
+                }
+                if (cand < 0) continue;
+                var offSec = Math.round((cand - playbackScreen.tlStartMs) / 1000);
+                if (isCold(e, offSec)) return cand;
             }
-            return spans[0].ws + 2000;
+            return -2;
         }
         onTriggered: {
             if (st === "boot") {
@@ -622,6 +653,23 @@ Window {
                     for (var d = 0; d < plan[p].days.length; d++)
                         flat.push({ ip: plan[p].ip, day: plan[p].days[d] });
                 if (flat.length === 0) { console.log("[SEEK10K] EMPTY PLAN"); running = false; return; }
+                // Prior-run warm shadows (cold mode): "ip|day|sec" lines via env file.
+                if (typeof wtSeek10kExclude !== "undefined" && wtSeek10kExclude !== "") {
+                    var lines = wtSeek10kExclude.split("\n"), nx = 0;
+                    for (var x = 0; x < lines.length; x++) {
+                        var parts = lines[x].trim().split("|");
+                        if (parts.length !== 3) continue;
+                        var k = parts[0] + "|" + parts[1];
+                        if (!exclMap[k]) exclMap[k] = [];
+                        exclMap[k].push(parseInt(parts[2]));
+                        nx++;
+                    }
+                    console.log("[SEEK10K] cold mode: " + nx + " excluded warm shadows, minSep=" + minSepS + "s");
+                }
+                for (var s = flat.length - 1; s > 0; s--) {           // shuffle: random date order
+                    var q = Math.floor(Math.random() * (s + 1));
+                    var tmp = flat[s]; flat[s] = flat[q]; flat[q] = tmp;
+                }
                 console.log("[SEEK10K] START total=" + total + " combos=" + flat.length + " perOpen=" + perOpen);
                 st = "open";
             } else if (st === "open") {
@@ -635,14 +683,27 @@ Window {
             } else if (st === "await") {
                 if (playbackScreen.tlEndMs > playbackScreen.tlStartMs && playbackScreen.advancing) {
                     waitTicks = 0; st = "settle";
-                } else if (++waitTicks > 620) {                       // 75 s — cold cams synth slowly; skip dead combo
+                } else if (++waitTicks > 1500) {                      // 180 s — give pristine days their first synth; skip dead combo
                     console.log("[SEEK10K] OPEN-TIMEOUT cam=" + flat[planIdx % flat.length].ip
                                 + " day=" + flat[planIdx % flat.length].day);
                     openFails++; planIdx++; st = "open";
                 }
             } else if (st === "seek") {
                 target = pickTarget();
+                if (target === -2) {                                  // cold pockets spent → retire the day
+                    var dead = flat.splice(planIdx % flat.length, 1)[0];
+                    console.log("[SEEK10K] combo COLD-DRY, retired: " + dead.ip + " " + dead.day
+                                + " (" + flat.length + " combos left)");
+                    if (flat.length === 0) {
+                        console.log("[SEEK10K] DONE done=" + done + " timeouts=" + timeouts
+                                    + " openFails=" + openFails + " (cold inventory exhausted)");
+                        Qt.quit(); return;
+                    }
+                    st = "open"; return;
+                }
                 if (target < 0) { console.log("[SEEK10K] no usable footage, skipping combo"); planIdx++; st = "open"; return; }
+                markUsed(flat[planIdx % flat.length],
+                         Math.round((target - playbackScreen.tlStartMs) / 1000));
                 prevWall = playbackScreen.playheadMs > 0 ? playbackScreen.playheadMs
                                                          : playbackScreen.tlStartMs;
                 genAtSeek = playbackScreen._openGen;

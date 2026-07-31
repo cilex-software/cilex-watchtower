@@ -6,6 +6,7 @@
 #include <QQuickWindow>
 #include <QSGRendererInterface>
 #include <QFontDatabase>
+#include <QFile>
 #include <QImage>
 #include <QTimer>
 #include <QDebug>
@@ -487,6 +488,20 @@ int main(int argc, char *argv[])
     // frame within ±3s of target. See docs/perf/soak-tools/seek10k.sh.
     engine.rootContext()->setContextProperty("wtSeek10k", qEnvironmentVariable("WT_SEEK10K"));
     engine.rootContext()->setContextProperty("wtSeek10kN", qEnvironmentVariableIntValue("WT_SEEK10K_N"));
+    // Cold-run mode: WT_SEEK10K_EXCLUDE=<file> of "ip|day|sec" lines — every
+    // previously-touched target (this run + prior runs). The harness refuses
+    // targets within the warm shadow of ANY of them, so measurements stay
+    // first-touch cold; a day with no cold pockets left is retired honestly.
+    {
+        QString exclude;
+        const QString exPath = qEnvironmentVariable("WT_SEEK10K_EXCLUDE");
+        if (!exPath.isEmpty()) {
+            QFile f(exPath);
+            if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+                exclude = QString::fromUtf8(f.readAll());
+        }
+        engine.rootContext()->setContextProperty("wtSeek10kExclude", exclude);
+    }
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
