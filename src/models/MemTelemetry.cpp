@@ -57,6 +57,26 @@ MemTelemetry::MemTelemetry(QObject *parent) : QObject(parent)
         connect(m_guardTimer, &QTimer::timeout, this, &MemTelemetry::guardTick);
         m_guardTimer->start(5000);
     }
+
+    // Warden supervision indicator (title-bar eye): armed by the spawn env, kept
+    // honest on Linux by watching our PARENT pid — Warden IS the parent (run.sh
+    // exec-chains into the binary), so its death re-parents us and the eye goes
+    // out on the next 5 s check. Quietly: absence of chrome, never an alarm.
+    if (qEnvironmentVariableIsSet("WT_UNDER_WARDEN")) {
+        m_underWarden = true;
+#if !defined(Q_OS_WIN)
+        m_wardenPpid = (qint64)::getppid();
+        auto *pp = new QTimer(this);
+        connect(pp, &QTimer::timeout, this, [this]() {
+            if (m_underWarden && (qint64)::getppid() != m_wardenPpid) {
+                m_underWarden = false;
+                emit underWardenChanged();
+                qInfo("[MEMTEL] warden parent gone (re-parented) — supervision indicator off");
+            }
+        });
+        pp->start(5000);
+#endif
+    }
 }
 
 void MemTelemetry::guardTick()

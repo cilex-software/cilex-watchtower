@@ -684,6 +684,10 @@ class Supervisor:
             if "=" in kv:
                 k, v = kv.split("=", 1)
                 env[k.strip()] = v.strip()
+        # Supervision indicator (the title-bar eye): tells the app it is watched.
+        # The app keeps it HONEST itself (parent-pid check) — this only arms it.
+        env["WT_UNDER_WARDEN"] = "1"
+        env["WT_WARDEN_VERSION"] = WARDEN_VERSION
         return env
 
     def spawn(self):

@@ -233,77 +233,77 @@
 <context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1726"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1747"/>
         <source>Playback unavailable</source>
         <translation>Воспроизведение недоступно</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1730"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1751"/>
         <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — просмотр записей и экспорт приостановлены. Это настройка оператора, а не сбой.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1781"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1802"/>
         <source>Export Clip</source>
         <translation>Экспорт клипа</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1805"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1826"/>
         <source>Back 10s</source>
         <translation>Назад 10 с</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1806"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1827"/>
         <source>Step back one frame</source>
         <translation>На кадр назад</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1810"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1831"/>
         <source>Play / pause</source>
         <translation>Воспроизведение / пауза</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1812"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1833"/>
         <source>Step forward one frame</source>
         <translation>На кадр вперёд</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1815"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1836"/>
         <source>Forward 10s</source>
         <translation>Вперёд 10 с</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1853"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1874"/>
         <source>Snapshot</source>
         <translation>Снимок</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1854"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1875"/>
         <source>Snapshot with timestamp</source>
         <translation>Снимок с меткой времени</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2124"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2145"/>
         <source>No recording</source>
         <translation>Нет записи</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1855"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1876"/>
         <source>Fullscreen</source>
         <translation>Во весь экран</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1914"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1935"/>
         <source>Last motion</source>
         <translation>Последнее движение</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2038"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2059"/>
         <source>FRAME-BY-FRAME</source>
         <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2038"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2059"/>
         <source>F / Esc to exit</source>
         <translation>F / Esc — выход</translation>
     </message>
@@ -736,21 +736,26 @@
     <name>TitleBar</name>
     <message>
         <location filename="../qml/TitleBar.qml" line="159"/>
+        <source>Supervised by Cilex Warden %1 — auto-restart and crash reporting armed</source>
+        <translation>Под наблюдением Cilex Warden %1 — автоперезапуск и отчёты о сбоях включены</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="187"/>
         <source>Minimize</source>
         <translation>Свернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="163"/>
+        <location filename="../qml/TitleBar.qml" line="191"/>
         <source>Restore</source>
         <translation>Восстановить</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="163"/>
+        <location filename="../qml/TitleBar.qml" line="191"/>
         <source>Maximize</source>
         <translation>Развернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="167"/>
+        <location filename="../qml/TitleBar.qml" line="195"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>

@@ -131,7 +131,35 @@ Item {
         anchors.rightMargin: 12
         spacing: 12
 
-        Item { Layout.preferredWidth: 70 }        // design: fixed left spacer
+        // Design: fixed 70px left spacer — now also home to the Warden supervision
+        // indicator: a near-invisible eye that is LIT only while Cilex Warden is
+        // actually the parent process RIGHT NOW (MemTel keeps it honest with a
+        // periodic getppid() check — a dead Warden re-parents us and the eye goes
+        // out). Deliberately quiet: ink-3, no red state, no alarm — the guard is
+        // never the detector; unsupervised simply shows nothing here. It exists
+        // for the OPERATOR's glance ("is this station watched?"), hence the
+        // tooltip carries the Warden version.
+        Item {
+            Layout.preferredWidth: 70
+            Layout.fillHeight: true
+            Item {
+                id: wardenEye
+                visible: typeof MemTel !== "undefined" && MemTel.underWarden
+                anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
+                width: 20; height: 20
+                Icon {
+                    anchors.centerIn: parent
+                    name: "eye"; size: 12
+                    color: eyeMa.containsMouse ? Theme.ink2 : Theme.ink3
+                    opacity: 0.8
+                }
+                MouseArea { id: eyeMa; anchors.fill: parent; hoverEnabled: true }
+                C.ToolTip.visible: eyeMa.containsMouse
+                C.ToolTip.delay: 400
+                C.ToolTip.text: qsTr("Supervised by Cilex Warden %1 — auto-restart and crash reporting armed")
+                                .arg(typeof wtWardenVersion !== "undefined" && wtWardenVersion !== "" ? wtWardenVersion : "")
+            }
+        }
 
         Text {
             Layout.alignment: Qt.AlignVCenter

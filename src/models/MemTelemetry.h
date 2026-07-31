@@ -27,8 +27,19 @@ public:
     Q_PROPERTY(bool shedLive READ shedLive NOTIFY shedLiveChanged)
     bool shedLive() const { return m_shedLive; }
 
+    // TRUE while Cilex Warden is actually supervising this process RIGHT NOW —
+    // not merely "was launched by it". Warden is our PARENT: spawn env
+    // (WT_UNDER_WARDEN=1) arms the check, and a periodic getppid() comparison
+    // keeps it honest — if Warden dies, we get re-parented and this flips false
+    // (the title-bar eye quietly disappears; never an alarm — the guard is not
+    // the detector, the heartbeat pipeline is). Windows: env-armed only (v1;
+    // live parent check lands with the CW-18 pass).
+    Q_PROPERTY(bool underWarden READ underWarden NOTIFY underWardenChanged)
+    bool underWarden() const { return m_underWarden; }
+
 signals:
     void shedLiveChanged();
+    void underWardenChanged();
 
 private:
     void tick();
@@ -44,4 +55,7 @@ private:
     bool m_shedLive = false;
     long m_shedThreshMb = 0;        // WT_RSS_SHED_MB; 0 = guard disabled
     QTimer *m_guardTimer = nullptr;
+
+    bool m_underWarden = false;
+    qint64 m_wardenPpid = -1;       // parent pid captured at start (Linux live check)
 };
