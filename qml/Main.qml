@@ -568,6 +568,12 @@ Window {
         property int done: 0
         readonly property int total: wtSeek10kN > 0 ? wtSeek10kN : 10000
         property int perOpen: 12       // seeks per day-open (amortizes opens, keeps date variety)
+        property int perOpenThis: 12   // this open's quota (jittered when WT_SEEK10K_PEROPEN set)
+        // ES date-time without offset parses as LOCAL time — exactly what "end at 8AM" means.
+        readonly property double untilMs: (typeof wtSeek10kUntil !== "undefined" && wtSeek10kUntil !== "")
+                                          ? Date.parse(wtSeek10kUntil) : -1
+        readonly property string todayStr: Qt.formatDate(new Date(), "yyyy-MM-dd")
+        property var dryAt: ({})       // comboKey → ms when it went cold-dry (today's date re-wets)
         // Cold-run bookkeeping: exclMap = warm shadows from PRIOR runs (env file),
         // usedMap = this run's own touches. A target must sit ≥ minSepS from every
         // entry of both for its combo — first-touch cold, or it isn't measured.
@@ -645,6 +651,13 @@ Window {
             return -2;
         }
         onTriggered: {
+            // Hard wall-clock deadline (overnight mode) — checked every tick, so the
+            // stop is exact regardless of what state the machine is in.
+            if (untilMs > 0 && Date.now() >= untilMs && st !== "boot") {
+                console.log("[SEEK10K] DONE done=" + done + " timeouts=" + timeouts
+                            + " openFails=" + openFails + " (deadline reached)");
+                Qt.quit(); return;
+            }
             if (st === "boot") {
                 if (!AuthController.authenticated || cameraModel.total === 0) return;
                 try { var plan = JSON.parse(wtSeek10k); } catch (e) { console.log("[SEEK10K] BAD PLAN"); running = false; return; }
@@ -674,12 +687,26 @@ Window {
                 st = "open";
             } else if (st === "open") {
                 var e = flat[planIdx % flat.length];
+                // A dry TODAY re-wets as recording accrues — skip it for 20 min, don't retire.
+                if (dryAt[comboKey(e)] !== undefined) {
+                    if (e.day === todayStr && Date.now() - dryAt[comboKey(e)] > 20 * 60000)
+                        delete dryAt[comboKey(e)];               // enough new footage may exist — retry
+                    else { planIdx++; waitTicks++;
+                           if (waitTicks > flat.length * 3) { waitTicks = 0; st = "coldwait"; }
+                           return; }
+                }
                 var all = cameraModel.page("", "", "default", 1, 64), cam = null;
                 for (var i = 0; i < all.length; i++) if (all[i].ip === e.ip) { cam = all[i]; break; }
                 if (!cam) { console.log("[SEEK10K] cam gone: " + e.ip); planIdx++; return; }
                 win.focusedCamera = cam; win.playbackCamera = cam; playbackScreen.camera = cam;
                 playbackScreen.openForDay(e.day);
+                perOpenThis = (typeof wtSeek10kPerOpen !== "undefined" && wtSeek10kPerOpen > 0)
+                              ? Math.max(1, wtSeek10kPerOpen + Math.floor(Math.random() * 3) - 1)
+                              : perOpen;
                 inOpen = 0; waitTicks = 0; st = "await";
+            } else if (st === "coldwait") {
+                // Every combo is dry and only a growing TODAY can re-wet — idle 5 min.
+                if (++waitTicks > 2500) { waitTicks = 0; st = "open"; }
             } else if (st === "await") {
                 if (playbackScreen.tlEndMs > playbackScreen.tlStartMs && playbackScreen.advancing) {
                     waitTicks = 0; st = "settle";
@@ -690,7 +717,15 @@ Window {
                 }
             } else if (st === "seek") {
                 target = pickTarget();
-                if (target === -2) {                                  // cold pockets spent → retire the day
+                if (target === -2) {                                  // cold pockets spent
+                    var eDry = flat[planIdx % flat.length];
+                    if (eDry.day === todayStr || untilMs > 0) {
+                        // Overnight/growing-day mode: mark dry, revisit later
+                        // (TODAY re-wets; others stay skipped until the deadline).
+                        dryAt[comboKey(eDry)] = Date.now();
+                        console.log("[SEEK10K] combo COLD-DRY (parked): " + eDry.ip + " " + eDry.day);
+                        planIdx++; st = "open"; return;
+                    }
                     var dead = flat.splice(planIdx % flat.length, 1)[0];
                     console.log("[SEEK10K] combo COLD-DRY, retired: " + dead.ip + " " + dead.day
                                 + " (" + flat.length + " combos left)");
@@ -735,7 +770,7 @@ Window {
                                 + " openFails=" + openFails);
                     Qt.quit(); return;
                 }
-                if (inOpen >= perOpen) { planIdx++; st = "open"; }
+                if (inOpen >= perOpenThis) { planIdx++; st = "open"; }
                 else st = "seek";
             }
         }

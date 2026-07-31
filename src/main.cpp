@@ -502,6 +502,10 @@ int main(int argc, char *argv[])
         }
         engine.rootContext()->setContextProperty("wtSeek10kExclude", exclude);
     }
+    // Overnight mode: hard wall-clock deadline (local "yyyy-MM-ddTHH:mm") and
+    // per-open seek-count base (jittered ±1 → the guard's "a few here and there").
+    engine.rootContext()->setContextProperty("wtSeek10kUntil", qEnvironmentVariable("WT_SEEK10K_UNTIL"));
+    engine.rootContext()->setContextProperty("wtSeek10kPerOpen", qEnvironmentVariableIntValue("WT_SEEK10K_PEROPEN"));
     // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
     // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
