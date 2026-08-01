@@ -288,10 +288,18 @@ Item {
         if (!preserveMark) _obMark("seekfar");
         if (_skActive) console.log("[SK] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count
         seekWatch.stop(); _seekWatchSeq = -1;        // a re-open supersedes any pending direct-seek watch
-        _explicitStart = ms - 15000;
-        _explicitEnd = Math.min(ms - 15000 + 1800000, Date.now());   // ~30 min window from just before target
+        // Phase A #1 (2026-08-02): anchor the window at target−2s, NOT −15s. The
+        // playlist head then IS the target — playback starts there and the whole
+        // deferred-seek stage (preroll wait + verify-retry, 150–450 ms measured,
+        // plus its historical fragility) disappears from the scrubber path.
+        // The EVENT-jump lead-in is untouched: openAt() bakes its −15 s into the
+        // pending target BEFORE this runs, so its window anchors at (event−15s)−2s
+        // and the operator still gets the context breath. Light days (no bounded
+        // bootstrap) never pass through here and keep the in-window pending jump.
+        _explicitStart = ms - 2000;
+        _explicitEnd = Math.min(ms - 2000 + 1800000, Date.now());   // ~30 min window from the target
         _seekReopen = true;             // keep the scrubber timeline (tl*) — only the player window moves
-        _pendingSeekMs = ms;            // applied on session load → a small in-buffer seek that renders
+        _pendingSeekMs = -1;            // no inner seek: the window head is the landing point
         _pendingArmed = false;
         _farInFlight = true;            // coalesce further far clicks until this open lands/fails
         _farLatestMs = ms;
@@ -546,8 +554,10 @@ Item {
     property int _pendingTries: 0          // verify-and-retry budget for the pending seek (see applyPendingSeek)
     // Drives applyPendingSeek until the position PROVABLY lands (or the budget
     // caps). Signals alone lost seeks on same-duration source swaps.
+    // 60 ms tick (phase A #3): the retry quantization is pure added latency on
+    // the event-jump path; budget below keeps the same ~4.5 s time cap.
     Timer {
-        interval: 150; repeat: true
+        interval: 60; repeat: true
         running: root._pendingArmed && root._pendingSeekMs >= 0
         onTriggered: player.applyPendingSeek()
     }
@@ -1721,7 +1731,7 @@ Item {
                             root._pendingSeekMs = -1;               // landed — done
                             return;
                         }
-                        if (++root._pendingTries > 30) {
+                        if (++root._pendingTries > 75) {   // 60ms ticks — same ~4.5s budget
                             if ((typeof wtTrace !== "undefined") && wtTrace)
                                 console.log("[PB] pending seek DROPPED after " + root._pendingTries
                                             + " tries (pos=" + position + " wanted=" + Math.round(wantedPos) + ")");
