@@ -574,6 +574,11 @@ Window {
                                           ? Date.parse(wtSeek10kUntil) : -1
         readonly property string todayStr: Qt.formatDate(new Date(), "yyyy-MM-dd")
         property var dryAt: ({})       // comboKey → ms when it went cold-dry (today's date re-wets)
+        // Flapping-day cooldown (2026-08-02): the nightly backend contention makes
+        // some day-opens hang >180 s INTERMITTENTLY; last night each flapper was
+        // retried every cycle — 100 hangs × 180 s = 5 h of the window burned.
+        // One hang parks the combo for 45 min instead.
+        property var openFailAt: ({})
         // Cold-run bookkeeping: exclMap = warm shadows from PRIOR runs (env file),
         // usedMap = this run's own touches. A target must sit ≥ minSepS from every
         // entry of both for its combo — first-touch cold, or it isn't measured.
@@ -695,6 +700,14 @@ Window {
                            if (waitTicks > flat.length * 3) { waitTicks = 0; st = "coldwait"; }
                            return; }
                 }
+                // A flapping day (open hung >180 s) cools down for 45 min.
+                if (openFailAt[comboKey(e)] !== undefined) {
+                    if (Date.now() - openFailAt[comboKey(e)] > 45 * 60000)
+                        delete openFailAt[comboKey(e)];
+                    else { planIdx++; waitTicks++;
+                           if (waitTicks > flat.length * 3) { waitTicks = 0; st = "coldwait"; }
+                           return; }
+                }
                 var all = cameraModel.page("", "", "default", 1, 64), cam = null;
                 for (var i = 0; i < all.length; i++) if (all[i].ip === e.ip) { cam = all[i]; break; }
                 if (!cam) { console.log("[SEEK10K] cam gone: " + e.ip); planIdx++; return; }
@@ -713,6 +726,7 @@ Window {
                 } else if (++waitTicks > 1500) {                      // 180 s — give pristine days their first synth; skip dead combo
                     console.log("[SEEK10K] OPEN-TIMEOUT cam=" + flat[planIdx % flat.length].ip
                                 + " day=" + flat[planIdx % flat.length].day);
+                    openFailAt[comboKey(flat[planIdx % flat.length])] = Date.now();
                     openFails++; planIdx++; st = "open";
                 }
             } else if (st === "seek") {
