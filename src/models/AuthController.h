@@ -90,10 +90,14 @@ private:
     // (e.g. the backend still coming up at boot) before surfacing an error.
     void attemptTokenLogin();
     void attemptPasswordLogin();
-    // Session continuity for 24/7 stations: schedule a re-login before the
+    // Session continuity for 24/7 stations: schedule a renewal before the
     // token's exp claim, and recover in place from mid-session 401s.
     void armRenewal();
     void renewNow();
+    // POST /auth/refresh (CV reply 2026-08-03): renews a still-valid session
+    // WITHOUT credentials on the box. 401 = token past saving (expired /
+    // account gone) -> service-creds fallback if env-provided, else sign-in.
+    void refreshSession();
     static bool decodeClaims(const QString &token, QString &username, QString &role,
                              QStringList &scope, qint64 &expSecs);
 
