@@ -143,14 +143,16 @@ Item {
     property int arrangeRev: 0            // bump to force arrangedFull re-eval after a save
     property int pickerCell: -1          // page-tile index being assigned (-1 = picker closed)
     // Cap on simultaneous live VA-API decodes on the wall — tiles beyond it show a periodic
-    // snapshot, not a live pipeline. Each decode holds hundreds of MB on the shared iGPU, so
-    // this bounds both steady memory and the teardown watermark during arrange/relayout churn
-    // (the residual ~5.8 GB OOM). WT_MAX_DECODES overrides; default 9 (a full 3×3).
+    // snapshot, not a live pipeline. Each decode holds real memory on the shared iGPU, so this
+    // bounds both steady memory and the teardown watermark during arrange/relayout churn
+    // (the residual ~5.8 GB OOM). WT_MAX_DECODES overrides; default 16 — the product's
+    // 16-stream wall target. (Was 9 during the 2026-06-30 OOM containment; the trigger —
+    // go2rtc OOM-looping — was removed the same day, and the wall decodes substreams only.)
     // Under the RSS-shed safety valve (a memory runaway — e.g. the live-pipeline leak under go2rtc
     // instability) collapse to a single live decode so the wall sheds to snapshot tiles and RSS stops
     // climbing, rather than OOM-killing the client. Restores automatically when RSS recovers (hysteresis).
     readonly property int maxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
-        : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 9)
+        : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 16)
     // Which cameras on the page get the ≤maxLiveDecodes LIVE decode slots — the most IMPORTANT ones, not just
     // the first N by sort position. An ARMED (motion-armed) camera gets a live pipeline ahead of an idle one,
     // so it's real-time, not a snapshot lagging behind. Stable: keyed off the roster/sort (not every status

@@ -506,8 +506,8 @@ int main(int argc, char *argv[])
     // per-open seek-count base (jittered ±1 → the guard's "a few here and there").
     engine.rootContext()->setContextProperty("wtSeek10kUntil", qEnvironmentVariable("WT_SEEK10K_UNTIL"));
     engine.rootContext()->setContextProperty("wtSeek10kPerOpen", qEnvironmentVariableIntValue("WT_SEEK10K_PEROPEN"));
-    // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default).
-    // Each live decode holds hundreds of MB on the shared iGPU; tiles beyond the cap show a
+    // Max concurrent live VA-API decodes on the wall (WT_MAX_DECODES=N; 0/unset = default 16).
+    // Each live decode holds real memory on the shared iGPU; tiles beyond the cap show a
     // periodic snapshot instead. Lower on a weak/loaded box, raise on a strong GPU.
     engine.rootContext()->setContextProperty("wtMaxDecodes", qEnvironmentVariableIntValue("WT_MAX_DECODES"));
     // WT_GUARD_SOAK: long-run guard-usage emulator (Live dwell + periodic click-throughs); WT_GUARD_LIVE_MS
