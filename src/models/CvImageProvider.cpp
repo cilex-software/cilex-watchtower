@@ -89,11 +89,21 @@ void CvImageResponse::finish()
 
 void CvImageResponse::releaseSnapshotSlot()
 {
-    if (!m_gated)
-        return;
-    m_gated = false;
-    --s_snapInFlight;
-    while (!s_snapQueue.isEmpty()) {
+    if (m_gated) {
+        m_gated = false;
+        --s_snapInFlight;
+    }
+    // Pump UNCONDITIONALLY — never-gated responses included. A queued candidate
+    // that was woken (dequeued + start() invoked) and then cancelled before that
+    // queued start() ran used to swallow the wake-up: its early-outs hit the old
+    // `if (!m_gated) return;` and nobody re-scanned the queue. With both slots'
+    // wakes lost in the same churn window, the pipeline froze permanently —
+    // s_snapInFlight == 0, live waiters queued, nothing in flight to ever release
+    // again (observed 2026-08-02 cold-start storm: zero fetches after +22 s,
+    // 6 tiles empty for the remaining 128 s). Pumping from EVERY terminating
+    // path means a dying wake always passes the baton; over-waking is safe
+    // because start() re-checks capacity and politely re-enqueues.
+    while (s_snapInFlight < kSnapMaxConcurrent && !s_snapQueue.isEmpty()) {
         QPointer<CvImageResponse> next = s_snapQueue.dequeue();
         if (next && !next->m_cancelled) {
             next->m_queued = false;
