@@ -188,7 +188,9 @@ Rectangle {
                        font.family: Theme.fontMono; font.pixelSize: 11 }
                 MouseArea { id: afMa; anchors.fill: parent; hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: Ptz.focusAuto(root.camId) }
+                            // Debounced entry point — one physical actuator command
+                            // per camera per 5 s regardless of trigger (letter §4).
+                            onClicked: Ptz.focusAutoRequest(root.camId) }
             }
             Item { Layout.fillWidth: true }
         }

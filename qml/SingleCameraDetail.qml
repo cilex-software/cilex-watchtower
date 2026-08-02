@@ -89,6 +89,24 @@ Item {
                 active: root.visible && !root.liveOff && root.streamUrl !== "" && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
             }
 
+            // Triple-click on the picture → one-touch autofocus (operator ask,
+            // 2026-08-03 letter). Lives HERE, not on wall tiles — a wall tile's
+            // single click already opens the camera, so a literal triple-click
+            // there would navigate on click #1; the wall gets the AF chip twin
+            // instead. tapCount===3 cannot fire on an ordinary double-click, and
+            // PtzClient.focusAutoRequest adds the hard 5 s per-camera debounce.
+            TapHandler {
+                enabled: root.ptzCapable
+                acceptedButtons: Qt.LeftButton
+                onTapped: {
+                    if (tapCount === 3 && root.camera && root.camera.camId) {
+                        if (Ptz.capsFor(root.camera.camId) === "")
+                            Ptz.probe(root.camera.camId);   // warm the gate for next time
+                        Ptz.focusAutoRequest(root.camera.camId);
+                    }
+                }
+            }
+
             // connecting / offline / unavailable
             LoadingState {
                 anchors.centerIn: parent

@@ -437,7 +437,18 @@ int main(int argc, char *argv[])
     engine.addImageProvider(QStringLiteral("thumbtile"), new ThumbTileProvider());
     // PTZ / motorized-lens control (backend-mediated; honest-pending until the
     // cilex-vision endpoint ships — letter 2026-07-16).
-    engine.rootContext()->setContextProperty("Ptz", new PtzClient(&app));
+    auto *ptz = new PtzClient(&app);
+    engine.rootContext()->setContextProperty("Ptz", ptz);
+    // Dev: WT_AF_TEST=<camId> exercises the full autofocus client path at boot
+    // (+12 s: probe, then the debounced request; +14 s: a second request that
+    // must be swallowed by the 5 s debounce) — [PTZ] lines + toast are the proof.
+    if (const QString afCam = qEnvironmentVariable("WT_AF_TEST"); !afCam.isEmpty()) {
+        QTimer::singleShot(12000, ptz, [ptz, afCam]() {
+            ptz->probe(afCam);
+            ptz->focusAutoRequest(afCam);
+        });
+        QTimer::singleShot(14000, ptz, [ptz, afCam]() { ptz->focusAutoRequest(afCam); });
+    }
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));

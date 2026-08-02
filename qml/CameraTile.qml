@@ -80,6 +80,21 @@ Item {
     // the full-view TapHandler uses a passive grab that would otherwise ALSO fire under the
     // overlay, popping the camera open instead of the picker.
     property bool tapToOpen: true
+    // One-touch autofocus (2026-08-03 letter). Model-string pre-gate (Z designator =
+    // motorized lens, same heuristic as SingleCameraDetail.ptzCapable), then the free
+    // backend probe confirms on first hover — only `lens`/`ptz` cameras get the AF chip,
+    // so a mixed site never hands the guard a control that can only error (§3/§4).
+    property string hwModel: ""
+    readonly property bool afModelCapable:
+        /PTZ/i.test(hwModel) || /\dZ[\s(]/.test(hwModel) || /\dZ$/.test(hwModel)
+    property string ptzCaps: ""            // "" unknown · "pending" · "none" · "lens" · "ptz"
+    Connections {
+        target: Ptz
+        enabled: root.afModelCapable
+        function onCapsReady(id, supported, home, pendingBackend) {
+            if (id === root.camId) root.ptzCaps = pendingBackend ? "pending" : supported;
+        }
+    }
     // Live View business-function state (from the model). When false, an operator
     // stopped go2rtc → show a calm "switched off" tile, not a red fault.
     property bool liveViewEnabled: true
@@ -554,6 +569,27 @@ Item {
                 }
             }
 
+            // One-touch autofocus chip — same chrome as the SD/HD chip. Visible only
+            // when the model pre-gate holds AND the backend probe didn't say no.
+            Rectangle {
+                visible: root.afModelCapable && root.ptzCaps !== "none" && root.ptzCaps !== "pending"
+                width: afTileTxt.implicitWidth + 12; height: 20; radius: 3
+                anchors.verticalCenter: parent.verticalCenter
+                color: afTileMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.55)
+                border.width: 1; border.color: afTileMa.containsMouse ? Theme.accent : Theme.line2
+                onVisibleChanged: if (visible && root.ptzCaps === "" && root.camId !== "")
+                                      Ptz.probe(root.camId)   // free, cached, never touches the camera
+                Text {
+                    id: afTileTxt; anchors.centerIn: parent; text: "AF"
+                    color: afTileMa.containsMouse ? Theme.bg : Theme.ink
+                    font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.Bold
+                }
+                MouseArea {
+                    id: afTileMa; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Ptz.focusAutoRequest(root.camId)
+                }
+            }
             TileAction { name: "playback"; tip: "Open playback"; onClicked: root.played() }
             TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
             TileToggle {

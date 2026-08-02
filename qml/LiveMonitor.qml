@@ -1293,6 +1293,7 @@ Item {
                                 camName: cellWrap.modelData.name
                                 camId: cellWrap.modelData.camId
                                 ip: cellWrap.modelData.ip
+                                hwModel: cellWrap.modelData.model || ""
                                 groupId: cellWrap.modelData.groupId
                                 groupName: cellWrap.modelData.groupName
                                 live: cellWrap.modelData.live

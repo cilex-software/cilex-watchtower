@@ -4,42 +4,47 @@
 <context>
     <name>CameraTile</name>
     <message>
-        <location filename="../qml/CameraTile.qml" line="305"/>
+        <location filename="../qml/CameraTile.qml" line="337"/>
         <source>STREAM UNAVAILABLE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="398"/>
+        <location filename="../qml/CameraTile.qml" line="430"/>
         <source>MOTION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="452"/>
+        <location filename="../qml/CameraTile.qml" line="484"/>
         <source>RECORDING STALLED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="452"/>
+        <location filename="../qml/CameraTile.qml" line="484"/>
         <source>since</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="453"/>
+        <location filename="../qml/CameraTile.qml" line="485"/>
         <source>LIVE, NO RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="453"/>
+        <location filename="../qml/CameraTile.qml" line="485"/>
         <source>STREAM DEGRADED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="460"/>
+        <location filename="../qml/CameraTile.qml" line="492"/>
         <source>VIEW ISSUE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="549"/>
+        <location filename="../qml/CameraTile.qml" line="592"/>
+        <source>Autofocus</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraTile.qml" line="605"/>
         <source>Split into 1×1 cells</source>
         <translation type="unfinished"></translation>
     </message>
@@ -47,32 +52,32 @@
 <context>
     <name>LiveMonitor</name>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1469"/>
+        <location filename="../qml/LiveMonitor.qml" line="1472"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1470"/>
+        <location filename="../qml/LiveMonitor.qml" line="1473"/>
         <source>Split %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1472"/>
+        <location filename="../qml/LiveMonitor.qml" line="1475"/>
         <source>Merge %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1474"/>
+        <location filename="../qml/LiveMonitor.qml" line="1477"/>
         <source>Shift+drag to select cells to merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1597"/>
+        <location filename="../qml/LiveMonitor.qml" line="1600"/>
         <source>M — merge · Esc — cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1598"/>
+        <location filename="../qml/LiveMonitor.qml" line="1601"/>
         <source>⇧ drag — merge cells</source>
         <translation type="unfinished"></translation>
     </message>
@@ -178,6 +183,11 @@
         <source>Playback</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2079"/>
+        <source>Autofocus started</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>NavRail</name>
@@ -233,77 +243,77 @@
 <context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1747"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1810"/>
         <source>Playback unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1751"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1814"/>
         <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1802"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1865"/>
         <source>Export Clip</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1826"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1889"/>
         <source>Back 10s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1827"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1890"/>
         <source>Step back one frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1831"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1894"/>
         <source>Play / pause</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1833"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1896"/>
         <source>Step forward one frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1836"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1899"/>
         <source>Forward 10s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1874"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1937"/>
         <source>Snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1875"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1938"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1876"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1939"/>
         <source>Fullscreen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1935"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1998"/>
         <source>Last motion</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2059"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2122"/>
         <source>FRAME-BY-FRAME</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2059"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2122"/>
         <source>F / Esc to exit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2145"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2208"/>
         <source>No recording</source>
         <translation type="unfinished"></translation>
     </message>
@@ -543,6 +553,14 @@
     </message>
 </context>
 <context>
+    <name>PtzClient</name>
+    <message>
+        <location filename="../src/models/PtzClient.cpp" line="161"/>
+        <source>Autofocus already requested — the lens needs a few seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PtzPanel</name>
     <message>
         <location filename="../qml/PtzPanel.qml" line="48"/>
@@ -625,12 +643,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="209"/>
+        <location filename="../qml/PtzPanel.qml" line="211"/>
         <source>Restoring…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="209"/>
+        <location filename="../qml/PtzPanel.qml" line="211"/>
         <source>Restore defaults</source>
         <translation type="unfinished"></translation>
     </message>
@@ -661,37 +679,37 @@
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="165"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="183"/>
         <source>Recording audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="165"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="183"/>
         <source>Audio recording disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="207"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="225"/>
         <source>Capture snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="208"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="226"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="209"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="227"/>
         <source>PTZ / lens control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="271"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="289"/>
         <source>Recording</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="271"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="289"/>
         <source>Disabled</source>
         <translation type="unfinished"></translation>
     </message>

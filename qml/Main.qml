@@ -2064,6 +2064,27 @@ Window {
         onActionInvoked: (actionId) => { if (actionId === "retryExportHigh") playbackClient.retryLastExportAsHigh() }
     }
 
+    // One-touch autofocus status (2026-08-03 letter §2): the backend's sentence is
+    // rendered VERBATIM — success and failure alike — never mapped to local strings.
+    Connections {
+        target: Ptz
+        function _afCamLabel(camId) {
+            var all = cameraModel.page("", "", "default", 1, 100000);
+            for (var i = 0; i < all.length; i++)
+                if (all[i].camId === camId) return all[i].name + " · " + all[i].ip;
+            return camId;
+        }
+        function onOpDone(camId, what, message) {
+            if (what !== "focus-auto") return;
+            toastHost.show(message !== "" ? message : qsTr("Autofocus started"),
+                           _afCamLabel(camId), "good", "", "");
+        }
+        function onOpFailed(camId, what, message) {
+            if (what !== "focus-auto") return;
+            toastHost.show(message, _afCamLabel(camId), "warn", "", "");
+        }
+    }
+
     // Save-current-view modal (O03) — opened from Live Monitor or Saved Views.
     SaveViewModal {
         id: saveViewModal

@@ -32,12 +32,20 @@ public:
     Q_INVOKABLE void focusMove(const QString &camId, double speed);
     Q_INVOKABLE void focusAuto(const QString &camId);
     Q_INVOKABLE void restoreDefaults(const QString &camId);
+    // One-touch autofocus with the HARD client debounce the 2026-08-03 letter
+    // asks for: one command per camera per 5 s no matter how many triggers
+    // (tile button, triple-click, panel) fire. The entry point every UI uses.
+    Q_INVOKABLE void focusAutoRequest(const QString &camId);
+    // Cached probe result for UI gating: "" unknown, "pending", or supported.
+    Q_INVOKABLE QString capsFor(const QString &camId) const;
 
 signals:
     // supported: "none" | "lens" | "ptz"; pendingBackend: endpoint absent upstream
     void capsReady(const QString &camId, const QString &supported,
                    bool homeSupported, bool pendingBackend);
-    void opDone(const QString &camId, const QString &what);
+    // message: the backend's human sentence (§2 of 2026-08-03-triple-click-
+    // autofocus.md — rendered VERBATIM by the UI), "" for ops without one.
+    void opDone(const QString &camId, const QString &what, const QString &message);
     void opFailed(const QString &camId, const QString &what, const QString &message);
 
 private:
@@ -48,6 +56,7 @@ private:
 
     QNetworkAccessManager *m_nam = nullptr;
     QHash<QString, Caps> m_caps;         // per-camera probe cache (session-lived)
+    QHash<QString, qint64> m_lastFocusMs; // per-camera focus-auto debounce stamps
     QTimer m_safety;                     // a missed release must never leave a camera moving
     std::function<void()> m_safetyStop;
     bool m_demo = false;

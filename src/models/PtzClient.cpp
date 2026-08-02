@@ -1,6 +1,7 @@
 #include "PtzClient.h"
 #include "AuthController.h"
 
+#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -46,6 +47,7 @@ void PtzClient::probe(const QString &camId)
             c.supported = obj.value(QStringLiteral("supported")).toString(QStringLiteral("none"));
             c.home = obj.value(QStringLiteral("home_supported")).toBool(false);
             m_caps.insert(camId, c);
+            qInfo("[PTZ] caps %s -> %s", qPrintable(camId), qPrintable(c.supported));
             emit capsReady(camId, c.supported, c.home, false);
         } else if (code == 404 || code == 405 || code == 501) {
             // Endpoint not shipped upstream yet -> honest pending state. Cached for
@@ -53,6 +55,12 @@ void PtzClient::probe(const QString &camId)
             Caps c; c.pending = true; c.supported = QStringLiteral("none");
             m_caps.insert(camId, c);
             emit capsReady(camId, c.supported, false, true);
+        } else if (code == 403) {
+            // This session may not control cameras (letter §2): hide the
+            // affordance rather than surfacing errors. Cached for the session.
+            Caps c; c.supported = QStringLiteral("none");
+            m_caps.insert(camId, c);
+            emit capsReady(camId, c.supported, false, false);
         } else {
             // transient (auth/5xx/transport): report, do NOT cache — retry next open
             emit opFailed(camId, QStringLiteral("probe"),
@@ -67,23 +75,40 @@ void PtzClient::post(const QString &camId, const QString &what, const QString &t
                      const QByteArray &json)
 {
     if (camId.isEmpty()) return;
-    if (m_demo) { emit opDone(camId, what); return; }
+    if (m_demo) { emit opDone(camId, what, QString()); return; }
     const Caps c = m_caps.value(camId);
     if (c.pending || c.supported == QLatin1String("none")) return;   // UI disables; belt+braces
     QNetworkRequest req{QUrl(AuthController::instance()->baseUrl()
                              + "/cameras/" + camId + "/ptz" + tail)};
-    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    if (!json.isEmpty())    // focus/auto is body-less by contract (2026-08-03 letter §1)
+        req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     QNetworkReply *reply = m_nam->post(req, json);
     connect(reply, &QNetworkReply::finished, this, [this, reply, camId, what]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        // §2 of the 2026-08-03 letter: every outcome carries a human sentence.
+        // Structured body -> "message" (ok present); FastAPI gate rejections
+        // (no-PTZ 409 / 404 / 403 / 501) -> plain {"detail": ...} with NO `ok`.
+        // Branch on the presence of `ok`, NOT the status code, and render the
+        // sentence VERBATIM — never map codes to local strings.
+        const QJsonObject body = QJsonDocument::fromJson(reply->readAll()).object();
+        QString msg;
+        if (body.contains(QLatin1String("ok")))
+            msg = body.value(QLatin1String("message")).toString();
+        else if (body.contains(QLatin1String("detail")))
+            msg = body.value(QLatin1String("detail")).toString();
+        if (msg.isEmpty())
+            msg = reply->error() != QNetworkReply::NoError
+                      ? reply->errorString()
+                      : QStringLiteral("HTTP %1").arg(code);
+        qInfo("[PTZ] %s %s -> HTTP %d ok=%s \"%s\"", qPrintable(camId), qPrintable(what),
+              code, body.contains(QLatin1String("ok"))
+                        ? (body.value(QLatin1String("ok")).toBool() ? "true" : "false") : "-",
+              qPrintable(msg));
         if (code >= 200 && code < 300)
-            emit opDone(camId, what);
+            emit opDone(camId, what, msg);
         else
-            emit opFailed(camId, what,
-                          reply->error() != QNetworkReply::NoError
-                              ? reply->errorString()
-                              : QStringLiteral("HTTP %1").arg(code));
+            emit opFailed(camId, what, msg);
     });
 }
 
@@ -118,8 +143,34 @@ void PtzClient::focusMove(const QString &camId, double speed)
 
 void PtzClient::focusAuto(const QString &camId)
 {
-    post(camId, QStringLiteral("focus-auto"), QStringLiteral("/focus/auto"),
-         QByteArrayLiteral("{}"));
+    // No body, no query params — 2026-08-03 letter §1.
+    post(camId, QStringLiteral("focus-auto"), QStringLiteral("/focus/auto"), QByteArray());
+}
+
+void PtzClient::focusAutoRequest(const QString &camId)
+{
+    if (camId.isEmpty()) return;
+    // HARD debounce (letter §4): autofocus fires a physical actuator; the
+    // server serialises and 409s, but it must not be our rate limiter. One
+    // command per camera per 5 s regardless of trigger (tile chip,
+    // triple-click, panel button).
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const qint64 last = m_lastFocusMs.value(camId, 0);
+    if (nowMs - last < 5000) {
+        emit opFailed(camId, QStringLiteral("focus-auto"),
+                      tr("Autofocus already requested — the lens needs a few seconds"));
+        return;
+    }
+    m_lastFocusMs.insert(camId, nowMs);
+    focusAuto(camId);
+}
+
+QString PtzClient::capsFor(const QString &camId) const
+{
+    if (!m_caps.contains(camId))
+        return QString();
+    const Caps &c = m_caps[camId];
+    return c.pending ? QStringLiteral("pending") : c.supported;
 }
 
 void PtzClient::restoreDefaults(const QString &camId)
