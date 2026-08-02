@@ -173,6 +173,9 @@ void loadBundledFonts()
 
 // Dev/verification hook: if WT_SCREENSHOT=<path> is set, grab the root window to
 // that PNG once it has rendered, then quit. WT_SCREENSHOT_MS overrides the delay.
+// WT_SCREENSHOT_BURST=N grabs N frames (suffix -01..-NN before the extension),
+// WT_SCREENSHOT_EVERY_MS apart (default 400) — for catching sub-second visual
+// artifacts (e.g. refresh dimming) with the same offline analysis as user shots.
 void maybeArmScreenshot(QQmlApplicationEngine &engine)
 {
     const QByteArray path = qgetenv("WT_SCREENSHOT");
@@ -184,13 +187,41 @@ void maybeArmScreenshot(QQmlApplicationEngine &engine)
     int delayMs = qEnvironmentVariableIntValue("WT_SCREENSHOT_MS");
     if (delayMs <= 0)
         delayMs = 900;
-    QTimer::singleShot(delayMs, win, [win, path]() {
-        const QImage img = win->grabWindow();
-        if (!img.isNull() && img.save(QString::fromLocal8Bit(path)))
-            qInfo() << "Watchtower: screenshot saved" << path << img.size();
-        else
-            qWarning() << "Watchtower: screenshot failed" << path;
-        QCoreApplication::quit();
+    const int burst = qEnvironmentVariableIntValue("WT_SCREENSHOT_BURST");
+    if (burst <= 1) {
+        QTimer::singleShot(delayMs, win, [win, path]() {
+            const QImage img = win->grabWindow();
+            if (!img.isNull() && img.save(QString::fromLocal8Bit(path)))
+                qInfo() << "Watchtower: screenshot saved" << path << img.size();
+            else
+                qWarning() << "Watchtower: screenshot failed" << path;
+            QCoreApplication::quit();
+        });
+        return;
+    }
+    int everyMs = qEnvironmentVariableIntValue("WT_SCREENSHOT_EVERY_MS");
+    if (everyMs <= 0)
+        everyMs = 400;
+    QTimer::singleShot(delayMs, win, [win, path, burst, everyMs]() {
+        auto *seq = new QTimer(win);
+        auto shot = std::make_shared<int>(0);
+        QObject::connect(seq, &QTimer::timeout, win, [win, path, burst, seq, shot]() {
+            ++*shot;
+            QString p = QString::fromLocal8Bit(path);
+            const int dot = p.lastIndexOf(QLatin1Char('.'));
+            const QString num = QStringLiteral("-%1").arg(*shot, 2, 10, QLatin1Char('0'));
+            p = dot > 0 ? p.left(dot) + num + p.mid(dot) : p + num;
+            const QImage img = win->grabWindow();
+            if (!img.isNull() && img.save(p))
+                qInfo() << "Watchtower: burst screenshot" << *shot << "/" << burst << p;
+            else
+                qWarning() << "Watchtower: burst screenshot failed" << p;
+            if (*shot >= burst) {
+                seq->stop();
+                QCoreApplication::quit();
+            }
+        });
+        seq->start(everyMs);
     });
 }
 

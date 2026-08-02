@@ -2,9 +2,14 @@ import QtQuick
 import Watchtower
 
 // A live camera thumbnail: a go2rtc still that refreshes every few seconds while it's
-// on screen. Double-buffered — the refresh loads a hidden image and crossfades to it on
+// on screen. Double-buffered — the refresh loads a hidden image and swaps to it on
 // ready, so the tile never blanks during a reload (Qt 6.4 clears an Image while its
-// source reloads). cache:false keeps tiles from poisoning each other. Faint octet badge
+// source reloads). The swap is INSTANT, never a crossfade: two simultaneous 220 ms
+// opacity fades can't sum to full coverage over the black base, so every refresh
+// dipped the tile to ~75% brightness — at the 1 s poll that read as the whole wall
+// "dimming on and off" at 1 Hz (measured ×0.78–0.82 luminance dips across phase-locked
+// tile batches in the 2026-08-02 operator screenshots). A hard cut, like video, can't dim.
+// cache:false keeps tiles from poisoning each other. Faint octet badge
 // (e.g. ".101") + a live-status dot; click emits clicked().
 //
 // `cam` is a camera map (needs snapshotUrl, ip, live); `active` gates the refresh (pass
@@ -69,7 +74,6 @@ Rectangle {
         anchors.fill: parent; anchors.margins: 1
         fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 220 } }
         onStatusChanged: {
             if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; thumb._errStreak = 0; }
             else if (status === Image.Error) thumb._errStreak++;
@@ -80,7 +84,6 @@ Rectangle {
         anchors.fill: parent; anchors.margins: 1
         fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false; sourceSize: thumb._srcSize
         opacity: thumb._showA ? 0 : 1
-        Behavior on opacity { NumberAnimation { duration: 220 } }
         onStatusChanged: {
             if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; thumb._errStreak = 0; }
             else if (status === Image.Error) thumb._errStreak++;
