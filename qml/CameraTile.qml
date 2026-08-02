@@ -228,12 +228,29 @@ Item {
 
         // Decode-capped tile: a periodic go2rtc snapshot instead of a live VA-API pipeline,
         // so every camera stays visible while only `maxLiveDecodes` actually decode.
+        // Live-decoded tiles keep this thumb ACTIVE too:
+        // - as a WARMER (hidden): nobody else ever touches a live-decoded camera's
+        //   cached-snapshot entry, so a section switch (Groups grid, pickers) hit ~16
+        //   stone-cold entries serialized behind the client gate — measured 2026-08-02:
+        //   groups content settle p90 2.3–3.9 s. Poll cadence 10.5 s is deliberately
+        //   JUST ABOVE the server's 10 s freshness TTL: the server refills only on a
+        //   miss, so polling faster merely reads the still-fresh entry and leaves a
+        //   ~30% stale window; at TTL+0.5 every poll refills, stale window ~5%.
+        //   (~1.5 cheap SUB fills/s fleet-wide — the same budget CV sized for their
+        //   sweep; this becomes belt-and-braces when that ships.)
+        // - as a CONNECTING BACKDROP (visible while the live pipeline (re)builds):
+        //   returning to the Live section rebuilds up to 16 pipelines, which showed
+        //   black + "Connecting…" for seconds; the ≤10 s-old snapshot is already in
+        //   the pixmap cache, so show IT until real frames flow.
         LiveThumb {
             anchors.fill: parent
-            visible: root.snapshotMode
-            active: root.videoActive && root.snapshotMode
+            visible: root.snapshotMode || (root.videoActive && !root.isOffline && !root.streamPlaying)
+            active: root.videoActive
+            refreshMs: root.snapshotMode
+                       ? ((typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 1000)
+                       : 10500
             showOctet: false; showStatus: false      // the tile draws its own badges/octet
-            cam: root.snapshotMode ? ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live }) : null
+            cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live })
         }
 
         // Connecting indicator (while the stream negotiates / buffers). Live mode only —

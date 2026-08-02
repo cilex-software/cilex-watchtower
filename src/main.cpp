@@ -503,6 +503,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtTabsHome", qEnvironmentVariableIsSet("WT_TABS_HOME"));
     // Headless self-test of the view-tab bookkeeping (WT_TABS_TEST=1 → [TABTEST] PASS/FAIL).
     engine.rootContext()->setContextProperty("wtTabsTest", qEnvironmentVariableIsSet("WT_TABS_TEST"));
+    // Section-switch latency harness (WT_NAVTEST=N → N live↔groups round-trips,
+    // [NAV] go/frame lines; content-settle comes from correlating WT_TRACE [EVIMG]).
+    engine.rootContext()->setContextProperty("wtNavTest", qEnvironmentVariableIntValue("WT_NAVTEST"));
     // View-state restore (Warden CW-05): WT_RESTORE_OFF=1 disables persistence entirely;
     // WT_RESTORE_TEST=seed|verify drives the two-phase self-test ([RESTTEST] PASS/FAIL).
     engine.rootContext()->setContextProperty("wtRestoreOff", qEnvironmentVariableIsSet("WT_RESTORE_OFF"));

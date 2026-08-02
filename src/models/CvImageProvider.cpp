@@ -18,15 +18,30 @@ static constexpr int kMaxSnapshotRetries = 3;
 // thumbnail path stays authorized and to attribute pool pressure.
 static const bool s_imgLog = qEnvironmentVariableIsSet("WT_TRACE");
 
-// Client-side pacing for the governed snapshot extractor (CV spec 2026-07-10):
-// the backend admits ~2 concurrent ffmpeg extractions and SHEDS the rest with
-// 503 (measured there: 8 concurrent → 6×503). A wall of thumbnails must queue
-// client-side at the same width — 2 concurrent → zero shed (their measurement),
-// no blank tiles, and the 503-retry below becomes the rare path, not the norm.
-// GUI-thread only (start()/finished both run there), so no locking.
-static constexpr int kSnapMaxConcurrent = 2;
-static int s_snapInFlight = 0;
-static QQueue<QPointer<CvImageResponse>> s_snapQueue;
+// Client-side pacing for /snapshot requests, per PATH CLASS (GUI-thread only —
+// start()/finished both run there, so no locking):
+// - EXTRACTION (event stills): the backend admits ~2 concurrent ffmpeg
+//   extractions and SHEDS the rest with 503 (CV spec 2026-07-10; measured
+//   there: 8 concurrent → 6×503). Width 2 → zero shed, 503-retry stays rare.
+// - CACHED camera stills (`streams/cameras/<id>/snapshot`): resolved from the
+//   query-api TTL cache, cold-filled via the go2rtc SUB fetch behind a
+//   server-side semaphore of 4 (CV reply 2026-08-02). Width 4 matches it —
+//   at the old shared width 2, a 39-camera Groups grid drained serially and
+//   measured p90 2.3–3.9 s to settle; extraction pressure and wall pressure
+//   also starved each other through the shared gate.
+struct SnapPool {
+    const char *name;
+    const int cap;
+    int inFlight = 0;
+    QQueue<QPointer<CvImageResponse>> queue;
+};
+static SnapPool s_poolExtract{"extract", 2};
+// 6 = the private NAM's per-host pool. Wider than the server's 4-wide SUB fill
+// on purpose: cache HITS (~30 ms) must not queue behind 1–3 s cold fills
+// (head-of-line blocking measured 2026-08-02: warm hits finishing at +2–3 s in
+// a 39-tile burst). Misses are still bounded at 4 server-side; the extra width
+// only lets hits overtake.
+static SnapPool s_poolCached{"cached", 6};
 
 // Duplicate finish()es are suppressed rather than crashing — but a suppression means
 // a real double-completion happened, so count them and say so once (WT_TRACE prints
@@ -89,22 +104,24 @@ void CvImageResponse::finish()
 
 void CvImageResponse::releaseSnapshotSlot()
 {
+    if (!m_pool)
+        return;                         // never classified as a /snapshot request
     if (m_gated) {
         m_gated = false;
-        --s_snapInFlight;
+        --m_pool->inFlight;
     }
     // Pump UNCONDITIONALLY — never-gated responses included. A queued candidate
     // that was woken (dequeued + start() invoked) and then cancelled before that
     // queued start() ran used to swallow the wake-up: its early-outs hit the old
-    // `if (!m_gated) return;` and nobody re-scanned the queue. With both slots'
-    // wakes lost in the same churn window, the pipeline froze permanently —
-    // s_snapInFlight == 0, live waiters queued, nothing in flight to ever release
+    // `if (!m_gated) return;` and nobody re-scanned the queue. With every slot's
+    // wake lost in the same churn window, the pipeline froze permanently —
+    // inFlight == 0, live waiters queued, nothing in flight to ever release
     // again (observed 2026-08-02 cold-start storm: zero fetches after +22 s,
     // 6 tiles empty for the remaining 128 s). Pumping from EVERY terminating
     // path means a dying wake always passes the baton; over-waking is safe
     // because start() re-checks capacity and politely re-enqueues.
-    while (s_snapInFlight < kSnapMaxConcurrent && !s_snapQueue.isEmpty()) {
-        QPointer<CvImageResponse> next = s_snapQueue.dequeue();
+    while (m_pool->inFlight < m_pool->cap && !m_pool->queue.isEmpty()) {
+        QPointer<CvImageResponse> next = m_pool->queue.dequeue();
         if (next && !next->m_cancelled) {
             next->m_queued = false;
             QMetaObject::invokeMethod(next, &CvImageResponse::start, Qt::QueuedConnection);
@@ -117,14 +134,17 @@ void CvImageResponse::start()
 {
     if (!m_auth || !m_nam) { releaseSnapshotSlot(); finish(); return; }
     if (m_cancelled) { releaseSnapshotSlot(); finish(); return; }
-    // Governed-extractor gate: only /snapshot paths (the ffmpeg extraction) queue.
+    // Governed gate: only /snapshot paths queue, each in its class's pool.
     if (!m_gated && m_path.contains(QLatin1String("/snapshot"))) {
-        if (s_snapInFlight >= kSnapMaxConcurrent) {
-            if (!m_queued) { m_queued = true; s_snapQueue.enqueue(this); }
+        if (!m_pool)
+            m_pool = m_path.contains(QLatin1String("streams/cameras/"))
+                     ? &s_poolCached : &s_poolExtract;
+        if (m_pool->inFlight >= m_pool->cap) {
+            if (!m_queued) { m_queued = true; m_pool->queue.enqueue(this); }
             return;                     // resumed by releaseSnapshotSlot()
         }
         m_gated = true;
-        ++s_snapInFlight;
+        ++m_pool->inFlight;
     }
     m_timer.start();
     // Optional leading "wtp<N>/" token carries a network-scheduling priority set by

@@ -68,6 +68,15 @@ Rectangle {
     }
     onCamChanged: _reset()
     Component.onCompleted: if (_base !== "") imgA.source = _provBase + _sep + "0"
+    // Fire immediately on (re)activation — the repeat Timer's first tick is a full
+    // interval away, which added a flat +1 s before a section switch even STARTED
+    // filling its thumbs (measured in the 2026-08-02 [NAV]/[EVIMG] trace). Skip
+    // thumbs in error-backoff: a camera mid 404-episode costs 2–6 s of server time
+    // per ask, and re-poking all of them on every section entry occupied most of
+    // the client gate's lanes — head-of-line for the healthy 90% (entries with 5
+    // episode-cams measured p50 1.1–2.4 s vs 0.2–0.4 s without). Their own 15 s
+    // backoff timer keeps retrying; they just don't ride the entry burst.
+    onActiveChanged: if (active && _base !== "" && _errStreak < 3) _refresh()
 
     Image {
         id: imgA

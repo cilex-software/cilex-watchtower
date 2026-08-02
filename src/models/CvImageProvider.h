@@ -14,6 +14,7 @@
 class AuthController;
 class QNetworkAccessManager;
 class QNetworkReply;
+struct SnapPool;                        // per-class client snapshot gate (CvImageProvider.cpp)
 
 // Async image provider for AUTHENTICATED backend images. Qt's Image loader can't
 // attach the session cookie, so this fetches with the cookie attached explicitly —
@@ -66,8 +67,9 @@ private:
     QPointer<QNetworkReply> m_reply;
     QElapsedTimer m_timer;              // per-attempt fetch latency ([EVIMG] diagnostics)
     int m_attempt = 0;                  // 503 (governor shed) retries — honors Retry-After
-    bool m_gated = false;               // holds one of the 2 snapshot-extractor slots
-    bool m_queued = false;              // waiting in the snapshot queue
+    SnapPool *m_pool = nullptr;         // which client gate this /snapshot request belongs to
+    bool m_gated = false;               // holds one of its pool's slots
+    bool m_queued = false;              // waiting in its pool's queue
     bool m_finished = false;            // GUI thread only — finish() is never called elsewhere
     // Written by cancel() on the PIXMAP-READER thread, read on the GUI thread.
     std::atomic<bool> m_cancelled { false };

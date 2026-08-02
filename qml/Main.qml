@@ -865,6 +865,10 @@ Window {
                 var all = cameraModel.page("", "", "default", 1, 8);
                 if (all.length < 3) return;
                 restTest.running = false;
+                // Deterministic seed even on a DIRTY profile: the verify phase asserts
+                // section=live, but a prior session may have left (and restored) any
+                // section — seed from the state the assertions assume.
+                if (win.section !== "live") win.goToSection("live");
                 win.openCameraHere(all[0]);                 // camera in the main tab
                 win.openCameraTab(all[1]);
                 win.openCameraTab(all[2]);
@@ -887,6 +891,46 @@ Window {
             }
         }
     }
+    // Section-switch latency harness: WT_NAVTEST=N alternates live↔groups N round-
+    // trips on the real roster. Two numbers per switch: [NAV] frame ui=<ms> (click →
+    // first frame swapped with the new section — GUI-thread responsiveness) and,
+    // offline, content settle from WT_TRACE [EVIMG] first-success times after each
+    // "[NAV] go groups" timestamp. 12 s warm dwell first, 4 s per leg, then quit.
+    Timer {
+        id: navTest
+        interval: 4000; repeat: true
+        running: typeof wtNavTest !== "undefined" && wtNavTest > 0
+        property int leg: -3          // negative legs = warm-up dwell (12 s on live)
+        property double t0: 0
+        onTriggered: {
+            if (cameraModel.total < 5) return;                 // wait for the roster
+            leg++;
+            if (leg < 0) return;
+            if (leg >= wtNavTest * 2) {
+                console.log("[NAV] done legs=" + leg);
+                navTest.running = false;
+                Qt.quit();
+                return;
+            }
+            var tgt = (win.section === "groups") ? "live" : "groups";
+            t0 = Date.now();
+            navFrame.armed = true;
+            console.log("[NAV] go " + tgt);
+            win.section = tgt;
+        }
+    }
+    Connections {
+        id: navFrame
+        property bool armed: false
+        target: win
+        enabled: typeof wtNavTest !== "undefined" && wtNavTest > 0
+        function onFrameSwapped() {
+            if (!navFrame.armed) return;
+            navFrame.armed = false;
+            console.log("[NAV] frame section=" + win.section + " ui=" + (Date.now() - navTest.t0) + "ms");
+        }
+    }
+
     // Dev self-test: WT_TABS_TEST=1 drives the tab bookkeeping over the real roster
     // and asserts each outcome ([TABTEST] lines, then PASS/FAIL). Runs against the
     // shipping functions — index math (open · raise · navigate-in-place · close) is
