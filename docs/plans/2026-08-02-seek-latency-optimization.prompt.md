@@ -20,7 +20,7 @@ floor) + preroll/verify-retry (150–450 ms) + first decode (50–200 ms)._
 
 ---
 
-## PHASE A — client-only quick wins (#3 then #1), same day
+## PHASE A — client-only quick wins (#3 then #1) — ✅ DONE 2026-08-02 (8baedd9; gate PASSED: cold p50 1,176/p95 2,152/give-ups 0.16% — all Phase-D targets already met; results docs/perf/2026-08-02-phaseA-seek-results.md)
 
 ### #3 Verify-retry tick 150 ms → 60 ms
 - `qml/PlaybackScreen.qml`, the pending-seek retry Timer: `interval: 150` → `60`;
