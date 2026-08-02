@@ -352,9 +352,15 @@ void install(const char *buildSha)
     s_prev = qInstallMessageHandler(handler);
 
     // Session boundary marker — Warden slices "this run" on these lines, and a
-    // post-mortem reader sees at a glance which build/Qt/OS produced what follows.
-    qInfo("=== watchtower start pid=%lld build=%s qt=%s os=%s (flightrec %s, %lldKB x%d) ===",
-          QCoreApplication::applicationPid(), buildSha, qVersion(),
+    // post-mortem reader sees at a glance which version/build/Qt/OS produced
+    // what follows (operator ask 2026-08-03: pasted log tails must identify
+    // themselves; per-record timestamps come from the default message pattern
+    // set in main()).
+#ifndef WT_VERSION
+#define WT_VERSION "dev"
+#endif
+    qInfo("=== watchtower start v%s pid=%lld build=%s qt=%s os=%s (flightrec %s, %lldKB x%d) ===",
+          WT_VERSION, QCoreApplication::applicationPid(), buildSha, qVersion(),
           qPrintable(QSysInfo::prettyProductName()), qPrintable(dir),
           s_maxBytes / 1024, s_keep);
 }

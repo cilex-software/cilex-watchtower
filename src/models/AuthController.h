@@ -52,9 +52,15 @@ public:
     // then revalidates against /auth/me in the background). Call from main().
     void restoreSession();
 
-    // Called by models that receive a 401 — drops the session and asks the UI
-    // to return to the login screen.
+    // Called by models that receive a 401. With service credentials present
+    // (WT_CV_AUTOLOGIN) it re-logs-in IN PLACE — the wall never drops; without
+    // them it clears the session and the UI returns to the sign-in screen.
     void noteUnauthorized();
+
+    // Dev/test hook (WT_AUTH_EXPIRE_S): invalidates the live token in memory +
+    // cookie jar so the next backend round-trip 401s — exercises the real
+    // expiry path end-to-end without waiting ~10 h.
+    Q_INVOKABLE void corruptTokenForTest();
 
     Q_INVOKABLE void loginWithPassword(const QString &baseUrl,
                                        const QString &username,
@@ -84,6 +90,10 @@ private:
     // (e.g. the backend still coming up at boot) before surfacing an error.
     void attemptTokenLogin();
     void attemptPasswordLogin();
+    // Session continuity for 24/7 stations: schedule a re-login before the
+    // token's exp claim, and recover in place from mid-session 401s.
+    void armRenewal();
+    void renewNow();
     static bool decodeClaims(const QString &token, QString &username, QString &role,
                              QStringList &scope, qint64 &expSecs);
 
@@ -102,4 +112,7 @@ private:
     int m_loginAttempt = 0;          // retry counter for the current login
     QString m_pendingUser;           // held across password-login retries
     QString m_pendingPassword;
+    class QTimer *m_renewTimer = nullptr;   // proactive renewal (armRenewal)
+    qint64 m_lastReauthMs = 0;       // cooldown: one background re-login per minute
+    int m_reauthFails = 0;           // background re-login failures; ≥3 → sign-in
 };

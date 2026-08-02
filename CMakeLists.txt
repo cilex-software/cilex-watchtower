@@ -52,6 +52,7 @@ if(NOT WT_GIT_SHA)
     set(WT_GIT_SHA "dev")
 endif()
 target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
+target_compile_definitions(watchtower PRIVATE WT_VERSION="${PROJECT_VERSION}")
 
 # Qt 6.12.0's qmlcachegen SIGSEGVs in the AOT C++ codegen pass on qml/Main.qml (the QML is valid — 6.8.3
 # compiled it fine; this is a 6.12 tool regression). `--only-bytecode` skips the AOT pass — the QML *bytecode*

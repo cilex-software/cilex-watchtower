@@ -26,12 +26,45 @@ constexpr int kLoginTimeoutMs = 8000;
 
 AuthController *AuthController::s_instance = nullptr;
 
+// Service credentials for unattended re-login (guard stations run 24/7; the
+// backend token lives ~10 h — measured twice on 2026-08-02/03). Present when
+// WT_CV_AUTOLOGIN is set: the same contract as the boot auto-login in main().
+static bool serviceCreds(QString &user, QString &pass)
+{
+    if (!qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN"))
+        return false;
+    const auto env = QProcessEnvironment::systemEnvironment();
+    user = env.value("WT_CV_USER", "admin");
+    pass = env.value("WT_CV_PASS", "admin");
+    return true;
+}
+
 AuthController::AuthController(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this))
 {
     s_instance = this;
     const auto env = QProcessEnvironment::systemEnvironment();
     m_baseUrl = env.value("WT_CV_URL", "http://192.168.1.79:8000");
+    // Background re-login failures (renewNow / noteUnauthorized): keep the wall
+    // up while the token is still valid, retry shortly, and only after repeated
+    // failures fall back to the sign-in screen — a dead-quiet wall is the worst
+    // outcome (observed 2026-08-03: token expired 11:07, livePipes=0 for an
+    // hour with no operator-visible cause).
+    connect(this, &AuthController::loginFailed, this, [this](const QString &why) {
+        if (!m_authenticated)
+            return;                     // interactive sign-in failure — not ours
+        ++m_reauthFails;
+        const qint64 left = m_exp - QDateTime::currentSecsSinceEpoch();
+        qWarning("[AUTH] background re-login failed (#%d, %s) — token has %llds left",
+                 m_reauthFails, qPrintable(why), (long long)left);
+        if (m_reauthFails >= 3) {
+            qWarning("[AUTH] giving up on background re-login — dropping to sign-in");
+            clearSession();
+            emit sessionExpired();
+        } else if (left > 240 && m_renewTimer) {
+            m_renewTimer->start(180 * 1000);
+        }
+    });
 }
 
 QString AuthController::initials() const
@@ -117,8 +150,59 @@ void AuthController::applyToken(const QString &token)
         m_role = r;
         m_cameraScope = sc;
         m_exp = e;
+        m_reauthFails = 0;
+        qInfo("[AUTH] token accepted user=%s role=%s ttl=%llds", qPrintable(u), qPrintable(r),
+              (long long)(e - QDateTime::currentSecsSinceEpoch()));
         emit identityChanged();
+        armRenewal();
     }
+}
+
+// Proactive session renewal: a guard's wall must never fall to a sign-in
+// screen mid-shift because the token aged out. With service creds, re-login
+// T-minus-10-min (seamless — models never see a 401); without them, warn
+// loudly so the coming sign-in is at least announced. WT_AUTH_RENEW_S forces
+// the delay (dev).
+void AuthController::armRenewal()
+{
+    if (!m_renewTimer) {
+        m_renewTimer = new QTimer(this);
+        m_renewTimer->setSingleShot(true);
+        connect(m_renewTimer, &QTimer::timeout, this, &AuthController::renewNow);
+    }
+    qint64 delayS = qEnvironmentVariableIntValue("WT_AUTH_RENEW_S");
+    if (delayS <= 0) {
+        if (m_exp <= 0)
+            return;                     // no exp claim — nothing to schedule
+        delayS = qMax<qint64>(30, m_exp - QDateTime::currentSecsSinceEpoch() - 600);
+    }
+    m_renewTimer->start(int(qMin<qint64>(delayS, 86400) * 1000));
+    qInfo("[AUTH] session renewal armed in %llds", (long long)delayS);
+}
+
+void AuthController::renewNow()
+{
+    QString u, p;
+    const qint64 left = m_exp - QDateTime::currentSecsSinceEpoch();
+    if (serviceCreds(u, p)) {
+        qInfo("[AUTH] proactive re-login (token expires in %llds)", (long long)left);
+        loginWithPassword(m_baseUrl, u, p);
+    } else {
+        qWarning("[AUTH] token expires in %llds and no service credentials are set "
+                 "(WT_CV_AUTOLOGIN) — the app will drop to sign-in when it does",
+                 (long long)left);
+    }
+}
+
+// Dev/test (WT_AUTH_EXPIRE_S): poison the live token in memory + cookie jar so
+// the next backend round-trip 401s — the real expiry path, without the 10 h.
+void AuthController::corruptTokenForTest()
+{
+    qWarning("[AUTH] TEST: corrupting session token now");
+    m_token = QStringLiteral("wt-test-expired");
+    QNetworkCookie cookie("access_token", m_token.toUtf8());
+    cookie.setPath("/");
+    m_nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_baseUrl));
 }
 
 void AuthController::persist()
@@ -296,6 +380,23 @@ void AuthController::noteUnauthorized()
 {
     if (!m_authenticated)
         return;
+    // A 401 mid-session: the token died before (or despite) renewal. With
+    // service creds, recover IN PLACE — models keep their state and retry on
+    // their own cadence; the wall never tears down. Cooldown collapses the
+    // 401 burst from N models into one attempt; repeated failures escape to
+    // the sign-in screen via the loginFailed hook in the constructor.
+    QString u, p;
+    if (serviceCreds(u, p)) {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        if (nowMs - m_lastReauthMs > 60000 && m_reauthFails < 3) {
+            m_lastReauthMs = nowMs;
+            qWarning("[AUTH] 401 while authenticated — service re-login in place");
+            loginWithPassword(m_baseUrl, u, p);
+        }
+        if (m_reauthFails < 3)
+            return;                     // attempt in flight (or cooling down)
+    }
+    qWarning("[AUTH] session expired and no recovery path — dropping to sign-in");
     clearSession();
     emit sessionExpired();
 }

@@ -123,12 +123,18 @@ void installCrashHandlers()
 void wtFatalHandler(int sig)
 {
     long rss = readRssMb();
+    // Say what the RSS actually supports — the old unconditional "SIGTERM at
+    // high RSS = OOM" text misled a real triage on 2026-08-03 (SIGTERM at a
+    // LOW 184 MB is an external kill, not memory pressure).
+    const char *hint = (sig == SIGTERM)
+        ? (rss > 1500
+               ? "SIGTERM at this HIGH RSS = likely OOM/earlyoom (memory pressure), not a code crash"
+               : "SIGTERM at this LOW RSS = external terminate (kill/logout/supervisor), NOT memory pressure")
+        : "SIGSEGV(11)/SIGABRT(6)/SIGBUS(7) = code crash, backtrace follows";
     char line[320];
     int len = std::snprintf(line, sizeof(line),
-        "\n[WT-FATAL] killed by signal %d (%s); RSS=%ld MB. "
-        "SIGTERM(15)/SIGKILL(9) at high RSS = OOM/earlyoom (memory pressure), not a code crash; "
-        "SIGSEGV(11)/SIGABRT(6)/SIGBUS(7) = code crash, backtrace follows.\n",
-        sig, ::strsignal(sig), rss);
+        "\n[WT-FATAL] killed by signal %d (%s); RSS=%ld MB. %s.\n",
+        sig, ::strsignal(sig), rss, hint);
     if (len > 0)
         ::write(STDERR_FILENO, line, size_t(len));
     if (sig == SIGSEGV || sig == SIGABRT || sig == SIGBUS || sig == SIGFPE) {
@@ -229,6 +235,12 @@ void maybeArmScreenshot(QQmlApplicationEngine &engine)
 
 int main(int argc, char *argv[])
 {
+    // Every console record carries a wall-clock timestamp — an operator pasting
+    // a log tail must be able to answer "is this from today?" (ask 2026-08-03).
+    // QT_MESSAGE_PATTERN still overrides (harnesses set their own patterns).
+    if (!qEnvironmentVariableIsSet("QT_MESSAGE_PATTERN"))
+        qSetMessagePattern(QStringLiteral("%{time yyyy-MM-dd HH:mm:ss.zzz} %{message}"));
+
     // Capture the death cause (OOM/earlyoom SIGTERM vs a real code SIGSEGV) before anything else.
     installCrashHandlers();
 
@@ -385,6 +397,10 @@ int main(int argc, char *argv[])
                                 env.value("WT_CV_USER", "admin"),
                                 env.value("WT_CV_PASS", "admin"));
     }
+    // Dev: exercise the session-expiry path end-to-end after N seconds (poisons
+    // the live token → next round-trip 401s → AuthController recovery runs).
+    if (const int expS = qEnvironmentVariableIntValue("WT_AUTH_EXPIRE_S"); expS > 0)
+        QTimer::singleShot(expS * 1000, auth, &AuthController::corruptTokenForTest);
 
     QQmlApplicationEngine engine;
     // Authenticated backend images (event-moment snapshots): image://cvframe/<path>.

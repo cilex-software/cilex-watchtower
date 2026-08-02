@@ -16,6 +16,16 @@
 # it would load whatever libQt6*.so the system linker finds. Hence: always this script.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Dev/pilot session continuity (2026-08-03): the backend token lives ~10 h, and a
+# wall without credentials falls to the sign-in screen when it dies mid-shift
+# (observed: token expired 11:07, wall dead-quiet until manually restarted).
+# With WT_CV_AUTOLOGIN the app logs in at boot AND renews the session in the
+# background (AuthController: proactive T-10min re-login + in-place 401
+# recovery) — the wall never drops. Export WT_CV_AUTOLOGIN= (empty) to opt out;
+# production stations will get these from the Warden unit env instead.
+export WT_CV_AUTOLOGIN="${WT_CV_AUTOLOGIN-1}"
+[ -z "$WT_CV_AUTOLOGIN" ] && unset WT_CV_AUTOLOGIN
 # DEFAULT RUNTIME (2026-07-12, operator decision): the internally PATCHED Qt
 # overlay — Qt 6.12 (v6.12.0-beta1 stack) with third_party/qt-patches/6.12/
 # applied (poison-frame fix at the source + adjacent defects; validated 13/13,
