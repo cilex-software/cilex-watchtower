@@ -441,13 +441,15 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("Ptz", ptz);
     // Dev: WT_AF_TEST=<camId> exercises the full autofocus client path at boot
     // (+12 s: probe, then the debounced request; +14 s: a second request that
-    // must be swallowed by the 5 s debounce) — [PTZ] lines + toast are the proof.
+    // must be swallowed by the 5 s debounce; +19 s: past the debounce — on a
+    // 501-cached camera this must REPLAY the cached sentence with no HTTP).
     if (const QString afCam = qEnvironmentVariable("WT_AF_TEST"); !afCam.isEmpty()) {
         QTimer::singleShot(12000, ptz, [ptz, afCam]() {
             ptz->probe(afCam);
             ptz->focusAutoRequest(afCam);
         });
         QTimer::singleShot(14000, ptz, [ptz, afCam]() { ptz->focusAutoRequest(afCam); });
+        QTimer::singleShot(19000, ptz, [ptz, afCam]() { ptz->focusAutoRequest(afCam); });
     }
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).

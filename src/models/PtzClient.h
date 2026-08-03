@@ -38,6 +38,10 @@ public:
     Q_INVOKABLE void focusAutoRequest(const QString &camId);
     // Cached probe result for UI gating: "" unknown, "pending", or supported.
     Q_INVOKABLE QString capsFor(const QString &camId) const;
+    // TRUE once a focus command answered 501 (reply² §3: the camera itself
+    // cannot focus — authoritative, session-cached; `lens` is only a hint).
+    // Zoom/pan survive: only focus affordances hide on this.
+    Q_INVOKABLE bool focusDead(const QString &camId) const { return m_focusDead.contains(camId); }
 
 signals:
     // supported: "none" | "lens" | "ptz"; pendingBackend: endpoint absent upstream
@@ -47,6 +51,7 @@ signals:
     // autofocus.md — rendered VERBATIM by the UI), "" for ops without one.
     void opDone(const QString &camId, const QString &what, const QString &message);
     void opFailed(const QString &camId, const QString &what, const QString &message);
+    void focusSupportChanged(const QString &camId, bool supported);
 
 private:
     struct Caps { QString supported; bool home = false; bool pending = false; };
@@ -57,6 +62,7 @@ private:
     QNetworkAccessManager *m_nam = nullptr;
     QHash<QString, Caps> m_caps;         // per-camera probe cache (session-lived)
     QHash<QString, qint64> m_lastFocusMs; // per-camera focus-auto debounce stamps
+    QHash<QString, QString> m_focusDead; // camId -> the 501's sentence, replayed verbatim
     QTimer m_safety;                     // a missed release must never leave a camera moving
     std::function<void()> m_safetyStop;
     bool m_demo = false;

@@ -105,6 +105,15 @@ void PtzClient::post(const QString &camId, const QString &what, const QString &t
               code, body.contains(QLatin1String("ok"))
                         ? (body.value(QLatin1String("ok")).toBool() ? "true" : "false") : "-",
               qPrintable(msg));
+        if (code == 501 && body.contains(QLatin1String("ok"))
+            && what.startsWith(QLatin1String("focus")) && !m_focusDead.contains(camId)) {
+            // Reply² §3: 501 = this camera cannot focus, period — authoritative,
+            // cache it so the affordance disappears ("the 501 is the truth and
+            // `lens` is a hint"). Only focus dies; zoom/pan stay available.
+            m_focusDead.insert(camId, msg);
+            qInfo("[PTZ] focus marked unsupported on %s (501 cached)", qPrintable(camId));
+            emit focusSupportChanged(camId, false);
+        }
         if (code >= 200 && code < 300)
             emit opDone(camId, what, msg);
         else
@@ -134,6 +143,11 @@ void PtzClient::stopMove(const QString &camId) { continuousMove(camId, 0, 0, 0);
 
 void PtzClient::focusMove(const QString &camId, double speed)
 {
+    if (m_focusDead.contains(camId)) {
+        if (speed != 0.0)
+            emit opFailed(camId, QStringLiteral("focus"), m_focusDead.value(camId));
+        return;
+    }
     QJsonObject o{{QStringLiteral("speed"), speed}};
     post(camId, speed == 0.0 ? QStringLiteral("focus-stop") : QStringLiteral("focus"),
          QStringLiteral("/focus"), QJsonDocument(o).toJson(QJsonDocument::Compact));
@@ -150,6 +164,12 @@ void PtzClient::focusAuto(const QString &camId)
 void PtzClient::focusAutoRequest(const QString &camId)
 {
     if (camId.isEmpty()) return;
+    if (m_focusDead.contains(camId)) {
+        // Cached 501: replay the server's own sentence — no HTTP, no actuator.
+        qInfo("[PTZ] %s focus-auto -> cached 501 replayed, no HTTP", qPrintable(camId));
+        emit opFailed(camId, QStringLiteral("focus-auto"), m_focusDead.value(camId));
+        return;
+    }
     // HARD debounce (letter §4): autofocus fires a physical actuator; the
     // server serialises and 409s, but it must not be our rate limiter. One
     // command per camera per 5 s regardless of trigger (tile chip,

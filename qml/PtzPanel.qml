@@ -19,6 +19,7 @@ Rectangle {
     property string phase: "probing"
     property string caps: "none"          // "none" | "lens" | "ptz"
     property bool homeSupported: false
+    property bool focusDead: false        // a focus command 501'd on this camera (cached)
     property string lastError: ""
     property bool resetBusy: false
 
@@ -31,8 +32,8 @@ Rectangle {
     visible: camId !== ""
     focus: visible
 
-    onVisibleChanged: if (visible && camId !== "") { phase = "probing"; lastError = ""; Ptz.probe(camId) }
-    onCamIdChanged:   if (visible && camId !== "") { phase = "probing"; lastError = ""; Ptz.probe(camId) }
+    onVisibleChanged: if (visible && camId !== "") { phase = "probing"; lastError = ""; focusDead = Ptz.focusDead(camId); Ptz.probe(camId) }
+    onCamIdChanged:   if (visible && camId !== "") { phase = "probing"; lastError = ""; focusDead = Ptz.focusDead(camId); Ptz.probe(camId) }
 
     Connections {
         target: Ptz
@@ -41,6 +42,9 @@ Rectangle {
             root.caps = supported; root.homeSupported = home;
             root.phase = pendingBackend ? "pending"
                         : (supported === "none" ? "unsupported" : "ready");
+        }
+        function onFocusSupportChanged(id, supported) {
+            if (id === root.camId) root.focusDead = !supported;
         }
         function onOpFailed(id, what, message) {
             if (id !== root.camId) return;
@@ -171,7 +175,9 @@ Rectangle {
             Item { Layout.fillWidth: true }
         }
         RowLayout {
-            visible: root.phase === "ready"
+            // Hidden once a focus command 501'd (this hardware cannot focus —
+            // reply² §3); zoom above stays, the classifier's `lens` is a hint.
+            visible: root.phase === "ready" && !root.focusDead
             Layout.fillWidth: true; spacing: 6
             Text { text: qsTr("Focus"); color: Theme.ink2; font.family: Theme.fontMono
                    font.pixelSize: 11; Layout.preferredWidth: 44 }

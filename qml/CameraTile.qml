@@ -88,11 +88,15 @@ Item {
     readonly property bool afModelCapable:
         /PTZ/i.test(hwModel) || /\dZ[\s(]/.test(hwModel) || /\dZ$/.test(hwModel)
     property string ptzCaps: ""            // "" unknown · "pending" · "none" · "lens" · "ptz"
+    property bool afFocusDead: false       // a focus command 501'd (cached) — chip hides
     Connections {
         target: Ptz
         enabled: root.afModelCapable
         function onCapsReady(id, supported, home, pendingBackend) {
             if (id === root.camId) root.ptzCaps = pendingBackend ? "pending" : supported;
+        }
+        function onFocusSupportChanged(id, supported) {
+            if (id === root.camId) root.afFocusDead = !supported;
         }
     }
     // Live View business-function state (from the model). When false, an operator
@@ -573,12 +577,16 @@ Item {
             // when the model pre-gate holds AND the backend probe didn't say no.
             Rectangle {
                 visible: root.afModelCapable && root.ptzCaps !== "none" && root.ptzCaps !== "pending"
+                         && !root.afFocusDead
                 width: afTileTxt.implicitWidth + 12; height: 20; radius: 3
                 anchors.verticalCenter: parent.verticalCenter
                 color: afTileMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.55)
                 border.width: 1; border.color: afTileMa.containsMouse ? Theme.accent : Theme.line2
-                onVisibleChanged: if (visible && root.ptzCaps === "" && root.camId !== "")
-                                      Ptz.probe(root.camId)   // free, cached, never touches the camera
+                onVisibleChanged: if (visible && root.camId !== "") {
+                    root.afFocusDead = Ptz.focusDead(root.camId);   // session cache, tile recycling
+                    if (root.ptzCaps === "")
+                        Ptz.probe(root.camId);   // free, cached, never touches the camera
+                }
                 Text {
                     id: afTileTxt; anchors.centerIn: parent; text: "AF"
                     color: afTileMa.containsMouse ? Theme.bg : Theme.ink
