@@ -55,6 +55,11 @@
 
 namespace {
 
+// Process start (unix epoch), stamped in installCrashHandlers(): the fatal
+// handler prints t=/uptime= from it so a FATAL line in old scrollback can
+// never masquerade as a fresh incident (2026-08-04 false P0).
+long long s_processStartEpoch = 0;
+
 // This process's resident size in MB. Linux: read /proc/self/statm with only open/read/close
 // so it is async-signal-safe (called from the fatal-signal handler below). Windows: PSAPI
 // WorkingSetSize — the SEH crash path is not bound by POSIX signal-safety, so this is fine.
@@ -112,6 +117,7 @@ LONG WINAPI wtUnhandledException(EXCEPTION_POINTERS *info)
 
 void installCrashHandlers()
 {
+    s_processStartEpoch = (long long)::time(nullptr);
     ::SetUnhandledExceptionFilter(wtUnhandledException);
 }
 #else
@@ -131,10 +137,15 @@ void wtFatalHandler(int sig)
                ? "SIGTERM at this HIGH RSS = likely OOM/earlyoom (memory pressure), not a code crash"
                : "SIGTERM at this LOW RSS = external terminate (kill/logout/supervisor), NOT memory pressure")
         : "SIGSEGV(11)/SIGABRT(6)/SIGBUS(7) = code crash, backtrace follows";
-    char line[320];
+    // Epoch + uptime stamp, async-signal-safe (time(2) + snprintf). The raw
+    // handler bypasses the timestamped log pattern, and a stale FATAL sitting
+    // in terminal scrollback was read as a live P0 on 2026-08-04 (it was 23 h
+    // old). `date +%s` tells the reader instantly whether this line is fresh.
+    const long long now = (long long)::time(nullptr);
+    char line[400];
     int len = std::snprintf(line, sizeof(line),
-        "\n[WT-FATAL] killed by signal %d (%s); RSS=%ld MB. %s.\n",
-        sig, ::strsignal(sig), rss, hint);
+        "\n[WT-FATAL] t=%llds (unix; compare `date +%%s`) uptime=%llds — killed by signal %d (%s); RSS=%ld MB. %s.\n",
+        now, now - s_processStartEpoch, sig, ::strsignal(sig), rss, hint);
     if (len > 0)
         ::write(STDERR_FILENO, line, size_t(len));
     if (sig == SIGSEGV || sig == SIGABRT || sig == SIGBUS || sig == SIGFPE) {
@@ -156,6 +167,7 @@ void wtFatalHandler(int sig)
 
 void installCrashHandlers()
 {
+    s_processStartEpoch = (long long)::time(nullptr);
     for (int s : {SIGSEGV, SIGABRT, SIGBUS, SIGFPE, SIGTERM})
         ::signal(s, wtFatalHandler);
 }
