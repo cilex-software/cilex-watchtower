@@ -755,7 +755,7 @@
     <message>
         <location filename="../qml/TitleBar.qml" line="159"/>
         <source>Supervised by Cilex Warden %1 — auto-restart and crash reporting armed</source>
-        <translation>Под наблюдением Cilex Warden %1 — автоперезапуск и отчёты о сбоях включены</translation>
+        <translation>Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="187"/>

@@ -4,6 +4,11 @@ Supervisor, crash collector, and uploader for Cilex Watchtower on guard
 workstations. Plan/tracker: `docs/plans/warden-build-plan.md`. Ingest contract:
 `docs/letters/2026-07-26-client-crash-report-ingest*.md` (frozen 2026-07-26).
 
+Naming (operator decision 2026-08-04): the brand is always Latin-script
+**Cilex Warden**; the Russian descriptive word is **«Хранитель»** everywhere
+(never «надзиратель» — prison register; «супервизор» only deep in tech docs).
+UI reference phrasing: «Хранитель Cilex Warden … наблюдает».
+
 ## Shape
 
 ```
