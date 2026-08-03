@@ -182,6 +182,7 @@ void PtzClient::focusAutoRequest(const QString &camId)
         return;
     }
     m_lastFocusMs.insert(camId, nowMs);
+    emit focusAutoStarted(camId);
     focusAuto(camId);
 }
 

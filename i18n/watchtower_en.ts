@@ -4,47 +4,42 @@
 <context>
     <name>CameraTile</name>
     <message>
-        <location filename="../qml/CameraTile.qml" line="337"/>
+        <location filename="../qml/CameraTile.qml" line="341"/>
         <source>STREAM UNAVAILABLE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="430"/>
+        <location filename="../qml/CameraTile.qml" line="434"/>
         <source>MOTION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="484"/>
+        <location filename="../qml/CameraTile.qml" line="488"/>
         <source>RECORDING STALLED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="484"/>
+        <location filename="../qml/CameraTile.qml" line="488"/>
         <source>since</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="485"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>LIVE, NO RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="485"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>STREAM DEGRADED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="492"/>
+        <location filename="../qml/CameraTile.qml" line="496"/>
         <source>VIEW ISSUE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="592"/>
-        <source>Autofocus</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/CameraTile.qml" line="605"/>
+        <location filename="../qml/CameraTile.qml" line="610"/>
         <source>Split into 1×1 cells</source>
         <translation type="unfinished"></translation>
     </message>
@@ -184,8 +179,13 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2079"/>
-        <source>Autofocus started</source>
+        <location filename="../qml/Main.qml" line="2080"/>
+        <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2085"/>
+        <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -555,7 +555,7 @@
 <context>
     <name>PtzClient</name>
     <message>
-        <location filename="../src/models/PtzClient.cpp" line="161"/>
+        <location filename="../src/models/PtzClient.cpp" line="181"/>
         <source>Autofocus already requested — the lens needs a few seconds</source>
         <translation type="unfinished"></translation>
     </message>
@@ -563,92 +563,92 @@
 <context>
     <name>PtzPanel</name>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="48"/>
+        <location filename="../qml/PtzPanel.qml" line="52"/>
         <source>Command failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="115"/>
+        <location filename="../qml/PtzPanel.qml" line="119"/>
         <source>PTZ / LENS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="120"/>
+        <location filename="../qml/PtzPanel.qml" line="124"/>
         <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="127"/>
+        <location filename="../qml/PtzPanel.qml" line="131"/>
         <source>Checking camera capabilities…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="136"/>
+        <location filename="../qml/PtzPanel.qml" line="140"/>
         <source>This camera&apos;s lens is remotely controllable, but the backend does not expose PTZ/lens control yet. Specification sent to Cilex Vision (2026-07-16).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="146"/>
+        <location filename="../qml/PtzPanel.qml" line="150"/>
         <source>Tilt up</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="149"/>
+        <location filename="../qml/PtzPanel.qml" line="153"/>
         <source>Pan left</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="153"/>
+        <location filename="../qml/PtzPanel.qml" line="157"/>
         <source>Pan right</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="156"/>
+        <location filename="../qml/PtzPanel.qml" line="160"/>
         <source>Tilt down</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="165"/>
+        <location filename="../qml/PtzPanel.qml" line="169"/>
         <source>Zoom</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="167"/>
+        <location filename="../qml/PtzPanel.qml" line="171"/>
         <source>Zoom out (wide)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="169"/>
+        <location filename="../qml/PtzPanel.qml" line="173"/>
         <source>Zoom in (tele)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="176"/>
+        <location filename="../qml/PtzPanel.qml" line="182"/>
         <source>Focus</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="178"/>
+        <location filename="../qml/PtzPanel.qml" line="184"/>
         <source>Focus near</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="180"/>
+        <location filename="../qml/PtzPanel.qml" line="186"/>
         <source>Focus far</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="186"/>
+        <location filename="../qml/PtzPanel.qml" line="192"/>
         <source>Auto</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="211"/>
+        <location filename="../qml/PtzPanel.qml" line="217"/>
         <source>Restoring…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="211"/>
+        <location filename="../qml/PtzPanel.qml" line="217"/>
         <source>Restore defaults</source>
         <translation type="unfinished"></translation>
     </message>

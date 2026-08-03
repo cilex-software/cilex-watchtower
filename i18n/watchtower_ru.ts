@@ -4,47 +4,42 @@
 <context>
     <name>CameraTile</name>
     <message>
-        <location filename="../qml/CameraTile.qml" line="337"/>
+        <location filename="../qml/CameraTile.qml" line="341"/>
         <source>STREAM UNAVAILABLE</source>
         <translation>ПОТОК НЕДОСТУПЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="430"/>
+        <location filename="../qml/CameraTile.qml" line="434"/>
         <source>MOTION</source>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="484"/>
+        <location filename="../qml/CameraTile.qml" line="488"/>
         <source>RECORDING STALLED</source>
         <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="484"/>
+        <location filename="../qml/CameraTile.qml" line="488"/>
         <source>since</source>
         <translation>с</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="485"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>LIVE, NO RECORDING</source>
         <translation>ЭФИР БЕЗ ЗАПИСИ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="485"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>STREAM DEGRADED</source>
         <translation>СБОИ ПОТОКА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="492"/>
+        <location filename="../qml/CameraTile.qml" line="496"/>
         <source>VIEW ISSUE</source>
         <translation>ПОДРОБНЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="592"/>
-        <source>Autofocus</source>
-        <translation>Автофокус</translation>
-    </message>
-    <message>
-        <location filename="../qml/CameraTile.qml" line="605"/>
+        <location filename="../qml/CameraTile.qml" line="610"/>
         <source>Split into 1×1 cells</source>
         <translation>Разделить на ячейки 1×1</translation>
     </message>
@@ -184,9 +179,14 @@
         <translation>Воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2079"/>
-        <source>Autofocus started</source>
-        <translation>Автофокус запущен</translation>
+        <location filename="../qml/Main.qml" line="2080"/>
+        <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
+        <translation>Автофокус запущен — объектив может настраиваться до 40 секунд</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2085"/>
+        <source>Autofocus finished</source>
+        <translation>Автофокус завершён</translation>
     </message>
 </context>
 <context>
@@ -555,7 +555,7 @@
 <context>
     <name>PtzClient</name>
     <message>
-        <location filename="../src/models/PtzClient.cpp" line="161"/>
+        <location filename="../src/models/PtzClient.cpp" line="181"/>
         <source>Autofocus already requested — the lens needs a few seconds</source>
         <translation>Автофокус уже запрошен — объективу нужно несколько секунд</translation>
     </message>
@@ -563,92 +563,92 @@
 <context>
     <name>PtzPanel</name>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="115"/>
+        <location filename="../qml/PtzPanel.qml" line="119"/>
         <source>PTZ / LENS</source>
         <translation>PTZ / ОБЪЕКТИВ</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="120"/>
+        <location filename="../qml/PtzPanel.qml" line="124"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="127"/>
+        <location filename="../qml/PtzPanel.qml" line="131"/>
         <source>Checking camera capabilities…</source>
         <translation>Проверка возможностей камеры…</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="136"/>
+        <location filename="../qml/PtzPanel.qml" line="140"/>
         <source>This camera&apos;s lens is remotely controllable, but the backend does not expose PTZ/lens control yet. Specification sent to Cilex Vision (2026-07-16).</source>
         <translation>Объектив этой камеры управляется дистанционно, но серверная часть ещё не поддерживает управление PTZ/объективом. Спецификация отправлена Cilex Vision (16.07.2026).</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="146"/>
+        <location filename="../qml/PtzPanel.qml" line="150"/>
         <source>Tilt up</source>
         <translation>Наклон вверх</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="156"/>
+        <location filename="../qml/PtzPanel.qml" line="160"/>
         <source>Tilt down</source>
         <translation>Наклон вниз</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="149"/>
+        <location filename="../qml/PtzPanel.qml" line="153"/>
         <source>Pan left</source>
         <translation>Поворот влево</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="153"/>
+        <location filename="../qml/PtzPanel.qml" line="157"/>
         <source>Pan right</source>
         <translation>Поворот вправо</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="165"/>
+        <location filename="../qml/PtzPanel.qml" line="169"/>
         <source>Zoom</source>
         <translation>Зум</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="167"/>
+        <location filename="../qml/PtzPanel.qml" line="171"/>
         <source>Zoom out (wide)</source>
         <translation>Отдалить (широкий угол)</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="169"/>
+        <location filename="../qml/PtzPanel.qml" line="173"/>
         <source>Zoom in (tele)</source>
         <translation>Приблизить (теле)</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="176"/>
+        <location filename="../qml/PtzPanel.qml" line="182"/>
         <source>Focus</source>
         <translation>Фокус</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="178"/>
+        <location filename="../qml/PtzPanel.qml" line="184"/>
         <source>Focus near</source>
         <translation>Фокус ближе</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="180"/>
+        <location filename="../qml/PtzPanel.qml" line="186"/>
         <source>Focus far</source>
         <translation>Фокус дальше</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="186"/>
+        <location filename="../qml/PtzPanel.qml" line="192"/>
         <source>Auto</source>
         <translation>Авто</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="211"/>
+        <location filename="../qml/PtzPanel.qml" line="217"/>
         <source>Restore defaults</source>
         <translation>Восстановить настройки по умолчанию</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="211"/>
+        <location filename="../qml/PtzPanel.qml" line="217"/>
         <source>Restoring…</source>
         <translation>Восстановление…</translation>
     </message>
     <message>
-        <location filename="../qml/PtzPanel.qml" line="48"/>
+        <location filename="../qml/PtzPanel.qml" line="52"/>
         <source>Command failed</source>
         <translation>Команда не выполнена</translation>
     </message>

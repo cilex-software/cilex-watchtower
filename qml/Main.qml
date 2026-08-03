@@ -2074,9 +2074,15 @@ Window {
                 if (all[i].camId === camId) return all[i].name + " · " + all[i].ip;
             return camId;
         }
+        function onFocusAutoStarted(camId) {
+            // A real pulse search holds the request 20-40 s (CV reply5) —
+            // immediate honest feedback, then the completion toast follows.
+            toastHost.show(qsTr("Autofocus started — the lens may hunt for up to 40 seconds"),
+                           _afCamLabel(camId), "good", "", "");
+        }
         function onOpDone(camId, what, message) {
             if (what !== "focus-auto") return;
-            toastHost.show(message !== "" ? message : qsTr("Autofocus started"),
+            toastHost.show(message !== "" ? message : qsTr("Autofocus finished"),
                            _afCamLabel(camId), "good", "", "");
         }
         function onOpFailed(camId, what, message) {

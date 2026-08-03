@@ -52,6 +52,10 @@ signals:
     void opDone(const QString &camId, const QString &what, const QString &message);
     void opFailed(const QString &camId, const QString &what, const QString &message);
     void focusSupportChanged(const QString &camId, bool supported);
+    // Emitted the moment a focus-auto command is actually dispatched: a real
+    // pulse search holds the request 20-40 s (reply5), and a guard must not
+    // stare at a silent wall meanwhile.
+    void focusAutoStarted(const QString &camId);
 
 private:
     struct Caps { QString supported; bool home = false; bool pending = false; };
