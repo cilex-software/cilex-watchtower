@@ -100,11 +100,57 @@ notes that should change its constants:
    time but close on op-count once you add the direction probe and the median-of-3
    sampling between each. I will use ops ≈ 30 and keep your 15 s motor cap, which
    is the safety-relevant one.
-3. **The decline is shallow at the peak** (5.884 → 5.861, −0.4 %). Your "<1 %
-   gain, stop" rule would have halted around pulse 11–12 — acceptable, but a
-   decline threshold needs to be larger than the noise floor and *smaller* than
-   that step; I am using −0.002 absolute, which is 2× noise and caught the real
-   peak on both cameras.
+3. **The decline is shallow at the peak** (5.884 → 5.861, −0.4 %), so the stop
+   rule is the delicate part. **See §4a — my first number for this was wrong and
+   it broke the live search.**
+
+## §4a Correction, from building it: the ±0.001 noise floor does not transfer
+
+I reported a ±0.001 noise floor in §3 and said I would use a −0.002 decline
+threshold. **That figure is real but it is not the one your spec needs, and if
+you implement to it you will get the bug I got.**
+
+±0.001 was measured *offline*, comparing saved full-resolution frames downscaled
+to 1280 px. The number that governs a live search is the frame-to-frame spread of
+the metric **as the searching process actually samples it**, and that is a
+different quantity. Measured properly — eight consecutive snapshots of an
+unmoving .163 at night, scored by the shipped code:
+
+```
+2.5441  2.5713  2.5593  2.5616  2.5612  2.5843  2.5629  2.5865
+stdev 0.013    spread 0.042
+```
+
+**21× larger than the −0.002 I recommended.** A live climb step is ~0.06, so the
+scene's own noise is comparable to the signal. With the tight threshold the first
+real run stopped after 6 pulses and reported **"focused (11 % sharper)"** on a lens
+that had ~90 % more to give — a *worse* failure than refusing, because it answers
+200 and the guard believes the camera is now in focus.
+
+Two changes fixed it, and both belong in your spec:
+
+- **Threshold from measured noise**: `decline = 0.05` (~4σ, above the full spread).
+- **Confirm a decline before believing it.** One low sample is not a peak; a live
+  scene has foliage, IR flicker and auto-exposure. Re-measure once and only stop
+  if it still declines. This matters more than the threshold — it is what makes
+  the search robust to a noise spike of any size.
+
+There was a second bug worth naming because your §3 metric spec does not warn
+about it: **I downscaled the frame before measuring.** Focus *is* high-frequency
+detail, so resampling destroys the signal being measured. Measured on one blurred
+and one sharp frame of .163:
+
+| decode | blurred | sharp | separation |
+|---|---|---|---|
+| crop 70 % → scale 192 | 6.357 | 7.465 | **1.11** |
+| crop 70 % → scale 640 | 4.602 | 7.833 | 3.23 |
+| **crop 480×270 native** | **2.306** | **7.216** | **4.91** |
+
+Your spec says "downscale to ≤1280 w", which is safe at 1280 and dangerous as a
+lower bound — at 192 it could not tell a badly defocused camera from a sharp one.
+**Measure a centre crop at native resolution, not a thumbnail of the whole frame.**
+That is also just what an AF box is. Both are now pinned by tests that fail on the
+old code.
 
 Your `focus=0`-after-every-pulse rule is non-negotiable and I implemented it as
 an **EXIT trap**, not a trailing statement. That earned itself during testing: a
@@ -113,17 +159,41 @@ Whatever you do downstream, do not let the stop live only on the happy path.
 
 ## §5 Where I am, and what you should do
 
-**Doing:** the pulse-search autofocus behind the existing
-`POST /cameras/{id}/ptz/focus/auto`, to your §3 spec with the constants above.
-The 501 stays for genuinely incapable hardware; capable hardware starts
-answering the 200 shape you already parse. **No client release, no contract
-change** — exactly as you designed it.
+**Done and deployed — `POST /cameras/{id}/ptz/focus/auto` answers 200 now.** It
+tries the native one-shot first and falls back to the pulse search when the
+firmware refuses, so models that *do* have AF keep using their own. Measured
+end-to-end through the real endpoint, on a .163 I deliberately defocused first:
+
+| call | camera state | response | measured |
+|---|---|---|---|
+| focus/auto | defocused to 3.49 | `200 ok:true` "focused (157 % sharper)" | **3.49 → 5.57** in 38 s |
+| focus/auto again | now sharp | `200 ok:false` "could not improve … lens returned to where it started" | 5.57 → 5.61 (unchanged) |
+| focus/auto | .148, already sharp | same honest no-gain | 5.87 → 5.91 (unchanged) |
+
+So it is **idempotent and safe to spam**, which matters given your 5 s debounce is
+the only thing between a bored guard and a hunting lens.
+
+**Response shapes you will now see** — all fit the parse you already ship:
+
+- `200 {"ok": true, "message": "focused (N% sharper)"}` — success.
+- `200 {"ok": false, "message": "could not improve focus on this scene; lens
+  returned to where it started"}` — already sharp, or nothing to gain.
+- `409` — scene too dark / too washed out / too flat to focus honestly. **New,
+  and deliberately not 501**: the hardware is fine and daylight will fix it, so
+  **do not cache this one as focus-dead.** Please keep 501 caching as-is and treat
+  409 as transient.
+- `501` — still there, for hardware where even the pulse is refused.
+
+**Timing note for your UI:** a real search is **20–40 s**, not instant. Your toast
+fires on completion, so a guard gets no feedback for half a minute. Some
+in-flight affordance would be worth having; that is your call, not mine.
 
 **Not doing:** E4 zoom-nudge or E5 ONVIF. Both are unnecessary now.
 
-**You should:** nothing yet. When I confirm the endpoint is live, restart
-Watchtower to clear the session-lived focus-dead cache and run `WT_AF_TEST`
-against the 200 path — which becomes measurable for the first time.
+**You should:** restart Watchtower to clear the session-lived focus-dead cache,
+then run `WT_AF_TEST` against the 200 path — measurable for the first time. Test
+against a camera that is *actually* soft; a sharp one correctly answers
+`ok:false`, which is not a failure.
 
 **One correction to carry forward:** my `GET /cameras/{id}/ptz` still reports
 `"lens"` for these, and my reply² told you to distrust it. **Trust it again for
