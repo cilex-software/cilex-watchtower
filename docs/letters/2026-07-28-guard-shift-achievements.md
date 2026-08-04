@@ -2,13 +2,18 @@
 
 **From:** Watchtower
 **To:** Cilex Vision
-**Date:** 2026-07-28
-**Scope:** one feature — a guard-morale progression system. Watchtower adds a
-check-in identity (guards never log out — stations run 24/7 on one operator
-session) and displays ranks/badges; the ask is the authoritative backend for
-it. Full product design: `docs/plans/guard-achievements.md` (thresholds,
-badge families, responsible-gamification constraints). Not urgent; nothing
-client-side blocks on a specific week.
+**Date:** 2026-08-04 (refreshed; drafted 2026-07-28 and parked before sending)
+**Scope:** one feature, one simple cause — **make a security guard's shift a
+little more fun.** That's the whole ambition. A guard checks in by name, their
+hours quietly stack into ranks (Copper → Iron → Silver → Amber, our own
+corvid-and-tower mythology), and honest little badges celebrate the nights,
+the storms, and the streaks they actually stood through. It is a gift to the
+person on watch — explicitly NOT a KPI system, not productivity analytics,
+and never a stick (hard rules in §2.6). Watchtower renders it and provides
+the check-in button; the ask is the authoritative backend. Full product
+design: `docs/plans/guard-achievements.md` (thresholds, badge families,
+badge-art generation, responsible-gamification constraints). Not urgent;
+nothing client-side blocks on a specific week.
 
 ## 1. Why the backend owns this
 
@@ -17,6 +22,20 @@ works at several stations, and be un-gameable from a client. And most source
 data is already yours: sessions of presence need server time, event overlap
 comes from your events store, and weather (if you can source it) is a
 server-side concern. The client is a renderer + a check-in button.
+
+Two things changed since the July draft that make this cheaper and sturdier:
+
+- **Warden is live and armed** (station heartbeats accepted server-side since
+  2026-08-04). If you want integrity checks, a shift's presence claim can be
+  corroborated against the station's heartbeat trail entirely on your side —
+  no new telemetry, no client involvement. Corroboration at most: the
+  check-in stays the source of truth, because the guard's own action and
+  their name on the wall IS the feature (see §4.4).
+- **Stations now hold a permanently-refreshed operator session**
+  (`/auth/refresh`, 2026-08-03) — the "guards never log out, one 24/7
+  session" premise this design assumed is now deployed infrastructure, not an
+  aspiration. Check-in rides that session; guard identity is attribution,
+  never authentication.
 
 ## 2. Proposed contract
 
@@ -81,7 +100,9 @@ From each closed (or running) shift, accrue per the design-doc matrix:
   Suggestion: **Open-Meteo** — free, no API key, hourly history + forecast;
   one call per site per hour is plenty. Where there's no internet, the weather
   families are reported `available: false` and the client shows "not available
-  at this site" — never fake-zero progress.
+  at this site" — never fake-zero progress. (This stopped being theoretical:
+  the pilot site now runs 13 outdoor cameras — the guard who sits through a
+  January night while Снаружи shows sideways snow has EARNED that badge.)
 
 Thresholds: ship them server-side as config (the design doc's table as
 defaults) — they'll need per-climate tuning (a Sochi site earns Snow Watch
@@ -93,6 +114,22 @@ slower than a Norilsk one), and tuning must not require client updates
 Tiny by your standards: a shifts table (~500 rows/station/year), an accruals
 rollup per guard, one weather observation row per site-hour (ly ~9 k
 rows/site/year), and the threshold config. No media, no new heavy surfaces.
+
+### 2.6 The spirit of it — hard rules we both hold (design doc §6)
+
+So the fun survives contact with reality, these are constraints, not
+suggestions:
+
+- It rewards **presence, steadiness, and attention** — never speed, never
+  volume. There is deliberately NO "fastest event response" anywhere.
+- **No cross-guard leaderboards in v1.** A guard's progression is theirs; the
+  wall never shames anyone. (Admins can read the data; the UI never ranks
+  people against each other.)
+- The 16 h auto-close cap stands: marathon fatigue must earn nothing.
+- Badges only celebrate. There is no negative state, no decay, no lost rank —
+  a guard who takes a month off comes back to everything they earned.
+- If this data ever feeds discipline or scoring, the feature has failed its
+  one purpose. We'd rather remove it than see that.
 
 ## 3. What the client does (for context)
 
@@ -108,8 +145,13 @@ offline from the design doc's descriptions and ships with the client.
    none at v1? (The matrix degrades gracefully without it.)
 3. Threshold config location/format — env, DB table, or file?
 4. Anything about the shift model that collides with how you'd rather model
-   presence (e.g., you may prefer deriving presence from station heartbeats —
-   we'd argue explicit check-in is the point: it's the guard's ACTION and
-   their name on the wall, not telemetry).
+   presence. Warden heartbeats now exist and you may be tempted to derive
+   presence from them — we'd argue explicit check-in is the point: it's the
+   guard's ACTION and their name on the wall, not telemetry. Heartbeats as
+   silent CORROBORATION (flag a shift whose station was dark half the night):
+   fine, and §1 invites it. Heartbeats as the source: kills the fun.
+5. Do you want any integrity guard at v1 at all, or ship trusting and add
+   corroboration only if someone actually games it? (Our vote: ship trusting.
+   It's badges, not payroll.)
 
 — Watchtower
