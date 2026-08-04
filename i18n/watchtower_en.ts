@@ -14,32 +14,32 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="488"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>RECORDING STALLED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="488"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>since</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="489"/>
+        <location filename="../qml/CameraTile.qml" line="490"/>
         <source>LIVE, NO RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="489"/>
+        <location filename="../qml/CameraTile.qml" line="490"/>
         <source>STREAM DEGRADED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="496"/>
+        <location filename="../qml/CameraTile.qml" line="497"/>
         <source>VIEW ISSUE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="610"/>
+        <location filename="../qml/CameraTile.qml" line="611"/>
         <source>Split into 1×1 cells</source>
         <translation type="unfinished"></translation>
     </message>
@@ -721,49 +721,61 @@
     </message>
     <message>
         <location filename="../qml/RecordingStatusBadge.qml" line="39"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="53"/>
         <source>h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/RecordingStatusBadge.qml" line="40"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="52"/>
         <source>d</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/RecordingStatusBadge.qml" line="69"/>
+        <source>silent %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/RecordingStatusBadge.qml" line="69"/>
+        <source>no motion ever</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="183"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="184"/>
         <source>Recording audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="183"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="184"/>
         <source>Audio recording disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="225"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="226"/>
         <source>Capture snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="226"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="227"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="227"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="228"/>
         <source>PTZ / lens control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="289"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="290"/>
         <source>Recording</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="289"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="290"/>
         <source>Disabled</source>
         <translation type="unfinished"></translation>
     </message>

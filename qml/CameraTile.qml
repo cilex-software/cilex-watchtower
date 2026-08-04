@@ -440,6 +440,7 @@ Item {
                     state: root.recOff ? CameraStatus.Disabled : root.recording
                     lastMotionAtMs: root.lastMotionAtMs
                     stateSinceMs: root.recSinceMs
+                    lastSegmentAtMs: root.lastSegmentAt !== "" ? Date.parse(root.lastSegmentAt) : -1
                 }
                 // Audio-recording state (backend `audio` fields; letter 2026-07-16).
                 // No ear at all when the camera can't record audio / state unknown.

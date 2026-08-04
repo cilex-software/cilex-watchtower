@@ -39,6 +39,18 @@ StatusBadge {
         if (_ageS < 86400) return Math.floor(_ageS / 3600) + qsTr("h");
         return Math.floor(_ageS / 86400) + qsTr("d");
     }
+    // Last recorded SEGMENT (backend last_segment_at) — the truth that survives
+    // an empty event feed. The 2026-08-04 P1: 20 armed cameras had NEVER fired
+    // motion, and with lastMotionAtMs = -1 this badge showed a clean confident
+    // "ARMED" on every one of them. An armed camera with no motion event in the
+    // feed AND no segment for >24 h now says so out loud.
+    property double lastSegmentAtMs: -1
+    readonly property double _segAgeS: lastSegmentAtMs > 0 ? Math.max(0, (Date.now() - lastSegmentAtMs) / 1000) : -1
+    readonly property bool _silentArmed: state === CameraStatus.Armed && lastMotionAtMs <= 0
+                                         && (_segAgeS < 0 || _segAgeS > 86400)
+    readonly property string _silentAge: _segAgeS < 0 ? ""
+        : _segAgeS >= 86400 ? Math.floor(_segAgeS / 86400) + qsTr("d")
+        : Math.floor(_segAgeS / 3600) + qsTr("h")
     readonly property bool _staleArmed: state === CameraStatus.Armed && _ageS > 86400
 
     // A fresh event just registered — pulse the dot for a beat so "events are
@@ -51,7 +63,11 @@ StatusBadge {
         switch (state) {
         case CameraStatus.Recording: return "REC";
         case CameraStatus.Stalled: return "STALLED";
-        case CameraStatus.Armed: return "ARMED" + (_age !== "" ? " · " + _age : "");
+        case CameraStatus.Armed:
+            if (_age !== "") return "ARMED · " + _age;
+            if (_silentArmed) return "ARMED · " + (_silentAge !== ""
+                ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
+            return "ARMED";
         case CameraStatus.Disabled: return "OFF";
         case CameraStatus.NotRecording: return "NOT REC";
         case CameraStatus.RecordingGap: return "GAP";
@@ -64,7 +80,7 @@ StatusBadge {
         case CameraStatus.Stalled: return Theme.bad;          // a real failure → red
         case CameraStatus.NotRecording:
         case CameraStatus.RecordingGap: return Theme.accent;
-        case CameraStatus.Armed: return _staleArmed ? Theme.warn : Theme.ink2;   // armed + >24h eventless → visible
+        case CameraStatus.Armed: return (_staleArmed || _silentArmed) ? Theme.warn : Theme.ink2;   // armed + eventless/segmentless → visible
         default: return Theme.ink3;                            // disabled / unknown
         }
     }
