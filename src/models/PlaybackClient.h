@@ -56,7 +56,8 @@ public:
                                      const QString &precision = QStringLiteral("keyframe"),
                                      const QString &format = QStringLiteral("json"));
     Q_INVOKABLE void openSession(const QString &cameraId, const QString &wallStartIso,
-                                 const QString &wallEndIso, bool hevcCapable = true);
+                                 const QString &wallEndIso, bool hevcCapable = true,
+                                 const QString &tag = QString());
 
     // Local proxy playlist URL for QMediaPlayer.
     Q_INVOKABLE QString playlistUrl(const QString &sessionId) const;
@@ -138,9 +139,14 @@ signals:
     void loggedInChanged();
     void statusChanged();
     void camerasResolved();
+    // tag: OWNERSHIP token echoed from openSession(). Multiple consumers share
+    // these broadcast signals (PlaybackScreen tabs + the events hero player);
+    // 2026-08-04 the untagged broadcast let one screen hijack another's session
+    // (triage seek -> permanent black square). Consumers filter on their tag.
     void sessionReady(const QString &sessionId, double compactDuration,
-                      const QVariantList &fragments, const QVariantMap &meta);
-    void sessionFailed(const QString &error);
+                      const QVariantList &fragments, const QVariantMap &meta,
+                      const QString &tag);
+    void sessionFailed(const QString &error, const QString &tag);
     void exportStarted(const QString &jobId);
     void exportProgress(const QString &jobId, const QString &state);
     void exportSaved(const QString &jobId, const QString &localPath);
@@ -176,6 +182,7 @@ private:
     QThread *m_proxyThread = nullptr;        // the proxy runs here, off the GUI thread
     QString m_baseUrl;
     bool m_loggedIn = false;      // ready: signed in AND /streams resolved
+    QString m_sessionTag;         // ownership token of the in-flight openSession
     bool m_loggingIn = false;
     QString m_status;
     QHash<QString, QString> m_ipToCamId;

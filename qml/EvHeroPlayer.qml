@@ -106,6 +106,14 @@ Item {
     // On-demand: a new event shows its snapshot poster; the recording loads only on a play-tap.
     // Auto-loading + the tab-switch teardown were the two events-browsing leaks (each ~+44 MB/min).
     property bool _started: false
+    // Session OWNERSHIP: the shared PlaybackClient broadcasts sessionReady to
+    // every consumer (playback tabs + this hero). Tag every open with uid+gen
+    // and drop foreign/stale replies — the 2026-08-04 black-square bug was a
+    // playback tab and the hero consuming each other's sessions.
+    property string _uid: ""
+    property int _gen: 0
+    Component.onCompleted: _uid = "hero" + Date.now() % 1000000
+    readonly property string _curTag: _uid + ":" + _gen
     onEvChanged: { hp._reset(); if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) hp._open(); }
     Component.onDestruction: { player.stop(); player.source = ""; }
 
@@ -124,6 +132,8 @@ Item {
         heroStepper.invalidate();   // fresh session: cache/divergence are stale
         _started = true;
         if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
+        _gen++;
+        openDeadline.restart();
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
@@ -136,7 +146,7 @@ Item {
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
             new Date(w.startMs - 15000).toISOString(),
-            new Date(tlEndMs + 15000).toISOString(), true);
+            new Date(tlEndMs + 15000).toISOString(), true, _curTag);
     }
     // Seek to a WALL time on the episode timeline.
     //  • CONTINUOUS session (Cilex Vision route B): direct seeks land within a contiguous run, so we seek
@@ -172,12 +182,14 @@ Item {
         var ep = EventsStore.episodeWindow(ev);
         if (_htOn) console.log("[HT] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count = the leak proxy
         seekWatch.stop(); _seekWatchSeq = -1;                            // a re-open supersedes any pending direct-seek watch
+        _gen++;
+        openDeadline.restart();
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall - 15000; _seekingToWall = wall;
         player.stop(); player.source = "";
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
             new Date(wall - 15000).toISOString(),
-            new Date(Math.max(ep.endMs, wall) + 15000).toISOString(), true);
+            new Date(Math.max(ep.endMs, wall) + 15000).toISOString(), true, _curTag);
     }
 
     // compact player-seconds ↔ wall ms (via the session's ready fragments)
@@ -206,8 +218,22 @@ Item {
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
+    // Session-open deadline: the backend's session opens are known to flap
+    // (day-open letters); without this, a hang left the hero black on
+    // "Loading recording…" forever — the 2026-08-04 report. Honest error +
+    // tap-to-retry instead.
+    Timer {
+        id: openDeadline
+        interval: 25000; repeat: false
+        onTriggered: if (hp._loading) {
+            hp._loading = false;
+            hp._error = qsTr("The recording backend did not answer in 25 s — tap play to retry.");
+            console.log("[HERO] OPEN DEADLINE ev=" + (hp.ev ? hp.ev.id : "?"));
+        }
+    }
     function toggle() {   // Space / play button: first press loads the recording on demand
         if (!hp._started) { hp._open(); return; }
+        if (hp._error !== "") { hp._open(); return; }    // tap-to-retry after deadline/failure
         if (player.playbackState === MediaPlayer.PlayingState) {
             player.pause();
         } else {
@@ -247,7 +273,9 @@ Item {
     Connections {
         target: hp.playbackClient
         enabled: hp.playbackClient !== null
-        function onSessionReady(sid, dur, fragments, meta) {
+        function onSessionReady(sid, dur, fragments, meta, tag) {
+            if (tag !== hp._curTag) return;              // foreign consumer's session, or our own stale re-open
+            openDeadline.stop();
             hp._sid = sid; hp._compactDur = dur;
             var out = [];
             for (var i = 0; i < fragments.length; i++) {
@@ -276,7 +304,9 @@ Item {
                 else hp._htOpenPending = true;                    // fresh event open
             }
         }
-        function onSessionFailed(err) {
+        function onSessionFailed(err, tag) {
+            if (tag !== hp._curTag) return;
+            openDeadline.stop();
             hp._loading = false; hp._error = err;
             if (typeof wtTrace !== "undefined" && wtTrace) console.log("[HERO] session FAILED: " + err);
         }

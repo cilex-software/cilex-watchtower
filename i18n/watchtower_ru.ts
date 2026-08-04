@@ -45,6 +45,32 @@
     </message>
 </context>
 <context>
+    <name>EvHeroPlayer</name>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="230"/>
+        <source>The recording backend did not answer in 25 s — tap play to retry.</source>
+        <translation>Сервер записи не ответил за 25 с — нажмите воспроизведение, чтобы повторить.</translation>
+    </message>
+</context>
+<context>
+    <name>EvTimeline</name>
+    <message>
+        <location filename="../qml/EvTimeline.qml" line="122"/>
+        <source>No events in the last %1 — the most recent activity was %2.</source>
+        <translation>Событий за последние %1 нет — последняя активность была %2.</translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTimeline.qml" line="123"/>
+        <source>h</source>
+        <translation>ч</translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTimeline.qml" line="123"/>
+        <source>m</source>
+        <translation>м</translation>
+    </message>
+</context>
+<context>
     <name>LiveMonitor</name>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="1472"/>
@@ -258,77 +284,77 @@
 <context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1810"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1821"/>
         <source>Playback unavailable</source>
         <translation>Воспроизведение недоступно</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1814"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1825"/>
         <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — просмотр записей и экспорт приостановлены. Это настройка оператора, а не сбой.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1865"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1876"/>
         <source>Export Clip</source>
         <translation>Экспорт клипа</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1889"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1900"/>
         <source>Back 10s</source>
         <translation>Назад 10 с</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1890"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1901"/>
         <source>Step back one frame</source>
         <translation>На кадр назад</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1894"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1905"/>
         <source>Play / pause</source>
         <translation>Воспроизведение / пауза</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1896"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1907"/>
         <source>Step forward one frame</source>
         <translation>На кадр вперёд</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1899"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1910"/>
         <source>Forward 10s</source>
         <translation>Вперёд 10 с</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1937"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1948"/>
         <source>Snapshot</source>
         <translation>Снимок</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1938"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1949"/>
         <source>Snapshot with timestamp</source>
         <translation>Снимок с меткой времени</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2208"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2219"/>
         <source>No recording</source>
         <translation>Нет записи</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1939"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1950"/>
         <source>Fullscreen</source>
         <translation>Во весь экран</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1998"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2009"/>
         <source>Last motion</source>
         <translation>Последнее движение</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2122"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2133"/>
         <source>FRAME-BY-FRAME</source>
         <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2122"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2133"/>
         <source>F / Esc to exit</source>
         <translation>F / Esc — выход</translation>
     </message>

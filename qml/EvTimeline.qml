@@ -28,6 +28,9 @@ Item {
         return out;
     }
     readonly property var _popEv: tl.pop !== "" ? EventsStore.find(tl.pop) : null
+    // Honest empty window: zero markers must never read as "no activity ever".
+    readonly property int _inWindow: EventsStore.events.filter(function (e) { return e.ts.getTime() >= tl._t0.getTime(); }).length
+    readonly property var _latestTs: EventsStore.events.length > 0 ? EventsStore.events[0].ts : null
 
     ColumnLayout {
         anchors.fill: parent
@@ -108,6 +111,21 @@ Item {
             }
         }
 
+        // ---- honest empty-window banner ----
+        Rectangle {
+            visible: tl._inWindow === 0 && EventsStore.events.length > 0
+            Layout.fillWidth: true; Layout.preferredHeight: 34
+            color: Theme.panel
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+            Text {
+                anchors.centerIn: parent
+                text: qsTr("No events in the last %1 — the most recent activity was %2.")
+                        .arg(tl.hours >= 1.5 ? ((tl.hours % 1 === 0 ? tl.hours : tl.hours.toFixed(1))) + qsTr("h") : Math.round(tl.hours * 60) + qsTr("m"))
+                        .arg(tl._latestTs ? EventsStore.rel(tl._latestTs) : "—")
+                color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12
+            }
+        }
+
         // ---- scrolling lanes ----
         Flickable {
             id: grid
@@ -148,7 +166,9 @@ Item {
                                     spacing: 3
                                     Text { width: parent.width; text: lane.cam.name; color: Theme.ink; elide: Text.ElideRight
                                         font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                                    Text { text: lane.cam.zone; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                                    Text { width: parent.width; elide: Text.ElideRight
+                                        text: (lane.cam.ip ? lane.cam.ip : "") + (lane.cam.ip && lane.cam.zone ? "  \u00b7  " : "") + (lane.cam.zone ? lane.cam.zone : "")
+                                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                                 }
                             }
                             // track

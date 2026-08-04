@@ -12,6 +12,15 @@ QtObject {
     // "now" — the mock design clock (2026-06-17 20:49) under loadMock, or the real
     // current time under ingestReal (so the Timeline window + "X ago" are correct).
     property var now: new Date(2026, 5, 17, 20, 49, 0)
+    // REAL mode: the wall clock must TICK. It used to update only inside
+    // ingestReal(), i.e. only when a new event arrived — on a quiet afternoon
+    // every window/relative-time computation drifted hours into the past
+    // (2026-08-04: timeline "now 09:11" at 14:47, empty lanes, wrong "ago"
+    // labels). 30 s granularity is plenty for hh:mm displays.
+    property Timer _nowTick: Timer {    // QtObject root: children must be properties
+        interval: 30000; running: store.realMode; repeat: true
+        onTriggered: store.now = new Date()
+    }
 
     // active camera set the views' axes read (Timeline lanes, Map pins). Set by
     // loadMock() (the mock 8) or ingestReal() (real cameras from the lookup).

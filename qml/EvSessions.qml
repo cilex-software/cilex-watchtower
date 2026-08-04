@@ -121,7 +121,10 @@ Item {
                         Column {
                             width: parent.width; visible: !zoneItem._collapsed
                             Repeater {
-                                model: zoneItem._collapsed ? [] : zoneItem.modelData.evs
+                                // Cap the mini strip: this Repeater is NOT virtualized, and
+                                // 100 cold event stills through the 2-wide governed extractor
+                                // measured out as the "Verify takes minutes" report (2026-08-04).
+                                model: zoneItem._collapsed ? [] : zoneItem.modelData.evs.slice(0, 8)
                                 delegate: Rectangle {
                                     id: srow
                                     required property var modelData

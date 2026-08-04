@@ -67,6 +67,11 @@ Item {
 
         // ---- card grid ----
         GridView {
+            // Fetch stills for the VIEWPORT only — each card is a governed
+            // server-side ffmpeg extraction (2-wide); prefetching off-screen
+            // rows multiplied the cold-open settle time.
+            cacheBuffer: 0
+            reuseItems: true
             id: grid
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true

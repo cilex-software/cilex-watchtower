@@ -320,6 +320,11 @@ Item {
     // must never judge — or re-open toward — a LATER open. _openGen bumps on every
     // fresh openFor/openForDay; the watch captures it at arm time.
     property int _openGen: 0
+    // Per-INSTANCE session-ownership uid: several PlaybackScreen tabs plus the
+    // events hero player all share PlaybackClient's broadcast signals; tagged
+    // opens + filtered handlers keep every consumer to its own sessions
+    // (2026-08-04 cross-hijack — triage black square).
+    property string _pcUid: "pb" + Math.floor(Math.random() * 1000000)
     property int _seekWatchGen: -1
     // Same-target recovery budget: re-opening cannot fix a target whose footage
     // genuinely sits elsewhere (sparse day, snapped landing) — unbounded
@@ -806,7 +811,8 @@ Item {
         // hevc_capable 500 is fixed server-side (131d1b6) — see
         // docs/letters/2026-06-11-session-hevc-capable-500.reply.md.
         client.openSession(id, new Date(start).toISOString(),
-                           new Date(end).toISOString(), true);
+                           new Date(end).toISOString(), true,
+                           root._pcUid + ":" + root._openGen);
     }
     function setZoom(spanMin) { openFor(camera, spanMin); }
 
@@ -845,7 +851,10 @@ Item {
     }
     Connections {
         target: root.client; enabled: root._skActive
-        function onSessionReady(sid, dur, fragments, meta) { if (root._skJi === -1) _skStart.restart(); }
+        function onSessionReady(sid, dur, fragments, meta, tag) {
+            if (tag === undefined || String(tag).indexOf(root._pcUid + ":") !== 0) return;
+            if (root._skJi === -1) _skStart.restart();
+        }
     }
     Timer { id: _skStart; interval: 2500; onTriggered: root._skBegin() }
     Timer {
@@ -921,7 +930,8 @@ Item {
     Connections {
         target: root.client
         enabled: root.client !== null
-        function onSessionReady(sid, dur, fragments, meta) {
+        function onSessionReady(sid, dur, fragments, meta, tag) {
+            if (tag === undefined || String(tag).indexOf(root._pcUid + ":") !== 0) return;
             var _tReady = Date.now();
             if (root._pbTime) console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
                                           + "ms frags=" + fragments.length + " tag=" + root._obTag);
@@ -1035,7 +1045,8 @@ Item {
             if (farNext >= 0 && (farNext < root.winStartMs || farNext > root.winEndMs))
                 root.seekFar(farNext);
         }
-        function onSessionFailed(err) {
+        function onSessionFailed(err, tag) {
+            if (tag === undefined || String(tag).indexOf(root._pcUid + ":") !== 0) return;
             root.loading = false; root.errorText = err; root._ttffPending = false;
             root._farInFlight = false; root._farLatestMs = -1;   // coalescing must not outlive a failed open
             emptyRetry.stop(); farEmptyRetry.stop();             // a real failure outranks a pending blip-retry

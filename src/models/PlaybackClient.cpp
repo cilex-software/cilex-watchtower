@@ -185,22 +185,24 @@ QString PlaybackClient::cameraIdForMac(const QString &mac) const
 }
 
 void PlaybackClient::openSession(const QString &cameraId, const QString &wallStartIso,
-                                 const QString &wallEndIso, bool hevcCapable)
+                                 const QString &wallEndIso, bool hevcCapable,
+                                 const QString &tag)
 {
+    m_sessionTag = tag;
     if (cameraId.isEmpty()) {
-        emit sessionFailed("This camera is not known to the recording backend.");
+        emit sessionFailed("This camera is not known to the recording backend.", m_sessionTag);
         return;
     }
     if (!m_loggedIn) {
         if (!AuthController::instance()->authenticated()) {
-            emit sessionFailed(QStringLiteral("Not signed in to the recording backend."));
+            emit sessionFailed(QStringLiteral("Not signed in to the recording backend."), m_sessionTag);
             return;
         }
         // queue: resolve streams, then retry once ready.
         ensureReady();
         connect(this, &PlaybackClient::camerasResolved, this,
-                [this, cameraId, wallStartIso, wallEndIso, hevcCapable]() {
-                    openSession(cameraId, wallStartIso, wallEndIso, hevcCapable);
+                [this, cameraId, wallStartIso, wallEndIso, hevcCapable, tag]() {
+                    openSession(cameraId, wallStartIso, wallEndIso, hevcCapable, tag);
                 }, Qt::SingleShotConnection);
         return;
     }
@@ -260,7 +262,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             const QString msg = !detail.isEmpty() ? detail
                         : code == 0 ? QStringLiteral("Couldn't reach the recording backend (%1).").arg(reply->errorString())
                         : QStringLiteral("Session error (%1).").arg(code);
-            emit sessionFailed(msg);
+            emit sessionFailed(msg, m_sessionTag);
             setStatus(QString());
             return;
         }
@@ -307,7 +309,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         // heavy days it was hundreds more QVariantMaps of pure GC load per open.
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
-        emit sessionReady(sid, compactDuration, frags, meta);
+        emit sessionReady(sid, compactDuration, frags, meta, m_sessionTag);
     });
 }
 
