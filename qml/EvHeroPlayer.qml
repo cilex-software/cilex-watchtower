@@ -114,7 +114,41 @@ Item {
     property int _gen: 0
     Component.onCompleted: _uid = "hero" + Date.now() % 1000000
     readonly property string _curTag: _uid + ":" + _gen
-    onEvChanged: { hp._reset(); if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) hp._open(); }
+    // PREFETCH-ON-SELECTION (500 ms clip budget, 2026-08-04): the moment an
+    // event is selected, open its review session in the BACKGROUND and hold
+    // only the JSON payload — no player.source, no decode (the +44 MB/min
+    // events leak was autoplay DECODE, not session JSON). The play-tap then
+    // ADOPTS the held session and pays decode only. A new selection
+    // supersedes; misses fall back to the normal open silently.
+    property var _pre: null              // { evId, tag, sid, dur, fragments, meta, bornMs }
+    property int _preGen: 0
+    property string _preTag: ""
+    function _prefetch() {
+        if (!ev || !ev.id || !playbackClient) return;
+        _preGen++;
+        _preTag = _uid + ":pre" + _preGen;
+        _pre = null;
+        var w = EventsStore.episodeWindow(ev);
+        playbackClient.ensureReady();
+        playbackClient.openSession(ev.cam.id,
+            new Date(w.startMs - 15000).toISOString(),
+            new Date((w.endMs > w.startMs ? w.endMs : w.startMs + 1000) + 15000).toISOString(),
+            true, _preTag);
+    }
+    Timer {
+        id: autoplayDelay
+        interval: (typeof wtHeroAutoplayMs !== "undefined" && wtHeroAutoplayMs > 0) ? wtHeroAutoplayMs : 1
+        repeat: false
+        onTriggered: hp._open()
+    }
+    onEvChanged: {
+        hp._reset(); hp._pre = null; hp._preTag = "";
+        hp._prefetch();
+        if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) {
+            if (typeof wtHeroAutoplayMs !== "undefined" && wtHeroAutoplayMs > 0) autoplayDelay.restart();
+            else hp._open();
+        }
+    }
     Component.onDestruction: { player.stop(); player.source = ""; }
 
     // Views are kept alive (StackLayout), so pause the recording when Triage isn't the shown tab.
@@ -143,6 +177,15 @@ Item {
         var w = EventsStore.episodeWindow(ev);
         tlStartMs = w.startMs; tlEndMs = (w.endMs > w.startMs ? w.endMs : w.startMs + 1000);   // the episode timeline
         _pendingSeekMs = w.startMs - 15000;                              // seek to ~15s before the episode start
+        // ADOPT a fresh prefetched session: the tap pays decode only.
+        if (_pre && ev && _pre.evId === ev.id && _pre.fragments.length > 0
+            && Date.now() - _pre.bornMs < 120000) {
+            if (_htOn) console.log("[HT] ADOPT pre age=" + (Date.now() - _pre.bornMs) + " t=" + Date.now());
+            openDeadline.stop();
+            var pre = _pre; _pre = null;
+            _applySession(pre.sid, pre.dur, pre.fragments, pre.meta);
+            return;
+        }
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
             new Date(w.startMs - 15000).toISOString(),
@@ -270,45 +313,61 @@ Item {
         }
     }
 
+    // The single application path for a ready session — used by the LIVE
+    // handler below and by prefetch ADOPTION in _open() (never duplicated:
+    // the seek-path lesson).
+    function _applySession(sid, dur, fragments, meta) {
+        hp._sid = sid; hp._compactDur = dur;
+        hp.__applyRest(fragments, meta);
+    }
     Connections {
         target: hp.playbackClient
         enabled: hp.playbackClient !== null
         function onSessionReady(sid, dur, fragments, meta, tag) {
+            if (tag === hp._preTag) {                    // background prefetch landed: HOLD, no decode
+                hp._pre = { evId: (hp.ev ? hp.ev.id : ""), sid: sid, dur: dur,
+                            fragments: fragments, meta: meta, bornMs: Date.now() };
+                if (hp._htOn) console.log("[HT] PRE ready ev=" + (hp.ev ? hp.ev.id : "?") + " t=" + Date.now());
+                return;
+            }
             if (tag !== hp._curTag) return;              // foreign consumer's session, or our own stale re-open
             openDeadline.stop();
-            hp._sid = sid; hp._compactDur = dur;
-            var out = [];
-            for (var i = 0; i < fragments.length; i++) {
-                // Positional primitive row (pre-filtered "ready" in PlaybackClient):
-                // [cs, ce, wsMs, weMs, disc, boundary, …] — see PlaybackScreen.onSessionReady.
-                var f = fragments[i];
-                out.push({ cs: f[0], ce: f[1], ws: f[2], we: f[3],
-                           disc: !!f[4], boundary: f[5] || "" });   // kept-discontinuity markers (§4-ii)
-            }
-            hp._frags = out;
-            hp._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks, re-open only at boundaries
-            hp._armed = true;
-            if (typeof wtTrace !== "undefined" && wtTrace)
-                console.log("[HERO] session ready: " + out.length + " ready fragments · ev=" + (ev ? ev.rawType : "?")
-                            + " dur=" + (ev ? ev.durationSec : 0) + "s");
-            if (out.length === 0) { hp._loading = false; hp._error = "No footage recorded around this moment."; return; }
-            hp._loading = false; hp._error = "";
-            if (typeof wtHeroNoplay === "undefined" || !wtHeroNoplay) {   // leak bisect: WT_HERO_NOPLAY skips the decode
-                player.source = hp.playbackClient.playlistUrl(sid);
-                if (typeof MemTel !== "undefined") MemTel.noteOpen();
-                player.play();
-            }
-            if (hp._htOn) {                                   // arm the latency detector for the new session
-                hp.testFrames = 0;
-                if (hp._htSeekPending) hp._htSeekFramesAt = 0;   // far-seek re-open: next frame = the seek landing
-                else hp._htOpenPending = true;                    // fresh event open
-            }
+            hp._applySession(sid, dur, fragments, meta);
         }
         function onSessionFailed(err, tag) {
+            if (tag === hp._preTag) { hp._preTag = ""; return; }   // speculation dies silently
             if (tag !== hp._curTag) return;
             openDeadline.stop();
             hp._loading = false; hp._error = err;
             if (typeof wtTrace !== "undefined" && wtTrace) console.log("[HERO] session FAILED: " + err);
+        }
+    }
+    function __applyRest(fragments, meta) {
+        var out = [];
+        for (var i = 0; i < fragments.length; i++) {
+            // Positional primitive row (pre-filtered "ready" in PlaybackClient):
+            // [cs, ce, wsMs, weMs, disc, boundary, …] — see PlaybackScreen.onSessionReady.
+            var f = fragments[i];
+            out.push({ cs: f[0], ce: f[1], ws: f[2], we: f[3],
+                       disc: !!f[4], boundary: f[5] || "" });   // kept-discontinuity markers (§4-ii)
+        }
+        hp._frags = out;
+        hp._continuous = !!(meta && meta.seek_mode === "continuous");   // ⇒ direct seeks, re-open only at boundaries
+        hp._armed = true;
+        if (typeof wtTrace !== "undefined" && wtTrace)
+            console.log("[HERO] session ready: " + out.length + " ready fragments · ev=" + (ev ? ev.rawType : "?")
+                        + " dur=" + (ev ? ev.durationSec : 0) + "s");
+        if (out.length === 0) { hp._loading = false; hp._error = "No footage recorded around this moment."; return; }
+        hp._loading = false; hp._error = "";
+        if (typeof wtHeroNoplay === "undefined" || !wtHeroNoplay) {   // leak bisect: WT_HERO_NOPLAY skips the decode
+            player.source = hp.playbackClient.playlistUrl(hp._sid);
+            if (typeof MemTel !== "undefined") MemTel.noteOpen();
+            player.play();
+        }
+        if (hp._htOn) {                                   // arm the latency detector for the new session
+            hp.testFrames = 0;
+            if (hp._htSeekPending) hp._htSeekFramesAt = 0;   // far-seek re-open: next frame = the seek landing
+            else hp._htOpenPending = true;                    // fresh event open
         }
     }
 

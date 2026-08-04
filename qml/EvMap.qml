@@ -258,6 +258,26 @@ Item {
                         asynchronous: true; cache: true
                         source: siteMap.ready ? siteMap.backgroundUrl : ""
                     }
+                    // HONEST empty state (real mode, no plan): this area used to render
+                    // a bare void — "map lacks the map" with zero explanation
+                    // (operator report 2026-08-04). Say what's missing and whose move it is.
+                    Column {
+                        visible: EventsStore.realMode && !siteMap.ready
+                        anchors.centerIn: parent
+                        spacing: 8
+                        width: Math.min(parent.width * 0.7, 460)
+                        EvIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "pin"; size: 26; color: Theme.ink3 }
+                        Text {
+                            width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                            text: qsTr("No site plan is configured for this site yet.")
+                            color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold
+                        }
+                        Text {
+                            width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                            text: qsTr("An administrator can upload a floor plan and place camera pins in the Cilex Vision console — the map lights up here on the next visit, no update needed.")
+                            color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                        }
+                    }
 
                     // marquee (rubber-band) select — press in empty space and drag a
                     // box. Pins sit ON TOP of this, so a press that lands on a pin goes

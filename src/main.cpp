@@ -537,6 +537,9 @@ int main(int argc, char *argv[])
                  "can crash (libsoup SIGSEGV) under seek churn. Launch via ./run.sh "
                  "(Qt 6.8.3 / FFmpeg).", qVersion());
     engine.rootContext()->setContextProperty("wtHeroAutoplay", qEnvironmentVariableIsSet("WT_HERO_AUTOPLAY"));
+    // Harness: delay autoplay N ms after selection so the prefetch-adopt path is
+    // exercised (simulates the human select->tap gap; 0/unset = immediate).
+    engine.rootContext()->setContextProperty("wtHeroAutoplayMs", qEnvironmentVariableIntValue("WT_HERO_AUTOPLAY_MS"));
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));
     // WT_HERO_SETTLE_MS: openonly per-open dwell (playback time before re-selecting). Default ~2.1s.

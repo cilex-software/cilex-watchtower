@@ -47,8 +47,21 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="230"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="273"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EvMap</name>
+    <message>
+        <location filename="../qml/EvMap.qml" line="272"/>
+        <source>No site plan is configured for this site yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvMap.qml" line="277"/>
+        <source>An administrator can upload a floor plan and place camera pins in the Cilex Vision console — the map lights up here on the next visit, no update needed.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
