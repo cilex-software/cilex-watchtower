@@ -52,6 +52,8 @@ public:
         LiveRole,
         RecordingRole,
         HasAudioRole,
+        MotionKnownRole,
+        MotionReadyRole,
         AudioRecordingRole,
         FavoriteRole,
         TimestampRole,

@@ -398,6 +398,11 @@ void CameraModel::fetchCameras()
             c.recording = effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), c.live);
             c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
             parseAudio(o, c.ip, c.hasAudio, c.audioRecording);
+            if (o.contains(QStringLiteral("motion"))) {
+                c.motionKnown = true;
+                c.motionReady = o.value(QStringLiteral("motion")).toObject()
+                                    .value(QStringLiteral("ready")).toBool(false);
+            }
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
             // an admin client may also receive raw direct_rtsp_* and select them via
@@ -623,6 +628,8 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case LiveRole:      return c.live;
     case RecordingRole: return c.recording;
     case HasAudioRole:  return c.hasAudio;
+    case MotionKnownRole: return c.motionKnown;
+    case MotionReadyRole: return c.motionReady;
     case AudioRecordingRole: return c.audioRecording;
     case FavoriteRole:  return c.favorite;
     case TimestampRole: return c.timestamp;
@@ -652,6 +659,8 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { LiveRole,      "live" },
         { RecordingRole, "recording" },
         { HasAudioRole,  "hasAudio" },
+        { MotionKnownRole, "motionKnown" },
+        { MotionReadyRole, "motionReady" },
         { AudioRecordingRole, "audioRecording" },
         { FavoriteRole,  "favorite" },
         { TimestampRole, "timestamp" },
@@ -682,6 +691,8 @@ QVariantMap CameraModel::get(int row) const
     m["live"] = c.live;
     m["recording"] = c.recording;
     m["hasAudio"] = c.hasAudio;
+    m["motionKnown"] = c.motionKnown;
+    m["motionReady"] = c.motionReady;
     m["audioRecording"] = c.audioRecording;
     m["favorite"] = c.favorite;
     m["timestamp"] = c.timestamp;

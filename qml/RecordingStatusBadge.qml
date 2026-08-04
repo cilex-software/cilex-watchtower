@@ -45,6 +45,14 @@ StatusBadge {
     // "ARMED" on every one of them. An armed camera with no motion event in the
     // feed AND no segment for >24 h now says so out loud.
     property double lastSegmentAtMs: -1
+    // Backend motion-readiness truth (/streams `motion.ready`, P1 thread e841f1c):
+    // a provably-deaf detector (ready=false) outranks the silence heuristic —
+    // that is the exact defect class (sensitivity 0) that hid behind ARMED for
+    // the fleet's whole life. Absent field (motionKnown=false) = unknown, and
+    // unknown falls back to the silence heuristic — never to green.
+    property bool motionKnown: false
+    property bool motionReady: false
+    readonly property bool _deafArmed: state === CameraStatus.Armed && motionKnown && !motionReady
     readonly property double _segAgeS: lastSegmentAtMs > 0 ? Math.max(0, (Date.now() - lastSegmentAtMs) / 1000) : -1
     readonly property bool _silentArmed: state === CameraStatus.Armed && lastMotionAtMs <= 0
                                          && (_segAgeS < 0 || _segAgeS > 86400)
@@ -64,6 +72,7 @@ StatusBadge {
         case CameraStatus.Recording: return "REC";
         case CameraStatus.Stalled: return "STALLED";
         case CameraStatus.Armed:
+            if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
             if (_age !== "") return "ARMED · " + _age;
             if (_silentArmed) return "ARMED · " + (_silentAge !== ""
                 ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
@@ -80,7 +89,8 @@ StatusBadge {
         case CameraStatus.Stalled: return Theme.bad;          // a real failure → red
         case CameraStatus.NotRecording:
         case CameraStatus.RecordingGap: return Theme.accent;
-        case CameraStatus.Armed: return (_staleArmed || _silentArmed) ? Theme.warn : Theme.ink2;   // armed + eventless/segmentless → visible
+        case CameraStatus.Armed: return _deafArmed ? Theme.bad
+            : (_staleArmed || _silentArmed) ? Theme.warn : Theme.ink2;   // deaf → red; eventless/segmentless → amber
         default: return Theme.ink3;                            // disabled / unknown
         }
     }

@@ -4,42 +4,42 @@
 <context>
     <name>CameraTile</name>
     <message>
-        <location filename="../qml/CameraTile.qml" line="341"/>
+        <location filename="../qml/CameraTile.qml" line="344"/>
         <source>STREAM UNAVAILABLE</source>
         <translation>ПОТОК НЕДОСТУПЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="434"/>
+        <location filename="../qml/CameraTile.qml" line="437"/>
         <source>MOTION</source>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="489"/>
+        <location filename="../qml/CameraTile.qml" line="494"/>
         <source>RECORDING STALLED</source>
         <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="489"/>
+        <location filename="../qml/CameraTile.qml" line="494"/>
         <source>since</source>
         <translation>с</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="490"/>
+        <location filename="../qml/CameraTile.qml" line="495"/>
         <source>LIVE, NO RECORDING</source>
         <translation>ЭФИР БЕЗ ЗАПИСИ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="490"/>
+        <location filename="../qml/CameraTile.qml" line="495"/>
         <source>STREAM DEGRADED</source>
         <translation>СБОИ ПОТОКА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="497"/>
+        <location filename="../qml/CameraTile.qml" line="502"/>
         <source>VIEW ISSUE</source>
         <translation>ПОДРОБНЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="611"/>
+        <location filename="../qml/CameraTile.qml" line="616"/>
         <source>Split into 1×1 cells</source>
         <translation>Разделить на ячейки 1×1</translation>
     </message>
@@ -86,32 +86,32 @@
 <context>
     <name>LiveMonitor</name>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1472"/>
+        <location filename="../qml/LiveMonitor.qml" line="1474"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation>Объединение недоступно в этой раскладке</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1473"/>
+        <location filename="../qml/LiveMonitor.qml" line="1475"/>
         <source>Split %1×%2</source>
         <translation>Разделить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1475"/>
+        <location filename="../qml/LiveMonitor.qml" line="1477"/>
         <source>Merge %1×%2</source>
         <translation>Объединить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1477"/>
+        <location filename="../qml/LiveMonitor.qml" line="1479"/>
         <source>Shift+drag to select cells to merge</source>
         <translation>Shift+перетаскивание — выделить ячейки для объединения</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1600"/>
+        <location filename="../qml/LiveMonitor.qml" line="1602"/>
         <source>M — merge · Esc — cancel</source>
         <translation>M — объединить · Esc — отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1601"/>
+        <location filename="../qml/LiveMonitor.qml" line="1603"/>
         <source>⇧ drag — merge cells</source>
         <translation>⇧ перетаскивание — объединить ячейки</translation>
     </message>
@@ -721,23 +721,28 @@
     </message>
     <message>
         <location filename="../qml/RecordingStatusBadge.qml" line="39"/>
-        <location filename="../qml/RecordingStatusBadge.qml" line="53"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="61"/>
         <source>h</source>
         <translation>ч</translation>
     </message>
     <message>
         <location filename="../qml/RecordingStatusBadge.qml" line="40"/>
-        <location filename="../qml/RecordingStatusBadge.qml" line="52"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="60"/>
         <source>d</source>
         <translation>д</translation>
     </message>
     <message>
-        <location filename="../qml/RecordingStatusBadge.qml" line="69"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="75"/>
+        <source>NOT READY</source>
+        <translation>НЕ ГОТОВ</translation>
+    </message>
+    <message>
+        <location filename="../qml/RecordingStatusBadge.qml" line="78"/>
         <source>silent %1</source>
         <translation>тихо %1</translation>
     </message>
     <message>
-        <location filename="../qml/RecordingStatusBadge.qml" line="69"/>
+        <location filename="../qml/RecordingStatusBadge.qml" line="78"/>
         <source>no motion ever</source>
         <translation>движений не было</translation>
     </message>

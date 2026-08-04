@@ -71,6 +71,9 @@ Item {
     property string timestamp: ""
     property string lastSeen: ""
     property string lastSegmentAt: ""   // ISO of the last recorded segment (for the stalled strip)
+    // Backend motion-readiness truth (P1 ask-4): known=false = field absent = unknown.
+    property bool motionKnown: false
+    property bool motionReady: false
     property int pattern: 0
     // In the Live Monitor grid the hairline separator comes from the grid
     // container, so the tile drops its own border (design §14).
@@ -441,6 +444,8 @@ Item {
                     lastMotionAtMs: root.lastMotionAtMs
                     stateSinceMs: root.recSinceMs
                     lastSegmentAtMs: root.lastSegmentAt !== "" ? Date.parse(root.lastSegmentAt) : -1
+                    motionKnown: root.motionKnown
+                    motionReady: root.motionReady
                 }
                 // Audio-recording state (backend `audio` fields; letter 2026-07-16).
                 // No ear at all when the camera can't record audio / state unknown.

@@ -36,6 +36,10 @@ struct CameraData {
     QString rtspUrl;     // main stream URL (higher res; on-demand HD only)
     QString rtspSubUrl;  // substream URL — the DEFAULT for monitoring (lighter)
     QString snapshotUrl; // backend-provided still-frame URL (go2rtc frame.jpeg) for thumbnails
+    // Motion readiness truth (backend `motion` object, P1 thread ask-4, e841f1c):
+    // known=false when the key is ABSENT (unknown must never render healthy).
+    bool motionKnown = false;
+    bool motionReady = false;
     QString ip;
     QString mac;
     QString model;

@@ -1304,6 +1304,8 @@ Item {
                                 timestamp: cellWrap.modelData.timestamp
                                 lastSeen: cellWrap.modelData.lastSeen
                                 lastSegmentAt: cellWrap.modelData.lastSegmentAt
+                                motionKnown: cellWrap.modelData.motionKnown === true
+                                motionReady: cellWrap.modelData.motionReady === true
                                 pattern: cellWrap.modelData.pattern
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl
