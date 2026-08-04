@@ -143,6 +143,8 @@ qt_add_qml_module(watchtower
         qml/VideoTest.qml
         qml/HdCapTest.qml
         qml/Toast.qml
+        qml/WatchChip.qml
+        qml/WatchNames.js
         qml/ToastHost.qml
     SOURCES
         src/models/CameraStatus.h
@@ -171,6 +173,8 @@ qt_add_qml_module(watchtower
         src/models/PlaybackClient.cpp
         src/models/PtzClient.h
         src/models/PtzClient.cpp
+        src/models/WatchClient.h
+        src/models/WatchClient.cpp
         src/models/ClipTranscoder.h
         src/models/ClipTranscoder.cpp
         src/models/SnapshotModel.h

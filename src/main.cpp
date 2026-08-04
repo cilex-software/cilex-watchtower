@@ -51,6 +51,7 @@
 #include "models/FrameCache.h"
 #include "models/PlaybackClient.h"
 #include "models/PtzClient.h"
+#include "models/WatchClient.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -451,6 +452,31 @@ int main(int argc, char *argv[])
     // cilex-vision endpoint ships — letter 2026-07-16).
     auto *ptz = new PtzClient(&app);
     engine.rootContext()->setContextProperty("Ptz", ptz);
+    // The Watch — guard check-in + progression (probe-gated; hidden where the
+    // backend predates it or the station isn't registered).
+    auto *watch = new WatchClient(&app);
+    engine.rootContext()->setContextProperty("Watch", watch);
+    // Kick once after boot too: restoreSession() may have authenticated BEFORE
+    // this object existed, so the authenticatedChanged hook alone can miss.
+    QTimer::singleShot(3000, watch, &WatchClient::start);
+    // Dev: WT_WATCH_TEST=1 drives the real check-in flow at boot — +25 s check
+    // in the first roster guard, +40 s re-check-in (must resume, not duplicate),
+    // +55 s checkout. [WATCH] lines are the proof; screenshot catches the chip.
+    if (qEnvironmentVariableIsSet("WT_WATCH_TEST")) {
+        QTimer::singleShot(25000, watch, [watch]() {
+            const auto r = watch->roster();
+            if (!r.isEmpty())
+                watch->checkin(r.first().toMap().value("guard_id").toString());
+            else
+                qWarning("[WATCH] TEST: roster empty — nothing to check in");
+        });
+        QTimer::singleShot(40000, watch, [watch]() {
+            const auto r = watch->roster();
+            if (!r.isEmpty())
+                watch->checkin(r.first().toMap().value("guard_id").toString());
+        });
+        QTimer::singleShot(55000, watch, [watch]() { watch->checkout(); });
+    }
     // Dev: WT_AF_TEST=<camId> exercises the full autofocus client path at boot
     // (+12 s: probe, then the debounced request; +14 s: a second request that
     // must be swallowed by the 5 s debounce; +19 s: past the debounce — on a

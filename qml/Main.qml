@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import Watchtower
+import "WatchNames.js" as WatchNames
 
 // Application shell (design §10): nav rail · top bar · Live Monitor + ops
 // sidebar. Owns the Live Monitor view state; child screens request changes.
@@ -2088,6 +2089,19 @@ Window {
         function onOpFailed(camId, what, message) {
             if (what !== "focus-auto") return;
             toastHost.show(message, _afCamLabel(camId), "warn", "", "");
+        }
+    }
+
+    // The Watch: unlock toasts (closed-shift truth only — the backend feeds
+    // unlocked_since exclusively from banked accruals) + check-in failures.
+    Connections {
+        target: Watch
+        function onUnlocked(family, tier) {
+            toastHost.show(qsTr("New badge earned: %1 — %2").arg(WatchNames.familyName(family)).arg(WatchNames.tierName(tier)),
+                           Watch.guardName, "good", "", "");
+        }
+        function onOpFailed(message) {
+            toastHost.show(message, qsTr("The Watch"), "warn", "", "");
         }
     }
 

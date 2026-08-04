@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic as C
 import Watchtower
 
 // Right-docked operations sidebar (320px), Live Monitor only (design §10). Site
@@ -245,6 +246,30 @@ Item {
                                     color: Theme.ink3
                                     font.family: Theme.fontMono
                                     font.pixelSize: 10
+                                }
+                                // Acknowledge — THE production ack affordance (server-
+                                // persisted via POST /events/{id}/acknowledge; feeds The
+                                // Watch's vigilance family: attention, not luck).
+                                Rectangle {
+                                    visible: !row.modelData.ack
+                                    Layout.preferredWidth: 18; Layout.preferredHeight: 18
+                                    radius: 3
+                                    color: ackMa.containsMouse ? Theme.accent : "transparent"
+                                    border.width: 1
+                                    border.color: ackMa.containsMouse ? Theme.accent : Theme.line2
+                                    Text {
+                                        anchors.centerIn: parent; text: "✓"
+                                        color: ackMa.containsMouse ? Theme.bg : Theme.ink3
+                                        font.pixelSize: 11; font.weight: Font.Bold
+                                    }
+                                    MouseArea {
+                                        id: ackMa; anchors.fill: parent; hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: if (root.eventModel) root.eventModel.acknowledgeById(row.modelData.id)
+                                    }
+                                    C.ToolTip.visible: ackMa.containsMouse
+                                    C.ToolTip.delay: 400
+                                    C.ToolTip.text: qsTr("Acknowledge")
                                 }
                             }
                             RowLayout {                     // camera line: IP first, never clipped

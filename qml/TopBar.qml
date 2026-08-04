@@ -170,6 +170,9 @@ Item {
 
             Item { Layout.fillWidth: true }   // spacer pushes the right cluster out
 
+            // The Watch check-in chip (hidden unless backend + station answer)
+            WatchChip { Layout.alignment: Qt.AlignVCenter }
+
             // clock
             RowLayout {
                 spacing: 0

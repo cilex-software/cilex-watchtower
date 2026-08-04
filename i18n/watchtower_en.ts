@@ -134,58 +134,68 @@
 <context>
     <name>Main</name>
     <message>
-        <location filename="../qml/Main.qml" line="14"/>
+        <location filename="../qml/Main.qml" line="15"/>
         <source>Watchtower</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="60"/>
+        <location filename="../qml/Main.qml" line="61"/>
         <source>Live wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="61"/>
+        <location filename="../qml/Main.qml" line="62"/>
         <source>Groups</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="62"/>
+        <location filename="../qml/Main.qml" line="63"/>
         <source>Views</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="63"/>
+        <location filename="../qml/Main.qml" line="64"/>
         <source>Events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="64"/>
+        <location filename="../qml/Main.qml" line="65"/>
         <source>Health</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="65"/>
+        <location filename="../qml/Main.qml" line="66"/>
         <source>Clips</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="66"/>
+        <location filename="../qml/Main.qml" line="67"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="72"/>
+        <location filename="../qml/Main.qml" line="73"/>
         <source>Playback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2080"/>
+        <location filename="../qml/Main.qml" line="2081"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2085"/>
+        <location filename="../qml/Main.qml" line="2086"/>
         <source>Autofocus finished</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2100"/>
+        <source>New badge earned: %1 — %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2104"/>
+        <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -220,23 +230,28 @@
 <context>
     <name>OpsSidebar</name>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="23"/>
+        <location filename="../qml/OpsSidebar.qml" line="24"/>
         <source>now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="24"/>
+        <location filename="../qml/OpsSidebar.qml" line="25"/>
         <source>m</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="25"/>
+        <location filename="../qml/OpsSidebar.qml" line="26"/>
         <source>h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="26"/>
+        <location filename="../qml/OpsSidebar.qml" line="27"/>
         <source>d</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/OpsSidebar.qml" line="272"/>
+        <source>Acknowledge</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -751,6 +766,98 @@
     </message>
 </context>
 <context>
+    <name>TheWatch</name>
+    <message>
+        <location filename="../qml/WatchNames.js" line="8"/>
+        <location filename="../qml/WatchNames.js" line="37"/>
+        <source>Copper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="9"/>
+        <location filename="../qml/WatchNames.js" line="38"/>
+        <source>Iron</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="10"/>
+        <location filename="../qml/WatchNames.js" line="39"/>
+        <source>Silver</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="11"/>
+        <location filename="../qml/WatchNames.js" line="40"/>
+        <source>Amber</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="12"/>
+        <source>Raven</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="13"/>
+        <source>Sentinel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="20"/>
+        <source>Hours on Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="21"/>
+        <source>Night Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="22"/>
+        <source>Hollow Hours</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="23"/>
+        <source>Sunrise Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="24"/>
+        <source>Full Moon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="25"/>
+        <source>Yearkeeper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="26"/>
+        <source>Steadfast</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="27"/>
+        <source>Clean Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="28"/>
+        <source>Wayfarer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="29"/>
+        <source>Vigilance</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="30"/>
+        <source>Weather Watch</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>TitleBar</name>
     <message>
         <location filename="../qml/TitleBar.qml" line="159"/>
@@ -801,12 +908,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="324"/>
+        <location filename="../qml/TopBar.qml" line="327"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="338"/>
+        <location filename="../qml/TopBar.qml" line="341"/>
         <source>Sign out</source>
         <translation type="unfinished"></translation>
     </message>
@@ -829,6 +936,61 @@
     <message>
         <location filename="../qml/WallPlayback.qml" line="496"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>WatchChip</name>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <location filename="../qml/WatchChip.qml" line="150"/>
+        <source>h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <source>m</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="53"/>
+        <source>ON WATCH · %1 · %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="54"/>
+        <source>Check in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="95"/>
+        <source>Who takes the watch?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="103"/>
+        <source>The guard roster is empty. Names are added by an administrator — nothing is invented here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="151"/>
+        <source>at %1h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="195"/>
+        <source>not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="206"/>
+        <source>Current shift is a projection — badges bank at checkout.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="220"/>
+        <source>Hand over / check out</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

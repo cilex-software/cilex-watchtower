@@ -134,59 +134,69 @@
 <context>
     <name>Main</name>
     <message>
-        <location filename="../qml/Main.qml" line="14"/>
+        <location filename="../qml/Main.qml" line="15"/>
         <source>Watchtower</source>
         <translation>Watchtower</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="60"/>
+        <location filename="../qml/Main.qml" line="61"/>
         <source>Live wall</source>
         <translation>Стена камер</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="61"/>
+        <location filename="../qml/Main.qml" line="62"/>
         <source>Groups</source>
         <translation>Группы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="62"/>
+        <location filename="../qml/Main.qml" line="63"/>
         <source>Views</source>
         <translation>Виды</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="63"/>
+        <location filename="../qml/Main.qml" line="64"/>
         <source>Events</source>
         <translation>События</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="64"/>
+        <location filename="../qml/Main.qml" line="65"/>
         <source>Health</source>
         <translation>Состояние</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="65"/>
+        <location filename="../qml/Main.qml" line="66"/>
         <source>Clips</source>
         <translation>Клипы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="66"/>
+        <location filename="../qml/Main.qml" line="67"/>
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="72"/>
+        <location filename="../qml/Main.qml" line="73"/>
         <source>Playback</source>
         <translation>Воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2080"/>
+        <location filename="../qml/Main.qml" line="2081"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation>Автофокус запущен — объектив может настраиваться до 40 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2085"/>
+        <location filename="../qml/Main.qml" line="2086"/>
         <source>Autofocus finished</source>
         <translation>Автофокус завершён</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2100"/>
+        <source>New badge earned: %1 — %2</source>
+        <translation>Новый значок: %1 — %2</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="2104"/>
+        <source>The Watch</source>
+        <translation>Дозор</translation>
     </message>
 </context>
 <context>
@@ -220,24 +230,29 @@
 <context>
     <name>OpsSidebar</name>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="23"/>
+        <location filename="../qml/OpsSidebar.qml" line="24"/>
         <source>now</source>
         <translation>сейчас</translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="24"/>
+        <location filename="../qml/OpsSidebar.qml" line="25"/>
         <source>m</source>
         <translation>м</translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="25"/>
+        <location filename="../qml/OpsSidebar.qml" line="26"/>
         <source>h</source>
         <translation>ч</translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="26"/>
+        <location filename="../qml/OpsSidebar.qml" line="27"/>
         <source>d</source>
         <translation>д</translation>
+    </message>
+    <message>
+        <location filename="../qml/OpsSidebar.qml" line="272"/>
+        <source>Acknowledge</source>
+        <translation>Подтвердить</translation>
     </message>
 </context>
 <context>
@@ -751,6 +766,98 @@
     </message>
 </context>
 <context>
+    <name>TheWatch</name>
+    <message>
+        <location filename="../qml/WatchNames.js" line="8"/>
+        <location filename="../qml/WatchNames.js" line="37"/>
+        <source>Copper</source>
+        <translation>Медь</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="9"/>
+        <location filename="../qml/WatchNames.js" line="38"/>
+        <source>Iron</source>
+        <translation>Железо</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="10"/>
+        <location filename="../qml/WatchNames.js" line="39"/>
+        <source>Silver</source>
+        <translation>Серебро</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="11"/>
+        <location filename="../qml/WatchNames.js" line="40"/>
+        <source>Amber</source>
+        <translation>Янтарь</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="12"/>
+        <source>Raven</source>
+        <translation>Ворон</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="13"/>
+        <source>Sentinel</source>
+        <translation>Страж</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="20"/>
+        <source>Hours on Watch</source>
+        <translation>Часы на посту</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="21"/>
+        <source>Night Watch</source>
+        <translation>Ночной дозор</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="22"/>
+        <source>Hollow Hours</source>
+        <translation>Глухие часы</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="23"/>
+        <source>Sunrise Watch</source>
+        <translation>Встреча рассвета</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="24"/>
+        <source>Full Moon</source>
+        <translation>Полнолуние</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="25"/>
+        <source>Yearkeeper</source>
+        <translation>Хранитель года</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="26"/>
+        <source>Steadfast</source>
+        <translation>Стойкость</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="27"/>
+        <source>Clean Watch</source>
+        <translation>Чистая вахта</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="28"/>
+        <source>Wayfarer</source>
+        <translation>Странник</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="29"/>
+        <source>Vigilance</source>
+        <translation>Бдительность</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchNames.js" line="30"/>
+        <source>Weather Watch</source>
+        <translation>Непогода</translation>
+    </message>
+</context>
+<context>
     <name>TitleBar</name>
     <message>
         <location filename="../qml/TitleBar.qml" line="159"/>
@@ -801,12 +908,12 @@
         <translation>Нет записи</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="324"/>
+        <location filename="../qml/TopBar.qml" line="327"/>
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="338"/>
+        <location filename="../qml/TopBar.qml" line="341"/>
         <source>Sign out</source>
         <translation>Выйти</translation>
     </message>
@@ -830,6 +937,61 @@
         <location filename="../qml/WallPlayback.qml" line="496"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
+    </message>
+</context>
+<context>
+    <name>WatchChip</name>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <location filename="../qml/WatchChip.qml" line="150"/>
+        <source>h</source>
+        <translation>ч</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <location filename="../qml/WatchChip.qml" line="27"/>
+        <source>m</source>
+        <translation>м</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="53"/>
+        <source>ON WATCH · %1 · %2</source>
+        <translation>НА ПОСТУ · %1 · %2</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="54"/>
+        <source>Check in</source>
+        <translation>Заступить</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="95"/>
+        <source>Who takes the watch?</source>
+        <translation>Кто заступает на пост?</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="103"/>
+        <source>The guard roster is empty. Names are added by an administrator — nothing is invented here.</source>
+        <translation>Список охранников пуст. Имена добавляет администратор — здесь ничего не выдумывается.</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="151"/>
+        <source>at %1h</source>
+        <translation>на %1 ч</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="195"/>
+        <source>not available</source>
+        <translation>недоступно</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="206"/>
+        <source>Current shift is a projection — badges bank at checkout.</source>
+        <translation>Текущая смена — прогноз; значки засчитываются при сдаче поста.</translation>
+    </message>
+    <message>
+        <location filename="../qml/WatchChip.qml" line="220"/>
+        <source>Hand over / check out</source>
+        <translation>Сдать пост</translation>
     </message>
 </context>
 </TS>
