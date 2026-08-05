@@ -556,6 +556,8 @@ int main(int argc, char *argv[])
     // that camera at startup; WT_PTZ_OPEN=1 opens its PTZ/lens panel (screenshot
     // verification + deterministic PTZ testing once the backend endpoint ships).
     engine.rootContext()->setContextProperty("wtDetailIp", qEnvironmentVariable("WT_DETAIL_IP"));
+    // Dev: WT_WINSIZE=WxH forces the window geometry (letterbox-ratio screenshots).
+    engine.rootContext()->setContextProperty("wtWinSize", qEnvironmentVariable("WT_WINSIZE"));
     engine.rootContext()->setContextProperty("wtPtzOpen", qEnvironmentVariableIsSet("WT_PTZ_OPEN"));
     // Optional initial Events sub-view (dev: WT_EVENTS_VIEW=triage|review|timeline|map).
     engine.rootContext()->setContextProperty("wtEventsView", qEnvironmentVariable("WT_EVENTS_VIEW"));

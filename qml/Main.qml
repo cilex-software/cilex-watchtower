@@ -164,7 +164,7 @@ Window {
     readonly property bool restoreEligible:
         !wtRestoreOff && !wtDemo && !wtTabsTest && !wtEventsTest && !wtHeroTest
         && wtMergeTest === "" && wtSeek10k === ""
-        && wtSection === "" && wtTabs === "" && wtStatusFilter === ""
+        && wtSection === "" && wtTabs === "" && wtStatusFilter === "" && wtWinSize === ""
         && wtFocusIp === "" && wtDetailIp === "" && wtPlaybackIp === "" && wtGroup === ""
         && wtWallDay === "" && !wtGuardSoak && !wtFsoak && !wtNightSoak && !wtCalStress
         && !wtResizeTest && wtChurnTest === 0
@@ -505,6 +505,10 @@ Window {
     onSectionChanged: if (section !== "live") wallMode = "live"
 
     Component.onCompleted: {
+        if (typeof wtWinSize !== "undefined" && wtWinSize !== "") {
+            var wh = String(wtWinSize).split("x");
+            if (wh.length === 2 && +wh[0] >= 400 && +wh[1] >= 300) { win.width = +wh[0]; win.height = +wh[1]; }
+        }
         cameraModel.setCameraScope(AuthController.cameraScope);
         if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding();
         else if (win.section === "preferences") { win.section = "live"; win.openPreferences(); }

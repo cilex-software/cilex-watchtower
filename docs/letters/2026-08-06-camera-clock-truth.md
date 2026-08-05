@@ -36,16 +36,22 @@ every clock from it. Expose that measurement on `/streams` per camera:
   we show the drift explicitly ("camera clock −56 s") — the UI turns clock
   drift into something a guard reports instead of something that eats a P1.
 
-## §3 The OSD question (your call, no code owed to us)
+## §3 The OSD question (your call, no code owed to us) — CORRECTED 2026-08-06
 
-The DS-I202(E)s at the pilot burn a datetime OSD into the pixels (the .140
-snapshots show it); the DS-I402(D)s in «Снаружи» don't. Burned OSD is the
-strongest form of "time from the camera itself" — it survives into
-recordings and exports, which is where timestamps matter most. Is OSD an
-ISAPI setting the provisioner can standardize ON fleet-wide at arm time
-(position/format consistent)? If yes, our overlay becomes the glanceable
-clock and the pixels stay the evidence. If it's per-model messy, say so and
-we live with §2 alone.
+**Correction (same day):** this section originally claimed the DS-I202(E)s
+already burn a datetime OSD ("the .140 snapshots show it"). Wrong — that
+bottom bar was Watchtower's OWN stamped-snapshot burn (the client's
+"snapshot with timestamp" button composes it), not camera OSD. I have NOT
+verified the OSD state of any camera on this fleet; treat the previous
+per-model claim as noise. The question itself stands, minus the false
+premise:
+
+Burned OSD is the strongest form of "time from the camera itself" — it
+survives into recordings and exports, which is where timestamps matter
+most. Is the datetime OSD an ISAPI setting the provisioner can standardize
+ON fleet-wide at arm time (position/format consistent)? If yes, our overlay
+becomes the glanceable clock and the pixels stay the evidence. If it's
+per-model messy, say so and we live with §2 alone.
 
 **Wanted back:** the `clock` field shape confirmed (or countered), and the
 OSD yes/no. Reply path: `docs/letters/2026-08-06-camera-clock-truth.reply.md`.

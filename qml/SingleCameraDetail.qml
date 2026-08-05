@@ -234,38 +234,71 @@ Item {
                 }
             }
 
-            // Live clock overlay (operator ask 2026-08-06): every opened live view
-            // carries a ticking timestamp. This is the STATION clock and says so —
-            // the motion P1 taught exactly why camera time must not be faked by
-            // relabeling: until cilex-vision exposes each camera's measured clock
-            // offset (letter 2026-08-06-camera-clock-truth.md), labeling station
-            // time as camera time would hide the drift class that deafened this
-            // fleet. Flips to camera time the day the field ships.
-            Rectangle {
-                anchors { left: parent.left; bottom: parent.bottom; leftMargin: 16; bottomMargin: 64 }
-                color: Qt.rgba(0, 0, 0, 0.55)
-                border.width: 1; border.color: Theme.line2
-                implicitWidth: clockCol.implicitWidth + 20
-                implicitHeight: clockCol.implicitHeight + 10
-                Column {
-                    id: clockCol
+            // ---- ticking clock: adaptive placement + size (operator research ask,
+            // 2026-08-06). Where the industry puts live time: camera OSD
+            // (Hikvision/HiWatch default) = top edge with black&white
+            // SELF-ADAPTIVE font; Milestone Smart Client = the view item's
+            // CHROME, never the pixels; Nx = corner overlay. Synthesis,
+            // operator-confirmed: when the letterboxed fit leaves a bar under
+            // the video, the clock lives IN the bar (zero occlusion); bars too
+            // thin/absent -> docks top-center ON the video inside the existing
+            // header scrim. Contrast is guaranteed by construction (black
+            // bar / dark scrim / plate + outlined digits), NOT by
+            // luminance-adaptive inversion: Hikvision's own self-adaptive OSD
+            // is famously unreadable on busy scenes, and flickering digits are
+            // poison during evidence review. Monospace (JetBrains Mono) keeps
+            // the digits tabular so the clock doesn't jitter as it ticks.
+            Item {
+                id: liveClock
+                readonly property rect vr: vsurf.playing ? vsurf.contentRect
+                                                         : Qt.rect(0, 0, playerArea.width, playerArea.height)
+                readonly property real barBelow: playerArea.height - (vr.y + vr.height)
+                readonly property bool inBar: vsurf.playing && barBelow >= height + 12
+                width: clockRow.implicitWidth + 26
+                height: clockRow.implicitHeight + 12
+                x: (playerArea.width - width) / 2
+                y: inBar ? vr.y + vr.height + (barBelow - height) / 2 : 12
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, liveClock.inBar ? 0.35 : 0.55)
+                    border.width: 1
+                    border.color: liveClock.inBar ? Theme.line : Theme.line2
+                }
+                Row {
+                    id: clockRow
                     anchors.centerIn: parent
-                    spacing: 1
+                    spacing: 10
                     Text {
-                        id: clockText
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 14; font.weight: Font.DemiBold
-                        text: Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm:ss")
-                        Timer {
-                            interval: 1000; repeat: true; running: root.visible; triggeredOnStart: true
-                            onTriggered: clockText.text = Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm:ss")
+                        id: clockTime
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: "#ffffff"
+                        style: Text.Outline; styleColor: "#000000"
+                        font.family: Theme.fontMono; font.pixelSize: 24; font.weight: Font.DemiBold
+                        text: Qt.formatDateTime(new Date(), "HH:mm:ss")
+                    }
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 1
+                        Text {
+                            id: clockDate
+                            color: Qt.rgba(1, 1, 1, 0.85)
+                            font.family: Theme.fontMono; font.pixelSize: 11
+                            text: Qt.formatDateTime(new Date(), "yyyy-MM-dd")
+                        }
+                        Text {
+                            text: qsTr("station clock")
+                            color: Qt.rgba(1, 1, 1, 0.5); font.family: Theme.fontMono; font.pixelSize: 8
+                            font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
                         }
                     }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: qsTr("station clock")
-                        color: Qt.rgba(1, 1, 1, 0.55); font.family: Theme.fontMono; font.pixelSize: 8
-                        font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
+                }
+                Timer {
+                    interval: 1000; repeat: true; running: root.visible; triggeredOnStart: true
+                    onTriggered: {
+                        var now = new Date();
+                        clockTime.text = Qt.formatDateTime(now, "HH:mm:ss");
+                        clockDate.text = Qt.formatDateTime(now, "yyyy-MM-dd");
                     }
                 }
             }

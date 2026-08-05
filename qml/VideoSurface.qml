@@ -27,6 +27,9 @@ Item {
     // reaching the sink (_hasRecentFrame), and the cover below hides the raw VideoOutput until
     // then. Standing rule: green must never appear anywhere.
     readonly property bool playing: _hasRecentFrame
+    // Where the fitted (letterboxed) video actually sits inside this item —
+    // consumers place chrome in the bars instead of over the pixels.
+    readonly property rect contentRect: videoOut.contentRect
     readonly property bool errored: backend.item ? backend.item.errored : false
     readonly property string errorText: backend.item ? backend.item.errorText : ""
 
