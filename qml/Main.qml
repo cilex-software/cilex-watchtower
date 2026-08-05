@@ -56,6 +56,11 @@ Window {
     property var tabs: [ { "kind": "main" } ]
     property int activeTab: 0
     property var mainTabCamera: null    // camera opened in place inside tabs[0]
+    // Preferences lives in its OWN closable tab (operator report 2026-08-06:
+    // as a section it hijacked the home slot's label AND — ungated by
+    // focusedCamera — co-rendered beside a camera tab, splitting the window).
+    readonly property bool prefsTabActive: activeTab > 0 && activeTab < tabs.length
+                                           && tabs[activeTab].kind === "prefs"
 
     function sectionLabel(sid) {
         return sid === "live" ? qsTr("Live wall")
@@ -71,6 +76,7 @@ Window {
     }
     function activeTabLabel() {
         if (playbackCamera) return qsTr("Playback") + " · " + playbackCamera.name;
+        if (prefsTabActive) return qsTr("Preferences");
         if (activeTab > 0 && activeTab < tabs.length && tabs[activeTab].cam)
             return tabs[activeTab].cam.name;
         return homeTabLabel();
@@ -103,11 +109,19 @@ Window {
         activateTab(tabs.length - 1);
     }
 
+    function openPreferences() {
+        for (var i = 1; i < tabs.length; i++)
+            if (tabs[i].kind === "prefs") { activateTab(i); return; }
+        tabs = tabs.concat([{ "kind": "prefs" }]);
+        activateTab(tabs.length - 1);
+    }
+
     function activateTab(i) {
         if (i < 0 || i >= tabs.length) return;
         playbackCamera = null;      // playback is a focus mode inside a tab, not a tab
         activeTab = i;
         if (i === 0) { focusedCamera = mainTabCamera; return; }
+        if (tabs[i].kind === "prefs") { focusedCamera = null; return; }
         // Re-resolve against the model so a tab opened minutes ago carries current
         // status/stream urls rather than the snapshot it was created from.
         var live = cameraModel ? cameraModel.cameraByBackendId(tabs[i].camId) : null;
@@ -159,7 +173,8 @@ Window {
 
     function _vsCapture() {
         var t = [];
-        for (var i = 1; i < tabs.length; i++) t.push(tabs[i].camId);
+        for (var i = 1; i < tabs.length; i++)
+            if (tabs[i].kind === "camera") t.push(tabs[i].camId);   // prefs tab is not worth restoring
         return JSON.stringify({
             v: 1, at: Date.now(),
             section: section, layout: gridLayout, page: gridPage,
@@ -220,7 +235,7 @@ Window {
             win.groupFilter = s.group || "";
             win.groupLabel = s.groupLabel || "All cameras";
             win.opsSidebarOpen = s.sidebar !== false;
-            win.section = s.section || "live";
+            win.section = (!s.section || s.section === "preferences") ? "live" : s.section;
             var t = [{ "kind": "main" }];
             var lost = 0;
             var saved = s.tabs || [];
@@ -492,6 +507,7 @@ Window {
     Component.onCompleted: {
         cameraModel.setCameraScope(AuthController.cameraScope);
         if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding();
+        else if (win.section === "preferences") { win.section = "live"; win.openPreferences(); }
     }
 
     CameraModel { id: cameraModel }
@@ -1680,7 +1696,7 @@ Window {
                 operatorName: AuthController.username
                 hasAlerts: eventModel.unacknowledgedCount > 0
                 onStatusChipClicked: (which) => win.toggleStatusChip(which)
-                onPreferencesRequested: win.goToSection("preferences")
+                onPreferencesRequested: win.openPreferences()
                 onAlertsViewAllRequested: win.goToSection("events")
                 onSearchActivated: commandPalette.open()
                 // Live right-hand panel toggle — only meaningful on the live wall.
@@ -1713,7 +1729,7 @@ Window {
                     id: liveMonitor
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "live"
+                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "live" && !win.prefsTabActive
                     cameraModel: cameraModel
                     eventModel: eventModel
                     layout: win.gridLayout
@@ -1759,7 +1775,7 @@ Window {
                     id: wallPlayback
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "playback"
+                    visible: win.section === "live" && win.focusedCamera === null && win.wallMode === "playback" && !win.prefsTabActive
                     client: playbackClient
                     cameraModel: cameraModel
                     onReturnToLive: win.wallMode = "live"
@@ -1775,7 +1791,7 @@ Window {
                 CameraGroups {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "groups" && win.focusedCamera === null
+                    visible: win.section === "groups" && win.focusedCamera === null && !win.prefsTabActive
                     cameraModel: cameraModel
                     onOpenInLive: (gid, label) => {
                         win.groupFilter = gid;
@@ -1824,7 +1840,7 @@ Window {
                 PreferencesScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "preferences"
+                    visible: win.prefsTabActive
                     savedViewModel: savedViewModel
                     cameraModel: cameraModel
                     onClosed: win.section = "live"
@@ -1834,7 +1850,7 @@ Window {
                     id: healthScreen
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     cameraModel: cameraModel
                     storageHealth: storageHealth
                     onOpenLive: (cam) => { win.section = "live"; win.openCameraHere(cam) }
@@ -1849,7 +1865,7 @@ Window {
                     id: eventsArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: !wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: !wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     demo: wtDemo
                     eventModel: eventModel
                     cameraModel: cameraModel
@@ -1875,7 +1891,7 @@ Window {
                 EventsScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: wtEventsLegacy && win.section === "events" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     eventModel: eventModel
                     cameraModel: cameraModel
                     onOpenPlayback: (camId, atMs) => {
@@ -1900,7 +1916,7 @@ Window {
                 SavedViewsScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "views" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: win.section === "views" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     savedViewModel: savedViewModel
                     cameraModel: cameraModel
                     onSaveCurrentRequested: win.openSaveView()
@@ -1920,7 +1936,7 @@ Window {
                 ClipsScreen {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: win.section === "clips" && win.focusedCamera === null && win.playbackCamera === null
+                    visible: win.section === "clips" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     snapshotModel: snapshotModel
                     cameraModel: cameraModel
                     playbackClient: playbackClient
@@ -1929,7 +1945,7 @@ Window {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences", "health", "events", "views", "clips"].indexOf(win.section) < 0
+                    visible: ["live", "groups", "preferences", "health", "events", "views", "clips"].indexOf(win.section) < 0 && !win.prefsTabActive
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"
@@ -1940,7 +1956,7 @@ Window {
 
                 OpsSidebar {
                     Layout.fillHeight: true
-                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live" && win.opsSidebarOpen
+                    visible: win.section === "live" && !win.fullscreen && win.focusedCamera === null && win.wallMode === "live" && win.opsSidebarOpen && !win.prefsTabActive
                     cameraModel: cameraModel
                     eventModel: eventModel
                     // "View all →" on the LIVE EVENTS panel → open the full Events screen

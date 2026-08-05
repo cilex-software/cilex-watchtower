@@ -178,62 +178,62 @@
         <translation>Watchtower</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="61" />
+        <location filename="../qml/Main.qml" line="66" />
         <source>Live wall</source>
         <translation>Стена камер</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="62" />
+        <location filename="../qml/Main.qml" line="67" />
         <source>Groups</source>
         <translation>Группы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="63" />
+        <location filename="../qml/Main.qml" line="68" />
         <source>Views</source>
         <translation>Виды</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="64" />
+        <location filename="../qml/Main.qml" line="69" />
         <source>Events</source>
         <translation>События</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="65" />
+        <location filename="../qml/Main.qml" line="70" />
         <source>Health</source>
         <translation>Состояние</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="66" />
+        <location filename="../qml/Main.qml" line="71" />
         <source>Clips</source>
         <translation>Клипы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="67" />
+        <location filename="../qml/Main.qml" line="72" />
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="73" />
+        <location filename="../qml/Main.qml" line="78" />
         <source>Playback</source>
         <translation>Воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2081" />
+        <location filename="../qml/Main.qml" line="2096" />
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation>Автофокус запущен — объектив может настраиваться до 40 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2086" />
+        <location filename="../qml/Main.qml" line="2101" />
         <source>Autofocus finished</source>
         <translation>Автофокус завершён</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2100" />
+        <location filename="../qml/Main.qml" line="2115" />
         <source>New badge earned: %1 — %2</source>
         <translation>Новый значок: %1 — %2</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2104" />
+        <location filename="../qml/Main.qml" line="2119" />
         <source>The Watch</source>
         <translation>Дозор</translation>
     </message>
@@ -750,17 +750,17 @@
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="271" />
+        <location filename="../qml/SingleCameraDetail.qml" line="307" />
         <source>Capture snapshot</source>
         <translation>Сделать снимок</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="272" />
+        <location filename="../qml/SingleCameraDetail.qml" line="308" />
         <source>Snapshot with timestamp</source>
         <translation>Снимок с меткой времени</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="273" />
+        <location filename="../qml/SingleCameraDetail.qml" line="309" />
         <source>PTZ / lens control</source>
         <translation>Управление PTZ/объективом</translation>
     </message>
@@ -802,12 +802,17 @@
         <translation>Запись звука отключена</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="326" />
+        <location filename="../qml/SingleCameraDetail.qml" line="266" />
+        <source>station clock</source>
+        <translation>часы станции</translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="362" />
         <source>loading…</source>
         <translation>загрузка…</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="424" />
+        <location filename="../qml/SingleCameraDetail.qml" line="460" />
         <source>No events recorded for this camera yet.</source>
         <translation>События с этой камеры пока не записаны.</translation>
     </message>
@@ -838,12 +843,17 @@
 <context>
     <name>TabStrip</name>
     <message>
-        <location filename="../qml/TabStrip.qml" line="164" />
+        <location filename="../qml/TabStrip.qml" line="43" />
+        <source>Preferences</source>
+        <translation>Настройки</translation>
+    </message>
+    <message>
+        <location filename="../qml/TabStrip.qml" line="165" />
         <source>Close tab</source>
         <translation>Закрыть вкладку</translation>
     </message>
     <message>
-        <location filename="../qml/TabStrip.qml" line="186" />
+        <location filename="../qml/TabStrip.qml" line="187" />
         <source>Main view</source>
         <translation>Основной вид</translation>
     </message>

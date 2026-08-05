@@ -234,6 +234,42 @@ Item {
                 }
             }
 
+            // Live clock overlay (operator ask 2026-08-06): every opened live view
+            // carries a ticking timestamp. This is the STATION clock and says so —
+            // the motion P1 taught exactly why camera time must not be faked by
+            // relabeling: until cilex-vision exposes each camera's measured clock
+            // offset (letter 2026-08-06-camera-clock-truth.md), labeling station
+            // time as camera time would hide the drift class that deafened this
+            // fleet. Flips to camera time the day the field ships.
+            Rectangle {
+                anchors { left: parent.left; bottom: parent.bottom; leftMargin: 16; bottomMargin: 64 }
+                color: Qt.rgba(0, 0, 0, 0.55)
+                border.width: 1; border.color: Theme.line2
+                implicitWidth: clockCol.implicitWidth + 20
+                implicitHeight: clockCol.implicitHeight + 10
+                Column {
+                    id: clockCol
+                    anchors.centerIn: parent
+                    spacing: 1
+                    Text {
+                        id: clockText
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 14; font.weight: Font.DemiBold
+                        text: Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm:ss")
+                        Timer {
+                            interval: 1000; repeat: true; running: root.visible; triggeredOnStart: true
+                            onTriggered: clockText.text = Qt.formatDateTime(new Date(), "yyyy-MM-dd HH:mm:ss")
+                        }
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: qsTr("station clock")
+                        color: Qt.rgba(1, 1, 1, 0.55); font.family: Theme.fontMono; font.pixelSize: 8
+                        font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
+                    }
+                }
+            }
+
             // PTZ / lens panel — sits above the bottom control bar, right-aligned.
             PtzPanel {
                 visible: root.ptzOpen && root.ptzCapable

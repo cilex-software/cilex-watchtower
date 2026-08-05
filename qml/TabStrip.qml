@@ -40,6 +40,7 @@ Item {
         return (c && c.camId !== undefined && c.camId !== "") ? c : (t.cam ? t.cam : null);
     }
     function labelFor(t) {
+        if (t && t.kind === "prefs") return qsTr("Preferences");
         var c = camFor(t);
         return (c && c.name) ? c.name : (t && t.camId ? t.camId : "");
     }
@@ -207,7 +208,7 @@ Item {
                 height: list.height
                 label: t ? root.labelFor(t) : ""
                 elide: Text.ElideMiddle
-                showDot: true
+                showDot: !t || t.kind !== "prefs"
                 dotColor: { root.rev; return t ? root.dotFor(t) : Theme.ink3 }
                 active: root.activeIndex === index + 1
                 closable: true
