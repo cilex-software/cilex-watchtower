@@ -37,6 +37,7 @@ Item {
 
     signal closed()
     signal openPlayback(string mac)
+    signal openEventAt(double atMs)   // event row click -> playback at that moment
     signal snapshotSaved(string path, string camName)
     signal switchCamera(var cam)
 
@@ -412,6 +413,10 @@ Item {
                         required property var modelData
                         width: ListView.view.width
                         height: 62
+                        Rectangle {          // hover wash under content — rows ARE the jump-to-snippet action
+                            anchors.fill: parent
+                            color: evRowMa.containsMouse ? Theme.panel : "transparent"
+                        }
                         Rectangle {
                             anchors { left: parent.left; right: parent.right; top: parent.top }
                             height: 1; color: Theme.line; visible: evRow.index > 0
@@ -481,6 +486,13 @@ Item {
                                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
                                 }
                             }
+                        }
+                        MouseArea {
+                            id: evRowMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (evRow.modelData.ts > 0) root.openEventAt(evRow.modelData.ts)
                         }
                     }
                     Text {

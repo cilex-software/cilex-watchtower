@@ -1820,6 +1820,13 @@ Window {
                         win.playbackCamera = win.focusedCamera;
                         playbackScreen.openFor(win.focusedCamera, 60);
                     }
+                    // Event row click -> archived footage at that moment. Same
+                    // machinery as the Events-screen timeline jump: openAt opens
+                    // the event's DAY and seeks to ts-15s once the session is up.
+                    onOpenEventAt: (atMs) => {
+                        win.playbackCamera = win.focusedCamera;
+                        playbackScreen.openAt(win.focusedCamera, atMs);
+                    }
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)
