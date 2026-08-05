@@ -32,6 +32,11 @@ Item {
     // sub-window). The player session (_frags) is a window inside it. Mirrors PlaybackScreen's tl*/win*.
     property double tlStartMs: 0
     property double tlEndMs: 0
+    // The MOVEMENT span inside the padded timeline (operator ask 2026-08-06:
+    // pre/post-roll are ON the scrubber now — playhead moves from the first
+    // played frame — and this span renders as the thin accent underline).
+    property double mkStartMs: 0
+    property double mkEndMs: 0
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
     property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog
@@ -175,8 +180,13 @@ Item {
         // START, so this is a forward window with the footage (recording is motion-triggered: the episode's
         // recording_id covers [start, end]). Verified live on .106: 188 / 28 ready fragments.
         var w = EventsStore.episodeWindow(ev);
-        tlStartMs = w.startMs; tlEndMs = (w.endMs > w.startMs ? w.endMs : w.startMs + 1000);   // the episode timeline
-        _pendingSeekMs = w.startMs - 15000;                              // seek to ~15s before the episode start
+        mkStartMs = w.startMs; mkEndMs = (w.endMs > w.startMs ? w.endMs : w.startMs + 1000);   // the movement span
+        // Timeline = the OPENED window (episode ±15s), not the bare episode: playback
+        // deliberately starts in the pre-roll, and a scrubber that clamps the pre-roll
+        // to 00:00 reads as "not playing" while the picture visibly runs (operator
+        // screenshots, 2026-08-06: camera OSD ticking 8s with the counter frozen).
+        tlStartMs = mkStartMs - 15000; tlEndMs = mkEndMs + 15000;
+        _pendingSeekMs = mkStartMs - 15000;                              // seek to ~15s before the episode start
         // ADOPT a fresh prefetched session: the tap pays decode only.
         if (_pre && ev && _pre.evId === ev.id && _pre.fragments.length > 0
             && Date.now() - _pre.bornMs < 120000) {
@@ -188,8 +198,8 @@ Item {
         }
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
-            new Date(w.startMs - 15000).toISOString(),
-            new Date(tlEndMs + 15000).toISOString(), true, _curTag);
+            new Date(tlStartMs).toISOString(),
+            new Date(tlEndMs).toISOString(), true, _curTag);
     }
     // Seek to a WALL time on the episode timeline.
     //  • CONTINUOUS session (Cilex Vision route B): direct seeks land within a contiguous run, so we seek
@@ -534,8 +544,16 @@ Item {
                     readonly property real _span: hp.tlEndMs - hp.tlStartMs
                     readonly property real _f: _span > 0 ? Math.max(0, Math.min(1, (hp._playheadWallMs - hp.tlStartMs) / _span)) : 0
                     function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(width, x)) / width * _span); }
+                    readonly property real _m0: _span > 0 ? Math.max(0, Math.min(1, (hp.mkStartMs - hp.tlStartMs) / _span)) : 0
+                    readonly property real _m1: _span > 0 ? Math.max(0, Math.min(1, (hp.mkEndMs - hp.tlStartMs) / _span)) : 0
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 5; color: Theme.panel3 }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent.width * parent._f }
+                    Rectangle {                            // movement start→finish — thin accent underline
+                        anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: 7
+                        x: parent.width * parent._m0
+                        width: Math.max(2, parent.width * (parent._m1 - parent._m0)); height: 2
+                        color: Theme.accent; opacity: 0.9
+                    }
                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3; height: 16; color: Theme.ink; x: parent.width * parent._f - 1.5 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onPressed: (m) => parent._seekX(m.x)
