@@ -750,38 +750,65 @@
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="184"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="79"/>
+        <source>now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="80"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="87"/>
+        <source>m</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="81"/>
+        <source>h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="82"/>
+        <source>d</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="86"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="87"/>
+        <source>s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="229"/>
         <source>Recording audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="184"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="229"/>
         <source>Audio recording disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="226"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="271"/>
         <source>Capture snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="227"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="272"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="228"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="273"/>
         <source>PTZ / lens control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="290"/>
-        <source>Recording</source>
+        <location filename="../qml/SingleCameraDetail.qml" line="326"/>
+        <source>loading…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="290"/>
-        <source>Disabled</source>
+        <location filename="../qml/SingleCameraDetail.qml" line="424"/>
+        <source>No events recorded for this camera yet.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -49,7 +49,7 @@ Item {
         // 2026-07-11, playback toolbar) — keep every edge ≥1.25 units inboard.
         "shot":     { "p": "M4 7h16v12h-16z M8.5 13.5 a3.5 3.5 0 1 0 7 0 a3.5 3.5 0 1 0 -7 0 M9.5 7l1.5-2h2l1.5 2" },
         // Snapshot + burned timestamp: the same camera with a clock badge.
-        "shotStamp":{ "p": "M4 7h16v9h-7 M9.5 7l1.5-2h2l1.5 2 M8.5 12.5 a3.5 3.5 0 1 1 3 4.4 M16.5 17.5 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M16.5 15.6v1.9l1.4 1.2" },
+        "shotStamp":{ "p": "M12.6 16h-8.6v-9h16v8.3 M9.5 7l1.5-2h2l1.5 2 M8.5 12.5 a3.5 3.5 0 1 1 3 4.4 M16.5 17.5 m-4 0 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M16.5 15.6v1.9l1.4 1.2" },
         "bookmark": { "p": "M6 4h12v16l-6-4-6 4V4z" },
         "star":     { "p": "M12 3l2.7 6.3 6.8.5-5.2 4.5 1.6 6.7L12 17.5l-5.9 3.5 1.6-6.7L2.5 9.8l6.8-.5L12 3z" },
         "newtab":   { "p": "M14 4h6v6 M20 4l-9 9 M19 13v6H5V5h6" },

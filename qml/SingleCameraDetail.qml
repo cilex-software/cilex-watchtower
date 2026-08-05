@@ -29,7 +29,11 @@ Item {
     }
     // A stale panel must never drive the next camera (the WT_PTZ_OPEN dev pilot
     // keeps it open across switches for deterministic verification).
-    onCameraChanged: ptzOpen = (typeof wtPtzOpen !== "undefined" && wtPtzOpen && camera !== null)
+    onCameraChanged: {
+        ptzOpen = (typeof wtPtzOpen !== "undefined" && wtPtzOpen && camera !== null);
+        _syncEvents();
+    }
+    Component.onCompleted: _syncEvents()
 
     signal closed()
     signal openPlayback(string mac)
@@ -48,6 +52,47 @@ Item {
         for (var i = 0; i < s.length; i++)
             if (!root.camera || s[i].mac !== root.camera.mac) out.push(s[i]);
         return out;
+    }
+
+    // ---- per-camera events (aside rail) ----
+    // Private EventModel so the global feed/triage state is untouched; search()
+    // is server-scoped to this camera. Rows are ALSO filtered by camId here:
+    // the instance's constructor fires one unfiltered fetch on auth, and a late
+    // global reply must never leak foreign cameras into this rail.
+    property string _evCamId: ""
+    property int _evRev: 0
+    readonly property var _camRows: {
+        _evRev;
+        if (!camera) return [];
+        var out = [], a = camEvents.all();
+        for (var i = 0; i < a.length; i++)
+            if (a[i].camId === camera.camId) out.push(a[i]);
+        return out;
+    }
+    function _syncEvents() {
+        var cid = (camera && camera.camId) ? camera.camId : "";
+        if (cid !== "" && cid !== _evCamId) { _evCamId = cid; camEvents.search(cid, "", ""); }
+    }
+    function relTime(tsMs) {
+        if (!tsMs || tsMs <= 0) return "";
+        var s = Math.max(0, (Date.now() - tsMs) / 1000);
+        if (s < 60) return qsTr("now");
+        if (s < 3600) return Math.floor(s / 60) + qsTr("m");
+        if (s < 86400) return Math.floor(s / 3600) + qsTr("h");
+        return Math.floor(s / 86400) + qsTr("d");
+    }
+    function fmtDur(ms) {
+        var s = Math.round(ms / 1000);
+        if (s < 60) return s + qsTr("s");
+        return Math.floor(s / 60) + qsTr("m") + (s % 60 ? " " + (s % 60) + qsTr("s") : "");
+    }
+    EventModel { id: camEvents }
+    Connections { target: camEvents; function onChanged() { root._evRev++ } }
+    // Keep the rail current while the view is open — events roll in live.
+    Timer {
+        interval: 30000; repeat: true
+        running: root.visible && root._evCamId !== ""
+        onTriggered: camEvents.search(root._evCamId, "", "")
     }
 
     function captureSnapshot() {
@@ -261,44 +306,126 @@ Item {
                 anchors.leftMargin: 1
                 spacing: 0
 
-                // status section
-                component AsideHeader: Text {
+                // ---- Events — what this camera has seen ----
+                // Replaces the Status/Device fact sheets (operator feedback,
+                // 2026-08-05): every row there was already on screen — the
+                // overlay badges carry stream/recording/audio, the SD/HD button
+                // carries quality, the header carries name+IP+model — and
+                // firmware is admin detail, not guard detail. The reclaimed
+                // space shows this camera's own recent events instead.
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.topMargin: 14; Layout.leftMargin: 16; Layout.bottomMargin: 8
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
-                    font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
+                    Layout.topMargin: 14; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 8
+                    spacing: 7
+                    Text {
+                        text: "EVENTS"; color: Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.4
+                    }
+                    Text {
+                        Layout.fillWidth: true; elide: Text.ElideRight
+                        text: camEvents.loading && root._camRows.length === 0 ? qsTr("loading…") : ""
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                    }
+                    Text {
+                        visible: camEvents.serverTotal > 0; text: camEvents.serverTotal
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
                 }
-                component KV: RowLayout {
-                    property string k: ""
-                    property string v: ""
-                    Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                    Text { text: parent.k; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 110 }
-                    Text { text: parent.v; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
+                ListView {
+                    id: evList
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.leftMargin: 8; Layout.rightMargin: 8
+                    clip: true
+                    model: root._camRows
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: ScrollBar { }
+                    delegate: Item {
+                        id: evRow
+                        required property int index
+                        required property var modelData
+                        width: ListView.view.width
+                        height: 62
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; top: parent.top }
+                            height: 1; color: Theme.line; visible: evRow.index > 0
+                        }
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.topMargin: 5; anchors.bottomMargin: 5
+                            anchors.leftMargin: 8; anchors.rightMargin: 8
+                            spacing: 10
+                            // mid-incident still — same recipe as the ops rail
+                            Rectangle {
+                                Layout.preferredWidth: 92
+                                Layout.preferredHeight: 52
+                                Layout.alignment: Qt.AlignVCenter
+                                color: Theme.panel2
+                                border.width: 1; border.color: Theme.line2
+                                clip: true
+                                Image {
+                                    id: evStill
+                                    anchors.fill: parent; anchors.margins: 1
+                                    asynchronous: true
+                                    fillMode: Image.PreserveAspectCrop
+                                    sourceSize.width: 184
+                                    source: (evRow.modelData.clipUrl && evRow.modelData.eventId)
+                                            ? "image://cvframe/events/" + evRow.modelData.eventId + "/snapshot?pos=mid" : ""
+                                    visible: status === Image.Ready
+                                }
+                                Rectangle {
+                                    anchors.fill: parent; anchors.margins: 1
+                                    visible: evStill.status === Image.Loading
+                                    color: Theme.panel3
+                                    SequentialAnimation on opacity {
+                                        running: evStill.status === Image.Loading
+                                        loops: Animation.Infinite
+                                        NumberAnimation { to: 0.45; duration: 600; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                                    }
+                                }
+                                Icon {
+                                    anchors.centerIn: parent
+                                    visible: evStill.status !== Image.Ready && evStill.status !== Image.Loading
+                                    name: "shot"; size: 14; color: Theme.ink3
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: 3
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle { Layout.preferredWidth: 6; Layout.preferredHeight: 6; color: EventStyle.color(evRow.modelData.type) }
+                                    Text {
+                                        Layout.fillWidth: true; elide: Text.ElideRight
+                                        text: EventStyle.label(evRow.modelData.type)
+                                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold
+                                    }
+                                    Text {
+                                        text: root.relTime(evRow.modelData.ts)
+                                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true; elide: Text.ElideRight
+                                    text: Qt.formatDateTime(new Date(evRow.modelData.ts), "ddd d MMM, HH:mm:ss")
+                                          + (evRow.modelData.durationMs > 0 ? "  ·  " + root.fmtDur(evRow.modelData.durationMs) : "")
+                                    color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                                }
+                            }
+                        }
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width - 32
+                        visible: !camEvents.loading && root._camRows.length === 0
+                        text: qsTr("No events recorded for this camera yet.")
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                        wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
+                    }
                 }
-
-                AsideHeader { text: "Status" }
-                KV { k: "Stream"; v: root.liveOff ? "Live View off" : (vsurf.playing ? "Live" : (root.camera && root.camera.live === CameraStatus.Offline ? "Offline" : (vsurf.errored ? "Unavailable" : "Connecting…"))) }
-                KV { k: "Recording"; v: root.recOff ? "Switched off"
-                        : !root.camera ? "—"
-                        : root.camera.recording === CameraStatus.Recording ? "Recording"
-                        : root.camera.recording === CameraStatus.Stalled ? "Stalled"
-                        : root.camera.recording === CameraStatus.Armed ? "Motion armed"
-                        : root.camera.recording === CameraStatus.Disabled ? "Disabled"
-                        : root.camera.recording === CameraStatus.NotRecording ? "Not recording"
-                        : root.camera.recording === CameraStatus.RecordingGap ? "Recording gap" : "Unknown" }
-                KV { k: "Audio"; v: !(root.camera && root.camera.hasAudio === true) ? "—"
-                        : root.camera.audioRecording === true ? qsTr("Recording") : qsTr("Disabled") }
-                KV { k: "Last recording"; v: (root.camera && root.camera.lastSegmentAt)
-                        ? Qt.formatDateTime(new Date(root.camera.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
-                KV { k: "Quality"; v: root.useMain ? "HD (main)" : "SD (substream)" }
-                Item { Layout.preferredHeight: 8 }
-
-                AsideHeader { text: "Device" }
-                KV { k: "IP"; v: root.camera ? root.camera.ip : "—" }
-                KV { k: "Model"; v: root.camera ? root.camera.model : "—" }
-                KV { k: "Vendor"; v: root.camera ? root.camera.vendor : "—" }
-                KV { k: "Firmware"; v: root.camera ? root.camera.firmware : "—" }
-                Item { Layout.preferredHeight: 8 }
 
                 // "Same group" header with the actual group name in parentheses so it's
                 // clear which group these cameras belong to.
@@ -327,7 +454,7 @@ Item {
                     id: sibGrid
                     visible: root.groupSiblings.length > 0
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: cellHeight * 2   // two rows; the rest scrolls
                     Layout.leftMargin: 8; Layout.rightMargin: 8; Layout.bottomMargin: 8
                     clip: true
                     model: root.groupSiblings
@@ -349,8 +476,8 @@ Item {
                 }
                 Text {
                     visible: root.groupSiblings.length === 0
-                    Layout.fillWidth: true; Layout.fillHeight: true
-                    Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 4
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 4; Layout.bottomMargin: 12
                     text: (root.camera && root.camera.groupName) ? "No other cameras in this group." : "This camera isn't in a group."
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.WordWrap
                     verticalAlignment: Text.AlignTop
