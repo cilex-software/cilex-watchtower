@@ -209,6 +209,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="72"/>
+        <location filename="../qml/Main.qml" line="79"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
@@ -218,22 +219,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2096"/>
+        <location filename="../qml/Main.qml" line="2101"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2101"/>
+        <location filename="../qml/Main.qml" line="2106"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2115"/>
+        <location filename="../qml/Main.qml" line="2120"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2119"/>
+        <location filename="../qml/Main.qml" line="2124"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -787,32 +788,27 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="266"/>
-        <source>station clock</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="307"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="337"/>
         <source>Capture snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="308"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="338"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="309"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="339"/>
         <source>PTZ / lens control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="362"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="392"/>
         <source>loading…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="460"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="490"/>
         <source>No events recorded for this camera yet.</source>
         <translation type="unfinished"></translation>
     </message>

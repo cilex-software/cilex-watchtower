@@ -265,32 +265,29 @@ Item {
                     border.width: 1
                     border.color: liveClock.inBar ? Theme.line : Theme.line2
                 }
+                // No caption: the time-source honesty this plate used to carry as a
+                // permanent "station clock" tag (operator: zero value, ate the date's
+                // space) moves to an ANOMALY chip — when cilex-vision ships per-camera
+                // clock offsets, a visible drift renders beside the time; a normal
+                // clock stays clean. Label the exception, not the steady state.
                 Row {
                     id: clockRow
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: 12
+                    Text {
+                        id: clockDate
+                        anchors.baseline: clockTime.baseline
+                        color: Qt.rgba(1, 1, 1, 0.9)
+                        style: Text.Outline; styleColor: "#000000"
+                        font.family: Theme.fontMono; font.pixelSize: 15
+                        text: Qt.formatDateTime(new Date(), "yyyy-MM-dd")
+                    }
                     Text {
                         id: clockTime
-                        anchors.verticalCenter: parent.verticalCenter
                         color: "#ffffff"
                         style: Text.Outline; styleColor: "#000000"
                         font.family: Theme.fontMono; font.pixelSize: 24; font.weight: Font.DemiBold
                         text: Qt.formatDateTime(new Date(), "HH:mm:ss")
-                    }
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 1
-                        Text {
-                            id: clockDate
-                            color: Qt.rgba(1, 1, 1, 0.85)
-                            font.family: Theme.fontMono; font.pixelSize: 11
-                            text: Qt.formatDateTime(new Date(), "yyyy-MM-dd")
-                        }
-                        Text {
-                            text: qsTr("station clock")
-                            color: Qt.rgba(1, 1, 1, 0.5); font.family: Theme.fontMono; font.pixelSize: 8
-                            font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
-                        }
                     }
                 }
                 Timer {
