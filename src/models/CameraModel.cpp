@@ -399,9 +399,12 @@ void CameraModel::fetchCameras()
             c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
             parseAudio(o, c.ip, c.hasAudio, c.audioRecording);
             if (o.contains(QStringLiteral("motion"))) {
+                const QJsonObject mo = o.value(QStringLiteral("motion")).toObject();
                 c.motionKnown = true;
-                c.motionReady = o.value(QStringLiteral("motion")).toObject()
-                                    .value(QStringLiteral("ready")).toBool(false);
+                c.motionReady = mo.value(QStringLiteral("ready")).toBool(false);
+                c.motionConfirmed = mo.value(QStringLiteral("confirmed")).toBool(false);
+                c.motionStatus = mo.value(QStringLiteral("status")).toString();
+                c.motionLastVmdAt = mo.value(QStringLiteral("last_vmd_at")).toString();
             }
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
@@ -630,6 +633,9 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case HasAudioRole:  return c.hasAudio;
     case MotionKnownRole: return c.motionKnown;
     case MotionReadyRole: return c.motionReady;
+    case MotionConfirmedRole: return c.motionConfirmed;
+    case MotionStatusRole: return c.motionStatus;
+    case MotionLastVmdAtRole: return c.motionLastVmdAt;
     case AudioRecordingRole: return c.audioRecording;
     case FavoriteRole:  return c.favorite;
     case TimestampRole: return c.timestamp;
@@ -661,6 +667,9 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { HasAudioRole,  "hasAudio" },
         { MotionKnownRole, "motionKnown" },
         { MotionReadyRole, "motionReady" },
+        { MotionConfirmedRole, "motionConfirmed" },
+        { MotionStatusRole, "motionStatus" },
+        { MotionLastVmdAtRole, "motionLastVmdAt" },
         { AudioRecordingRole, "audioRecording" },
         { FavoriteRole,  "favorite" },
         { TimestampRole, "timestamp" },
@@ -693,6 +702,9 @@ QVariantMap CameraModel::get(int row) const
     m["hasAudio"] = c.hasAudio;
     m["motionKnown"] = c.motionKnown;
     m["motionReady"] = c.motionReady;
+    m["motionConfirmed"] = c.motionConfirmed;
+    m["motionStatus"] = c.motionStatus;
+    m["motionLastVmdAt"] = c.motionLastVmdAt;
     m["audioRecording"] = c.audioRecording;
     m["favorite"] = c.favorite;
     m["timestamp"] = c.timestamp;

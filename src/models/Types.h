@@ -40,6 +40,11 @@ struct CameraData {
     // known=false when the key is ABSENT (unknown must never render healthy).
     bool motionKnown = false;
     bool motionReady = false;
+    // Sticky proof (1cc987d): confirmed = >=1 real VMD since config last
+    // provably broken; last_vmd_at is monotone (never regresses/nulls).
+    bool motionConfirmed = false;
+    QString motionStatus;      // preflight verdict, e.g. NOT_READY_ZERO_SENSITIVITY
+    QString motionLastVmdAt;   // ISO, "" = never
     QString ip;
     QString mac;
     QString model;

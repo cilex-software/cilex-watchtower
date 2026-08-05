@@ -24,17 +24,39 @@ Item {
 
     // Storage subsystem health (cilex-vision /health/storage), refreshed while visible.
     onVisibleChanged: if (visible && storageHealth) storageHealth.refresh()
-    Component.onCompleted: if (storageHealth) storageHealth.refresh()
+    Component.onCompleted: { _refreshRows(); if (storageHealth) storageHealth.refresh() }
     Timer { interval: 30000; running: root.visible && root.storageHealth !== null; repeat: true; onTriggered: root.storageHealth.refresh() }
 
-    // table rows for the active filter (status-sorted; all of them — the table scrolls)
-    readonly property var rows: cameraModel
-        ? cameraModel.page("", activeFilter, "status", 1, 100000) : []
+    // table rows for the active filter (status-sorted; all of them — the table scrolls).
+    // page() is a Q_INVOKABLE, so QML cannot track it: a plain binding evaluates
+    // once before the first /streams fetch and the table stays empty forever
+    // (caught by a WT_SECTION=health boot smoke). Refresh on countsChanged, but
+    // only reassign when content actually changed — countsChanged fires every
+    // 15s poll, and a fresh array each time would reset the table's scroll
+    // position (the CameraGroups delegate-churn lesson).
+    readonly property var rows: _rows
+    property var _rows: []
+    property string _rowsSig: "\u0000unset"
+    function _refreshRows() {
+        if (!cameraModel) { _rows = []; _rowsSig = ""; return; }
+        var r = cameraModel.page("", activeFilter, "status", 1, 100000);
+        var sig = activeFilter + "\u0001";
+        for (var i = 0; i < r.length; i++) {
+            var c = r[i];
+            sig += c.camId + "|" + c.name + "|" + c.groupName + "|" + c.live + "|" + c.recording
+                 + "|" + c.lastSeen + "|" + c.lastSegmentAt + "|" + c.motionKnown + "|" + c.motionReady
+                 + "|" + c.motionConfirmed + "|" + c.motionLastVmdAt + "\u0001";
+        }
+        if (sig !== _rowsSig) { _rowsSig = sig; _rows = r; }
+    }
+    onActiveFilterChanged: _refreshRows()
+    onCameraModelChanged: _refreshRows()
+    Connections { target: root.cameraModel; function onCountsChanged() { root._refreshRows() } }
 
     // column widths (header + row delegate share these; Camera column fills the rest)
     readonly property int wGroup: 150
     readonly property int wLive: 110
-    readonly property int wRec: 110
+    readonly property int wRec: 170
     readonly property int wSeen: 110
     readonly property int wIssue: 220
     readonly property int wAct: 72
@@ -62,20 +84,25 @@ Item {
     }
     function issueText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return "No signal";
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return "Motion detector not ready";
         if (cam.recording === CameraStatus.Stalled) return "Recording stalled";
         if (cam.recording === CameraStatus.RecordingGap) return "Recent recording gap";
         if (cam.live === CameraStatus.Degraded) return "Stream degraded";
         if (cam.recording === CameraStatus.NotRecording) return "Live but not recording";
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown && cam.motionReady && !cam.motionConfirmed)
+            return "Motion never verified";   // unproven is not broken — neutral, not a fault
         return "—";
     }
     function issueColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
             || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         return Theme.ink3;
     }
     function calloutColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
             || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording) return Theme.accent;
@@ -94,6 +121,18 @@ Item {
             return "<b>Recording gap detected.</b> Some footage in the recent window is missing.";
         if (cam.live === CameraStatus.Degraded)
             return "<b>Stream degraded.</b> Reduced bitrate due to network conditions; recording continues.";
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown) {
+            // /streams motion{ready,confirmed,last_vmd_at} — sticky semantics
+            // (1cc987d): confirmed survives config-only passes; last_vmd_at is
+            // monotone. Absent key falls through to the no-claim text below.
+            if (!cam.motionReady)
+                return "<b>Motion detector not ready.</b> The camera is armed but the backend preflight says its detector cannot fire"
+                     + (cam.motionStatus ? " (" + cam.motionStatus + ")" : "") + ". Motion will not be recorded until this is repaired.";
+            if (!cam.motionConfirmed)
+                return "<b>Motion-armed, never verified.</b> Configuration checks out, but this camera has never produced a verified detection. A short walk through its field of view would prove the chain.";
+            return "<b>Motion-armed and verified.</b> Recording on motion; idle between events — not a fault."
+                 + (cam.motionLastVmdAt ? (" Last verified motion " + Qt.formatDateTime(new Date(cam.motionLastVmdAt), "ddd d MMM, HH:mm:ss") + ".") : "");
+        }
         if (cam.recording === CameraStatus.Armed)
             return "<b>Motion-armed.</b> Recording on motion; idle between events — not a fault.";
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording)
@@ -292,7 +331,9 @@ Item {
                                 LiveStatusBadge { anchors.verticalCenter: parent.verticalCenter; state: rowItem.modelData.live } }
                             // Recording
                             Item { Layout.preferredWidth: root.wRec; Layout.fillHeight: true
-                                RecordingStatusBadge { anchors.verticalCenter: parent.verticalCenter; state: rowItem.modelData.recording } }
+                                RecordingStatusBadge { anchors.verticalCenter: parent.verticalCenter; state: rowItem.modelData.recording
+                                    motionKnown: rowItem.modelData.motionKnown === true; motionReady: rowItem.modelData.motionReady === true
+                                    lastSegmentAtMs: rowItem.modelData.lastSegmentAt ? Date.parse(rowItem.modelData.lastSegmentAt) : -1 } }
                             // Last seen
                             Text { Layout.preferredWidth: root.wSeen; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12
                                 text: (rowItem.modelData.live === CameraStatus.Offline || rowItem.modelData.live === CameraStatus.NoSignal)
@@ -377,7 +418,10 @@ Item {
                                 Row {
                                     anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 6; spacing: 4
                                     LiveStatusBadge { state: root.sel ? root.sel.live : CameraStatus.LiveUnknown }
-                                    RecordingStatusBadge { state: root.sel ? root.sel.recording : CameraStatus.RecUnknown }
+                                    RecordingStatusBadge { state: root.sel ? root.sel.recording : CameraStatus.RecUnknown
+                                        motionKnown: root.sel ? root.sel.motionKnown === true : false
+                                        motionReady: root.sel ? root.sel.motionReady === true : false
+                                        lastSegmentAtMs: (root.sel && root.sel.lastSegmentAt) ? Date.parse(root.sel.lastSegmentAt) : -1 }
                                 }
                             }
 
@@ -409,6 +453,11 @@ Item {
                             KV { k: "Recording status"; v: root.sel ? root.recText(root.sel.recording) : "" }
                             KV { k: "Last seen"; v: root.sel ? (root.selOffline ? (root.sel.lastSeen ? root.sel.lastSeen : "—") : "now") : "" }
                             KV { k: "Last recording"; v: (root.sel && root.sel.lastSegmentAt) ? Qt.formatDateTime(new Date(root.sel.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
+                            KV { visible: root.sel !== null && root.sel.motionKnown === true; k: "Motion detector"
+                                 v: !root.sel ? "" : (!root.sel.motionReady ? ("Not ready" + (root.sel.motionStatus ? " · " + root.sel.motionStatus : ""))
+                                    : (root.sel.motionConfirmed ? "Verified" : "Ready, never verified")) }
+                            KV { visible: root.sel !== null && root.sel.motionKnown === true; k: "Last verified motion"
+                                 v: (root.sel && root.sel.motionLastVmdAt) ? Qt.formatDateTime(new Date(root.sel.motionLastVmdAt), "ddd d MMM, HH:mm:ss") : "—" }
                             KV { k: "Group"; v: root.sel ? root.sel.groupName : "" }
 
                             // actions
