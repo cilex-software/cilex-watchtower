@@ -277,9 +277,9 @@ Item {
                     Text {
                         id: clockDate
                         anchors.baseline: clockTime.baseline
-                        color: Qt.rgba(1, 1, 1, 0.9)
+                        color: "#ffffff"
                         style: Text.Outline; styleColor: "#000000"
-                        font.family: Theme.fontMono; font.pixelSize: 15
+                        font.family: Theme.fontMono; font.pixelSize: 24
                         text: Qt.formatDateTime(new Date(), "yyyy-MM-dd")
                     }
                     Text {
