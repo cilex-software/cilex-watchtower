@@ -32,6 +32,17 @@ Item {
     property var _gCounts: ({})
     readonly property string triageTab: triage.filter
     onTriageTabChanged: _recountGroups()
+    // Live-view events rail hands off here: land the guard in the Triage Queue
+    // with the event selected AND its camera's lane soloed (variant B: the lane
+    // is the filter, and it survives even if the exact event has aged out of
+    // the loaded feed — honest fallback instead of a silent no-op selection).
+    function openInTriage(evId, camId) {
+        if (camId && !EventsStore.cams[camId]) groupFilter = "";   // out of group scope -> widen honestly
+        mode = "triage";
+        selId = evId;
+        if (camId && EventsStore.cams[camId]) triage.jumpTo(camId);
+    }
+
     function _recountGroups() {
         var lk = area._buildLookup();
         var rows = eventModel ? eventModel.all() : [];

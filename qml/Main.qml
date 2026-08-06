@@ -1820,12 +1820,12 @@ Window {
                         win.playbackCamera = win.focusedCamera;
                         playbackScreen.openFor(win.focusedCamera, 60);
                     }
-                    // Event row click -> archived footage at that moment. Same
-                    // machinery as the Events-screen timeline jump: openAt opens
-                    // the event's DAY and seeks to ts-15s once the session is up.
-                    onOpenEventAt: (atMs) => {
-                        win.playbackCamera = win.focusedCamera;
-                        playbackScreen.openAt(win.focusedCamera, atMs);
+                    // Event row click -> the TRIAGE QUEUE with that event selected
+                    // and its camera's lane soloed (operator ask 2026-08-06; was
+                    // playback-at-timestamp). goToSection lands the main tab.
+                    onOpenEventInTriage: (evId, camId) => {
+                        win.goToSection("events");
+                        eventsArea.openInTriage(evId, camId);
                     }
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",

@@ -37,7 +37,7 @@ Item {
 
     signal closed()
     signal openPlayback(string mac)
-    signal openEventAt(double atMs)   // event row click -> playback at that moment
+    signal openEventInTriage(string eventId, string camId)   // event row click -> triage queue, event selected
     signal snapshotSaved(string path, string camName)
     signal switchCamera(var cam)
 
@@ -492,7 +492,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: if (evRow.modelData.ts > 0) root.openEventAt(evRow.modelData.ts)
+                            onClicked: if (evRow.modelData.eventId) root.openEventInTriage(evRow.modelData.eventId, evRow.modelData.camId)
                         }
                     }
                     Text {
