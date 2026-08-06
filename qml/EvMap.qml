@@ -116,8 +116,17 @@ Item {
     // Fire once both real mode AND auth are ready (whichever lands last; ingestReal
     // can flip realMode before autologin finishes).
     SiteMapModel { id: siteMap }
-    function _maybeLoadMap() { if (EventsStore.realMode && AuthController.authenticated && !siteMap.ready) siteMap.load(); }
+    // ALWAYS refetch (no ready-guard): the admin replaces plans while the wall
+    // runs — the 2026-08-06 staleness kept a deleted floor plan on screen for
+    // half an hour because nothing ever asked the backend again.
+    function _maybeLoadMap() { if (EventsStore.realMode && AuthController.authenticated) siteMap.load(); }
     Component.onCompleted: map._maybeLoadMap()
+    onVisibleChanged: if (visible) map._maybeLoadMap()
+    Timer {                                  // picks up admin map edits within a minute while watching
+        interval: 60000; repeat: true
+        running: map.visible && EventsStore.realMode && AuthController.authenticated
+        onTriggered: siteMap.load()
+    }
     Connections { target: EventsStore; function onRealModeChanged() { map._maybeLoadMap() } }
     Connections { target: AuthController; function onAuthenticatedChanged() { map._maybeLoadMap() } }
 
@@ -249,6 +258,30 @@ Item {
                     id: plan
                     Layout.fillWidth: true; Layout.fillHeight: true
                     color: Theme.panel; border.width: 1; border.color: Theme.line2
+
+                    // map picker — visible only when the admin has built more than one
+                    Row {
+                        visible: EventsStore.realMode && siteMap.mapsList.length > 1
+                        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 10
+                        z: 30
+                        spacing: 5
+                        Repeater {
+                            model: siteMap.mapsList
+                            delegate: Rectangle {
+                                required property var modelData
+                                readonly property bool _on: siteMap.currentMapId === modelData.id
+                                height: 22; width: mpT.implicitWidth + 18
+                                color: _on ? Theme.accentSoft : (mpMa.containsMouse ? Theme.panel2 : Theme.panel)
+                                border.width: 1; border.color: _on ? Theme.accent : Theme.line2
+                                opacity: modelData.status === "active" || _on ? 1 : 0.65
+                                Text { id: mpT; anchors.centerIn: parent; text: modelData.name
+                                    color: parent._on ? Theme.accent : Theme.ink2
+                                    font.family: Theme.fontMono; font.pixelSize: 10 }
+                                MouseArea { id: mpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: siteMap.selectMap(modelData.id) }
+                            }
+                        }
+                    }
 
                     // real Camera Map background (real mode) — pre-signed floor-plan image
                     Image {

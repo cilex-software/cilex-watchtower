@@ -7,11 +7,14 @@
 
 class QNetworkAccessManager;
 
-// Loads cilex-vision's active Camera Map for the Situation Map view: the active
-// floor plan's pre-signed background image + the camera-pin placements
-// (GET /maps?status=active → /maps/{id} → /maps/{id}/objects). Camera positions
-// are normalized 0..1 (top-left origin). Authenticated GETs go through the shared
-// AuthController NAM. See docs/letters/2026-06-18-events-redesign-unassign-and-placement*.
+// Loads cilex-vision's Camera Maps for the Situation Map view: the full map
+// list (GET /maps → id/name/status/updated_at), then the selected map's
+// pre-signed background image + camera-pin placements (/maps/{id} →
+// /maps/{id}/objects). Camera positions are normalized 0..1 (top-left origin).
+// load() ALWAYS refetches — the 2026-08-06 staleness: the admin replaced the
+// floor plan and the client kept rendering the deleted one because nothing
+// ever asked again. An empty list CLEARS the state (a deleted map must not
+// leave a ghost). Authenticated GETs go through the shared AuthController NAM.
 class SiteMapModel : public QObject
 {
     Q_OBJECT
@@ -22,6 +25,8 @@ class SiteMapModel : public QObject
     Q_PROPERTY(int planWidth READ planWidth NOTIFY changed)
     Q_PROPERTY(int planHeight READ planHeight NOTIFY changed)
     Q_PROPERTY(int placedCount READ placedCount NOTIFY changed)
+    Q_PROPERTY(QVariantList mapsList READ mapsList NOTIFY changed)
+    Q_PROPERTY(QString currentMapId READ currentMapId NOTIFY changed)
 
 public:
     explicit SiteMapModel(QObject *parent = nullptr);
@@ -35,7 +40,10 @@ public:
 
     // [{ cameraId, x, y, rotation, name }] per placed camera pin on the active plan.
     Q_INVOKABLE QVariantList placements() const { return m_placements; }
+    QVariantList mapsList() const { return m_maps; }
+    QString currentMapId() const { return m_currentId; }
     Q_INVOKABLE void load();
+    Q_INVOKABLE void selectMap(const QString &mapId);
 
 signals:
     void changed();
@@ -44,6 +52,7 @@ private:
     void fetchDetail(const QString &mapId);
     void fetchObjects(const QString &mapId);
 
+    void clearPlan();
     QNetworkAccessManager *m_nam = nullptr;
     QString m_baseUrl;
     bool m_ready = false;
@@ -52,4 +61,6 @@ private:
     int m_planWidth = 0;
     int m_planHeight = 0;
     QVariantList m_placements;
+    QVariantList m_maps;
+    QString m_currentId;
 };

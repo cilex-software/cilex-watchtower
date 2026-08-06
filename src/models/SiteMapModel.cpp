@@ -19,20 +19,66 @@ SiteMapModel::SiteMapModel(QObject *parent)
     connect(auth, &AuthController::baseUrlChanged, this, [this, auth]() { m_baseUrl = auth->baseUrl(); });
 }
 
+void SiteMapModel::clearPlan()
+{
+    m_ready = false;
+    m_backgroundUrl.clear();
+    m_planName.clear();
+    m_planWidth = m_planHeight = 0;
+    m_placements.clear();
+}
+
 void SiteMapModel::load()
 {
     if (m_baseUrl.isEmpty() || !AuthController::instance()->authenticated())
         return;
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/maps?status=active")});
+    // Full list, always refetched: admins add/replace/delete maps while the
+    // wall runs, and a presigned background URL is a snapshot, not a truth.
+    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/maps")});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
-            return;
+            return;                          // transient — keep whatever we have
         const QJsonArray arr = QJsonDocument::fromJson(reply->readAll()).object().value("maps").toArray();
-        if (arr.isEmpty())
-            return;                          // no active plan — Map stays on the grid fallback
-        fetchDetail(arr.first().toObject().value("id").toString());
+        m_maps.clear();
+        QString firstActive, first;
+        bool currentStillExists = false;
+        for (const QJsonValue &v : arr) {
+            const QJsonObject o = v.toObject();
+            QVariantMap m;
+            m["id"] = o.value("id").toString();
+            m["name"] = o.value("name").toString();
+            m["status"] = o.value("status").toString();
+            m["updatedAt"] = o.value("updated_at").toString();
+            m_maps.append(m);
+            if (first.isEmpty()) first = m["id"].toString();
+            if (firstActive.isEmpty() && m["status"].toString() == QLatin1String("active"))
+                firstActive = m["id"].toString();
+            if (m["id"].toString() == m_currentId)
+                currentStillExists = true;
+        }
+        if (arr.isEmpty()) {
+            // the admin deleted every map — a ghost plan must not survive that
+            m_currentId.clear();
+            clearPlan();
+            emit changed();
+            return;
+        }
+        const QString pick = currentStillExists ? m_currentId
+                            : (!firstActive.isEmpty() ? firstActive : first);
+        m_currentId = pick;
+        emit changed();                      // maps list is fresh even before the detail lands
+        fetchDetail(pick);                   // always re-pull: updated_at/presigned URL may have rolled
     });
+}
+
+void SiteMapModel::selectMap(const QString &mapId)
+{
+    if (mapId.isEmpty() || mapId == m_currentId)
+        return;
+    m_currentId = mapId;
+    emit changed();
+    fetchDetail(mapId);
 }
 
 void SiteMapModel::fetchDetail(const QString &mapId)
