@@ -35,6 +35,9 @@ class Settings : public QObject
     Q_PROPERTY(bool eventsOnScrubber READ eventsOnScrubber WRITE setEventsOnScrubber NOTIFY eventsOnScrubberChanged)
     // Status-badge timers ("REC · 4m", "OFFLINE · 2h" …): on by default.
     Q_PROPERTY(bool badgeTimers READ badgeTimers WRITE setBadgeTimers NOTIFY badgeTimersChanged)
+    // Triage layout: queue column collapsed to a rail; video stage height cap (px).
+    Q_PROPERTY(bool triageQueueCollapsed READ triageQueueCollapsed WRITE setTriageQueueCollapsed NOTIFY triageQueueCollapsedChanged)
+    Q_PROPERTY(int triageStageMaxH READ triageStageMaxH WRITE setTriageStageMaxH NOTIFY triageStageMaxHChanged)
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
@@ -71,7 +74,11 @@ public:
 
     bool eventsOnScrubber() const { return m_eventsOnScrubber; }
     bool badgeTimers() const { return m_badgeTimers; }
+    bool triageQueueCollapsed() const { return m_triageQueueCollapsed; }
+    int triageStageMaxH() const { return m_triageStageMaxH; }
     void setBadgeTimers(bool v);
+    void setTriageQueueCollapsed(bool v);
+    void setTriageStageMaxH(int v);
     void setEventsOnScrubber(bool v);
 
     QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
@@ -131,6 +138,8 @@ signals:
     void liveTransportChanged();
     void eventsOnScrubberChanged();
     void badgeTimersChanged();
+    void triageQueueCollapsedChanged();
+    void triageStageMaxHChanged();
     void hiddenScrubberEventTypesChanged();
 
 private:
@@ -146,5 +155,7 @@ private:
     QString m_liveTransport = QStringLiteral("go2rtc");
     bool m_eventsOnScrubber = true;
     bool m_badgeTimers = true;
+    bool m_triageQueueCollapsed = false;
+    int m_triageStageMaxH = 372;
     QStringList m_hiddenScrubberEventTypes;
 };

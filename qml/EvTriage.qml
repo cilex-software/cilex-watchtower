@@ -314,9 +314,16 @@ Item {
         "vehicle":    ["Watch playback, read plate if visible", "Check against expected deliveries", "If in fire lane > limit → tannoy / dispatch", "Record disposition"],
         "loiter":     ["Watch the dwell clip", "Assess intent / duration", "Tannoy warning or dispatch", "Log disposition"],
         "offline":    ["Check device health page", "Confirm network vs. power", "Raise maintenance ticket", "Cover area with adjacent camera"],
-        "motion":     ["Scrub the motion clip", "Confirm environmental vs. real", "Dismiss or escalate"]
+        // "motion" deliberately has NO checklist (operator, 2026-08-07): its mock
+        // steps duplicated the disposition buttons and read as noise. Typed SOPs
+        // above stay for when richer event types arrive.
+        "motion":     []
     })
-    readonly property var _sop: _cur ? (_sops[_cur.type] || _sops["_default"]) : []
+    readonly property var _sop: {
+        if (!_cur) return [];
+        var s = _sops[_cur.type];
+        return s !== undefined ? s : _sops["_default"];
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -324,10 +331,39 @@ Item {
 
         // ======================= LEFT — the queue (variant B lanes) =======================
         Rectangle {
-            Layout.preferredWidth: 384
+            id: queueCol
+            readonly property bool collapsed: Settings.triageQueueCollapsed
+            Layout.preferredWidth: collapsed ? 26 : 384
             Layout.fillHeight: true
             color: "transparent"
             Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+
+            // collapsed rail: count + name, one click to reopen
+            Item {
+                visible: queueCol.collapsed
+                anchors.fill: parent
+                Text {
+                    anchors.centerIn: parent
+                    rotation: -90
+                    text: tri._openCount + " \u00b7 " + qsTr("Open queue")
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.1
+                }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: Settings.triageQueueCollapsed = false }
+            }
+            // edge toggle chevron (always present)
+            Rectangle {
+                width: 12; height: 34
+                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                z: 40
+                color: qtogMa.containsMouse ? Theme.panel2 : Theme.panel
+                border.width: 1; border.color: Theme.line2
+                Text { anchors.centerIn: parent; text: queueCol.collapsed ? "\u203a" : "\u2039"
+                    color: qtogMa.containsMouse ? Theme.ink : Theme.ink3
+                    font.family: Theme.fontSans; font.pixelSize: 11 }
+                MouseArea { id: qtogMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: Settings.triageQueueCollapsed = !Settings.triageQueueCollapsed }
+            }
 
             // shared lane-header look: used by the list delegate AND the pinned sticky copy
             component LaneHead: Rectangle {
@@ -398,6 +434,7 @@ Item {
             }
 
             ColumnLayout {
+                visible: !queueCol.collapsed
                 anchors.fill: parent
                 spacing: 0
 
@@ -716,6 +753,29 @@ Item {
                     }
                 }
 
+                // drag grip: resize the video stage (persisted). The stage is
+                // already 21:9-capped; this lets the operator trade video for body.
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 7
+                    color: gripMa.containsMouse || gripMa.pressed ? Theme.panel2 : Theme.panel
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                    Rectangle { anchors.centerIn: parent; width: 34; height: 2; color: gripMa.containsMouse || gripMa.pressed ? Theme.ink3 : Theme.line2 }
+                    MouseArea {
+                        id: gripMa
+                        anchors.fill: parent; anchors.margins: -3
+                        hoverEnabled: true
+                        cursorShape: Qt.SizeVerCursor
+                        property real _startY: 0
+                        property int _startH: 0
+                        onPressed: (m) => { _startY = m.y; _startH = Settings.triageStageMaxH }
+                        onPositionChanged: (m) => {
+                            if (!pressed) return;
+                            Settings.triageStageMaxH = _startH + Math.round(m.y - _startY);
+                        }
+                    }
+                }
+
                 // ---- body (scrolls) ----
                 Flickable {
                     Layout.fillWidth: true; Layout.fillHeight: true
@@ -799,7 +859,7 @@ Item {
                         }
 
                         // response procedure (SOP)
-                        Text { text: qsTr("RESPONSE PROCEDURE"); color: Theme.ink3; Layout.bottomMargin: 8
+                        Text { visible: tri._sop.length > 0; text: qsTr("RESPONSE PROCEDURE"); color: Theme.ink3; Layout.bottomMargin: 8
                             font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.2 }
                         Repeater {
                             model: tri._sop
@@ -897,6 +957,7 @@ Item {
         id: heroRealC
         EvHeroPlayer {
             ev: tri._cur; playbackClient: tri.playbackClient; surfaced: tri.active
+            maxStageH: Settings.triageStageMaxH
             toolCells: true
             bookmarkOn: tri._cur ? tri._cur.bookmarked === true : false
             onExportRequested: if (EventsStore.realMode) tri._doExport()

@@ -17,13 +17,14 @@ Item {
     // variant B §4: the 52px transport and the 44px tool row merge into ONE
     // 40px control bar; the host opts in and receives the tool-cell signals.
     property bool toolCells: false
+    property int maxStageH: 372          // video stage cap — host-adjustable (drag grip in triage)
     property bool bookmarkOn: false
     signal exportRequested()
     signal assignRequested()
     signal bookmarkRequested()
 
     // 21:9 surface + 52px transport (drive our own implicit height for the layout)
-    implicitHeight: width > 0 ? Math.min(372, Math.round(width * 9 / 21)) + 40 : 0
+    implicitHeight: width > 0 ? Math.min(maxStageH, Math.round(width * 9 / 21)) + 40 : 0
 
     property string _sid: ""
     property var _frags: []
@@ -406,7 +407,7 @@ Item {
         // ---- video surface ----
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(372, Math.round(width * 9 / 21))   // capped: recovered height goes to the body, not letterbox
+            Layout.preferredHeight: Math.min(hp.maxStageH, Math.round(width * 9 / 21))   // capped: recovered height goes to the body, not letterbox
             color: "#000"; clip: true
 
             VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
