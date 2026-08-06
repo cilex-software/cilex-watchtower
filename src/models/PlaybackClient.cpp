@@ -190,12 +190,12 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
 {
     m_sessionTag = tag;
     if (cameraId.isEmpty()) {
-        emit sessionFailed("This camera is not known to the recording backend.", m_sessionTag);
+        emit sessionFailed("This camera is not known to the recording backend.", tag);
         return;
     }
     if (!m_loggedIn) {
         if (!AuthController::instance()->authenticated()) {
-            emit sessionFailed(QStringLiteral("Not signed in to the recording backend."), m_sessionTag);
+            emit sessionFailed(QStringLiteral("Not signed in to the recording backend."), tag);
             return;
         }
         // queue: resolve streams, then retry once ready.
@@ -207,11 +207,18 @@ void PlaybackClient::openSession(const QString &cameraId, const QString &wallSta
         return;
     }
 
-    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, 0);
+    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, 0, tag);
 }
 
+// `tag` is CAPTURED per request and stamped on this request's own emissions.
+// It must NOT read m_sessionTag at reply time: two in-flight opens (a scrub
+// re-open racing an earlier open or its retry) would stamp the OLDER session's
+// reply with the NEWER tag — the stale session then passes every consumer's
+// ownership filter, flips the player's source back, and lands the hero at the
+// old window's start, paused (operator screenshots, 2026-08-06).
 void PlaybackClient::requestSession(const QString &cameraId, const QString &wallStartIso,
-                                    const QString &wallEndIso, bool hevcCapable, int attempt)
+                                    const QString &wallEndIso, bool hevcCapable, int attempt,
+                                    const QString &tag)
 {
     // [PBTIME] pairs with the QML open-path stage logs (see PlaybackScreen.qml).
     static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
@@ -240,7 +247,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     }
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, httpTimer]() {
+            [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, httpTimer, tag]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
@@ -253,8 +260,8 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             // backoff before surfacing the failure (a plain HTTP POST, no pipeline
             // teardown involved, so retrying here is safe).
             if (code == 0 && attempt < 2) {
-                QTimer::singleShot(500, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt]() {
-                    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, attempt + 1);
+                QTimer::singleShot(500, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, tag]() {
+                    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, attempt + 1, tag);
                 });
                 return;
             }
@@ -262,7 +269,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             const QString msg = !detail.isEmpty() ? detail
                         : code == 0 ? QStringLiteral("Couldn't reach the recording backend (%1).").arg(reply->errorString())
                         : QStringLiteral("Session error (%1).").arg(code);
-            emit sessionFailed(msg, m_sessionTag);
+            emit sessionFailed(msg, tag);
             setStatus(QString());
             return;
         }
@@ -309,7 +316,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         // heavy days it was hundreds more QVariantMaps of pure GC load per open.
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
-        emit sessionReady(sid, compactDuration, frags, meta, m_sessionTag);
+        emit sessionReady(sid, compactDuration, frags, meta, tag);
     });
 }
 

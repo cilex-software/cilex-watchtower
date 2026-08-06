@@ -37,6 +37,14 @@ Item {
     // played frame — and this span renders as the thin accent underline).
     property double mkStartMs: 0
     property double mkEndMs: 0
+    // Displayed pre/post-roll around the movement (operator ask 2026-08-06):
+    // mirrors the backend Motion recording profile (/admin/recording: pre=5s,
+    // post=5s today). Recordings may CONTAIN 15-25s of roll; the timeline clips
+    // the DISPLAY to the profile so every clip feels the same length-wise.
+    // Hardcoded until cilex-vision exposes per-camera effective profile values
+    // (letter 2026-08-06-recording-profile-roll.md) — then these read the model.
+    readonly property int padPreMs: 5000
+    readonly property int padPostMs: 5000
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
     property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog
@@ -136,8 +144,8 @@ Item {
         var w = EventsStore.episodeWindow(ev);
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
-            new Date(w.startMs - 15000).toISOString(),
-            new Date((w.endMs > w.startMs ? w.endMs : w.startMs + 1000) + 15000).toISOString(),
+            new Date(w.startMs - padPreMs).toISOString(),
+            new Date((w.endMs > w.startMs ? w.endMs : w.startMs + 1000) + padPostMs).toISOString(),
             true, _preTag);
     }
     Timer {
@@ -181,12 +189,12 @@ Item {
         // recording_id covers [start, end]). Verified live on .106: 188 / 28 ready fragments.
         var w = EventsStore.episodeWindow(ev);
         mkStartMs = w.startMs; mkEndMs = (w.endMs > w.startMs ? w.endMs : w.startMs + 1000);   // the movement span
-        // Timeline = the OPENED window (episode ±15s), not the bare episode: playback
-        // deliberately starts in the pre-roll, and a scrubber that clamps the pre-roll
-        // to 00:00 reads as "not playing" while the picture visibly runs (operator
-        // screenshots, 2026-08-06: camera OSD ticking 8s with the counter frozen).
-        tlStartMs = mkStartMs - 15000; tlEndMs = mkEndMs + 15000;
-        _pendingSeekMs = mkStartMs - 15000;                              // seek to ~15s before the episode start
+        // Timeline = the OPENED window (episode ± the profile roll), not the bare
+        // episode: playback starts in the pre-roll, and a scrubber that clamps the
+        // pre-roll to 00:00 reads as "not playing" while the picture visibly runs
+        // (operator screenshots, 2026-08-06: OSD ticking with the counter frozen).
+        tlStartMs = mkStartMs - padPreMs; tlEndMs = mkEndMs + padPostMs;
+        _pendingSeekMs = tlStartMs;                                      // land at display start (pre-roll head)
         // ADOPT a fresh prefetched session: the tap pays decode only.
         if (_pre && ev && _pre.evId === ev.id && _pre.fragments.length > 0
             && Date.now() - _pre.bornMs < 120000) {
@@ -237,7 +245,7 @@ Item {
         seekWatch.stop(); _seekWatchSeq = -1;                            // a re-open supersedes any pending direct-seek watch
         _gen++;
         openDeadline.restart();
-        _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall - 15000; _seekingToWall = wall;
+        _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall; _seekingToWall = wall;
         player.stop(); player.source = "";
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
@@ -412,16 +420,16 @@ Item {
                 // footage CLOSEST to the event — same logic as PlaybackScreen.
                 function _applySeek() {
                     if (!hp._armed || hp._loading || !(seekable && duration > 0 && hp._pendingSeekMs >= 0)) return;
-                    var evt = hp._pendingSeekMs + 15000;
+                    var target = hp._pendingSeekMs;      // wall ms to LAND on (display start, or the scrub click)
                     var bestWall = -1, bestD = Infinity;
                     for (var i = 0; i < hp._frags.length; i++) {
                         var f = hp._frags[i], d, w;
-                        if (evt >= f.ws && evt <= f.we) { d = 0; w = hp._pendingSeekMs; }
-                        else if (evt > f.we) { d = evt - f.we; w = f.we - 3000; }
-                        else { d = f.ws - evt; w = f.ws; }
+                        if (target >= f.ws && target <= f.we) { d = 0; w = target; }
+                        else if (target > f.we) { d = target - f.we; w = f.we - 3000; }
+                        else { d = f.ws - target; w = f.ws; }
                         if (d < bestD) { bestD = d; bestWall = w; }
                     }
-                    hp._seekWall(bestWall >= 0 ? bestWall : evt);
+                    hp._seekWall(bestWall >= 0 ? bestWall : target);
                     hp._pendingSeekMs = -1; hp._seekingToWall = -1;   // landed → release the held scrubber playhead
                 }
                 onSeekableChanged: _applySeek()
