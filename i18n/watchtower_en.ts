@@ -47,7 +47,7 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="273"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="301"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -80,6 +80,189 @@
     <message>
         <location filename="../qml/EvTimeline.qml" line="123"/>
         <source>m</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EvTriage</name>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="252"/>
+        <location filename="../qml/EvTriage.qml" line="414"/>
+        <source>Open queue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="253"/>
+        <location filename="../qml/EvTriage.qml" line="415"/>
+        <source>Critical</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="253"/>
+        <location filename="../qml/EvTriage.qml" line="416"/>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/EvTriage.qml" line="396"/>
+        <source>%n event(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="397"/>
+        <source>soloed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="456"/>
+        <source>of</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="504"/>
+        <source>No events on %1 in %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="596"/>
+        <source>jump</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="613"/>
+        <source>NO EVENTS IN TAB</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="650"/>
+        <source>Queue clear — no open events.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="663"/>
+        <source>ASSIGN TO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="685"/>
+        <source>Unassign</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="691"/>
+        <source>No operators available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="774"/>
+        <source>Camera</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="775"/>
+        <source>Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="776"/>
+        <source>Zone</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="777"/>
+        <source>Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="778"/>
+        <source>Clip length</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="779"/>
+        <source>AI confidence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="802"/>
+        <source>RESPONSE PROCEDURE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="849"/>
+        <source>Add disposition note (what happened, who responded)…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="864"/>
+        <source>Authorized</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="866"/>
+        <source>False alarm</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="868"/>
+        <source>Dispatch guard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvTriage.qml" line="873"/>
+        <source>Acknowledge</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>EventsArea</name>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="203"/>
+        <source>Triage Queue</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="205"/>
+        <source>Verify</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="207"/>
+        <source>Activity Timeline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="209"/>
+        <source>Situation Map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="295"/>
+        <source>Ungrouped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="306"/>
+        <location filename="../qml/EventsArea.qml" line="352"/>
+        <source>All groups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="369"/>
+        <source>OPEN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="370"/>
+        <source>CRITICAL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EventsArea.qml" line="371"/>
+        <source>CLEARED</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -219,22 +402,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2101"/>
+        <location filename="../qml/Main.qml" line="2108"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2106"/>
+        <location filename="../qml/Main.qml" line="2113"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2120"/>
+        <location filename="../qml/Main.qml" line="2127"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2124"/>
+        <location filename="../qml/Main.qml" line="2131"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -751,64 +934,64 @@
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="79"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="80"/>
         <source>now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="80"/>
-        <location filename="../qml/SingleCameraDetail.qml" line="87"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="81"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="88"/>
         <source>m</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="81"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="82"/>
         <source>h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="82"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="83"/>
         <source>d</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="86"/>
         <location filename="../qml/SingleCameraDetail.qml" line="87"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="88"/>
         <source>s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="229"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="230"/>
         <source>Recording audio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="229"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="230"/>
         <source>Audio recording disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="337"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="338"/>
         <source>Capture snapshot</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="338"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="339"/>
         <source>Snapshot with timestamp</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="339"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="340"/>
         <source>PTZ / lens control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="392"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="393"/>
         <source>loading…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="490"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="502"/>
         <source>No events recorded for this camera yet.</source>
         <translation type="unfinished"></translation>
     </message>

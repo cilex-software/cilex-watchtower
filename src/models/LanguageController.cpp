@@ -45,6 +45,10 @@ QVariantList LanguageController::availableLanguages() const
 
 void LanguageController::applyInitial()
 {
+    // Dev: WT_LANG=ru|en forces the UI language for this run (screenshot
+    // verification in both locales) without touching the persisted setting.
+    const QString envLang = qEnvironmentVariable("WT_LANG");
+    if (!envLang.isEmpty()) { apply(normalize(envLang)); return; }
     apply(m_language);
 }
 

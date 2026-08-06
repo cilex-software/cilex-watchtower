@@ -27,6 +27,30 @@ Item {
     // Camera-group scope: "" = all, "__ungrouped__" = cameras with no group, else a
     // group name. Filters every view (queue, wall/sessions, timeline lanes, map pins).
     property string groupFilter: ""
+    // Per-group event counts for the ACTIVE triage tab, over the UNscoped feed
+    // (a scoped store would dishonestly zero every other group's cell).
+    property var _gCounts: ({})
+    readonly property string triageTab: triage.filter
+    onTriageTabChanged: _recountGroups()
+    function _recountGroups() {
+        var lk = area._buildLookup();
+        var rows = eventModel ? eventModel.all() : [];
+        var out = ({ "": 0 });
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var ts = r.triageState;
+            var st = ts === "acknowledged" ? "ack" : ts === "in_progress" ? "progress"
+                   : ts === "resolved" ? "resolved" : ts === "dismissed" ? "dismissed"
+                   : ts === "new" ? "new" : (r.ack ? "ack" : "new");
+            if (area.triageTab === "open" && !(st === "new" || st === "ack" || st === "progress")) continue;
+            if (area.triageTab === "critical" && (r.severity ? r.severity : "medium") !== "critical") continue;
+            var c = lk[r.camId];
+            var z = c ? (c.zone || "") : "";
+            out[z === "" ? "__ungrouped__" : z] = (out[z === "" ? "__ungrouped__" : z] || 0) + 1;
+            out[""]++;
+        }
+        area._gCounts = out;
+    }
     readonly property var _groups: {
         var seen = ({}), out = [];
         var n = cameraModel ? cameraModel.total : 0;
@@ -97,6 +121,7 @@ Item {
             rows = rows.filter(function (r) { return lk[r.camId] !== undefined; });
         }
         EventsStore.ingestReal(rows, lk);
+        area._recountGroups();
     }
 
     Component.onCompleted: {
@@ -175,13 +200,13 @@ Item {
     }
 
     readonly property var _modes: [
-        { id: "triage",   n: "01", label: "Triage Queue",      tag: "Clear the backlog",
+        { id: "triage",   n: "01", label: qsTr("Triage Queue"),      tag: "Clear the backlog",
           why: "<font color='#f0ece4'><b>Inbox triage.</b></font> Work the queue top-down by priority — watch the event clip inline, run the response procedure, and record a disposition. Best when one operator must clear a backlog of unhandled alarms fast." },
-        { id: "review",   n: "02", label: "Verify",            tag: "See it · sort it",
+        { id: "review",   n: "02", label: qsTr("Verify"),            tag: "See it · sort it",
           why: "<font color='#f0ece4'><b>Verify — Wall + Sessions in one screen.</b></font> Toggle between the snapshot <font color='#f0ece4'><b>Wall</b></font> (confirm a threat or dismiss a false alarm at a glance) and <font color='#f0ece4'><b>Smart Sessions</b></font> (motion fragments collapsed by zone, ranked by priority, bulk-acknowledged)." },
-        { id: "timeline", n: "03", label: "Activity Timeline", tag: "Patterns & investigation",
+        { id: "timeline", n: "03", label: qsTr("Activity Timeline"), tag: "Patterns & investigation",
           why: "<font color='#f0ece4'><b>Forensic timeline.</b></font> One lane per camera across time; each event extends a bar to the right showing how long it lasted, so clusters and dwell-times become obvious. Best for investigating \"what happened between 5 and 8\"." },
-        { id: "map",      n: "04", label: "Situation Map",     tag: "Where is it happening",
+        { id: "map",      n: "04", label: qsTr("Situation Map"),     tag: "Where is it happening",
           why: "<font color='#f0ece4'><b>Spatial awareness.</b></font> Events pulse on the site plan where they physically occur. Best for supervisors and owners who think in places, not log lines, and need to dispatch in context." }
     ]
     readonly property var _curMode: {
@@ -195,146 +220,201 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // ============ mode bar: switcher + rationale + status strip ============
+        // ============ sub-nav (38px, gapless): modes · group strip · totals ============
+        // Variant B density language: every control is a cell sharing 1px hairlines
+        // (designs/handoff-camera-filter §2.5 + variant A §2.6 for the group strip).
         Rectangle {
+            id: subnav
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(58, modeRow.implicitHeight + 16)
+            Layout.preferredHeight: 38
             color: Theme.bg
+            z: 30
             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
 
+            // Measured fit: cell widths computed from FontMetrics in ONE pass and
+            // written in one assignment (never reset-then-decrement — that needs a
+            // repaint per step and silently no-ops when the reset writes the value
+            // it already holds). gband.width in the binding = recompute on resize.
+            FontMetrics { id: fmLbl; font.family: Theme.fontSans; font.pixelSize: 11 }
+            FontMetrics { id: fmCnt; font.family: Theme.fontMono; font.pixelSize: 10 }
+            function cellW(lbl, n) { return 24 + fmLbl.advanceWidth(lbl) + 8 + fmCnt.advanceWidth(String(n)); }
+
+            property bool gpopOpen: false
+            property real gpopX: 0
+
             RowLayout {
-                id: modeRow
                 anchors.fill: parent
-                anchors.leftMargin: 20; anchors.rightMargin: 20
-                spacing: 16
+                spacing: 0
 
-                // ---- mode switcher (segmented) ----
-                Rectangle {
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.preferredHeight: 40
-                    Layout.preferredWidth: seg.implicitWidth
-                    color: Theme.panel; border.width: 1; border.color: Theme.line2
-                    Row {
-                        id: seg
-                        height: parent.height
-                        Repeater {
-                            model: area._modes
-                            delegate: Rectangle {
-                                id: segBtn
-                                required property var modelData
-                                required property int index
-                                readonly property bool _active: area.mode === modelData.id
-                                height: seg.height
-                                width: segRow.implicitWidth + 32
-                                color: _active ? Theme.accent : (segMa.containsMouse ? Theme.panel2 : Theme.panel)
-                                Rectangle { visible: segBtn.index < area._modes.length - 1
-                                    anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
-                                Row {
-                                    id: segRow; anchors.centerIn: parent; spacing: 8
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: segBtn.modelData.n
-                                        color: segBtn._active ? Qt.rgba(26/255, 24/255, 22/255, 0.6) : Theme.ink3
-                                        font.family: Theme.fontMono; font.pixelSize: 10 }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: segBtn.modelData.label
-                                        color: segBtn._active ? Theme.bg : (segMa.containsMouse ? Theme.ink : Theme.ink2)
-                                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
-                                }
-                                MouseArea { id: segMa; anchors.fill: parent; hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor; onClicked: area.mode = segBtn.modelData.id }
+                // ---- mode segmented control (rationale copy lives in the tooltip) ----
+                Row {
+                    Layout.fillHeight: true
+                    Repeater {
+                        model: area._modes
+                        delegate: Rectangle {
+                            id: mcell
+                            required property var modelData
+                            required property int index
+                            readonly property bool _on: area.mode === modelData.id
+                            height: 37
+                            width: mRow.implicitWidth + 24
+                            color: _on ? Theme.accent : (mMa.containsMouse ? Theme.panel2 : "transparent")
+                            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                            Row {
+                                id: mRow; anchors.centerIn: parent; spacing: 7
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: mcell.modelData.n
+                                    color: mcell._on ? "#8a6417" : Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.9 }
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: mcell.modelData.label
+                                    color: mcell._on ? "#241a08" : (mMa.containsMouse ? Theme.ink2 : Theme.ink3)
+                                    font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.9
+                                    font.weight: mcell._on ? Font.Bold : Font.Normal }
                             }
+                            MouseArea { id: mMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { area.mode = mcell.modelData.id; subnav.gpopOpen = false } }
+                            ToolTip.visible: mMa.containsMouse
+                            ToolTip.delay: 700
+                            ToolTip.text: mcell.modelData.tag.toUpperCase() + " — "
+                                          + String(mcell.modelData.why).replace(/<[^>]*>/g, "")
                         }
                     }
                 }
+                Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.line2 }
 
-                // ---- camera-group scope ----
-                Rectangle {
-                    id: grpBtn
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.preferredHeight: 32; Layout.preferredWidth: 168
-                    color: grpMa.containsMouse ? Theme.panel2 : Theme.panel
-                    border.width: 1; border.color: area.groupFilter !== "" ? Theme.accent : Theme.line2
-                    EvIcon { id: grpChev; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                        name: "chev"; size: 12; rotation: 90; color: Theme.ink3 }
-                    Text {
-                        anchors.left: parent.left; anchors.leftMargin: 11; anchors.right: grpChev.left; anchors.rightMargin: 6
-                        anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight
-                        text: area.groupFilter === "" ? "All groups" : area.groupFilter === "__ungrouped__" ? "Ungrouped" : area.groupFilter
-                        color: area.groupFilter !== "" ? Theme.accent : Theme.ink2
-                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold
-                    }
-                    MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: grpPop.opened ? grpPop.close() : grpPop.open() }
-                    Popup {
-                        id: grpPop
-                        y: grpBtn.height + 4; x: 0; width: 188; padding: 1
-                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-                        background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
-                        contentItem: Column {
-                            id: grpCol
-                            Repeater {
-                                model: {
-                                    var m = [{ v: "", l: "All groups" }];
-                                    for (var i = 0; i < area._groups.length; i++) m.push({ v: area._groups[i], l: area._groups[i] });
-                                    if (area._hasUngrouped) m.push({ v: "__ungrouped__", l: "Ungrouped" });
-                                    return m;
-                                }
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    readonly property bool _on: area.groupFilter === modelData.v
-                                    width: grpCol.width; height: 30
-                                    color: gma.containsMouse ? Theme.panel3 : (_on ? Theme.accentSoft : "transparent")
-                                    Text { anchors.left: parent.left; anchors.leftMargin: 11; anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.l; color: parent._on ? Theme.accent : Theme.ink
-                                        font.family: Theme.fontSans; font.pixelSize: 12 }
-                                    MouseArea { id: gma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                        onClicked: { area.groupFilter = modelData.v; grpPop.close() } }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ---- rationale (tag + why) ----
-                ColumnLayout {
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.maximumWidth: 440
+                // ---- group strip (variant A §2.6, gapless) ----
+                Item {
+                    id: gband
                     Layout.fillWidth: true
-                    spacing: 2
-                    Text { text: area._curMode.tag.toUpperCase(); color: Theme.accent
-                        font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.0 }
-                    Text { Layout.fillWidth: true; text: area._curMode.why; color: Theme.ink2
-                        textFormat: Text.StyledText; wrapMode: Text.WordWrap; lineHeight: 1.25
-                        font.family: Theme.fontSans; font.pixelSize: 12 }
-                }
+                    Layout.fillHeight: true
+                    clip: true
 
-                Item { Layout.fillWidth: true }
+                    // configured order, ACTIVE PROMOTED so it can never hide in +M
+                    readonly property var gorder: {
+                        var out = [];
+                        for (var i = 0; i < area._groups.length; i++) out.push({ v: area._groups[i], l: area._groups[i] });
+                        if (area._hasUngrouped) out.push({ v: "__ungrouped__", l: qsTr("Ungrouped") });
+                        if (area.groupFilter !== "") {
+                            var act = out.filter(function (g) { return g.v === area.groupFilter; });
+                            var rest = out.filter(function (g) { return g.v !== area.groupFilter; });
+                            out = act.concat(rest);
+                        }
+                        return out;
+                    }
+                    // one-pass computed fit; floors at 1 while a real group is active
+                    readonly property int gvis: {
+                        var avail = gband.width;
+                        var used = subnav.cellW(qsTr("All groups"), area._gCounts[""] || 0);
+                        var k = 0, ord = gband.gorder;
+                        for (var i = 0; i < ord.length; i++) {
+                            var tail = (i < ord.length - 1) ? subnav.cellW("+" + (ord.length - i - 1), "\u25be") : 0;
+                            var w = subnav.cellW(ord[i].l, area._gCounts[ord[i].v] || 0);
+                            if (used + w + tail <= avail) { used += w; k++; } else break;
+                        }
+                        return (area.groupFilter !== "" && k < 1) ? 1 : k;
+                    }
+                    readonly property var hidden: gorder.slice(gvis)
 
-                // ---- status strip (OPEN / CRITICAL / CLEARED) ----
-                Rectangle {
-                    Layout.alignment: Qt.AlignVCenter
-                    Layout.preferredHeight: 38
-                    Layout.preferredWidth: chipRow.implicitWidth
-                    color: Theme.panel; border.width: 1; border.color: Theme.line2
                     Row {
-                        id: chipRow
                         height: parent.height
-                        Repeater {
-                            model: [ { dot: Theme.bad,    n: EventsStore.openCount,    l: "open" },
-                                     { dot: Theme.accent, n: EventsStore.critCount,    l: "critical" },
-                                     { dot: Theme.good,   n: EventsStore.clearedCount, l: "cleared" } ]
-                            delegate: Rectangle {
-                                required property var modelData
-                                required property int index
-                                height: chipRow.height; width: cRow.implicitWidth + 28; color: "transparent"
-                                Rectangle { visible: index < 2; anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
-                                Row {
-                                    id: cRow; anchors.centerIn: parent; spacing: 8
-                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; color: modelData.dot }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.n; color: Theme.ink
-                                        font.family: Theme.fontSans; font.pixelSize: 18; font.weight: Font.Bold }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.l.toUpperCase(); color: Theme.ink3
-                                        font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 0.9 }
+                        component GCell: Rectangle {
+                            id: gcell
+                            property string v: ""
+                            property string lbl: ""
+                            property int n: 0
+                            property bool isPlus: false
+                            readonly property bool _on: !isPlus && area.groupFilter === v
+                            height: 37
+                            width: gRow.implicitWidth + 24
+                            color: _on ? Theme.accentSoft : (gMa.containsMouse ? Theme.panel2 : "transparent")
+                            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                            Rectangle { visible: gcell._on; anchors.bottom: parent.bottom; width: parent.width; height: 2; color: Theme.accent }
+                            Row {
+                                id: gRow; anchors.centerIn: parent; spacing: 8
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: gcell.lbl
+                                    color: gcell._on ? Theme.accent : (gcell.n === 0 && !gcell.isPlus ? Theme.ink3 : (gMa.containsMouse ? Theme.ink : Theme.ink2))
+                                    font.family: Theme.fontSans; font.pixelSize: 11 }
+                                Text { anchors.verticalCenter: parent.verticalCenter
+                                    text: gcell.isPlus ? "\u25be" : gcell.n
+                                    color: gcell._on ? Theme.accent : Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 10 }
+                            }
+                            MouseArea {
+                                id: gMa
+                                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (gcell.isPlus) {
+                                        subnav.gpopX = gcell.mapToItem(subnav, 0, 0).x;
+                                        subnav.gpopOpen = !subnav.gpopOpen;
+                                    } else { area.groupFilter = gcell.v; subnav.gpopOpen = false }
                                 }
                             }
+                        }
+                        GCell { lbl: qsTr("All groups"); v: ""; n: area._gCounts[""] || 0 }
+                        Repeater {
+                            model: gband.gorder.slice(0, gband.gvis)
+                            delegate: GCell {
+                                required property var modelData
+                                v: modelData.v; lbl: modelData.l; n: area._gCounts[modelData.v] || 0
+                            }
+                        }
+                        GCell { visible: gband.hidden.length > 0; isPlus: true; lbl: "+" + gband.hidden.length }
+                    }
+                }
+                Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.line2 }
+
+                // ---- section totals (pill cells) ----
+                Row {
+                    Layout.fillHeight: true
+                    Repeater {
+                        model: [ { dot: Theme.bad,    n: EventsStore.openCount,    l: qsTr("OPEN") },
+                                 { dot: Theme.accent, n: EventsStore.critCount,    l: qsTr("CRITICAL") },
+                                 { dot: Theme.good,   n: EventsStore.clearedCount, l: qsTr("CLEARED") } ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            required property int index
+                            height: 37; width: tRow.implicitWidth + 26
+                            color: "transparent"
+                            Rectangle { visible: index > 0; anchors.left: parent.left; width: 1; height: parent.height; color: Theme.line }
+                            Row {
+                                id: tRow; anchors.centerIn: parent; spacing: 6
+                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; color: modelData.dot }
+                                Text { anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.n + " " + modelData.l
+                                    color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.7 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // +M ▾ panel — a plain child Rectangle (never a Popup), under the button
+            Rectangle {
+                visible: subnav.gpopOpen && gband.hidden.length > 0
+                x: Math.min(subnav.gpopX, subnav.width - width - 4)
+                y: 38
+                z: 40
+                width: 206
+                height: gpopCol.implicitHeight + 2
+                color: Theme.panel; border.width: 1; border.color: Theme.line2
+                Column {
+                    id: gpopCol
+                    x: 1; y: 1; width: parent.width - 2
+                    Repeater {
+                        model: gband.hidden
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool _on: area.groupFilter === modelData.v
+                            width: gpopCol.width; height: 28
+                            color: pMa.containsMouse ? Theme.panel2 : "transparent"
+                            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                            Text { anchors.left: parent.left; anchors.leftMargin: 11; anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.l; color: parent._on ? Theme.accent : Theme.ink2
+                                font.family: Theme.fontSans; font.pixelSize: 11 }
+                            Text { anchors.right: parent.right; anchors.rightMargin: 11; anchors.verticalCenter: parent.verticalCenter
+                                text: area._gCounts[modelData.v] || 0
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                            MouseArea { id: pMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { area.groupFilter = modelData.v; subnav.gpopOpen = false } }
                         }
                     }
                 }
@@ -348,12 +428,14 @@ Item {
         // Triage (default + most-used) is always resident; the other three LAZY-load on first visit and
         // then STAY (latched `active` — never destroyed, so no recreate-leak). A triage-focused session
         // keeps the low ~580MB baseline; only the tabs an operator actually opens add their cost.
-        StackLayout {
-            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+        Item {
+            Layout.fillWidth: true; Layout.fillHeight: true
+            StackLayout {
+            anchors.fill: parent; clip: true
             currentIndex: area.mode === "triage" ? 0
                         : area.mode === "review" ? 1
                         : area.mode === "timeline" ? 2 : 3
-            EvTriage { selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
+            EvTriage { id: triage; selId: area.selId; playbackClient: heroClient; active: area.visible && area.mode === "triage"
                        onSelect: (id) => area.selId = id
                        onExportClip: (c, s, e, p) => area.exportClip(c, s, e, p) }
             Loader { property bool _seen: false; active: _seen; sourceComponent: reviewC
@@ -362,6 +444,13 @@ Item {
                      StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
             Loader { property bool _seen: false; active: _seen; sourceComponent: mapC
                      StackLayout.onIsCurrentItemChanged: if (StackLayout.isCurrentItem) _seen = true }
+            }
+            MouseArea {                       // outside press closes the +M panel, then passes through
+                anchors.fill: parent
+                visible: subnav.gpopOpen
+                z: 50
+                onPressed: (m) => { subnav.gpopOpen = false; m.accepted = false }
+            }
         }
     }
 

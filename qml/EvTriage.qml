@@ -123,50 +123,184 @@ Item {
     function _htSummary() { var s = ""; for (var i = 0; i < _htSteps.length; i++) s += " " + (_htSteps[i] / 1000) + "s=" + (_htCount[_htSteps[i]] || 0); return s; }
 
     property string filter: "open"               // open | critical | all
-    property string camFilter: ""                // "" = all cameras (quick chip filter)
     property string note: ""
     property var done: ({})                       // local SOP ticks, reset per event
 
-    // priority → recency, filtered by the active tab
-    readonly property var _list: {
-        var es = EventsStore.events.filter(function (e) {
-            if (tri.camFilter !== "" && (!e.cam || e.cam.id !== tri.camFilter)) return false;
-            if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
-            if (tri.filter === "critical") return e.priority === "critical";
-            return true;
-        });
-        es.sort(function (a, b) {
-            return (EventsStore.sevRank[a.priority] - EventsStore.sevRank[b.priority]) || (b.ts.getTime() - a.ts.getTime());
-        });
-        return es;
+    // ===================== variant B "Lanes" state =====================
+    // designs/handoff-camera-filter/2026-08-06-triage-camera-filter-variant-b-lanes.md
+    property var solo: []                         // camera KEYS (stable ids), in solo order
+    property var fold: []                         // per-lane fold (alt-click)
+    property string buf: ""                       // digit type-ahead buffer (max 3)
+    readonly property int rowH: 44                // dense (compact 48 / ultra 36)
+    readonly property int headH: 26
+    readonly property int emptyH: 36
+    property bool stickyHeads: true
+
+    Timer { id: bufClear; interval: 1400; onTriggered: tri.buf = "" }
+
+    function _tabPred(e) {
+        if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
+        if (tri.filter === "critical") return e.priority === "critical";
+        return true;
     }
+    function _octNum(c) {
+        var m = /\.(\d+)$/.exec(c.ip || "");
+        if (m) return parseInt(m[1]);
+        var m2 = /\((?:\d+\.){3}(\d+)\)/.exec(c.name || "");
+        return m2 ? parseInt(m2[1]) : -1;
+    }
+    // model string = camera name minus its "(ip)" tail — the lane header names it once
+    function _modelOf(c) { return String(c.name || c.id || "").replace(/\s*\((?:\d+\.){3}\d+\)\s*$/, ""); }
+
+    // One computed pass builds everything the lanes need. Every item carries a
+    // precomputed y so the sticky header is resolved from CONTENT geometry, not
+    // from loaded delegates — deterministic at any scroll position and cheap.
+    readonly property var _L: {
+        var evs = EventsStore.events.filter(tri._tabPred);
+        var by = ({});
+        for (var i = 0; i < evs.length; i++) {
+            var e = evs[i], k = e.cam ? e.cam.key : "?";
+            (by[k] = by[k] || []).push(e);
+        }
+        for (var k0 in by)
+            by[k0].sort(function (x, y) {
+                return (EventsStore.sevRank[x.priority] - EventsStore.sevRank[y.priority])
+                       || (y.ts.getTime() - x.ts.getTime());
+            });
+        var cams = [];
+        for (var ck in EventsStore.cams) {
+            var c = EventsStore.cams[ck];
+            var sv = { critical: 0, high: 0, medium: 0, low: 0 };
+            (by[ck] || []).forEach(function (e2) { if (sv[e2.priority] !== undefined) sv[e2.priority]++; });
+            cams.push({ key: ck, cam: c, oct: tri._octNum(c),
+                        lbl: (tri._octNum(c) >= 0 ? "." + tri._octNum(c) : String(c.id || ck)),
+                        model: tri._modelOf(c), offline: c.offline === true,
+                        n: (by[ck] || []).length, sev: sv });
+        }
+        var active = cams.filter(function (c) { return c.n > 0; });
+        active.sort(function (a, b) { return (b.n - a.n) || (a.oct - b.oct); });
+        // soloed lanes first, in solo order; a soloed zero-count camera still gets
+        // a lane (the filter must not vanish — it shows the inline empty state)
+        var sol = [], rest = [];
+        active.forEach(function (c) { (tri.solo.indexOf(c.key) >= 0 ? sol : rest).push(c); });
+        tri.solo.forEach(function (sk) {
+            if (!sol.some(function (c) { return c.key === sk; })) {
+                var zc = cams.filter(function (c) { return c.key === sk; })[0];
+                if (zc) sol.push(zc);
+            }
+        });
+        sol.sort(function (a, b) { return tri.solo.indexOf(a.key) - tri.solo.indexOf(b.key); });
+        var laneCams = sol.concat(rest);
+        var items = [], y = 0, soloOn = tri.solo.length > 0;
+        laneCams.forEach(function (c) {
+            var on = tri.solo.indexOf(c.key) >= 0;
+            var muted = soloOn && !on;
+            var folded = tri.fold.indexOf(c.key) >= 0;
+            var collapsed = muted || folded;
+            items.push({ t: "h", lane: c, on: on, muted: muted, folded: folded,
+                         laneKey: c.key, y: y, h: tri.headH });
+            y += tri.headH;
+            if (!collapsed) {
+                if (c.n === 0) {
+                    items.push({ t: "x", lane: c, laneKey: c.key, y: y, h: tri.emptyH });
+                    y += tri.emptyH;
+                } else {
+                    (by[c.key] || []).forEach(function (ev) {
+                        items.push({ t: "e", ev: ev, lane: c, laneKey: c.key, y: y, h: tri.rowH });
+                        y += tri.rowH;
+                    });
+                }
+            }
+        });
+        var zeros = cams.filter(function (c) { return c.n === 0 && tri.solo.indexOf(c.key) < 0; });
+        zeros.sort(function (a, b) { return a.oct - b.oct; });
+        var shown = soloOn ? tri.solo.reduce(function (n, sk) { return n + (by[sk] || []).length; }, 0)
+                           : evs.length;
+        var vis = [];
+        items.forEach(function (it) { if (it.t === "e" && (!soloOn || tri.solo.indexOf(it.laneKey) >= 0)) vis.push(it.ev); });
+        return { items: items, total: y, inTab: evs.length, activeCams: active.length,
+                 shown: shown, zeros: zeros, visible: vis, by: by };
+    }
+    // downstream (detail pane, selection) keeps reading _list: the events a guard
+    // can currently see, lane order
+    readonly property var _list: tri._L.visible
+
+    function toggleSolo(key, add) {
+        var s = tri.solo.slice();
+        if (add) {
+            var i = s.indexOf(key);
+            if (i >= 0) s.splice(i, 1); else s.push(key);
+        } else {
+            s = (s.length === 1 && s[0] === key) ? [] : [key];
+        }
+        tri.solo = s;
+        lanesView.contentY = 0;   // soloed lanes sort to the TOP — positional, never a measured scroll
+    }
+    function toggleFold(key) {
+        var f = tri.fold.slice();
+        var i = f.indexOf(key);
+        if (i >= 0) f.splice(i, 1); else f.push(key);
+        tri.fold = f;
+    }
+    function jumpTo(key) {
+        tri.solo = [key];
+        tri.fold = tri.fold.filter(function (x) { return x !== key; });
+        lanesView.contentY = 0;
+    }
+    function clearSolo() { tri.solo = []; tri.buf = ""; }
+    function _tabLabel() {
+        return tri.filter === "open" ? qsTr("Open queue")
+             : tri.filter === "critical" ? qsTr("Critical") : qsTr("All");
+    }
+    // digit roster matching (octet prefix, honest ambiguity rule)
+    function _hits(prefix) {
+        var out = [];
+        for (var ck in EventsStore.cams) {
+            var o = tri._octNum(EventsStore.cams[ck]);
+            if (o >= 0 && String(o).indexOf(prefix) === 0) out.push({ key: ck, oct: o });
+        }
+        out.sort(function (a, b) { return a.oct - b.oct; });
+        return out;
+    }
+    function typeDigit(d) {
+        var nb = (tri.buf + d).slice(-3);
+        tri.buf = nb;
+        var hits = tri._hits(nb);
+        // commit only when unambiguous — or at the third digit ('14' still matches
+        // .140 .143 .144 .145 .146; jumping early would jump WRONG)
+        if (hits.length === 1 || (nb.length >= 3 && hits.length > 0)) tri.jumpTo(hits[0].key);
+        bufClear.restart();
+    }
+    Keys.onPressed: (ev) => {
+        if (ev.key >= Qt.Key_0 && ev.key <= Qt.Key_9) { tri.typeDigit(String(ev.key - Qt.Key_0)); ev.accepted = true; }
+        else if (ev.key === Qt.Key_Backspace) { tri.buf = tri.buf.slice(0, -1); ev.accepted = true; }
+        else if (ev.key === Qt.Key_Escape) { tri.clearSolo(); ev.accepted = true; }
+    }
+    onActiveChanged: if (active) tri.forceActiveFocus()
+    // Dev (WT_TRIAGE_TEST="solo:146" | "type:14"): drives the lane filter for
+    // screenshot verification — same code paths as the mouse/keys.
+    Timer {
+        interval: 9000; running: typeof wtTriageTest !== "undefined" && wtTriageTest !== "" && tri.active
+        onTriggered: {
+            var m = /^(solo|type):(\d+)$/.exec(wtTriageTest);
+            if (!m) return;
+            if (m[1] === "solo") { var h = tri._hits(m[2]); if (h.length) tri.jumpTo(h[0].key); }
+            else m[2].split("").forEach(function (d) { tri.typeDigit(d); });
+        }
+    }
+    Component.onCompleted: if (active) tri.forceActiveFocus()
+    // group-scope change re-ingests the store; prune soloed cameras that left scope
+    Connections {
+        target: EventsStore
+        function onCamsChanged() {
+            var keep = tri.solo.filter(function (k) { return EventsStore.cams[k] !== undefined; });
+            if (keep.length !== tri.solo.length) tri.solo = keep;
+        }
+    }
+
     readonly property var _cur: EventsStore.find(tri.selId) || (_list.length ? _list[0] : null)
     readonly property int _openCount: EventsStore.events.filter(function (e) { return e.status === "new" || e.status === "ack" || e.status === "progress"; }).length
     readonly property int _critTab: EventsStore.events.filter(function (e) { return e.priority === "critical"; }).length
-
-    // Camera quick-filter chips (operator ask 2026-08-06 — the queue had no
-    // per-camera cut): cameras present in the ACTIVE TAB's events, busiest
-    // first. Chip label = the IP octet (the fleet's spoken camera name).
-    function _octet(c) {
-        var m = /\((?:\d+\.){3}(\d+)\)/.exec(c.name || "");
-        return m ? "." + m[1] : (c.name || c.id || "?");
-    }
-    readonly property var _camChips: {
-        var m = ({}), out = [];
-        var es = EventsStore.events.filter(function (e) {
-            if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
-            if (tri.filter === "critical") return e.priority === "critical";
-            return true;
-        });
-        for (var i = 0; i < es.length; i++) {
-            var c = es[i].cam;
-            if (!c || !c.id) continue;
-            if (!m[c.id]) { m[c.id] = { id: c.id, l: _octet(c), name: c.name || "", n: 0 }; out.push(m[c.id]); }
-            m[c.id].n++;
-        }
-        out.sort(function (a, b) { return b.n - a.n || (a.l < b.l ? -1 : a.l > b.l ? 1 : 0); });
-        return out;
-    }
 
     // reset note + SOP ticks whenever the selected event changes
     property string _curId: _cur ? _cur.id : ""
@@ -188,164 +322,319 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // ======================= LEFT — the queue =======================
+        // ======================= LEFT — the queue (variant B lanes) =======================
         Rectangle {
             Layout.preferredWidth: 384
             Layout.fillHeight: true
             color: "transparent"
-            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }  // right border
+            Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+
+            // shared lane-header look: used by the list delegate AND the pinned sticky copy
+            component LaneHead: Rectangle {
+                id: lh
+                property var it: null            // {lane,on,muted,folded,laneKey}
+                readonly property var lane: it ? it.lane : null
+                readonly property bool collapsed: it ? (it.muted || it.folded) : false
+                height: tri.headH
+                color: (it && it.on) ? "#2b2318" : (lhMa.containsMouse ? Theme.panel2 : Theme.panel)
+                opacity: (it && it.muted && !lhMa.containsMouse) ? 0.6 : 1   // 60% floor keeps the octet ≥4.5:1
+                Rectangle { visible: it && it.on; anchors.left: parent.left; width: 2; height: parent.height; color: Theme.accent }
+                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                Row {
+                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+                    spacing: 8
+                    Text { width: 8; anchors.verticalCenter: parent.verticalCenter
+                        text: lh.collapsed ? "\u25b8" : "\u25be"; color: Theme.ink3
+                        font.family: Theme.fontSans; font.pixelSize: 8 }
+                    Text { anchors.verticalCenter: parent.verticalCenter
+                        text: lh.lane ? lh.lane.lbl : ""              // ONE text run — never ". 144"
+                        color: (lh.it && lh.it.on) ? Theme.accent : Theme.ink
+                        font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
+                    Rectangle { visible: lh.lane && lh.lane.offline; width: 5; height: 5; radius: 2.5
+                        anchors.verticalCenter: parent.verticalCenter; color: Theme.bad }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, parent.width - 8 - 8 - (lh.lane && lh.lane.offline ? 13 : 0)
+                               - octM.width - 38 - 8 - cntM.width - 16)
+                        text: lh.lane ? lh.lane.model : ""; elide: Text.ElideRight
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 10
+                    }
+                    Row {                                          // severity mix — 38×3, the lane's backlog makeup
+                        anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                        Repeater {
+                            model: lh.lane ? ["critical", "high", "medium", "low"].filter(function (k) { return lh.lane.sev[k] > 0; }) : []
+                            delegate: Rectangle {
+                                required property var modelData
+                                height: 3
+                                width: Math.max(2, Math.round(38 * lh.lane.sev[modelData] / Math.max(1, lh.lane.n)))
+                                color: Theme.sevColor(modelData === "critical" ? "critical" : modelData)
+                            }
+                        }
+                    }
+                    Text { id: cntM
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(20, implicitWidth); horizontalAlignment: Text.AlignRight
+                        text: lh.lane ? lh.lane.n : ""
+                        color: (lh.it && lh.it.on) ? Theme.accent : Theme.ink2
+                        font.family: Theme.fontMono; font.pixelSize: 11 }
+                }
+                Text { id: octM; visible: false; text: lh.lane ? lh.lane.lbl : ""
+                    font.family: Theme.fontMono; font.pixelSize: 12; font.weight: Font.DemiBold }
+                MouseArea {
+                    id: lhMa
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: (m) => {
+                        tri.forceActiveFocus();
+                        if (!lh.it) return;
+                        if (m.modifiers & Qt.AltModifier) tri.toggleFold(lh.it.laneKey);
+                        else tri.toggleSolo(lh.it.laneKey, (m.modifiers & Qt.ControlModifier) || (m.modifiers & Qt.MetaModifier));
+                    }
+                }
+                ToolTip.visible: lhMa.containsMouse && lh.lane !== null
+                ToolTip.delay: 600
+                ToolTip.text: lh.lane ? (lh.lane.cam.name + " \u00b7 " + qsTr("%n event(s)", "", lh.lane.n)
+                                         + (lh.it && lh.it.on ? " \u00b7 " + qsTr("soloed") : "")) : ""
+            }
 
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 0
 
-                // ---- filter tabs ----
+                // ---- status tabs (32px, gapless) + scope readout ----
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 45
+                    Layout.preferredHeight: 32
                     color: "transparent"
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
-                    Row {
-                        anchors.left: parent.left; anchors.leftMargin: 14
-                        anchors.bottom: parent.bottom
-                        spacing: 4
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 0
                         Repeater {
-                            model: [ { k: "open",     l: "Open queue", n: tri._openCount },
-                                     { k: "critical", l: "Critical",   n: tri._critTab },
-                                     { k: "all",      l: "All",        n: EventsStore.events.length } ]
+                            model: [ { k: "open",     l: qsTr("Open queue"), n: tri._openCount },
+                                     { k: "critical", l: qsTr("Critical"),   n: tri._critTab },
+                                     { k: "all",      l: qsTr("All"),        n: EventsStore.events.length } ]
                             delegate: Rectangle {
                                 required property var modelData
                                 readonly property bool _active: tri.filter === modelData.k
-                                height: 34; width: tabRow.implicitWidth + 24; color: "transparent"
-                                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 2; color: parent._active ? Theme.accent : "transparent" }
+                                Layout.fillHeight: true
+                                Layout.preferredWidth: qtRow.implicitWidth + 22
+                                color: _active ? Theme.panel : (qtMa.containsMouse ? Theme.panel2 : "transparent")
+                                Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                                Rectangle { visible: parent._active; anchors.bottom: parent.bottom; width: parent.width; height: 2; color: Theme.accent }
                                 Row {
-                                    id: tabRow; anchors.centerIn: parent; spacing: 7
+                                    id: qtRow; anchors.centerIn: parent; spacing: 6
                                     Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.l
-                                        color: parent.parent._active ? Theme.ink : Theme.ink2
-                                        font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
-                                    Rectangle {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        height: 15; width: nT.implicitWidth + 12; color: Theme.panel2
-                                        Text { id: nT; anchors.centerIn: parent; text: modelData.n
-                                            color: parent.parent.parent._active ? Theme.accent : Theme.ink3
-                                            font.family: Theme.fontMono; font.pixelSize: 10 }
-                                    }
+                                        color: parent.parent._active ? Theme.ink : Theme.ink3
+                                        font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: modelData.n
+                                        color: parent.parent._active ? Theme.accent : Theme.ink3
+                                        font.family: Theme.fontMono; font.pixelSize: 10 }
                                 }
-                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tri.filter = modelData.k }
+                                MouseArea { id: qtMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: { tri.filter = modelData.k; tri.forceActiveFocus() } }
                             }
                         }
-                    }
-                }
-
-                // ---- camera quick filter ----
-                Rectangle {
-                    visible: tri._camChips.length > 1
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 36
-                    color: "transparent"
-                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
-                    ListView {
-                        id: camChips
-                        anchors.fill: parent
-                        anchors.leftMargin: 14; anchors.rightMargin: 8
-                        orientation: ListView.Horizontal
-                        spacing: 6
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        model: [{ id: "", l: "All", n: -1, name: "" }].concat(tri._camChips)
-                        delegate: Item {
-                            id: chipItem
-                            required property var modelData
-                            readonly property bool on: tri.camFilter === modelData.id
-                            width: chip.width; height: camChips.height
-                            Rectangle {
-                                id: chip
+                        // scope readout — replaces a whole filter ribbon at zero height cost
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            color: "transparent"
+                            Rectangle { anchors.left: parent.left; width: 1; height: parent.height; color: Theme.line }
+                            Row {
+                                anchors.right: parent.right; anchors.rightMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
-                                height: 22; width: chipRow.implicitWidth + 16
-                                color: chipItem.on ? Theme.accentSoft : (chipMa.containsMouse ? Theme.panel2 : "transparent")
-                                border.width: 1; border.color: chipItem.on ? Theme.accent : Theme.line2
-                                Row {
-                                    id: chipRow; anchors.centerIn: parent; spacing: 5
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: chipItem.modelData.l
-                                        color: chipItem.on ? Theme.accent : Theme.ink2
-                                        font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold }
-                                    Text { visible: chipItem.modelData.n >= 0; anchors.verticalCenter: parent.verticalCenter
-                                        text: chipItem.modelData.n
-                                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                                spacing: 6
+                                Text {
+                                    visible: tri.solo.length === 0
+                                    text: tri._L.inTab + " \u00b7 " + tri._L.activeCams + " cam"
+                                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                                }
+                                Text {
+                                    visible: tri.solo.length > 0
+                                    textFormat: Text.StyledText
+                                    text: "<font color='" + Theme.accent + "'><b>" + tri._L.shown + "</b></font> "
+                                          + qsTr("of") + " " + tri._L.inTab + " \u00b7 "
+                                          + tri.solo.map(function (k) {
+                                                var c = EventsStore.cams[k];
+                                                return c ? ((tri._octNum(c) >= 0 ? "." + tri._octNum(c) : c.id)) : "";
+                                            }).join(" ")
+                                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                                }
+                                Text {
+                                    visible: tri.solo.length > 0
+                                    text: "\u2715"; color: Theme.accent
+                                    font.family: Theme.fontMono; font.pixelSize: 10
+                                    MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor
+                                        onClicked: tri.clearSolo() }
                                 }
                             }
-                            MouseArea { id: chipMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: tri.camFilter = (chipItem.on ? "" : chipItem.modelData.id) }
-                            ToolTip.visible: chipMa.containsMouse && chipItem.modelData.name !== ""
-                            ToolTip.text: chipItem.modelData.name
-                            ToolTip.delay: 500
                         }
                     }
                 }
 
-                // ---- scrolling list ----
-                ListView {
-                    id: listView
+                // ---- lanes ----
+                Item {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true
-                    model: tri._list
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { }
-                    Text {                                 // honest empty (a chip can zero a tab)
-                        anchors.centerIn: parent
-                        visible: tri._list.length === 0
-                        text: "No events match this filter."
-                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                    ListView {
+                        id: lanesView
+                        anchors.fill: parent
+                        model: tri._L.items
+                        boundsBehavior: Flickable.StopAtBounds
+                        reuseItems: false
+                        cacheBuffer: 400
+                        ScrollBar.vertical: ScrollBar { }
+                        delegate: Loader {
+                            required property var modelData
+                            width: lanesView.width
+                            sourceComponent: modelData.t === "h" ? headC : modelData.t === "e" ? rowC : emptyC
+                            onLoaded: item.it = modelData
+                        }
                     }
-                    delegate: Rectangle {
-                        id: row
-                        required property var modelData
-                        readonly property var e: modelData
-                        readonly property bool _on: tri._cur && e.id === tri._cur.id
-                        width: ListView.view.width; height: 67
-                        color: _on ? Theme.panel2 : (rowMa.containsMouse ? Theme.panel : "transparent")
-                        opacity: e.status !== "new" ? 0.5 : 1
-                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
-                        Rectangle { visible: row._on; anchors.left: parent.left; width: 3; height: parent.height; color: Theme.accent }  // selection bar
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 16; anchors.rightMargin: 16
-                            spacing: 11
-
-                            // severity dot (+ halo on critical)
-                            Item {
-                                Layout.preferredWidth: 8; Layout.preferredHeight: 8; Layout.alignment: Qt.AlignVCenter
-                                Rectangle { visible: row.e.priority === "critical"; anchors.centerIn: parent; width: 14; height: 14; radius: 7; color: Theme.badSoft }
-                                Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Theme.sevColor(row.e.priority) }
+                    Component { id: headC; LaneHead { width: lanesView.width } }
+                    Component {
+                        id: emptyC
+                        Item {
+                            property var it: null
+                            width: lanesView.width; height: tri.emptyH
+                            Text {
+                                anchors.left: parent.left; anchors.leftMargin: 30
+                                anchors.verticalCenter: parent.verticalCenter
+                                // the lane IS the filter, so the filter can never silently vanish
+                                text: it ? qsTr("No events on %1 in %2.").arg(it.lane.lbl).arg(tri._tabLabel()) : ""
+                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
                             }
-                            // thumbnail + duration badge
-                            Rectangle {
-                                Layout.preferredWidth: 74; Layout.preferredHeight: 42; Layout.alignment: Qt.AlignVCenter
-                                color: "#000"; border.width: 1; border.color: Theme.line; clip: true
-                                EvSnapshot { anchors.fill: parent; anchors.margins: 1; ev: row.e; mini: true; showOsd: false }
+                            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                        }
+                    }
+                    Component {
+                        id: rowC
+                        Rectangle {
+                            id: erow
+                            property var it: null
+                            readonly property var e: it ? it.ev : null
+                            readonly property bool _on: e && tri._cur && tri._cur.id === e.id
+                            width: lanesView.width; height: tri.rowH
+                            color: _on ? Theme.panel2 : (erMa.containsMouse ? Theme.panel : "transparent")
+                            opacity: (e && e.status !== "new") ? 0.45 : 1
+                            Rectangle { visible: erow._on; anchors.left: parent.left; width: 3; height: parent.height; color: Theme.accent }
+                            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10; anchors.rightMargin: 10
+                                spacing: 9
+                                Item {
+                                    Layout.preferredWidth: 7; Layout.preferredHeight: 7; Layout.alignment: Qt.AlignVCenter
+                                    Rectangle { visible: erow.e && erow.e.priority === "critical"; anchors.centerIn: parent
+                                        width: 13; height: 13; radius: 6.5; color: Theme.badSoft }
+                                    Rectangle { anchors.centerIn: parent; width: 7; height: 7; radius: 3.5
+                                        color: erow.e ? Theme.sevColor(erow.e.priority) : Theme.ink3 }
+                                }
                                 Rectangle {
-                                    visible: row.e.durationSec > 0
-                                    anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 2
-                                    color: Qt.rgba(0, 0, 0, 0.7); height: 11; width: dB.implicitWidth + 6
-                                    Text { id: dB; anchors.centerIn: parent; text: EventsStore.dur(row.e.durationSec); color: "#fff"
-                                        font.family: Theme.fontMono; font.pixelSize: 8 }
+                                    Layout.preferredWidth: Math.round(tri.rowH * 1.32)
+                                    Layout.preferredHeight: Math.round(tri.rowH * 0.75)
+                                    Layout.alignment: Qt.AlignVCenter
+                                    color: "#000"; border.width: 1; border.color: Theme.line; clip: true
+                                    EvSnapshot { anchors.fill: parent; anchors.margins: 1; ev: erow.e; mini: true; showOsd: false }
+                                    Rectangle {
+                                        visible: erow.e && erow.e.durationSec > 0
+                                        anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 1
+                                        color: Qt.rgba(0, 0, 0, 0.72); height: 11; width: durB.implicitWidth + 6
+                                        Text { id: durB; anchors.centerIn: parent
+                                            text: erow.e ? EventsStore.dur(erow.e.durationSec) : ""
+                                            color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 8 }
+                                    }
+                                }
+                                Text { text: erow.e ? EventsStore.hhmmss(erow.e.ts) : ""; color: Theme.ink
+                                    font.family: Theme.fontMono; font.pixelSize: 11 }
+                                Text { text: erow.e ? EventsStore.rel(erow.e.ts).replace(" ago", "").replace(" назад", "") : ""
+                                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                                Item { Layout.fillWidth: true }
+                                TypePill { type: erow.e ? erow.e.type : "motion" }
+                                StateTag { visible: erow.e !== null; state: erow.e ? erow.e.status : "new"
+                                    dotOnly: true; dotSize: 6; Layout.alignment: Qt.AlignVCenter }
+                            }
+                            MouseArea { id: erMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { if (erow.e) tri.select(erow.e.id); tri.forceActiveFocus() } }
+                        }
+                    }
+
+                    // pinned sticky lane header — resolved from precomputed content
+                    // geometry, so it can't disagree with a layout that no longer exists
+                    readonly property var pinnedIt: {
+                        var cy = lanesView.contentY;
+                        if (!tri.stickyHeads || cy <= 0) return null;
+                        var arr = tri._L.items, it = null;
+                        for (var i = 0; i < arr.length; i++)
+                            if (arr[i].t === "h") { if (arr[i].y <= cy) it = arr[i]; else break; }
+                        return (it && it.y < cy) ? it : null;
+                    }
+                    LaneHead {
+                        visible: parent.pinnedIt !== null
+                        it: parent.pinnedIt
+                        width: lanesView.width
+                        anchors.top: parent.top
+                        z: 6
+                    }
+
+                    // echo chip — the type-ahead's only feedback; no field, no cursor
+                    Rectangle {
+                        visible: tri.buf !== ""
+                        anchors.top: parent.top; anchors.right: parent.right
+                        anchors.topMargin: 6; anchors.rightMargin: 9
+                        z: 20
+                        color: Theme.panel3; border.width: 1; border.color: Theme.accent
+                        width: echoRow.implicitWidth + 16; height: 22
+                        Row {
+                            id: echoRow; anchors.centerIn: parent; spacing: 6
+                            Text { anchors.verticalCenter: parent.verticalCenter
+                                text: "." + tri.buf
+                                color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 13
+                                font.weight: Font.DemiBold; font.letterSpacing: 1 }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: { var h = tri._hits(tri.buf).length; return h === 1 ? qsTr("jump") : h + " cam"; }
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6
+                            }
+                        }
+                    }
+                }
+
+                // ---- zero-count strip: the honesty rule in one 30px row ----
+                Rectangle {
+                    visible: tri._L.zeros.length > 0
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: "transparent"
+                    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
+                    RowLayout {
+                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 6
+                        spacing: 8
+                        Text { text: qsTr("NO EVENTS IN TAB"); color: Theme.ink3
+                            font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.2 }
+                        ListView {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            orientation: ListView.Horizontal
+                            spacing: 5; clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            model: tri._L.zeros
+                            delegate: Item {
+                                required property var modelData
+                                width: zBtn.width + 2; height: 30
+                                Rectangle {
+                                    id: zBtn
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: zTxt.implicitWidth + 10; height: 17
+                                    color: zMa.containsMouse ? Theme.panel2 : "transparent"
+                                    border.width: 1; border.color: zMa.containsMouse ? Theme.line2 : Theme.line
+                                    Text { id: zTxt; anchors.centerIn: parent; text: modelData.lbl
+                                        color: zMa.containsMouse ? Theme.ink2 : Theme.ink3
+                                        font.family: Theme.fontMono; font.pixelSize: 10 }
+                                    MouseArea { id: zMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                        onClicked: { tri.jumpTo(modelData.key); tri.forceActiveFocus() } }
                                 }
                             }
-                            // meta
-                            ColumnLayout {
-                                Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter
-                                spacing: 4
-                                TypePill { type: row.e.type }
-                                Text { Layout.fillWidth: true; text: row.e.cam.name; color: Theme.ink; elide: Text.ElideRight
-                                    font.family: Theme.fontSans; font.pixelSize: 12 }
-                                Text { text: EventsStore.hhmmss(row.e.ts) + " · " + EventsStore.rel(row.e.ts); color: Theme.ink3
-                                    font.family: Theme.fontMono; font.pixelSize: 10 }
-                            }
-                            // state dot
-                            StateTag { state: row.e.status; dotOnly: true; dotSize: 7; Layout.alignment: Qt.AlignVCenter }
                         }
-                        MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: tri.select(row.e.id) }
                     }
                 }
             }
@@ -358,8 +647,49 @@ Item {
             // empty state
             Text {
                 visible: !tri._cur; anchors.centerIn: parent
-                text: "Queue clear — no open events."; color: Theme.ink3
+                text: qsTr("Queue clear — no open events."); color: Theme.ink3
                 font.family: Theme.fontSans; font.pixelSize: 14
+            }
+
+            Popup {
+                id: assignPop
+                x: parent.width - 300; y: heroBlock.height + 4
+                width: 214; padding: 1
+                closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
+                contentItem: Column {
+                    id: pickCol
+                    Text { width: parent.width; height: 26; leftPadding: 10; verticalAlignment: Text.AlignVCenter
+                        text: qsTr("ASSIGN TO"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.0 }
+                    Repeater {
+                        model: EventsStore.operators
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool _isCur: tri._cur && tri._cur.assignedTo === modelData.username
+                            width: pickCol.width; height: 30
+                            color: opMa.containsMouse ? Theme.panel3 : (_isCur ? Theme.accentSoft : "transparent")
+                            Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.display_name ? modelData.display_name : modelData.username
+                                color: parent._isCur ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
+                            Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.role; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                            MouseArea { id: opMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, modelData.username); assignPop.close() } }
+                        }
+                    }
+                    Rectangle { visible: tri._cur && tri._cur.assignedTo; width: pickCol.width; height: 1; color: Theme.line }
+                    Rectangle {
+                        visible: tri._cur && tri._cur.assignedTo
+                        width: pickCol.width; height: 30; color: unMa.containsMouse ? Theme.panel3 : "transparent"
+                        Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                            text: qsTr("Unassign"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        MouseArea { id: unMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, ""); assignPop.close() } }
+                    }
+                    Text { visible: !EventsStore.operators || EventsStore.operators.length === 0
+                        width: parent.width; height: 30; leftPadding: 10; verticalAlignment: Text.AlignVCenter
+                        text: qsTr("No operators available"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                }
             }
 
             ColumnLayout {
@@ -367,8 +697,9 @@ Item {
                 anchors.fill: parent
                 spacing: 0
 
-                // ---- hero: inline player + tool row ----
+                // ---- hero: inline player (tool cells live in its merged bar) ----
                 Rectangle {
+                    id: heroBlock
                     Layout.fillWidth: true
                     Layout.preferredHeight: heroCol.implicitHeight
                     color: "#000"
@@ -381,79 +712,6 @@ Item {
                             id: heroLoader
                             Layout.fillWidth: true
                             sourceComponent: EventsStore.realMode ? heroRealC : heroMockC
-                        }
-                        Rectangle {                          // tool row
-                            Layout.fillWidth: true; Layout.preferredHeight: 52; color: Theme.panel
-                            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
-                            RowLayout {
-                                anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 8
-                                EvButton { small: true; variant: "ghost"; icon: "export"; label: "Export clip"
-                                    enabledBtn: tri._cur && EventsStore.realMode
-                                    onClicked: {
-                                        if (!tri._cur) return;
-                                        var w = EventsStore.episodeWindow(tri._cur);   // export the whole episode (footage span), not a forward 1-min window
-                                        tri.exportClip(tri._cur.cam.id, w.startMs - 15000,
-                                            w.endMs > w.startMs ? w.endMs + 15000 : w.startMs + 45000,
-                                            "Event · " + (EventsStore.types[tri._cur.type] ? EventsStore.types[tri._cur.type].label : tri._cur.type));
-                                    } }
-                                EvButton {
-                                    id: assignBtn
-                                    small: true; variant: "ghost"; icon: "assign"
-                                    on: tri._cur && tri._cur.assignedTo
-                                    label: (tri._cur && tri._cur.assignedTo) ? tri._cur.assignedTo : "Assign"
-                                    onClicked: assignPop.opened ? assignPop.close() : assignPop.open()
-
-                                    Popup {
-                                        id: assignPop
-                                        x: 0; y: assignBtn.height + 4
-                                        width: 214; padding: 1
-                                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-                                        background: Rectangle { color: Theme.panel2; border.width: 1; border.color: Theme.line2 }
-                                        contentItem: Column {
-                                            id: pickCol
-                                            Text { width: parent.width; height: 26; leftPadding: 10; verticalAlignment: Text.AlignVCenter
-                                                text: "ASSIGN TO"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.0 }
-                                            Repeater {
-                                                model: EventsStore.operators
-                                                delegate: Rectangle {
-                                                    required property var modelData
-                                                    readonly property bool _isCur: tri._cur && tri._cur.assignedTo === modelData.username
-                                                    width: pickCol.width; height: 30
-                                                    color: opMa.containsMouse ? Theme.panel3 : (_isCur ? Theme.accentSoft : "transparent")
-                                                    Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                                                        text: modelData.display_name ? modelData.display_name : modelData.username
-                                                        color: parent._isCur ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
-                                                    Text { anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                                                        text: modelData.role; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
-                                                    MouseArea { id: opMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                        onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, modelData.username); assignPop.close() } }
-                                                }
-                                            }
-                                            Rectangle { visible: tri._cur && tri._cur.assignedTo; width: pickCol.width; height: 1; color: Theme.line }
-                                            Rectangle {
-                                                visible: tri._cur && tri._cur.assignedTo
-                                                width: pickCol.width; height: 30; color: unMa.containsMouse ? Theme.panel3 : "transparent"
-                                                Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                                                    text: "Unassign"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                                                MouseArea { id: unMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                    onClicked: { if (tri._cur) EventsStore.assign(tri._cur.id, ""); assignPop.close() } }
-                                            }
-                                            Text { visible: !EventsStore.operators || EventsStore.operators.length === 0
-                                                width: parent.width; height: 30; leftPadding: 10; verticalAlignment: Text.AlignVCenter
-                                                text: "No operators available"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
-                                        }
-                                    }
-                                }
-                                Item { Layout.fillWidth: true }
-                                EvButton {
-                                    small: true; variant: "ghost"
-                                    enabledBtn: !EventsStore.actionsPending
-                                    on: tri._cur && tri._cur.bookmarked
-                                    icon: (tri._cur && tri._cur.bookmarked) ? "bookmarkF" : "bookmark"
-                                    label: (tri._cur && tri._cur.bookmarked) ? "Saved" : "Bookmark"
-                                    onClicked: if (tri._cur) EventsStore.bookmark(tri._cur.id)
-                                }
-                            }
                         }
                     }
                 }
@@ -470,10 +728,10 @@ Item {
                     ColumnLayout {
                         id: body
                         width: parent.width
-                        x: 22; y: 18
-                        // 22px right padding too → cap width
-                        Component.onCompleted: width = parent.width - 44
-                        Connections { target: body.parent; function onWidthChanged() { body.width = body.parent.width - 44; } }
+                        x: 14; y: 12
+                        // 14px right padding too → cap width (variant B body density)
+                        Component.onCompleted: width = parent.width - 28
+                        Connections { target: body.parent; function onWidthChanged() { body.width = body.parent.width - 28; } }
                         spacing: 0
 
                         // headline
@@ -499,9 +757,9 @@ Item {
                             Sev { level: tri._cur ? tri._cur.priority : "low"; Layout.alignment: Qt.AlignTop }
                         }
 
-                        // facts grid (2-col, 1px gridlines)
+                        // facts grid (3-col, 1px gridlines — variant B §4)
                         Rectangle {
-                            Layout.fillWidth: true; Layout.topMargin: 18; Layout.bottomMargin: 18
+                            Layout.fillWidth: true; Layout.topMargin: 14; Layout.bottomMargin: 14
                             color: Theme.line
                             Layout.preferredHeight: facts.implicitHeight + 2
                             // Grid POSITIONER (not GridLayout): a QQuickGridLayout SIGSEGVs on
@@ -510,20 +768,20 @@ Item {
                             Grid {
                                 id: facts
                                 x: 1; y: 1; width: parent.width - 2
-                                columns: 2; rowSpacing: 1; columnSpacing: 1
+                                columns: 3; rowSpacing: 1; columnSpacing: 1
                                 Repeater {
                                     model: tri._cur ? [
-                                        { k: "Camera",        v: tri._cur.cam.name, mono: false },
-                                        { k: "Device",        v: tri._cur.cam.id,   mono: true },
-                                        { k: "Zone",          v: tri._cur.cam.zone, mono: false },
-                                        { k: "Time",          v: EventsStore.hhmmss(tri._cur.ts) + " · " + Qt.formatDate(tri._cur.ts, "ddd dd MMM"), mono: true },
-                                        { k: "Clip length",   v: tri._cur.durationSec ? EventsStore.dur(tri._cur.durationSec) : "—", mono: true },
-                                        { k: "AI confidence", v: tri._cur.conf ? (Math.round(tri._cur.conf * 100) + "%") : "n/a", mono: true }
+                                        { k: qsTr("Camera"),        v: tri._cur.cam.name, mono: false },
+                                        { k: qsTr("Device"),        v: tri._cur.cam.id,   mono: true },
+                                        { k: qsTr("Zone"),          v: tri._cur.cam.zone, mono: false },
+                                        { k: qsTr("Time"),          v: EventsStore.hhmmss(tri._cur.ts) + " \u00b7 " + Qt.formatDate(tri._cur.ts, "ddd dd MMM"), mono: true },
+                                        { k: qsTr("Clip length"),   v: tri._cur.durationSec ? EventsStore.dur(tri._cur.durationSec) : "\u2014", mono: true },
+                                        { k: qsTr("AI confidence"), v: tri._cur.conf ? (Math.round(tri._cur.conf * 100) + "%") : "n/a", mono: true }
                                     ] : []
                                     delegate: Rectangle {
                                         required property var modelData
-                                        width: (facts.width - facts.columnSpacing) / 2
-                                        height: 52
+                                        width: (facts.width - 2 * facts.columnSpacing) / 3
+                                        height: 46
                                         color: Theme.bg
                                         ColumnLayout {
                                             anchors.left: parent.left; anchors.right: parent.right
@@ -531,9 +789,9 @@ Item {
                                             anchors.leftMargin: 13; anchors.rightMargin: 13
                                             spacing: 3
                                             Text { text: modelData.k.toUpperCase(); color: Theme.ink3
-                                                font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8 }
+                                                font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.1 }
                                             Text { Layout.fillWidth: true; text: modelData.v; color: Theme.ink; elide: Text.ElideRight
-                                                font.family: modelData.mono ? Theme.fontMono : Theme.fontSans; font.pixelSize: 13 }
+                                                font.family: modelData.mono ? Theme.fontMono : Theme.fontSans; font.pixelSize: 12 }
                                         }
                                     }
                                 }
@@ -541,7 +799,7 @@ Item {
                         }
 
                         // response procedure (SOP)
-                        Text { text: "RESPONSE PROCEDURE"; color: Theme.ink3; Layout.bottomMargin: 10
+                        Text { text: qsTr("RESPONSE PROCEDURE"); color: Theme.ink3; Layout.bottomMargin: 8
                             font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.2 }
                         Repeater {
                             model: tri._sop
@@ -588,7 +846,7 @@ Item {
                                 font.family: Theme.fontSans; font.pixelSize: 13
                                 text: tri.note
                                 onTextChanged: tri.note = text
-                                Text { visible: noteIn.text === ""; text: "Add disposition note (what happened, who responded)…"
+                                Text { visible: noteIn.text === ""; text: qsTr("Add disposition note (what happened, who responded)\u2026")
                                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
                                     anchors.verticalCenter: parent.verticalCenter }
                             }
@@ -599,20 +857,20 @@ Item {
 
                 // ---- action bar (fixed footer) ----
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 58; color: Theme.panel
+                    Layout.fillWidth: true; Layout.preferredHeight: 44; color: Theme.panel
                     Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18; spacing: 8
-                        EvButton { variant: "good"; icon: "check"; label: "Authorized"; enabledBtn: !EventsStore.actionsPending
+                        EvButton { small: true; variant: "good"; icon: "check"; label: qsTr("Authorized"); enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "authorized", tri.note) }
-                        EvButton { variant: ""; icon: "x"; label: "False alarm"; enabledBtn: !EventsStore.actionsPending
+                        EvButton { small: true; variant: ""; icon: "x"; label: qsTr("False alarm"); enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "false_alarm", tri.note) }
-                        EvButton { variant: "danger"; icon: "dispatch"; label: "Dispatch guard"; enabledBtn: !EventsStore.actionsPending
+                        EvButton { small: true; variant: "danger"; icon: "dispatch"; label: qsTr("Dispatch guard"); enabledBtn: !EventsStore.actionsPending
                             onClicked: if (tri._cur) EventsStore.dispose(tri._cur.id, "dispatched", tri.note) }
                         Item { Layout.fillWidth: true }
                         EvButton {
                             visible: tri._cur && tri._cur.status === "new"
-                            variant: "pri"; icon: "check"; label: "Acknowledge"; kbd: "E"
+                            small: true; variant: "pri"; icon: "check"; label: qsTr("Acknowledge"); kbd: "E"
                             onClicked: if (tri._cur) EventsStore.ack(tri._cur.id)
                         }
                         StateTag {
@@ -627,6 +885,23 @@ Item {
         }
     }
 
+    function _doExport() {
+        if (!tri._cur) return;
+        var w = EventsStore.episodeWindow(tri._cur);   // export the whole episode (footage span), not a forward 1-min window
+        tri.exportClip(tri._cur.cam.id, w.startMs - 15000,
+            w.endMs > w.startMs ? w.endMs + 15000 : w.startMs + 45000,
+            "Event · " + (EventsStore.types[tri._cur.type] ? EventsStore.types[tri._cur.type].label : tri._cur.type));
+    }
     Component { id: heroMockC; EvPlayer { ev: tri._cur } }
-    Component { id: heroRealC; EvHeroPlayer { ev: tri._cur; playbackClient: tri.playbackClient; surfaced: tri.active } }
+    Component {
+        id: heroRealC
+        EvHeroPlayer {
+            ev: tri._cur; playbackClient: tri.playbackClient; surfaced: tri.active
+            toolCells: true
+            bookmarkOn: tri._cur ? tri._cur.bookmarked === true : false
+            onExportRequested: if (EventsStore.realMode) tri._doExport()
+            onAssignRequested: assignPop.opened ? assignPop.close() : assignPop.open()
+            onBookmarkRequested: if (tri._cur && !EventsStore.actionsPending) EventsStore.bookmark(tri._cur.id)
+        }
+    }
 }

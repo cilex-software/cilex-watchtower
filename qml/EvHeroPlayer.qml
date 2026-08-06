@@ -14,9 +14,16 @@ Item {
     id: hp
     property var ev: null
     property var playbackClient: null
+    // variant B §4: the 52px transport and the 44px tool row merge into ONE
+    // 40px control bar; the host opts in and receives the tool-cell signals.
+    property bool toolCells: false
+    property bool bookmarkOn: false
+    signal exportRequested()
+    signal assignRequested()
+    signal bookmarkRequested()
 
     // 21:9 surface + 52px transport (drive our own implicit height for the layout)
-    implicitHeight: width > 0 ? Math.round(width * 9 / 21) + 52 : 0
+    implicitHeight: width > 0 ? Math.min(372, Math.round(width * 9 / 21)) + 40 : 0
 
     property string _sid: ""
     property var _frags: []
@@ -399,7 +406,7 @@ Item {
         // ---- video surface ----
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.round(width * 9 / 21)
+            Layout.preferredHeight: Math.min(372, Math.round(width * 9 / 21))   // capped: recovered height goes to the body, not letterbox
             color: "#000"; clip: true
 
             VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
@@ -509,70 +516,91 @@ Item {
             }
         }
 
-        // ---- transport ----
+        // ---- merged control bar (40px, gapless cells — variant B §4) ----
         Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 52; color: Theme.panel
+            Layout.fillWidth: true; Layout.preferredHeight: 40; color: Theme.panel
             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.line }
-            RowLayout {
-                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 9
 
-                Rectangle {                                // step back one frame (paused-only engine; pauses first)
-                    Layout.preferredWidth: 30; Layout.preferredHeight: 34
-                    color: sb.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sb.containsMouse ? Theme.ink3 : Theme.line2
-                    opacity: heroStepper.busy || !hp._started ? 0.4 : 1
-                    Icon { anchors.centerIn: parent; name: "stepBack"; size: 14; color: Theme.ink }
-                    MouseArea { id: sb; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: if (hp._started && !heroStepper.busy) heroStepper.stepBackward() }
+            component CtlCell: Rectangle {
+                id: cc
+                property string txt: ""
+                property string ic: ""
+                property bool en: true
+                property bool accented: false
+                signal tapped()
+                Layout.fillHeight: true
+                Layout.preferredWidth: Math.max(34, ccRow.implicitWidth + 16)
+                color: ccMa.containsMouse && cc.en ? Theme.panel2 : "transparent"
+                opacity: cc.en ? 1 : 0.4
+                Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                Row {
+                    id: ccRow; anchors.centerIn: parent; spacing: 0
+                    EvIcon { visible: cc.ic !== ""; anchors.verticalCenter: parent.verticalCenter
+                        name: cc.ic; size: 13; color: cc.accented ? Theme.accent : (ccMa.containsMouse ? Theme.ink : Theme.ink2) }
+                    Text { visible: cc.txt !== ""; anchors.verticalCenter: parent.verticalCenter
+                        text: cc.txt; color: ccMa.containsMouse ? Theme.ink : Theme.ink2
+                        font.family: Theme.fontMono; font.pixelSize: 10 }
                 }
+                MouseArea { id: ccMa; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: cc.en ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: if (cc.en) cc.tapped() }
+            }
+
+            RowLayout {
+                anchors.fill: parent; spacing: 0
+                CtlCell { ic: "stepBack"; en: hp._started && !heroStepper.busy
+                    onTapped: heroStepper.stepBackward() }
                 Rectangle {                                // play / pause
-                    Layout.preferredWidth: 34; Layout.preferredHeight: 34
-                    color: pp.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: pp.containsMouse ? Theme.ink3 : Theme.line2
-                    Row { anchors.centerIn: parent; spacing: 4; visible: player.playbackState === MediaPlayer.PlayingState
-                        Rectangle { width: 4; height: 14; color: Theme.ink } Rectangle { width: 4; height: 14; color: Theme.ink } }
-                    EvIcon { anchors.centerIn: parent; visible: player.playbackState !== MediaPlayer.PlayingState; name: "play"; size: 15; color: Theme.ink }
-                    MouseArea { id: pp; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    Layout.fillHeight: true; Layout.preferredWidth: 38
+                    color: ppMa.containsMouse ? Theme.panel2 : "transparent"
+                    Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                    Row { anchors.centerIn: parent; spacing: 3; visible: player.playbackState === MediaPlayer.PlayingState
+                        Rectangle { width: 3; height: 12; color: Theme.ink } Rectangle { width: 3; height: 12; color: Theme.ink } }
+                    EvIcon { anchors.centerIn: parent; visible: player.playbackState !== MediaPlayer.PlayingState; name: "play"; size: 14; color: Theme.ink }
+                    MouseArea { id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: hp.toggle() }
                 }
-                Rectangle {                                // step forward one frame
-                    Layout.preferredWidth: 30; Layout.preferredHeight: 34
-                    color: sf.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sf.containsMouse ? Theme.ink3 : Theme.line2
-                    opacity: heroStepper.busy || !hp._started ? 0.4 : 1
-                    Icon { anchors.centerIn: parent; name: "stepFwd"; size: 14; color: Theme.ink }
-                    MouseArea { id: sf; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: if (hp._started && !heroStepper.busy) heroStepper.stepForward() }
+                CtlCell { ic: "stepFwd"; en: hp._started && !heroStepper.busy
+                    onTapped: heroStepper.stepForward() }
+                CtlCell { txt: "\u221210"; onTapped: hp.seekToWall(hp._playheadWallMs - 10000) }
+                CtlCell { txt: "+10"; onTapped: hp.seekToWall(hp._playheadWallMs + 10000) }
+                Rectangle {
+                    Layout.fillHeight: true; Layout.preferredWidth: ctimeT.implicitWidth + 20
+                    color: "transparent"
+                    Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                    Text { id: ctimeT; anchors.centerIn: parent; textFormat: Text.StyledText
+                        text: hp._fmt(hp._playheadWallMs - hp.tlStartMs) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(hp.tlEndMs - hp.tlStartMs)
+                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
-                Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b1.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b1.containsMouse ? Theme.ink3 : Theme.line2
-                    Text { anchors.centerIn: parent; text: "−10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
-                    MouseArea { id: b1; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: hp.seekToWall(hp._playheadWallMs - 10000) } }
-                Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: b2.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: b2.containsMouse ? Theme.ink3 : Theme.line2
-                    Text { anchors.centerIn: parent; text: "+10"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
-                    MouseArea { id: b2; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: hp.seekToWall(hp._playheadWallMs + 10000) } }
-                Text { textFormat: Text.StyledText
-                    text: hp._fmt(hp._playheadWallMs - hp.tlStartMs) + " <font color='" + Theme.ink3 + "'>/</font> " + hp._fmt(hp.tlEndMs - hp.tlStartMs)
-                    color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 Item {                                      // scrubber — spans the whole EPISODE timeline (tl*), not the loaded window
-                    Layout.fillWidth: true; Layout.preferredHeight: 30
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    readonly property real _pad: 11
+                    readonly property real _w: width - 2 * _pad
                     readonly property real _span: hp.tlEndMs - hp.tlStartMs
                     readonly property real _f: _span > 0 ? Math.max(0, Math.min(1, (hp._playheadWallMs - hp.tlStartMs) / _span)) : 0
-                    function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(width, x)) / width * _span); }
+                    function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(_w, x - _pad)) / _w * _span); }
                     readonly property real _m0: _span > 0 ? Math.max(0, Math.min(1, (hp.mkStartMs - hp.tlStartMs) / _span)) : 0
                     readonly property real _m1: _span > 0 ? Math.max(0, Math.min(1, (hp.mkEndMs - hp.tlStartMs) / _span)) : 0
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 5; color: Theme.panel3 }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent.width * parent._f }
+                    Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
+                    Rectangle { x: parent._pad; anchors.verticalCenter: parent.verticalCenter; width: parent._w; height: 5; color: Theme.panel3 }
+                    Rectangle { x: parent._pad; anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent._w * parent._f }
                     Rectangle {                            // movement start→finish — thin accent underline
                         anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: 7
-                        x: parent.width * parent._m0
-                        width: Math.max(2, parent.width * (parent._m1 - parent._m0)); height: 2
+                        x: parent._pad + parent._w * parent._m0
+                        width: Math.max(2, parent._w * (parent._m1 - parent._m0)); height: 2
                         color: Theme.accent; opacity: 0.9
                     }
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3; height: 16; color: Theme.ink; x: parent.width * parent._f - 1.5 }
+                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 3; height: 15; color: Theme.ink
+                        x: parent._pad + parent._w * parent._f - 1.5 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onPressed: (m) => parent._seekX(m.x)
                         onReleased: (m) => parent._seekX(m.x) }
                 }
-                Rectangle { Layout.preferredWidth: 38; Layout.preferredHeight: 34; color: sp.containsMouse ? Theme.panel3 : Theme.panel2; border.width: 1; border.color: sp.containsMouse ? Theme.ink3 : Theme.line2
-                    Text { anchors.centerIn: parent; text: hp._speed + "×"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11 }
-                    MouseArea { id: sp; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: hp._speed = (hp._speed === 1 ? 2 : hp._speed === 2 ? 4 : 1) } }
+                CtlCell { txt: hp._speed + "\u00d7"; onTapped: hp._speed = (hp._speed === 1 ? 2 : hp._speed === 2 ? 4 : 1) }
+                CtlCell { visible: hp.toolCells; ic: "export";   onTapped: hp.exportRequested() }
+                CtlCell { visible: hp.toolCells; ic: "assign";   onTapped: hp.assignRequested() }
+                CtlCell { visible: hp.toolCells; ic: hp.bookmarkOn ? "bookmarkF" : "bookmark"; accented: hp.bookmarkOn
+                    onTapped: hp.bookmarkRequested() }
             }
         }
     }

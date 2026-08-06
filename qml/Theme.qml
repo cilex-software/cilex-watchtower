@@ -76,8 +76,8 @@ QtObject {
     readonly property int radius: 0  // orthogonal everywhere; only status dots are round
 
     readonly property int titleBarHeight:  36
-    readonly property int tabStripHeight:  34   // view tabs, only while camera tabs are open
-    readonly property int topBarHeight:     64
+    readonly property int tabStripHeight:  30   // view tabs, only while camera tabs are open
+    readonly property int topBarHeight:     52
     readonly property int subBarHeight:     56
     readonly property int railWidth:        72
     readonly property int opsSidebarWidth: 320

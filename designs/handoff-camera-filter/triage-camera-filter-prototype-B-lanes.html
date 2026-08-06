@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Triage Queue — variant B · Lanes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1816;--panel:#221f1c;--panel2:#2a2722;--panel3:#322e28;--line:#34302a;--line2:#443f37;--ink:#f0ece4;--ink2:#a89f90;--ink3:#6e6657;--accent:#e8a13a;--accentSoft:rgba(232,161,58,.08);--accentDim:#5a3f15;--bad:#d96649;--badSoft:rgba(217,102,73,.1);--good:#8eb96b;--info:#6f9bc4}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#100f0e;font-family:'Space Grotesk',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;display:block;overflow-x:auto;padding:16px 20px 24px}
+.wrap{width:max-content;margin:0 auto}
+.vbar{display:flex;align-items:center;gap:10px;padding:0 2px 10px}
+.vsw{display:flex;align-items:stretch;border:1px solid var(--line2)}
+.vsw a{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);text-decoration:none;padding:3px 9px;border-right:1px solid var(--line2)}
+.vsw a:last-child{border-right:0}
+.vsw a:hover{background:var(--panel2);color:var(--ink)}
+.vsw a.on{background:var(--accent);color:#241a08;font-weight:700}
+.vsw a.on:hover{background:var(--accent);color:#241a08}
+.vnote{font-size:11px;color:var(--ink3)}
+.vnote b{color:var(--ink2);font-weight:500}
+.mono{font-family:'JetBrains Mono',monospace}
+a{color:var(--accent)}a:hover{color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--line2)}::-webkit-scrollbar-track{background:transparent}
+.frame{background:var(--bg);border:1px solid var(--line2);height:900px;display:flex;flex-direction:column;overflow:hidden;flex:none;min-width:0;transition:width .18s ease}
+.osbar{height:30px;background:#141312;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:9px;flex:none}
+.osdot{width:8px;height:8px;border-radius:50%}
+.osttl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.4px;color:var(--ink3);text-transform:uppercase}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:64px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none}
+.railbrand{height:44px;display:grid;place-items:center;border-bottom:1px solid var(--line);color:var(--accent);font-weight:700;font-size:13px}
+.railitem{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.8px;color:var(--ink3);border-bottom:1px solid var(--line)}
+.railitem .g{width:15px;height:15px;border:1px solid currentColor}
+.railitem.on{color:var(--accent);background:var(--accentSoft)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+/* gapless top bar */
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tcell{display:flex;align-items:center;padding:0 13px;border-right:1px solid var(--line);flex:none;gap:9px}
+.tcell.grow{flex:1;min-width:0}
+.brand .b1{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.5px;color:var(--ink3)}
+.brand .b2{font-size:14px;font-weight:600;letter-spacing:-.2px;line-height:1.1}
+.searchc{color:var(--ink3);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:8px;border:1px solid var(--line);padding:1px 4px;color:var(--ink3);letter-spacing:.6px;flex:none}
+.pill{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.7px;white-space:nowrap}
+.pill i{width:6px;height:6px;display:block;flex:none}
+.tabstrip{height:30px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tabstrip .t{display:flex;align-items:center;gap:8px;padding:0 13px;font-size:11px;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.tabstrip .t.on{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+/* gapless sub-nav: modes and groups are two segmented controls sharing hairlines */
+.subnav{height:38px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none;position:relative;z-index:30}
+.seg{display:flex;align-items:stretch;border-right:1px solid var(--line2);flex:none}
+.seg>button{display:flex;align-items:center;gap:7px;padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.9px;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.seg>button:last-child{border-right:0}
+.seg>button:hover{background:var(--panel2);color:var(--ink2)}
+.seg>button.on{background:var(--accent);color:#241a08;font-weight:700}
+.seg>button.on em{color:#8a6417;font-style:normal}
+.gseg{display:flex;align-items:stretch;flex:1;min-width:0;overflow:hidden;border-right:1px solid var(--line2)}
+.gseg.ghost{position:absolute;left:0;top:0;height:38px;flex:none;width:auto;visibility:hidden;pointer-events:none;overflow:visible;border:0}
+.gseg>button{display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--ink2);border-right:1px solid var(--line);white-space:nowrap;flex:none}
+.gseg>button .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.gseg>button:hover{background:var(--panel2);color:var(--ink)}
+.gseg>button.on{background:var(--accentSoft);color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.gseg>button.on .c{color:var(--accent)}
+.gseg>button.zero{color:var(--ink3)}
+.gpop{position:absolute;top:38px;width:206px;background:var(--panel);border:1px solid var(--line2);z-index:40}
+.gpop button{width:100%;height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;font-size:11px;color:var(--ink2);border-bottom:1px solid var(--line)}
+.gpop button:last-child{border-bottom:0}
+.gpop button:hover{background:var(--panel2);color:var(--ink)}
+.gpop button.on{color:var(--accent)}
+.gpop .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.totals{display:flex;align-items:stretch;margin-left:auto;flex:none}
+.totals>div{display:flex;align-items:center;padding:0 13px;border-left:1px solid var(--line)}
+.stage{flex:1;display:grid;min-height:0;min-width:0}
+/* queue */
+.queue{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;position:relative}
+.qtabs{height:32px;display:flex;align-items:stretch;border-bottom:1px solid var(--line);flex:none}
+.qtab{display:flex;align-items:center;gap:6px;padding:0 11px;font-size:11px;font-weight:600;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.qtab:hover{color:var(--ink2)}
+.qtab.on{color:var(--ink);background:var(--panel);box-shadow:inset 0 -2px 0 var(--accent)}
+.qtab .n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.qtab.on .n{color:var(--accent)}
+.qscope{margin-left:auto;display:flex;align-items:center;padding:0 11px;border-left:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);gap:7px}
+.qscope b{color:var(--accent);font-weight:600}
+.qscope .x{color:var(--accent);font-size:10px}
+.qscroll{flex:1;overflow-y:auto;min-height:0;position:relative}
+/* lane */
+.lane{border-bottom:1px solid var(--line)}
+.lhead{position:sticky;z-index:6;width:100%;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--line);text-align:left}
+.lhead:hover{background:var(--panel2)}
+.lhead.on{background:#2b2318;box-shadow:inset 2px 0 0 var(--accent)}
+.lhead.mute{opacity:.6}
+.lhead.mute:hover{opacity:1}
+.lhead .car{font-size:8px;color:var(--ink3);width:8px;flex:none}
+.lhead .oc{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--ink);flex:none}
+.lhead.on .oc{color:var(--accent)}
+.lhead .nm{font-size:10.5px;color:var(--ink3);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lhead .off{width:5px;height:5px;border-radius:50%;background:var(--bad);flex:none}
+.mix{display:flex;height:3px;width:38px;flex:none;gap:1px}
+.mix i{display:block;height:3px}
+.lhead .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2);flex:none;min-width:20px;text-align:right}
+.lhead.on .n{color:var(--accent)}
+.erow{width:100%;display:flex;align-items:center;gap:9px;padding:0 10px;border-bottom:1px solid var(--line);position:relative;text-align:left}
+.erow:last-child{border-bottom:0}
+.erow:hover{background:var(--panel)}
+.erow.on{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.erow.done{opacity:.45}
+.sev{width:7px;height:7px;border-radius:50%;flex:none}
+.thumb{border:1px solid var(--line);position:relative;flex:none;background:var(--panel3);overflow:hidden}
+.thumb i{position:absolute;display:block;background:#3d382f}
+.thumb .dur{position:absolute;right:1px;bottom:1px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;background:rgba(0,0,0,.72);padding:0 3px}
+.etime{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);flex:none}
+.eago{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink3);flex:none}
+.espacer{flex:1;min-width:0}
+.tchip{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.9px;color:var(--ink3);border:1px solid var(--line);padding:1px 5px;flex:none}
+.udot{width:6px;height:6px;border-radius:50%;flex:none}
+.lempty{padding:11px 12px 11px 30px;font-size:11px;color:var(--ink3)}
+.zerobar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.zerobar .lbl{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.2px;color:var(--ink3);flex:none}
+.zerobar button{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);border:1px solid var(--line);padding:0 4px;line-height:15px}
+.zerobar button:hover{color:var(--ink2);border-color:var(--line2)}
+.echo{position:absolute;top:6px;right:9px;z-index:20;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);background:var(--panel3);border:1px solid var(--accent);padding:2px 8px;letter-spacing:1px}
+.echo em{color:var(--ink3);font-style:normal;font-size:9px;margin-left:6px;letter-spacing:.6px}
+/* detail */
+.detail{display:flex;flex-direction:column;min-width:0;min-height:0}
+.vid{background:#000;position:relative;flex:none;aspect-ratio:21/9;max-height:372px;display:grid;place-items:center}
+.vid .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,0) 26%)}
+.vid .hdr{position:absolute;top:8px;left:10px;display:flex;gap:8px;align-items:center;z-index:2}
+.vchip{font-family:'JetBrains Mono',monospace;font-size:9px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);padding:2px 6px;letter-spacing:1px}
+.vcam{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.75)}
+.playc{width:52px;height:52px;border-radius:50%;border:2px solid rgba(255,255,255,.8);display:grid;place-items:center;color:rgba(255,255,255,.85);font-size:15px;padding-left:4px}
+.vid .osd{position:absolute;right:11px;bottom:9px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);letter-spacing:1px}
+/* one merged control bar instead of transport + tool row */
+.ctrl{height:40px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.cb{min-width:34px;display:grid;place-items:center;border-right:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);padding:0 8px;flex:none}
+.cb:hover{background:var(--panel2);color:var(--ink)}
+.ctime{display:flex;align-items:center;padding:0 10px;border-right:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);flex:none}
+.ctime i{color:var(--ink3);font-style:normal;padding:0 3px}
+.scrub{flex:1;min-width:0;display:flex;align-items:center;position:relative;padding:0 11px;border-right:1px solid var(--line)}
+.scrub .trk{height:5px;width:100%;background:var(--panel3)}
+.scrub .ev{position:absolute;height:5px;background:var(--accentDim)}
+.scrub .fill{position:absolute;height:5px;background:var(--accent)}
+.scrub .hd{position:absolute;width:3px;height:15px;background:var(--ink)}
+.dbody{flex:1;overflow-y:auto;padding:12px 14px;min-height:0}
+.hl{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:11px}
+.ttl{font-size:16px;font-weight:600}
+.subttl{font-size:12px;color:var(--ink2);margin-top:1px}
+.sevlbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.2px;display:flex;align-items:center;gap:6px;flex:none}
+.sevlbl b{width:3px;height:11px;display:block}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.facts>div{background:var(--bg);padding:7px 10px;min-width:0}
+.facts .k{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.1px;color:var(--ink3);text-transform:uppercase}
+.facts .v{font-size:12px;color:var(--ink);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sop{margin-top:12px;border:1px solid var(--line)}
+.sop .sh{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.2px;color:var(--ink3);padding:6px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.sop label{display:flex;align-items:center;gap:9px;padding:6px 10px;font-size:12px;color:var(--ink2);border-bottom:1px solid var(--line);cursor:pointer}
+.sop label:last-child{border-bottom:0}
+.sop label:hover{background:var(--panel)}
+.cbx{width:14px;height:14px;border:1px solid var(--line2);flex:none;display:grid;place-items:center;font-size:9px;color:transparent}
+.sop label.done .cbx{background:var(--good);border-color:var(--good);color:var(--bg)}
+.sop label.done span{color:var(--ink3);text-decoration:line-through}
+.actions{border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:stretch;flex:none;height:44px}
+.abtn{display:flex;align-items:center;gap:7px;padding:0 13px;font-size:12px;color:var(--ink2);border-right:1px solid var(--line);white-space:nowrap}
+.abtn:hover{background:var(--panel2)}
+.abtn.good{color:var(--good)}
+.abtn.danger{color:var(--bad)}
+.abtn.pri{background:var(--accent);color:#241a08;font-weight:600;margin-left:auto;border-right:0;border-left:1px solid var(--line)}
+.dempty{margin:auto;color:var(--ink3);font-size:12px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useLayoutEffect,useCallback}=React;
+const {useTweaks,TweaksPanel,TweakSection,TweakRadio,TweakToggle}=window;
+
+const TWEAK_DEFAULTS=/*EDITMODE-BEGIN*/{
+  "density": "dense",
+  "thumbs": true,
+  "stickyHeads": true,
+  "lang": "EN",
+  "windowW": "1440",
+  "groupCount": "2"
+}/*EDITMODE-END*/;
+
+/* ---------- data ---------- */
+const DIST=[[144,18],[143,15],[104,14],[160,13],[140,12],[145,11],[158,9],[146,8],[151,7],[152,6],[161,6],[162,5],[163,4],[170,4],[171,3],[172,3],[173,2],[180,2],[181,2],[182,2],[183,1],[190,1]];
+const MODELS={104:'HiWatch DS-I202(E)',140:'HiWatch DS-I202(E)',143:'HiWatch DS-I202(E)',144:'HiWatch DS-I202(E)',145:'HiWatch DS-I202(E)',146:'HiWatch DS-I259M(C)',151:'HiWatch DS-I202(E)',152:'HiWatch DS-I259M(C)',158:'HiWatch DS-I202(E)',160:'HiWatch DS-I259M(C)',161:'Hikvision DS-2CD2143G2',162:'Hikvision DS-2CD2143G2',163:'HiWatch DS-I202(E)',170:'HiWatch DS-I202(E)',171:'HiWatch DS-I259M(C)',172:'HiWatch DS-I202(E)',173:'Hikvision DS-2CD2143G2',180:'HiWatch DS-I202(E)',181:'HiWatch DS-I202(E)',182:'HiWatch DS-I259M(C)',183:'HiWatch DS-I202(E)',190:'Hikvision DS-2CD2143G2'};
+const OUTSIDE=new Set([158,160,161,162,163,180,181,182,183,190]);
+const OFFLINE=new Set([173,183]);
+const G6={104:'lobby',140:'lobby',143:'lobby',144:'inside',145:'inside',146:'inside',151:'parking',152:'parking',158:'parking',160:'outside',161:'outside',162:'outside',163:'outside',170:'roof',171:'roof',172:'roof',173:'roof',180:'perimeter',181:'perimeter',182:'perimeter',183:'perimeter',190:'perimeter'};
+const GDEF={inside:{en:'Inside',ru:'Внутри'},outside:{en:'Outside',ru:'Снаружи'},lobby:{en:'Lobby',ru:'Вестибюль'},parking:{en:'Parking',ru:'Парковка'},roof:{en:'Roof',ru:'Крыша'},perimeter:{en:'Perimeter',ru:'Периметр'}};
+const groupOf=(o,n)=>n===2?(OUTSIDE.has(o)?'outside':'inside'):G6[o];
+const groupIds=n=>n===2?['inside','outside']:['inside','outside','lobby','parking','roof','perimeter'];
+const CAMS=DIST.map(([o])=>o).sort((a,b)=>a-b).map(o=>({oct:o,model:MODELS[o],ip:'192.168.1.'+o,offline:OFFLINE.has(o)}));
+const CAM=Object.fromEntries(CAMS.map(c=>[c.oct,c]));
+function mk(){let s=7,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff),out=[],i=0;
+  DIST.forEach(([oct,n])=>{for(let k=0;k<n;k++)out.push({id:'e'+(i++),oct,ago:Math.floor(r()*680)+1,dur:[38,48,74,91,131,214][Math.floor(r()*6)]});});
+  out.sort((a,b)=>a.ago-b.ago);
+  let res=0;out.forEach((e,i)=>{e.status=(i%8===3&&res++<18)?'resolved':(i%5===1?'ack':'new');e.priority='low';});
+  [146,104,190].forEach(o=>{const t=out.find(e=>e.oct===o&&e.status!=='resolved');if(t)t.priority='critical';});
+  out.filter((e,i)=>i%6===2).forEach(e=>{if(e.priority==='low')e.priority='medium';});
+  return out;}
+const EVENTS=mk();
+const BASE=11*3600+9*60;
+const clock=s=>{const t=BASE-s;return [t/3600|0,(t/60)%60|0,t%60].map(n=>String(n|0).padStart(2,'0')).join(':');};
+const agoTxt=(s,L)=>s<60?s+(L==='RU'?'с':'s'):(s/60|0)+(L==='RU'?'м':'m');
+const durTxt=s=>s<60?s+'s':(s/60|0)+'m '+(s%60)+'s';
+const mmss=s=>String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+const ruPl=(n,a,b,c)=>{const m=n%100;if(m>=11&&m<=14)return c;const d=n%10;return d===1?a:(d>=2&&d<=4)?b:c;};
+const SEVC={critical:'var(--bad)',high:'var(--accent)',medium:'var(--ink2)',low:'var(--ink3)'};
+const SEVR={critical:0,high:1,medium:2,low:3};
+const ROWH={compact:48,dense:44,ultra:36},HEADH={compact:28,dense:26,ultra:22};
+const SOP=['Watch the clip at event time','Confirm person vs. authorized resident','Record disposition + note'];
+
+const S={EN:{allg:'All groups',tabs:{open:'Open queue',critical:'Critical',all:'All'},noEv:'NO EVENTS IN TAB',empty:(o,t)=>'No events on .'+o+' in '+t+'.',of:'of',type:'MOTION',jump:'jump',g:k=>GDEF[k].en,ev:n=>n+(n===1?' event':' events'),solo:'soloed'},
+RU:{allg:'Все группы',tabs:{open:'Открытые',critical:'Критические',all:'Все'},noEv:'НЕТ СОБЫТИЙ ВО ВКЛАДКЕ',empty:(o,t)=>'Нет событий: .'+o+', '+t+'.',of:'из',type:'ДВИЖЕНИЕ',jump:'переход',g:k=>GDEF[k].ru,ev:n=>n+' '+ruPl(n,'событие','события','событий'),solo:'соло'}};
+
+function App(){
+  const [tw,setTweak]=useTweaks(TWEAK_DEFAULTS);
+  const L=tw.lang,W=parseInt(tw.windowW,10),gn=parseInt(tw.groupCount,10);
+  const RH=ROWH[tw.density],HH=HEADH[tw.density];
+  const t=S[L];
+  const [tab,setTab]=useState('open');
+  const [group,setGroup]=useState('all');
+  const [solo,setSolo]=useState([]);
+  const [fold,setFold]=useState([]);
+  const [pick,setPick]=useState(null);
+  const [buf,setBuf]=useState('');
+  const [done,setDone]=useState({});
+  const [gvis,setGvis]=useState(9),[gpop,setGpop]=useState(false),[gpopX,setGpopX]=useState(0);
+  const scrollRef=useRef(null),gRef=useRef(null),ghostRef=useRef(null),gbRef=useRef(null),laneRefs=useRef({}),bufT=useRef(null);
+  const gids=groupIds(gn);
+  const gorder=useMemo(()=>group==='all'||!gids.includes(group)?gids:[group,...gids.filter(g=>g!==group)],[gn,group]);
+
+  const scoped=useMemo(()=>EVENTS.filter(e=>group==='all'||groupOf(e.oct,gn)===group),[group,gn]);
+  const roster=useMemo(()=>CAMS.filter(c=>group==='all'||groupOf(c.oct,gn)===group),[group,gn]);
+  const inTab=useMemo(()=>scoped.filter(e=>tab==='open'?e.status!=='resolved':tab==='critical'?e.priority==='critical':true),[scoped,tab]);
+  const byCam=useMemo(()=>{const m={};inTab.forEach(e=>{(m[e.oct]=m[e.oct]||[]).push(e);});
+    Object.values(m).forEach(a=>a.sort((x,y)=>(SEVR[x.priority]-SEVR[y.priority])||(x.ago-y.ago)));return m;},[inTab]);
+  const gCounts=useMemo(()=>{const m={all:0};EVENTS.forEach(e=>{if(tab==='open'&&e.status==='resolved')return;if(tab==='critical'&&e.priority!=='critical')return;
+    const k=groupOf(e.oct,gn);m[k]=(m[k]||0)+1;m.all++;});return m;},[tab,gn]);
+
+  const active=roster.filter(c=>(byCam[c.oct]||[]).length>0).sort((a,b)=>(byCam[b.oct].length-byCam[a.oct].length)||(a.oct-b.oct));
+  const zeros=roster.filter(c=>!(byCam[c.oct]||[]).length);
+  /* every lane header always renders — soloing collapses the others to header-only, it never removes them,
+     so the roster stays visible and ctrl-click can still add a second camera. Soloed lanes sort to the TOP:
+     the jump is positional, so it can't be wrong the way a scroll measured against the old layout can. */
+  const laneList=useMemo(()=>{const sol=[],rest=[];
+    active.forEach(c=>(solo.includes(c.oct)?sol:rest).push(c));
+    solo.forEach(o=>{if(!sol.some(c=>c.oct===o)){const c=roster.find(x=>x.oct===o);if(c)sol.push(c);}});
+    sol.sort((a,b)=>solo.indexOf(a.oct)-solo.indexOf(b.oct));
+    return [...sol,...rest];},[active,solo,roster]);
+  const shownCount=solo.length?solo.reduce((n,o)=>n+(byCam[o]||[]).length,0):inTab.length;
+  const cur=useMemo(()=>{const all=laneList.filter(c=>!solo.length||solo.includes(c.oct)).flatMap(c=>byCam[c.oct]||[]);
+    return all.find(e=>e.id===pick)||all[0];},[laneList,solo,byCam,pick]);
+
+  const toggleSolo=(oct,add)=>setSolo(s=>add?(s.includes(oct)?s.filter(x=>x!==oct):[...s,oct]):(s.length===1&&s[0]===oct?[]:[oct]));
+  const jump=oct=>{setSolo([oct]);setFold(f=>f.filter(x=>x!==oct));};
+  useLayoutEffect(()=>{if(solo.length&&scrollRef.current)scrollRef.current.scrollTop=0;},[solo.join()]);
+
+  useEffect(()=>{
+    const h=e=>{
+      if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+      if(e.key==='Escape'){setSolo([]);setBuf('');setGpop(false);return;}
+      if(/^[0-9]$/.test(e.key)){e.preventDefault();
+        const nb=(buf+e.key).slice(-3);setBuf(nb);
+        const hits=roster.filter(c=>String(c.oct).startsWith(nb));
+        /* only commit when the prefix is unambiguous — or when all three digits are in */
+        if(hits.length===1||(nb.length>=3&&hits.length))jump(hits[0].oct);
+        clearTimeout(bufT.current);bufT.current=setTimeout(()=>setBuf(''),1400);}
+      else if(e.key==='Backspace'){e.preventDefault();setBuf(b=>b.slice(0,-1));}
+    };
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
+  },[buf,roster]);
+
+  /* group segment fit: computed in one pass from a ghost row, active group always promoted */
+  const measure=useCallback(()=>{const box=gRef.current,gh=ghostRef.current;if(!box||!gh)return;
+    const w=Array.from(gh.children).map(el=>el.offsetWidth);if(w.length<2)return;
+    const avail=box.clientWidth,plus=w[w.length-1];let used=w[0],k=0;
+    for(let i=0;i<gorder.length;i++){const tail=i<gorder.length-1?plus:0;
+      if(used+w[1+i]+tail<=avail){used+=w[1+i];k++;}else break;}
+    setGvis(group!=='all'&&k<1?1:k);},[gorder,group]);
+  useLayoutEffect(measure);
+  useEffect(()=>{if(!window.ResizeObserver)return;const ro=new ResizeObserver(()=>measure());
+    if(gRef.current)ro.observe(gRef.current);return()=>ro.disconnect();},[measure]);
+  const hidden=gorder.slice(gvis);
+
+  useEffect(()=>{const outs=solo.filter(o=>group!=='all'&&groupOf(o,gn)!==group);
+    if(outs.length)setSolo(s=>s.filter(o=>!outs.includes(o)));},[group,gn]);
+
+  const Mix=({evs})=>{const c={critical:0,high:0,medium:0,low:0};evs.forEach(e=>c[e.priority]++);
+    const tot=evs.length||1;
+    return <span className="mix">{['critical','high','medium','low'].filter(k=>c[k]).map(k=>
+      <i key={k} style={{background:SEVC[k],width:Math.max(2,Math.round(38*c[k]/tot))+'px'}}></i>)}</span>;};
+
+  const Lane=({c})=>{
+    const evs=byCam[c.oct]||[],on=solo.includes(c.oct),folded=fold.includes(c.oct);
+    const muted=solo.length>0&&!on,hideRows=folded||muted;
+    return <div className="lane" ref={el=>laneRefs.current[c.oct]=el}>
+      <button className={'lhead'+(on?' on':'')+(muted?' mute':'')} style={{height:HH,top:tw.stickyHeads?0:'auto',position:tw.stickyHeads?'sticky':'static'}}
+        onClick={e=>{if(e.altKey){setFold(f=>f.includes(c.oct)?f.filter(x=>x!==c.oct):[...f,c.oct]);}else toggleSolo(c.oct,e.ctrlKey||e.metaKey);}}
+        title={c.model+' ('+c.ip+') — '+t.ev(evs.length)+(on?' · '+t.solo:'')}>
+        <span className="car">{hideRows?'▸':'▾'}</span>
+        <span className="oc">{'.'+c.oct}</span>
+        {c.offline&&<span className="off"></span>}
+        <span className="nm">{c.model}</span>
+        <Mix evs={evs}/>
+        <span className="n">{evs.length}</span>
+      </button>
+      {!hideRows&&evs.length===0&&<div className="lempty">{t.empty(c.oct,t.tabs[tab])}</div>}
+      {!hideRows&&evs.map(e=><button key={e.id} className={'erow'+(cur&&cur.id===e.id?' on':'')+(e.status!=='new'?' done':'')}
+        style={{height:RH}} onClick={()=>setPick(e.id)}>
+        <span className="sev" style={{background:SEVC[e.priority],boxShadow:e.priority==='critical'?'0 0 0 3px var(--badSoft)':'none'}}></span>
+        {tw.thumbs&&<span className="thumb" style={{width:Math.round(RH*1.32),height:Math.round(RH*0.75)}}>
+          <i style={{left:5,top:6,width:16,height:RH*0.75-12}}></i><i style={{left:26,top:11,width:24,height:12,background:'#332f28'}}></i>
+          <span className="dur">{durTxt(e.dur)}</span></span>}
+        <span className="etime">{clock(e.ago)}</span>
+        <span className="eago">{agoTxt(e.ago,L)}</span>
+        <span className="espacer"></span>
+        <span className="tchip">◇ {t.type}</span>
+        <span className="udot" style={{background:e.status==='new'?'var(--bad)':e.status==='ack'?'var(--accent)':'transparent'}}></span>
+      </button>)}
+    </div>;};
+
+  return <div className="wrap">
+    <div className="vbar">
+      <span className="vsw"><a href="triage-camera-filter-prototype.html">A · MRU + PALETTE</a><a className="on" href="triage-camera-filter-prototype-B-lanes.html">B · LANES</a></span>
+      <span className="vnote">Click a lane header to solo · <b>ctrl-click</b> to add · <b>alt-click</b> to fold · type <b>146</b> · <b>Esc</b> clears — density and language live in Tweaks</span>
+    </div>
+    <div className="frame" style={{width:W}} onMouseDown={()=>gpop&&setGpop(false)}>
+      <div className="osbar"><span className="osdot" style={{background:'var(--bad)'}}></span><span className="osdot" style={{background:'var(--accent)'}}></span><span className="osdot" style={{background:'var(--good)'}}></span><span className="osttl">Watchtower · {L==='RU'?'События':'Events'}</span></div>
+      <div className="body">
+        <div className="rail">
+          <div className="railbrand">C</div>
+          {[[L==='RU'?'ОНЛАЙН':'LIVE',0],[L==='RU'?'ГРУППЫ':'GROUPS',0],[L==='RU'?'ВИДЫ':'VIEWS',0],[L==='RU'?'СОБЫТИЯ':'EVENTS',1],[L==='RU'?'СОСТОЯНИЕ':'HEALTH',0]].map(([n,on])=>
+            <div key={n} className={'railitem'+(on?' on':'')}><span className="g"></span>{n}</div>)}
+        </div>
+        <div className="main">
+          <div className="topbar">
+            <div className="tcell"><div className="brand"><div className="b1">CILEX VISION</div><div className="b2">Watchtower</div></div></div>
+            <div className="tcell grow"><span style={{color:'var(--ink3)'}}>⌕</span><span className="searchc">{L==='RU'?'Поиск камер, групп, видов, клипов, событий…':'Search cameras, groups, views, clips, events…'}</span><span className="kbd">CTRL K</span></div>
+            <div className="tcell"><span className="pill"><i style={{background:'var(--good)'}}></i>{L==='RU'?'ОНЛАЙН':'ONLINE'} 33</span></div>
+            <div className="tcell"><span className="pill"><i style={{background:'var(--bad)'}}></i>{L==='RU'?'НЕ В СЕТИ':'OFFLINE'} 6</span></div>
+            <div className="tcell"><span className="pill">11:09 · UTC+3</span></div>
+            <div className="tcell" style={{padding:0}}><div style={{width:34,height:'100%',background:'var(--accent)',color:'#241a08',display:'grid',placeItems:'center',fontSize:11,fontWeight:700}}>AD</div></div>
+          </div>
+          <div className="tabstrip"><div className="t on">{L==='RU'?'События':'Events'}</div><div className="t">HiWatch DS-I202(E) (192.168.1.104)</div></div>
+          <div className="subnav">
+            <div className="seg">
+              {[['01','Triage Queue',1],['02','Verify',0],['03','Activity Timeline',0],['04','Situation Map',0]].map(([n,l,on])=>
+                <button key={n} className={on?'on':''}><em>{n}</em>{l}</button>)}
+            </div>
+            <div className="gseg ghost" ref={ghostRef} aria-hidden="true">
+              <button>{t.allg}<span className="c">{gCounts.all||0}</span></button>
+              {gorder.map(g=><button key={g}>{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+              <button>{'+'+gorder.length}<span className="c">▾</span></button>
+            </div>
+            <div className="gseg" ref={gRef}>
+              <button className={group==='all'?'on':''} onClick={()=>setGroup('all')}>{t.allg}<span className="c">{gCounts.all||0}</span></button>
+              {gorder.slice(0,gvis).map(g=><button key={g} className={(group===g?'on':'')+((gCounts[g]||0)===0?' zero':'')} onClick={()=>setGroup(g)}>{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+              {hidden.length>0&&<button ref={gbRef} onClick={e=>{e.stopPropagation();if(gbRef.current)setGpopX(gbRef.current.getBoundingClientRect().left-gbRef.current.closest('.subnav').getBoundingClientRect().left);setGpop(v=>!v);}}>{'+'+hidden.length}<span className="c">▾</span></button>}
+            </div>
+            {gpop&&hidden.length>0&&<div className="gpop" style={{left:gpopX}} onMouseDown={e=>e.stopPropagation()}>
+              {hidden.map(g=><button key={g} className={group===g?'on':''} onClick={()=>{setGroup(g);setGpop(false);}}>{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+            </div>}
+            <div className="totals">
+              <div><span className="pill"><i style={{background:'var(--bad)'}}></i>{scoped.filter(e=>e.status!=='resolved').length} OPEN</span></div>
+              <div><span className="pill"><i style={{background:'var(--accent)'}}></i>{scoped.filter(e=>e.priority==='critical').length} CRITICAL</span></div>
+              <div><span className="pill"><i style={{background:'var(--good)'}}></i>{scoped.filter(e=>e.status==='resolved').length} CLEARED</span></div>
+            </div>
+          </div>
+          <div className="stage" style={{gridTemplateColumns:'384px minmax(0,1fr)'}}>
+            <div className="queue">
+              <div className="qtabs">
+                {[['open',t.tabs.open,scoped.filter(e=>e.status!=='resolved').length],['critical',t.tabs.critical,scoped.filter(e=>e.priority==='critical').length],['all',t.tabs.all,scoped.length]].map(([k,l,n])=>
+                  <button key={k} className={'qtab'+(tab===k?' on':'')} onClick={()=>setTab(k)}>{l}<span className="n">{n}</span></button>)}
+                <div className="qscope">
+                  {solo.length>0?<><b>{shownCount}</b> {t.of} {inTab.length} · {solo.map(o=>'.'+o).join(' ')}<button className="x" onClick={()=>setSolo([])}>✕</button></>
+                    :<>{inTab.length} · {active.length} cam</>}
+                </div>
+              </div>
+              <div className="qscroll" ref={scrollRef}>
+                {buf&&<div className="echo">.{buf}<em>{(()=>{const h=roster.filter(c=>String(c.oct).startsWith(buf)).length;return h===1?t.jump:h+' cam';})()}</em></div>}
+                {laneList.map(c=><Lane key={c.oct} c={c}/>)}
+                {zeros.filter(c=>!solo.includes(c.oct)).length>0&&<div className="zerobar">
+                  <span className="lbl">{t.noEv}</span>
+                  {zeros.filter(c=>!solo.includes(c.oct)).map(c=><button key={c.oct} onClick={()=>jump(c.oct)}>{'.'+c.oct}</button>)}
+                </div>}
+              </div>
+            </div>
+            <div className="detail">
+              {cur?<>
+                <div className="vid">
+                  <div className="scrim"></div>
+                  <div className="hdr"><span className="vchip">❚❚ PLAYBACK</span><span className="vcam">{CAM[cur.oct].model} ({CAM[cur.oct].ip})</span></div>
+                  <div className="playc">▶</div>
+                  <div className="osd">06 AUG {clock(cur.ago)}</div>
+                </div>
+                <div className="ctrl">
+                  <button className="cb">|◀</button><button className="cb">▶</button><button className="cb">▶|</button>
+                  <button className="cb">−10</button><button className="cb">+10</button>
+                  <span className="ctime">00:00<i>/</i>{mmss(cur.dur+30)}</span>
+                  <span className="scrub"><span className="trk"></span><span className="ev" style={{left:'18%',width:'62%'}}></span><span className="fill" style={{left:'11px',width:'16%'}}></span><span className="hd" style={{left:'18%'}}></span></span>
+                  <button className="cb">1×</button><button className="cb">↥</button><button className="cb">⚏</button><button className="cb">⌸</button>
+                </div>
+                <div className="dbody">
+                  <div className="hl">
+                    <div><div className="ttl">{L==='RU'?'Движение':'Motion'}</div><div className="subttl">{L==='RU'?'Обнаружено движение':'Motion detected'}</div></div>
+                    <div className="sevlbl" style={{color:SEVC[cur.priority]}}><b style={{background:SEVC[cur.priority]}}></b>{cur.priority.toUpperCase()}</div>
+                  </div>
+                  <div className="facts">
+                    <div><div className="k">Camera</div><div className="v mono">{'.'+cur.oct}</div></div>
+                    <div><div className="k">Device</div><div className="v mono">{CAM[cur.oct].ip}</div></div>
+                    <div><div className="k">Group</div><div className="v">{t.g(groupOf(cur.oct,gn))}</div></div>
+                    <div><div className="k">Time</div><div className="v mono">{clock(cur.ago)}</div></div>
+                    <div><div className="k">Clip</div><div className="v mono">{durTxt(cur.dur)}</div></div>
+                    <div><div className="k">AI conf.</div><div className="v mono">n/a</div></div>
+                  </div>
+                  <div className="sop">
+                    <div className="sh">{L==='RU'?'ПРОЦЕДУРА':'RESPONSE PROCEDURE'}</div>
+                    {SOP.map((s,i)=><label key={i} className={done[cur.id+i]?'done':''}>
+                      <span className="cbx" onClick={e=>{e.preventDefault();setDone(d=>({...d,[cur.id+i]:!d[cur.id+i]}));}}>✓</span><span>{s}</span></label>)}
+                  </div>
+                </div>
+                <div className="actions">
+                  <button className="abtn good">✓ Authorized</button>
+                  <button className="abtn">✕ False alarm</button>
+                  <button className="abtn danger">⇱ Dispatch guard</button>
+                  <button className="abtn pri">✓ Acknowledge <span className="kbd" style={{borderColor:'rgba(0,0,0,.3)',color:'#241a08'}}>E</span></button>
+                </div>
+              </>:<div className="dempty">{L==='RU'?'Очередь пуста.':'Queue clear — no open events.'}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <TweaksPanel>
+      <TweakSection label="Density"/>
+      <TweakRadio label="Rows" value={tw.density} options={['compact','dense','ultra']} onChange={v=>setTweak('density',v)}/>
+      <TweakToggle label="Thumbnails" value={tw.thumbs} onChange={v=>setTweak('thumbs',v)}/>
+      <TweakToggle label="Sticky lane headers" value={tw.stickyHeads} onChange={v=>setTweak('stickyHeads',v)}/>
+      <TweakSection label="Review harness"/>
+      <TweakRadio label="Language" value={tw.lang} options={['EN','RU']} onChange={v=>setTweak('lang',v)}/>
+      <TweakRadio label="Window" value={tw.windowW} options={['1440','1200']} onChange={v=>setTweak('windowW',v)}/>
+      <TweakRadio label="Groups" value={tw.groupCount} options={['2','6']} onChange={v=>setTweak('groupCount',v)}/>
+    </TweaksPanel>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

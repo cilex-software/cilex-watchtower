@@ -558,6 +558,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtDetailIp", qEnvironmentVariable("WT_DETAIL_IP"));
     // Dev: WT_WINSIZE=WxH forces the window geometry (letterbox-ratio screenshots).
     engine.rootContext()->setContextProperty("wtWinSize", qEnvironmentVariable("WT_WINSIZE"));
+    // Dev: WT_TRIAGE_TEST="solo:146"|"type:14" drives the triage lane filter (screenshot verification).
+    engine.rootContext()->setContextProperty("wtTriageTest", qEnvironmentVariable("WT_TRIAGE_TEST"));
     engine.rootContext()->setContextProperty("wtPtzOpen", qEnvironmentVariableIsSet("WT_PTZ_OPEN"));
     // Optional initial Events sub-view (dev: WT_EVENTS_VIEW=triage|review|timeline|map).
     engine.rootContext()->setContextProperty("wtEventsView", qEnvironmentVariable("WT_EVENTS_VIEW"));

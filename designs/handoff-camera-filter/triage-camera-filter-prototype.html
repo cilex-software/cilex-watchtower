@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Triage Queue — camera quick-filter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1816;--panel:#221f1c;--panel2:#2a2722;--panel3:#322e28;--line:#34302a;--line2:#443f37;--ink:#f0ece4;--ink2:#a89f90;--ink3:#6e6657;--accent:#e8a13a;--accentSoft:rgba(232,161,58,.08);--accentDim:#5a3f15;--bad:#d96649;--badSoft:rgba(217,102,73,.1);--good:#8eb96b;--info:#6f9bc4;--violet:#9a7bd0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#100f0e;font-family:'Space Grotesk',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;display:block;overflow-x:auto;padding:14px 20px 28px}
+.wrap{width:max-content;margin:0 auto}
+.mono{font-family:'JetBrains Mono',monospace}
+a{color:var(--accent)}a:hover{color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit;color:inherit;background:none;border:none;outline:none}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--line2)}::-webkit-scrollbar-track{background:transparent}
+/* harness */
+.harness{width:100%;display:flex;align-items:center;gap:8px;padding:0 4px 12px;flex-wrap:wrap}
+.hz{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.3px;text-transform:uppercase;color:var(--ink3);margin-right:2px}
+.hb{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);border:1px solid var(--line2);padding:3px 9px}
+.hb:hover{background:var(--panel2);color:var(--ink)}
+.hb.on{border-color:var(--accent);color:var(--accent);background:var(--accentSoft)}
+.hnote{margin-left:auto;font-size:11px;color:var(--ink3)}
+.hnote b{color:var(--ink2);font-weight:500}
+.vsw{display:flex;align-items:stretch;border:1px solid var(--line2);margin-right:6px}
+.vsw a{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);text-decoration:none;padding:3px 9px;border-right:1px solid var(--line2)}
+.vsw a:last-child{border-right:0}
+.vsw a:hover{background:var(--panel2);color:var(--ink)}
+.vsw a.on{background:var(--accent);color:#241a08;font-weight:700}
+.vsw a.on:hover{background:var(--accent);color:#241a08}
+/* frame */
+.frame{background:var(--bg);border:1px solid var(--line2);height:900px;display:flex;flex-direction:column;overflow:hidden;transition:width .18s ease;flex:none;min-width:0}
+.osbar{height:32px;background:#141312;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:10px;flex:none}
+.osdot{width:9px;height:9px;border-radius:50%}
+.osttl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.4px;color:var(--ink3);text-transform:uppercase}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:72px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding-top:14px;gap:16px;flex:none}
+.railbrand{width:28px;height:28px;border:1px solid var(--accent);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px}
+.railitem{display:flex;flex-direction:column;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.9px;color:var(--ink3)}
+.railitem .g{width:16px;height:16px;border:1px solid currentColor}
+.railitem.on{color:var(--accent)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:64px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:0 16px;flex:none}
+.brand .b1{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.6px;color:var(--ink3)}
+.brand .b2{font-size:15px;font-weight:600;letter-spacing:-.2px}
+.search{flex:1;max-width:420px;height:32px;border:1px solid var(--line2);display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--ink3);font-size:11px;min-width:0}
+.search span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:8px;border:1px solid var(--line);padding:1px 4px;color:var(--ink3);letter-spacing:.6px;flex:none}
+.pill{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.8px;flex:none}
+.pill i{width:6px;height:6px;display:block}
+.tabstrip{height:36px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tabstrip .t{display:flex;align-items:center;gap:8px;padding:0 16px;font-size:11px;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.tabstrip .t.on{background:var(--panel);color:var(--ink);border-bottom:2px solid var(--accent)}
+.subnav{height:58px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 16px;flex:none;position:relative;z-index:30}
+.mode{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--ink3);border:1px solid var(--line2);padding:7px 11px;display:flex;gap:7px;flex:none;white-space:nowrap}
+.mode.on{background:var(--accent);border-color:var(--accent);color:#241a08;font-weight:600}
+.mode.on em{color:#8a6417;font-style:normal}
+/* group strip */
+.gwrap{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;border-left:1px solid var(--line);padding-left:10px;margin-left:2px}
+.gwrap.ghost{position:absolute;left:0;top:0;width:auto;flex:none;visibility:hidden;pointer-events:none;overflow:visible;border-left:0;padding-left:0;margin:0}
+.gchip{height:30px;padding:0 10px;border:1px solid var(--line2);display:flex;align-items:center;gap:7px;flex:none;font-size:11px;color:var(--ink2);white-space:nowrap}
+.gchip .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.gchip:hover{background:var(--panel2);border-color:var(--ink3);color:var(--ink)}
+.gchip.on{background:var(--accentSoft);border-color:var(--accent);color:var(--accent)}
+.gchip.on .c{color:var(--accent)}
+.gchip.zero{border-color:var(--line);opacity:.55}
+.gchip .car{font-size:8px;color:var(--ink3)}
+.gpop{position:absolute;top:48px;width:214px;background:var(--panel);border:1px solid var(--line2);z-index:40;padding:2px 0}
+.gpop button{width:100%;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;font-size:11px;color:var(--ink2);text-align:left}
+.gpop button:hover{background:var(--panel2);color:var(--ink)}
+.gpop button.on{color:var(--accent)}
+.gpop .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.totals{display:flex;gap:16px;flex:none;margin-left:auto}
+.stage{flex:1;display:grid;min-height:0;min-width:0}
+/* queue */
+.queue{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;position:relative}
+.qtabs{height:45px;display:flex;align-items:flex-end;gap:2px;padding:0 12px;border-bottom:1px solid var(--line);flex:none}
+.qtab{display:flex;align-items:center;gap:7px;padding:0 11px;height:100%;font-size:12px;font-weight:600;color:var(--ink2);border-bottom:2px solid transparent;white-space:nowrap}
+.qtab:hover{color:var(--ink)}
+.qtab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.qtab .n{font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--panel2);color:var(--ink3);padding:1px 6px}
+.qtab.on .n{color:var(--accent)}
+/* octet bar */
+.obar{height:36px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px;position:relative;z-index:12;background:var(--bg);overflow:hidden}
+.chip{height:22px;padding:0 6px;border:1px solid var(--line2);display:flex;align-items:center;gap:6px;flex:none;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--ink2);letter-spacing:.3px}
+.chip .c{font-size:9px;font-weight:400;color:var(--ink3)}
+.chip:hover{background:var(--panel2);border-color:var(--ink3);color:var(--ink)}
+.chip.on{background:var(--accentSoft);border-color:var(--accent);color:var(--accent)}
+.chip.on .c{color:var(--accent)}
+.chip.zero{border-color:var(--line);opacity:.55}
+.chip.zero.on{opacity:1}
+.chip .x{font-size:9px;color:var(--accent);margin-left:1px}
+.chip.fresh{animation:fresh .5s ease}
+@keyframes fresh{0%{background:rgba(232,161,58,.3);border-color:var(--accent)}100%{}}
+.spacer{flex:1}
+.pbtn{height:22px;padding:0 6px;border:1px solid var(--line2);display:flex;align-items:center;gap:5px;flex:none;color:var(--ink2)}
+.pbtn:hover{background:var(--panel2);border-color:var(--ink3);color:var(--ink)}
+.pbtn.open{background:var(--panel3);border-color:var(--ink3);color:var(--ink)}
+.pbtn.act{background:var(--accentSoft);border-color:var(--accent);color:var(--accent)}
+.pbtn .n{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600}
+.pbtn .car{font-size:8px;color:var(--ink3)}
+.pbtn.act .car{color:var(--accent)}
+/* palette */
+.pal{position:absolute;left:8px;top:81px;width:368px;max-height:384px;background:var(--panel);border:1px solid var(--line2);z-index:20;display:flex;flex-direction:column}
+.palsearch{height:34px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 12px;flex:none}
+.palsearch .gl{font-size:11px;color:var(--ink3)}
+.palsearch input{flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);caret-color:var(--accent)}
+.palsearch input::placeholder{font-family:'Space Grotesk',sans-serif;font-size:11px;color:var(--ink3)}
+.palscope{height:22px;display:flex;align-items:center;padding:0 12px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.3px;color:var(--ink3);flex:none;white-space:nowrap;overflow:hidden}
+.pallist{overflow-y:auto;flex:1}
+.paldiv{padding:5px 12px 4px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.3px;color:var(--ink3);background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.palrow{height:34px;display:flex;align-items:center;gap:9px;padding:0 12px;position:relative;width:100%;text-align:left}
+.palrow:hover{background:var(--panel2)}
+.palrow.cur{background:var(--panel2)}
+.palrow.cur::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--ink3)}
+.palrow.sel{background:var(--accentSoft)}
+.palrow.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent)}
+.cbx{width:13px;height:13px;border:1px solid var(--line2);flex:none;display:grid;place-items:center;font-size:9px;color:transparent}
+.palrow.sel .cbx{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.offdot{width:5px;height:5px;border-radius:50%;background:var(--bad);flex:none;margin-right:-4px}
+.oct{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--ink);min-width:42px;flex:none}
+.palrow.sel .oct{color:var(--accent)}
+.pname{font-size:11px;color:var(--ink3);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcount{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2);width:30px;text-align:right;flex:none}
+.pcount.z{color:var(--ink3)}
+.palnone{padding:16px 12px;text-align:center;font-size:11px;color:var(--ink3)}
+.palfoot{height:30px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex:none;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);gap:10px}
+.palfoot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palfoot .sc{color:var(--accent)}
+.palfoot .clr{flex:none}
+.palfoot .clr:hover{text-decoration:underline}
+.palfoot .clr.act{color:var(--accent)}
+/* list */
+.qscroll{flex:1;overflow-y:auto;min-height:0;position:relative}
+.ribbon{position:sticky;top:0;z-index:5;height:22px;background:#2b2318;border-bottom:1px solid rgba(232,161,58,.25);display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 16px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);gap:8px}
+.ribbon span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ribbon .clr{flex:none}
+.ribbon .clr:hover{text-decoration:underline}
+.notice{height:22px;background:#2c211d;border-bottom:1px solid rgba(217,102,73,.3);display:flex;align-items:center;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bad)}
+.row{height:67px;width:100%;display:flex;align-items:center;gap:11px;padding:0 16px;border-bottom:1px solid var(--line);position:relative;text-align:left}
+.row:hover{background:var(--panel)}
+.row.on{background:var(--panel2)}
+.row.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.row.done{opacity:.5}
+.sev{width:8px;height:8px;border-radius:50%;flex:none}
+.thumb{width:74px;height:42px;border:1px solid var(--line);position:relative;flex:none;background:var(--panel3);overflow:hidden}
+.thumb i{position:absolute;display:block;background:#3d382f}
+.thumb .dur{position:absolute;right:2px;bottom:2px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#fff;background:rgba(0,0,0,.7);padding:0 3px;letter-spacing:.2px}
+.meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tpill{height:17px;align-self:flex-start;border:1px solid var(--line2);display:flex;align-items:center;gap:5px;padding:0 6px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--ink2)}
+.cam{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:15px}
+.tm{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);line-height:13px}
+.udot{width:7px;height:7px;border-radius:50%;flex:none}
+.qempty{padding:56px 24px;text-align:center;color:var(--ink3);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.qempty .cb{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px}
+/* detail */
+.detail{display:flex;flex-direction:column;min-width:0;min-height:0}
+.vid{background:#000;position:relative;flex:none;aspect-ratio:21/9;display:grid;place-items:center}
+.vid .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0) 30%)}
+.vid .hdr{position:absolute;top:9px;left:11px;display:flex;gap:9px;align-items:center;z-index:2}
+.vchip{font-family:'JetBrains Mono',monospace;font-size:9px;background:rgba(0,0,0,.55);color:rgba(255,255,255,.7);padding:2px 7px;letter-spacing:1px}
+.vcam{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.75)}
+.playc{width:58px;height:58px;border-radius:50%;border:2px solid rgba(255,255,255,.8);display:grid;place-items:center;color:rgba(255,255,255,.85);font-size:17px;padding-left:4px}
+.vid .osd{position:absolute;right:12px;bottom:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.6);letter-spacing:1px}
+.transport{height:52px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:9px;padding:0 12px;flex:none}
+.tb{height:34px;min-width:34px;border:1px solid var(--line2);background:var(--panel2);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);padding:0 8px;flex:none}
+.tb:hover{background:var(--panel3);border-color:var(--ink3)}
+.ttime{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);flex:none}
+.ttime i{color:var(--ink3);font-style:normal}
+.scrub{flex:1;min-width:0;height:30px;display:flex;align-items:center;position:relative}
+.scrub .trk{height:5px;width:100%;background:var(--panel3)}
+.scrub .ev{position:absolute;height:5px;background:var(--accentDim)}
+.scrub .fill{position:absolute;height:5px;background:var(--accent)}
+.scrub .hd{position:absolute;width:3px;height:16px;background:var(--ink)}
+.toolrow{height:44px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 14px;flex:none;font-size:12px;color:var(--ink2)}
+.dbody{flex:1;overflow-y:auto;padding:18px 22px;min-height:0}
+.hl{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ttl{font-size:20px;font-weight:600}
+.subttl{font-size:13px;color:var(--ink2);margin-top:3px}
+.sevlbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.2px;display:flex;align-items:center;gap:7px;flex:none}
+.sevlbl b{width:3px;height:12px;display:block}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:18px 0}
+.facts>div{background:var(--bg);padding:10px 13px;min-width:0}
+.facts .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.1px;color:var(--ink3);text-transform:uppercase}
+.facts .v{font-size:13px;color:var(--ink);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.actions{border-top:1px solid var(--line);background:var(--panel);padding:12px 18px;display:flex;gap:8px;align-items:center;flex:none}
+.btn{height:34px;padding:0 13px;border:1px solid var(--line2);display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);flex:none;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.good{border-color:rgba(142,185,107,.45);color:var(--good)}
+.btn.danger{border-color:rgba(217,102,73,.45);color:var(--bad)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#241a08;font-weight:600}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useLayoutEffect}=React;
+
+/* ---------- data ---------- */
+const DIST=[[144,18],[143,15],[104,14],[160,13],[140,12],[145,11],[158,9],[146,8],[151,7],[152,6],[161,6],[162,5],[163,4],[170,4],[171,3],[172,3],[173,2],[180,2],[181,2],[182,2],[183,1],[190,1]];
+const MODELS={104:'HiWatch DS-I202(E)',140:'HiWatch DS-I202(E)',143:'HiWatch DS-I202(E)',144:'HiWatch DS-I202(E)',145:'HiWatch DS-I202(E)',146:'HiWatch DS-I259M(C)',151:'HiWatch DS-I202(E)',152:'HiWatch DS-I259M(C)',158:'HiWatch DS-I202(E)',160:'HiWatch DS-I259M(C)',161:'Hikvision DS-2CD2143G2',162:'Hikvision DS-2CD2143G2',163:'HiWatch DS-I202(E)',170:'HiWatch DS-I202(E)',171:'HiWatch DS-I259M(C)',172:'HiWatch DS-I202(E)',173:'Hikvision DS-2CD2143G2',180:'HiWatch DS-I202(E)',181:'HiWatch DS-I202(E)',182:'HiWatch DS-I259M(C)',183:'HiWatch DS-I202(E)',190:'Hikvision DS-2CD2143G2'};
+const OUTSIDE=new Set([158,160,161,162,163,180,181,182,183,190]);
+const OFFLINE=new Set([173,183]);
+/* 6-group stress set — a review harness only, not product data */
+const G6={104:'lobby',140:'lobby',143:'lobby',144:'inside',145:'inside',146:'inside',151:'parking',152:'parking',158:'parking',160:'outside',161:'outside',162:'outside',163:'outside',170:'roof',171:'roof',172:'roof',173:'roof',180:'perimeter',181:'perimeter',182:'perimeter',183:'perimeter',190:'perimeter'};
+const GDEF={inside:{en:'Inside',ru:'Внутри'},outside:{en:'Outside',ru:'Снаружи'},lobby:{en:'Lobby',ru:'Вестибюль'},parking:{en:'Parking',ru:'Парковка'},roof:{en:'Roof',ru:'Крыша'},perimeter:{en:'Perimeter',ru:'Периметр'}};
+const groupOf=(oct,n)=>n===2?(OUTSIDE.has(oct)?'outside':'inside'):G6[oct];
+const groupIds=n=>n===2?['inside','outside']:['inside','outside','lobby','parking','roof','perimeter'];
+const CAMS=DIST.map(([o])=>o).sort((a,b)=>a-b).map(o=>({oct:o,model:MODELS[o],ip:'192.168.1.'+o,offline:OFFLINE.has(o)}));
+const CAM=Object.fromEntries(CAMS.map(c=>[c.oct,c]));
+
+function mk(){let s=7,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff),out=[],i=0;
+  DIST.forEach(([oct,n])=>{for(let k=0;k<n;k++){out.push({id:'e'+(i++),oct,ago:Math.floor(r()*680)+1,dur:[38,48,74,91,131,214][Math.floor(r()*6)]});}});
+  out.sort((a,b)=>a.ago-b.ago);
+  let res=0;out.forEach((e,idx)=>{e.status=(idx%8===3&&res++<18)?'resolved':(idx%5===1?'ack':'new');e.priority='low';});
+  [146,104,190].forEach(oct=>{const t=out.find(e=>e.oct===oct&&e.status!=='resolved');if(t)t.priority='critical';});
+  out.filter((e,i)=>i%6===2).forEach(e=>{if(e.priority==='low')e.priority='medium';});
+  return out;}
+const EVENTS=mk();
+const BASE=11*3600+9*60;
+const clock=s=>{const t=BASE-s;return [t/3600|0,(t/60)%60|0,t%60].map(n=>String(n|0).padStart(2,'0')).join(':');};
+const agoTxt=(s,L)=>s<60?(s+(L==='ru'?'с назад':'s ago')):((s/60|0)+(L==='ru'?'м назад':'m ago'));
+const durTxt=s=>s<60?s+'s':(s/60|0)+'m '+(s%60)+'s';
+const mmss=s=>String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+const ruPl=(n,a,b,c)=>{const m=n%100;if(m>=11&&m<=14)return c;const d=n%10;return d===1?a:(d>=2&&d<=4)?b:c;};
+const SEVC={critical:'var(--bad)',high:'var(--accent)',medium:'var(--ink2)',low:'var(--ink3)'};
+
+/* ---------- strings ---------- */
+const S={en:{all:'All',ph:'Octet or camera name…',cams:'CAMERAS',recent:'RECENT',busiest:'BUSIEST',zero:'NO EVENTS IN THIS TAB',hint:'Enter = only this · Space = add',sel:n=>n+' selected',clear:'Clear',ncams:n=>n+(n===1?' camera':' cameras'),events:n=>n+(n===1?' event':' events'),none:q=>'No camera matches "'+q+'".',empty:(l,t)=>'No events match '+l+' in '+t+'.',clearF:'Clear filter',tabs:{open:'Open queue',critical:'Critical',all:'All'},tabsC:{open:'OPEN QUEUE',critical:'CRITICAL',all:'ALL'},allg:'All groups',notIn:l=>l+' is not in this group — dropped from the filter.',g:k=>GDEF[k].en},
+ru:{all:'Все',ph:'Октет или имя камеры…',cams:'КАМЕР',recent:'НЕДАВНИЕ',busiest:'САМЫЕ АКТИВНЫЕ',zero:'НЕТ СОБЫТИЙ В ЭТОЙ ВКЛАДКЕ',hint:'Enter = только эта · Space = добавить',sel:n=>'Выбрано: '+n,clear:'Сбросить',ncams:n=>n+' '+ruPl(n,'камера','камеры','камер'),events:n=>n+' '+ruPl(n,'событие','события','событий'),none:q=>'Нет камеры по запросу «'+q+'».',empty:(l,t)=>'Нет событий: '+l+', '+t+'.',clearF:'Сбросить фильтр',tabs:{open:'Открытые',critical:'Критические',all:'Все'},tabsC:{open:'ОТКРЫТЫЕ',critical:'КРИТИЧЕСКИЕ',all:'ВСЕ'},allg:'Все группы',notIn:l=>l+' не в этой группе — убрана из фильтра.',g:k=>GDEF[k].ru}};
+
+/* ---------- palette ---------- */
+function Palette({L,t,roster,counts,sel,mru,cursor,setCursor,q,setQ,onExclusive,onToggle,onClear,tab,groupLabel}){
+  const ref=useRef(null),listRef=useRef(null);
+  useEffect(()=>{ref.current&&ref.current.focus();},[]);
+  const rows=useMemo(()=>{
+    const withC=roster.map(c=>({...c,n:counts[c.oct]||0,recent:mru.indexOf(c.oct)}));
+    if(q.trim()){const s=q.trim().toLowerCase();
+      const score=c=>{const o=String(c.oct);if(o===s)return 0;if(o.startsWith(s))return 1;if(o.includes(s))return 2;
+        if((c.model+' '+c.ip).toLowerCase().includes(s))return 3;return 9;};
+      return withC.map(c=>({...c,s:score(c)})).filter(c=>c.s<9).sort((a,b)=>a.s-b.s||b.n-a.n||a.oct-b.oct).map(c=>({...c,sec:null}));}
+    const R=withC.filter(c=>c.recent>=0).sort((a,b)=>a.recent-b.recent);
+    const B=withC.filter(c=>c.recent<0&&c.n>0).sort((a,b)=>b.n-a.n||a.oct-b.oct);
+    const Z=withC.filter(c=>c.recent<0&&c.n===0).sort((a,b)=>a.oct-b.oct);
+    return [...R.map((c,i)=>({...c,sec:i===0?t.recent:null})),...B.map((c,i)=>({...c,sec:i===0?t.busiest:null})),...Z.map((c,i)=>({...c,sec:i===0?t.zero:null}))];
+  },[q,counts,mru,t,roster]);
+  useEffect(()=>{setCursor(0);},[q]);
+  useEffect(()=>{
+    const el=listRef.current&&listRef.current.querySelector('.palrow.cur');
+    if(el&&listRef.current){const p=listRef.current,r=el.offsetTop;
+      if(r<p.scrollTop)p.scrollTop=r;else if(r+34>p.scrollTop+p.clientHeight)p.scrollTop=r+34-p.clientHeight;}
+  },[cursor,rows.length]);
+  const key=e=>{
+    if(e.key==='ArrowDown'){e.preventDefault();setCursor(c=>(c+1)%Math.max(rows.length,1));}
+    else if(e.key==='ArrowUp'){e.preventDefault();setCursor(c=>(c-1+rows.length)%Math.max(rows.length,1));}
+    else if(e.key==='Enter'){e.preventDefault();rows[cursor]&&onExclusive(rows[cursor].oct);}
+    else if(e.key===' '){e.preventDefault();rows[cursor]&&onToggle(rows[cursor].oct);}
+    else if(e.key==='Backspace'&&q===''){e.preventDefault();onClear();}
+  };
+  return <div className="pal" onMouseDown={e=>e.stopPropagation()}>
+    <div className="palsearch">
+      <span className="gl">⌕</span>
+      <input ref={ref} value={q} placeholder={t.ph} onChange={e=>setQ(e.target.value)} onKeyDown={key}/>
+      <span className="kbd">Esc</span>
+    </div>
+    <div className="palscope">{roster.length} {t.cams} · {t.tabsC[tab]} · {groupLabel.toUpperCase()}</div>
+    <div className="pallist" ref={listRef}>
+      {rows.length===0&&<div className="palnone">{t.none(q)}</div>}
+      {rows.map((c,i)=><React.Fragment key={c.oct}>
+        {c.sec&&<div className="paldiv">{c.sec}</div>}
+        <button className={'palrow'+(sel.includes(c.oct)?' sel':'')+(i===cursor?' cur':'')}
+          onMouseEnter={()=>setCursor(i)} onClick={()=>onToggle(c.oct)} onDoubleClick={()=>onExclusive(c.oct)}>
+          <span className="cbx">✓</span>
+          {c.offline&&<span className="offdot"></span>}
+          <span className="oct">{'.'+c.oct}</span>
+          <span className="pname">{c.model}</span>
+          <span className={'pcount'+(c.n===0?' z':'')}>{c.n}</span>
+        </button>
+      </React.Fragment>)}
+    </div>
+    <div className="palfoot">
+      <span className={sel.length?'sc':''}>{sel.length?t.sel(sel.length):t.hint}</span>
+      <button className={'clr'+(sel.length?' act':'')} onClick={onClear}>{t.clear}</button>
+    </div>
+  </div>;
+}
+
+/* ---------- app ---------- */
+function App(){
+  const [L,setL]=useState('en'),[W,setW]=useState(1440),[gn,setGn]=useState(2);
+  const [tab,setTab]=useState('open');
+  const [sel,setSel]=useState([]);
+  const [mru,setMru]=useState(()=>[...DIST].sort((a,b)=>b[1]-a[1]).slice(0,3).map(d=>d[0]));
+  const [fresh,setFresh]=useState(null);
+  const [group,setGroup]=useState('all');
+  const [notice,setNotice]=useState(null);
+  const [open,setOpen]=useState(false),[q,setQ]=useState(''),[cursor,setCursor]=useState(0);
+  const [pick,setPick]=useState(null),[lvl,setLvl]=useState(0),[gvis,setGvis]=useState(9);
+  const [gpop,setGpop]=useState(false),[barNonce,setBarNonce]=useState(0);
+  const barRef=useRef(null),gRef=useRef(null),ghostRef=useRef(null),gbRef=useRef(null),lu=useRef(null),tick=useRef(0);
+  if(lu.current===null){lu.current={};const seed=[...DIST].sort((a,b)=>b[1]-a[1]).slice(0,3).map(d=>d[0]);
+    seed.forEach((o,i)=>{lu.current[o]=seed.length-i;});tick.current=seed.length;}
+  const [gpopX,setGpopX]=useState(0);
+  const t=S[L];
+  const gids=groupIds(gn);
+  /* the active group is always promoted to the head of the strip, so the current scope is always NAMED on
+     screen and can never end up inside the unnamed +M overflow */
+  const gorder=useMemo(()=>group==='all'||!gids.includes(group)?gids:[group,...gids.filter(g=>g!==group)],[gn,group]);
+  const glabel=group==='all'?t.allg:t.g(group);
+
+  /* group scope narrows the whole Events section; the camera filter narrows only the queue list */
+  const scoped=useMemo(()=>EVENTS.filter(e=>group==='all'||groupOf(e.oct,gn)===group),[group,gn]);
+  const roster=useMemo(()=>CAMS.filter(c=>group==='all'||groupOf(c.oct,gn)===group),[group,gn]);
+  const inTab=useMemo(()=>scoped.filter(e=>tab==='open'?e.status!=='resolved':tab==='critical'?e.priority==='critical':true),[scoped,tab]);
+  const counts=useMemo(()=>{const m={};inTab.forEach(e=>m[e.oct]=(m[e.oct]||0)+1);return m;},[inTab]);
+  const gCounts=useMemo(()=>{const m={all:0};EVENTS.forEach(e=>{if(tab==='open'&&e.status==='resolved')return;if(tab==='critical'&&e.priority!=='critical')return;
+    const k=groupOf(e.oct,gn);m[k]=(m[k]||0)+1;m.all++;});return m;},[tab,gn]);
+  const list=useMemo(()=>sel.length?inTab.filter(e=>sel.includes(e.oct)):inTab,[inTab,sel]);
+  const cur=list.find(e=>e.id===pick)||list[0];
+
+  /* MRU: newest enters at slot 1; eviction is least-recently-used; re-use never moves a chip */
+  const touch=o=>{lu.current[o]=++tick.current;
+    setMru(m=>{if(m.includes(o))return m;
+      const next=[o,...m];if(next.length<=3)return next;
+      let worst=null,wv=Infinity;next.slice(1).forEach(x=>{const v=lu.current[x]||0;if(v<=wv){wv=v;worst=x;}});
+      return next.filter(x=>x!==worst);});
+    setFresh(o);setTimeout(()=>setFresh(f=>f===o?null:f),520);};
+  const toggle=o=>{if(!sel.includes(o))touch(o);setSel(s=>s.includes(o)?s.filter(x=>x!==o):[...s,o]);};
+  const exclusive=o=>{touch(o);setSel([o]);setOpen(false);setQ('');};
+  const clear=()=>setSel([]);
+  const openPal=seed=>{setQ(seed||'');setCursor(0);setOpen(true);};
+
+  useEffect(()=>{
+    const outs=sel.filter(o=>group!=='all'&&groupOf(o,gn)!==group);
+    if(outs.length){setSel(s=>s.filter(o=>!outs.includes(o)));
+      setNotice(t.notIn(outs.map(o=>'.'+o).join(', ')));
+      const id=setTimeout(()=>setNotice(null),4000);return()=>clearTimeout(id);}
+  },[group,gn]);
+
+  useEffect(()=>{
+    const h=e=>{
+      if(e.target.tagName==='INPUT')return;
+      if(e.key==='Escape'){setOpen(false);setQ('');setGpop(false);return;}
+      if(open)return;
+      if(/^[0-9]$/.test(e.key)){e.preventDefault();openPal(e.key);}
+      else if(e.key==='f'||e.key==='F'||e.key==='а'||e.key==='А'){e.preventDefault();openPal('');}
+    };
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);
+  },[open]);
+
+  const shown=mru.filter(o=>roster.some(c=>c.oct===o));
+  const session=sel.filter(o=>!shown.includes(o));
+  useLayoutEffect(()=>{setLvl(0);},[sel.join(),shown.join(),L,W,tab,group]);
+  useLayoutEffect(()=>{const el=barRef.current;if(el&&lvl<3&&el.scrollWidth>el.clientWidth+1)setLvl(l=>l+1);});
+  /* the group strip's fit is a pure function of measured width: read every chip's intrinsic width from a
+     hidden ghost row, walk the cumulative sum, write the answer once. Idempotent, and correct both ways. */
+  const measureGroups=React.useCallback(()=>{
+    const box=gRef.current,ghost=ghostRef.current;if(!box||!ghost)return;
+    const w=Array.from(ghost.children).map(el=>el.offsetWidth);if(w.length<2)return;
+    const G=6,avail=box.clientWidth-10,plus=w[w.length-1];
+    let used=w[0],k=0;
+    for(let i=0;i<gorder.length;i++){const tail=i<gorder.length-1?G+plus:0;
+      if(used+G+w[1+i]+tail<=avail){used+=G+w[1+i];k++;}else break;}
+    setGvis(group!=='all'&&k<1?1:k);
+  },[gorder,group]);
+  useLayoutEffect(measureGroups);
+  /* width can change with no render at all (window drag-resize) — remeasure from the element */
+  useEffect(()=>{if(!window.ResizeObserver)return;
+    const a=new ResizeObserver(()=>measureGroups());if(gRef.current)a.observe(gRef.current);
+    const b=new ResizeObserver(()=>{setLvl(0);setBarNonce(n=>n+1);});if(barRef.current)b.observe(barRef.current);
+    return()=>{a.disconnect();b.disconnect();};},[measureGroups]);
+
+  const label=sel.length===0?'':sel.length===1?'.'+sel[0]:sel.length===2?[...sel].sort((a,b)=>a-b).map(o=>'.'+o).join(' + '):t.ncams(sel.length);
+  const overflow=roster.length-shown.length;
+  const hidden=gorder.slice(gvis);
+
+  const Chip=({oct})=>{const n=counts[oct]||0,on=sel.includes(oct);
+    return <button className={'chip'+(on?' on':'')+(n===0?' zero':'')+(fresh===oct?' fresh':'')}
+      title={CAM[oct].model+' ('+CAM[oct].ip+') · '+n} onClick={()=>toggle(oct)}>
+      {'.'+oct}{lvl<3&&<span className="c">{n}</span>}</button>;};
+
+  return <div className="wrap">
+    <div className="harness">
+      <span className="vsw"><a className="on" href="triage-camera-filter-prototype.html">A · MRU + PALETTE</a><a href="triage-camera-filter-prototype-B-lanes.html">B · LANES</a></span>
+      <span className="hz">Lang</span>
+      {['en','ru'].map(k=><button key={k} className={'hb'+(L===k?' on':'')} onClick={()=>setL(k)}>{k.toUpperCase()}</button>)}
+      <span className="hz" style={{marginLeft:10}}>Window</span>
+      {[1440,1200].map(w=><button key={w} className={'hb'+(W===w?' on':'')} onClick={()=>setW(w)}>{w}×900</button>)}
+      <span className="hz" style={{marginLeft:10}}>Groups</span>
+      {[2,6].map(n=><button key={n} className={'hb'+(gn===n?' on':'')} onClick={()=>{setGroup('all');setGn(n);}}>{n}</button>)}
+      <button className="hb" style={{marginLeft:10}} onClick={()=>{setMru([144,143,104]);setSel([]);lu.current={144:3,143:2,104:1};tick.current=3;}}>Reset</button>
+      <span className="hnote">Type <b>146</b> + <b>Enter</b> → it jumps into slot 1 of the recent row · <b>F</b> opens the palette · <b>Groups 6</b> shows the overflow</span>
+    </div>
+    <div className="frame" style={{width:W}} onMouseDown={()=>{if(open){setOpen(false);setQ('');}if(gpop)setGpop(false);}}>
+      <div className="osbar"><span className="osdot" style={{background:'var(--bad)'}}></span><span className="osdot" style={{background:'var(--accent)'}}></span><span className="osdot" style={{background:'var(--good)'}}></span><span className="osttl">Watchtower · {L==='ru'?'События':'Events'}</span></div>
+      <div className="body">
+        <div className="rail">
+          <div className="railbrand">C</div>
+          {[[L==='ru'?'ОНЛАЙН':'LIVE',0],[L==='ru'?'ГРУППЫ':'GROUPS',0],[L==='ru'?'ВИДЫ':'VIEWS',0],[L==='ru'?'СОБЫТИЯ':'EVENTS',1],[L==='ru'?'СОСТОЯНИЕ':'HEALTH',0]].map(([n,on])=>
+            <div key={n} className={'railitem'+(on?' on':'')}><span className="g"></span>{n}</div>)}
+        </div>
+        <div className="main">
+          <div className="topbar">
+            <div className="brand"><div className="b1">CILEX VISION</div><div className="b2">Watchtower</div></div>
+            <div className="search"><span>⌕</span><span style={{flex:1}}>{L==='ru'?'Поиск камер, групп, видов, клипов, событий…':'Search cameras, groups, views, clips, events…'}</span><span className="kbd">CTRL K</span></div>
+            <div className="pill"><i style={{background:'var(--good)'}}></i>{L==='ru'?'ОНЛАЙН':'ONLINE'} 33</div>
+            <div className="pill"><i style={{background:'var(--bad)'}}></i>{L==='ru'?'НЕ В СЕТИ':'OFFLINE'} 6</div>
+            <div style={{marginLeft:'auto'}} className="pill">11:09 · UTC+3</div>
+            <div style={{width:30,height:30,background:'var(--accent)',color:'#241a08',display:'grid',placeItems:'center',fontSize:11,fontWeight:700,flex:'none'}}>AD</div>
+          </div>
+          <div className="tabstrip"><div className="t on">{L==='ru'?'События':'Events'}</div><div className="t">HiWatch DS-I202(E) (192.168.1.104)</div></div>
+          <div className="subnav">
+            <div className="mode on"><em>01</em>Triage Queue</div>
+            <div className="mode"><em>02</em>Verify</div>
+            <div className="mode"><em>03</em>Activity Timeline</div>
+            <div className="mode"><em>04</em>Situation Map</div>
+            <div className="gwrap ghost" ref={ghostRef} aria-hidden="true">
+              <button className="gchip">{t.allg}<span className="c">{gCounts.all||0}</span></button>
+              {gorder.map(g=><button key={g} className="gchip">{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+              <button className="gchip">{'+'+gorder.length}<span className="car">▾</span></button>
+            </div>
+            <div className="gwrap" ref={gRef}>
+              <button className={'gchip'+(group==='all'?' on':'')} onClick={()=>setGroup('all')}>{t.allg}<span className="c">{gCounts.all||0}</span></button>
+              {gorder.slice(0,gvis).map(g=><button key={g} className={'gchip'+(group===g?' on':'')+((gCounts[g]||0)===0?' zero':'')} onClick={()=>setGroup(g)}>{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+              {hidden.length>0&&<button ref={gbRef} className={'gchip'+(hidden.includes(group)?' on':'')} onClick={e=>{e.stopPropagation();if(gbRef.current)setGpopX(gbRef.current.offsetLeft);setGpop(v=>!v);}}>{'+'+hidden.length}<span className="car">▾</span></button>}
+            </div>
+            {gpop&&hidden.length>0&&<div className="gpop" style={{left:gpopX}} onMouseDown={e=>e.stopPropagation()}>
+              {hidden.map(g=><button key={g} className={group===g?'on':''} onClick={()=>{setGroup(g);setGpop(false);}}>{t.g(g)}<span className="c">{gCounts[g]||0}</span></button>)}
+            </div>}
+            <div className="totals">
+              <div className="pill"><i style={{background:'var(--bad)'}}></i>{scoped.filter(e=>e.status!=='resolved').length} OPEN</div>
+              <div className="pill"><i style={{background:'var(--accent)'}}></i>{scoped.filter(e=>e.priority==='critical').length} CRITICAL</div>
+              <div className="pill"><i style={{background:'var(--good)'}}></i>{scoped.filter(e=>e.status==='resolved').length} CLEARED</div>
+            </div>
+          </div>
+          <div className="stage" style={{gridTemplateColumns:'384px minmax(0,1fr)'}}>
+            <div className="queue">
+              <div className="qtabs">
+                {[['open',t.tabs.open,scoped.filter(e=>e.status!=='resolved').length],['critical',t.tabs.critical,scoped.filter(e=>e.priority==='critical').length],['all',t.tabs.all,scoped.length]].map(([k,l,n])=>
+                  <button key={k} className={'qtab'+(tab===k?' on':'')} onClick={()=>setTab(k)}>{l}<span className="n">{n}</span></button>)}
+              </div>
+              <div className="obar" ref={barRef}>
+                <button className={'chip'+(sel.length?' on':'')} title={t.clear} onClick={clear}>{sel.length?(lvl>=2?'✕':'✕ '+t.all):t.all}</button>
+                {shown.map(o=><Chip key={o} oct={o}/>)}
+                {session.length===1&&lvl<1&&<button className="chip on" onClick={()=>toggle(session[0])}>{'.'+session[0]}<span className="c">{counts[session[0]]||0}</span><span className="x">✕</span></button>}
+                {(session.length>1||(session.length===1&&lvl>=1))&&<button className="chip on" title={session.map(o=>'.'+o).join(', ')} onClick={e=>{e.stopPropagation();openPal('');}}>{'+'+session.length}<span className="x">✕</span></button>}
+                <span className="spacer"></span>
+                <button className={'pbtn'+(open?' open':'')+(sel.length?' act':'')} onClick={e=>{e.stopPropagation();open?setOpen(false):openPal('');}}>
+                  <span>⌕</span><span className="n">{sel.length?sel.length:overflow>0?overflow:''}</span><span className="car">▾</span>
+                </button>
+              </div>
+              {open&&<Palette L={L} t={t} tab={tab} roster={roster} counts={counts} sel={sel} mru={shown} cursor={cursor} setCursor={setCursor}
+                q={q} setQ={setQ} onExclusive={exclusive} onToggle={toggle} onClear={clear} groupLabel={glabel}/>}
+              <div className="qscroll">
+                {notice&&<div className="notice">{notice}</div>}
+                {sel.length>0&&<div className="ribbon"><span>{t.events(list.length)} · {label}</span><button className="clr" onClick={clear}>✕ {t.clear}</button></div>}
+                {list.length===0&&<div className="qempty"><span>{sel.length?t.empty(label,t.tabs[tab]):'Queue clear — no open events.'}</span>{sel.length>0&&<button className="cb" onClick={clear}>{t.clearF}</button>}</div>}
+                {list.map(e=>{const c=CAM[e.oct];
+                  return <button key={e.id} className={'row'+(cur&&cur.id===e.id?' on':'')+(e.status!=='new'?' done':'')} onClick={()=>setPick(e.id)}>
+                    <span className="sev" style={{background:SEVC[e.priority],boxShadow:e.priority==='critical'?'0 0 0 3px var(--badSoft)':'none'}}></span>
+                    <span className="thumb"><i style={{left:6,top:8,width:22,height:26}}></i><i style={{left:34,top:16,width:34,height:18,background:'#332f28'}}></i><span className="dur">{durTxt(e.dur)}</span></span>
+                    <span className="meta">
+                      <span className="tpill">◇ MOTION</span>
+                      <span className="cam">{c.model} ({c.ip})</span>
+                      <span className="tm">{clock(e.ago)} · {agoTxt(e.ago,L)}</span>
+                    </span>
+                    <span className="udot" style={{background:e.status==='new'?'var(--bad)':e.status==='ack'?'var(--accent)':'transparent'}}></span>
+                  </button>;})}
+              </div>
+            </div>
+            <div className="detail">
+              {cur?<>
+                <div className="vid">
+                  <div className="scrim"></div>
+                  <div className="hdr"><span className="vchip">❚❚ PLAYBACK</span><span className="vcam">{CAM[cur.oct].model} ({CAM[cur.oct].ip})</span></div>
+                  <div className="playc">▶</div>
+                  <div className="osd">06 AUG {clock(cur.ago)}</div>
+                </div>
+                <div className="transport">
+                  <button className="tb">|◀</button><button className="tb">▶</button><button className="tb">▶|</button>
+                  <button className="tb">−10</button><button className="tb">+10</button>
+                  <span className="ttime">00:00 <i>/</i> {mmss(cur.dur+30)}</span>
+                  <span className="scrub"><span className="trk"></span><span className="ev" style={{left:'18%',width:'62%'}}></span><span className="fill" style={{left:0,width:'18%'}}></span><span className="hd" style={{left:'18%'}}></span></span>
+                  <button className="tb">1×</button>
+                </div>
+                <div className="toolrow"><span>↥ Export clip</span><span>⚏ Assign</span><span style={{marginLeft:'auto'}}>⌸ Bookmark</span></div>
+                <div className="dbody">
+                  <div className="hl">
+                    <div><div className="ttl">Motion</div><div className="subttl">Motion detected</div></div>
+                    <div className="sevlbl" style={{color:SEVC[cur.priority]}}><b style={{background:SEVC[cur.priority]}}></b>{cur.priority.toUpperCase()}</div>
+                  </div>
+                  <div className="facts">
+                    <div><div className="k">Camera</div><div className="v">{CAM[cur.oct].model}</div></div>
+                    <div><div className="k">Device</div><div className="v mono">{CAM[cur.oct].ip}</div></div>
+                    <div><div className="k">Group</div><div className="v">{t.g(groupOf(cur.oct,gn))}</div></div>
+                    <div><div className="k">Time</div><div className="v mono">{clock(cur.ago)} · Thu 06 Aug</div></div>
+                    <div><div className="k">Clip length</div><div className="v mono">{durTxt(cur.dur)}</div></div>
+                    <div><div className="k">AI confidence</div><div className="v mono">n/a</div></div>
+                  </div>
+                </div>
+                <div className="actions">
+                  <button className="btn good">✓ Authorized</button>
+                  <button className="btn">✕ False alarm</button>
+                  <button className="btn danger">⇱ Dispatch guard</button>
+                  <button className="btn pri" style={{marginLeft:'auto'}}>✓ Acknowledge <span className="kbd" style={{borderColor:'rgba(0,0,0,.3)',color:'#241a08'}}>E</span></button>
+                </div>
+              </>:<div style={{margin:'auto',color:'var(--ink3)',fontSize:13}}>Queue clear — no open events.</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
