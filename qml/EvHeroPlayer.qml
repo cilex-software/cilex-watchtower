@@ -38,13 +38,16 @@ Item {
     property double mkStartMs: 0
     property double mkEndMs: 0
     // Displayed pre/post-roll around the movement (operator ask 2026-08-06):
-    // mirrors the backend Motion recording profile (/admin/recording: pre=5s,
-    // post=5s today). Recordings may CONTAIN 15-25s of roll; the timeline clips
-    // the DISPLAY to the profile so every clip feels the same length-wise.
-    // Hardcoded until cilex-vision exposes per-camera effective profile values
-    // (letter 2026-08-06-recording-profile-roll.md) — then these read the model.
-    readonly property int padPreMs: 5000
-    readonly property int padPostMs: 5000
+    // reads the camera's EFFECTIVE recording profile from /streams (da3be8e,
+    // via the events camera lookup). Recordings may CONTAIN 15-25s of roll;
+    // the timeline clips the DISPLAY to the profile so every clip feels the
+    // same. Absent profile (no assignment) → 5s/5s default, matching today's
+    // Motion profile; mode "continuous" → no roll contract exists, show a
+    // generous 15s of context instead (CV reply, 2026-08-06).
+    readonly property int padPreMs: (ev && ev.cam && ev.cam.recMode === "continuous") ? 15000
+        : (ev && ev.cam && ev.cam.preRollMs > 0) ? ev.cam.preRollMs : 5000
+    readonly property int padPostMs: (ev && ev.cam && ev.cam.recMode === "continuous") ? 15000
+        : (ev && ev.cam && ev.cam.postRollMs > 0) ? ev.cam.postRollMs : 5000
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
     property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog

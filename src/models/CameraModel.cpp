@@ -406,6 +406,12 @@ void CameraModel::fetchCameras()
                 c.motionStatus = mo.value(QStringLiteral("status")).toString();
                 c.motionLastVmdAt = mo.value(QStringLiteral("last_vmd_at")).toString();
             }
+            if (o.contains(QStringLiteral("recording_profile"))) {
+                const QJsonObject rp = o.value(QStringLiteral("recording_profile")).toObject();
+                c.recProfileMode = rp.value(QStringLiteral("mode")).toString();
+                c.recPreRollMs = int(rp.value(QStringLiteral("pre_roll_s")).toDouble(-1) * 1000.0);
+                c.recPostRollMs = int(rp.value(QStringLiteral("post_roll_s")).toDouble(-1) * 1000.0);
+            }
 
             // D1/D5: connection config from /streams. Default = go2rtc restream URLs;
             // an admin client may also receive raw direct_rtsp_* and select them via
@@ -705,6 +711,9 @@ QVariantMap CameraModel::get(int row) const
     m["motionConfirmed"] = c.motionConfirmed;
     m["motionStatus"] = c.motionStatus;
     m["motionLastVmdAt"] = c.motionLastVmdAt;
+    m["recProfileMode"] = c.recProfileMode;
+    m["recPreRollMs"] = c.recPreRollMs;
+    m["recPostRollMs"] = c.recPostRollMs;
     m["audioRecording"] = c.audioRecording;
     m["favorite"] = c.favorite;
     m["timestamp"] = c.timestamp;

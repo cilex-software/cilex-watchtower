@@ -67,6 +67,10 @@ Item {
             lk[c.camId] = { key: c.camId, id: c.camId, name: (c.name ? c.name : c.camId),
                 ip: (c.ip ? c.ip : ""),
                 zone: (c.groupName ? c.groupName : ""), snapshotUrl: (c.snapshotUrl ? c.snapshotUrl : ""),
+                // effective recording profile → the hero clips displayed roll to it
+                recMode: (c.recProfileMode ? c.recProfileMode : ""),
+                preRollMs: (c.recPreRollMs > 0 ? c.recPreRollMs : -1),
+                postRollMs: (c.recPostRollMs > 0 ? c.recPostRollMs : -1),
                 x: Math.round((col + 0.5) / cols * 100), y: Math.round((ri + 0.5) / rows * 100) };
         }
         return lk;

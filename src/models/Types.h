@@ -45,6 +45,11 @@ struct CameraData {
     bool motionConfirmed = false;
     QString motionStatus;      // preflight verdict, e.g. NOT_READY_ZERO_SENSITIVITY
     QString motionLastVmdAt;   // ISO, "" = never
+    // Effective recording profile (backend `recording_profile`, da3be8e):
+    // absent = NO profile assigned (unknown, not "continuous").
+    QString recProfileMode;    // "motion" | "continuous" | "" = unknown
+    int recPreRollMs = -1;     // -1 = unknown
+    int recPostRollMs = -1;
     QString ip;
     QString mac;
     QString model;
