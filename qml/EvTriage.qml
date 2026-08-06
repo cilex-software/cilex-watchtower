@@ -123,12 +123,14 @@ Item {
     function _htSummary() { var s = ""; for (var i = 0; i < _htSteps.length; i++) s += " " + (_htSteps[i] / 1000) + "s=" + (_htCount[_htSteps[i]] || 0); return s; }
 
     property string filter: "open"               // open | critical | all
+    property string camFilter: ""                // "" = all cameras (quick chip filter)
     property string note: ""
     property var done: ({})                       // local SOP ticks, reset per event
 
     // priority → recency, filtered by the active tab
     readonly property var _list: {
         var es = EventsStore.events.filter(function (e) {
+            if (tri.camFilter !== "" && (!e.cam || e.cam.id !== tri.camFilter)) return false;
             if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
             if (tri.filter === "critical") return e.priority === "critical";
             return true;
@@ -141,6 +143,30 @@ Item {
     readonly property var _cur: EventsStore.find(tri.selId) || (_list.length ? _list[0] : null)
     readonly property int _openCount: EventsStore.events.filter(function (e) { return e.status === "new" || e.status === "ack" || e.status === "progress"; }).length
     readonly property int _critTab: EventsStore.events.filter(function (e) { return e.priority === "critical"; }).length
+
+    // Camera quick-filter chips (operator ask 2026-08-06 — the queue had no
+    // per-camera cut): cameras present in the ACTIVE TAB's events, busiest
+    // first. Chip label = the IP octet (the fleet's spoken camera name).
+    function _octet(c) {
+        var m = /\((?:\d+\.){3}(\d+)\)/.exec(c.name || "");
+        return m ? "." + m[1] : (c.name || c.id || "?");
+    }
+    readonly property var _camChips: {
+        var m = ({}), out = [];
+        var es = EventsStore.events.filter(function (e) {
+            if (tri.filter === "open") return e.status === "new" || e.status === "ack" || e.status === "progress";
+            if (tri.filter === "critical") return e.priority === "critical";
+            return true;
+        });
+        for (var i = 0; i < es.length; i++) {
+            var c = es[i].cam;
+            if (!c || !c.id) continue;
+            if (!m[c.id]) { m[c.id] = { id: c.id, l: _octet(c), name: c.name || "", n: 0 }; out.push(m[c.id]); }
+            m[c.id].n++;
+        }
+        out.sort(function (a, b) { return b.n - a.n || (a.l < b.l ? -1 : a.l > b.l ? 1 : 0); });
+        return out;
+    }
 
     // reset note + SOP ticks whenever the selected event changes
     property string _curId: _cur ? _cur.id : ""
@@ -211,6 +237,52 @@ Item {
                     }
                 }
 
+                // ---- camera quick filter ----
+                Rectangle {
+                    visible: tri._camChips.length > 1
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    color: "transparent"
+                    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+                    ListView {
+                        id: camChips
+                        anchors.fill: parent
+                        anchors.leftMargin: 14; anchors.rightMargin: 8
+                        orientation: ListView.Horizontal
+                        spacing: 6
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: [{ id: "", l: "All", n: -1, name: "" }].concat(tri._camChips)
+                        delegate: Item {
+                            id: chipItem
+                            required property var modelData
+                            readonly property bool on: tri.camFilter === modelData.id
+                            width: chip.width; height: camChips.height
+                            Rectangle {
+                                id: chip
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 22; width: chipRow.implicitWidth + 16
+                                color: chipItem.on ? Theme.accentSoft : (chipMa.containsMouse ? Theme.panel2 : "transparent")
+                                border.width: 1; border.color: chipItem.on ? Theme.accent : Theme.line2
+                                Row {
+                                    id: chipRow; anchors.centerIn: parent; spacing: 5
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: chipItem.modelData.l
+                                        color: chipItem.on ? Theme.accent : Theme.ink2
+                                        font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold }
+                                    Text { visible: chipItem.modelData.n >= 0; anchors.verticalCenter: parent.verticalCenter
+                                        text: chipItem.modelData.n
+                                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                                }
+                            }
+                            MouseArea { id: chipMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: tri.camFilter = (chipItem.on ? "" : chipItem.modelData.id) }
+                            ToolTip.visible: chipMa.containsMouse && chipItem.modelData.name !== ""
+                            ToolTip.text: chipItem.modelData.name
+                            ToolTip.delay: 500
+                        }
+                    }
+                }
+
                 // ---- scrolling list ----
                 ListView {
                     id: listView
@@ -219,6 +291,12 @@ Item {
                     model: tri._list
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { }
+                    Text {                                 // honest empty (a chip can zero a tab)
+                        anchors.centerIn: parent
+                        visible: tri._list.length === 0
+                        text: "No events match this filter."
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                    }
                     delegate: Rectangle {
                         id: row
                         required property var modelData
