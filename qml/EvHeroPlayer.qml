@@ -17,14 +17,19 @@ Item {
     // variant B §4: the 52px transport and the 44px tool row merge into ONE
     // 40px control bar; the host opts in and receives the tool-cell signals.
     property bool toolCells: false
-    property int maxStageH: 372          // video stage cap — host-adjustable (drag grip in triage)
+    // fillStage: the host gives the player a real height and the video stage
+    // takes ALL of it (operator 2026-08-07: the 21:9-capped slot left a 4:1
+    // black band that a 16:9 clip could never fill, while the leftover height
+    // went to an empty info panel). Off = legacy self-sizing 21:9 stage.
+    property bool fillStage: false
+    property int maxStageH: 372          // only used when fillStage is false
     property bool bookmarkOn: false
     signal exportRequested()
     signal assignRequested()
     signal bookmarkRequested()
 
     // 21:9 surface + 52px transport (drive our own implicit height for the layout)
-    implicitHeight: width > 0 ? Math.min(maxStageH, Math.round(width * 9 / 21)) + 40 : 0
+    implicitHeight: fillStage ? 200 : (width > 0 ? Math.min(maxStageH, Math.round(width * 9 / 21)) + 40 : 0)
 
     property string _sid: ""
     property var _frags: []
@@ -407,7 +412,11 @@ Item {
         // ---- video surface ----
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(hp.maxStageH, Math.round(width * 9 / 21))   // capped: recovered height goes to the body, not letterbox
+            // fillStage → every spare pixel is picture (PreserveAspectFit inside,
+            // so the frame scales to the largest size that fits, never stretched).
+            Layout.fillHeight: hp.fillStage
+            Layout.minimumHeight: hp.fillStage ? 140 : 0
+            Layout.preferredHeight: hp.fillStage ? -1 : Math.min(hp.maxStageH, Math.round(width * 9 / 21))
             color: "#000"; clip: true
 
             VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }

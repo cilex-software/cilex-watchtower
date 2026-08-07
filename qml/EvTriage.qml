@@ -738,23 +738,25 @@ Item {
                 Rectangle {
                     id: heroBlock
                     Layout.fillWidth: true
-                    Layout.preferredHeight: heroCol.implicitHeight
+                    Layout.fillHeight: true              // video first: takes every pixel the info panel doesn't reserve
+                    Layout.minimumHeight: 180
                     color: "#000"
                     ColumnLayout {
                         id: heroCol
-                        width: parent.width
+                        anchors.fill: parent
                         spacing: 0
                         // mock → procedural EvPlayer; real → EvHeroPlayer (live recording)
                         Loader {
                             id: heroLoader
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
                             sourceComponent: EventsStore.realMode ? heroRealC : heroMockC
                         }
                     }
                 }
 
-                // drag grip: resize the video stage (persisted). The stage is
-                // already 21:9-capped; this lets the operator trade video for body.
+                // drag grip: sizes the INFO PANEL (persisted). Drag UP = smaller
+                // panel = bigger video; the stage always absorbs the remainder.
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 7
@@ -768,17 +770,19 @@ Item {
                         cursorShape: Qt.SizeVerCursor
                         property real _startY: 0
                         property int _startH: 0
-                        onPressed: (m) => { _startY = m.y; _startH = Settings.triageStageMaxH }
+                        onPressed: (m) => { _startY = m.y; _startH = Settings.triageBodyH }
                         onPositionChanged: (m) => {
                             if (!pressed) return;
-                            Settings.triageStageMaxH = _startH + Math.round(m.y - _startY);
+                            Settings.triageBodyH = _startH - Math.round(m.y - _startY);
                         }
                     }
                 }
 
                 // ---- body (scrolls) ----
                 Flickable {
-                    Layout.fillWidth: true; Layout.fillHeight: true
+                    id: bodyFlick
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(Settings.triageBodyH, body.implicitHeight + 20)
                     clip: true
                     contentWidth: width
                     contentHeight: body.implicitHeight
@@ -957,7 +961,7 @@ Item {
         id: heroRealC
         EvHeroPlayer {
             ev: tri._cur; playbackClient: tri.playbackClient; surfaced: tri.active
-            maxStageH: Settings.triageStageMaxH
+            fillStage: true
             toolCells: true
             bookmarkOn: tri._cur ? tri._cur.bookmarked === true : false
             onExportRequested: if (EventsStore.realMode) tri._doExport()

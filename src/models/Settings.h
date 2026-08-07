@@ -37,7 +37,9 @@ class Settings : public QObject
     Q_PROPERTY(bool badgeTimers READ badgeTimers WRITE setBadgeTimers NOTIFY badgeTimersChanged)
     // Triage layout: queue column collapsed to a rail; video stage height cap (px).
     Q_PROPERTY(bool triageQueueCollapsed READ triageQueueCollapsed WRITE setTriageQueueCollapsed NOTIFY triageQueueCollapsedChanged)
-    Q_PROPERTY(int triageStageMaxH READ triageStageMaxH WRITE setTriageStageMaxH NOTIFY triageStageMaxHChanged)
+    // Height reserved for the triage INFO panel; the video stage takes all the
+    // rest (operator 2026-08-07: video first, info panel only as big as needed).
+    Q_PROPERTY(int triageBodyH READ triageBodyH WRITE setTriageBodyH NOTIFY triageBodyHChanged)
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
@@ -75,10 +77,10 @@ public:
     bool eventsOnScrubber() const { return m_eventsOnScrubber; }
     bool badgeTimers() const { return m_badgeTimers; }
     bool triageQueueCollapsed() const { return m_triageQueueCollapsed; }
-    int triageStageMaxH() const { return m_triageStageMaxH; }
+    int triageBodyH() const { return m_triageBodyH; }
     void setBadgeTimers(bool v);
     void setTriageQueueCollapsed(bool v);
-    void setTriageStageMaxH(int v);
+    void setTriageBodyH(int v);
     void setEventsOnScrubber(bool v);
 
     QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
@@ -139,7 +141,7 @@ signals:
     void eventsOnScrubberChanged();
     void badgeTimersChanged();
     void triageQueueCollapsedChanged();
-    void triageStageMaxHChanged();
+    void triageBodyHChanged();
     void hiddenScrubberEventTypesChanged();
 
 private:
@@ -156,6 +158,6 @@ private:
     bool m_eventsOnScrubber = true;
     bool m_badgeTimers = true;
     bool m_triageQueueCollapsed = false;
-    int m_triageStageMaxH = 372;
+    int m_triageBodyH = 200;
     QStringList m_hiddenScrubberEventTypes;
 };

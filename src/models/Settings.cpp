@@ -19,7 +19,7 @@ Settings::Settings(QObject *parent)
     m_liveTransport = m_settings.value(QStringLiteral("video/liveTransport"), QStringLiteral("go2rtc")).toString();
     m_eventsOnScrubber = m_settings.value(QStringLiteral("playback/eventsOnScrubber"), true).toBool();
     m_triageQueueCollapsed = m_settings.value(QStringLiteral("events/triageQueueCollapsed"), false).toBool();
-    m_triageStageMaxH = m_settings.value(QStringLiteral("events/triageStageMaxH"), 372).toInt();
+    m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
 }
@@ -224,14 +224,14 @@ void Settings::setTriageQueueCollapsed(bool v)
     emit triageQueueCollapsedChanged();
 }
 
-void Settings::setTriageStageMaxH(int v)
+void Settings::setTriageBodyH(int v)
 {
-    v = qBound(180, v, 700);
-    if (m_triageStageMaxH == v)
+    v = qBound(120, v, 620);
+    if (m_triageBodyH == v)
         return;
-    m_triageStageMaxH = v;
-    m_settings.setValue(QStringLiteral("events/triageStageMaxH"), v);
-    emit triageStageMaxHChanged();
+    m_triageBodyH = v;
+    m_settings.setValue(QStringLiteral("events/triageBodyH"), v);
+    emit triageBodyHChanged();
 }
 
 void Settings::setBadgeTimers(bool v)
