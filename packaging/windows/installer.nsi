@@ -74,6 +74,13 @@ Section "Uninstall"
     ; (%LOCALAPPDATA%\watchtower-warden) is EVIDENCE and survives uninstall.
     ExecWait 'schtasks /End /TN "wt-warden"'
     ExecWait 'schtasks /Delete /F /TN "wt-warden"'
+    ; warden.exe is PyInstaller ONEFILE: the task starts the bootloader, which
+    ; spawns the real supervisor as a child of the same name. /End kills only
+    ; the bootloader — the orphaned child keeps supervising and RESPAWNS
+    ; watchtower.exe while we are deleting $INSTDIR out from under it.
+    ; (Measured on wt-sm-vnutri-01 2026-08-07.) Kill the whole image by name.
+    ExecWait 'taskkill /F /IM warden.exe /T'
+    ExecWait 'taskkill /F /IM watchtower.exe /T'
     DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\watchtower.exe"
     Delete "$SMPROGRAMS\${APPNAME}.lnk"
     Delete "$DESKTOP\${APPNAME}.lnk"

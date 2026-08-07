@@ -46,14 +46,45 @@ if (-not (Test-Path $conf)) {
 }
 
 # --- 2. WER LocalDumps (crash dir must match FlightRecorder's) ---------------
+# TWO Windows traps here, both found on wt-sm-vnutri-01 2026-08-07, both silent:
+#
+# (a) REGISTRY VIEW. installer.nsi is a 32-bit PE, so the `powershell` it spawns
+#     resolves through WOW64 to 32-bit PowerShell, and a 32-bit process writing
+#     HKLM\SOFTWARE\... is redirected to HKLM\SOFTWARE\WOW6432Node\... WER is
+#     64-bit and watchtower.exe is x64, so it NEVER reads that key: dumps were
+#     silently disarmed on every install while the script printed success.
+#     Fix: write through the explicit Registry64 view and read it back.
+#
+# (b) FATALITY. This step is the only one needing admin. With
+#     $ErrorActionPreference='Stop' a non-elevated run threw HERE and the
+#     Scheduled Task below — which needs NO admin — never registered. The
+#     installer is per-user/no-UAC by design, so a plain double-click install
+#     left the station with no supervisor at all, silently. WER is now
+#     best-effort: warn and carry on, so the supervisor always gets installed.
 $crash = Join-Path $env:APPDATA "Cilex Vision\Watchtower\crash"
 New-Item -ItemType Directory -Force -Path $crash | Out-Null
-$wer = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\watchtower.exe"
-New-Item -Path $wer -Force | Out-Null
-Set-ItemProperty -Path $wer -Name DumpFolder -Value $crash -Type ExpandString
-Set-ItemProperty -Path $wer -Name DumpType   -Value 1 -Type DWord   # minidump
-Set-ItemProperty -Path $wer -Name DumpCount  -Value 5 -Type DWord
-Write-Host "WER LocalDumps armed -> $crash"
+$werArmed = $false
+try {
+    $hklm64 = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+                  [Microsoft.Win32.RegistryHive]::LocalMachine,
+                  [Microsoft.Win32.RegistryView]::Registry64)
+    $sub = "SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\watchtower.exe"
+    $k = $hklm64.CreateSubKey($sub)
+    $k.SetValue("DumpFolder", $crash, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+    $k.SetValue("DumpType",   1, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $k.SetValue("DumpCount",  5, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $k.Close()
+    # Read back THROUGH THE 64-BIT VIEW — the only check that would have caught (a).
+    $v = $hklm64.OpenSubKey($sub)
+    if ($v -and $v.GetValue("DumpFolder")) { $werArmed = $true; $v.Close() }
+    $hklm64.Close()
+    if ($werArmed) { Write-Host "WER LocalDumps armed (64-bit view) -> $crash" }
+    else           { Write-Warning "WER key written but read-back FAILED - dumps NOT armed." }
+} catch {
+    Write-Warning "WER LocalDumps NOT armed ($($_.Exception.Message))."
+    Write-Warning "  Needs admin. Re-run this script elevated to arm crash dumps."
+    Write-Warning "  Warden still supervises and still collects the in-app crash marker."
+}
 
 # --- 3. the Scheduled Task ---------------------------------------------------
 $taskName = "wt-warden"
@@ -68,12 +99,39 @@ $settings = New-ScheduledTaskSettingsSet `
     -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit ([TimeSpan]::Zero) `
     -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+
+# Orphan sweep before we register. warden.exe is a PyInstaller ONEFILE binary:
+# the task launches the bootloader, which spawns the REAL supervisor as a child
+# of the same name. Stopping/unregistering the task kills only the bootloader —
+# the child survives, keeps supervising, and respawns the app. Without this
+# sweep an upgrade-in-place leaves the OLD supervisor running alongside the new
+# one: two Wardens, two Watchtowers, two walls on one iGPU. (Measured on
+# wt-sm-vnutri-01 2026-08-07: task stop left pid 13556 orphaned and it
+# respawned the app.) The real fix is a single-instance lock in warden.py —
+# that is shared cross-platform code, so it goes via PR, not from this box.
+$stale = @(Get-Process -Name warden -ErrorAction SilentlyContinue)
+if ($stale.Count) {
+    Write-Host "sweeping $($stale.Count) existing warden process(es) before re-register"
+    $stale | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+    Start-Sleep -Seconds 2
+}
+
 Register-ScheduledTask -TaskName $taskName -Action $action `
     -Trigger @($logon, $resur) -Settings $settings `
     -User $env:USERNAME -RunLevel Limited | Out-Null
 Write-Host "scheduled task '$taskName' registered (at-logon + 30-min resurrection)"
 
 Start-ScheduledTask -TaskName $taskName
-Write-Host "started. Verify:  & '$WardenExe' status   (and CV's /admin/crash-reports"
-Write-Host "should show this station's first heartbeat within ~180 s once a token is set)"
+
+# --- honest summary: say what is armed and what is NOT ----------------------
+Write-Host ""
+Write-Host "--- wt-warden install summary ---"
+Write-Host ("  supervisor (Scheduled Task) : REGISTERED + STARTED")
+Write-Host ("  WER local crash dumps       : " + $(if ($werArmed) { "ARMED -> $crash" } else { "NOT ARMED (re-run elevated)" }))
+Write-Host ("  station token               : " + $(if ($Token) { "SET (uploads/heartbeats on)" } else { "MISSING (uploads/heartbeats OFF)" }))
+Write-Host ("  backend                     : $Backend")
+Write-Host "Verify:  & '$WardenExe' status"
+Write-Host "Once a token is set, CV's /admin/crash-reports should show this"
+Write-Host "station's first heartbeat within ~180 s."
