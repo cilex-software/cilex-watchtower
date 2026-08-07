@@ -33,6 +33,7 @@
 #  endif
 #  include <windows.h>
 #  include <psapi.h>            // GetProcessMemoryInfo (RSS) — link psapi (CMakeLists WIN32 block)
+#  include <realtimeapiset.h>   // QueryUnbiasedInterruptTime — suspend-excluding clock (CW-08 watchdog)
 #else
 #  include <sys/resource.h>     // getrlimit/setrlimit(RLIMIT_NOFILE)
 #  include <sys/prctl.h>        // prctl(PR_SET_PTRACER) — Yama, Linux-only
@@ -290,15 +291,23 @@ int main(int argc, char *argv[])
     // the known ~20 s iGPU relayout wedge, which recovers; hangs we kill are the
     // permanent kind). abort() → SIGABRT → the fatal handler writes the crash
     // marker + backtrace, and Warden restarts us into the restored view (CW-05).
-    // CLOCK_MONOTONIC pauses across suspend on Linux, so a resumed laptop doesn't
-    // false-trigger. WT_WATCHDOG_OFF=1 disables (soak harnesses that SIGSTOP us).
+    // The watchdog clock MUST NOT advance while the machine is suspended, or every
+    // resume looks like a hang of exactly the sleep duration and we abort a perfectly
+    // healthy app on wake. CLOCK_MONOTONIC gives that on Linux (CLOCK_BOOTTIME would
+    // not); on Windows the equivalent is QueryUnbiasedInterruptTime — "unbiased"
+    // meaning sleep time is excluded. GetTickCount64() is BIASED and was the bug:
+    // measured on wt-sm-vnutri-01 2026-08-07, a 2944 s S3 suspend produced
+    // "[WT-HANG] GUI thread unresponsive for 2947s" and aborted the app on wake.
+    // WT_WATCHDOG_OFF=1 disables (soak harnesses that SIGSTOP us).
     if (!qEnvironmentVariableIsSet("WT_WATCHDOG_OFF")) {
         int hangS = qEnvironmentVariableIntValue("WT_WATCHDOG_S");
         if (hangS <= 0) hangS = 60;
         static std::atomic<long long> s_lastAckMs;
         auto mono = []() -> long long {
 #if defined(Q_OS_WIN)
-            return (long long)GetTickCount64();
+            ULONGLONG unbiased100ns = 0;
+            QueryUnbiasedInterruptTime(&unbiased100ns);   // excludes time spent asleep
+            return (long long)(unbiased100ns / 10000);    // 100 ns units -> ms
 #else
             struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
             return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
