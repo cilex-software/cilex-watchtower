@@ -74,6 +74,7 @@ Item {
     // Backend motion-readiness truth (P1 ask-4): known=false = field absent = unknown.
     property bool motionKnown: false
     property bool motionReady: false
+    property string motionLastVmdAt: ""
     property int pattern: 0
     // In the Live Monitor grid the hairline separator comes from the grid
     // container, so the tile drops its own border (design §14).
@@ -446,6 +447,7 @@ Item {
                     lastSegmentAtMs: root.lastSegmentAt !== "" ? Date.parse(root.lastSegmentAt) : -1
                     motionKnown: root.motionKnown
                     motionReady: root.motionReady
+                    lastVmdAtMs: root.motionLastVmdAt !== "" ? Date.parse(root.motionLastVmdAt) : -1
                 }
                 // Audio-recording state (backend `audio` fields; letter 2026-07-16).
                 // No ear at all when the camera can't record audio / state unknown.

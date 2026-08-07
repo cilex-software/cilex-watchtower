@@ -82,9 +82,16 @@ Item {
         default: return "Unknown";
         }
     }
+    function _notRec(cam) {
+        if (cam.recording !== CameraStatus.Armed || !cam.motionLastVmdAt) return false;
+        var v = Date.parse(cam.motionLastVmdAt);
+        var sgm = cam.lastSegmentAt ? Date.parse(cam.lastSegmentAt) : -1;
+        return v > 0 && (Date.now() - v) < 10800000 && (sgm <= 0 || (v - sgm) > 3600000);
+    }
     function issueText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return "No signal";
         if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return "Motion detector not ready";
+        if (root._notRec(cam)) return "Detecting but NOT recording";
         if (cam.recording === CameraStatus.Stalled) return "Recording stalled";
         if (cam.recording === CameraStatus.RecordingGap) return "Recent recording gap";
         if (cam.live === CameraStatus.Degraded) return "Stream degraded";
@@ -96,6 +103,7 @@ Item {
     function issueColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
         if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return Theme.bad;
+        if (root._notRec(cam)) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
             || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         return Theme.ink3;
@@ -103,6 +111,7 @@ Item {
     function calloutColor(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return Theme.bad;
         if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return Theme.bad;
+        if (root._notRec(cam)) return Theme.bad;
         if (cam.live === CameraStatus.Degraded || cam.recording === CameraStatus.NotRecording
             || cam.recording === CameraStatus.RecordingGap || cam.recording === CameraStatus.Stalled) return Theme.warn;
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording) return Theme.accent;
@@ -121,6 +130,10 @@ Item {
             return "<b>Recording gap detected.</b> Some footage in the recent window is missing.";
         if (cam.live === CameraStatus.Degraded)
             return "<b>Stream degraded.</b> Reduced bitrate due to network conditions; recording continues.";
+        if (root._notRec(cam))
+            return "<b>Detecting motion, but not recording.</b> This camera reported motion at "
+                 + Qt.formatDateTime(new Date(cam.motionLastVmdAt), "HH:mm:ss")
+                 + ", yet its newest recorded footage is older than that — the recorder is not writing this camera. Reported to the backend; playback for recent events will be empty.";
         if (cam.recording === CameraStatus.Armed && cam.motionKnown) {
             // /streams motion{ready,confirmed,last_vmd_at} — sticky semantics
             // (1cc987d): confirmed survives config-only passes; last_vmd_at is
@@ -333,7 +346,8 @@ Item {
                             Item { Layout.preferredWidth: root.wRec; Layout.fillHeight: true
                                 RecordingStatusBadge { anchors.verticalCenter: parent.verticalCenter; state: rowItem.modelData.recording
                                     motionKnown: rowItem.modelData.motionKnown === true; motionReady: rowItem.modelData.motionReady === true
-                                    lastSegmentAtMs: rowItem.modelData.lastSegmentAt ? Date.parse(rowItem.modelData.lastSegmentAt) : -1 } }
+                                    lastSegmentAtMs: rowItem.modelData.lastSegmentAt ? Date.parse(rowItem.modelData.lastSegmentAt) : -1
+                                    lastVmdAtMs: rowItem.modelData.motionLastVmdAt ? Date.parse(rowItem.modelData.motionLastVmdAt) : -1 } }
                             // Last seen
                             Text { Layout.preferredWidth: root.wSeen; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 12
                                 text: (rowItem.modelData.live === CameraStatus.Offline || rowItem.modelData.live === CameraStatus.NoSignal)
@@ -421,7 +435,8 @@ Item {
                                     RecordingStatusBadge { state: root.sel ? root.sel.recording : CameraStatus.RecUnknown
                                         motionKnown: root.sel ? root.sel.motionKnown === true : false
                                         motionReady: root.sel ? root.sel.motionReady === true : false
-                                        lastSegmentAtMs: (root.sel && root.sel.lastSegmentAt) ? Date.parse(root.sel.lastSegmentAt) : -1 }
+                                        lastSegmentAtMs: (root.sel && root.sel.lastSegmentAt) ? Date.parse(root.sel.lastSegmentAt) : -1
+                                        lastVmdAtMs: (root.sel && root.sel.motionLastVmdAt) ? Date.parse(root.sel.motionLastVmdAt) : -1 }
                                 }
                             }
 

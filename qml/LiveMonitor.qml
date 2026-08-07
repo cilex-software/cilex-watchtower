@@ -1306,6 +1306,7 @@ Item {
                                 lastSegmentAt: cellWrap.modelData.lastSegmentAt
                                 motionKnown: cellWrap.modelData.motionKnown === true
                                 motionReady: cellWrap.modelData.motionReady === true
+                                motionLastVmdAt: cellWrap.modelData.motionLastVmdAt ? cellWrap.modelData.motionLastVmdAt : ""
                                 pattern: cellWrap.modelData.pattern
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl

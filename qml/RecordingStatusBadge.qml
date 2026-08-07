@@ -52,7 +52,19 @@ StatusBadge {
     // unknown falls back to the silence heuristic — never to green.
     property bool motionKnown: false
     property bool motionReady: false
+    // Last VERIFIED detection (/streams motion.last_vmd_at, monotone since
+    // 1cc987d). Paired with lastSegmentAtMs it catches the 2026-08-07 P1: a
+    // camera detecting motion every few minutes whose recorder pipeline died
+    // 21-37 h ago. Detection fresh + segments stale is a machine-checkable
+    // contradiction — the operator found 12 such cameras before the UI did.
+    property double lastVmdAtMs: -1
     readonly property bool _deafArmed: state === CameraStatus.Armed && motionKnown && !motionReady
+    readonly property double _vmdAgeS: lastVmdAtMs > 0 ? Math.max(0, (Date.now() - lastVmdAtMs) / 1000) : -1
+    // fresh detection (<3 h) while the newest segment is >1 h older than that
+    // detection = the recorder is not writing this camera's footage.
+    readonly property bool _notRecording: state === CameraStatus.Armed
+        && lastVmdAtMs > 0 && _vmdAgeS < 10800
+        && (lastSegmentAtMs <= 0 || (lastVmdAtMs - lastSegmentAtMs) > 3600000)
     readonly property double _segAgeS: lastSegmentAtMs > 0 ? Math.max(0, (Date.now() - lastSegmentAtMs) / 1000) : -1
     readonly property bool _silentArmed: state === CameraStatus.Armed && lastMotionAtMs <= 0
                                          && (_segAgeS < 0 || _segAgeS > 86400)
@@ -73,6 +85,7 @@ StatusBadge {
         case CameraStatus.Stalled: return "STALLED";
         case CameraStatus.Armed:
             if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
+            if (_notRecording) return "ARMED · " + qsTr("NOT RECORDING");
             if (_age !== "") return "ARMED · " + _age;
             if (_silentArmed) return "ARMED · " + (_silentAge !== ""
                 ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
@@ -89,7 +102,7 @@ StatusBadge {
         case CameraStatus.Stalled: return Theme.bad;          // a real failure → red
         case CameraStatus.NotRecording:
         case CameraStatus.RecordingGap: return Theme.accent;
-        case CameraStatus.Armed: return _deafArmed ? Theme.bad
+        case CameraStatus.Armed: return (_deafArmed || _notRecording) ? Theme.bad
             : (_staleArmed || _silentArmed) ? Theme.warn : Theme.ink2;   // deaf → red; eventless/segmentless → amber
         default: return Theme.ink3;                            // disabled / unknown
         }

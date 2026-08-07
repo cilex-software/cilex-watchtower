@@ -211,7 +211,8 @@ Item {
                         spacing: 4
                         LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
                         RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : (root.camera ? root.camera.recording : CameraStatus.RecUnknown)
-                            lastSegmentAtMs: (root.camera && root.camera.lastSegmentAt) ? Date.parse(root.camera.lastSegmentAt) : -1 }
+                            lastSegmentAtMs: (root.camera && root.camera.lastSegmentAt) ? Date.parse(root.camera.lastSegmentAt) : -1
+                            lastVmdAtMs: (root.camera && root.camera.motionLastVmdAt) ? Date.parse(root.camera.motionLastVmdAt) : -1 }
                         // Audio-recording state — ear only when the camera CAN record
                         // audio (backend `audio` fields; letter 2026-07-16). Muted ear
                         // = supported but disabled. Nothing = unsupported/unknown.
