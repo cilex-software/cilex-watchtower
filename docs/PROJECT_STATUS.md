@@ -4,6 +4,61 @@ _Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot 
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
 
+## Current status (2026-08-07) — FIRST REAL GUARD STATION IS LIVE on Windows; iGPU measured; 4 install defects found
+
+`wt-sm-vnutri-01` (guard booth, Светлый Мир «Внутри») is installed and running
+from the `windows-latest` prerelease (build `4fcb90cd`, confirmed by the app's own
+footer). Warden 1.2.0 supervises via the `wt-warden` Scheduled Task. **Written by
+the Windows station agent — the Linux agent cannot see this box.**
+
+- **🟢 iGPU decode PROVEN, and decode was the wrong worry.** Intel UHD 730, no
+  discrete card. 16-tile wall (16 × H.264 720p sub): **VideoDecode 9.2 %**, but
+  **3D/compositing 35.7 %**, CPU 2.9 % of 12 cores, RSS 804 MB. One main-profile
+  **HEVC 2560×1440**: VideoDecode 2.5 %, 3D 21.3 %. 94 `[WT-DEC]` lines all
+  `d3d11h264dec`/`d3d11h265dec` **(hardware)**, **zero `(SOFTWARE)`**, and zero
+  refusals under `WT_HW_ONLY=1` — so no silent SW fallback. **The constraint is
+  the scene graph, not the decoder**; `WT_MAX_DECODES` aims at the engine that
+  isn't under pressure. Full record + caveats (15 fps cameras; wall measured in a
+  1440×900 window): [`docs/perf/2026-08-07-win-igpu-decode-baseline.md`](perf/2026-08-07-win-igpu-decode-baseline.md).
+  Note `qml/CameraTile.qml:132` hard-wires grid tiles to the sub stream, so **the
+  wall is never HEVC** — promotions are detail/fullscreen/merged-HD only.
+- **🔴→🟢 D1: WER local crash dumps were armed in the WRONG REGISTRY HIVE — on
+  every Windows install to date.** `installer.nsi` is a 32-bit PE, so its
+  `powershell` child is 32-bit and the `HKLM\SOFTWARE\…\LocalDumps\watchtower.exe`
+  write was WOW64-redirected into `WOW6432Node`; WER is 64-bit and `watchtower.exe`
+  is x64 (PE machine `0x8664`), so it never read it. Silent — the write succeeded,
+  so the script printed success. Fixed: explicit `Registry64` view **plus read-back
+  verification**.
+- **🔴→🟢 D2: a plain non-elevated install left the station with NO supervisor.**
+  The admin-only WER step ran before task registration under
+  `$ErrorActionPreference='Stop'`, so it aborted the script and `wt-warden` never
+  registered — while NSIS still reported success. Fixed: WER is best-effort, and
+  the script now prints an honest armed/not-armed summary.
+- **🟡 D3: stopping the `wt-warden` task does NOT stop Warden.** `warden.exe` is
+  PyInstaller **onefile**: the task launches the bootloader, which spawns the real
+  supervisor as a same-named child. `Stop-ScheduledTask` kills only the bootloader;
+  the child is orphaned, keeps supervising, and **respawns the app** — so a restart
+  yields two Wardens and two Watchtowers on one iGPU (measured, with PIDs).
+  Mitigated in the Windows-only paths (install-time orphan sweep; `taskkill` on
+  uninstall). **The real fix is a single-instance lock + a `stop` verb in
+  `warden/warden.py` — shared code, so it needs a `win/…` branch + PR that this box
+  cannot verify on Linux. Owed.**
+- **🟡 D4: the station is off-LAN and both backend defaults point at the lab.**
+  No tailnet peer advertises `192.168.1.0/24`; `192.168.1.79:8000/8554/1984` are
+  unreachable from the booth. CV is reached at `100.107.51.72` over Tailscale.
+  `AuthController.cpp:47` still defaults `WT_CV_URL` to the lab LAN, so a guard's
+  sign-in screen offers an unreachable server. Handled in this station's
+  `warden.conf`; **worth deciding centrally before station #2.** Cleared as a
+  non-issue: CV derives serving URLs from the request host, so `rtsp_url`/`hls_url`/
+  `snapshot_url` come back tailnet-addressed and reachable.
+- **Open on this box:** the CV station token is still with the operator and NOT in
+  `warden.conf` — Warden reports `token=MISSING` and keeps heartbeats/uploads off,
+  honestly. Until it lands, `/admin/crash-reports` is blind to this station.
+- Defect detail: [`docs/perf/2026-08-07-win-station-bringup-defects.md`](perf/2026-08-07-win-station-bringup-defects.md).
+  CV reply with the iGPU numbers: `docs/letters/2026-08-07-station-wt-sm-vnutri-01.reply2.md`.
+- Remaining Windows port work is unchanged: eyes-on playback/export, DPI and
+  sleep/resume, overnight soak, the W5 acceptance matrix.
+
 ## Current status (2026-07-27, night) — merged cells on the Live wall (operator feature request)
 
 Shift+drag across wall tiles → merge into one big tile (e.g. 4×1×1 → one 2×2 for
