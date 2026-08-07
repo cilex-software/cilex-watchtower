@@ -1,17 +1,20 @@
-# Windows station bring-up — seven defects found installing the first real guard station
+# Windows station bring-up — eight defects found installing the first real guard station
 
 _Found 2026-08-07 bringing `wt-sm-vnutri-01` (guard booth, Светлый Мир «Внутри»)
 up from the `windows-latest` rolling prerelease. D1/D2 are fixed in this commit,
 D3 is mitigated here but needs a shared-code fix via PR, D4 is station config,
-and D5–D7 were found by the station crashing on its own an hour after install._
+D5–D7 were found by the station crashing on its own an hour after install, and D8 by
+watching what CI did with the release afterwards._
 
 **D5 is the one to read first**: the app aborts itself on every sleep/resume
 cycle. It is fixed in PR #2.
 
-All four share a failure mode worth naming: **they are silent.** Every one of
-them leaves the installer reporting success while something the station depends
-on is quietly not there. That is precisely the "green-by-default for unknown
-states" our house rules forbid, arriving through the back door.
+Nearly all of them share a failure mode worth naming: **they are silent.** The
+installer reports success while something the station depends on is quietly not
+there; the watchdog aborts a healthy app and calls it a hang; CI republishes the
+station's install channel from an unmerged PR under a title claiming "latest
+main". That is precisely the "green-by-default for unknown states" our house
+rules forbid, arriving through the back door.
 
 ---
 
@@ -239,6 +242,42 @@ exception: it bypasses `SetUnhandledExceptionFilter`, so our in-app handler
 *only* mechanism that could capture this crash — and until this morning it was
 armed in a registry hive WER never reads. The first real crash on the first real
 guard station was precisely the class D1 had silently disabled.
+
+## D8 — any pull request silently replaced the release stations install from (FIXED)
+
+Found by noticing that `windows-latest` had been republished with a commit SHA
+belonging to no branch.
+
+`.github/workflows/windows.yml` triggers on `push` **and** `pull_request`, and the
+*"Publish rolling windows-latest release"* step had **no `if:` condition**. So every
+PR build ran:
+
+```
+gh release delete windows-latest --yes --cleanup-tag
+gh release create windows-latest … --target $GITHUB_SHA --title "Windows CI build (latest main)"
+```
+
+On a `pull_request` event `GITHUB_SHA` is the **synthetic `refs/pull/N/merge`
+commit**. Verified: after PR #2's build, the release body read *"Rolling CI build
+of `cee525d7`"*, and `cee525d7` resolves to
+*"Merge `63136f9a` into `8b6c38d3`"* — **not reachable from any branch**
+(`git branch -r --contains` → nothing).
+
+**So the channel a guard station installs from served an unmerged pull request,
+under a title that said "latest main".** Anyone running
+`gh release download windows-latest` in that window got PR code. It is worse than a
+race: any PR, from any branch, could silently replace the station installer, and
+`--cleanup-tag` destroys the previous tag on each pass. CLAUDE.md warns that CI and
+`build-local.ps1 -Publish` clobber each other; **PR builds were a third clobberer
+nobody knew about.**
+
+**Fix:** gate the publish step to `github.event_name == 'push' && github.ref ==
+'refs/heads/main'`. PRs still get the full compile — they just cannot publish.
+The versioned-release job below it was already correctly gated
+(`if: startsWith(github.ref, 'refs/tags/v')`, job level) and is unaffected.
+
+**Consequence to remember:** merging PR #2 will not by itself fix a stale
+`windows-latest`; whatever pushes to main next republishes it.
 
 ---
 

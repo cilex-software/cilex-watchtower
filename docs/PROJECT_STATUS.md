@@ -79,6 +79,19 @@ the Windows station agent — the Linux agent cannot see this box.**
   crash dir at the crash timestamp — Warden sealed the manifest while WER was still
   writing 38 MB. **CV would receive "no dump" and no dump.** Needs a settle/rescan
   before sealing. Shared → PR owed.
+- **🔴→🟢 D8: ANY pull request silently replaced the release stations install from.**
+  The *"Publish rolling windows-latest release"* step in `.github/workflows/windows.yml`
+  had **no `if:`**, and the workflow triggers on `pull_request` too — where `GITHUB_SHA`
+  is the synthetic `refs/pull/N/merge` commit. Verified: after PR #2's build,
+  `windows-latest` read *"Rolling CI build of `cee525d7`"* = *"Merge `63136f9a` into
+  `8b6c38d3`"*, **reachable from no branch**, while still titled "Windows CI build
+  (latest main)". So `gh release download windows-latest` served **unmerged PR code**,
+  and `--cleanup-tag` destroyed the prior tag each pass. CLAUDE.md's clobber warning
+  named CI vs `build-local -Publish`; **PR builds were a third clobberer nobody knew
+  about.** Fixed: publish now requires `event_name == 'push' && ref ==
+  'refs/heads/main'`. The versioned `v*` release job was already correctly gated.
+  Note: merging PR #2 does not itself refresh a stale `windows-latest` — whatever
+  pushes to main next does.
 - **D1 justified itself within the hour:** `c0000409` is a fast-fail that bypasses
   `SetUnhandledExceptionFilter`, so the in-app handler wrote nothing — WER LocalDumps
   was the *only* mechanism that could capture this crash, and until this morning it

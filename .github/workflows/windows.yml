@@ -193,6 +193,17 @@ jobs:
       # installer to a rolling prerelease so the latest Windows build is always
       # downloadable (gh release download windows-latest) regardless of quota.
       - name: Publish rolling windows-latest release
+        # ONLY from a push to main. This step had NO condition, so it also ran on
+        # `pull_request` — and on that event GITHUB_SHA is the SYNTHETIC
+        # refs/pull/N/merge commit, which exists on no branch. Result, observed
+        # 2026-08-07: PR #2's build deleted and recreated windows-latest, so the
+        # channel stations install from served an UNMERGED pull request while
+        # still titled "latest main" (release body: "Rolling CI build of
+        # cee525d7…" = "Merge 63136f9a into 8b6c38d3"). Any PR from anyone could
+        # silently replace the release a guard station installs from, and
+        # --cleanup-tag destroys the previous tag each time. PRs still get the
+        # full compile — they just must not publish.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
