@@ -1,8 +1,12 @@
-# Windows station bring-up — four defects found installing the first real guard station
+# Windows station bring-up — seven defects found installing the first real guard station
 
 _Found 2026-08-07 bringing `wt-sm-vnutri-01` (guard booth, Светлый Мир «Внутри»)
-up from the `windows-latest` rolling prerelease. Two are fixed in this commit,
-one is mitigated here but needs a shared-code fix via PR, one is station config._
+up from the `windows-latest` rolling prerelease. D1/D2 are fixed in this commit,
+D3 is mitigated here but needs a shared-code fix via PR, D4 is station config,
+and D5–D7 were found by the station crashing on its own an hour after install._
+
+**D5 is the one to read first**: the app aborts itself on every sleep/resume
+cycle. It is fixed in PR #2.
 
 All four share a failure mode worth naming: **they are silent.** Every one of
 them leaves the installer reporting success while something the station depends
@@ -135,6 +139,109 @@ Watchtower never uses) stays LAN-absolute.
 
 ---
 
+# The station crashed an hour after install — and that found three more
+
+At 16:52:38 local, ~58 min after the production restart, `watchtower.exe` died
+and Warden restarted it. Nobody was driving it. Investigating that one crash
+produced D5–D7, and validated the D1 fix.
+
+## D5 — the GUI-thread watchdog counts system-suspend time as a hang (FIXED in PR #2)
+
+**This is the important one.** Warden's console capture of the dead instance:
+
+```
+[WT-HANG] GUI thread unresponsive for 2947s (watchdog 60s) — aborting for Warden to restart.
+```
+
+Windows event log, `Microsoft-Windows-Power-Troubleshooter` id 1:
+
+```
+sleep : 2026-08-07T13:03:24.849Z
+resume: 2026-08-07T13:52:28.680Z    -> 2943.8 s suspended (S3)
+wake source: Intel USB 3.20 host controller
+```
+
+**2947 s "unresponsive" vs 2943.8 s actually asleep.** The watchdog was measuring
+the suspend. The GUI thread was never wedged — the whole process was frozen by
+the OS, which is not the failure CW-08 exists to catch. The flight recorder shows
+the matching silence: last line 16:03:24, next line 16:52:29, then abort.
+
+**Root cause, one line.** `src/main.cpp:293` already stated the requirement —
+*"CLOCK_MONOTONIC pauses across suspend on Linux, so a resumed laptop doesn't
+false-trigger"* — but the Windows branch used `GetTickCount64()`, which is
+**biased**: it counts time spent asleep. The protection the comment describes
+existed only on Linux. Fixed by switching to `QueryUnbiasedInterruptTime`
+("unbiased" = sleep excluded). Windows-only lines; Linux build cannot be
+affected. **PR #2**, raised rather than pushed because it touches `src/`.
+
+**Why it matters more than one restart:** Warden restarts the app, so the station
+self-heals and a guard sees a flicker. The damage is downstream — **every wake
+mints a crash report**, so once this station's token is installed that is a bogus
+crash bundle uploaded on *every single resume*. A booth PC that sleeps overnight
+would page CV every morning, and poison CW-19's dead-man heartbeat with restart
+churn that is not real.
+
+**Station mitigation applied immediately** (independent of the code fix): this
+box was on the stock *Сбалансированная* scheme and **suspended itself after ~50
+minutes idle**. A guard-booth camera wall that puts itself to sleep is an
+operational fault on its own — the wall simply stops watching. Set via
+`powercfg` (no elevation needed):
+
+```
+standby-timeout-ac/dc   = 0 (never)
+hibernate-timeout-ac/dc = 0 (never)
+```
+
+Display blanking (`VIDEOIDLE`, 5 min AC) was **deliberately left alone** — a dark
+panel wakes on input and never freezes the process.
+
+## D6 — a deliberate `abort()` on Windows is filed as memory corruption
+
+Warden recorded `"trigger": "exception-c0000409"` for this crash.
+`0xC0000409` is `STATUS_STACK_BUFFER_OVERRUN`, which reads like a `/GS` stack
+smash — a security-relevant memory-corruption bug. It was nothing of the kind:
+the MSVC CRT implements `abort()` via `__fastfail(FAST_FAIL_FATAL_APP_EXIT)`,
+which raises exactly that code. So **our own intentional watchdog abort is
+indistinguishable, in the report, from real stack corruption.**
+
+Every `[WT-HANG]` abort on Windows will be misfiled this way, and the misfiling
+points triage at the most alarming possible root cause. Warden should classify a
+crash whose console tail carries `[WT-HANG]` as a hang trigger, the way the Linux
+side distinguishes SIGABRT-after-watchdog. Not fixed here — `warden/warden.py`
+is shared code and needs a PR.
+
+## D7 — the minidump was written but the bundle says there is none, and does not carry it
+
+The manifest for this crash says:
+
+```
+"minidump_written": false,
+"artifacts": ["manifest.json", "flightrec/watchtower.log", "flightrec/modules.txt", "console.log"]
+```
+
+But `%APPDATA%\Cilex Vision\Watchtower\crash\watchtower.exe.2948.dmp` exists —
+**38,590,869 bytes, timestamped 16:52:38, the crash instant**, a valid minidump
+(`MDMP`, 15 streams), matching the dead pid.
+
+Warden minted the manifest at the moment of death, while WER was still writing
+38 MB of dump. So the flag was evaluated too early and the dump missed the
+artifact list. Net effect: **the bundle CV receives declares "no minidump" and
+does not carry the dump** — the exact evidence D1 just made possible would not
+reach the server. Warden needs a post-crash settle/rescan for `.dmp`s before
+sealing a bundle (it already does a boot-replay pass; this wants the same idea on
+a short delay). Shared code → PR.
+
+## What this crash proves about D1
+
+**The WER fix paid for itself within the hour.** `c0000409` is a fast-fail
+exception: it bypasses `SetUnhandledExceptionFilter`, so our in-app handler
+(`wtUnhandledException`) never ran and wrote nothing. WER LocalDumps was the
+*only* mechanism that could capture this crash — and until this morning it was
+armed in a registry hive WER never reads. The first real crash on the first real
+guard station was precisely the class D1 had silently disabled.
+
+---
+
 ## One observation for CV, not a Watchtower defect
 
 `GET /streams` returns `direct_rtsp_url` / `direct_rtsp_sub_url` with **camera
@@ -154,3 +261,9 @@ that is intended for the Provisioner's benefit or worth scoping down.
 | D3 orphan behaviour | **verified** (PIDs above) |
 | D3 mitigations | `install-windows.ps1` sweep not yet exercised; `installer.nsi` change **untested** — no NSIS toolchain on this box, so it ships unbuilt until CI |
 | D4 reachability | **verified** both directions (LAN unreachable, tailnet reachable) |
+| D5 suspend→abort causation | **verified**: 2947 s reported vs 2943.8 s measured suspend, from two independent sources (Warden console capture + Windows Power-Troubleshooter event) |
+| D5 code fix (PR #2) | **NOT compile-verified** — no MSVC/Qt toolchain on the station. CI on the PR is the first build. Do not merge on a red run. |
+| D5 station mitigation | **verified**: `STANDBYIDLE` and `HIBERNATEIDLE` now read `0x0` on AC and DC |
+| D6 `c0000409` == `abort()` | trigger value **observed** in the manifest; the CRT `__fastfail` mechanism is stated from documentation, not instrumented here |
+| D7 dump written but unreported | **verified**: manifest says `minidump_written:false`; a valid 38,590,869-byte `MDMP` exists at the crash timestamp |
+| whether D5 recurs | **not yet observed a second time** — one occurrence, and sleep is now disabled, so it should not recur on this box |

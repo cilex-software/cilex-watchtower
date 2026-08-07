@@ -51,6 +51,38 @@ the Windows station agent — the Linux agent cannot see this box.**
   `warden.conf`; **worth deciding centrally before station #2.** Cleared as a
   non-issue: CV derives serving URLs from the request host, so `rtsp_url`/`hls_url`/
   `snapshot_url` come back tailnet-addressed and reachable.
+- **🔴→🟢 D5 (PR #2, the important one): the GUI-thread watchdog counts SYSTEM-SUSPEND
+  time as a hang and aborts the app on every wake.** The station crashed on its own
+  58 min after install: `[WT-HANG] GUI thread unresponsive for 2947s (watchdog 60s)`
+  against a **measured 2943.8 s S3 suspend** (Power-Troubleshooter id 1: slept
+  13:03:24.849Z, resumed 13:52:28.680Z). The GUI thread was never wedged — the whole
+  process was frozen by the OS. `src/main.cpp:293` already claimed the protection
+  ("CLOCK_MONOTONIC pauses across suspend on Linux") but the Windows branch used
+  **`GetTickCount64()`, which is biased and counts sleep**. Fixed with
+  `QueryUnbiasedInterruptTime`; Windows-only lines, Linux build cannot be affected.
+  **Not compile-verified — the station has no MSVC/Qt toolchain; CI on the PR is the
+  first build, so don't merge red.** Warden restarts the app so a guard sees a
+  flicker, but **every wake would mint a bogus crash bundle** once the token is in,
+  and poison CW-19's heartbeat with unreal restart churn.
+  **Station mitigated meanwhile:** this box was on the stock balanced scheme and
+  **suspended itself after ~50 min idle** — a guard wall that stops watching, which
+  is a fault on its own. `standby-timeout` and `hibernate-timeout` are now `0` on AC
+  and DC (display blanking left at 5 min — it wakes on input, never freezes).
+- **🟡 D6: a deliberate `abort()` on Windows is filed as memory corruption.** Warden
+  recorded `trigger: exception-c0000409` = `STATUS_STACK_BUFFER_OVERRUN`, because the
+  MSVC CRT implements `abort()` via `__fastfail`. So our own watchdog abort is
+  indistinguishable in the report from a real `/GS` stack smash, and points triage at
+  the most alarming possible cause. Warden should classify a `[WT-HANG]` tail as a
+  hang. `warden/warden.py` = shared → PR owed.
+- **🟡 D7: the minidump was written but the bundle denies it and omits it.** Manifest
+  says `minidump_written:false` while a valid **38,590,869-byte** `MDMP` sits in the
+  crash dir at the crash timestamp — Warden sealed the manifest while WER was still
+  writing 38 MB. **CV would receive "no dump" and no dump.** Needs a settle/rescan
+  before sealing. Shared → PR owed.
+- **D1 justified itself within the hour:** `c0000409` is a fast-fail that bypasses
+  `SetUnhandledExceptionFilter`, so the in-app handler wrote nothing — WER LocalDumps
+  was the *only* mechanism that could capture this crash, and until this morning it
+  was armed in a hive WER never reads.
 - **Open on this box:** the CV station token is still with the operator and NOT in
   `warden.conf` — Warden reports `token=MISSING` and keeps heartbeats/uploads off,
   honestly. Until it lands, `/admin/crash-reports` is blind to this station.
