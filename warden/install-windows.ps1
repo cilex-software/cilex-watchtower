@@ -34,7 +34,10 @@ if (-not (Test-Path $conf)) {
         "BACKEND_URL=$Backend"
         "STATION_TOKEN=$Token"
         "APP_CMD=$AppExe"
-        "APP_ENV=WT_CV_AUTOLOGIN=1"
+        # No WT_CV_AUTOLOGIN on stations: service credentials never live in a
+        # station env (CV directive, session-refresh thread). The guard signs in
+        # once; the 24h token + /auth/refresh keeps the session alive.
+        "APP_ENV="
     ) | Set-Content -Path $conf -Encoding UTF8
     Write-Host "config written: $conf"
     if (-not $Token) { Write-Warning "STATION_TOKEN is EMPTY - uploads/heartbeats stay off until it is set." }
