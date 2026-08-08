@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Groups — Wall</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1816;--panel:#221f1c;--panel2:#2a2722;--panel3:#322e28;--line:#34302a;--line2:#443f37;--ink:#f0ece4;--ink2:#a89f90;--ink3:#6e6657;--accent:#e8a13a;--accentSoft:rgba(232,161,58,.08);--accentDim:#5a3f15;--bad:#d96649;--badSoft:rgba(217,102,73,.1);--good:#8eb96b;--info:#6f9bc4}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#100f0e;font-family:'Space Grotesk',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;display:block;overflow-x:auto;padding:16px 20px 24px}
+.wrap{width:max-content;margin:0 auto}
+.mono{font-family:'JetBrains Mono',monospace}
+a{color:var(--accent)}a:hover{color:var(--ink)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:left}
+input{font:inherit;color:inherit;background:none;border:none;outline:none}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--line2)}::-webkit-scrollbar-track{background:transparent}
+.vbar{display:flex;align-items:center;gap:10px;padding:0 2px 10px}
+.vsw{display:flex;align-items:stretch;border:1px solid var(--line2)}
+.vsw a{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);text-decoration:none;padding:3px 9px;border-right:1px solid var(--line2)}
+.vsw a:last-child{border-right:0}
+.vsw a:hover{background:var(--panel2);color:var(--ink)}
+.vsw a.on{background:var(--accent);color:#241a08;font-weight:700}
+.vnote{font-size:11px;color:var(--ink3)}
+.vnote b{color:var(--ink2);font-weight:500}
+.frame{background:var(--bg);border:1px solid var(--line2);height:900px;display:flex;flex-direction:column;overflow:hidden;flex:none;min-width:0;position:relative;transition:width .18s ease}
+.osbar{height:30px;background:#141312;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:9px;flex:none}
+.osdot{width:8px;height:8px;border-radius:50%}
+.osttl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.4px;color:var(--ink3);text-transform:uppercase}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:64px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex:none}
+.railbrand{height:44px;display:grid;place-items:center;border-bottom:1px solid var(--line);color:var(--accent);font-weight:700;font-size:13px}
+.railitem{height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.8px;color:var(--ink3);border-bottom:1px solid var(--line);position:relative}
+.railitem .g{width:15px;height:15px;border:1px solid currentColor}
+.railitem.on{color:var(--accent);background:var(--accentSoft)}
+.railitem .bdg{position:absolute;top:7px;right:7px;background:var(--bad);color:#fff;font-size:7px;padding:0 3px;font-weight:700}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tcell{display:flex;align-items:center;padding:0 13px;border-right:1px solid var(--line);flex:none;gap:9px}
+.tcell.grow{flex:1;min-width:0}
+.brand .b1{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.5px;color:var(--ink3)}
+.brand .b2{font-size:14px;font-weight:600;letter-spacing:-.2px;line-height:1.1}
+.searchc{color:var(--ink3);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:8px;border:1px solid var(--line);padding:1px 4px;color:var(--ink3);letter-spacing:.6px;flex:none}
+.pill{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.7px;white-space:nowrap}
+.pill i{width:6px;height:6px;display:block;flex:none}
+.tabstrip{height:30px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tabstrip .t{display:flex;align-items:center;gap:8px;padding:0 13px;font-size:11px;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.tabstrip .t.on{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.panes{flex:1;display:flex;min-height:0}
+/* ── LEFT ── */
+.left{width:264px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+.lsearch{height:30px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:7px;padding:0 10px;flex:none;background:var(--panel)}
+.lsearch .gl{font-size:11px;color:var(--ink3)}
+.lsearch input{flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:11px;caret-color:var(--accent)}
+.lsearch input::placeholder{font-family:'Space Grotesk',sans-serif;font-size:11px;color:var(--ink3)}
+.llist{flex:1;overflow-y:auto;min-height:0}
+.gsec{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.4px;color:var(--ink3);padding:6px 10px 4px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.grp{width:100%;height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);position:relative}
+.grp:hover{background:var(--panel2)}
+.grp.on{background:var(--accentSoft);box-shadow:inset 3px 0 0 var(--accent)}
+.grp.dz{background:var(--accentSoft);box-shadow:inset 0 0 0 1px var(--accent)}
+.grp .gi{width:12px;height:12px;border:1px solid var(--ink3);flex:none}
+.grp.on .gi{border-color:var(--accent)}
+.grp .gn{font-size:12px;color:var(--ink2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grp.on .gn{color:var(--accent);font-weight:600}
+.grp .gc{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);flex:none}
+.grp.on .gc{color:var(--accent)}
+.hb{display:flex;height:3px;width:34px;flex:none;gap:1px;background:var(--panel3)}
+.hb i{display:block;height:3px}
+.gempty{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--ink3);flex:none;letter-spacing:.6px}
+.newg{height:34px;border-top:1px solid var(--line2);display:flex;align-items:center;gap:8px;padding:0 10px;flex:none;background:var(--panel);color:var(--ink2);font-size:12px;width:100%}
+.newg:hover{background:var(--panel2);color:var(--ink)}
+.newg .p{color:var(--accent);font-size:13px}
+.newg.edit{background:var(--panel2)}
+.newg input{flex:1;min-width:0;font-size:12px;caret-color:var(--accent);border-bottom:1px solid var(--accent)}
+.newg .ok{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:1px 5px;flex:none}
+.newg .no{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink3);padding:1px 4px;flex:none}
+/* B · cards — rows grow to divide the column, and the space they gain shows what is IN each group */
+.gcards{flex:1;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+.gcard{flex:1 1 0;min-height:76px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;position:relative;text-align:left;width:100%}
+.gcard:hover{background:var(--panel2)}
+.gcard.on{background:var(--accentSoft);box-shadow:inset 3px 0 0 var(--accent)}
+.gcard.dz{box-shadow:inset 0 0 0 1px var(--accent)}
+.gcard .gh2{height:28px;display:flex;align-items:center;gap:7px;padding:0 10px;flex:none}
+.gstrip{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:2px;align-content:flex-start;overflow:hidden;padding:0 10px 8px}
+.gt{width:35px;height:20px;position:relative;overflow:hidden;background:#141312;flex:none}
+.gt .gtb{position:absolute;left:0;right:0;bottom:0;height:2px;z-index:2}
+.gcard .gnone{padding:0 10px 9px;font-size:10.5px;color:var(--ink3)}
+/* C · console — compact rows, and the leftover height carries what needs attention */
+.gcon{border-top:1px solid var(--line2);background:var(--panel);flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+.gconh{height:22px;display:flex;align-items:center;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.4px;color:var(--ink3);border-bottom:1px solid var(--line);flex:none}
+.att{height:32px;display:flex;align-items:center;gap:9px;padding:0 10px;border-bottom:1px solid var(--line);flex:none;width:100%;text-align:left}
+.att:hover{background:var(--panel2)}
+.att.on{background:var(--accentSoft)}
+.att .an{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;min-width:24px;flex:none;color:var(--ink3)}
+.att.b .an{color:var(--bad)}.att.w .an{color:var(--accent)}
+.att .al{font-size:11px;color:var(--ink2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att .ak{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink3);flex:none}
+.fleetbar{margin:9px 10px;height:6px;display:flex;gap:1px;background:var(--panel3);flex:none}
+.fleetbar i{display:block;height:6px}
+/* the summary rows are fixed, so ONE child must be able to grow into the remainder — otherwise
+   flexing the container only moves the void inside it. The work queue is that child: it is long
+   whenever the fleet has faults, and it scrolls rather than stretching when it is longer still. */
+.exl{flex:1;min-height:0;overflow-y:auto;border-top:1px solid var(--line2);display:flex;flex-direction:column}
+.exh{height:20px;display:flex;align-items:center;gap:7px;padding:0 10px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;color:var(--ink3);background:var(--bg);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2;flex:none}
+.exr{height:26px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--line);width:100%;text-align:left;flex:none}
+.exr:hover{background:var(--panel2)}
+.exr .ed{width:5px;height:5px;border-radius:50%;flex:none}
+.exr .eo{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--ink2);flex:none;min-width:32px}
+.exr:hover .eo{color:var(--ink)}
+.exr .er{font-size:10px;color:var(--ink3);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exok{flex:1;display:grid;place-items:center;padding:22px 14px;text-align:center;font-size:11px;color:var(--ink3);line-height:1.5}
+.fleetlbl{padding:0 10px 10px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1px;color:var(--ink3);display:flex;gap:9px;flex:none}
+/* D · bar — the pane is deleted and its 264px go back to the wall */
+.gbar{height:32px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:5px;padding:0 10px;background:var(--bg);flex:none;overflow-x:auto;overflow-y:hidden}
+.gc2{height:22px;display:flex;align-items:center;gap:6px;padding:0 8px;box-shadow:inset 0 0 0 1px var(--line2);font-size:11px;color:var(--ink2);flex:none;white-space:nowrap}
+.gc2:hover{background:var(--panel2);color:var(--ink)}
+.gc2.on{background:var(--accentSoft);box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent);font-weight:600}
+.gc2.dz{box-shadow:inset 0 0 0 1px var(--accent)}
+.gc2 .n2{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.gc2.on .n2{color:var(--accent)}
+.gc2 .hb2{width:22px;height:3px;display:flex;gap:1px;background:var(--panel3);flex:none}
+.gc2 .hb2 i{display:block;height:3px}
+.gbsep{width:1px;height:16px;background:var(--line);flex:none;margin:0 3px}
+/* ── RIGHT ── */
+.right{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.rhead{height:34px;border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none;background:var(--panel)}
+.rname{display:flex;align-items:center;padding:0 12px;gap:9px;min-width:0;flex:none;max-width:52%}
+.rname .n{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname input{font-size:14px;font-weight:600;background:var(--bg);border:1px solid var(--accent);padding:1px 5px;min-width:0;width:180px;caret-color:var(--accent)}
+.rname .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);flex:none}
+.rspacer{flex:1;border-right:1px solid var(--line);min-width:0}
+.rb{display:flex;align-items:center;gap:6px;padding:0 11px;border-left:1px solid var(--line);font-size:11px;color:var(--ink3);white-space:nowrap;flex:none}
+.rb:hover{background:var(--panel2);color:var(--ink)}
+.rb.danger:hover{color:var(--bad)}
+.rb.armed{background:#2c211d;color:var(--bad)}
+.rb.q{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bad);cursor:default;background:#2c211d}
+.rb.yes{color:var(--bad);font-weight:700}
+.fbar{height:30px;border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none;background:var(--bg);position:relative;z-index:6}
+.fs{display:flex;align-items:center;gap:7px;padding:0 10px;border-right:1px solid var(--line);flex:none;width:196px}
+.fs .gl{font-size:11px;color:var(--ink3)}
+.fs input{flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:11px;caret-color:var(--accent)}
+.fs input::placeholder{font-family:'Space Grotesk',sans-serif;font-size:10.5px;color:var(--ink3)}
+.fb2{display:flex;align-items:center;gap:7px;padding:0 11px;border-right:1px solid var(--line);font-size:11px;color:var(--ink3);white-space:nowrap;flex:none}
+.fb2:hover{background:var(--panel2);color:var(--ink2)}
+.fb2.on{background:var(--accentSoft);color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);font-weight:600}
+.fb2 .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+.fb2.on .c{color:var(--accent)}
+.fb2.warn.on{background:rgba(217,102,73,.12);color:var(--bad);box-shadow:inset 0 -2px 0 var(--bad)}
+.fb2.warn.on .c{color:var(--bad)}
+.fspacer{flex:1;border-right:1px solid var(--line);min-width:0}
+.fstat{display:flex;align-items:center;padding:0 11px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);flex:none;gap:7px}
+.fstat b{color:var(--ink2);font-weight:600}
+.fstat.warn b{color:var(--bad)}
+.scroll{flex:1;overflow-y:auto;min-height:0;position:relative}
+/* gapless mosaic — tiles butt edge to edge; every state is an INSET ring so it costs no layout */
+.wallw{display:grid;gap:0;line-height:0}
+/* the scroll gutter is the last 3px before the pane edge: on a gapless wall a lighter track reads as
+   a seam, so the track takes the tile colour and the wall appears to run to the edge */
+.scroll::-webkit-scrollbar-track{background:#141312}
+.scroll::-webkit-scrollbar{width:3px}
+.tile{position:relative;overflow:hidden;background:#141312;cursor:pointer;display:block;padding:0;border:0;line-height:0;width:100%;min-width:0}
+.im{position:absolute;inset:0;overflow:hidden}
+.im i{position:absolute;display:block}
+.ph{position:absolute;inset:0;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3)}
+.tile::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;box-shadow:inset 0 0 0 1px rgba(0,0,0,.55)}
+.tile.fault::after{box-shadow:inset 0 0 0 2px var(--bad)}
+.tile.warn::after{box-shadow:inset 0 0 0 1px rgba(232,161,58,.55)}
+.tile.sel::after{box-shadow:inset 0 0 0 2px var(--accent)}
+.tile.drag{opacity:.45}
+/* bottom scrim = the only chrome, painted ON the frame */
+.sc{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:center;gap:6px;padding:0 6px;line-height:1;
+  background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.5) 38%,rgba(0,0,0,.86) 100%)}
+.tile.sel .sc{background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(90,63,21,.55) 38%,rgba(120,80,18,.92) 100%)}
+.sc .o{font-family:'JetBrains Mono',monospace;font-weight:600;color:#fff;flex:none;text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.sc .nmx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.9);text-shadow:0 1px 2px rgba(0,0,0,.9)}
+.sc .nmx.un{color:rgba(255,255,255,.5)}
+.sc input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--accent);color:var(--ink);padding:0 4px;height:19px;font-size:11.5px;caret-color:var(--accent)}
+.sc .unm{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.8px;color:var(--accent);border:1px solid var(--accentDim);background:rgba(232,161,58,.16);padding:0 3px;flex:none}
+.sc .svd{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.8px;color:var(--good);flex:none;animation:fade 1.4s ease forwards}
+@keyframes fade{0%,60%{opacity:1}100%{opacity:0}}
+/* top row: status marker + online dot + checkbox */
+.tp{position:absolute;left:0;right:0;top:0;z-index:5;display:flex;align-items:flex-start;gap:5px;padding:4px 5px;line-height:1}
+.od{width:5px;height:5px;border-radius:50%;flex:none;margin-top:2px;box-shadow:0 0 0 1px rgba(0,0,0,.6)}
+.mk{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.8px;font-weight:700;padding:1px 4px;flex:none;white-space:nowrap}
+.mk.b{background:var(--bad);color:#fff}
+.mk.w{background:rgba(0,0,0,.66);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.mk.o{background:rgba(0,0,0,.66);color:var(--ink3);box-shadow:inset 0 0 0 1px var(--ink3)}
+.cb{width:14px;height:14px;flex:none;display:grid;place-items:center;font-size:10px;color:transparent;background:rgba(20,19,18,.72);box-shadow:inset 0 0 0 1px var(--line2)}
+.tile.sel .cb{background:var(--accent);color:#241a08;box-shadow:inset 0 0 0 1px var(--accent)}
+.tile:not(:hover):not(.sel) .cb{opacity:0}
+/* hover-only row: full badge + group chip, above the scrim */
+.hv{position:absolute;left:0;right:0;z-index:5;display:none;align-items:center;gap:5px;padding:0 5px;line-height:1}
+.tile:hover .hv{display:flex}
+.bdg{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.6px;flex:none;padding:1px 4px;background:rgba(20,19,18,.8);white-space:nowrap}
+.bdg i{width:4px;height:4px;border-radius:50%;flex:none}
+.bdg.ok{color:var(--ink2)}
+.bdg.warnb{color:var(--accent)}
+.bdg.badb{color:#fff;background:var(--bad)}
+.bdg.offb{color:var(--ink3)}
+.gchip{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:rgba(255,255,255,.82);background:rgba(20,19,18,.8);box-shadow:inset 0 0 0 1px var(--line2);padding:1px 4px;flex:none;display:flex;align-items:center;gap:4px;max-width:104px;margin-left:auto}
+.gchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gchip:hover{box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
+.gchip.none{color:var(--accent);box-shadow:inset 0 0 0 1px var(--accentDim)}
+.gchip.ro{cursor:default}
+/* D · modal lightbox — the ONLY variant that covers the wall, so the wall stays legible behind it */
+.scrim2{position:absolute;inset:0;z-index:30;background:rgba(13,12,11,.62);-webkit-backdrop-filter:blur(7px) saturate(70%);backdrop-filter:blur(7px) saturate(70%);display:flex;align-items:center;justify-content:center}
+.modal{background:var(--panel);border:1px solid var(--line2);display:flex;flex-direction:column;min-width:0;line-height:1.35;cursor:default;overflow:hidden}
+.mhd{height:30px;display:flex;align-items:center;gap:9px;padding:0 4px 0 11px;border-bottom:1px solid var(--line);flex:none}
+.mhd .o{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);flex:none}
+.mhd .nm3{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mhd .nm3.un{color:var(--ink3);font-weight:400}
+.mhd input{flex:1;min-width:0;font-size:13px;font-weight:600;background:var(--bg);border:1px solid var(--accent);padding:1px 5px;caret-color:var(--accent)}
+.mhd .pos{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink3);flex:none}
+.mhd .x{width:24px;height:24px;display:grid;place-items:center;color:var(--ink3);font-size:12px;flex:none}
+.mhd .x:hover{background:var(--panel2);color:var(--ink)}
+.mvid{position:relative;background:#141312;flex:none;overflow:hidden}
+/* nav lives ON the image, vertically centred, so Prev/Next never move between cameras */
+/* the nav ANSWERS "which camera am I about to see" — a bare chevron cannot. Fixed 168×58 whatever it
+   holds, so the target never moves between cameras; at the ends the plate keeps its footprint and
+   states the boundary instead of vanishing (a disappearing control relocates its neighbour). */
+.navz{position:absolute;top:0;bottom:0;width:210px;z-index:4;display:flex;align-items:center}
+.navz.p{left:0;justify-content:flex-start}.navz.n{right:0;justify-content:flex-end}
+/* ONE control layer: both plates share a single visibility state, so reaching for either reveals the
+   pair. A control the operator has to discover independently is a control they will not know exists. */
+.nav{width:168px;height:58px;display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(13,12,11,.74);color:#fff;text-align:left;opacity:0;transform:translateX(-10px);transition:opacity .1s linear,transform .1s ease-out;pointer-events:none}
+.navz.n .nav{transform:translateX(10px)}
+.navz.on .nav{opacity:1;transform:none;pointer-events:auto;transition:opacity .13s linear,transform .13s ease-out}
+.nav:hover{background:rgba(20,19,18,.94);box-shadow:inset 0 0 0 1px var(--accent)}
+.nav:hover .po{color:var(--accent)}
+.nav.p{left:0}.nav.n{right:0}
+.nav .pth{width:50px;height:29px;position:relative;overflow:hidden;flex:none;background:#141312}
+.nav .pbar{position:absolute;left:0;right:0;bottom:0;height:2px;z-index:2}
+.nav .pmeta{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.nav.n .pmeta{align-items:flex-end;text-align:right}
+.nav .pk{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.1px;opacity:.5;line-height:1}
+.nav .po{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;line-height:1}
+.nav .pn{font-size:9px;line-height:1.1;opacity:.68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.nav.end{background:rgba(13,12,11,.5);cursor:default;justify-content:center}
+.nav.end .lbl{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.2px;opacity:.42}
+.mfoot{display:flex;align-items:stretch;border-top:1px solid var(--line);flex:none;min-height:30px}
+.mfoot .mf{display:flex;align-items:center;gap:6px;padding:0 11px;border-right:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink3);white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+.mfoot .mf.fix{flex:none;min-width:auto;overflow:visible}
+.mfoot button.mf{color:var(--ink2);font-family:'Space Grotesk',sans-serif;font-size:11.5px;flex:none;min-width:auto;overflow:visible}
+.mfoot button.mf:hover{background:var(--panel2);color:var(--ink)}
+.mfoot .sp2{flex:1;border-right:1px solid var(--line);min-width:0}
+.mkey{font-family:'JetBrains Mono',monospace;font-size:8px;border:1px solid var(--line);padding:0 3px;color:var(--ink3)}
+.gpop{position:absolute;z-index:40;width:186px;background:var(--panel);border:1px solid var(--line2);line-height:1.2}
+.gpop button{width:100%;height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:11px;color:var(--ink2);border-bottom:1px solid var(--line)}
+.gpop button:last-child{border-bottom:0}
+.gpop button:hover{background:var(--panel2);color:var(--ink)}
+.gpop button.on{color:var(--accent)}
+.gpop .c{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3)}
+/* selection bar */
+.selbar{position:sticky;bottom:0;z-index:20;height:34px;background:#2b2318;border-top:1px solid var(--accent);display:flex;align-items:stretch}
+.selbar .lb{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);padding:0 12px;display:flex;align-items:center;flex:none}
+.selbar .mv{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);padding:0 10px;display:flex;align-items:center;border-left:1px solid rgba(232,161,58,.28);flex:none;letter-spacing:.8px}
+.selbar button{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--ink2);padding:0 11px;border-left:1px solid rgba(232,161,58,.28);display:flex;align-items:center;flex:none}
+.selbar button:hover{background:rgba(232,161,58,.14);color:var(--ink)}
+.selbar .sp{flex:1;border-left:1px solid rgba(232,161,58,.28);min-width:0}
+.selbar .x{color:var(--ink3)}
+.dragpill{position:fixed;z-index:99;pointer-events:none;background:var(--panel3);border:1px solid var(--accent);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px}
+.empty{padding:52px 24px;text-align:center;color:var(--ink3);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty .cb2{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px}
+.rohint{height:22px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;align-items:center;padding:0 11px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--ink3);flex:none;gap:7px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback,useLayoutEffect}=React;
+const {useTweaks,TweaksPanel,TweakSection,TweakRadio,TweakToggle}=window;
+
+const TWEAK_DEFAULTS=/*EDITMODE-BEGIN*/{
+  "density": "4",
+  "groupPane": "console",
+  "role": "admin",
+  "fleet": "39",
+  "thumbs": "live",
+  "lang": "EN",
+  "windowW": "1440"
+}/*EDITMODE-END*/;
+
+/* ───────── fleet ───────── */
+const MODEL_A='HiWatch DS-I202(E)',MODEL_B='HiWatch DS-I259M(C)',MODEL_C='Hikvision DS-2CD2143G2';
+const NAMED={101:'Stair 1 landing',103:'Bike store',106:'Lift lobby 6F',108:'Stair 2 landing',132:'Corridor 3F west',137:'Corridor 6F east',141:'Glass door 6F',150:'Main entrance',151:'Lift A car',152:'Lift B car',160:'Gate camera',161:'Yard north',162:'Yard south',163:'Bin store',180:'Car park ramp',181:'Car park level 1'};
+function fleet(n){const out=[];
+  /* matches the brief's live fleet exactly: Inside 22 · Лифты 3 · Снаружи 14 = 39 */
+  const G=o=>o<=150?'inside':o<=158?'lift':'outside';
+  const octs=[101,103,104,106,107,108,109,132,133,134,137,138,139,140,141,142,143,144,145,146,147,150,151,152,158,160,161,162,163,170,171,172,173,180,181,182,183,190,191];
+  let s=13,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  octs.forEach((o,i)=>{const v=r();
+    out.push({oct:o,model:i%7===0?MODEL_C:i%3===0?MODEL_B:MODEL_A,ip:'192.168.1.'+o,
+      name:NAMED[o]||null,group:G(o),
+      online:o!==173&&o!==183,
+      rec:o===173||o===183?'off':v<.31?'notrec':v<.38?'gap':v<.44?'unknown':'rec',
+      motion:v<.2?'notready':v<.34?'silent':v<.5?'never':Math.floor(v*260),
+      seedv:Math.floor(r()*1000)});});
+  /* the provisioning scenario: 20 brand-new cameras, unnamed and ungrouped */
+  if(n>39){const extra=[192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211].slice(0,n-39);
+    extra.forEach((o,i)=>out.push({oct:o,model:i%4===0?MODEL_C:MODEL_A,ip:'192.168.1.'+o,name:null,group:null,
+      online:true,rec:i%3===0?'notrec':'rec',motion:i%5===0?'notready':'never',seedv:400+i*37}));}
+  return out;}
+const GROUPS0=[{id:'inside',en:'Inside',ru:'Inside'},{id:'lift',en:'Лифты',ru:'Лифты'},{id:'outside',en:'Снаружи',ru:'Снаружи'}];
+const ruPl=(n,a,b,c)=>{const m=n%100;if(m>=11&&m<=14)return c;const d=n%10;return d===1?a:(d>=2&&d<=4)?b:c;};
+const REC={rec:{k:'ok',t:'REC',c:'var(--bad)'},notrec:{k:'badb',t:'NOT REC',c:'var(--accent)'},gap:{k:'warnb',t:'GAP',c:'var(--accent)'},off:{k:'offb',t:'OFF',c:'var(--ink3)'},unknown:{k:'warnb',t:'REC ?',c:'var(--ink3)'},stalled:{k:'badb',t:'STALLED',c:'var(--bad)'}};
+/* The data has TWO independent axes and the screen must not blur them:
+     recording  — is footage being written?      notrec | stalled           → "not recording"
+     detector   — can motion fire at all?        notready
+   FAULT is the single shared predicate behind the red ring AND the Faults facet, so the filter and the
+   visual marking can never disagree. 'unknown' (REC ?) is NEVER asserted as a fault — calling unknown
+   broken is the mirror of calling unknown healthy, and both are lies. */
+const REC_BROKEN=c=>c.rec==='notrec'||c.rec==='stalled';
+const DET_BROKEN=c=>c.motion==='notready';
+const FAULT=c=>REC_BROKEN(c)||DET_BROKEN(c);
+const UNKNOWN=c=>c.rec==='unknown';
+
+const S={EN:{gsec:'CAMERA GROUPS',all:'All cameras',ungrouped:'Ungrouped',search:'Find a group…',csearch:'Octet or name…',newg:'New group',newph:'Group name…',create:'Create',cams:n=>n+(n===1?' camera':' cameras'),live:'Open in Live Monitor',del:'Delete group',delQ:(n,g)=>'Delete “'+g+'”? '+n+(n===1?' camera':' cameras')+' become ungrouped.',delQ0:g=>'Delete “'+g+'”?',allf:'All',unnamed:'Unnamed',faults:'Faults',NEW:'UNNAMED',moveTo:'MOVE TO',clear:'Clear',pick:n=>n+' selected',empty:g=>'No cameras in “'+g+'”.',emptyHint:'Select cameras in another group and move them here.',nores:q=>'No camera matches “'+q+'”.',nofault:'Every camera in scope is recording.',nounnamed:'Every camera in scope has a name.',ro:'READ-ONLY · your role cannot rename, group or delete',armedOK:'ARMED',notready:'ARMED · NOT READY',notrecording:'ARMED · NOT RECORDING',silent:'ARMED · silent 2d',never:'no motion ever',ago:m=>'ARMED · '+m+'m',saved:'SAVED',ofN:(a,b)=>a+' of '+b,rename:'rename',dblRename:'double-click a name to rename · drag a selection onto a group',faultsN:n=>n+' not recording',unnamedN:n=>n+' unnamed',rail:['LIVE','GROUPS','VIEWS','EVENTS','HEALTH'],screen:'Groups',online:'ONLINE',offline:'OFFLINE',notrecS:'NOT REC',topSearch:'Search cameras, groups, views, clips, events…',notRecording:'not recording',unknownN:'unknown',gempty:'EMPTY',gempty0:'No cameras in this group',attention:'NEEDS ATTENTION',attNotRec:'not recording',attUnnamed:'still unnamed',attUngrouped:'ungrouped',attOffline:'offline',attUnknown:'recording state unknown',healthy:'HEALTHY',hFault:'FAULT',hWarn:'WARN',hOk:'OK',attNotReady:'detector not ready',exQueue:'WORK QUEUE',exClear:'Nothing needs attention. Every camera is named, grouped and recording.',close:'Close',prev:'Previous camera',next:'Next camera',prevK:'PREV',nextK:'NEXT',listStart:'START OF LIST',listEnd:'END OF LIST',renameA:'Rename',moveToA:'Move to',recV:c=>!c.online||c.rec==='off'?'Off':c.rec==='notrec'?'Not recording':c.rec==='stalled'?'Stalled':c.rec==='gap'?'Recording · gap in footage':c.rec==='unknown'?'Unknown':'Recording',
+motV:c=>c.motion==='notready'?'Detector not ready':c.motion==='never'?'No motion ever detected':c.motion==='silent'?'Silent 2d':typeof c.motion==='number'?c.motion+'m ago':'—',hbT:(b,w,o)=>b+' not recording · '+w+' warning · '+o+' ok',magLive:'LIVE',magOff:'OFFLINE',mk:{off:'OFF',notready:'NOT READY',notrec:'NOT REC',stalled:'STALLED',unknown:'REC ?',never:'NO MOTION',silent:'SILENT',gap:'GAP'}},
+RU:{gsec:'ГРУППЫ КАМЕР',all:'Все камеры',ungrouped:'Без группы',search:'Найти группу…',csearch:'Октет или имя…',newg:'Новая группа',newph:'Название группы…',create:'Создать',cams:n=>n+' '+ruPl(n,'камера','камеры','камер'),live:'Открыть в мониторе',del:'Удалить группу',delQ:(n,g)=>'Удалить «'+g+'»? '+n+' '+ruPl(n,'камера','камеры','камер')+' останутся без группы.',delQ0:g=>'Удалить «'+g+'»?',allf:'Все',unnamed:'Без имени',faults:'Неисправные',NEW:'БЕЗ ИМЕНИ',moveTo:'ПЕРЕНЕСТИ В',clear:'Сбросить',pick:n=>'Выбрано: '+n,empty:g=>'Нет камер в «'+g+'».',emptyHint:'Выберите камеры в другой группе и перенесите их сюда.',nores:q=>'Нет камеры по запросу «'+q+'».',nofault:'Все камеры в этой области записывают.',nounnamed:'У всех камер в этой области есть имя.',ro:'ТОЛЬКО ЧТЕНИЕ · ваша роль не может переименовывать и группировать',armedOK:'НА ОХРАНЕ',notready:'ОХРАНА · НЕ ГОТОВА',notrecording:'ОХРАНА · НЕ ПИШЕТ',silent:'ОХРАНА · тихо 2д',never:'движения не было',ago:m=>'ОХРАНА · '+m+'м',saved:'СОХР',ofN:(a,b)=>a+' из '+b,rename:'переим.',dblRename:'двойной клик по имени — переименовать · перетащите выбранные на группу',faultsN:n=>n+' не пишут',unnamedN:n=>n+' без имени',rail:['ОНЛАЙН','ГРУППЫ','ВИДЫ','СОБЫТИЯ','СОСТОЯНИЕ'],screen:'Группы',online:'ОНЛАЙН',offline:'НЕ В СЕТИ',notrecS:'НЕ ПИШУТ',topSearch:'Поиск камер, групп, видов, клипов, событий…',notRecording:'не пишут',unknownN:'неизвестно',gempty:'ПУСТО',gempty0:'Нет камер в этой группе',attention:'ТРЕБУЕТ ВНИМАНИЯ',attNotRec:'не пишут',attUnnamed:'без имени',attUngrouped:'без группы',attOffline:'не в сети',attUnknown:'состояние записи неизвестно',healthy:'В НОРМЕ',hFault:'СБОЙ',hWarn:'ПРЕДУПР',hOk:'НОРМА',attNotReady:'детектор не готов',exQueue:'ОЧЕРЕДЬ РАБОТ',exClear:'Ничего не требует внимания. Все камеры названы, сгруппированы и пишут.',close:'Закрыть',prev:'Предыдущая камера',next:'Следующая камера',prevK:'НАЗАД',nextK:'ДАЛЕЕ',listStart:'НАЧАЛО СПИСКА',listEnd:'КОНЕЦ СПИСКА',renameA:'Переименовать',moveToA:'Перенести в',recV:c=>!c.online||c.rec==='off'?'Выкл':c.rec==='notrec'?'Не пишет':c.rec==='stalled'?'Сбой':c.rec==='gap'?'Запись · пробел':c.rec==='unknown'?'Неизвестно':'Запись',
+motV:c=>c.motion==='notready'?'Детектор не готов':c.motion==='never'?'Движения не было':c.motion==='silent'?'Тихо 2д':typeof c.motion==='number'?c.motion+'м назад':'—',hbT:(b,w,o)=>b+' не пишут · '+w+' предупр. · '+o+' в норме',magLive:'ЭФИР',magOff:'НЕ В СЕТИ',mk:{off:'ВЫКЛ',notready:'НЕ ГОТОВА',notrec:'НЕ ПИШЕТ',stalled:'СБОЙ',unknown:'ЗАПИСЬ ?',never:'НЕТ ДВИЖ.',silent:'ТИХО',gap:'ПРОБЕЛ'}}};
+
+/* deterministic procedural frame — stands in for the live snapshot */
+const Scene=React.memo(function Scene({seedv,off}){
+  let s=seedv*11+7,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  if(off)return <span className="im" style={{background:'#191817'}}></span>;
+  const wall='hsl('+(28+r()*14)+',8%,'+(26+r()*10)+'%)',floor='hsl('+(30+r()*12)+',7%,'+(17+r()*7)+'%)';
+  const a=r(),b=r();
+  return <span className="im" style={{background:'linear-gradient(174deg,'+wall+' 0%,'+wall+' 56%,'+floor+' 56%,'+floor+' 100%)'}}>
+    <i style={{left:(a*64)+'%',top:(6+b*18)+'%',width:(9+a*13)+'%',height:(38+b*30)+'%',background:'rgba(255,255,255,.07)'}}></i>
+    <i style={{left:(24+b*58)+'%',top:'44%',width:'9%',height:'32%',background:'rgba(0,0,0,.4)'}}></i>
+  </span>;});
+
+function Badge({c,t}){
+  const r=REC[c.rec]||REC.unknown;
+  if(c.rec==='off')return <span className="bdg offb"><i style={{background:'var(--ink3)'}}></i>{r.t}</span>;
+  if(c.motion==='notready')return <span className="bdg badb"><i style={{background:'var(--bad)'}}></i>{t.notready}</span>;
+  if(c.rec==='notrec'||c.rec==='stalled')return <span className="bdg badb"><i style={{background:'var(--bad)'}}></i>{t.notrecording}</span>;
+  if(c.rec==='unknown')return <span className="bdg warnb"><i style={{background:'transparent',boxShadow:'inset 0 0 0 1px var(--ink3)'}}></i>{r.t}</span>;
+  if(c.motion==='never')return <span className="bdg warnb"><i style={{background:'transparent',boxShadow:'inset 0 0 0 1px var(--accent)'}}></i>{t.never}</span>;
+  if(c.motion==='silent')return <span className="bdg warnb"><i style={{background:'transparent',boxShadow:'inset 0 0 0 1px var(--accent)'}}></i>{t.silent}</span>;
+  if(c.rec==='gap')return <span className="bdg warnb"><i style={{background:'transparent',boxShadow:'inset 0 0 0 1px var(--accent)'}}></i>{r.t}</span>;
+  return <span className="bdg ok"><i style={{background:'var(--bad)'}}></i>{typeof c.motion==='number'?t.ago(c.motion):t.armedOK}</span>;}
+
+/* precedence matters: a fault must never be masked by a lesser state */
+function statusOf(c,t){const M=t.mk;
+  if(!c.online||c.rec==='off')return{k:'o',mk:M.off,cls:'offb',ring:'warn'};
+  /* recording leads detector: a camera that is both not-recording and detector-faulted must still be
+     countable as not-recording on the wall, or the header's number and the red tiles disagree */
+  if(REC_BROKEN(c))return{k:'b',mk:c.rec==='stalled'?M.stalled:M.notrec,cls:'badb',ring:'fault'};
+  if(DET_BROKEN(c))return{k:'b',mk:M.notready,cls:'badb',ring:'fault'};
+  if(c.rec==='unknown')return{k:'w',mk:M.unknown,cls:'warnb',ring:'warn'};
+  if(c.motion==='never')return{k:'w',mk:M.never,cls:'warnb',ring:'warn'};
+  if(c.motion==='silent')return{k:'w',mk:M.silent,cls:'warnb',ring:'warn'};
+  if(c.rec==='gap')return{k:'w',mk:M.gap,cls:'warnb',ring:'warn'};
+  return{k:null,mk:null,cls:'ok',ring:null};}
+
+function badgeText(c,t){
+  if(!c.online||c.rec==='off')return t.mk.off;
+  if(REC_BROKEN(c)&&DET_BROKEN(c))return t.notrecording+' + '+t.mk.notready;
+  if(c.motion==='notready')return t.notready;
+  if(c.rec==='notrec')return t.notrecording;
+  if(c.rec==='stalled')return t.mk.stalled;
+  if(c.rec==='unknown')return t.mk.unknown;
+  if(c.motion==='never')return t.never;
+  if(c.motion==='silent')return t.silent;
+  if(c.rec==='gap')return REC.gap.t;
+  return typeof c.motion==='number'?t.ago(c.motion):t.armedOK;}
+
+const Tile=React.memo(function Tile({c,t,groups,sel,editing,saved,canEdit,thumbs,big,onSel,onEdit,onCommit,onCancel,onChip,onDragStart,dragging}){
+  const g=groups.find(x=>x.id===c.group),st=statusOf(c,t);
+  const scH=big?24:20,fs=big?12:11;
+  return <div className={'tile'+(sel?' sel':'')+(st.ring?' '+st.ring:'')+(dragging?' drag':'')}
+    draggable={canEdit&&sel} onDragStart={onDragStart}
+    onClick={e=>onSel(c.oct,e)}>
+    {thumbs==='off'?<span className="ph">▣</span>:<Scene seedv={c.seedv} off={!c.online}/>}
+    <span className="tp">
+      {canEdit&&<button className="cb" onClick={e=>{e.stopPropagation();onSel(c.oct,{metaKey:true});}}>✓</button>}
+      {st.mk&&<span className={'mk '+st.k}>{st.mk}</span>}
+      <span style={{flex:1}}></span>
+      <span className="od" style={{background:c.online?'var(--good)':'var(--bad)'}}></span>
+    </span>
+    <span className="hv" style={{bottom:scH+3}}>
+      <span className={'bdg '+st.cls}><i style={{background:st.cls==='badb'?'#fff':st.cls==='warnb'?'var(--accent)':st.cls==='offb'?'var(--ink3)':'var(--bad)'}}></i>{badgeText(c,t)}</span>
+      <button className={'gchip'+(c.group?'':' none')+(canEdit?'':' ro')}
+        onClick={e=>{e.stopPropagation();if(canEdit)onChip(c.oct,e);}}>
+        <span>{g?g.en:t.ungrouped}</span>{canEdit&&<em style={{fontStyle:'normal',fontSize:6}}>▾</em>}
+      </button>
+    </span>
+    <span className="sc" style={{height:scH,fontSize:fs}}
+      onDoubleClick={e=>{if(canEdit){e.stopPropagation();onEdit(c.oct);}}}>
+      {editing?<input autoFocus defaultValue={c.name||''} placeholder={c.model}
+          onClick={e=>e.stopPropagation()} onBlur={e=>onCommit(c.oct,e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter')onCommit(c.oct,e.target.value);else if(e.key==='Escape')onCancel();}}/>
+        :<><span className="o" style={{fontSize:big?12:11}}>{'.'+c.oct}</span>
+          <span className={'nmx'+(c.name?'':' un')}>{c.name||c.model}</span>
+          {!c.name&&<span className="unm">{t.NEW}</span>}
+          {saved&&<span className="svd">{t.saved}</span>}</>}
+    </span>
+  </div>;});
+
+/* D · modal lightbox. Prev/Next walk the CURRENT filtered order, so the modal is a reading position
+   in the wall rather than a detached window — closing returns you to a wall you never lost. */
+function NavPlate({dir,cam,t,thumbs,onClick}){
+  if(!cam)return <span className={'nav end '+dir}><span className="lbl">{dir==='p'?t.listStart:t.listEnd}</span></span>;
+  const st=statusOf(cam,t);
+  const thumb=<span className="pth">
+    {thumbs==='off'?<span className="ph" style={{fontSize:9}}>▣</span>:<Scene seedv={cam.seedv} off={!cam.online}/>}
+    {st.ring&&<span className="pbar" style={{background:st.ring==='fault'?'var(--bad)':'var(--accent)'}}></span>}
+  </span>;
+  const meta=<span className="pmeta">
+    <span className="pk">{dir==='p'?t.prevK:t.nextK}</span>
+    <span className="po">{'.'+cam.oct}</span>
+    <span className="pn">{cam.name||cam.model}</span>
+  </span>;
+  return <button className={'nav '+dir} onClick={onClick} title={(dir==='p'?t.prev:t.next)+' · '+(cam.name||cam.model)}>
+    {dir==='p'?<>{thumb}{meta}</>:<>{meta}{thumb}</>}
+  </button>;}
+
+const UI_IDLE=2600;
+function Modal({c,t,groups,canEdit,thumbs,idx,total,prevCam,nextCam,frameW,frameH,editing,onEdit,onCommit,onCancel,onChip,onPrev,onNext,onClose}){
+  const g=groups.find(x=>x.id===c.group),st=statusOf(c,t);
+  /* player-style: any movement over the frame shows the layer, stillness hides it, leaving hides it at
+     once. Shown on open and on every camera change so the controls announce themselves before the
+     operator has to go looking — and so keyboard-only navigation still reveals where it has landed. */
+  const [ui,setUi]=useState(true),idleT=useRef(null);
+  const wake=useCallback(()=>{setUi(true);clearTimeout(idleT.current);
+    idleT.current=setTimeout(()=>setUi(false),UI_IDLE);},[]);
+  const sleep=useCallback(()=>{clearTimeout(idleT.current);setUi(false);},[]);
+  useEffect(()=>{wake();return()=>clearTimeout(idleT.current);},[c.oct,wake]);
+  /* the card is a share of the window, not a pixel constant: 84% wide, and the frame takes whatever
+     height is left after the 30px header, the 30px footer and a 7% breathing margin — so a bigger
+     window gives a bigger picture instead of more empty scrim */
+  const w=Math.round(frameW*0.84),chrome=60,vh=Math.min(Math.round(w*9/16),Math.round(frameH*0.86)-chrome);
+  return <div className="scrim2" onMouseDown={onClose}>
+    <div className="modal" style={{width:w}} onMouseDown={e=>e.stopPropagation()}>
+      <div className="mhd">
+        <span className="o">{'.'+c.oct}</span>
+        {editing?<input autoFocus defaultValue={c.name||''} placeholder={c.model}
+            onBlur={e=>onCommit(c.oct,e.target.value)}
+            onKeyDown={e=>{if(e.key==='Enter')onCommit(c.oct,e.target.value);else if(e.key==='Escape')onCancel();}}/>
+          :<span className={'nm3'+(c.name?'':' un')} onDoubleClick={()=>{if(canEdit)onEdit(c.oct);}}>{c.name||c.model}</span>}
+        {!c.name&&<span className="unm">{t.NEW}</span>}
+        <span className={'bdg '+st.cls}><i style={{background:st.cls==='badb'?'#fff':st.cls==='warnb'?'var(--accent)':st.cls==='offb'?'var(--ink3)':'var(--bad)'}}></i>{badgeText(c,t)}</span>
+        <span className="pos">{(idx+1)+' / '+total}</span>
+        <button className="x" onClick={onClose} title={t.close}>✕</button>
+      </div>
+      <div className="mvid" style={{height:vh}} onMouseMove={wake} onMouseLeave={sleep}>
+          {thumbs==='off'?<span className="ph" style={{fontSize:13}}>▣</span>:<Scene seedv={c.seedv} off={!c.online}/>}
+        <span className={'navz p'+(ui?' on':'')}><NavPlate dir="p" cam={prevCam} t={t} thumbs={thumbs} onClick={onPrev}/></span>
+        <span className={'navz n'+(ui?' on':'')}><NavPlate dir="n" cam={nextCam} t={t} thumbs={thumbs} onClick={onNext}/></span>
+        <span className="tp"><span style={{flex:1}}></span>
+          <span className="od" style={{background:c.online?'var(--good)':'var(--bad)'}}></span></span>
+      </div>
+      <div className="mfoot">
+        <span className="mf">{c.ip}</span><span className="mf">{c.model}</span>
+        <span className="mf">{t.recV(c)}</span><span className="mf">{t.motV(c)}</span>
+        <span className="sp2"></span>
+        {canEdit&&<><button className="mf" onClick={()=>onEdit(c.oct)}>✎ {t.renameA}</button>
+          <button className="mf" onClick={e=>onChip(c.oct,e)}>⊞ {g?g.en:t.ungrouped}</button></>}
+        <button className="mf">▤ {t.live}</button>
+        <span className="mf fix"><span className="mkey">←</span><span className="mkey">→</span><span className="mkey">ESC</span></span>
+      </div>
+    </div>
+  </div>;}
+
+/* popup geometry is derived from its row count, never assumed: rows = groups + 1 ("Ungrouped"),
+   row 28px, 1px border each side. Flips above the chip when it would overflow, and clamps BOTH
+   axes with a lower bound as well as an upper one. */
+const GPOP_W=188,GPOP_ROW=28,GPOP_PAD=2,GPOP_M=6;
+function placeChip(oct,e,groupCount){
+  const r=e.currentTarget.getBoundingClientRect(),f=e.currentTarget.closest('.frame').getBoundingClientRect();
+  const hh=(groupCount+1)*GPOP_ROW+GPOP_PAD;
+  let y=r.bottom-f.top+2;
+  if(y+hh>f.height-GPOP_M)y=r.top-f.top-hh-2;              // flip above
+  y=Math.max(GPOP_M,Math.min(y,f.height-hh-GPOP_M));       // clamp, floor included
+  const x=Math.max(GPOP_M,Math.min(r.left-f.left,f.width-GPOP_W-GPOP_M));
+  return{oct,x,y,maxH:f.height-2*GPOP_M};
+}
+
+function App(){
+  const [tw,setTweak]=useTweaks(TWEAK_DEFAULTS);
+  const L=tw.lang,W=parseInt(tw.windowW,10),t=S[L];
+  const canEdit=tw.role==='admin'||tw.role==='operator';
+  const [cams,setCams]=useState(()=>fleet(39));
+  const [groups,setGroups]=useState(GROUPS0);
+  const [scope,setScope]=useState('all');
+  const [gq,setGq]=useState(''),[cq,setCq]=useState('');
+  const [face,setFace]=useState('all');
+  const [sel,setSel]=useState([]);
+  /* the range anchor is an interaction pointer, not render state — a ref so two clicks in the same
+     tick can't read a stale value and silently drop the range */
+  const anchor=useRef(null);
+  const [editing,setEditing]=useState(null),[saved,setSaved]=useState({});
+  const [chip,setChip]=useState(null);
+  const [renameG,setRenameG]=useState(false);
+  const [newG,setNewG]=useState(false);
+  const [armDel,setArmDel]=useState(false);
+  const [dz,setDz]=useState(null),[dragging,setDragging]=useState(false),[pill,setPill]=useState(null);
+  /* what the wall considers OPEN, distinct from what is SELECTED: filing a batch and inspecting one
+     camera are different intents, so a modified click never opens and opening never clears a batch */
+  const [focus,setFocus]=useState(null);
+  const scrollRef=useRef(null),savedT=useRef({});
+
+  useEffect(()=>{setCams(fleet(parseInt(tw.fleet,10)));setSel([]);setScope('all');setFocus(null);},[tw.fleet]);
+  /* a camera that scrolls out of the filter must not stay open behind a filter that excludes it */
+  useEffect(()=>{setFocus(null);},[scope,face]);
+
+  const inGroup=g=>cams.filter(c=>g==='all'?true:g==='none'?!c.group:c.group===g);
+  const counts=useMemo(()=>{const m={all:cams.length,none:0};groups.forEach(g=>m[g.id]=0);
+    cams.forEach(c=>{if(!c.group)m.none++;else if(m[c.group]!==undefined)m[c.group]++;});return m;},[cams,groups]);
+  const health=useMemo(()=>{const m={};const add=(k,c)=>{const h=m[k]=m[k]||{ok:0,warn:0,bad:0};
+      if(c.rec==='notrec'||c.rec==='stalled'||c.motion==='notready')h.bad++;
+      else if(c.rec==='off'||c.rec==='unknown'||c.rec==='gap'||c.motion==='never'||c.motion==='silent')h.warn++;else h.ok++;};
+    cams.forEach(c=>{add('all',c);add(c.group||'none',c);});return m;},[cams]);
+
+  const scoped=useMemo(()=>inGroup(scope),[cams,scope]);
+  const list=useMemo(()=>{let a=scoped;
+    if(face==='unnamed')a=a.filter(c=>!c.name);
+    if(face==='faults')a=a.filter(FAULT);
+    const q=cq.trim().toLowerCase();
+    if(q)a=a.filter(c=>String(c.oct).startsWith(q)||c.ip.includes(q)||(c.name||'').toLowerCase().includes(q)||c.model.toLowerCase().includes(q));
+    return a;},[scoped,face,cq]);
+  const faultN=scoped.filter(FAULT).length,unnamedN=scoped.filter(c=>!c.name).length;
+  const notRecN=scoped.filter(REC_BROKEN).length,unknownN=scoped.filter(UNKNOWN).length;
+  const gList=useMemo(()=>{const q=gq.trim().toLowerCase();
+    return q?groups.filter(g=>g.en.toLowerCase().includes(q)):groups;},[groups,gq]);
+  const scopeName=scope==='all'?t.all:scope==='none'?t.ungrouped:(groups.find(g=>g.id===scope)||{en:''}).en;
+
+  /* the column count IS the density setting; the tile is derived from the measured pane in one pass,
+     so tiles butt edge to edge with no leftover sliver at the right */
+  const cols=parseInt(tw.density,10)||6;
+  const [paneW,setPaneW]=useState(1111);
+  const measure=useCallback(()=>{const el=scrollRef.current;if(el)setPaneW(el.clientWidth);},[]);
+  useLayoutEffect(measure,[measure,W,tw.density]);
+  useEffect(()=>{if(!window.ResizeObserver)return;const ro=new ResizeObserver(()=>measure());
+    if(scrollRef.current)ro.observe(scrollRef.current);return()=>ro.disconnect();},[measure]);
+  /* 1fr columns, NOT floor(paneW/cols): flooring loses paneW%cols px and leaves a lighter sliver of
+     page background down the right edge of a wall whose whole premise is that there are no seams.
+     CSS grid distributes the remainder across the columns exactly. */
+  const cellH=Math.round(paneW/cols*9/16),big=cols<=4;
+  const focusC=focus!=null?list.find(c=>c.oct===focus)||null:null;
+  /* the modal's position IS an index into the filtered wall, so arrows walk what the operator sees.
+     fIdx must be declared BEFORE anything derived from it: transpiled `const` becomes `var`, so a
+     forward reference reads `undefined` and fails silently as a false comparison rather than throwing. */
+  const fIdx=focusC?list.findIndex(c=>c.oct===focusC.oct):-1;
+  const prevCam=fIdx>0?list[fIdx-1]:null,nextCam=fIdx>=0&&fIdx<list.length-1?list[fIdx+1]:null;
+  const step=d=>{const n=list[fIdx+d];if(n)setFocus(n.oct);};
+
+  const onSel=useCallback((oct,e)=>{
+    if(!canEdit){setSel([oct]);anchor.current=oct;setFocus(f=>f===oct?null:oct);return;}
+    if(e&&e.shiftKey&&anchor.current!=null){const ids=list.map(c=>c.oct),a=ids.indexOf(anchor.current),b=ids.indexOf(oct);
+      if(a>=0&&b>=0){const r=ids.slice(Math.min(a,b),Math.max(a,b)+1);setSel(s=>[...new Set([...s,...r])]);return;}}
+    if(e&&(e.metaKey||e.ctrlKey)){setSel(s=>s.includes(oct)?s.filter(x=>x!==oct):[...s,oct]);anchor.current=oct;return;}
+    setSel([oct]);anchor.current=oct;setFocus(f=>f===oct?null:oct);},[canEdit,list]);
+
+  const flash=oct=>{setSaved(s=>({...s,[oct]:1}));clearTimeout(savedT.current[oct]);
+    savedT.current[oct]=setTimeout(()=>setSaved(s=>{const n={...s};delete n[oct];return n;}),1500);};
+  const commit=(oct,v)=>{const val=v.trim();
+    setCams(cs=>cs.map(c=>c.oct===oct?{...c,name:val||null}:c));setEditing(null);flash(oct);};
+  const move=(octs,gid)=>{setCams(cs=>cs.map(c=>octs.includes(c.oct)?{...c,group:gid}:c));
+    octs.forEach(flash);setChip(null);};
+
+  const startDrag=(oct,e)=>{if(!canEdit)return;
+    const ids=sel.includes(oct)?sel:[oct];if(!sel.includes(oct))setSel(ids);
+    setDragging(true);e.dataTransfer.effectAllowed='move';
+    try{e.dataTransfer.setData('text/plain',ids.join(','));}catch(x){}
+    const img=document.createElement('canvas');img.width=img.height=1;
+    try{e.dataTransfer.setDragImage(img,0,0);}catch(x){}
+    setPill({n:ids.length,x:e.clientX,y:e.clientY});};
+  useEffect(()=>{if(!dragging)return;
+    const mv=e=>setPill(p=>p?{...p,x:e.clientX,y:e.clientY}:p);
+    const up=()=>{setDragging(false);setPill(null);setDz(null);};
+    window.addEventListener('dragover',mv);window.addEventListener('dragend',up);window.addEventListener('drop',up);
+    return()=>{window.removeEventListener('dragover',mv);window.removeEventListener('dragend',up);window.removeEventListener('drop',up);};},[dragging]);
+
+  useEffect(()=>{const h=e=>{
+    if(e.target.tagName==='INPUT')return;
+    if(e.key==='Escape'){setSel([]);setChip(null);setArmDel(false);setNewG(false);setEditing(null);setFocus(null);return;}
+    if(focus!=null){
+      if(e.code==='ArrowLeft'){e.preventDefault();step(-1);return;}
+      if(e.code==='ArrowRight'){e.preventDefault();step(1);return;}}
+    if(!canEdit)return;
+    if(e.code==='F2'&&sel.length===1){e.preventDefault();setEditing(sel[0]);}
+    if((e.metaKey||e.ctrlKey)&&e.code==='KeyA'){e.preventDefault();setSel(list.map(c=>c.oct));}};
+    window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[sel,list,canEdit,focus,fIdx]);
+
+  const GH=({k})=>{const h=health[k]||{ok:0,warn:0,bad:0},tot=h.ok+h.warn+h.bad;
+    if(!tot)return <span className="hb" style={{opacity:.35}}></span>;
+    return <span className="hb" title={t.hbT(h.bad,h.warn,h.ok)}>
+      {h.bad?<i style={{background:'var(--bad)',width:Math.max(2,Math.round(34*h.bad/tot))}}></i>:null}
+      {h.warn?<i style={{background:'var(--accent)',width:Math.max(2,Math.round(34*h.warn/tot))}}></i>:null}
+      {h.ok?<i style={{background:'var(--good)',width:Math.max(2,Math.round(34*h.ok/tot))}}></i>:null}
+    </span>;};
+
+  /* one behaviour, four presentations — selection and drop must not diverge between them */
+  const pick=id=>({
+    onClick:()=>{setScope(id);setFace('all');setCq('');setArmDel(false);},
+    onDragOver:e=>{if(!dragging||id==='all')return;e.preventDefault();setDz(id);},
+    onDragLeave:()=>setDz(d=>d===id?null:d),
+    onDrop:e=>{e.preventDefault();if(id==='all')return;move(sel,id==='none'?null:id);setDz(null);}});
+  const GroupRow=({id,label,icon})=>{
+    const n=counts[id]||0;
+    return <div className={'grp'+(scope===id?' on':'')+(dz===id?' dz':'')} {...pick(id)}>
+      <span className="gi" style={icon==='all'?{borderRadius:0}:{borderStyle:id==='none'?'dashed':'solid'}}></span>
+      <span className="gn">{label}</span>
+      {n===0&&<span className="gempty">{t.gempty}</span>}
+      <GH k={id}/>
+      <span className="gc">{n}</span>
+    </div>;};
+
+  /* B · card — flex:1 so N groups divide the column exactly; the gained height fills with that
+     group's own cameras, so the panel stops being a list and starts being a preview */
+  const GroupCard=({id,label})=>{
+    const n=counts[id]||0,mine=id==='all'?cams:id==='none'?cams.filter(c=>!c.group):cams.filter(c=>c.group===id);
+    return <button className={'gcard'+(scope===id?' on':'')+(dz===id?' dz':'')} {...pick(id)}>
+      <span className="gh2">
+        <span className="gi" style={{borderStyle:id==='none'?'dashed':'solid'}}></span>
+        <span className="gn">{label}</span><GH k={id}/><span className="gc">{n}</span>
+      </span>
+      {n===0?<span className="gnone">{t.gempty0}</span>
+        :<span className="gstrip">{mine.slice(0,40).map(c=>{const st=statusOf(c,t);
+          return <span className="gt" key={c.oct}>
+            {tw.thumbs==='off'?null:<Scene seedv={c.seedv} off={!c.online}/>}
+            {st.ring&&<span className="gtb" style={{background:st.ring==='fault'?'var(--bad)':'var(--accent)'}}></span>}
+          </span>;})}</span>}
+    </button>;};
+
+  /* C · console — the leftover height carries the fleet's exceptions, one click from being a filter */
+  const att=[{k:'notrec',n:cams.filter(REC_BROKEN).length,l:t.attNotRec,c:'b',go:()=>{setScope('all');setFace('faults');}},
+    {k:'unnamed',n:cams.filter(c=>!c.name).length,l:t.attUnnamed,c:'w',go:()=>{setScope('all');setFace('unnamed');}},
+    {k:'ungrouped',n:counts.none||0,l:t.attUngrouped,c:'w',go:()=>{setScope('none');setFace('all');}},
+    {k:'offline',n:cams.filter(c=>!c.online).length,l:t.attOffline,c:'b',go:()=>{setScope('all');setFace('all');setCq('');}},
+    {k:'unknown',n:cams.filter(UNKNOWN).length,l:t.attUnknown,c:'',go:()=>{setScope('all');setFace('all');}}];
+  const fh=health.all||{ok:0,warn:0,bad:0},ftot=fh.ok+fh.warn+fh.bad||1;
+  /* the actual cameras behind the summary counts, worst first — the panel's growable child */
+  const exList=useMemo(()=>{const why=c=>REC_BROKEN(c)?[0,t.attNotRec,'var(--bad)']
+      :DET_BROKEN(c)?[1,t.attNotReady,'var(--bad)']
+      :!c.online?[2,t.attOffline,'var(--ink3)']
+      :UNKNOWN(c)?[3,t.attUnknown,'var(--accent)']
+      :!c.name?[4,t.attUnnamed,'var(--accent)']:null;
+    return cams.map(c=>{const w=why(c);return w?{c,rank:w[0],why:w[1],dot:w[2]}:null;})
+      .filter(Boolean).sort((a,b)=>a.rank-b.rank||a.c.oct-b.c.oct);},[cams,t]);
+
+  const GroupBar=()=>{
+    const Chip=({id,label})=>{const n=counts[id]||0,hh=health[id]||{ok:0,warn:0,bad:0},tot=hh.ok+hh.warn+hh.bad;
+      return <button className={'gc2'+(scope===id?' on':'')+(dz===id?' dz':'')} {...pick(id)}>
+        {label}<span className="n2">{n}</span>
+        {tot>0&&<span className="hb2">
+          {hh.bad?<i style={{background:'var(--bad)',width:Math.max(2,Math.round(22*hh.bad/tot))}}></i>:null}
+          {hh.warn?<i style={{background:'var(--accent)',width:Math.max(2,Math.round(22*hh.warn/tot))}}></i>:null}
+          {hh.ok?<i style={{background:'var(--good)',width:Math.max(2,Math.round(22*hh.ok/tot))}}></i>:null}
+        </span>}
+      </button>;};
+    return <div className="gbar">
+      <Chip id="all" label={t.all}/>
+      {counts.none>0&&<Chip id="none" label={t.ungrouped}/>}
+      <span className="gbsep"></span>
+      {groups.map(g=><Chip key={g.id} id={g.id} label={g.en}/>)}
+      {canEdit&&(newG
+        ?<span className="gc2 on" style={{gap:5}}>
+          <input autoFocus placeholder={t.newph} style={{width:110,fontSize:11,caretColor:'var(--accent)'}}
+            onKeyDown={e=>{if(e.key==='Enter'){const v=e.target.value.trim();
+                if(v){const id='g'+Date.now();setGroups(g=>[...g,{id,en:v,ru:v}]);setScope(id);}setNewG(false);}
+              else if(e.key==='Escape')setNewG(false);}}
+            onBlur={e=>{const v=e.target.value.trim();
+              if(v){const id='g'+Date.now();setGroups(g=>[...g,{id,en:v,ru:v}]);setScope(id);}setNewG(false);}}/>
+        </span>
+        :<button className="gc2" onClick={()=>setNewG(true)}><span style={{color:'var(--accent)'}}>+</span></button>)}
+    </div>;};
+
+  return <div className="wrap">
+    <div className="vbar">
+      <span className="vsw">
+        <a href="triage-camera-filter-prototype-B-lanes.html">TRIAGE · LANES</a>
+        <a href="verify-redesign-prototype.html">VERIFY · STRIPS</a>
+        <a className="on" href="groups-redesign-prototype.html">GROUPS · WALL</a>
+      </span>
+      <span className="vnote"><b>Group pane</b> in Tweaks switches four layouts · <b>click a camera</b> to open it · <b>← →</b> or the preview plates walk the filtered list · <b>shift-click</b> a range then <b>drag onto a group</b> · red ring = <b>not recording</b></span>
+    </div>
+    <div className="frame" style={{width:W}} onMouseDown={()=>{setChip(null);}}>
+      <div className="osbar"><span className="osdot" style={{background:'var(--bad)'}}></span><span className="osdot" style={{background:'var(--accent)'}}></span><span className="osdot" style={{background:'var(--good)'}}></span><span className="osttl">Watchtower · {t.screen}</span></div>
+      <div className="body">
+        <div className="rail">
+          <div className="railbrand">C</div>
+          {t.rail.map((n,i)=>
+            <div key={n} className={'railitem'+(i===1?' on':'')}><span className="g"></span>{n}
+              {i===3&&<span className="bdg2 bdg" style={{position:'absolute',top:6,right:5,background:'var(--bad)',color:'#fff',fontSize:7,padding:'0 3px',border:0}}>167</span>}
+            </div>)}
+        </div>
+        <div className="main">
+          <div className="topbar">
+            <div className="tcell"><div className="brand"><div className="b1">CILEX VISION</div><div className="b2">Watchtower</div></div></div>
+            <div className="tcell grow"><span style={{color:'var(--ink3)'}}>⌕</span><span className="searchc">{t.topSearch}</span><span className="kbd">CTRL K</span></div>
+            <div className="tcell"><span className="pill"><i style={{background:'var(--good)'}}></i>{t.online} {cams.filter(c=>c.online).length}</span></div>
+            <div className="tcell"><span className="pill"><i style={{background:'var(--bad)'}}></i>{t.offline} {cams.filter(c=>!c.online).length}</span></div>
+            <div className="tcell"><span className="pill"><i style={{background:'var(--accent)'}}></i>{t.notrecS} {cams.filter(REC_BROKEN).length}</span></div>
+            <div className="tcell"><span className="pill">21:21 · UTC+3</span></div>
+            <div className="tcell" style={{padding:0}}><div style={{width:34,height:'100%',background:'var(--accent)',color:'#241a08',display:'grid',placeItems:'center',fontSize:11,fontWeight:700}}>{tw.role==='viewer'?'VW':tw.role==='engineer'?'EN':'AD'}</div></div>
+          </div>
+          <div className="tabstrip"><div className="t on">{t.screen}</div><div className="t">HiWatch DS-I456Z… (192.168.1.150)</div></div>
+          <div className="panes">
+            {tw.groupPane!=='bar'&&<div className="left">
+              <div className="lsearch"><span className="gl">⌕</span>
+                <input value={gq} onChange={e=>setGq(e.target.value)} placeholder={t.search}/>
+              </div>
+              {tw.groupPane==='cards'
+                ?<div className="gcards">
+                  <GroupCard id="all" label={t.all}/>
+                  {counts.none>0&&<GroupCard id="none" label={t.ungrouped}/>}
+                  {gList.map(g=><GroupCard key={g.id} id={g.id} label={g.en}/>)}
+                  {gList.length===0&&<div style={{padding:'12px 10px',fontSize:11,color:'var(--ink3)'}}>{t.nores(gq)}</div>}
+                </div>
+                :<div className="llist" style={tw.groupPane==='console'?{flex:'none'}:null}>
+                  <GroupRow id="all" label={t.all} icon="all"/>
+                  {counts.none>0&&<GroupRow id="none" label={t.ungrouped}/>}
+                  <div className="gsec">{t.gsec}<span style={{flex:1}}></span><span>{groups.length}</span></div>
+                  {gList.map(g=><GroupRow key={g.id} id={g.id} label={g.en}/>)}
+                  {gList.length===0&&<div style={{padding:'12px 10px',fontSize:11,color:'var(--ink3)'}}>{t.nores(gq)}</div>}
+                </div>}
+              {tw.groupPane==='console'&&<div className="gcon">
+                <div className="gconh">{t.attention}</div>
+                {att.map(a=><button key={a.k} className={'att '+(a.n?a.c:'')} onClick={a.go}>
+                  <span className="an">{a.n}</span><span className="al">{a.l}</span>
+                  {a.n>0&&<span className="ak">→</span>}
+                </button>)}
+                <span className="fleetbar">
+                  {fh.bad?<i style={{background:'var(--bad)',flex:fh.bad}}></i>:null}
+                  {fh.warn?<i style={{background:'var(--accent)',flex:fh.warn}}></i>:null}
+                  {fh.ok?<i style={{background:'var(--good)',flex:fh.ok}}></i>:null}
+                </span>
+                <span className="fleetlbl" style={{paddingBottom:9}}><span style={{color:'var(--bad)'}}>{fh.bad} {t.hFault}</span>
+                  <span style={{color:'var(--accent)'}}>{fh.warn} {t.hWarn}</span>
+                  <span style={{color:'var(--good)'}}>{fh.ok} {t.hOk}</span>
+                  <span style={{marginLeft:'auto'}}>{Math.round(fh.ok/ftot*100)}% {t.healthy}</span></span>
+                <div className="exl">
+                  {exList.length===0
+                    ?<span className="exok">{t.exClear}</span>
+                    :<><div className="exh">{t.exQueue}<span style={{flex:1}}></span><span>{exList.length}</span></div>
+                      {exList.map(x=><button key={x.c.oct} className="exr"
+                        onClick={()=>{setScope('all');setFace('all');setCq('');setFocus(x.c.oct);}}>
+                        <span className="ed" style={{background:x.dot}}></span>
+                        <span className="eo">{'.'+x.c.oct}</span>
+                        <span className="er">{x.c.name||x.why}</span>
+                        {x.c.name&&<span className="er" style={{flex:'none',maxWidth:96,textAlign:'right'}}>{x.why}</span>}
+                      </button>)}</>}
+                </div>
+              </div>}
+              {canEdit&&(newG?
+                <div className="newg edit">
+                  <span className="p">+</span>
+                  <input autoFocus placeholder={t.newph}
+                    onKeyDown={e=>{if(e.key==='Enter'){const v=e.target.value.trim();
+                        if(v){const id='g'+Date.now();setGroups(g=>[...g,{id,en:v,ru:v}]);setScope(id);}setNewG(false);}
+                      else if(e.key==='Escape')setNewG(false);}}
+                    onBlur={e=>{const v=e.target.value.trim();
+                      if(v){const id='g'+Date.now();setGroups(g=>[...g,{id,en:v,ru:v}]);setScope(id);}setNewG(false);}}/>
+                  <span className="ok">↵</span><button className="no" onMouseDown={()=>setNewG(false)}>✕</button>
+                </div>
+                :<button className="newg" onClick={()=>setNewG(true)}><span className="p">+</span>{t.newg}</button>)}
+            </div>}
+            <div className="right">
+              <div className="rhead">
+                <div className="rname">
+                  {renameG&&canEdit&&scope!=='all'&&scope!=='none'
+                    ?<input autoFocus defaultValue={scopeName}
+                      onKeyDown={e=>{if(e.key==='Enter'){const v=e.target.value.trim();
+                          if(v)setGroups(gs=>gs.map(g=>g.id===scope?{...g,en:v,ru:v}:g));setRenameG(false);}
+                        else if(e.key==='Escape')setRenameG(false);}}
+                      onBlur={e=>{const v=e.target.value.trim();
+                        if(v)setGroups(gs=>gs.map(g=>g.id===scope?{...g,en:v,ru:v}:g));setRenameG(false);}}/>
+                    :<span className="n" onDoubleClick={()=>{if(canEdit&&scope!=='all'&&scope!=='none')setRenameG(true);}}>{scopeName}</span>}
+                  <span className="c">{t.cams(scoped.length)}</span>
+                </div>
+                <span className="rspacer"></span>
+                <button className="rb">▤ {t.live}</button>
+                {canEdit&&scope!=='all'&&scope!=='none'&&(armDel
+                  ?<><span className="rb q">{counts[scope]?t.delQ(counts[scope],scopeName):t.delQ0(scopeName)}</span>
+                     <button className="rb yes" onClick={()=>{setCams(cs=>cs.map(c=>c.group===scope?{...c,group:null}:c));
+                       setGroups(gs=>gs.filter(g=>g.id!==scope));setScope('all');setArmDel(false);}}>✓</button>
+                     <button className="rb" onClick={()=>setArmDel(false)}>✕</button></>
+                  :<button className="rb danger" onClick={()=>setArmDel(true)}>{t.del}</button>)}
+              </div>
+              {tw.groupPane==='bar'&&<GroupBar/>}
+              {!canEdit&&<div className="rohint">⃠ {t.ro}</div>}
+              <div className="fbar">
+                <div className="fs"><span className="gl">⌕</span>
+                  <input value={cq} onChange={e=>setCq(e.target.value)} placeholder={t.csearch}/>
+                </div>
+                <button className={'fb2'+(face==='all'?' on':'')} onClick={()=>setFace('all')}>{t.allf}<span className="c">{scoped.length}</span></button>
+                <button className={'fb2'+(face==='unnamed'?' on':'')} onClick={()=>setFace('unnamed')}>{t.unnamed}<span className="c">{unnamedN}</span></button>
+                <button className={'fb2 warn'+(face==='faults'?' on':'')} onClick={()=>setFace('faults')}>{t.faults}<span className="c">{faultN}</span></button>
+                <span className="fspacer"></span>
+                {notRecN>0&&<span className="fstat warn"><b>{notRecN}</b> {t.notRecording}</span>}
+                {unknownN>0&&<span className="fstat"><b>{unknownN}</b> {t.unknownN}</span>}
+                <span className="fstat">{t.ofN(list.length,scoped.length)}</span>
+              </div>
+              <div className="scroll" ref={scrollRef}>
+                {list.length===0&&<div className="empty">
+                  <span>{cq?t.nores(cq):face==='faults'?t.nofault:face==='unnamed'?t.nounnamed:t.empty(scopeName)}</span>
+                  {(cq||face!=='all')?<button className="cb2" onClick={()=>{setCq('');setFace('all');}}>{t.clear}</button>
+                    :<span style={{fontSize:11}}>{t.emptyHint}</span>}
+                </div>}
+                <div className="wallw" style={{gridTemplateColumns:'repeat('+cols+',minmax(0,1fr))',gridAutoRows:cellH+'px'}}>
+                  {list.map(c=><Tile key={c.oct} c={c} t={t} groups={groups} sel={sel.includes(c.oct)}
+                    big={big}
+                    editing={editing===c.oct} saved={!!saved[c.oct]} canEdit={canEdit} thumbs={tw.thumbs}
+                    dragging={dragging&&sel.includes(c.oct)}
+                    onSel={onSel} onEdit={setEditing} onCommit={commit} onCancel={()=>setEditing(null)}
+                    onChip={(oct,e)=>setChip(placeChip(oct,e,groups.length))}
+                    onDragStart={e=>startDrag(c.oct,e)}/>)}
+                </div>
+                {sel.length>0&&canEdit&&<div className="selbar">
+                  <span className="lb">{t.pick(sel.length)}</span>
+                  <span className="mv">{t.moveTo}</span>
+                  {groups.map(g=><button key={g.id} onClick={()=>{move(sel,g.id);}}>{g.en}</button>)}
+                  <button onClick={()=>move(sel,null)}>{t.ungrouped}</button>
+                  <span className="sp"></span>
+                  <button className="x" onClick={()=>setSel([])}>✕ {t.clear}</button>
+                </div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {focusC&&<Modal c={focusC} t={t} groups={groups} canEdit={canEdit} thumbs={tw.thumbs}
+        idx={fIdx} total={list.length} prevCam={prevCam} nextCam={nextCam}
+        frameW={W} frameH={900} editing={editing===focusC.oct}
+        onEdit={setEditing} onCommit={commit} onCancel={()=>setEditing(null)}
+        onChip={(oct,e)=>setChip(placeChip(oct,e,groups.length))}
+        onPrev={()=>step(-1)} onNext={()=>step(1)} onClose={()=>setFocus(null)}/>}
+      {chip&&(()=>{const c=cams.find(x=>x.oct===chip.oct);if(!c)return null;
+        return <div className="gpop" style={{left:chip.x,top:chip.y,maxHeight:chip.maxH,overflowY:'auto'}} onMouseDown={e=>e.stopPropagation()}>
+          {groups.map(g=><button key={g.id} className={c.group===g.id?'on':''} onClick={()=>move([chip.oct],g.id)}>{g.en}<span className="c">{counts[g.id]||0}</span></button>)}
+          <button className={c.group?'':'on'} onClick={()=>move([chip.oct],null)}>{t.ungrouped}<span className="c">{counts.none}</span></button>
+        </div>;})()}
+    </div>
+    {pill&&<div className="dragpill" style={{left:pill.x+12,top:pill.y+10}}>{t.pick(pill.n)} →</div>}
+    <TweaksPanel>
+      <TweakSection label="Layout"/>
+      <TweakRadio label="Per row" value={tw.density} options={['4','6']} onChange={v=>setTweak('density',v)}/>
+      <TweakRadio label="Group pane" value={tw.groupPane} options={['rows','cards','console','bar']} onChange={v=>setTweak('groupPane',v)}/>
+      <TweakRadio label="Thumbnails" value={tw.thumbs} options={['live','off']} onChange={v=>setTweak('thumbs',v)}/>
+      <TweakSection label="Situation"/>
+      <TweakRadio label="Role" value={tw.role} options={['admin','operator','viewer']} onChange={v=>setTweak('role',v)}/>
+      <TweakRadio label="Cameras" value={tw.fleet} options={['39','59','80']} onChange={v=>setTweak('fleet',v)}/>
+      <TweakSection label="Review harness"/>
+      <TweakRadio label="Language" value={tw.lang} options={['EN','RU']} onChange={v=>setTweak('lang',v)}/>
+      <TweakRadio label="Window" value={tw.windowW} options={['1440','1200']} onChange={v=>setTweak('windowW',v)}/>
+    </TweaksPanel>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
