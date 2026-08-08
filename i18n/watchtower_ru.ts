@@ -2,6 +2,237 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
 <context>
+    <name>CameraGroups</name>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="22" />
+        <location filename="../qml/CameraGroups.qml" line="257" />
+        <location filename="../qml/CameraGroups.qml" line="385" />
+        <location filename="../qml/CameraGroups.qml" line="494" />
+        <location filename="../qml/CameraGroups.qml" line="572" />
+        <source>All cameras</source>
+        <translation>Все камеры</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="190" />
+        <source>Find a group…</source>
+        <translation>Найти группу…</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="227" />
+        <source>EMPTY</source>
+        <translation>ПУСТО</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="260" />
+        <location filename="../qml/CameraGroups.qml" line="495" />
+        <location filename="../qml/CameraGroups.qml" line="828" />
+        <location filename="../qml/CameraGroups.qml" line="925" />
+        <location filename="../qml/CameraGroups.qml" line="1125" />
+        <source>Ungrouped</source>
+        <translation>Без группы</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="267" />
+        <source>CAMERA GROUPS</source>
+        <translation>ГРУППЫ КАМЕР</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="304" />
+        <source>New group</source>
+        <translation>Новая группа</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="336" />
+        <source>Group name…</source>
+        <translation>Название группы…</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="359" />
+        <source>NEEDS ATTENTION</source>
+        <translation>ТРЕБУЮТ ВНИМАНИЯ</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="388" />
+        <location filename="../qml/CameraGroups.qml" line="433" />
+        <location filename="../qml/CameraGroups.qml" line="654" />
+        <source>not recording</source>
+        <translation>не пишут</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="389" />
+        <source>still unnamed</source>
+        <translation>без имени</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="390" />
+        <source>ungrouped</source>
+        <translation>без группы</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="391" />
+        <location filename="../qml/CameraGroups.qml" line="435" />
+        <source>offline</source>
+        <translation>не в сети</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="392" />
+        <source>recording state unknown</source>
+        <translation>состояние записи неизвестно</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="412" />
+        <source>HEALTHY</source>
+        <translation>ИСПРАВНЫ</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="419" />
+        <source>WORK QUEUE</source>
+        <translation>ОЧЕРЕДЬ РАБОТ</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="434" />
+        <source>detector not ready</source>
+        <translation>детектор не готов</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="436" />
+        <source>state unknown</source>
+        <translation>состояние неизвестно</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="437" />
+        <source>unnamed</source>
+        <translation>без имени</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="468" />
+        <source>Nothing needs attention. Every camera is named, grouped and recording.</source>
+        <translation>Всё в порядке. Все камеры названы, распределены и записывают.</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="540" />
+        <location filename="../qml/CameraGroups.qml" line="1128" />
+        <source>Open in Live Monitor</source>
+        <translation>Открыть в мониторе</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="546" />
+        <source>Delete group</source>
+        <translation>Удалить группу</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="561" />
+        <source>Delete “%1”? %2 become ungrouped.</source>
+        <translation>Удалить «%1»? %2 останутся без группы.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/CameraGroups.qml" line="562" />
+        <source>%n camera(s)</source>
+        <translation><numerusform>%n камера</numerusform><numerusform>%n камеры</numerusform><numerusform>%n камер</numerusform></translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="563" />
+        <source>Delete “%1”?</source>
+        <translation>Удалить «%1»?</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="594" />
+        <source>READ-ONLY · your role cannot rename, group or delete</source>
+        <translation>ТОЛЬКО ЧТЕНИЕ · ваша роль не может переименовывать и группировать</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="620" />
+        <source>Octet or name…</source>
+        <translation>Октет или имя…</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="648" />
+        <source>All</source>
+        <translation>Все</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="649" />
+        <source>Unnamed</source>
+        <translation>Без имени</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="650" />
+        <source>Faults</source>
+        <translation>Неисправные</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="660" />
+        <source>of</source>
+        <translation>из</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="772" />
+        <location filename="../qml/CameraGroups.qml" line="999" />
+        <source>UNNAMED</source>
+        <translation>БЕЗ ИМЕНИ</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="872" />
+        <source>Every camera in scope is recording.</source>
+        <translation>Все камеры в этой области записывают.</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="873" />
+        <source>Every camera in scope has a name.</source>
+        <translation>У всех камер в этой области есть имя.</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="874" />
+        <source>Nothing matches “%1”.</source>
+        <translation>Ничего не найдено по «%1».</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="875" />
+        <source>No cameras in “%1”.</source>
+        <translation>Нет камер в «%1».</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="881" />
+        <source>Select cameras in another group and move them here.</source>
+        <translation>Выберите камеры в другой группе и перенесите их сюда.</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/CameraGroups.qml" line="897" />
+        <source>%n selected</source>
+        <translation><numerusform>Выбрана %n</numerusform><numerusform>Выбрано %n</numerusform><numerusform>Выбрано %n</numerusform></translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="901" />
+        <source>MOVE TO</source>
+        <translation>ПЕРЕНЕСТИ В</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="935" />
+        <source>Clear</source>
+        <translation>Очистить</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="1050" />
+        <source>END OF LIST</source>
+        <translation>КОНЕЦ СПИСКА</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="1050" />
+        <source>START OF LIST</source>
+        <translation>НАЧАЛО СПИСКА</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="1076" />
+        <source>NEXT</source>
+        <translation>ДАЛЕЕ</translation>
+    </message>
+    <message>
+        <location filename="../qml/CameraGroups.qml" line="1076" />
+        <source>PREV</source>
+        <translation>НАЗАД</translation>
+    </message>
+</context>
+<context>
     <name>CameraTile</name>
     <message>
         <location filename="../qml/CameraTile.qml" line="345" />

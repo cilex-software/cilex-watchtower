@@ -145,6 +145,7 @@ qt_add_qml_module(watchtower
         qml/Toast.qml
         qml/WatchChip.qml
         qml/WatchNames.js
+        qml/GroupsStatus.js
         qml/ToastHost.qml
     SOURCES
         src/models/CameraStatus.h
