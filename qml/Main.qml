@@ -1864,6 +1864,7 @@ Window {
                     visible: win.section === "health" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     cameraModel: cameraModel
                     storageHealth: storageHealth
+                    playbackClient: playbackClient
                     onOpenLive: (cam) => { win.section = "live"; win.openCameraHere(cam) }
                     onOpenPlayback: (cam) => { win.openCameraHere(cam); win.playbackCamera = cam; playbackScreen.openFor(cam, 60) }
                     onOpenEvents: (cam) => win.section = "events"

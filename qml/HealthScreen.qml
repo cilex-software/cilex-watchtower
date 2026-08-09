@@ -14,6 +14,7 @@ Item {
 
     property var cameraModel: null
     property var storageHealth: null
+    property var playbackClient: null          // for the playback-subsystem strip
 
     signal openLive(var cam)
     signal openPlayback(var cam)
@@ -223,6 +224,38 @@ Item {
                     visible: parent.parent.sh && parent.parent.sh.reason !== ""
                     text: parent.parent.sh ? ("· " + parent.parent.sh.reason) : ""
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight
+                }
+                // PLAYBACK subsystem — the 2026-08-10 P0 must never be silent again:
+                // a playback auth fault is a station-level fault with its own strip,
+                // not a sentence buried inside one camera's video pane.
+                Rectangle { width: 1; height: 14; color: Theme.line2; anchors.verticalCenter: parent.verticalCenter
+                    visible: root.playbackClient !== null }
+                Rectangle {
+                    visible: root.playbackClient !== null
+                    anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 4
+                    color: (root.playbackClient && root.playbackClient.authFault) ? Theme.bad : Theme.good
+                }
+                Text {
+                    visible: root.playbackClient !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "PLAYBACK"; color: Theme.ink3
+                    font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2
+                }
+                Text {
+                    visible: root.playbackClient !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (root.playbackClient && root.playbackClient.authFault)
+                          ? qsTr("Not authorised — recorded playback and export are DOWN")
+                          : qsTr("Operational")
+                    color: (root.playbackClient && root.playbackClient.authFault) ? Theme.bad : Theme.ink2
+                    font.family: Theme.fontSans; font.pixelSize: 12
+                    font.weight: (root.playbackClient && root.playbackClient.authFault) ? Font.DemiBold : Font.Medium
+                }
+                Text {
+                    visible: root.playbackClient && root.playbackClient.authFault && root.playbackClient.authFaultDetail !== ""
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.playbackClient ? ("· " + root.playbackClient.authFaultDetail) : ""
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight
                 }
             }
         }

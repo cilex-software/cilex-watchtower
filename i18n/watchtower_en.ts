@@ -5,128 +5,128 @@
     <name>CameraGroups</name>
     <message>
         <location filename="../qml/CameraGroups.qml" line="22"/>
-        <location filename="../qml/CameraGroups.qml" line="257"/>
-        <location filename="../qml/CameraGroups.qml" line="385"/>
-        <location filename="../qml/CameraGroups.qml" line="494"/>
-        <location filename="../qml/CameraGroups.qml" line="572"/>
+        <location filename="../qml/CameraGroups.qml" line="285"/>
+        <location filename="../qml/CameraGroups.qml" line="413"/>
+        <location filename="../qml/CameraGroups.qml" line="522"/>
+        <location filename="../qml/CameraGroups.qml" line="600"/>
         <source>All cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="190"/>
+        <location filename="../qml/CameraGroups.qml" line="218"/>
         <source>Find a group…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="227"/>
+        <location filename="../qml/CameraGroups.qml" line="255"/>
         <source>EMPTY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="260"/>
-        <location filename="../qml/CameraGroups.qml" line="495"/>
-        <location filename="../qml/CameraGroups.qml" line="828"/>
-        <location filename="../qml/CameraGroups.qml" line="925"/>
-        <location filename="../qml/CameraGroups.qml" line="1125"/>
+        <location filename="../qml/CameraGroups.qml" line="288"/>
+        <location filename="../qml/CameraGroups.qml" line="523"/>
+        <location filename="../qml/CameraGroups.qml" line="856"/>
+        <location filename="../qml/CameraGroups.qml" line="953"/>
+        <location filename="../qml/CameraGroups.qml" line="1153"/>
         <source>Ungrouped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="267"/>
+        <location filename="../qml/CameraGroups.qml" line="295"/>
         <source>CAMERA GROUPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="304"/>
+        <location filename="../qml/CameraGroups.qml" line="332"/>
         <source>New group</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="336"/>
+        <location filename="../qml/CameraGroups.qml" line="364"/>
         <source>Group name…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="359"/>
+        <location filename="../qml/CameraGroups.qml" line="387"/>
         <source>NEEDS ATTENTION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="388"/>
-        <location filename="../qml/CameraGroups.qml" line="433"/>
-        <location filename="../qml/CameraGroups.qml" line="654"/>
+        <location filename="../qml/CameraGroups.qml" line="416"/>
+        <location filename="../qml/CameraGroups.qml" line="461"/>
+        <location filename="../qml/CameraGroups.qml" line="682"/>
         <source>not recording</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="389"/>
+        <location filename="../qml/CameraGroups.qml" line="417"/>
         <source>still unnamed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="390"/>
+        <location filename="../qml/CameraGroups.qml" line="418"/>
         <source>ungrouped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="391"/>
-        <location filename="../qml/CameraGroups.qml" line="435"/>
+        <location filename="../qml/CameraGroups.qml" line="419"/>
+        <location filename="../qml/CameraGroups.qml" line="463"/>
         <source>offline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="392"/>
+        <location filename="../qml/CameraGroups.qml" line="420"/>
         <source>recording state unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="412"/>
+        <location filename="../qml/CameraGroups.qml" line="440"/>
         <source>HEALTHY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="419"/>
+        <location filename="../qml/CameraGroups.qml" line="447"/>
         <source>WORK QUEUE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="434"/>
+        <location filename="../qml/CameraGroups.qml" line="462"/>
         <source>detector not ready</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="436"/>
+        <location filename="../qml/CameraGroups.qml" line="464"/>
         <source>state unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="437"/>
+        <location filename="../qml/CameraGroups.qml" line="465"/>
         <source>unnamed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="468"/>
+        <location filename="../qml/CameraGroups.qml" line="496"/>
         <source>Nothing needs attention. Every camera is named, grouped and recording.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="540"/>
-        <location filename="../qml/CameraGroups.qml" line="1128"/>
+        <location filename="../qml/CameraGroups.qml" line="568"/>
+        <location filename="../qml/CameraGroups.qml" line="1156"/>
         <source>Open in Live Monitor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="546"/>
+        <location filename="../qml/CameraGroups.qml" line="574"/>
         <source>Delete group</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="561"/>
+        <location filename="../qml/CameraGroups.qml" line="589"/>
         <source>Delete “%1”? %2 become ungrouped.</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/CameraGroups.qml" line="562"/>
+        <location filename="../qml/CameraGroups.qml" line="590"/>
         <source>%n camera(s)</source>
         <translation type="unfinished">
             <numerusform></numerusform>
@@ -134,73 +134,73 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="563"/>
+        <location filename="../qml/CameraGroups.qml" line="591"/>
         <source>Delete “%1”?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="594"/>
+        <location filename="../qml/CameraGroups.qml" line="622"/>
         <source>READ-ONLY · your role cannot rename, group or delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="620"/>
+        <location filename="../qml/CameraGroups.qml" line="648"/>
         <source>Octet or name…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="648"/>
+        <location filename="../qml/CameraGroups.qml" line="676"/>
         <source>All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="649"/>
+        <location filename="../qml/CameraGroups.qml" line="677"/>
         <source>Unnamed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="650"/>
+        <location filename="../qml/CameraGroups.qml" line="678"/>
         <source>Faults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="660"/>
+        <location filename="../qml/CameraGroups.qml" line="688"/>
         <source>of</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="772"/>
-        <location filename="../qml/CameraGroups.qml" line="999"/>
+        <location filename="../qml/CameraGroups.qml" line="800"/>
+        <location filename="../qml/CameraGroups.qml" line="1027"/>
         <source>UNNAMED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="872"/>
+        <location filename="../qml/CameraGroups.qml" line="900"/>
         <source>Every camera in scope is recording.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="873"/>
+        <location filename="../qml/CameraGroups.qml" line="901"/>
         <source>Every camera in scope has a name.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="874"/>
+        <location filename="../qml/CameraGroups.qml" line="902"/>
         <source>Nothing matches “%1”.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="875"/>
+        <location filename="../qml/CameraGroups.qml" line="903"/>
         <source>No cameras in “%1”.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="881"/>
+        <location filename="../qml/CameraGroups.qml" line="909"/>
         <source>Select cameras in another group and move them here.</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/CameraGroups.qml" line="897"/>
+        <location filename="../qml/CameraGroups.qml" line="925"/>
         <source>%n selected</source>
         <translation type="unfinished">
             <numerusform></numerusform>
@@ -208,32 +208,32 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="901"/>
+        <location filename="../qml/CameraGroups.qml" line="929"/>
         <source>MOVE TO</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="935"/>
+        <location filename="../qml/CameraGroups.qml" line="963"/>
         <source>Clear</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="1050"/>
+        <location filename="../qml/CameraGroups.qml" line="1078"/>
         <source>END OF LIST</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="1050"/>
+        <location filename="../qml/CameraGroups.qml" line="1078"/>
         <source>START OF LIST</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="1076"/>
+        <location filename="../qml/CameraGroups.qml" line="1104"/>
         <source>NEXT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/CameraGroups.qml" line="1076"/>
+        <location filename="../qml/CameraGroups.qml" line="1104"/>
         <source>PREV</source>
         <translation type="unfinished"></translation>
     </message>
@@ -505,6 +505,19 @@
     </message>
 </context>
 <context>
+    <name>HealthScreen</name>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="248"/>
+        <source>Not authorised — recorded playback and export are DOWN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="249"/>
+        <source>Operational</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LiveMonitor</name>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="1475"/>
@@ -640,22 +653,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2108"/>
+        <location filename="../qml/Main.qml" line="2109"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2113"/>
+        <location filename="../qml/Main.qml" line="2114"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2127"/>
+        <location filename="../qml/Main.qml" line="2128"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2131"/>
+        <location filename="../qml/Main.qml" line="2132"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>

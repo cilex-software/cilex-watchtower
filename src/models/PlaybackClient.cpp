@@ -122,6 +122,20 @@ void PlaybackClient::setStatus(const QString &s)
 
 // Mirror the backend session cookie into our private NAM's jar (the login itself
 // happens on AuthController's NAM; ours never sees the Set-Cookie).
+void PlaybackClient::setAuthFault(bool v, const QString &detail)
+{
+    if (m_authFault == v && m_authFaultDetail == detail)
+        return;
+    m_authFault = v;
+    m_authFaultDetail = detail;
+    if (v)
+        qWarning().noquote() << "[WT-DEGRADED] subsystem=playback reason=auth state=FAULT detail="
+                             << (detail.isEmpty() ? QStringLiteral("(none)") : detail);
+    else
+        qInfo().noquote() << "[WT-DEGRADED] subsystem=playback state=CLEARED";
+    emit authFaultChanged();
+}
+
 void PlaybackClient::applyAuthCookie()
 {
     const QString token = AuthController::instance()->token();
@@ -262,6 +276,22 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             qInfo("[PBTIME] session_http ms=%lld code=%d bytes=%lld attempt=%d",
                   (long long)httpTimer.elapsed(), code, (long long)raw.size(), attempt);
         if (code != 200) {
+            // 401 = auth. Silence here is the 2026-08-10 P0: playback died and
+            // nothing anywhere said so. Ask AuthController for one refresh and
+            // retry ONCE with the new cookie; only then call it a fault.
+            if (code == 401 && attempt < 3) {
+                qWarning().noquote() << "[WT-DEGRADED] subsystem=playback reason=auth "
+                                        "action=refresh-and-retry attempt=" << attempt;
+                AuthController::instance()->noteUnauthorized();
+                QTimer::singleShot(1200, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, tag]() {
+                    applyAuthCookie();                       // pick up whatever the refresh produced
+                    requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, 3, tag);
+                });
+                return;
+            }
+            if (code == 401) {                               // refresh did not help: SAY SO, loudly
+                setAuthFault(true, QJsonDocument::fromJson(raw).object().value("detail").toString());
+            }
             // code 0 = no HTTP response (transport failure: timeout / unreachable /
             // reset). Usually transient — retry a couple of times with a short
             // backoff before surfacing the failure (a plain HTTP POST, no pipeline
@@ -323,6 +353,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         // heavy days it was hundreds more QVariantMaps of pure GC load per open.
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
+        setAuthFault(false, QString());                      // playback is demonstrably authorised again
         emit sessionReady(sid, compactDuration, frags, meta, tag);
     });
 }

@@ -24,12 +24,16 @@ class PlaybackClient : public QObject
     QML_ELEMENT
     Q_PROPERTY(bool loggedIn READ loggedIn NOTIFY loggedInChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(bool authFault READ authFault NOTIFY authFaultChanged)
+    Q_PROPERTY(QString authFaultDetail READ authFaultDetail NOTIFY authFaultChanged)
 public:
     explicit PlaybackClient(QObject *parent = nullptr);
     ~PlaybackClient() override;               // stops + joins the proxy thread
 
     bool loggedIn() const { return m_loggedIn; }
     QString status() const { return m_status; }
+    bool authFault() const { return m_authFault; }
+    QString authFaultDetail() const { return m_authFaultDetail; }
 
     // Ensure a session cookie exists (auto-login with configured/dev creds),
     // then resolve camera_ids from /streams. Safe to call repeatedly.
@@ -138,6 +142,7 @@ public:
 signals:
     void loggedInChanged();
     void statusChanged();
+    void authFaultChanged();
     void camerasResolved();
     // tag: OWNERSHIP token echoed from openSession(). Multiple consumers share
     // these broadcast signals (PlaybackScreen tabs + the events hero player);
@@ -168,7 +173,8 @@ signals:
 
 private:
     void setStatus(const QString &s);
-    void applyAuthCookie();   // mirror the access_token into our private NAM's jar
+    void applyAuthCookie();
+    void setAuthFault(bool v, const QString &detail);   // mirror the access_token into our private NAM's jar
     void fetchStreams();
     // POST /review/sessions for a resolved camera id; retries on a transport-level
     // failure (HTTP code 0 — timeout / unreachable / reset) before giving up.
@@ -183,7 +189,13 @@ private:
     QThread *m_proxyThread = nullptr;        // the proxy runs here, off the GUI thread
     QString m_baseUrl;
     bool m_loggedIn = false;      // ready: signed in AND /streams resolved
-    QString m_sessionTag;         // ownership token of the in-flight openSession
+    QString m_sessionTag;
+    // Playback-subsystem health. Set when a session open is refused for an
+    // AUTH reason — the 2026-08-10 P0 class, where playback died silently
+    // while every other surface looked healthy. Never silent again: it is a
+    // property the UI renders and a [WT-DEGRADED] line Warden can alert on.
+    bool m_authFault = false;
+    QString m_authFaultDetail;         // ownership token of the in-flight openSession
     bool m_loggingIn = false;
     QString m_status;
     QHash<QString, QString> m_ipToCamId;
