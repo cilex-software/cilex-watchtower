@@ -40,6 +40,8 @@ class Settings : public QObject
     // Height reserved for the triage INFO panel; the video stage takes all the
     // rest (operator 2026-08-07: video first, info panel only as big as needed).
     Q_PROPERTY(int triageBodyH READ triageBodyH WRITE setTriageBodyH NOTIFY triageBodyHChanged)
+    // Groups screen: operator-resizable left pane (spec default 264).
+    Q_PROPERTY(int groupsPaneW READ groupsPaneW WRITE setGroupsPaneW NOTIFY groupsPaneWChanged)
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
@@ -78,9 +80,11 @@ public:
     bool badgeTimers() const { return m_badgeTimers; }
     bool triageQueueCollapsed() const { return m_triageQueueCollapsed; }
     int triageBodyH() const { return m_triageBodyH; }
+    int groupsPaneW() const { return m_groupsPaneW; }
     void setBadgeTimers(bool v);
     void setTriageQueueCollapsed(bool v);
     void setTriageBodyH(int v);
+    void setGroupsPaneW(int v);
     void setEventsOnScrubber(bool v);
 
     QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
@@ -142,6 +146,7 @@ signals:
     void badgeTimersChanged();
     void triageQueueCollapsedChanged();
     void triageBodyHChanged();
+    void groupsPaneWChanged();
     void hiddenScrubberEventTypesChanged();
 
 private:
@@ -159,5 +164,6 @@ private:
     bool m_badgeTimers = true;
     bool m_triageQueueCollapsed = false;
     int m_triageBodyH = 200;
+    int m_groupsPaneW = 264;
     QStringList m_hiddenScrubberEventTypes;
 };

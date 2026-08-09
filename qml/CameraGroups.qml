@@ -162,10 +162,38 @@ Item {
 
         // ============================================== LEFT PANE — 264px
         Rectangle {
-            Layout.preferredWidth: 264
+            Layout.preferredWidth: Settings.groupsPaneW
             Layout.fillHeight: true
             color: Theme.bg
             Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line; z: 2 }
+            // resize handle: the hairline is 1px, the grab zone is 6 (operator ask
+            // 2026-08-09). Width persists; double-click restores the spec's 264.
+            Rectangle {
+                id: paneGrip
+                anchors.right: parent.right; anchors.rightMargin: -2
+                width: 6; height: parent.height
+                z: 3
+                color: (gripMa.containsMouse || gripMa.pressed) ? Theme.accentSoft : "transparent"
+                Rectangle {
+                    visible: gripMa.containsMouse || gripMa.pressed
+                    anchors.right: parent.right; anchors.rightMargin: 2
+                    width: 1; height: parent.height; color: Theme.accent
+                }
+                MouseArea {
+                    id: gripMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.SizeHorCursor
+                    property real startX: 0
+                    property int startW: 264
+                    onPressed: (m) => { startX = mapToItem(root, m.x, 0).x; startW = Settings.groupsPaneW }
+                    onPositionChanged: (m) => {
+                        if (!pressed) return;
+                        Settings.groupsPaneW = startW + Math.round(mapToItem(root, m.x, 0).x - startX);
+                    }
+                    onDoubleClicked: Settings.groupsPaneW = 264
+                }
+            }
 
             ColumnLayout {
                 anchors.fill: parent

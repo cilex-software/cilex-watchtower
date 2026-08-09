@@ -20,6 +20,7 @@ Settings::Settings(QObject *parent)
     m_eventsOnScrubber = m_settings.value(QStringLiteral("playback/eventsOnScrubber"), true).toBool();
     m_triageQueueCollapsed = m_settings.value(QStringLiteral("events/triageQueueCollapsed"), false).toBool();
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
+    m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
 }
@@ -222,6 +223,16 @@ void Settings::setTriageQueueCollapsed(bool v)
     m_triageQueueCollapsed = v;
     m_settings.setValue(QStringLiteral("events/triageQueueCollapsed"), v);
     emit triageQueueCollapsedChanged();
+}
+
+void Settings::setGroupsPaneW(int v)
+{
+    v = qBound(200, v, 620);
+    if (m_groupsPaneW == v)
+        return;
+    m_groupsPaneW = v;
+    m_settings.setValue(QStringLiteral("groups/paneWidth"), v);
+    emit groupsPaneWChanged();
 }
 
 void Settings::setTriageBodyH(int v)
