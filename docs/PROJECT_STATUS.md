@@ -1,8 +1,63 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-07-25. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-08-09. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-08-09) — station token INSTALLED, `wt-sm-vnutri-01` now reports to CV; 8 h UI soak clean; 6 defects found
+
+**Written by the Windows station agent.** The booth station is no longer dark on
+CV's `/admin/fleet`.
+
+- **🔴→🟢 The station ingest token is installed and the heartbeat attaches to the
+  pre-provisioned row.** Until 2026-08-09 the `STATION_TOKEN=` line in this box's
+  `warden.conf` was **empty** — minted by CV on 08-07 and handed to the operator
+  out-of-band, but never pasted in. Warden gates every beat and every upload on it
+  (`warden/warden.py:566`), so the station had never beaten once: CV's fleet page
+  showing "box is off or unreachable" was **truthful, not a display bug**.
+  Now set; `warden status` reports `token=set`.
+  - Key is `STATION_TOKEN` (`warden/warden.py:49`), sent as the
+    `X-Cilex-Station-Token` header (`:489` heartbeat, `:546` bundle upload).
+  - **The token itself lives ONLY on that machine** —
+    `%USERPROFILE%\.config\watchtower-warden\warden.conf`, UTF-8 **no BOM**
+    (Warden reads via `Path.read_text()` under a cp1251 locale; a BOM would
+    corrupt the first line). ACL: inheritance broken, `localadmin` + SYSTEM only,
+    zero Everyone/Users. **Never in this repo, a letter, or a screenshot.** If it
+    is ever lost or leaked, ask CV to re-mint — never reuse or copy one.
+  - Verified: `POST /client/stations/heartbeat` → **HTTP 200** returning
+    `station_id 8af7ef38-925b-46d6-8a2b-5177970c39a7` (the pre-provisioned row —
+    so no TOFU duplicate), with a bogus-token control returning **401**.
+  - The crash bundle stuck since 08-07 (`001748a6…`, `exception-c0000409`)
+    **uploaded retroactively** on the first authenticated pass: spool went
+    `pending=1 sent=0` → `pending=0 sent=1`. Stale bundles are not dropped.
+- **🟢 8 h random-click soak: no crash, no hang, no restart.** 2026-08-08
+  10:00→18:03, 84 driver tours over live wall / groups / views / triage queue /
+  playback, including real disposition writes. Same pid throughout, no new WER
+  dumps, handles flat (2626→2601), no GDI/USER leak, CPU ~22 % of one core.
+  **Caveat that matters: the wall was at full 16 pipes for only 2 % of samples**,
+  so this validated UI/navigation/triage endurance, **not** sustained decode.
+  Private bytes 601→1302 MB (peak) →1045 MB — rises and partly returns, so
+  suspected retention, **not** a proven leak; unresolved, needs a wall-pinned run.
+  Full record: [`docs/perf/2026-08-08-win-8h-soak.md`](perf/2026-08-08-win-8h-soak.md).
+- **🔴 Client defects the soak surfaced** (shared code → `win/<topic>` branch + PR
+  from this box, never straight to `main`): `qml/EventsArea.qml:359` TypeError
+  ×171; `qml/LiveMonitor.qml:1736` TypeError ×60; `QIODevice::read
+  (QNetworkReplyHttpImpl): device not open` ×190; `create group failed 409` where
+  it is unproven whether the UI surfaced the error honestly.
+- **🟡 Top-bar clock shows a stale time for up to 10 s after the window is
+  re-exposed.** `qml/TopBar.qml:30` refreshes `root.now` only on a 10 s QML
+  `Timer`, and QML timers are animation-driven so they do not advance while the
+  window is unexposed. Observed reading `19:15` at a real 09:53. Fix is to also
+  refresh on visibility change. It is a wake transient, **not** a frozen clock.
+- **🟡 Two backend questions sent to CV** (letter
+  `docs/letters/2026-08-09-snapshot-404s-and-empty-heartbeat.md`): event-snapshot
+  `404`s at 17 218 in 8 h, and `POST /client/stations/heartbeat` accepting an
+  **empty `{}` body with HTTP 200 and `"health":"healthy"`**.
+- **⚠️ Restarting Warden restarts the guard app.** `warden.py:936` calls `spawn()`
+  unconditionally with no already-running check, and the app it spawned survives
+  its parent — so a config reload means stopping Warden **and** the orphaned
+  `watchtower.exe`, or the new Warden puts a second wall on the same iGPU. This is
+  the single-instance-lock gap `warden/install-windows.ps1:105-113` already flags.
 
 ## Current status (2026-08-07) — FIRST REAL GUARD STATION IS LIVE on Windows; iGPU measured; 4 install defects found
 
