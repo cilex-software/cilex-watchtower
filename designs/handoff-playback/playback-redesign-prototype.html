@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Playback — One Axis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1a1816;--panel:#221f1c;--panel2:#2a2722;--panel3:#322e28;--line:#34302a;--line2:#443f37;--ink:#f0ece4;--ink2:#a89f90;--ink3:#6e6657;--accent:#e8a13a;--accentSoft:rgba(232,161,58,.08);--accentDim:#5a3f15;--bad:#d96649;--badSoft:rgba(217,102,73,.1);--good:#8eb96b;--info:#6f9bc4;--violet:#9a7bd0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#100f0e;font-family:'Space Grotesk',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;padding:16px 20px 24px;overflow-x:auto}
+.wrap{width:max-content;margin:0 auto}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;text-align:left}
+input{font:inherit;color:inherit;background:none;border:none;outline:none}
+a{color:var(--accent)}a:hover{color:var(--ink)}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--line2)}::-webkit-scrollbar-track{background:transparent}
+.mono{font-family:'JetBrains Mono',monospace}
+.vbar{display:flex;align-items:center;gap:10px;padding:0 2px 10px}
+.vsw{display:flex;border:1px solid var(--line2)}
+.vsw a{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);text-decoration:none;padding:3px 9px;border-right:1px solid var(--line2)}
+.vsw a:last-child{border-right:0}
+.vsw a:hover{background:var(--panel2);color:var(--ink)}
+.vsw a.on{background:var(--accent);color:#241a08;font-weight:700}
+.vnote{font-size:11px;color:var(--ink3)}
+.vnote b{color:var(--ink2);font-weight:500}
+.frame{background:var(--bg);border:1px solid var(--line2);height:900px;display:flex;flex-direction:column;overflow:hidden;position:relative;flex:none;transition:width .18s ease}
+/* chrome */
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tcell{display:flex;align-items:center;padding:0 13px;border-right:1px solid var(--line);flex:none;gap:9px}
+.tcell.grow{flex:1;min-width:0}
+.brand .b1{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:1.5px;color:var(--ink3)}
+.brand .b2{font-size:14px;font-weight:600;letter-spacing:-.2px;line-height:1.1}
+.brand .b2 em{font-family:'JetBrains Mono',monospace;font-size:9px;font-style:normal;color:var(--ink3);margin-left:5px}
+.searchc{color:var(--ink3);font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:8px;border:1px solid var(--line);padding:1px 4px;color:var(--ink3);letter-spacing:.6px;flex:none}
+.pill{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);letter-spacing:.7px;white-space:nowrap}
+.pill i{width:6px;height:6px;flex:none;display:block}
+.tabstrip{height:30px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:stretch;flex:none}
+.tabstrip .t{display:flex;align-items:center;gap:8px;padding:0 13px;font-size:11px;color:var(--ink3);border-right:1px solid var(--line);white-space:nowrap}
+.tabstrip .t.on{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+/* stage */
+.panes{flex:1;display:flex;min-height:0}
+.stage{flex:1;position:relative;background:#0b0a0a;min-height:0;overflow:hidden}
+.vid{position:absolute;overflow:hidden;background:#141312}
+.im{position:absolute;inset:0;overflow:hidden}
+.im i{position:absolute;display:block}
+.vig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 42%,rgba(0,0,0,.5) 100%);pointer-events:none}
+.ovl{position:absolute;z-index:5;display:flex;align-items:center;gap:9px;line-height:1}
+.ovl.tl{top:11px;left:11px}
+.ovl.tr{top:11px;right:13px}
+.back{width:22px;height:22px;display:grid;place-items:center;color:rgba(255,255,255,.62);font-size:14px;flex:none}
+.back:hover{background:rgba(0,0,0,.55);color:#fff}
+.chip{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.3px;font-weight:600;padding:3px 8px;display:flex;align-items:center;gap:6px;flex:none}
+.chip.pb{background:var(--accent);color:#241a08}
+.chip.lv{background:var(--good);color:#16210c}
+.chip.sc{background:var(--bad);color:#fff}
+.camnm{font-size:13px;color:rgba(255,255,255,.82);text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap}
+.tstamp{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.95);letter-spacing:.4px;white-space:nowrap}
+.tstamp em{font-style:normal;color:rgba(255,255,255,.62);font-size:inherit}
+.tstamp .ms{color:var(--accent)}
+.tstamp.small{font-size:16px}
+.chk{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;font-size:11.5px;color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.chk:hover{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink3)}
+.chk .ci{font-size:11px;color:var(--ink3)}
+.chk.on{color:var(--good);box-shadow:inset 0 0 0 1px rgba(142,185,107,.5);background:rgba(142,185,107,.09)}
+.chk.on .ci{color:var(--good)}
+
+/* transport */
+.xbar{position:absolute;left:0;right:0;bottom:0;z-index:6;display:flex;align-items:stretch;gap:0;padding:9px 11px;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.62) 46%,rgba(0,0,0,.86))}
+.grp{display:flex;align-items:stretch;pointer-events:auto;background:rgba(13,12,11,.72);box-shadow:inset 0 0 0 1px rgba(68,63,55,.9)}
+.grp+.grp{margin-left:9px}
+.tb{min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;gap:6px;color:rgba(255,255,255,.78);font-size:13px;position:relative;padding:0 8px;flex:none}
+.tb+.tb{box-shadow:inset 1px 0 0 rgba(68,63,55,.75)}
+.tb:hover{background:rgba(232,161,58,.16);color:#fff}
+.tb.pri{width:42px;color:#fff;font-size:15px}
+.tb[disabled]{opacity:.3;cursor:default}
+.tb[disabled]:hover{background:none}
+.tb .lb{font-size:11px;font-family:'Space Grotesk',sans-serif}
+.tb .mn{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600}
+.tb.evi{color:var(--good)}
+.tb.evi:hover{background:rgba(142,185,107,.18)}
+.tb.live{color:var(--bad);padding:0 11px;gap:7px}
+.tb.live:hover{background:rgba(217,102,73,.2)}
+.tb.live i{width:6px;height:6px;border-radius:50%;background:var(--bad);flex:none}
+.tb.on{background:var(--accentSoft);color:var(--accent)}
+.tb.frm{width:42px;font-size:15px}
+.frmc{position:absolute;left:50%;transform:translateX(-50%);pointer-events:auto;z-index:2;display:flex;align-items:stretch}
+/* frame-by-frame filmstrip: the mode's actual subject, so it gets the picture's own width */
+.strip{flex:none;background:var(--bg);box-shadow:inset 0 1px 0 var(--line2);display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;position:relative;overflow:hidden}
+.fcell{position:relative;flex:1 1 0;min-width:0;max-width:171px;max-height:80px;aspect-ratio:16/9;background:#141312;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;padding:0}
+.fcell:hover{box-shadow:inset 0 0 0 1px var(--ink3)}
+.fcell.cur{box-shadow:inset 0 0 0 2px var(--accent)}
+.fcell em{position:absolute;left:0;right:0;bottom:0;font-family:'JetBrains Mono',monospace;font-size:8.5px;font-style:normal;letter-spacing:.6px;text-align:center;color:#fff;background:rgba(13,12,11,.78);line-height:13px}
+.fcell.cur em{background:var(--accent);color:#241a08;font-weight:700}
+.chip.frm{background:var(--accentSoft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accentDim)}
+.tb .cache{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);animation:cache .34s linear}
+@keyframes cache{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+.spd{position:relative}
+.ladder{position:absolute;bottom:38px;left:50%;transform:translateX(-50%);width:120px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line2);z-index:9;display:flex;flex-direction:column-reverse;pointer-events:auto}
+.ladder button{height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 9px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2);flex:none}
+.ladder button:hover{background:var(--panel2);color:var(--ink)}
+.ladder button.on{background:var(--accent);color:#241a08;font-weight:700}
+.ladder button.scan{color:var(--bad)}
+.ladder button.scan.on{background:var(--bad);color:#fff}
+.ladder .div{height:5px;background:var(--bg);box-shadow:inset 0 1px 0 var(--line2),inset 0 -1px 0 var(--line2);flex:none}
+/* honest state banner */
+.banner{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;background:rgba(11,10,10,.82);text-align:center;padding:24px}
+.banner .bi{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.6px;padding:3px 8px}
+.banner .bt{font-size:15px;color:var(--ink);max-width:460px;line-height:1.5}
+.banner .bs{font-size:12px;color:var(--ink3);max-width:420px;line-height:1.5}
+.banner .ba{display:flex;gap:8px;margin-top:2px}
+.banner .ba button{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);padding:6px 12px}
+.banner .ba button:hover{background:var(--accentSoft)}
+/* events overlay */
+.evp{position:relative;flex:none;background:var(--panel);box-shadow:inset 1px 0 0 var(--line2);display:flex;flex-direction:column;min-height:0}
+.evh{height:28px;display:flex;align-items:center;gap:8px;padding:0 4px 0 11px;box-shadow:inset 0 -1px 0 var(--line);flex:none}
+.evh .ttl{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.4px;color:var(--ink3)}
+.evh .n{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);margin-left:auto}
+.evh .x{width:24px;height:24px;display:grid;place-items:center;color:var(--ink3);font-size:11px;flex:none}
+.evh .x:hover{background:var(--panel2);color:var(--ink)}
+.evf{display:flex;gap:5px;padding:7px 10px;flex-wrap:wrap;box-shadow:inset 0 -1px 0 var(--line);flex:none}
+.evc{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.6px;padding:2px 6px;color:var(--ink3);box-shadow:inset 0 0 0 1px var(--line2)}
+.evc i{width:5px;height:5px;flex:none}
+.evc.on{color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink3);background:var(--panel2)}
+.evl{flex:1;overflow-y:auto;min-height:0}
+.evr{width:100%;height:28px;display:flex;align-items:center;gap:8px;padding:0 11px;box-shadow:inset 0 -1px 0 var(--line);position:relative}
+.evr:hover,.evr.hov{background:var(--panel2)}
+.evr.sel{background:var(--accentSoft);box-shadow:inset 0 -1px 0 var(--line),inset 2px 0 0 var(--accent)}
+.evr i{width:6px;height:6px;flex:none}
+.evr .lb{font-size:11px;color:var(--ink2);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evr.sel .lb{color:var(--ink)}
+.evr .tm{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);flex:none}
+.evr.sel .tm{color:var(--accent)}
+.evempty{padding:22px 14px;text-align:center;font-size:11px;color:var(--ink3);line-height:1.5}
+/* NAVIGATOR */
+.nav{flex:none;background:var(--bg);box-shadow:inset 0 1px 0 var(--line2);display:flex;flex-direction:column;user-select:none}
+.rib{height:42px;display:flex;align-items:stretch;flex:none;box-shadow:inset 0 -1px 0 var(--line)}
+.riblbl{width:120px;flex:none;padding:6px 10px;display:flex;flex-direction:column;gap:3px;justify-content:center;box-shadow:inset -1px 0 0 var(--line)}
+.riblbl{overflow:hidden}
+.riblbl .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.4px;color:var(--ink3);display:flex;align-items:baseline;gap:6px}
+.riblbl .k em{font-style:normal;letter-spacing:1.2px;margin-left:auto;color:var(--ink3)}
+.riblbl .v{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ribtrack{flex:1;min-width:0;display:flex;align-items:stretch;position:relative}
+.day{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;padding:4px 0 3px;flex:none;box-shadow:inset -1px 0 0 rgba(52,48,42,.6)}
+.day .wd{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.2px;color:var(--ink3);line-height:1}
+.day .dn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink2);line-height:1}
+.day .dens{width:100%;height:4px;padding:0 3px;display:flex;align-items:flex-end}
+.day .dens i{display:block;width:100%;background:var(--good);min-height:1px}
+.day.wkB{background:rgba(240,236,228,.028)}
+.wdiv{position:absolute;top:0;bottom:0;width:1px;background:rgba(68,63,55,.55);pointer-events:none}
+.day.none{cursor:default}
+.day.none .dn{color:rgba(110,102,87,.42)}
+.day.none .wd{color:rgba(110,102,87,.32)}
+.day.has:hover{background:var(--panel2)}
+.day.has:hover .dn{color:var(--ink)}
+.day.today{box-shadow:inset -1px 0 0 rgba(52,48,42,.6),inset 0 0 0 1px var(--ink3)}
+.day.sel{background:var(--accentSoft);box-shadow:inset -1px 0 0 rgba(52,48,42,.6),inset 0 -2px 0 var(--accent)}
+.day.sel .dn{color:var(--accent);font-weight:600}
+.day.sel .wd{color:var(--accent)}
+.day .win{position:absolute;top:0;bottom:0;background:rgba(232,161,58,.2);box-shadow:inset 0 0 0 1px var(--accent);pointer-events:none;min-width:2px}
+.mdiv{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);pointer-events:none}
+.mlbl{position:absolute;top:2px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;color:var(--ink3);padding-left:3px;pointer-events:none}
+/* navigator header */
+.nvh{height:26px;display:flex;align-items:stretch;flex:none;box-shadow:inset 0 -1px 0 var(--line)}
+.nvh .cell{display:flex;align-items:center;gap:8px;padding:0 10px;box-shadow:inset -1px 0 0 var(--line);flex:none;white-space:nowrap}
+.nvh .cell.ph{width:120px;flex:none;gap:0;flex-direction:column;align-items:flex-start;justify-content:center}
+.nvh .cell.ph .k{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;color:var(--ink3);line-height:1.15}
+.nvh .cell.ph .v{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink);line-height:1.15}
+.nvh .cov{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink3);display:flex;align-items:center;gap:7px}
+.nvh .cov b{color:var(--ink2);font-weight:600}
+.nvh .cov.zero b,.nvh .cov.zero{color:var(--bad)}
+.nvh .sp{flex:1;box-shadow:inset 0 -1px 0 transparent;min-width:0}
+.nvh button.cell{color:var(--ink3);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.3px}
+.nvh button.cell:hover{background:var(--panel2);color:var(--ink2)}
+.nvh button.cell.on{background:var(--accent);color:#241a08;font-weight:700}
+.nvh button.cell.ghost.on{background:var(--accentSoft);color:var(--accent);box-shadow:inset -1px 0 0 var(--line),inset 0 -2px 0 var(--accent)}
+/* lanes */
+.lanes{position:relative;flex:none;cursor:crosshair}
+.lanewrap{display:flex;align-items:stretch}
+.lanelbl{width:120px;flex:none;box-shadow:inset -1px 0 0 var(--line);display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 10px}
+.lanelbl span{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;line-height:1}
+.lanetrack{flex:1;min-width:0;position:relative}
+.ruler{height:15px;position:relative;box-shadow:inset 0 -1px 0 var(--line)}
+.ruler i{position:absolute;top:0;width:1px;background:var(--line2)}
+.ruler span{position:absolute;top:3px;font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--ink3);transform:translateX(-50%);white-space:nowrap}
+.lane{position:relative;background:#151412}
+.lane.m{box-shadow:inset 0 1px 0 rgba(52,48,42,.7)}
+.seg{position:absolute;top:2px;bottom:2px;background:var(--good);min-width:1px}
+.mev{position:absolute;top:3px;bottom:3px;background:var(--accent);min-width:2px}
+.mev.hov{background:var(--ink);z-index:3}
+.mev.sel{background:#fff;box-shadow:0 0 0 1px var(--accent);z-index:4}
+.phline{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);z-index:6;pointer-events:none}
+.phline b{position:absolute;top:-1px;left:-4px;width:9px;height:7px;background:var(--ink);display:block;clip-path:polygon(0 0,100% 0,50% 100%)}
+.mark{position:absolute;top:0;bottom:0;background:rgba(232,161,58,.13);box-shadow:inset 1px 0 0 var(--accent),inset -1px 0 0 var(--accent);z-index:5;pointer-events:none}
+.mark em{position:absolute;top:0;font-family:'JetBrains Mono',monospace;font-size:8px;font-style:normal;letter-spacing:1.2px;background:var(--accent);color:#241a08;padding:0 3px;line-height:11px}
+.mark em.a{left:0}.mark em.b{right:0}
+.scrubchip{position:absolute;bottom:100%;transform:translateX(-50%);margin-bottom:3px;background:var(--ink);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;padding:2px 6px;white-space:nowrap;z-index:9;pointer-events:none}
+/* the brief's problem 1 is that neither the rail nor the timeline could be resized. Both grips are
+   real drags with clamps; the video re-letterboxes off the stage observer, so it follows for free. */
+.nvgrip{position:absolute;left:0;right:0;top:-3px;height:7px;cursor:ns-resize;z-index:12}
+.nvgrip::after{content:"";position:absolute;left:50%;top:3px;width:36px;height:1px;margin-left:-18px;background:var(--line2)}
+.nvgrip:hover::after,.nvgrip.on::after{background:var(--accent);height:2px}
+.nvgrip:hover,.nvgrip.on{background:var(--accentSoft)}
+.evgrip{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:ew-resize;z-index:9}
+.evgrip::after{content:"";position:absolute;top:50%;left:2px;width:1px;height:34px;margin-top:-17px;background:var(--line2)}
+.evgrip:hover::after,.evgrip.on::after{background:var(--accent);width:2px}
+.evgrip:hover,.evgrip.on{background:var(--accentSoft)}
+/* the classic grid lives in the navigator header, beside the span buttons — same row, same owner,
+   so it cannot become the second navigator in the far corner that problem 2 described */
+
+.calhd{display:flex;align-items:center;gap:6px;height:20px;margin-bottom:5px}
+.calhd .m{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.3px;color:var(--ink2);flex:1;text-align:center}
+.calhd button{width:20px;height:20px;display:grid;place-items:center;color:var(--ink3);font-size:11px;flex:none}
+.calhd button:hover{background:var(--panel2);color:var(--ink)}
+.calhd button[disabled]{opacity:.28;cursor:default}
+.calhd button[disabled]:hover{background:none;color:var(--ink3)}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.calwd{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.2px;color:var(--ink3);text-align:center;padding-bottom:4px}
+.calday{height:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2);position:relative;padding:0}
+.calday.out{color:rgba(110,102,87,.26);cursor:default}
+.calday.none{color:rgba(110,102,87,.5);cursor:default}
+.calday.has:hover{background:var(--panel2);color:var(--ink)}
+.calday.today{box-shadow:inset 0 0 0 1px var(--ink3)}
+.calday.sel{background:var(--accent);color:#241a08;font-weight:700}
+.calday i{width:3px;height:3px;border-radius:50%;background:var(--good);display:block}
+.calday.sel i{background:#241a08}
+.callgd{display:flex;gap:11px;align-items:center;margin-top:7px;padding-top:6px;box-shadow:inset 0 1px 0 var(--line);font-size:9px;color:var(--ink3)}
+.callgd span{display:flex;align-items:center;gap:4px}
+.callgd i{width:3px;height:3px;border-radius:50%;background:var(--good);display:block}
+.callgd b{width:7px;height:7px;box-shadow:inset 0 0 0 1px var(--ink3);display:block}
+.camico{position:relative;width:15px;height:11px;box-shadow:inset 0 0 0 1px currentColor;display:block;flex:none}
+.camico::before{content:"";position:absolute;left:4px;top:-3px;width:6px;height:3px;box-shadow:inset 0 0 0 1px currentColor}
+.camico i{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;box-shadow:inset 0 0 0 1px currentColor;display:block}
+/* persistent classic grid — tier 1's alternative shape */
+.calfix{display:flex;align-items:stretch;flex:none;box-shadow:inset 0 -1px 0 var(--line);overflow:hidden}
+.calbox{width:100%;flex:none;padding:7px 10px 9px;display:flex;flex-direction:column}
+.dstrip{flex:1;min-width:0;position:relative;padding:6px 12px 7px;display:flex;flex-direction:column;gap:5px}
+.dstrip .dh{display:flex;align-items:baseline;gap:8px;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.3px;color:var(--ink3)}
+.dstrip .dh b{color:var(--ink2);font-weight:400}
+.dstrip .dt{flex:1;min-height:0;position:relative;background:#151412;cursor:crosshair}
+.dstrip .dt i{position:absolute;top:0;bottom:0;background:var(--good);min-width:1px;display:block}
+.dstrip .dw{position:absolute;top:0;bottom:0;background:rgba(232,161,58,.18);box-shadow:inset 0 0 0 1px var(--accent);min-width:2px;pointer-events:none}
+.dstrip .dr{height:11px;position:relative}
+.dstrip .dr span{position:absolute;top:0;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1.2px;color:var(--ink3);transform:translateX(-50%)}
+.dstrip .dr i{position:absolute;top:-4px;width:1px;height:4px;background:var(--line2);display:block}
+.gapmsg{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.2px;color:var(--ink3);pointer-events:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback,useLayoutEffect}=React;
+const {useTweaks,TweaksPanel,TweakSection,TweakRadio,TweakToggle}=window;
+
+const TWEAK_DEFAULTS=/*EDITMODE-BEGIN*/{
+  "archive": "calendar",
+  "footage": "sparse",
+  "events": "typical",
+  "state": "normal",
+  "lang": "EN",
+  "windowW": "1440"
+}/*EDITMODE-END*/;
+
+/* ───────────── time model ───────────── */
+const S=1000,MIN=60*S,HR=60*MIN,DAY=24*HR;
+const NOW=new Date(2026,7,9,22,29,0).getTime();
+const dayStart=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();};
+const TODAY=dayStart(NOW),RET=35,RET0=TODAY-(RET-1)*DAY;
+const SPANS=[['15M',15*MIN],['1H',HR],['6H',6*HR],['12H',12*HR],['24H',DAY]];
+const pad=(n,w)=>String(n).padStart(w||2,'0');
+const WD={EN:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],RU:['Вс','Пн','Вт','Ср','Чт','Пт','Сб']};
+const WD1={EN:['S','M','T','W','T','F','S'],RU:['В','П','В','С','Ч','П','С']};
+const MO={EN:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],RU:['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек']};
+const hms=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());};
+const hm=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const ms3=t=>pad(new Date(t).getMilliseconds(),3);
+const dmy=(t,L)=>{const d=new Date(t);return d.getDate()+' '+MO[L][d.getMonth()]+' '+d.getFullYear();};
+const wdy=(t,L)=>WD[L][new Date(t).getDay()];
+const durM=(x,L)=>{const m=Math.round(x/60000),h=m/60|0;
+  return m<1?'<1'+(L==='RU'?'м':'m'):(h?h+(L==='RU'?'ч ':'h '):'')+(m%60)+(L==='RU'?'м':'m');};
+const dur=(x,L)=>{const s=Math.max(0,Math.round(x/1000)),h=s/3600|0,m=(s%3600)/60|0,ss=s%60;
+  return (h?h+(L==='RU'?'ч ':'h '):'')+(h||m?m+(L==='RU'?'м ':'m '):'')+ss+(L==='RU'?'с':'s');};
+
+/* deterministic per-day footage: a motion-recorded fleet makes a sparse comb, never a solid bar */
+const segCache=new Map();
+function daySegs(di,mode){
+  const key=di+'|'+mode;if(segCache.has(key))return segCache.get(key);
+  let s=(di+41)*2654435761%2147483647,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  /* sparse = the brief's real fleet: 4 of 35 days, on 2 / 5 / 6 / 9 Aug as in the screenshot */
+  const keep=mode==='sparse'?[RET-1,RET-4,RET-5,RET-8].indexOf(di)>=0:mode==='typical'?r()<.45:r()<.86;
+  if(!keep){segCache.set(key,[]);return [];}
+  const out=[];let t=(5+r()*3)*HR;const end=di===RET-1?22.4*HR:(21+r()*2.5)*HR;
+  /* motion-triggered recording clusters: short runs close together, then long dead air. The comb
+     must look like this or the FOOTAGE lane implies a continuity the archive does not have. */
+  while(t<end){const q=r();
+    const on=q<.14?(50+r()*120)*S:q<.66?(10+r()*46)*S:(3+r()*8)*S;
+    out.push([t,t+on]);
+    t+=on+(q<.52?(20+r()*150)*S:(5+r()*26)*MIN);}
+  segCache.set(key,out);return out;}
+
+function dayEvents(di,mode,fmode){
+  if(mode==='none')return [];
+  const segs=daySegs(di,fmode);if(!segs.length)return [];
+  let s=(di+907)*2246822519%2147483647,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  const out=[],mult=mode==='many'?3:1;
+  segs.forEach(([a,b],i)=>{const n=Math.max(1,Math.round((mode==='many'?2:1)*(1+r()*1.4)));
+    for(let k=0;k<n*1;k++){const at=a+r()*Math.max(1,(b-a)*.8);
+      out.push({at,type:r()<.22?'obj':'motion',len:Math.min(b-at,(3+r()*14)*S)});}
+    if(mult>1&&i%2===0)out.push({at:a+r()*(b-a),type:'motion',len:4*S});});
+  return out.sort((x,y)=>x.at-y.at);}
+
+/* ───────────── strings ───────────── */
+const ruPl=(n,a,b,c)=>{const m=n%100;if(m>=11&&m<=14)return c;const d=n%10;return d===1?a:(d>=2&&d<=4)?b:c;};
+const T={EN:{playback:'PLAYBACK',live:'LIVE',scan:'SCAN',retention:'ARCHIVE',window:'WINDOW',playhead:'PLAYHEAD',
+  footage:'FOOTAGE',motion:'MOTION',events:'EVENTS',evList:'EVENTS IN WINDOW',noEvents:'No events in this window.',
+  noEventsFiltered:'No events of the selected types in this window.',
+  segs:n=>n+(n===1?' segment':' segments'),covered:'covered',noCoverage:'no footage in this window',
+  daysW:n=>n+(n===1?' day':' days')+' w/ footage',lastN:n=>'last '+n+'d',
+  back10:'Back 10 s  ←',fwd10:'Forward 10 s  →',stepB:'Step back one frame  ,',stepF:'Step forward one frame  .',
+  play:'Play  Space',pause:'Pause  Space',speed:'Playback rate — J / L. Above 10× the picture skips ahead to keep up.',
+  calT:'Pick a day',calNone:'no footage',calToday:'today',
+  snap:'Snapshot  S',snapT:'Snapshot with timestamp  Shift S',expo:'Export marked range  X',
+  markIn:'Mark in  [',markOut:'Mark out  ]',full:'Fullscreen  Shift F',retLive:'Return to Live',
+  frame:'FRAME',frameT:'Frame-by-frame — reveals mark in / out and export  F',
+  jumpMotion:'Jump to last motion',clearMark:'Clear marked range',
+  noFootage:'No footage recorded around this moment.',
+  noFootageSub:'The archive has a gap here. The nearest recorded footage is below.',
+  nearest:t=>'Nearest footage  '+t+' →',
+  pbOff:'Playback is switched off — recorded playback and export are paused.',
+  pbOffSub:'An operator turned this off in settings. Live view is unaffected.',
+  recOff:'Recording is switched off — no new footage is being written.',
+  recOffSub:'The archive below is everything this camera has. It will not grow while recording is off.',
+  errT:'Could not open a playback session for this camera.',
+  errSub:'The recording service did not answer. Nothing has been lost — this is a connection problem.',
+  retry:'Retry',offlineT:'This camera is offline right now.',
+  offlineSub:'Its archive is complete up to the moment it dropped, and is fully playable below.',
+  settings:'Open settings',emptyArch:'This camera has no recorded footage in the last 35 days.',
+  emptyArchSub:'Nothing to play back. The archive ribbon is empty because the archive is empty.',
+  scanNote:'frames skipped',scanHdr:'SCAN',
+  markedFor:n=>'MARKED  '+n,noFootageShort:'NO FOOTAGE IN THIS WINDOW',
+  mo:'Motion',obj:'Motion detected',armed:'ARMED',live7:'LIVE',
+  dayHas:(d,n)=>d+' · '+n+(n===1?' clip':' clips'),dayNone:'no footage this day',
+  dayHasT:'Recorded footage on the selected day',
+  chkIn:'Check in',chkDone:'Checked in',chkIdle:'Record a shift check-in',chkT:t=>'Checked in at '+t+' — click to undo',
+  stripHint:'⊞ FRAME-BY-FRAME · ESC TO EXIT',dragHint:'release to seek',gripH:'Drag to resize the timeline · double-click to reset',gripW:'Drag to resize the events panel · double-click to reset'},
+RU:{playback:'ЗАПИСЬ',live:'ЭФИР',scan:'ПЕРЕМОТКА',retention:'АРХИВ',window:'ОКНО',playhead:'ПОЗИЦИЯ',
+  footage:'ЗАПИСЬ',motion:'ДВИЖЕНИЕ',events:'СОБЫТИЯ',evList:'СОБЫТИЯ В ОКНЕ',noEvents:'Нет событий в этом окне.',
+  noEventsFiltered:'Нет событий выбранных типов в этом окне.',
+  segs:n=>n+' '+ruPl(n,'фрагмент','фрагмента','фрагментов'),covered:'заполнено',noCoverage:'нет записи в этом окне',
+  daysW:n=>n+' '+ruPl(n,'день','дня','дней')+' с записью',lastN:n=>'посл. '+n+'д',
+  back10:'Назад 10 с  ←',fwd10:'Вперёд 10 с  →',stepB:'Кадр назад  ,',stepF:'Кадр вперёд  .',
+  play:'Воспроизвести  Space',pause:'Пауза  Space',speed:'Скорость — J / L. Выше 10× изображение перескакивает вперёд, чтобы успевать.',
+  calT:'Выбрать день',calNone:'нет записи',calToday:'сегодня',
+  snap:'Снимок  S',snapT:'Снимок с меткой времени  Shift S',expo:'Экспорт выделения  X',
+  markIn:'Начало  [',markOut:'Конец  ]',full:'Во весь экран  Shift F',retLive:'К эфиру',
+  frame:'КАДРЫ',frameT:'Покадровый режим — открывает выделение и экспорт  F',
+  jumpMotion:'К последнему движению',clearMark:'Снять выделение',
+  noFootage:'Нет записи в этот момент.',
+  noFootageSub:'Здесь пробел в архиве. Ближайшая запись — ниже.',
+  nearest:t=>'Ближайшая запись  '+t+' →',
+  pbOff:'Воспроизведение выключено — просмотр записи и экспорт приостановлены.',
+  pbOffSub:'Отключено оператором в настройках. На эфир не влияет.',
+  recOff:'Запись выключена — новые фрагменты не пишутся.',
+  recOffSub:'Ниже — весь архив этой камеры. Он не будет расти, пока запись выключена.',
+  errT:'Не удалось открыть сессию воспроизведения.',
+  errSub:'Служба записи не ответила. Ничего не потеряно — это проблема соединения.',
+  retry:'Повторить',offlineT:'Камера сейчас не в сети.',
+  offlineSub:'Архив полон до момента отключения и полностью доступен ниже.',
+  settings:'Открыть настройки',emptyArch:'У этой камеры нет записи за последние 35 дней.',
+  emptyArchSub:'Воспроизводить нечего. Лента архива пуста, потому что пуст архив.',
+  scanNote:'кадры пропускаются',scanHdr:'ПЕРЕМОТКА',
+  markedFor:n=>'ВЫДЕЛЕНО  '+n,noFootageShort:'НЕТ ЗАПИСИ В ЭТОМ ОКНЕ',
+  mo:'Движение',obj:'Обнаружено движение',armed:'НА ОХРАНЕ',live7:'ЭФИР',
+  dayHas:(d,n)=>d+' · '+n+' '+ruPl(n,'клип','клипа','клипов'),dayNone:'нет записи в этот день',
+  dayHasT:'Записанное видео за выбранный день',
+  chkIn:'Отметиться',chkDone:'Отмечено',chkIdle:'Отметиться на смене',chkT:t=>'Отмечено в '+t+' — нажмите, чтобы отменить',
+  stripHint:'⊞ ПОКАДРОВО · ESC — ВЫХОД',dragHint:'отпустите для перехода',gripH:'Потяните, чтобы изменить высоту шкалы · двойной клик — сброс',gripW:'Потяните, чтобы изменить ширину панели · двойной клик — сброс'}};
+
+const RATES=[.25,.5,1,2,4,10,20,50,100,200];
+const rateLbl=r=>r===.25?'¼×':r===.5?'½×':r+'×';
+const CAM={name:'HiWatch DS-I259M(C)',ip:'192.168.1.160',group:'Лифты',oct:160};
+
+/* procedural frame: derived from the playhead so stepping visibly changes the picture */
+const Frame=React.memo(function Frame({t,motion}){
+  const k=Math.floor(t/40);
+  let s=(k*2654435761)%2147483647,r=()=>((s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff);
+  const jitter=r()*1.4;
+  const ph=(t%20000)/20000,sway=Math.sin(t/1400),drift=Math.sin(t/5200);
+  return <span className="im" style={{background:'linear-gradient(168deg,#4a4844 0%,#403e3a 38%,#33312d 55%,#26241f 100%)'}}>
+    <i style={{left:'6%',top:'4%',width:'22%',height:'62%',background:'rgba(255,255,255,.045)'}}></i>
+    <i style={{left:'30%',top:'2%',width:'2px',height:'74%',background:'rgba(0,0,0,.34)'}}></i>
+    <i style={{left:'57%',top:'0%',width:'3px',height:'70%',background:'rgba(0,0,0,.4)'}}></i>
+    <i style={{left:'12%',top:'12%',width:'13%',height:'26%',background:'rgba(240,236,228,.16)'}}></i>
+    <i style={{left:'14%',top:'42%',width:'9%',height:'17%',background:'rgba(240,236,228,.12)'}}></i>
+    <i style={{left:'34%',top:'16%',width:'2.6%',height:'15%',background:'rgba(142,185,107,.5)'}}></i>
+    <i style={{left:'0%',top:'70%',width:'100%',height:'30%',background:'linear-gradient(180deg,#211f1c,#15140f)'}}></i>
+    <i style={{left:'62%',top:'68%',width:'38%',height:'3px',background:'rgba(255,255,255,.16)'}}></i>
+    {motion&&<i style={{left:(41+ph*17+sway*1.2+jitter*.3)+'%',top:(30+drift*3)+'%',width:'11%',height:'44%',
+      background:'rgba(18,16,14,.72)',filter:'blur(.4px)'}}></i>}
+    {motion&&<i style={{left:(44+ph*16+sway)+'%',top:(64+drift*2)+'%',width:'7%',height:'11%',background:'rgba(28,25,21,.8)'}}></i>}
+    <i style={{left:0,top:0,width:'100%',height:'100%',background:'rgba(255,255,255,'+(0.006+jitter*0.004)+')'}}></i>
+  </span>;});
+
+/* ───────────── navigator: archive ribbon ───────────── */
+function Ribbon({L,t,days,selDay,onDay,winA,winB,w,sel}){
+  /* remainder distributed across cells — never floor(), or the ribbon ends short of its track */
+  const base=Math.floor(w/RET),extra=w-base*RET;
+  const widths=Array.from({length:RET},(_,i)=>base+(i<extra?1:0));
+  const compact=base<26,tiny=base<15;
+  let x=0;const lefts=widths.map(v=>{const l=x;x+=v;return l;});
+  const d0=new Date(days[0].t),mon0=days[0].t-((d0.getDay()+6)%7)*DAY;
+  const wkOf=v=>Math.floor((v-mon0)/(7*DAY));
+  const weeks=[];days.forEach((d,i)=>{if(i>0&&new Date(d.t).getDay()===1)weeks.push(lefts[i]);});
+
+  const months=[];days.forEach((d,i)=>{const dt=new Date(d.t);if(dt.getDate()===1&&i>0)months.push([lefts[i],MO[L][dt.getMonth()]]);});
+  return <div className="rib">
+    <div className="riblbl">
+      <span className="k">{t.retention}<em>{sel?wdy(sel.t,L)+' '+new Date(sel.t).getDate():''}</em></span>
+      <span className="v" title={t.dayHasT}>{sel&&sel.total?t.dayHas(durM(sel.total,L),sel.n):t.dayNone}</span>
+    </div>
+    <div className="ribtrack">
+      {days.map((d,i)=>{const has=d.total>0,sel=i===selDay;
+        return <button key={i} className={'day'+(has?' has':' none')+(wkOf(d.t)%2?' wkB':'')+(sel?' sel':'')+(d.today?' today':'')}
+          style={{width:widths[i]}} disabled={!has}
+          title={wdy(d.t,L)+' '+dmy(d.t,L)+(has?' · '+t.segs(d.n)+' · '+dur(d.total,L):' · —')}
+          onClick={()=>has&&onDay(i)}>
+          {!tiny&&<span className="wd">{compact?WD1[L][new Date(d.t).getDay()]:wdy(d.t,L)}</span>}
+          {!compact&&<span className="dn">{new Date(d.t).getDate()}</span>}
+          <span className="dens"><i style={{height:has?Math.max(1,Math.round(d.frac*4))+'px':'0'}}></i></span>
+          {sel&&winA!=null&&<span className="win" style={{left:(winA*100)+'%',width:Math.max(2/widths[i]*100,(winB-winA)*100)+'%'}}></span>}
+        </button>;})}
+      {weeks.map((l,i)=><span key={'w'+i} className="wdiv" style={{left:l}}></span>)}
+      {months.map(([l,m],i)=><React.Fragment key={i}>
+        <span className="mdiv" style={{left:l}}></span><span className="mlbl" style={{left:l}}>{m}</span>
+      </React.Fragment>)}
+    </div>
+  </div>;}
+
+function Calendar({L,t,days,selDay,onDay}){
+  const [anchor,setAnchor]=useState(()=>{const d=new Date(days[selDay]?days[selDay].t:TODAY);return new Date(d.getFullYear(),d.getMonth(),1).getTime();});
+  useEffect(()=>{const d=days[selDay];if(!d)return;const t0=new Date(d.t);
+    setAnchor(new Date(t0.getFullYear(),t0.getMonth(),1).getTime());},[selDay,days]);
+  const first=new Date(anchor),y=first.getFullYear(),mo=first.getMonth();
+  const lead=(first.getDay()+6)%7,dim=new Date(y,mo+1,0).getDate(),rows=Math.ceil((lead+dim)/7),cells=[];
+  for(let i=0;i<rows*7;i++){const t0=new Date(y,mo,1-lead+i).getTime();
+    const idx=Math.round((t0-RET0)/DAY);
+    cells.push({t:t0,inMo:new Date(t0).getMonth()===mo,d:idx>=0&&idx<RET?days[idx]:null,idx});}
+  const canPrev=new Date(y,mo,0).getTime()>=RET0,canNext=new Date(y,mo+1,1).getTime()<=TODAY;
+  return <div className="calbox">
+    <div className="calhd">
+      <button disabled={!canPrev} onClick={()=>canPrev&&setAnchor(new Date(y,mo-1,1).getTime())}>‹</button>
+      <span className="m">{MO[L][mo].toUpperCase()} {y}</span>
+      <button disabled={!canNext} onClick={()=>canNext&&setAnchor(new Date(y,mo+1,1).getTime())}>›</button>
+    </div>
+    <div className="calgrid">
+      {WD1[L].slice(1).concat(WD1[L][0]).map((w,i)=><span className="calwd" key={i}>{w}</span>)}
+      {cells.map((c,i)=>{const has=c.d&&c.d.total>0,sel=c.idx===selDay,out=!c.inMo||!c.d;
+        return <button key={i} disabled={!has}
+          className={'calday'+(out?' out':has?' has':' none')+(sel?' sel':'')+(c.d&&c.d.today?' today':'')}
+          title={has?wdy(c.t,L)+' '+dmy(c.t,L)+' · '+durM(c.d.total,L)+' · '+t.segs(c.d.n):dmy(c.t,L)+' · '+t.calNone}
+          onClick={()=>{if(has)onDay(c.idx);}}>
+          {new Date(c.t).getDate()}
+          {has&&<i></i>}
+        </button>;})}
+    </div>
+  </div>;}
+
+/* ───────────── navigator: ruler + lanes ───────────── */
+function tickStep(span){
+  if(span<=15*MIN)return [MIN,5*MIN];
+  if(span<=HR)return [5*MIN,5*MIN];
+  if(span<=6*HR)return [30*MIN,HR];
+  if(span<=12*HR)return [HR,2*HR];
+  return [HR,3*HR];}
+
+function Lanes({L,t,winS,winE,segs,evs,ph,mark,hov,sel,onHov,onSel,onSeek,showM,fH,mH}){
+  const ref=useRef(null),[drag,setDrag]=useState(null);
+  const span=winE-winS,pct=x=>((x-winS)/span)*100;
+  const [tick,label]=tickStep(span);
+  const ticks=[];for(let x=Math.ceil(winS/tick)*tick;x<winE;x+=tick)ticks.push(x);
+  const xToT=cx=>{const r=ref.current.getBoundingClientRect();
+    return winS+Math.max(0,Math.min(1,(cx-r.left)/r.width))*span;};
+  /* seeking is expensive (p90 ~1s): the drag only previews, and commits ONE seek on release */
+  const down=e=>{const v=xToT(e.clientX);setDrag(v);
+    const mv=m=>setDrag(xToT(m.clientX));
+    const up=m=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);
+      setDrag(null);onSeek(xToT(m.clientX));};
+    window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);};
+  const at=drag!=null?drag:ph;
+  return <div className="lanes">
+    <div className="lanewrap">
+      <div className="lanelbl" style={{paddingTop:15}}>
+        <span style={{color:'var(--good)'}}>{t.footage}</span>
+        {showM&&<span style={{color:'var(--accent)'}}>{t.motion}</span>}
+      </div>
+      <div className="lanetrack" ref={ref} onMouseDown={down}>
+        <div className="ruler">
+          {ticks.map(x=><i key={x} style={{left:pct(x)+'%',height:x%label===0?'100%':'5px'}}></i>)}
+          {ticks.filter(x=>x%label===0).map(x=><span key={x} style={{left:pct(x)+'%'}}>{hm(x)}</span>)}
+        </div>
+        <div className="lane f" style={{height:fH}}>
+          {segs.map(([a,b],i)=><span key={i} className="seg" style={{left:pct(a)+'%',width:Math.max(0.08,pct(b)-pct(a))+'%'}}></span>)}
+          {!segs.length&&<span className="gapmsg">{t.noFootageShort}</span>}
+        </div>
+        {showM&&<div className="lane m" style={{height:mH}}>
+          {evs.map(e=><span key={e.id} className={'mev'+(hov===e.id?' hov':'')+(sel===e.id?' sel':'')}
+            style={{left:pct(e.at)+'%',width:Math.max(0.14,pct(e.at+e.len)-pct(e.at))+'%'}}
+            onMouseEnter={()=>onHov(e.id)} onMouseLeave={()=>onHov(null)}
+            onMouseDown={ev=>{ev.stopPropagation();onSel(e.id);onSeek(e.at);}}></span>)}
+        </div>}
+        {mark&&<span className="mark" style={{left:pct(Math.max(mark[0],winS))+'%',width:Math.max(0.1,pct(Math.min(mark[1],winE))-pct(Math.max(mark[0],winS)))+'%'}}>
+          <em className="a">[</em><em className="b">]</em></span>}
+        {at>=winS&&at<=winE&&<span className="phline" style={{left:pct(at)+'%'}}><b></b>
+          {drag!=null&&<span className="scrubchip">{hms(at)} · {t.dragHint}</span>}</span>}
+      </div>
+    </div>
+  </div>;}
+
+/* ───────────── app ───────────── */
+function App(){
+  const [tw,setTweak]=useTweaks(TWEAK_DEFAULTS);
+  const L=tw.lang,W=parseInt(tw.windowW,10),t=T[L];
+  /* arriving at Playback must land on real footage, never in a gap — a screen that opens on its own
+     honest empty state has failed before the operator has done anything */
+  const newest=useCallback(mode=>{for(let i=RET-1;i>=0;i--){const sg=daySegs(i,mode);
+    if(sg.length){const [a,b]=sg[sg.length-1];return RET0+i*DAY+Math.round(a+(b-a)*.42)+137;}}
+    return NOW-51*MIN;},[]);
+  const [ph,setPh]=useState(()=>newest(TWEAK_DEFAULTS.footage));
+  const [playing,setPlaying]=useState(false);
+  const [rate,setRate]=useState(1);
+  const [ladder,setLadder]=useState(false),[frameMode,setFrameMode]=useState(false),[fs,setFs]=useState(false);
+  const [chkAt,setChkAt]=useState(null);
+  const [spanI,setSpanI]=useState(1);
+  const [showEv,setShowEv]=useState(true);
+  const [showM,setShowM]=useState(true);
+  const [types,setTypes]=useState({motion:true,obj:true});
+  const [hov,setHov]=useState(null),[sel,setSel]=useState(null);
+  const [mark,setMark]=useState(null);
+  const [cache,setCache]=useState(0);
+  const [ribW,setRibW]=useState(1180);
+  const showRib=tw.archive!=='calendar';
+  const STRIP_H=96;
+  const NAV_FIXED=(showRib?42:0)+41,LANE_MIN=18,NAV_MIN=NAV_FIXED+LANE_MIN,NAV0=NAV_FIXED+32,EVW0=296;
+  const [navH,setNavH]=useState(115),[evW,setEvW]=useState(296),[grip,setGrip]=useState(null);
+  const ribRef=useRef(null),raf=useRef(0),last=useRef(0);
+
+  const days=useMemo(()=>Array.from({length:RET},(_,i)=>{
+    const d0=RET0+i*DAY,sg=daySegs(i,tw.footage);
+    const total=sg.reduce((a,[x,y])=>a+(y-x),0);
+    return {t:d0,n:sg.length,total,frac:Math.min(1,total/(6*HR)),today:d0===TODAY};}),[tw.footage]);
+  const arch=days.some(d=>d.total>0);
+
+  const selDay=useMemo(()=>Math.round((dayStart(ph)-RET0)/DAY),[ph]);
+  const span=SPANS[spanI][1];
+  const winS=useMemo(()=>{const d0=RET0+selDay*DAY;
+    return Math.max(d0,Math.min(d0+DAY-span,ph-span/2));},[ph,span,selDay]);
+  const winE=winS+span;
+
+  const allSegs=useMemo(()=>{const out=[];
+    for(let i=Math.max(0,selDay-1);i<=Math.min(RET-1,selDay+1);i++){const d0=RET0+i*DAY;
+      daySegs(i,tw.footage).forEach(([a,b])=>out.push([d0+a,d0+b]));}
+    return out;},[selDay,tw.footage]);
+  const segs=useMemo(()=>allSegs.filter(([a,b])=>b>winS&&a<winE),[allSegs,winS,winE]);
+
+  const allEvs=useMemo(()=>{const out=[];
+    for(let i=Math.max(0,selDay-1);i<=Math.min(RET-1,selDay+1);i++){const d0=RET0+i*DAY;
+      dayEvents(i,tw.events,tw.footage).forEach((e,k)=>out.push({...e,at:d0+e.at,id:i+'-'+k}));}
+    return out;},[selDay,tw.events,tw.footage]);
+  const winEvs=useMemo(()=>allEvs.filter(e=>e.at>=winS&&e.at<=winE),[allEvs,winS,winE]);
+  const shownEvs=useMemo(()=>winEvs.filter(e=>types[e.type]),[winEvs,types]);
+  const lastMotion=useMemo(()=>{const p=allEvs.filter(e=>e.at<=NOW);return p.length?p[p.length-1]:null;},[allEvs]);
+
+  const inFootage=useMemo(()=>allSegs.some(([a,b])=>ph>=a&&ph<=b),[allSegs,ph]);
+  const nearest=useMemo(()=>{let best=null,bd=Infinity;
+    allSegs.forEach(([a,b])=>{const d=ph<a?a-ph:ph>b?ph-b:0;if(d<bd){bd=d;best=ph<a?a:b-1000;}});
+    return best;},[allSegs,ph]);
+  const coverage=useMemo(()=>{const tot=segs.reduce((a,[x,y])=>a+(Math.min(y,winE)-Math.max(x,winS)),0);
+    return {n:segs.length,pct:Math.round(tot/span*100)};},[segs,winS,winE,span]);
+
+  const st=tw.state;
+  const blocked=st==='playbackOff'||st==='sessionError'||(!arch&&st==='normal');
+  const scan=rate>10;
+  const canPlay=!blocked&&inFootage;
+
+  useLayoutEffect(()=>{const el=ribRef.current;if(el)setRibW(el.getBoundingClientRect().width);},[W,L]);
+  useEffect(()=>{if(!ribRef.current||!window.ResizeObserver)return;
+    const ro=new ResizeObserver(()=>{const el=ribRef.current;if(el)setRibW(el.getBoundingClientRect().width);});
+    ro.observe(ribRef.current);return()=>ro.disconnect();},[]);
+
+  useEffect(()=>{if(!playing||!canPlay){cancelAnimationFrame(raf.current);return;}
+    last.current=performance.now();
+    const step=now=>{const dt=now-last.current;last.current=now;
+      applyPh(p=>p+dt*rate);
+      raf.current=requestAnimationFrame(step);};
+    raf.current=requestAnimationFrame(step);
+    return()=>cancelAnimationFrame(raf.current);},[playing,rate,canPlay,applyPh]);
+  useEffect(()=>{if(playing&&!inFootage&&!scan)setPlaying(false);},[inFootage,playing,scan]);
+
+  useEffect(()=>{const n=newest(tw.footage);phRef.current=n;setPh(n);setPlaying(false);setSel(null);setMark(null);},[tw.footage,newest]);
+
+  /* the playhead is read by handlers that can fire twice before a re-render (key repeat, a fast
+     double press). Absolute seeks are values; RELATIVE moves must be functional updates, and the
+     handlers that need "where is the playhead right now" read the ref, never the render closure. */
+  const phRef=useRef(ph);
+  const clampT=v=>Math.max(RET0,Math.min(NOW,v));
+  const applyPh=useCallback(v=>{const n=clampT(typeof v==='function'?v(phRef.current):v);
+    phRef.current=n;setPh(n);},[]);
+  const seek=useCallback(v=>applyPh(v),[applyPh]);
+  const nudge=useCallback(d=>applyPh(p=>p+d),[applyPh]);
+  const markIn=useCallback(()=>{const p=phRef.current;enterFrameRef.current(true);
+    setMark(m=>[p,m&&m[1]>p?m[1]:p+30*S]);},[]);
+  const markOut=useCallback(()=>{const p=phRef.current;enterFrameRef.current(true);
+    setMark(m=>[m&&m[0]<p?m[0]:p-30*S,p]);},[]);
+  const stepFrame=useCallback(d=>{setPlaying(false);applyPh(p=>p+d*40);
+    if(d<0){setCache(c=>c+1);}},[applyPh]);
+  const enterFrame=useCallback(v=>{setFrameMode(f=>{const n=v==null?!f:v;
+    if(n){if(!f){setPlaying(false);setRate(1);}}else{setMark(null);}return n;});},[]);
+  const enterFrameRef=useRef(enterFrame);enterFrameRef.current=enterFrame;
+  const bump=d=>{const i=RATES.indexOf(rate);setRate(RATES[Math.max(0,Math.min(RATES.length-1,i+d))]);};
+  const onDay=useCallback(i=>{const d0=RET0+i*DAY,sg=daySegs(i,tw.footage);
+    applyPh(sg.length?d0+sg[0][0]+Math.min(3*S,(sg[0][1]-sg[0][0])*.3):d0+12*HR);
+    setPlaying(false);},[tw.footage,applyPh]);
+
+  useEffect(()=>{const h=e=>{
+    if(e.target.tagName==='INPUT')return;
+    const c=e.code;
+    if(c==='Space'){e.preventDefault();if(canPlay)setPlaying(p=>!p);return;}
+    if(c==='Comma'){e.preventDefault();stepFrame(-1);return;}
+    if(c==='Period'){e.preventDefault();stepFrame(1);return;}
+    if(c==='KeyF'){e.preventDefault();if(e.shiftKey)setFs(v=>!v);else enterFrame();return;}
+    if(c==='KeyJ'){e.preventDefault();bump(-1);return;}
+    if(c==='KeyK'){e.preventDefault();setPlaying(false);return;}
+    if(c==='KeyL'){e.preventDefault();if(!playing)setPlaying(true);else bump(1);return;}
+    if(c==='ArrowLeft'){e.preventDefault();nudge(-(e.shiftKey?MIN:10*S));return;}
+    if(c==='ArrowRight'){e.preventDefault();nudge(e.shiftKey?MIN:10*S);return;}
+    if(c==='BracketLeft'){e.preventDefault();markIn();return;}
+    if(c==='BracketRight'){e.preventDefault();markOut();return;}
+    /* Escape unwinds ONE layer at a time, most-nested first — fullscreen, then the open ladder, then
+       frame mode, then the selection. A flat handler that clears everything at once is why Escape
+       could destroy a marked range while leaving the operator inside the mode it advertises exiting. */
+    if(c==='Escape'){
+      if(fs){setFs(false);return;}
+      if(ladder){setLadder(false);return;}
+      if(frameMode){enterFrame(false);return;}
+      setSel(null);setMark(null);return;}
+    if(/^Digit[1-5]$/.test(c)){e.preventDefault();setSpanI(+c.slice(5)-1);return;}
+  };
+  window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[playing,canPlay,nudge,markIn,markOut,stepFrame,rate,enterFrame,fs,ladder,frameMode]);
+
+  useEffect(()=>{if(!cache)return;const x=setTimeout(()=>setCache(0),340);return()=>clearTimeout(x);},[cache]);
+
+  const stageRef=useRef(null),[vbox,setVbox]=useState({w:1244,h:700,l:98,tp:0});
+  /* the letterbox is recomputed from a MEASURED stage, but it must not wait to be told: navH and the
+     window width change the stage synchronously, so the fit is keyed on them as well as observed.
+     Relying on the observer alone leaves the frame one drag-step stale — and a frame taller than its
+     stage is cropped, not letterboxed. */
+  const fit=useCallback(()=>{const el=stageRef.current;if(!el)return;
+    const r=el.getBoundingClientRect(),ar=16/9;
+    let w=r.width,h=w/ar;if(h>r.height){h=r.height;w=h*ar;}
+    setVbox(v=>{const n={w:Math.round(w),h:Math.round(h),l:Math.round((r.width-w)/2),tp:Math.round((r.height-h)/2)};
+      return (n.w===v.w&&n.h===v.h&&n.l===v.l&&n.tp===v.tp)?v:n;});},[]);
+  useLayoutEffect(fit,[fit,W,navH,rail,evW,fs,frameMode]);
+  useEffect(()=>{const el=stageRef.current;if(!el||!window.ResizeObserver)return;
+    const ro=new ResizeObserver(fit);ro.observe(el);
+    if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+    return()=>ro.disconnect();},[fit]);
+
+  /* ribbon 42 + header 26 + ruler 15 are fixed; the lanes are the one child that grows */
+  useEffect(()=>{setNavH(NAV0);},[showRib,NAV0]);
+  const laneH=Math.max(LANE_MIN,navH-NAV_FIXED);
+  const fH=showM?Math.max(8,Math.round(laneH*14/32)):laneH,mH=showM?laneH-fH:0;
+  const rail=!fs&&(showEv||!showRib);
+  const rgut=vbox.l+11;
+  const dragGrip=(kind,e)=>{e.preventDefault();e.stopPropagation();setGrip(kind);
+    const y0=e.clientY,x0=e.clientX,h0=navH,w0=evW,lim=document.querySelector('.frame').getBoundingClientRect().height;
+    const mv=m=>{if(kind==='nav')setNavH(Math.max(NAV_MIN,Math.min(Math.round(lim*.52),h0+(y0-m.clientY))));
+      else setEvW(Math.max(232,Math.min(560,w0+(x0-m.clientX))));};
+    const up=()=>{setGrip(null);window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
+    window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);};
+  const evLabel=e=>e.type==='obj'?t.obj:t.mo;
+  const evColor=e=>e.type==='obj'?'var(--info)':'var(--accent)';
+  const winA=(winS-(RET0+selDay*DAY))/DAY,winB=(winE-(RET0+selDay*DAY))/DAY;
+  const dark=blocked||(!inFootage&&st==='normal')||st==='offline'&&false;
+
+  const Banner=()=>{
+    if(st==='playbackOff')return <div className="banner">
+      <span className="bi" style={{background:'var(--accentSoft)',color:'var(--accent)',boxShadow:'inset 0 0 0 1px var(--accentDim)'}}>{t.playback}</span>
+      <span className="bt">{t.pbOff}</span><span className="bs">{t.pbOffSub}</span>
+      <span className="ba"><button>{t.settings}</button></span></div>;
+    if(st==='sessionError')return <div className="banner">
+      <span className="bi" style={{background:'var(--badSoft)',color:'var(--bad)',boxShadow:'inset 0 0 0 1px var(--bad)'}}>ERROR</span>
+      <span className="bt">{t.errT}</span><span className="bs">{t.errSub}</span>
+      <span className="ba"><button>{t.retry}</button></span></div>;
+    if(!arch)return <div className="banner">
+      <span className="bi" style={{background:'var(--panel2)',color:'var(--ink3)',boxShadow:'inset 0 0 0 1px var(--line2)'}}>{t.retention}</span>
+      <span className="bt">{t.emptyArch}</span><span className="bs">{t.emptyArchSub}</span></div>;
+    if(!inFootage)return <div className="banner">
+      <span className="bi" style={{background:'var(--panel2)',color:'var(--ink3)',boxShadow:'inset 0 0 0 1px var(--line2)'}}>{t.footage}</span>
+      <span className="bt">{t.noFootage}</span><span className="bs">{t.noFootageSub}</span>
+      {nearest!=null&&<span className="ba"><button onClick={()=>seek(nearest)}>{t.nearest(hms(nearest))}</button></span>}</div>;
+    return null;};
+
+  return <div className="wrap">
+    <div className="vbar">
+      <span className="vsw">
+        <a href="triage-camera-filter-prototype-B-lanes.html">TRIAGE · LANES</a>
+        <a href="verify-redesign-prototype.html">VERIFY · STRIPS</a>
+        <a href="groups-redesign-prototype.html">GROUPS · WALL</a>
+        <a className="on" href="playback-redesign-prototype.html">PLAYBACK · ONE AXIS</a>
+      </span>
+      <span className="vnote">Click a day in the <b>ARCHIVE</b> ribbon · drag the playhead (seeks on release) · <b>,</b> <b>.</b> step · <b>J K L</b> shuttle · <b>[ ]</b> mark · <b>1–5</b> span</span>
+    </div>
+    <div className="frame" style={{width:W}} data-screen-label="Playback" onMouseDown={()=>setLadder(false)}>
+      {!fs&&<div className="topbar">
+        <div className="tcell"><div className="brand"><div className="b1">CILEX VISION</div><div className="b2">Watchtower<em>a5777c53</em></div></div></div>
+        <div className="tcell grow"><span style={{color:'var(--ink3)'}}>⌕</span>
+          <span className="searchc">{L==='RU'?'Поиск камер, групп, видов, клипов, событий…':'Search cameras, groups, views, clips, events…'}</span>
+          <span className="kbd">CTRL K</span></div>
+        <div className="tcell"><span className="pill"><i style={{background:'var(--good)'}}></i>{L==='RU'?'ОНЛАЙН':'ONLINE'} 39</span></div>
+        <div className="tcell"><span className="pill"><i style={{background:'var(--bad)'}}></i>{L==='RU'?'НЕ В СЕТИ':'OFFLINE'} {st==='offline'?1:0}</span></div>
+        <div className="tcell"><span className="pill"><i style={{background:'var(--accent)'}}></i>{L==='RU'?'НЕ ПИШУТ':'NOT REC'} {st==='recordingOff'?1:0}</span></div>
+        <div className="tcell"><button className={'chk'+(chkAt?' on':'')} title={chkAt?t.chkT(hm(chkAt)):t.chkIdle}
+          onClick={()=>setChkAt(a=>a?null:NOW)}>
+          <span className="ci">{chkAt?'✓':'⊙'}</span>{chkAt?t.chkDone:t.chkIn}</button></div>
+        <div className="tcell"><span className="pill">{hm(NOW)} · UTC+3</span></div>
+        <div className="tcell" style={{padding:0}}><div style={{width:34,height:'100%',background:'var(--accent)',color:'#241a08',display:'grid',placeItems:'center',fontSize:11,fontWeight:700}}>AD</div></div>
+      </div>}
+      {!fs&&<div className="tabstrip"><div className="t">Groups</div><div className="t on">{CAM.name} ({CAM.ip})</div></div>}
+
+      <div className="panes"><div className="stage" ref={stageRef}>
+        <div className="vid" style={{width:vbox.w,height:vbox.h,left:vbox.l,top:vbox.tp}}>
+          {!dark&&<Frame t={ph} motion={shownEvs.some(e=>ph>=e.at&&ph<=e.at+e.len)}/>}
+          <span className="vig"></span>
+        </div>
+        <div className="ovl tl" style={{left:vbox.l+11,top:vbox.tp+11}}>
+          <button className="back" title="Back">‹</button>
+          <span className="chip pb">{t.playback}</span>{scan&&<span className="chip sc">{rateLbl(rate)}</span>}{frameMode&&<span className="chip frm">{t.stripHint}</span>}
+          <span className="camnm">{CAM.name} ({CAM.ip})</span>
+        </div>
+        <div className="ovl tr" style={{right:rgut+2,top:vbox.tp+11}}>
+          <span className={'tstamp'+(W<1300?' small':'')}>
+            <em>{wdy(ph,L)} {dmy(ph,L)} · </em>{hms(ph)}<span className="ms">.{ms3(ph)}</span>
+          </span>
+        </div>
+        {(st==='recordingOff'||st==='offline')&&<div className="ovl" style={{left:vbox.l+11,top:vbox.tp+40}}>
+          <span className="chip" style={{background:st==='offline'?'var(--bad)':'var(--accent)',color:st==='offline'?'#fff':'#241a08'}}>
+            {st==='offline'?(L==='RU'?'НЕ В СЕТИ':'OFFLINE'):(L==='RU'?'ЗАПИСЬ ВЫКЛ':'NOT RECORDING')}</span>
+          <span className="camnm" style={{fontSize:11.5}}>{st==='offline'?t.offlineSub:t.recOffSub}</span>
+        </div>}
+        <Banner/>
+
+        <div className="xbar" style={{paddingLeft:vbox.l+11,paddingRight:rgut}}>
+          <div className="grp">
+            <button className="tb" title={t.back10} onClick={()=>nudge(-10*S)} disabled={blocked}>‹‹</button>
+            <button className="tb" title={t.stepB} onClick={()=>stepFrame(-1)} disabled={blocked}>
+              ❘◀{cache?<span className="cache"></span>:null}</button>
+            <button className="tb pri" title={playing?t.pause:t.play} onClick={()=>canPlay&&setPlaying(p=>!p)} disabled={!canPlay}>
+              {playing?'❚❚':'▶'}</button>
+            <button className="tb" title={t.stepF} onClick={()=>stepFrame(1)} disabled={blocked}>▶❘</button>
+            <button className="tb" title={t.fwd10} onClick={()=>nudge(10*S)} disabled={blocked}>››</button>
+          </div>
+          <div className="grp spd">
+            <button className={'tb'+(scan?' on':'')} title={t.speed} disabled={blocked}
+              onMouseDown={e=>{e.stopPropagation();setLadder(v=>!v);}}>
+              <span className="mn" style={scan?{color:'var(--bad)'}:null}>{rateLbl(rate)}</span>
+              <span style={{fontSize:8,color:'var(--ink3)'}}>▴</span></button>
+            {ladder&&<div className="ladder" onMouseDown={e=>e.stopPropagation()}>
+              {RATES.map((r,i)=><React.Fragment key={r}>
+                {i===6&&<span className="div"></span>}
+                <button className={(r>10?'scan':'')+(r===rate?' on':'')}
+                  onClick={()=>{setRate(r);setLadder(false);}}>{rateLbl(r)}{r>10&&<span style={{fontSize:8}}>▸</span>}</button>
+              </React.Fragment>)}
+            </div>}
+          </div>
+          <span style={{flex:1}}></span>
+          <div className="frmc">
+            <div className="grp">
+              <button className={'tb frm'+(frameMode?' on':'')} title={t.frameT} onClick={()=>enterFrame()} disabled={blocked}>⊞</button>
+              {frameMode&&<>
+                <button className={'tb'+(mark?' on':'')} title={t.markIn} onClick={markIn} disabled={blocked}>
+                  <span className="mn">[</span></button>
+                <button className="tb" title={t.markOut} onClick={markOut} disabled={blocked}>
+                  <span className="mn">]</span></button>
+                <button className="tb evi" title={t.expo} disabled={blocked||!mark}>
+                  <span style={{fontSize:12}}>↥</span><span className="lb">{mark?dur(mark[1]-mark[0],L):(L==='RU'?'Экспорт':'Export')}</span></button>
+              </>}
+            </div>
+          </div>
+          <div className="grp">
+            <button className={'tb'+(fs?' on':'')} title={t.full} onClick={()=>setFs(v=>!v)}>{fs?'⛶✕':'⛶'}</button>
+            <button className="tb evi" title={t.snap} disabled={blocked}><span className="camico"><i></i></span></button>
+            <button className="tb evi" title={t.snapT} disabled={blocked}><span className="camico"><i></i></span><span className="mn" style={{fontSize:9}}>T</span></button>
+            <button className="tb live"><i></i><span className="lb">{t.retLive}</span></button>
+          </div>
+        </div>
+
+      </div>
+        {rail&&<div className="evp" style={{width:evW}}>
+          <span className={'evgrip'+(grip==='ev'?' on':'')} onMouseDown={e=>dragGrip('ev',e)}
+            onDoubleClick={()=>setEvW(EVW0)} title={t.gripW}></span>
+          {!showRib&&<>
+            <div className="evh"><span className="ttl">{t.retention}</span>
+              <span className="n">{days[selDay]?durM(days[selDay].total,L)+' · '+t.segs(days[selDay].n):''}</span></div>
+            <Calendar L={L} t={t} days={days} selDay={selDay} onDay={onDay}/>
+          </>}
+          {showEv&&<>
+          <div className="evh" style={{boxShadow:'inset 0 1px 0 var(--line2),inset 0 -1px 0 var(--line)'}}>
+            <span className="ttl">{t.evList}</span><span className="n">{shownEvs.length}</span>
+            <button className="x" onClick={()=>setShowEv(false)}>✕</button></div>
+          <div className="evf">
+            {['motion','obj'].map(k=><button key={k} className={'evc'+(types[k]?' on':'')}
+              onClick={()=>setTypes(v=>({...v,[k]:!v[k]}))}>
+              <i style={{background:k==='obj'?'var(--info)':'var(--accent)'}}></i>{k==='obj'?t.obj:t.mo}</button>)}
+          </div>
+          <div className="evl">
+            {shownEvs.length===0&&<div className="evempty">{winEvs.length?t.noEventsFiltered:t.noEvents}</div>}
+            {shownEvs.slice().reverse().map(e=><button key={e.id}
+              className={'evr'+(hov===e.id?' hov':'')+(sel===e.id?' sel':'')}
+              onMouseEnter={()=>setHov(e.id)} onMouseLeave={()=>setHov(null)}
+              onClick={()=>{setSel(e.id);seek(e.at);}}>
+              <i style={{background:evColor(e)}}></i>
+              <span className="lb">{evLabel(e)}</span>
+              <span className="tm">{hms(e.at)}</span>
+            </button>)}
+          </div></>}
+        </div>}
+      </div>
+
+      {frameMode&&!fs&&<div className="strip" style={{height:STRIP_H,paddingRight:(rail?evW:0)+12}}>
+        {Array.from({length:9},(_,i)=>i-4).map(d=>{const ft=ph+d*40;
+          return <button key={d} className={'fcell'+(d===0?' cur':'')}
+            onClick={()=>{if(d)seek(ft);}} title={hms(ft)+'.'+ms3(ft)}>
+            <Frame t={ft} motion={shownEvs.some(e=>ft>=e.at&&ft<=e.at+e.len)}/>
+            <em>{hms(ft)}.{ms3(ft)}</em>
+          </button>;})}
+      </div>}
+      {!fs&&<div className="nav" style={{height:navH,position:'relative'}}>
+        <span className={'nvgrip'+(grip==='nav'?' on':'')} onMouseDown={e=>dragGrip('nav',e)}
+          onDoubleClick={()=>setNavH(NAV0)} title={t.gripH}></span>
+        <div ref={ribRef} style={{display:showRib?'flex':'none'}}>
+          <Ribbon L={L} t={t} days={days} selDay={selDay} onDay={onDay} sel={days[selDay]}
+            winA={winA} winB={winB} w={Math.max(200,ribW-120)}/>
+        </div>
+        <div className="nvh">
+          <div className="cell ph">
+            <span className="k">{t.playhead}</span>
+            <span className="v">{wdy(ph,L)} {hms(ph)}</span>
+          </div>
+          <div className="cell">
+            <span className={'cov'+(coverage.n?'':' zero')}>
+              {coverage.n?<><b>{t.segs(coverage.n)}</b> · {coverage.pct}% {t.covered}</>:t.noCoverage}
+            </span>
+          </div>
+          {lastMotion&&<button className="cell" style={{color:'var(--accent)'}} title={t.jumpMotion}
+            onClick={()=>{setSel(lastMotion.id);seek(lastMotion.at);}}>
+            {L==='RU'?'ПОСЛ. ДВИЖЕНИЕ':'LAST MOTION'} {hms(lastMotion.at)} ›</button>}
+          {mark&&<button className="cell" style={{color:'var(--accent)'}} onClick={()=>setMark(null)} title={t.clearMark}>
+            {t.markedFor(dur(mark[1]-mark[0],L))} ✕</button>}
+          <span className="sp"></span>
+          <button className={'cell ghost'+(showM?' on':'')} onClick={()=>setShowM(v=>!v)}>{t.motion}</button>
+          <button className={'cell ghost'+(showEv?' on':'')} onClick={()=>setShowEv(v=>!v)}>{t.events}</button>
+          {SPANS.map(([k],i)=><button key={k} className={'cell'+(spanI===i?' on':'')} onClick={()=>setSpanI(i)}>{k}</button>)}
+        </div>
+        <Lanes L={L} t={t} winS={winS} winE={winE} segs={segs} evs={shownEvs} ph={ph} mark={mark}
+          hov={hov} sel={sel} onHov={setHov} onSel={setSel} onSeek={seek} showM={showM} fH={fH} mH={mH}/>
+      </div>}
+    </div>
+    <TweaksPanel>
+      <TweakSection label="Layout"/>
+      <TweakRadio label="Archive" value={tw.archive} options={['ribbon','calendar']} onChange={v=>setTweak('archive',v)}/>
+      <TweakSection label="Fleet reality"/>
+      <TweakRadio label="Footage" value={tw.footage} options={['sparse','typical','dense']} onChange={v=>setTweak('footage',v)}/>
+      <TweakRadio label="Events" value={tw.events} options={['none','typical','many']} onChange={v=>setTweak('events',v)}/>
+      <TweakSection label="Honest states"/>
+      <TweakRadio label="State" value={tw.state} options={['normal','recordingOff','playbackOff','offline','sessionError']} onChange={v=>setTweak('state',v)}/>
+      <TweakSection label="Review harness"/>
+      <TweakRadio label="Language" value={tw.lang} options={['EN','RU']} onChange={v=>setTweak('lang',v)}/>
+      <TweakRadio label="Window" value={tw.windowW} options={['1440','1200']} onChange={v=>setTweak('windowW',v)}/>
+    </TweaksPanel>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
