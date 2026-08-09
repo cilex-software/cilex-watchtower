@@ -59,6 +59,45 @@ CV's `/admin/fleet`.
   `watchtower.exe`, or the new Warden puts a second wall on the same iGPU. This is
   the single-instance-lock gap `warden/install-windows.ps1:105-113` already flags.
 
+### CV answered the fleet letter — one item is now ACTION FOR THE LINUX AGENT
+
+Reply filed verbatim at
+[`docs/letters/2026-08-07-fleet-offline-wt-sm-vnutri-01.reply.md`](letters/2026-08-07-fleet-offline-wt-sm-vnutri-01.reply.md).
+CV shipped `6b3a381` (deployed) and closed their half. Their DB read
+cross-checks against this box on three independent values (`app_uptime_s 46141`
+= our 01:43:23 start + 46141 s; `last_upload_at` 6 s after `warden_started_at`;
+spool `0/1/0`), so they are reading our row.
+
+- **🔴 ACTION — `X-Watchtower-Station: <hostname>` header, `src/`, Linux agent's
+  PR.** CV asked for §5.4 and **their consuming half is already deployed and
+  waiting**; no real client sends it yet, so our PR's first request is its first
+  live proof (they asked for a line when it lands). Spec: OS hostname (the same
+  string check-in resolves by, e.g. `wt-sm-vnutri-01`), **on every API request**,
+  one static header. Server side sanitises hard (lowercase, ≤63 chars,
+  `[a-z0-9-._]`), joins case-insensitively to an **existing** row only, and
+  attributes **only from an authenticated session**. It buys a traffic signal for
+  `app_last_seen_at` that is independent of Warden's vouching — i.e. it is what
+  makes the **frozen-wall signature** ("Warden says running but the app stopped
+  calling") detectable at all for a NAT'd station. This is shared code, so it
+  cannot come from the Windows box.
+- **🔴→🟢 Our station row was absorbing every tailnet client's traffic.** CV
+  confirmed our reading (a): our `last_seen_ip` was **10.0.0.1** — the docker
+  bridge gateway — written by our own Warden's heartbeat, because everything
+  arriving over Tailscale reaches the query-api container wearing that one
+  address. Consequence neither side had seen: once our beat claimed 10.0.0.1,
+  **a guard opening the mobile app over Tailscale was updating OUR
+  `app_last_seen_at`** — a phone vouching for our wall. Fixed CV-side
+  (`AMBIGUOUS_PEER_IPS` can never claim and never attribute). Conclusion adopted
+  both sides: **client IP is not an identity key on this deployment.**
+- **🟢 CV also fixed the two honesty complaints**: a provisioned row that has
+  never beaten now renders as `never_enrolled` ("token never installed",
+  info-severity) instead of "box is off or unreachable" — so "go check the booth"
+  and "paste a token" are no longer the same row; and the green banner now
+  requires zero unconfirmed clients, going amber otherwise.
+- **⏳ Letter 2 is still unanswered** — CV explicitly scoped their reply to
+  letter 1. `docs/letters/2026-08-09-snapshot-404s-and-empty-heartbeat.md`
+  (17 218 snapshot 404s; empty-body heartbeat returning `healthy`) awaits them.
+
 ## Current status (2026-08-07) — FIRST REAL GUARD STATION IS LIVE on Windows; iGPU measured; 4 install defects found
 
 `wt-sm-vnutri-01` (guard booth, Светлый Мир «Внутри») is installed and running
