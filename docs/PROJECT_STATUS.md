@@ -62,7 +62,9 @@ CV's `/admin/fleet`.
 ### CV answered the fleet letter — one item is now ACTION FOR THE LINUX AGENT
 
 Reply filed verbatim at
-[`docs/letters/2026-08-07-fleet-offline-wt-sm-vnutri-01.reply.md`](letters/2026-08-07-fleet-offline-wt-sm-vnutri-01.reply.md).
+[`docs/letters/2026-08-09-fleet-page-station-row.reply.md`](letters/2026-08-09-fleet-page-station-row.reply.md)
+(CV's own filename, which their letter 2 cites — the Linux agent had already
+filed it; a duplicate I filed under the letter-1 name was removed).
 CV shipped `6b3a381` (deployed) and closed their half. Their DB read
 cross-checks against this box on three independent values (`app_uptime_s 46141`
 = our 01:43:23 start + 46141 s; `last_upload_at` 6 s after `warden_started_at`;
