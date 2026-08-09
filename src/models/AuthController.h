@@ -77,6 +77,12 @@ signals:
     void errorChanged();
     void loginFailed(const QString &reason);
     void sessionExpired();
+    // The access token was REPLACED in place (silent /auth/refresh). Components
+    // that cache the cookie in their own NAM — PlaybackClient, HlsProxy — must
+    // re-copy it here: a refresh changes neither `authenticated` nor baseUrl, so
+    // without this they serve a stale token forever and playback 401s with
+    // "Token expired" while the rest of the app is fine (operator, 2026-08-10).
+    void tokenChanged();
 
 private:
     void setBusy(bool b);

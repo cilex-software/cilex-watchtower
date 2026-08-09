@@ -85,6 +85,13 @@ PlaybackClient::PlaybackClient(QObject *parent)
         QMetaObject::invokeMethod(m_proxy, "setUpstream", Qt::QueuedConnection, Q_ARG(QString, m_baseUrl));
         QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
     });
+    // A silent refresh replaces the token without touching `authenticated` or
+    // baseUrl — the two signals below. Without this connection our private NAM
+    // and the proxy keep the pre-refresh cookie and every session open 401s.
+    connect(auth, &AuthController::tokenChanged, this, [this, auth]() {
+        applyAuthCookie();
+        QMetaObject::invokeMethod(m_proxy, "setAuthToken", Qt::QueuedConnection, Q_ARG(QString, auth->token()));
+    });
     connect(auth, &AuthController::authenticatedChanged, this, [this, auth]() {
         if (auth->authenticated()) {          // (re)login — refresh our + the proxy's cookie
             applyAuthCookie();

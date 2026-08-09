@@ -156,6 +156,7 @@ void AuthController::applyToken(const QString &token)
         emit identityChanged();
         armRenewal();
     }
+    emit tokenChanged();
 }
 
 // Proactive session renewal: a guard's wall must never fall to a sign-in
