@@ -140,6 +140,44 @@ Reply filed verbatim at
   note the go2rtc side is unchanged by the prebuffer fix — our 16 RTSP sessions
   were never the problem — and the box now has CPU headroom after their quota fix.
 
+### 🟢 CLOSED: the soak's junk writes on the live queue — CV found and reverted them
+
+Thread: [`2026-08-10-soak-disposition-audit.md`](letters/2026-08-10-soak-disposition-audit.md)
+→ [`.reply.md`](letters/2026-08-10-soak-disposition-audit.reply.md)
+→ [`.reply2.md`](letters/2026-08-10-soak-disposition-audit.reply2.md).
+
+Our 8 h soak wrote junk into the queue real guards work, and **our own record of
+which events was lost** (the crash-watch monitor's `tail -F` locked the driver's
+action log at 10:02:24 — never tail a log a Windows writer is appending to).
+CV reconstructed it from `audit_logs` and reverted everything in one
+transaction, with 27 `SOAK_REVERT` rows and a preserved before-image.
+
+- **Actual damage was far below our ≤84 bound:** 22 `EVENT_DISPOSITION` rows
+  over 21 events, 5 `EVENT_ACKNOWLEDGE`, 1 `EVENT_BOOKMARK`. The 15:17:49
+  group-create 409'd, so no write exists; the 16 `DELETE`s in the window were
+  our own **mosaic-session teardowns** (by-design reaping, not damage).
+- **No human judgement was overwritten** — the "a guard touched it later"
+  exclusion set was empty, measured. 21 events returned to the open queue: 13
+  are outage-era with no footage, **8 have footage and now await a first real
+  human look**.
+- **Record correction, ours:** the fourth triage button is **`Acknowledge`**
+  (`qml/EvTriage.qml:937`, `kbd:"E"` → `EventsStore.ack()`), NOT a fourth
+  disposition. The three dispositions are `authorized` / `false_alarm` /
+  `dispatched` (`qml/EvTriage.qml:928-933`), matching CV's three observed
+  values exactly. CV's "that button never fired" inference follows from our
+  mislabel — it fired ~21 times and its writes are their 5 acknowledges.
+- **Not a defect:** ~21 clicks → 5 rows because `qml/EvTriage.qml:936` gates the
+  button on `status === "new"`; once disposed it is replaced by a `StateTag`.
+  Checked deliberately, since a control that looks live and does nothing would
+  be a house-rule violation. A window-resize hypothesis was also killed — all 84
+  tour screenshots are 1843×900 (the 1440 width came later, with the 08-09
+  restart).
+- **Policy adopted:** endurance soaks are **read-only by default** from now on;
+  write paths get deliberate, logged, single-purpose tests. A dedicated
+  `soak-bot` account (CV's pick) is an operator action. The disposable-station
+  idea is dropped — events belong to cameras and the site, so a soak station
+  writes into the same queue anyway.
+
 ### 🔴 Station reality: Windows on `wt-sm-vnutri-01` is NOT ACTIVATED
 
 Found 2026-08-09 while reading a screenshot — an «Активация Windows» watermark
