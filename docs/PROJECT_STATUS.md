@@ -94,9 +94,59 @@ spool `0/1/0`), so they are reading our row.
   info-severity) instead of "box is off or unreachable" — so "go check the booth"
   and "paste a token" are no longer the same row; and the green banner now
   requires zero unconfirmed clients, going amber otherwise.
-- **⏳ Letter 2 is still unanswered** — CV explicitly scoped their reply to
-  letter 1. `docs/letters/2026-08-09-snapshot-404s-and-empty-heartbeat.md`
-  (17 218 snapshot 404s; empty-body heartbeat returning `healthy`) awaits them.
+### CV answered letter 2 as well — the 404s were our own P1, and both fixes are verified from this box
+
+Reply filed verbatim at
+[`docs/letters/2026-08-09-snapshot-404s-and-empty-heartbeat.reply.md`](letters/2026-08-09-snapshot-404s-and-empty-heartbeat.reply.md)
+(CV `54d6933`, deployed 18:38Z).
+
+- **The 17 218 snapshot 404s were the motion-without-recording P1, seen from a
+  guard's chair.** `events/<id>/snapshot` does not serve a *stored* still — it
+  **extracts** a JPEG on demand from recorded video, so a 404 means exactly one
+  thing: **no footage covers that moment.** Our 8 h soak window sat inside the
+  outage (13 cameras' prebuffer pipelines dead for days; 65 % of events younger
+  than 5 days had no covering footage). So the answer to "is 36 misses/min the
+  expected steady state" was **no, and it was never a client concern**.
+- **🟢 Verified post-fix from this station, 2026-08-09 23:23–23:25 local**
+  (after CV's 18:38Z deploy): the triage queue now renders **a real still with a
+  duration badge on every visible row**, including camera **`.139`** — one of the
+  three CV named as formerly dead. Compare `scratchpad/calib-events.png` (08-08,
+  many blank tiles) with `scratchpad/postfix-triage.png`. 404s while actively
+  browsing fell to **~17/min from ~36/min**; the residue is expected and
+  permanent — events **born inside the outage window (≈ Aug 5–9)** have no
+  footage that could ever be extracted, and our honest "no frame" tile is the
+  correct rendering for them forever.
+- **🟢 The empty-body heartbeat now 422s — verified independently.** Re-running
+  our exact probe (empty `{}` + the real token) returns **HTTP 422** where it
+  returned `200 "health":"healthy"` this morning. CV also reported a second
+  defect our probe exposed and we had NOT claimed: the heartbeat UPDATE
+  overwrote telemetry wholesale, so `{}` briefly **nulled the row's real
+  telemetry** until the next real beat. Fleet audit found no other thin-beat
+  caller — our probe was the first and last empty beat accepted.
+- **🔴 ACTION — skip the snapshot request when `recording_id` is null (`qml/`).**
+  CV blessed the cheaper negative as contract instead of adding a field: the
+  event payload already carries `recording_id` + `duration_ms`. Encode exactly
+  this: `recording_id: null` → **no episode, the snapshot WILL 404, do not
+  request it**; `recording_id` set + `duration_ms` null → episode still being
+  written, may 404 for ~60 s → the live-frame fallback we already gate correctly;
+  both set → extraction should succeed, and a 404 there is retention (>35 d) or a
+  server defect worth reporting. CV deliberately refused a `has_snapshot` alias
+  ("a second name for one fact is how contracts rot"). Shared code → `win/`
+  branch + PR. Nothing on CV's side waits on it.
+- **⚠️ The wall-pinned soak must be ANNOUNCED to CV before it runs.** They want
+  the window so they can watch their gauges against our decoder trace. They also
+  note the go2rtc side is unchanged by the prebuffer fix — our 16 RTSP sessions
+  were never the problem — and the box now has CPU headroom after their quota fix.
+
+### 🔴 Station reality: Windows on `wt-sm-vnutri-01` is NOT ACTIVATED
+
+Found 2026-08-09 while reading a screenshot — an «Активация Windows» watermark
+now paints over the guard's triage screen, including across the disposition
+buttons. Measured: `SoftwareLicensingProduct.LicenseStatus` resolves to
+**NOTIFICATION — unactivated** (code 5; 1 would be licensed), with
+`GracePeriodRemaining = 0`. This is an operator/licensing
+action, not a code one, but it is a guard booth running a 24/7 wall with a
+nag watermark over the UI. Needs a licence key applied to this machine.
 
 ## Current status (2026-08-07) — FIRST REAL GUARD STATION IS LIVE on Windows; iGPU measured; 4 install defects found
 
