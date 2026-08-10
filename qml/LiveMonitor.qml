@@ -56,12 +56,19 @@ Item {
 
     // "All cameras" + every backend group, for the header group switcher. Reads
     // cameraModel.total so it re-evaluates when the roster/groups (re)load.
+    // The count is groupList()'s `total`, which is computed from OUR roster —
+    // never the backend's /groups camera_count, which counts cameras this client
+    // cannot see (2026-08-10: /groups said Inside 26 · Снаружи 17 where the
+    // roster holds 22 · 14). A dropdown must not promise cameras the wall can't
+    // show. Zero is a real answer and is rendered as one: an empty group used to
+    // look identical to a group of 22 until you clicked it.
     readonly property var groupOpts: {
-        var out = [{ id: "", name: "All cameras" }];
+        var out = [{ id: "", name: "All cameras", count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency
             var gs = cameraModel.groupList();
-            for (var i = 0; i < gs.length; i++) out.push({ id: gs[i].id, name: gs[i].name });
+            for (var i = 0; i < gs.length; i++)
+                out.push({ id: gs[i].id, name: gs[i].name, count: gs[i].total });
         }
         return out;
     }
@@ -832,13 +839,27 @@ Item {
                                 model: root.groupOpts
                                 delegate: Rectangle {
                                     required property var modelData
+                                    readonly property bool isEmpty: modelData.count === 0
                                     width: 220; height: 34
                                     color: grpOptMa.containsMouse ? Theme.panel2 : "transparent"
                                     Text {
-                                        anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                                        width: parent.width - 24 - cntTxt.implicitWidth - 8
                                         text: modelData.name
-                                        color: root.groupId === modelData.id ? Theme.accent : Theme.ink
+                                        // an empty group still scopes (and says "no cameras in X"),
+                                        // so it stays clickable — it just stops looking like a
+                                        // group with cameras in it
+                                        color: root.groupId === modelData.id ? Theme.accent
+                                             : (parent.isEmpty ? Theme.ink3 : Theme.ink)
                                         font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        id: cntTxt
+                                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                                        text: modelData.count
+                                        color: parent.isEmpty ? Theme.ink3
+                                             : (root.groupId === modelData.id ? Theme.accent : Theme.ink2)
+                                        font.family: Theme.fontMono; font.pixelSize: 11
                                     }
                                     MouseArea {
                                         id: grpOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

@@ -528,32 +528,32 @@
 <context>
     <name>LiveMonitor</name>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1475"/>
+        <location filename="../qml/LiveMonitor.qml" line="1496"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1476"/>
+        <location filename="../qml/LiveMonitor.qml" line="1497"/>
         <source>Split %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1478"/>
+        <location filename="../qml/LiveMonitor.qml" line="1499"/>
         <source>Merge %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1480"/>
+        <location filename="../qml/LiveMonitor.qml" line="1501"/>
         <source>Shift+drag to select cells to merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1603"/>
+        <location filename="../qml/LiveMonitor.qml" line="1624"/>
         <source>M — merge · Esc — cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1604"/>
+        <location filename="../qml/LiveMonitor.qml" line="1625"/>
         <source>⇧ drag — merge cells</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1988,8 +1988,18 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="496"/>
+        <location filename="../qml/WallPlayback.qml" line="196"/>
+        <source>“%1” has no cameras to play back.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="510"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="931"/>
+        <source>No cameras in this group</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

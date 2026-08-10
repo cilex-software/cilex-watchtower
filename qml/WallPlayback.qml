@@ -108,12 +108,18 @@ Item {
     // Quick group switch: the wall holds an arbitrary ≤16 set (custom), or a
     // camera group's cameras. wallGroupLabel shows the active group ("" = custom).
     property string wallGroupLabel: ""
+    // Counts come from groupList()'s `total` — computed from OUR roster, never the
+    // backend's /groups camera_count (which counts cameras this client cannot see).
+    // A group with 0 cameras cannot be composited into a wall at all, so here the
+    // row is shown with its count and made inert rather than silently swallowing
+    // the click (operator-reported 2026-08-10: "nothing happens").
     readonly property var groupOpts: {
-        var out = [{ id: "", name: "All cameras" }];
+        var out = [{ id: "", name: "All cameras", count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency
             var gs = cameraModel.groupList();
-            for (var i = 0; i < gs.length; i++) out.push({ id: gs[i].id, name: gs[i].name });
+            for (var i = 0; i < gs.length; i++)
+                out.push({ id: gs[i].id, name: gs[i].name, count: gs[i].total });
         }
         return out;
     }
@@ -181,7 +187,15 @@ Item {
         var out = [];
         for (var i = 0; i < list.length && out.length < 16; i++)
             if (list[i] && list[i].camId) out.push(list[i]);
-        if (out.length === 0) return;
+        // A group that resolves to nothing cannot become a wall. The dropdown
+        // already renders such a group with a 0 and refuses the click, so this is
+        // the backstop for the other way in (every camera in the group failed to
+        // resolve) — and it says so instead of returning in silence, which is what
+        // the operator hit on 2026-08-10.
+        if (out.length === 0) {
+            root.errorText = qsTr("“%1” has no cameras to play back.").arg(label);
+            return;
+        }
         cameras = out;
         wallGroupLabel = label;
         persistLayout();
@@ -891,13 +905,30 @@ Item {
                                             model: root.groupOpts
                                             delegate: Rectangle {
                                                 required property var modelData
+                                                readonly property bool isEmpty: modelData.count === 0
                                                 width: wgCtl.width; height: 30
-                                                color: wgoMa.containsMouse ? Theme.panel2 : "transparent"
-                                                Text { anchors.left: parent.left; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                                                    text: modelData.name; color: root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink
+                                                color: (wgoMa.containsMouse && !isEmpty) ? Theme.panel2 : "transparent"
+                                                Text { anchors.left: parent.left; anchors.leftMargin: 10
+                                                    anchors.right: wgoCnt.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                                                    text: modelData.name
+                                                    color: parent.isEmpty ? Theme.ink3
+                                                         : (root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink)
                                                     font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
-                                                MouseArea { id: wgoMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                    onClicked: { root.loadGroup(modelData.id, modelData.name); wgPopup.close() } }
+                                                Text { id: wgoCnt; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                                                    text: modelData.count
+                                                    color: parent.isEmpty ? Theme.ink3
+                                                         : (root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink2)
+                                                    font.family: Theme.fontMono; font.pixelSize: 11 }
+                                                // 0 cameras cannot become a wall — the row is visibly
+                                                // inert (dimmed, arrow cursor, tooltip) rather than
+                                                // eating the click and leaving the label unchanged.
+                                                MouseArea { id: wgoMa; anchors.fill: parent; hoverEnabled: true
+                                                    cursorShape: parent.isEmpty ? Qt.ArrowCursor : Qt.PointingHandCursor
+                                                    onClicked: { if (parent.isEmpty) return;
+                                                                 root.loadGroup(modelData.id, modelData.name); wgPopup.close() } }
+                                                C.ToolTip.visible: wgoMa.containsMouse && isEmpty
+                                                C.ToolTip.delay: 300
+                                                C.ToolTip.text: qsTr("No cameras in this group")
                                             }
                                         }
                                     }

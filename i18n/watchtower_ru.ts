@@ -531,32 +531,32 @@
 <context>
     <name>LiveMonitor</name>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1475"/>
+        <location filename="../qml/LiveMonitor.qml" line="1496"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation>Объединение недоступно в этой раскладке</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1476"/>
+        <location filename="../qml/LiveMonitor.qml" line="1497"/>
         <source>Split %1×%2</source>
         <translation>Разделить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1478"/>
+        <location filename="../qml/LiveMonitor.qml" line="1499"/>
         <source>Merge %1×%2</source>
         <translation>Объединить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1480"/>
+        <location filename="../qml/LiveMonitor.qml" line="1501"/>
         <source>Shift+drag to select cells to merge</source>
         <translation>Shift+перетаскивание — выделить ячейки для объединения</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1603"/>
+        <location filename="../qml/LiveMonitor.qml" line="1624"/>
         <source>M — merge · Esc — cancel</source>
         <translation>M — объединить · Esc — отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1604"/>
+        <location filename="../qml/LiveMonitor.qml" line="1625"/>
         <source>⇧ drag — merge cells</source>
         <translation>⇧ перетаскивание — объединить ячейки</translation>
     </message>
@@ -1996,9 +1996,19 @@
         <translation>Воспроизведение отключено</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="496"/>
+        <location filename="../qml/WallPlayback.qml" line="196"/>
+        <source>“%1” has no cameras to play back.</source>
+        <translation>В группе «%1» нет камер для воспроизведения.</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="510"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="931"/>
+        <source>No cameras in this group</source>
+        <translation>В этой группе нет камер</translation>
     </message>
 </context>
 <context>
