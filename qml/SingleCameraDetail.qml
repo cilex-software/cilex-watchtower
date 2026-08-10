@@ -403,6 +403,19 @@ Item {
                     id: evList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    // An EMPTY events list used to hold the whole aside open while the
+                    // group grid below was pinned to two rows — so a guard looking at
+                    // one camera got six of its thirteen neighbours and a paragraph of
+                    // white space (operator, 2026-08-10). Space now follows content:
+                    // with no events this collapses to its one honest line and the grid
+                    // takes the rest; with events it keeps a floor so the feed stays
+                    // usable. Both sections still scroll when the panel is short.
+                    Layout.minimumHeight: root._camRows.length > 0 ? 132 : 44
+                    // With a real feed it takes the leftover (a long list is useful);
+                    // with none it stays at its one line so the leftover falls BELOW
+                    // the group grid instead of above it — dead space belongs at the
+                    // bottom of the panel, not between the guard and the neighbours.
+                    Layout.maximumHeight: root._camRows.length > 0 ? 1000000 : 44
                     Layout.leftMargin: 8; Layout.rightMargin: 8
                     clip: true
                     model: root._camRows
@@ -533,7 +546,17 @@ Item {
                     id: sibGrid
                     visible: root.groupSiblings.length > 0
                     Layout.fillWidth: true
-                    Layout.preferredHeight: cellHeight * 2   // two rows; the rest scrolls
+                    // Ask for EVERY sibling, not a fixed two rows: the neighbouring
+                    // cameras are what a guard actually reaches for from a single
+                    // camera, and a scrollbar hid more than half the group. Capped at
+                    // exactly what it needs so it never steals space it won't paint,
+                    // and floored at one row so a short window still shows something —
+                    // between those it shrinks and scrolls as before.
+                    readonly property int sibRows: Math.max(1, Math.ceil(root.groupSiblings.length / Math.max(1, cols)))
+                    Layout.fillHeight: true
+                    Layout.preferredHeight: cellHeight * sibRows
+                    Layout.maximumHeight: cellHeight * sibRows
+                    Layout.minimumHeight: cellHeight
                     Layout.leftMargin: 8; Layout.rightMargin: 8; Layout.bottomMargin: 8
                     clip: true
                     model: root.groupSiblings
@@ -561,6 +584,10 @@ Item {
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.WordWrap
                     verticalAlignment: Text.AlignTop
                 }
+                // Only soaks up slack when the events feed is empty — otherwise the
+                // feed itself should have it, and a permanently-filling spacer would
+                // silently halve the list's growth.
+                Item { Layout.fillWidth: true; Layout.fillHeight: root._camRows.length === 0 }
             }
         }
     }
