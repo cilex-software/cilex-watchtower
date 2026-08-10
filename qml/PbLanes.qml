@@ -32,6 +32,11 @@ Item {
     signal picked(string id, double ms)
     signal zoomRequested(real factor, double atMs)
     signal panRequested(double deltaMs)
+    // Plain left-drag marks an export range — the gesture this scrubber had
+    // before the "One Axis" rebuild (removed by a36a062 along with wheel zoom).
+    // The host owns selStart/selEnd; this only reports.
+    signal markRequested(double s, double e)
+    signal markCleared()
 
     readonly property double span: Math.max(1, winE - winS)
     readonly property real trackW: Math.max(1, width - labelW)
@@ -57,7 +62,12 @@ Item {
 
     // drag state — a preview, never a seek
     property double _dragMs: -1
-    readonly property bool dragging: _dragMs >= 0
+    property double _pressMs: -1
+    property real _pressX: -1
+    property bool _marking: false          // the drag has passed the 4px threshold
+    // While MARKING, this is not a seek gesture: the playhead must not preview and
+    // the "release to seek" chip must not promise a seek that will not happen.
+    readonly property bool dragging: _dragMs >= 0 && !_marking
     readonly property double atMs: dragging ? _dragMs : ph
 
     // ---- label block ------------------------------------------------------
@@ -247,12 +257,39 @@ Item {
             cursorShape: Qt.PointingHandCursor
             acceptedButtons: Qt.LeftButton
             preventStealing: true
-            onPressed: (m) => { lanes._dragMs = lanes.msOf(m.x) }
-            onPositionChanged: (m) => { if (lanes._dragMs >= 0) lanes._dragMs = lanes.msOf(m.x) }
-            onCanceled: lanes._dragMs = -1
+            onPressed: (m) => {
+                lanes._pressX = m.x;
+                lanes._pressMs = lanes.msOf(m.x);
+                lanes._dragMs = lanes._pressMs;
+                lanes._marking = false;
+                lanes.markCleared();                // a fresh press drops the old range
+            }
+            onPositionChanged: (m) => {
+                if (lanes._dragMs < 0) return;
+                // 4px is the same threshold the pre-rebuild scrubber used, and the
+                // same one the 16-camera wall still uses: below it the gesture is a
+                // click that seeks, above it a range drag that does NOT seek.
+                if (!lanes._marking && Math.abs(m.x - lanes._pressX) >= 4)
+                    lanes._marking = true;
+                if (lanes._marking) {
+                    var cur = lanes.msOf(m.x);
+                    lanes.markRequested(Math.min(lanes._pressMs, cur), Math.max(lanes._pressMs, cur));
+                } else {
+                    lanes._dragMs = lanes.msOf(m.x);     // still a seek preview
+                }
+            }
+            onCanceled: { lanes._dragMs = -1; lanes._marking = false; lanes._pressX = -1; }
             onReleased: (m) => {
+                var wasMarking = lanes._marking;
                 var target = lanes.msOf(m.x);
-                lanes._dragMs = -1;
+                lanes._dragMs = -1; lanes._marking = false; lanes._pressX = -1;
+                if (wasMarking) {
+                    // Commit the range. Deliberately NO seek: a drag that both marked
+                    // and jumped would spend a session re-open (p90 986ms) the
+                    // operator did not ask for.
+                    lanes.markRequested(Math.min(lanes._pressMs, target), Math.max(lanes._pressMs, target));
+                    return;
+                }
                 lanes.seekRequested(target);        // EXACTLY ONE seek, on release
             }
             // Wheel = zoom AT THE CURSOR, Shift+wheel = pan — the Premiere / Final

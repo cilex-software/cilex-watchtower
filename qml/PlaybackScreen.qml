@@ -2539,6 +2539,14 @@ Item {
                 motionH: root.motionLaneH
                 onSeekRequested: (ms) => root.seekToWall(ms)
                 onZoomRequested: (factor, atMs) => root.zoomView(factor, atMs)
+                // Plain drag marks the export range. It deliberately does NOT enter
+                // frame mode the way [ and ] do: those are keyboard marks that would
+                // otherwise leave a range with no visible export control, whereas the
+                // transport's range tools already appear on hasSelection — and pausing
+                // playback because the operator dragged would be a side effect nobody
+                // asked for.
+                onMarkRequested: (s, e) => { root.selStartMs = s; root.selEndMs = e }
+                onMarkCleared: root.clearMark()
                 onPanRequested: (deltaMs) => root.panView(deltaMs)
                 onHovered: (id) => root.hoverId = id
                 onPicked: (id, ms) => root.pickItem(id, ms)
