@@ -1561,10 +1561,6 @@ Item {
                     // both are reachable, which a bare Flickable under a full-bleed
                     // MouseArea is not.
                     interactive: false
-                    C.ScrollBar.vertical: C.ScrollBar {
-                        policy: bar.laneContentH > bar.laneAreaH ? C.ScrollBar.AlwaysOn : C.ScrollBar.AlwaysOff
-                        interactive: true
-                    }
                     Item {
                         width: bar.width; height: bar.laneContentH
                         Repeater {
@@ -1620,7 +1616,6 @@ Item {
                                         opacity: 0.45 + 0.45 * modelData.it
                                     }
                                 }
-                                HoverHandler { onHoveredChanged: root.hoverCamera = hovered ? lane.camId : "" }
                             }
                         }
                     }
@@ -1678,13 +1673,19 @@ Item {
                         bar.hoverMs = bar.msOf(m.x);
                         var ly = m.y - bar.laneTop;          // which camera lane is under the cursor
                         bar.hoverLane = (bar.lanesOn && ly >= 0 && ly < bar.laneAreaH && bar.laneH > 0)
-                            ? Math.min(root.laneList.length - 1, Math.floor(ly / bar.laneH)) : -1;
+                            ? Math.min(root.laneList.length - 1, Math.floor((ly + laneFlick.contentY) / bar.laneH)) : -1;
+                        // The shared hoverCamera MUST be set from here. A HoverHandler
+                        // on each lane never fires: this MouseArea is hoverEnabled and
+                        // sits above the lane Flickable, so it consumes hover before
+                        // the lanes see it — the correspondence silently did nothing.
+                        root.hoverCamera = (bar.hoverLane >= 0 && bar.hoverLane < root.laneList.length)
+                            ? root.laneList[bar.hoverLane].camId : "";
                         if (pressed && bar.pressMs >= 0) {     // dragging → tentative selection
                             var a = Math.min(bar.pressMs, bar.hoverMs), b = Math.max(bar.pressMs, bar.hoverMs);
                             root.selStartMs = a; root.selEndMs = b;
                         }
                     }
-                    onExited: { bar.hoverMs = -1; bar.hoverLane = -1; }
+                    onExited: { bar.hoverMs = -1; bar.hoverLane = -1; root.hoverCamera = ""; }
                     onPressed: (m) => { bar.pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1; }
                     onReleased: (m) => {
                         var cur = bar.msOf(m.x);
@@ -1732,6 +1733,24 @@ Item {
                         root.customZoom = true;   // free-form zoom → de-highlight presets, show Fit
                     }
                 }
+                // Lane scrollbar. Declared AFTER the scrub MouseArea and given a z
+                // above it: attached to the Flickable it rendered behind that
+                // full-bleed MouseArea and could never be grabbed — visible, inert,
+                // exactly the silent no-op the house rules forbid.
+                C.ScrollBar {
+                    id: laneSb
+                    z: 30
+                    visible: bar.lanesOn && bar.laneContentH > bar.laneAreaH
+                    orientation: Qt.Vertical
+                    policy: C.ScrollBar.AlwaysOn
+                    interactive: true
+                    x: bar.width - width; y: bar.laneTop
+                    height: bar.laneAreaH
+                    size: bar.laneAreaH / Math.max(1, bar.laneContentH)
+                    position: laneFlick.contentY / Math.max(1, bar.laneContentH)
+                    onPositionChanged: if (pressed) laneFlick.contentY = position * bar.laneContentH
+                }
+
                 // IN→OUT readout — floats over the lanes only while a selection exists
                 Rectangle {
                     visible: root.frags.length > 0 && root.hasSelection
