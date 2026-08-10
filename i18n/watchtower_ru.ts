@@ -508,6 +508,14 @@
     </message>
 </context>
 <context>
+    <name>FrameStrip</name>
+    <message>
+        <location filename="../qml/FrameStrip.qml" line="104"/>
+        <source>No frames cached around this moment — pause to fill the strip</source>
+        <translation>Кадры рядом с этим моментом не закэшированы — поставьте на паузу</translation>
+    </message>
+</context>
+<context>
     <name>HealthScreen</name>
     <message>
         <location filename="../qml/HealthScreen.qml" line="248"/>
@@ -996,7 +1004,7 @@
         <translation>НЕТ ЗАПИСИ В ЭТОМ ОКНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="232"/>
+        <location filename="../qml/PbLanes.qml" line="238"/>
         <source>release to seek</source>
         <translation>отпустите для перехода</translation>
     </message>
@@ -1106,7 +1114,7 @@
         <translation>нет записи за день</translation>
     </message>
     <message>
-        <location filename="../qml/PbRibbon.qml" line="223"/>
+        <location filename="../qml/PbRibbon.qml" line="231"/>
         <source>no footage</source>
         <translation>нет записи</translation>
     </message>
@@ -1197,103 +1205,103 @@
 <context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2067"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2193"/>
         <source>Loading recording…</source>
         <translation>Загрузка записи…</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2079"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2205"/>
         <source>Back</source>
         <translation>Назад</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2084"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2210"/>
         <source>PLAYBACK</source>
         <comment>video mode chip</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2110"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2236"/>
         <source>FRAME-BY-FRAME</source>
         <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2110"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2236"/>
         <source>ESC TO EXIT</source>
         <translation>ESC — ВЫХОД</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2157"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2283"/>
         <source>OFFLINE</source>
         <comment>camera state chip</comment>
         <translation>НЕ В СЕТИ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2158"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2284"/>
         <source>NOT RECORDING</source>
         <comment>camera state chip</comment>
         <translation>ЗАПИСЬ ВЫКЛ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2165"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2291"/>
         <source>Its archive is complete up to the moment it dropped, and is fully playable below.</source>
         <translation>Её архив полон до момента обрыва и полностью доступен ниже.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2166"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2292"/>
         <source>The archive below is everything this camera has. It will not grow while recording is off.</source>
         <translation>Архив ниже — это всё, что есть у камеры. Пока запись выключена, он не пополнится.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2219"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2345"/>
         <source>PLAYBACK</source>
         <comment>honest-state tag</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2221"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2347"/>
         <source>Playback is switched off — recorded playback and export are paused.</source>
         <translation>Воспроизведение выключено — просмотр записи и экспорт приостановлены.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2222"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2348"/>
         <source>An operator turned this off in settings. Live view is unaffected.</source>
         <translation>Оператор выключил это в настройках. На эфир это не влияет.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2223"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2349"/>
         <source>Open settings</source>
         <translation>Открыть настройки</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2229"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2355"/>
         <source>ERROR</source>
         <comment>honest-state tag</comment>
         <translation>ОШИБКА</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2231"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2357"/>
         <source>Could not open a playback session for this camera.</source>
         <translation>Не удалось открыть сессию воспроизведения.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2232"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2358"/>
         <source>The recording service did not answer. Nothing has been lost — this is a connection problem.</source>
         <translation>Служба записи не ответила. Ничего не потеряно — это проблема соединения.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2233"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2359"/>
         <source>Retry</source>
         <translation>Повторить</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2239"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2365"/>
         <source>ARCHIVE</source>
         <comment>honest-state tag</comment>
         <translation>АРХИВ</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/PlaybackScreen.qml" line="2240"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2366"/>
         <source>This camera has no recorded footage in the last %n day(s).</source>
         <translation>
             <numerusform>У этой камеры нет записи за последний %n день.</numerusform>
@@ -1302,33 +1310,33 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2241"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2367"/>
         <source>Nothing to play back. The archive ribbon is empty because the archive is empty.</source>
         <translation>Воспроизводить нечего. Лента архива пуста, потому что пуст архив.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2247"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2373"/>
         <source>FOOTAGE</source>
         <comment>honest-state tag</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2248"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2374"/>
         <source>No footage recorded around this moment.</source>
         <translation>Нет записи в этот момент.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2249"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2375"/>
         <source>The archive has a gap here. The nearest recorded footage is below.</source>
         <translation>Здесь в архиве пропуск. Ближайшая запись — ниже.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2255"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2381"/>
         <source>Nearest footage %1 →</source>
         <translation>Ближайшая запись %1 →</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2443"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2577"/>
         <source>Drag to resize · double-click to reset</source>
         <translation>Потяните, чтобы изменить высоту · двойной щелчок — сброс</translation>
     </message>

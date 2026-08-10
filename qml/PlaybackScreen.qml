@@ -37,6 +37,7 @@ Item {
     property bool _seekReopen: false   // true => the next session-ready is a far-seek re-open, keep the timeline
     property bool _continuous: false   // continuous-timeline session ⇒ seek directly within the loaded run
     property int _frameSeq: 0          // ++ on every rendered frame — input to the freeze-watchdog
+    property bool _frameModeRepause: false   // re-open under frame mode: pause on the first frame
     property int _seekWatchSeq: -1     // _frameSeq when a direct continuous seek was issued; -1 = idle
     property double _seekWatchWall: 0  // that seek's target, for the watchdog's fallback re-open
     // Zoomable scrubber view — a subset of [tlStartMs, tlEndMs] so you can zoom
@@ -391,6 +392,19 @@ Item {
         function onVideoFrameChanged(frame) {
             root._frameSeq++;
             if (player.position > root._maxPosSeen) root._maxPosSeen = player.position;
+            // A re-open under frame mode: the new session needed play() to decode
+            // anything, so park it on the very first frame it delivers and re-seed
+            // the strip's centre tile from it — the enterFrameMode() pairing.
+            if (root._frameModeRepause) {
+                root._frameModeRepause = false;
+                if (root.frameMode) {
+                    root.paused = true;
+                    root.applyTransport();
+                    FrameClock.attach(vout.videoSink);
+                    FrameCache.attach(vout.videoSink);
+                    FrameCache.captureCurrent();
+                }
+            }
             if (root._ttffPending) {       // first frame of a fresh open — the TTFF endpoint
                 root._ttffPending = false;
                 root.lastTtffMs = Date.now() - root._obT0;
@@ -963,12 +977,22 @@ Item {
                     return;
                 }
             }
-            root.playSpeed = 1; root.paused = false; root._scanPos = -1;   // fresh session → 1× play
+            root.playSpeed = 1; root._scanPos = -1;
+            // Frame mode is a PAUSED mode, and a re-open must not quietly leave it.
+            // It used to: a far seek / window roll / day change landed here, dropped
+            // the frame cache (correctly — the PTS domain changed) and started 1×
+            // playback underneath the filmstrip. The cursor was then moving, so no
+            // slot could resolve against the refilled cache and every cell fell back
+            // to its placeholder dot while the picture played on. Operator-reported
+            // 2026-08-10 ("all frames in the strip disappeared"); measured as
+            // lit=0/9 with cache=288f for 60 s+.
+            root.paused = root.frameMode;
+            root._frameModeRepause = root.frameMode;
             scanTimer.stop(); player.playbackRate = 1;
             stepper.invalidate();                       // new source: cached frames are stale
             player.source = root.client.playlistUrl(sid);
             if (typeof MemTel !== "undefined") MemTel.noteOpen();
-            player.play();
+            player.play();      // decode must start for a frame to land; _frameModeRepause parks it there
             root._ttffPending = true;      // next rendered frame completes the TTFF measurement
             if (root._pbTime) console.log("[PBTIME] source_set dt=" + (Date.now() - root._obT0)
                                           + "ms marshal=" + (Date.now() - _tReady) + "ms tag=" + root._obTag);
@@ -1218,6 +1242,75 @@ Item {
         }
     }
     property bool _pbDemoDone: false
+
+    // ===== filmstrip-blank investigation (WT_TRACE) =========================
+    // The strip empties when EITHER FrameClock.lastPtsMs goes <= 0 (every slot
+    // resolves off it) OR the cache empties. Sample both, plus everything that
+    // could drive them, so the ORDER of events is readable rather than guessed.
+    function _xt(s) {
+        if (typeof wtTrace !== "undefined" && wtTrace)
+            console.log("[STRIP] " + s + " t=" + Date.now());
+    }
+    Timer {
+        interval: 300; repeat: true
+        running: (typeof wtTrace !== "undefined") && wtTrace && root.frameMode
+        onTriggered: {
+            var lit = 0;
+            for (var i = 0; i < 9; i++) if (frameStripItem.ptsForIndex(i) >= 0) lit++;   // pts 0 counts
+            root._xt("strip lit=" + lit + "/9"
+                     + " pts=" + FrameClock.lastPtsMs.toFixed(0)
+                     + " cache=" + FrameCache.frames + "f rev=" + FrameCache.rev
+                     + " loading=" + root.loading + " frags=" + root.frags.length
+                     + " harv=" + harvester.active + "/" + harvester.prearm
+                     + " paused=" + root.paused + " pstate=" + player.playbackState
+                     + " drawer=" + exportDrawer.visible + " vis=" + root.visible);
+        }
+    }
+    // Dev hook: WT_PB_EXPORT drives the REAL export controls once a range is
+    // marked and frame mode is up. 1 = open the drawer only (NO backend write);
+    // 2 = open and confirm (ONE real export job on the live backend).
+    Timer {
+        id: xExport
+        interval: 900; repeat: true
+        property int fired: 0
+        running: (typeof wtPbExport !== "undefined") && wtPbExport > 0 && fired < 2
+        onTriggered: {
+            if (!root.frameMode || !root.hasSelection || root.loading) return;
+            if (fired === 0 && wtPbExport >= 3) {    // re-open / play probes: no drawer in the way
+                fired = 1; interval = 6000; return;
+            }
+            if (fired === 0) {
+                // match the operator's report exactly, and keep the live write tiny
+                root.selEndMs = root.selStartMs + 10000;
+                root._xt("HOOK openExportDrawer (marked "
+                         + Math.round((root.selEndMs - root.selStartMs) / 1000) + "s)");
+                root.openExportDrawer();
+                fired = 1;
+                interval = 2500;      // let the strip settle before the write
+                return;
+            }
+            fired = 2;
+            if (wtPbExport === 3) {          // no export: force a session re-open in frame mode
+                var far = root.playheadMs + 25 * 60000;
+                root._xt("HOOK far seek → session re-open (frameMode=" + root.frameMode + ")");
+                root.seekToWall(far);
+                return;
+            }
+            if (wtPbExport === 4) {          // no export: press play while frame mode is on
+                root._xt("HOOK play under frameMode=" + root.frameMode);
+                root.togglePlay();
+                return;
+            }
+            if (wtPbExport < 2) { root._xt("HOOK stop (drawer-only run)"); return; }
+            root._xt("HOOK confirm export → ONE real job");
+            exportDrawer.confirming = true;
+            exportDrawer.confirmed(exportDrawer.startMs, exportDrawer.endMs, exportDrawer.mode,
+                                   exportDrawer.effectivePurpose, exportDrawer.effectiveQuality,
+                                   exportDrawer.effectiveCompHeight, exportDrawer.overlayTs,
+                                   exportDrawer.overlayName);
+            exportDrawer.close();
+        }
+    }
 
     // Shift+←/→ = ±5 frames (the Premiere "step many" convention, research §5): a burst
     // of single steps chained on the stepper's completion — the busy-guard stays intact
@@ -2520,8 +2613,14 @@ Item {
     // with the fields cilex-vision's API supports today (range + mode).
     function openExportDrawer() {
         if (!hasSelection || !client) return;
+        _xt("openExportDrawer ENTER cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));
         exportDrawer.openWith(camera, camId, selStartMs, selEndMs, tlFrags, playheadMs);
-        vout.grabToImage(function(res) { if (res) exportDrawer.previewSource = res.url; });
+        _xt("openExportDrawer after openWith cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));
+        vout.grabToImage(function(res) {
+            if (res) exportDrawer.previewSource = res.url;
+            root._xt("grabToImage CB cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));
+        });
+        _xt("openExportDrawer EXIT cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));
     }
     // Test-only (WT_GRAB_STORM): one fire-and-forget VideoOutput readback — the same
     // grabToImage path as the export-drawer preview, without the drawer. Used by the
@@ -2543,6 +2642,7 @@ Item {
         z: 50
         onConfirmed: (s, e, mode, purpose, quality, compHeight, burnTs, burnName) => {
             if (!root.client) return;
+            root._xt("export CONFIRMED cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));
             var base = (root.camera && root.camera.name) ? root.camera.name : root.camId;
             var dest = Artifacts.newExportPath(base, "mp4");
             // High = the H.265 main original (hevc_capable=true → ~1440p); Standard =
