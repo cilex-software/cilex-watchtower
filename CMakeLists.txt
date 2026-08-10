@@ -67,7 +67,7 @@ endif()
 # Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
 # This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
 # as `singleton`.
-set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml qml/EventsStore.qml qml/ReconnectCoordinator.qml PROPERTIES
+set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml qml/EventsStore.qml qml/ReconnectCoordinator.qml qml/PbFmt.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(watchtower
@@ -126,6 +126,13 @@ qt_add_qml_module(watchtower
         qml/PtzPanel.qml
         qml/LiveThumb.qml
         qml/PlaybackScreen.qml
+        qml/PbFmt.qml
+        qml/PbRibbon.qml
+        qml/PbNavHeader.qml
+        qml/PbLanes.qml
+        qml/PbTransport.qml
+        qml/PbEventsPanel.qml
+        qml/PbBanner.qml
         qml/FrameStepper.qml
         qml/FrameStrip.qml
         qml/FrameHarvester.qml

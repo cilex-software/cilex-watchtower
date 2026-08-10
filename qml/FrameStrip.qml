@@ -22,9 +22,20 @@ Item {
     id: strip
 
     property double currentPts: -1
-    property int sideSlots: 3                   // neighbors shown each side
+    property int sideSlots: 4                   // neighbors shown each side (9 frames total)
     property var clockOf: null                  // function(ptsMs) → "HH:mm:ss.mmm"
     signal jumpRequested(double pts)
+
+    // Cells FLEX rather than sit at a fixed size (spec §2.4, the filmstrip): a
+    // 171px width cap, an 80px height cap and a 16:9 ratio, so whichever
+    // dimension binds drives the other and the band fits its frames at any
+    // window width, at 1440 and at 1200, with zero overflow.
+    readonly property int slots: 2 * sideSlots + 1
+    readonly property real _gap: 6
+    readonly property real _wByW: Math.min(171, (width - _gap * (slots - 1)) / slots)
+    readonly property real _wByH: Math.min(80, height) * 16 / 9
+    readonly property real cellW: Math.max(24, Math.min(_wByW, _wByH))
+    readonly property real cellH: Math.round(cellW * 9 / 16)
 
     readonly property real _dur: FrameClock.medianFrameDurMs > 1 ? FrameClock.medianFrameDurMs : 50
     // Floor at 130 ms: VFR streams mix 40/80/100 ms intervals while the MEDIAN can
@@ -65,9 +76,9 @@ Item {
 
     Row {
         anchors.centerIn: parent
-        spacing: 8
+        spacing: strip._gap
         Repeater {
-            model: 2 * strip.sideSlots + 1      // FIXED count — delegates persist
+            model: strip.slots                  // FIXED count — delegates persist
             delegate: Rectangle {
                 id: tile
                 required property int index
@@ -75,13 +86,13 @@ Item {
                 readonly property double pts: strip.ptsForIndex(index)
                 property double shownPts: -1    // what's actually painted right now
                 property bool frontA: true
-                width: cur ? Math.round(strip.height * 16 / 9) : Math.round(strip.height * 0.78 * 16 / 9)
-                height: cur ? strip.height : Math.round(strip.height * 0.78)
+                width: strip.cellW
+                height: strip.cellH
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#101010"
+                color: "#141312"
                 border.width: cur ? 2 : 1
-                border.color: cur ? Theme.accent : Theme.line2
-                opacity: cur ? 1.0 : (shownPts > 0 ? 0.85 : 0.45)
+                border.color: cur ? Theme.accent : Theme.line
+                opacity: cur ? 1.0 : (shownPts > 0 ? 0.9 : 0.5)
 
                 function _url(p) { return "image://fcache/" + Math.round(p); }
                 // Double-buffer: load the NEW frame into the back image; swap only
@@ -124,12 +135,13 @@ Item {
                 Rectangle {                       // per-thumb timestamp footer (only over a real frame)
                     visible: tile.shownPts > 0
                     anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-                    height: 14; color: Qt.rgba(0, 0, 0, 0.62)
+                    height: 13; color: tile.cur ? Theme.accent : Qt.rgba(13 / 255, 12 / 255, 11 / 255, 0.78)
                     Text {
                         anchors.centerIn: parent
                         text: tile.shownPts > 0 && strip.clockOf ? strip.clockOf(tile.shownPts) : ""
-                        color: tile.cur ? Theme.accent : Theme.ink2
-                        font.family: Theme.fontMono; font.pixelSize: 9
+                        color: tile.cur ? "#241a08" : "#ffffff"
+                        font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6
+                        font.weight: tile.cur ? Font.Bold : Font.Normal
                     }
                 }
                 MouseArea {

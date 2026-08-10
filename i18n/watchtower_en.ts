@@ -345,8 +345,8 @@
         <location filename="../qml/EvTriage.qml" line="432"/>
         <source>%n event(s)</source>
         <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+            <numerusform>%n event</numerusform>
+            <numerusform>%n events</numerusform>
         </translation>
     </message>
     <message>
@@ -653,22 +653,22 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2109"/>
+        <location filename="../qml/Main.qml" line="2116"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2114"/>
+        <location filename="../qml/Main.qml" line="2121"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2128"/>
+        <location filename="../qml/Main.qml" line="2135"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2132"/>
+        <location filename="../qml/Main.qml" line="2139"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -730,80 +730,598 @@
     </message>
 </context>
 <context>
+    <name>PbEventsPanel</name>
+    <message>
+        <location filename="../qml/PbEventsPanel.qml" line="64"/>
+        <source>Drag to resize · double-click to reset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbEventsPanel.qml" line="77"/>
+        <source>EVENTS</source>
+        <comment>playback right rail header</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbEventsPanel.qml" line="140"/>
+        <source>No events of the selected types in this window.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbEventsPanel.qml" line="141"/>
+        <source>No events in this window.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PbFmt</name>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="18"/>
+        <source>Sun</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="18"/>
+        <source>Mon</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="18"/>
+        <source>Tue</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="19"/>
+        <source>Wed</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="19"/>
+        <source>Thu</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="19"/>
+        <source>Fri</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="20"/>
+        <source>Sat</source>
+        <comment>weekday, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="24"/>
+        <source>S</source>
+        <comment>weekday, one letter: Sunday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="24"/>
+        <source>M</source>
+        <comment>weekday, one letter: Monday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="25"/>
+        <source>T</source>
+        <comment>weekday, one letter: Tuesday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="25"/>
+        <source>W</source>
+        <comment>weekday, one letter: Wednesday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="26"/>
+        <source>T</source>
+        <comment>weekday, one letter: Thursday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="26"/>
+        <source>F</source>
+        <comment>weekday, one letter: Friday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="27"/>
+        <source>S</source>
+        <comment>weekday, one letter: Saturday</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="30"/>
+        <source>Jan</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="30"/>
+        <source>Feb</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="30"/>
+        <source>Mar</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="31"/>
+        <source>Apr</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="31"/>
+        <source>May</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="31"/>
+        <source>Jun</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="32"/>
+        <source>Jul</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="32"/>
+        <source>Aug</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="32"/>
+        <source>Sep</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="33"/>
+        <source>Oct</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="33"/>
+        <source>Nov</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="33"/>
+        <source>Dec</source>
+        <comment>month, short</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="56"/>
+        <location filename="../qml/PbFmt.qml" line="59"/>
+        <source>s</source>
+        <comment>seconds, compact duration suffix</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="58"/>
+        <location filename="../qml/PbFmt.qml" line="62"/>
+        <location filename="../qml/PbFmt.qml" line="67"/>
+        <location filename="../qml/PbFmt.qml" line="70"/>
+        <source>m</source>
+        <comment>minutes, compact duration suffix</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbFmt.qml" line="61"/>
+        <location filename="../qml/PbFmt.qml" line="69"/>
+        <source>h</source>
+        <comment>hours, compact duration suffix</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/PbFmt.qml" line="74"/>
+        <source>%n segment(s)</source>
+        <comment>recorded segments in the loaded window</comment>
+        <translation>
+            <numerusform>%n segment</numerusform>
+            <numerusform>%n segments</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/PbFmt.qml" line="75"/>
+        <source>%n clip(s)</source>
+        <comment>recorded segments on one archive day</comment>
+        <translation>
+            <numerusform>%n clip</numerusform>
+            <numerusform>%n clips</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/PbFmt.qml" line="76"/>
+        <source>%n day(s) w/ footage</source>
+        <translation>
+            <numerusform>%n day w/ footage</numerusform>
+            <numerusform>%n days w/ footage</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/PbFmt.qml" line="77"/>
+        <source>%n event(s)</source>
+        <translation>
+            <numerusform>%n event</numerusform>
+            <numerusform>%n events</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>PbLanes</name>
+    <message>
+        <location filename="../qml/PbLanes.qml" line="70"/>
+        <source>FOOTAGE</source>
+        <comment>playback lane label</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbLanes.qml" line="72"/>
+        <source>MOTION</source>
+        <comment>playback lane label</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbLanes.qml" line="131"/>
+        <source>NO FOOTAGE IN THIS WINDOW</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbLanes.qml" line="232"/>
+        <source>release to seek</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PbNavHeader</name>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="86"/>
+        <source>PLAYHEAD</source>
+        <comment>playback navigator header</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="109"/>
+        <source>no footage in this window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="110"/>
+        <source>%1% covered</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="120"/>
+        <source>LAST MOTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="121"/>
+        <source>Jump to the newest motion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="129"/>
+        <source>MARKED</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="130"/>
+        <source>Clear the marked range</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="139"/>
+        <source>MOTION</source>
+        <comment>navigator toggle</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="140"/>
+        <source>Show or hide the motion lane</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="146"/>
+        <source>EVENTS</source>
+        <comment>navigator toggle</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="147"/>
+        <source>Show or hide the events column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="151"/>
+        <source>15M</source>
+        <comment>span button</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="151"/>
+        <source>1H</source>
+        <comment>span button</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="152"/>
+        <source>6H</source>
+        <comment>span button</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="152"/>
+        <source>12H</source>
+        <comment>span button</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="153"/>
+        <source>24H</source>
+        <comment>span button</comment>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PbRibbon</name>
+    <message>
+        <location filename="../qml/PbRibbon.qml" line="90"/>
+        <source>ARCHIVE</source>
+        <comment>playback navigator tier 1</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbRibbon.qml" line="110"/>
+        <source>no footage this day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbRibbon.qml" line="223"/>
+        <source>no footage</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PbTransport</name>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="138"/>
+        <source>Back 10 s ←</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="141"/>
+        <source>Step back one frame ,</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="152"/>
+        <source>Pause Space</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="152"/>
+        <source>Play Space</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="154"/>
+        <source>Step forward one frame .</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="156"/>
+        <source>Forward 10 s →</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="170"/>
+        <source>Playback rate — J / L. Above 10× the picture skips ahead to keep up.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="255"/>
+        <source>Frame-by-frame F</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="257"/>
+        <source>Mark in [</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="259"/>
+        <source>Mark out ]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="265"/>
+        <source>Export</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="267"/>
+        <source>Export marked range X</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="278"/>
+        <source>Fullscreen Shift F</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="280"/>
+        <source>Snapshot S</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="283"/>
+        <source>Snapshot with timestamp Shift S</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PbTransport.qml" line="299"/>
+        <source>Return to Live</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1821"/>
-        <source>Playback unavailable</source>
+        <location filename="../qml/PlaybackScreen.qml" line="2067"/>
+        <source>Loading recording…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1825"/>
-        <source>Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.</source>
+        <location filename="../qml/PlaybackScreen.qml" line="2079"/>
+        <source>Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1876"/>
-        <source>Export Clip</source>
+        <location filename="../qml/PlaybackScreen.qml" line="2084"/>
+        <source>PLAYBACK</source>
+        <comment>video mode chip</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1900"/>
-        <source>Back 10s</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1901"/>
-        <source>Step back one frame</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1905"/>
-        <source>Play / pause</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1907"/>
-        <source>Step forward one frame</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1910"/>
-        <source>Forward 10s</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1948"/>
-        <source>Snapshot</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1949"/>
-        <source>Snapshot with timestamp</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1950"/>
-        <source>Fullscreen</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2009"/>
-        <source>Last motion</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2133"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2110"/>
         <source>FRAME-BY-FRAME</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2133"/>
-        <source>F / Esc to exit</source>
+        <location filename="../qml/PlaybackScreen.qml" line="2110"/>
+        <source>ESC TO EXIT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2157"/>
+        <source>OFFLINE</source>
+        <comment>camera state chip</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2158"/>
+        <source>NOT RECORDING</source>
+        <comment>camera state chip</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2165"/>
+        <source>Its archive is complete up to the moment it dropped, and is fully playable below.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2166"/>
+        <source>The archive below is everything this camera has. It will not grow while recording is off.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/PlaybackScreen.qml" line="2219"/>
-        <source>No recording</source>
+        <source>PLAYBACK</source>
+        <comment>honest-state tag</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2221"/>
+        <source>Playback is switched off — recorded playback and export are paused.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2222"/>
+        <source>An operator turned this off in settings. Live view is unaffected.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2223"/>
+        <source>Open settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2229"/>
+        <source>ERROR</source>
+        <comment>honest-state tag</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2231"/>
+        <source>Could not open a playback session for this camera.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2232"/>
+        <source>The recording service did not answer. Nothing has been lost — this is a connection problem.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2233"/>
+        <source>Retry</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2239"/>
+        <source>ARCHIVE</source>
+        <comment>honest-state tag</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/PlaybackScreen.qml" line="2240"/>
+        <source>This camera has no recorded footage in the last %n day(s).</source>
+        <translation>
+            <numerusform>This camera has no recorded footage in the last %n day.</numerusform>
+            <numerusform>This camera has no recorded footage in the last %n days.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2241"/>
+        <source>Nothing to play back. The archive ribbon is empty because the archive is empty.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2247"/>
+        <source>FOOTAGE</source>
+        <comment>honest-state tag</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2248"/>
+        <source>No footage recorded around this moment.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2249"/>
+        <source>The archive has a gap here. The nearest recorded footage is below.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2255"/>
+        <source>Nearest footage %1 →</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PlaybackScreen.qml" line="2443"/>
+        <source>Drag to resize · double-click to reset</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

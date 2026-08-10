@@ -79,17 +79,24 @@ void LanguageController::apply(const QString &code)
         m_translator = nullptr;
     }
 
-    // English is the SOURCE language (qsTr() literals are English) — no translator needed.
-    // For Russian, load the embedded .qm (qt_add_translations puts it at :/i18n/).
-    if (code != QStringLiteral("en")) {
-        auto *tr = new QTranslator(this);
-        if (tr->load(QStringLiteral("watchtower_") + code, QStringLiteral(":/i18n"))) {
-            QCoreApplication::installTranslator(tr);
-            m_translator = tr;
-        } else {
+    // Load the embedded .qm for every language, English included
+    // (qt_add_translations puts them at :/i18n/).
+    //
+    // English IS the source language, so its catalogue is almost entirely
+    // unfinished and lrelease drops those entries — the source literal is used,
+    // exactly as before. It is loaded anyway for the one thing a source-language
+    // catalogue is genuinely needed for: PLURALS. Without a catalogue Qt cannot
+    // choose a form, it only substitutes %n into the source, so `%n segment(s)`
+    // printed literally as "465 segment(s)" on the Playback coverage readout
+    // (observed on screen, 2026-08-10). The EN catalogue carries the two forms.
+    auto *tr = new QTranslator(this);
+    if (tr->load(QStringLiteral("watchtower_") + code, QStringLiteral(":/i18n"))) {
+        QCoreApplication::installTranslator(tr);
+        m_translator = tr;
+    } else {
+        if (code != QStringLiteral("en"))
             qWarning() << "[i18n] no translation embedded for" << code << "— falling back to English";
-            delete tr;
-        }
+        delete tr;
     }
 
     m_language = code;

@@ -1635,7 +1635,12 @@ Window {
     // stays the fullscreen toggle. F11 = fullscreen always (desktop standard).
     Shortcut { sequence: "F"; enabled: !playbackScreen.visible; onActivated: win.fullscreen = !win.fullscreen }
     Shortcut { sequence: "F11"; onActivated: win.fullscreen = !win.fullscreen }
-    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.frameMode) playbackScreen.exitFrameMode(); else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0 || liveMonitor.mergeSel !== null)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
+    // Escape unwinds ONE layer at a time. On Playback the layering is the
+    // screen's own (fullscreen → speed ladder → frame mode → selection and
+    // mark), so it is delegated: escapeLayer() returns true when it consumed a
+    // layer. Written flat here it cleared a marked range while leaving the
+    // operator inside the very mode the on-picture chip advertises exiting.
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.escapeLayer()) { } else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0 || liveMonitor.mergeSel !== null)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
@@ -1842,7 +1847,9 @@ Window {
                     cameraModel: cameraModel
                     onClosed: win.playbackCamera = null
                     onReturnToLive: { win.mainTabCamera = null; win.activateTab(0) }
-                    onFullscreenRequested: win.fullscreen = true
+                    fullscreenOn: win.fullscreen
+                    onFullscreenRequested: win.fullscreen = !win.fullscreen
+                    onOpenSettingsRequested: win.openPreferences()
                     onSnapshotSaved: (path, camName) => toastHost.show(
                         "Snapshot captured", camName + " · saved to Pictures/Watchtower",
                         "accent", "Open", "file://" + path)

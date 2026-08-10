@@ -492,6 +492,11 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));
+    // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
+    // export range once the session renders. They drive the real controls, so
+    // a verification screenshot shows the shipped behaviour, not a mock.
+    engine.rootContext()->setContextProperty("wtPbLadder", qEnvironmentVariableIsSet("WT_PB_LADDER"));
+    engine.rootContext()->setContextProperty("wtPbMark", qEnvironmentVariableIsSet("WT_PB_MARK"));
     // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
     engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));
     // WT_CHURNTEST=<N>: session-churn soak (P0 2026-07-10) — N openForDay switches between
