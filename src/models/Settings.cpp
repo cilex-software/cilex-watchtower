@@ -21,6 +21,9 @@ Settings::Settings(QObject *parent)
     m_triageQueueCollapsed = m_settings.value(QStringLiteral("events/triageQueueCollapsed"), false).toBool();
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
+    m_pbNavH = m_settings.value(QStringLiteral("playback/navHeight"), 115).toInt();
+    m_pbPanelW = m_settings.value(QStringLiteral("playback/panelWidth"), 296).toInt();
+    m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
 }
@@ -233,6 +236,39 @@ void Settings::setGroupsPaneW(int v)
     m_groupsPaneW = v;
     m_settings.setValue(QStringLiteral("groups/paneWidth"), v);
     emit groupsPaneWChanged();
+}
+
+// Playback navigator height. The floor is 101 = 83 fixed chrome (ribbon 42 +
+// header 26 + ruler 15) + the lanes' own 18px minimum — ONE number shared by the
+// clamp and the lane arithmetic, so the drag can never reach a position where the
+// lanes are taller than the space left for them (spec §2.2b).
+void Settings::setPbNavH(int v)
+{
+    v = qBound(101, v, 620);
+    if (m_pbNavH == v)
+        return;
+    m_pbNavH = v;
+    m_settings.setValue(QStringLiteral("playback/navHeight"), v);
+    emit pbNavHChanged();
+}
+
+void Settings::setPbPanelW(int v)
+{
+    v = qBound(232, v, 560);
+    if (m_pbPanelW == v)
+        return;
+    m_pbPanelW = v;
+    m_settings.setValue(QStringLiteral("playback/panelWidth"), v);
+    emit pbPanelWChanged();
+}
+
+void Settings::setPbEventsPanel(bool v)
+{
+    if (m_pbEventsPanel == v)
+        return;
+    m_pbEventsPanel = v;
+    m_settings.setValue(QStringLiteral("playback/eventsPanel"), v);
+    emit pbEventsPanelChanged();
 }
 
 void Settings::setTriageBodyH(int v)

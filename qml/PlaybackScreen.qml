@@ -58,12 +58,12 @@ Item {
     // client.loggedIn is read for its NOTIFY: cameraIdForIp() is a plain lookup
     // into a map that only fills once the client's /streams resolves — without
     // the loggedIn dependency, a fast boot evaluated this to "" and it STAYED ""
-    // (silently disabling hover thumbs, the day strip, everything camId-keyed).
+    // (silently disabling coverage, the ribbon, everything camId-keyed).
     readonly property string camId: (client && client.loggedIn && camera)
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
-    // The day strip is requested ONCE at open — if that ran before camId resolved
-    // (the same boot race), re-request it the moment the id lands.
-    onCamIdChanged: if (camId !== "" && selectedDay !== "" && dayTiles.length === 0) requestDayStrip()
+    // Coverage feeds the archive ribbon; if the first request ran before camId
+    // resolved (the same boot race), re-issue it the moment the id lands.
+    onCamIdChanged: if (camId !== "" && client) client.fetchCoverage(camId)
 
     // ---- events on the scrubber: motion episodes + point events ----------
     // Motion = amber spans; other event types = point ticks. Sources below:
@@ -104,7 +104,10 @@ Item {
     // per-type show/hide (legend keys: "motion" for the span lane, raw event_type
     // for point ticks). Persisted in Settings.hiddenScrubberEventTypes.
     function typeHidden(key) { return Settings.hiddenScrubberEventTypes.indexOf(key) >= 0; }
-    function typeVisible(key) { return Settings.eventsOnScrubber && !typeHidden(key); }
+    // Type visibility is the CHIPS only. Whether the motion lane is drawn at all
+    // is the navigator header's MOTION toggle (Settings.eventsOnScrubber) — two
+    // different questions that used to share one predicate.
+    function typeVisible(key) { return !typeHidden(key); }
     function toggleType(key) {
         var h = Settings.hiddenScrubberEventTypes.slice(), i = h.indexOf(key);
         if (i >= 0) h.splice(i, 1); else h.push(key);
@@ -599,83 +602,12 @@ Item {
     }
     property string selectedDay: ""        // "yyyy-MM-dd" loaded from the calendar, else ""
 
-    // ---- /review/thumbnails consumers (CV v1, frozen contract 2026-07-12) ----
-    // #1 hover preview: 1 keyframe tile near the hovered instant (json format).
-    // #2 day-overview strip: 24 keyframe tiles across the loaded day (sprite).
-    property var hoverThumb: null          // {dataUrl, wallTime} | null
-    property double _hoverWallMs: -1
-    property var _hoverCache: ({})         // minute-bucket → tile (session-scoped)
-    property var dayTiles: []              // 24 sprite tiles (x/width/wallTime or gap)
-    property string daySprite: ""          // data: URL of the sheet
-    property string _dayTilesFor: ""       // camId|day the strip belongs to
-    // Strip shows only when it carries at least one REAL tile: on sparse
-    // motion days the 24 even samples can all land in dead air — a row of 24
-    // gap glyphs is noise, not information (honest-empty ≠ empty-noise).
-    readonly property bool _dayHasTiles: {
-        for (var i = 0; i < dayTiles.length; i++)
-            if (dayTiles[i].tileUrl && dayTiles[i].tileUrl !== "") return true;
-        return false;
-    }
-    readonly property bool _dayStripOn: selectedDay !== "" && _dayHasTiles && !frameMode
-    function requestHoverThumb(wallMs) {
-        _hoverWallMs = wallMs;
-        var bucket = camId + "|" + Math.round(wallMs / 60000);
-        if (_hoverCache[bucket]) { hoverThumb = _hoverCache[bucket]; return; }
-        hoverDebounce.restart();
-    }
-    Timer {
-        id: hoverDebounce
-        interval: 160
-        onTriggered: {
-            if (root._hoverWallMs < 0 || !root.client || root.camId === "") return;
-            root.client.fetchThumbnails(root.camId, "hover|" + Math.round(root._hoverWallMs / 60000),
-                new Date(root._hoverWallMs - 30000).toISOString(),
-                new Date(root._hoverWallMs + 30000).toISOString(), 1, 96);
-        }
-    }
-    // Dev pilot: WT_HOVERSHOT=1 forces the scrubber hover preview at ~62% of the
-    // view once the timeline is live — deterministic screenshot verification of
-    // its placement (the card must float ABOVE the track, never cover it).
-    Timer {
-        interval: 1200; repeat: true
-        running: typeof wtHoverShot !== "undefined" && wtHoverShot && root.visible
-        onTriggered: {
-            if (!(root.tlEndMs > root.tlStartMs)) return;
-            var ms = root.viewStartMs + 0.62 * (root.viewEndMs - root.viewStartMs);
-            bar.hoverMs = ms;
-            bar.hoverX = bar.xOf(ms);
-            root.requestHoverThumb(ms);
-        }
-    }
-    function requestDayStrip() {
-        if (!client || camId === "" || selectedDay === "") return;
-        var key = camId + "|" + selectedDay;
-        if (_dayTilesFor === key && dayTiles.length) return;      // cached this session
-        var start = new Date(selectedDay + "T00:00:00");
-        var end = new Date(Math.min(start.getTime() + 86400000, Date.now()));
-        client.fetchThumbnails(camId, "daystrip|" + key,
-                               start.toISOString(), end.toISOString(),
-                               24, 96, "keyframe", "sprite");
-    }
-    Connections {
-        target: root.client
-        function onThumbnailsReady(cameraId, tag, tiles, spriteDataUrl) {
-            if (cameraId !== root.camId) return;
-            if (tag.indexOf("hover|") === 0) {
-                var t = (tiles.length && tiles[0].tileUrl !== "") ? tiles[0] : null;
-                root._hoverCache[cameraId + "|" + tag.substring(6)] = t;
-                // apply only if the pointer is still near this bucket
-                if (Math.abs(Math.round(root._hoverWallMs / 60000) - parseInt(tag.substring(6))) <= 1)
-                    root.hoverThumb = t;
-            } else if (tag.indexOf("daystrip|") === 0) {
-                var key = tag.substring(9);
-                if (key !== root.camId + "|" + root.selectedDay) return;   // stale day
-                root.dayTiles = tiles;
-                root.daySprite = spriteDataUrl;
-                root._dayTilesFor = key;
-            }
-        }
-    }
+    // The /review/thumbnails consumers (hover keyframe preview + the 24-tile
+    // day-overview strip) lived in the old bottom timeline band and were
+    // removed with it: the "One Axis" navigator is 115px in total and tier 1
+    // answers "what is in this day" as a QUANTITY across all 35 days, which is
+    // what those two were approximating. PlaybackClient.fetchThumbnails is
+    // unchanged and still serves the events hero player.
 
     // footage-calendar coverage state (fed by PlaybackClient.coverageReady)
     property int retentionDays: 35         // longest tier retention = calendar span
@@ -700,7 +632,8 @@ Item {
         seekWatch.stop(); _seekWatchSeq = -1; _seekWatchPosMs = -1; _openGen++;   // void any pending watch
         _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
-        dayTiles = []; daySprite = ""; _dayTilesFor = ""; hoverThumb = null; _hoverCache = ({});
+        dayInfo = ({}); _autoLanded = false;
+        hoverId = ""; selId = ""; ladderOpen = false;
         errorText = ""; selStartMs = -1; selEndMs = -1;
         // Fresh screen entry: no frame-mode leftovers, no stale timeline. (Operator-
         // reported 2026-07-09: re-entering playback on an empty day still showed the
@@ -1004,7 +937,6 @@ Item {
                 root.tlFrags = out;
                 root.resetView();           // fresh open → scrubber shows the full window
                 root.loadMotionEvents();    // point events + recent list (EventModel)
-            if (root.selectedDay !== "") root.requestDayStrip();
                 root.loadTimeline();        // motion episode spans from /events/timeline
                 if (typeof wtTrace !== "undefined" && wtTrace)
                     console.log("[PB] fresh open: timeline=" + Math.round((root.tlEndMs - root.tlStartMs) / 60000) + "min");
@@ -1060,12 +992,22 @@ Item {
             if (cameraId !== root.camId) return;
             root.coveragePending = !available;
             if (available && retentionDays > 0) root.retentionDays = retentionDays;
-            var out = [];
+            var out = [], info = ({});
             for (var i = 0; i < days.length; i++) {
                 var d = days[i];
-                if (d.has_footage === undefined || d.has_footage) out.push(d.date);
+                if (d.has_footage === undefined || d.has_footage) {
+                    out.push(d.date);
+                    // seconds / coverage_ratio / first are additive fields the
+                    // contract already carries; the ribbon's density bar and
+                    // label block read them. Absent → 0, never a guess.
+                    info[d.date] = { sec: d.seconds !== undefined ? d.seconds : 0,
+                                     ratio: d.coverage_ratio !== undefined ? d.coverage_ratio : 0,
+                                     firstMs: d.first ? Date.parse(d.first) : -1 };
+                }
             }
             root.footageDays = out;
+            root.dayInfo = info;
+            root._maybeLandOnNewestFootage();
         }
         // Motion episode spans (or density buckets) from /events/timeline — the
         // backend pairs motion_started↔motion_ended server-side, so no client paging.
@@ -1130,37 +1072,65 @@ Item {
         if (visible) { forceActiveFocus(); FrameClock.attach(vout.videoSink); }  // warm the PTS ring for frame steps
         else { player.stop(); scanTimer.stop() }
     }
-    // Review keys. Frame steps follow the VMS/NLE conventions from the frame-step research
-    // (docs/research/2026-07-07-frame-by-frame-playback-vms.md §5): ,/. always step (pausing
-    // first if playing); ←/→ step ONLY while paused (kept free during play for future use);
-    // Space toggles play/pause. Timeline zoom stays Premiere-style: +/- around the playhead, 0 to fit.
+    // ---- keyboard (spec §3) ----------------------------------------------
+    // Bindings must survive a Russian layout. Qt exposes no portable physical
+    // key code (nativeScanCode means different things on X11 and Windows), so
+    // every binding is declared as its Latin key PLUS the Cyrillic character the
+    // SAME PHYSICAL KEY emits on ЙЦУКЕН — Qt reports those as the uppercase
+    // Unicode codepoint. Matching the Latin key alone is what dies silently.
+    function _key(e, latin, cyr) { return e.key === latin || e.key === cyr }
+    // Relative moves read and write the playhead through seekToWall(playheadMs ± d).
+    // playheadMs is derived from the player's own position, which is updated by
+    // the seek itself, so two rapid presses cannot both read the same stale value
+    // the way a render-closure copy would.
+    function nudge(deltaMs) {
+        if (frags.length === 0) return;
+        seekToWall(playheadMs + deltaMs);
+    }
+    function rateStep(dir) {
+        var i = speeds.indexOf(playSpeed);
+        if (i < 0) i = speeds.indexOf(1);
+        setSpeed(speeds[Math.max(0, Math.min(speeds.length - 1, i + dir))]);
+    }
     Keys.onPressed: (e) => {
-        if (root.frags.length === 0) return;
-        if (e.key === Qt.Key_Plus || e.key === Qt.Key_Equal) { root.zoomView(0.5, root.playheadMs); e.accepted = true; }
-        else if (e.key === Qt.Key_Minus || e.key === Qt.Key_Underscore) { root.zoomView(2.0, root.playheadMs); e.accepted = true; }
-        else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) { root.resetView(); e.accepted = true; }
-        else if (e.key === Qt.Key_F && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier)) && !e.isAutoRepeat) {
-            root.frameMode ? root.exitFrameMode() : root.enterFrameMode(); e.accepted = true;
+        // 1–5 = span; they work even with no session loaded (§5: nothing is
+        // disabled that would leave the operator unable to confirm emptiness).
+        if (e.key >= Qt.Key_1 && e.key <= Qt.Key_5 && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier))) {
+            root.setSpan([15, 60, 360, 720, 1440][e.key - Qt.Key_1]); e.accepted = true; return;
         }
-        else if (e.key === Qt.Key_Escape && root.frameMode) { root.exitFrameMode(); e.accepted = true; }
-        // frameMode arrows: single step on tap; HELD, they ramp slow→fast (own cadence —
-        // the key's autorepeat events are swallowed, rampT drives the pace).
-        else if (root.frameMode && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
-            if (!e.isAutoRepeat) root.rampStart(e.key === Qt.Key_Right ? 1 : -1);
+        if (root._key(e, Qt.Key_F, 0x0410) && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier)) && !e.isAutoRepeat) {
+            if (e.modifiers & Qt.ShiftModifier) root.fullscreenRequested();     // advertised, so it must act
+            else root.frameMode ? root.exitFrameMode() : root.enterFrameMode();
+            e.accepted = true; return;
+        }
+        // [ and ] ENTER frame mode: gating the cells while leaving the keys
+        // ungated lets a range be created that is drawn, counted, and has no
+        // export control anywhere on screen.
+        if (root._key(e, Qt.Key_BracketLeft, 0x0425)) { root.markIn(); e.accepted = true; return; }
+        if (root._key(e, Qt.Key_BracketRight, 0x042A)) { root.markOut(); e.accepted = true; return; }
+        if (root._key(e, Qt.Key_S, 0x042B) && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier))) {
+            if (e.modifiers & Qt.ShiftModifier) root.snapshotStamped(); else root.snapshot();
+            e.accepted = true; return;
+        }
+        if (root._key(e, Qt.Key_X, 0x0427) && !(e.modifiers & (Qt.ControlModifier | Qt.AltModifier))) {
+            if (root.hasSelection) root.openExportDrawer();
+            e.accepted = true; return;
+        }
+        if (root.frags.length === 0) return;
+        if (e.key === Qt.Key_Space) { root.togglePlay(); e.accepted = true; }
+        else if (root._key(e, Qt.Key_Comma, 0x0411)) { root.stepBackVisible(); e.accepted = true; }
+        else if (root._key(e, Qt.Key_Period, 0x042E)) { if (!stepper.busy) stepper.stepForward(); e.accepted = true; }
+        // J is NOT reverse shuttle: reverse playback decodes from a keyframe for
+        // every delivered frame (§3.6 forbids it). J walks the rate ladder down —
+        // the honest neighbour of L, and the rate cell's tooltip says so.
+        else if (root._key(e, Qt.Key_J, 0x041E)) { root.rateStep(-1); e.accepted = true; }
+        else if (root._key(e, Qt.Key_K, 0x041B)) { if (!root.paused) root.togglePlay(); e.accepted = true; }
+        else if (root._key(e, Qt.Key_L, 0x0414)) {
+            if (root.paused) root.togglePlay(); else root.rateStep(1);
             e.accepted = true;
         }
-        else if (e.key === Qt.Key_Space) { root.togglePlay(); e.accepted = true; }
-        else if (e.key === Qt.Key_Comma) { stepper.stepBackward(); e.accepted = true; }
-        else if (e.key === Qt.Key_Period) { stepper.stepForward(); e.accepted = true; }
-        else if (e.key === Qt.Key_Left && root.paused && (e.modifiers & Qt.ShiftModifier)) { root.stepBurst(-1, 5); e.accepted = true; }
-        else if (e.key === Qt.Key_Right && root.paused && (e.modifiers & Qt.ShiftModifier)) { root.stepBurst(1, 5); e.accepted = true; }
-        else if (e.key === Qt.Key_Left && root.paused) { stepper.stepBackward(); e.accepted = true; }
-        else if (e.key === Qt.Key_Right && root.paused) { stepper.stepForward(); e.accepted = true; }
-    }
-    Keys.onReleased: (e) => {
-        if (root.frameMode && !e.isAutoRepeat && (e.key === Qt.Key_Left || e.key === Qt.Key_Right)) {
-            root.rampStop(); e.accepted = true;
-        }
+        else if (e.key === Qt.Key_Left) { root.nudge(-((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000)); e.accepted = true; }
+        else if (e.key === Qt.Key_Right) { root.nudge((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000); e.accepted = true; }
     }
 
     // ---- frame-by-frame MODE (F): filmstrip UI + hold-to-shuttle arrows ----------
@@ -1169,7 +1139,9 @@ Item {
     property bool frameMode: false
     function enterFrameMode() {
         if (frags.length === 0 || !stepper.ready) return;
-        paused = true; applyTransport();
+        // Entering pauses and returns the rate to 1× — stepping frames at 50×
+        // is not a thing (spec §2.4).
+        paused = true; playSpeed = 1; ladderOpen = false; applyTransport();
         FrameClock.attach(vout.videoSink);
         FrameCache.attach(vout.videoSink);
         FrameCache.captureCurrent();   // the shown frame IS the strip's center tile — instantly
@@ -1177,6 +1149,7 @@ Item {
     }
     function exitFrameMode() {
         frameMode = false;
+        clearMark();       // leaving the mode clears the range, as part of leaving
         rampStop();
     }
     // Map a cached frame's PTS to a wall clock with milliseconds (filmstrip labels).
@@ -1615,6 +1588,296 @@ Item {
     }
 
     // ======================================================================
+    // "ONE AXIS" — the 2026-08-09 redesign (designs/handoff-playback/).
+    //
+    // The calendar and the zoom buttons were not two navigators; they were one
+    // axis at two scales. So there is now ONE navigator in two tiers sharing a
+    // horizontal time axis — a 35-day archive ribbon over the loaded window's
+    // FOOTAGE/MOTION lanes, with an amber bracket in the selected day cell
+    // showing where the window sits. The info rail is dissolved: five of its
+    // seven blocks were duplicates of the picture or restatements of a control;
+    // `Coverage` is promoted onto the navigator header beside the lanes it
+    // describes, and `Last motion` became the jump it always was.
+    // ======================================================================
+
+    // ---- archive ribbon data ---------------------------------------------
+    // Per-day totals from GET /review/coverage. `days[]` carries
+    // {date, has_footage, seconds, coverage_ratio, first, last}; there is no
+    // per-day SEGMENT count in the contract, so the ribbon's label block states
+    // the day's duration and (when the day is loaded) its real segment count —
+    // never an invented one.
+    property var dayInfo: ({})            // "yyyy-MM-dd" → {sec, ratio, firstMs}
+    function _dayMs(key) { var d = new Date(key + "T00:00:00"); return d.getTime() }
+
+    readonly property var ribbonDays: {
+        var n = Math.max(1, Math.min(120, retentionDays));
+        var t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        var out = [];
+        for (var i = n - 1; i >= 0; i--) {
+            var d = new Date(t0.getTime()); d.setDate(t0.getDate() - i); d.setHours(0, 0, 0, 0);
+            var key = Qt.formatDate(d, "yyyy-MM-dd");
+            var inf = dayInfo[key];
+            out.push({ ms: d.getTime(), key: key, has: !!inf,
+                       sec: inf ? inf.sec : 0, today: i === 0 });
+        }
+        return out;
+    }
+    readonly property bool archiveEmpty: {
+        if (coveragePending) return false;               // unknown is never rendered as empty
+        for (var i = 0; i < ribbonDays.length; i++) if (ribbonDays[i].has) return false;
+        return true;
+    }
+    // The ribbon always highlights the day the playhead is in, whether it got
+    // there from a day click or from a rolling window.
+    readonly property string selDayKey: selectedDay !== "" ? selectedDay
+        : (frags.length > 0 ? Qt.formatDate(new Date(playheadMs), "yyyy-MM-dd")
+                            : Qt.formatDate(new Date(), "yyyy-MM-dd"))
+    readonly property double _selDay0: _dayMs(selDayKey)
+    readonly property real selDaySec: dayInfo[selDayKey] ? dayInfo[selDayKey].sec : 0
+    // The day's own segment count is honest only when the loaded window IS that
+    // whole day; otherwise the label block states duration alone.
+    // The day's own segment count is honest only when the loaded timeline spans
+    // that whole day; on a 1H window the count would be the window's, not the
+    // day's, and the block claims to state the day.
+    readonly property int selDayClips: {
+        if (selectedDay === "" || tlEndMs <= tlStartMs) return -1;
+        var dayEnd = Math.min(_selDay0 + 86400000, Date.now());
+        return (tlStartMs <= _selDay0 + 60000 && tlEndMs >= dayEnd - 60000) ? tlFrags.length : -1;
+    }
+    // Where tier 2's window sits inside the selected day cell (fractions 0..1).
+    readonly property real winFracA: {
+        if (!(viewEndMs > viewStartMs)) return -1;
+        var a = (viewStartMs - _selDay0) / 86400000;
+        return (a > 1 || (viewEndMs - _selDay0) / 86400000 < 0) ? -1 : Math.max(0, Math.min(1, a));
+    }
+    readonly property real winFracB: {
+        if (winFracA < 0) return -1;
+        return Math.max(winFracA, Math.min(1, (viewEndMs - _selDay0) / 86400000));
+    }
+
+    // ---- coverage readout (promoted onto the navigator header) -----------
+    readonly property var _cov: {
+        var s = viewStartMs, e = viewEndMs, n = 0, tot = 0;
+        if (!(e > s)) return { n: 0, pct: 0 };
+        for (var i = 0; i < tlFrags.length; i++) {
+            var f = tlFrags[i];
+            if (f.we <= s || f.ws >= e) continue;
+            n++; tot += Math.min(f.we, e) - Math.max(f.ws, s);
+        }
+        return { n: n, pct: Math.round(tot / (e - s) * 100) };
+    }
+
+    // ---- ONE selection model for the lane and the list -------------------
+    // Both are built from the same array, so there is no state in which they
+    // can disagree (spec §2.6, brief problem 5).
+    readonly property bool showMotionLane: Settings.eventsOnScrubber
+    readonly property var winItems: {
+        var s = viewStartMs, e = viewEndMs, out = [];
+        if (!(e > s)) return out;
+        if (!typeHidden("motion")) {
+            var eps = motionEpisodes;
+            for (var i = 0; i < eps.length && out.length < 1500; i++) {
+                var ep = eps[i];
+                if (ep.endMs < s || ep.startMs > e) continue;
+                out.push({ id: "m" + ep.startMs, ms: ep.startMs,
+                           len: Math.max(0, ep.endMs - ep.startMs), type: "motion",
+                           label: EventStyle.label("motion"), color: Theme.accent });
+            }
+        }
+        var pts = pointEvents;
+        for (var j = 0; j < pts.length && out.length < 1800; j++) {
+            var p = pts[j];
+            if (p.ms < s || p.ms > e || typeHidden(p.type)) continue;
+            out.push({ id: "p" + p.ms + "_" + p.type, ms: p.ms, len: 0, type: p.type,
+                       label: EventStyle.label(p.type), color: EventStyle.color(p.type) });
+        }
+        out.sort(function (a, b) { return a.ms - b.ms; });
+        return out;
+    }
+    readonly property var winItemsNewest: {
+        var a = winItems.slice(); a.reverse(); return a;
+    }
+    // Events in the window BEFORE the type chips — so the empty state can name
+    // its filter instead of claiming there is nothing here.
+    readonly property int winItemsUnfiltered: {
+        var s = viewStartMs, e = viewEndMs, n = 0;
+        if (!(e > s)) return 0;
+        for (var i = 0; i < motionEpisodes.length; i++) {
+            var ep = motionEpisodes[i];
+            if (ep.endMs >= s && ep.startMs <= e) n++;
+        }
+        for (var j = 0; j < pointEvents.length; j++)
+            if (pointEvents[j].ms >= s && pointEvents[j].ms <= e) n++;
+        return n;
+    }
+    readonly property var typeChips: {
+        var out = [];
+        for (var i = 0; i < eventTypesPresent.length; i++) {
+            var k = eventTypesPresent[i];
+            out.push({ key: k, label: EventStyle.label(k === "motion" ? "motion" : k),
+                       color: EventStyle.color(k), on: !typeHidden(k) });
+        }
+        return out;
+    }
+    property string hoverId: ""
+    property string selId: ""
+    function pickItem(id, ms) { selId = id; seekToWall(ms); }
+
+    readonly property double lastMotionMs: eventsModel
+        ? (eventsModel.motionRev, eventsModel.lastMotionAtMs(camId)) : -1
+
+    // ---- marked range = the export selection (spec §2.7) -----------------
+    readonly property double markMs: hasSelection ? (selEndMs - selStartMs) : -1
+    function markIn() {
+        if (!frameMode) enterFrameMode();
+        var p = playheadMs;
+        selStartMs = p;
+        if (!(selEndMs > p)) selEndMs = p + 30000;
+    }
+    function markOut() {
+        if (!frameMode) enterFrameMode();
+        var p = playheadMs;
+        selEndMs = p;
+        if (!(selStartMs >= 0 && selStartMs < p)) selStartMs = Math.max(0, p - 30000);
+    }
+    function clearMark() { selStartMs = -1; selEndMs = -1 }
+
+    // ---- resizable navigator + rail (spec §2.2b) -------------------------
+    // NAV_MIN is derived from the lane floor, not stated twice: 83 fixed chrome
+    // (ribbon 42 + header 26 + ruler 15) + LANE_MIN 18. Given as two independent
+    // numbers they disagree at the extreme and the lanes overflow the container.
+    readonly property int navFixed: 83
+    readonly property int laneMin: 18
+    readonly property int navMin: navFixed + laneMin
+    readonly property int navDefault: navFixed + 32
+    property real navH: Settings.pbNavH
+    property real panelW: Settings.pbPanelW
+    property bool railOpen: Settings.pbEventsPanel
+    readonly property real laneH: Math.max(laneMin, navH - navFixed)
+    // A drag writes a QSettings key on every pointer move otherwise.
+    Timer {
+        id: prefSave; interval: 400
+        onTriggered: { Settings.pbNavH = Math.round(root.navH); Settings.pbPanelW = Math.round(root.panelW) }
+    }
+    readonly property int footageLaneH: showMotionLane ? Math.max(8, Math.round(laneH * 14 / 32)) : laneH
+    readonly property int motionLaneH: showMotionLane ? (laneH - footageLaneH) : 0
+
+    // ---- transport / mode state ------------------------------------------
+    property bool ladderOpen: false
+    property bool fullscreenOn: false          // bound to the shell's fullscreen by Main.qml
+    property bool backFetching: false          // the backward step's cache fetch, made visible
+    Timer { id: backFetchT; interval: 340; onTriggered: root.backFetching = false }
+    function stepBackVisible() {
+        if (stepper.busy) return;              // key-repeat is rate-limited to the cache refill
+        backFetching = true; backFetchT.restart();
+        stepper.stepBackward();
+    }
+
+    // ---- honest states (spec §4) -----------------------------------------
+    readonly property bool stPlaybackOff: cameraModel ? (cameraModel.playbackEnabled === false) : false
+    // "No footage …" is not a session failure — it is the archive telling the
+    // truth about a gap, and it gets the FOOTAGE banner with its nearest-footage
+    // offer rather than an ERROR tag and a Retry that would retry nothing.
+    readonly property bool _errEmptyRange: errorText.indexOf("No footage") === 0
+    readonly property bool stSessionError: errorText !== "" && !_errEmptyRange && !stPlaybackOff
+    readonly property bool stRecOff: cameraModel ? (cameraModel.recordingEnabled === false) : false
+    readonly property bool stOffline: camera ? (camera.live === CameraStatus.Offline) : false
+    // Only playbackOff and sessionError block. `recordingOff` and `offline` are
+    // facts about the LIVE stream and about the future, not about the archive —
+    // a camera that dropped an hour ago still has a complete, playable archive.
+    readonly property bool blocked: stPlaybackOff || stSessionError
+    readonly property bool inFootage: frags.length > 0 && msInFootage(playheadMs)
+    readonly property bool stNoFootageHere: !blocked && !archiveEmpty && !loading
+                                            && (_errEmptyRange || (tlFrags.length > 0 && !inFootage))
+    readonly property double nearestFootageMs: {
+        var f = tlFrags.length ? tlFrags : frags;
+        if (!f.length) return -1;
+        var ph = playheadMs, best = -1, bd = Infinity;
+        for (var i = 0; i < f.length; i++) {
+            if (ph >= f[i].ws && ph <= f[i].we) return -1;
+            var head = ph < f[i].ws;
+            var d = head ? f[i].ws - ph : ph - f[i].we;
+            if (d < bd) { bd = d; best = head ? f[i].ws + 500 : Math.max(f[i].ws, f[i].we - 3000); }
+        }
+        return best;
+    }
+
+    // ---- day selection: the SPAN is the operator's -----------------------
+    // Picking a day moves the day and the playhead, and nothing else. An earlier
+    // build forced 24H on every day click while first paint opened at 1H, so the
+    // same day showed a 1H slice on arrival and a 24H sweep after a day-hop and
+    // back — 24× the window with no visible cause, which operators read as the
+    // archive changing under them.
+    function selectDay(key) {
+        if (!camera || key === "") return;
+        var inf = dayInfo[key];
+        var day0 = _dayMs(key);
+        var dayEnd = Math.min(day0 + 86400000, Date.now());
+        // Land just inside the day's first segment, so the window always opens
+        // on real footage rather than on its own honest empty state.
+        var land = (inf && inf.firstMs > 0) ? Math.min(dayEnd - 2000, inf.firstMs + 3000)
+                                            : Math.min(dayEnd - 2000, day0 + 43200000);
+        _openWindow(key, land);
+    }
+    function _openWindow(dayKey, atMs) {
+        var day0 = _dayMs(dayKey);
+        var dayEnd = Math.min(day0 + 86400000, Date.now());
+        var span = Math.max(60000, zoomMin * 60000);
+        var s = Math.min(Math.max(day0, atMs - span * 0.35), Math.max(day0, dayEnd - span));
+        var e = Math.min(day0 + 86400000, s + span);       // a day is a session boundary (§3.6)
+        if (e <= s) e = s + span;
+        _obMark("day:" + dayKey);
+        _explicitStart = s; _explicitEnd = e;
+        selectedDay = dayKey;
+        errorText = ""; clearMark(); _pendingSeekMs = -1; _seekReopen = false;
+        _farInFlight = false; _farLatestMs = -1;
+        seekWatch.stop(); _seekWatchSeq = -1; _seekWatchPosMs = -1; _openGen++;
+        _emptyRetried = false; emptyRetry.stop();
+        hoverId = ""; selId = "";
+        if (!client) return;
+        client.ensureReady();
+        _pendingOpen = true;
+        tryOpen();
+    }
+    // The span is tier 2's zoom. On a day it resizes the window around the
+    // playhead; on a rolling window it keeps the "ending now" meaning.
+    function setSpan(minutes) {
+        if (!camera) { zoomMin = minutes; return; }
+        if (selectedDay === "") { openFor(camera, minutes); return; }
+        zoomMin = minutes;
+        _openWindow(selectedDay, frags.length > 0 ? playheadMs : (_dayMs(selectedDay) + 43200000));
+    }
+
+    // First paint opens on the newest footage in retention, because "what
+    // happened most recently" is the commonest arrival. Only when the rolling
+    // window the caller asked for holds nothing at all — never overriding an
+    // explicit day, and never while a measurement harness is driving.
+    property bool _autoLanded: false
+    function _maybeLandOnNewestFootage() {
+        if (_autoLanded || coveragePending || selectedDay !== "" || !camera || loading) return;
+        if (_skActive || (typeof wtTtffDays !== "undefined" && wtTtffDays !== "")
+                || (typeof wtSeekSpam !== "undefined" && wtSeekSpam > 0)) { _autoLanded = true; return; }
+        if (tlFrags.length > 0) { _autoLanded = true; return; }
+        var best = "";
+        for (var i = 0; i < ribbonDays.length; i++) if (ribbonDays[i].has) best = ribbonDays[i].key;
+        _autoLanded = true;
+        if (best !== "") selectDay(best);
+    }
+
+    // Esc unwinds exactly ONE layer, most-nested first: fullscreen → open speed
+    // ladder → frame mode → selection and mark. Written flat it cleared the mark
+    // and left the operator inside the very mode the on-picture chip advertises
+    // exiting. Called from Main.qml's global Escape shortcut, which pre-empts
+    // item key handlers. Returns true when a layer was consumed.
+    function escapeLayer() {
+        if (fullscreenOn) { fullscreenRequested(); return true; }
+        if (ladderOpen) { ladderOpen = false; return true; }
+        if (frameMode) { exitFrameMode(); return true; }
+        if (hasSelection || selId !== "") { clearMark(); selId = ""; return true; }
+        return false;
+    }
+
+    // ======================================================================
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -1646,48 +1909,48 @@ Item {
             }
         }
 
-        // Recording switched off → no new footage is being recorded; past footage
-        // is still viewable. Calm amber note (not a fault). Fail-safe: only on an
-        // explicit enabled:false.
-        Rectangle {
-            id: recBanner
-            readonly property bool recOff: root.cameraModel ? (root.cameraModel.recordingEnabled === false) : false
-            Layout.fillWidth: true
-            visible: recOff
-            Layout.preferredHeight: visible ? 34 : 0
-            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.10)
-            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.accent }
-            Row {
-                anchors { left: parent.left; leftMargin: 16; right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                spacing: 8
-                Icon { anchors.verticalCenter: parent.verticalCenter; name: "off"; size: 14; color: Theme.accent }
-                Text { anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 24; elide: Text.ElideRight
-                    text: "Recording is switched off — no new footage is being recorded. Past footage is still available."
-                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
-            }
-        }
-
-        // ---- player + aside ---------------------------------------------
+        // ---- video stage + right rail ------------------------------------
+        // The rail is a COLUMN the stage shrinks around, never an overlay: a
+        // single continuous frame overlaid is larger but a third hidden and the
+        // visible part is off-centre, and every centred element — the honest
+        // states above all — would then centre on a stage the operator can only
+        // partly see. Smaller and whole beats larger and half-hidden.
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
 
-            Rectangle {
-                id: playerArea
+            Item {
+                id: stage
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                color: "#1d2120"
                 clip: true
 
-                VideoOutput { id: vout; anchors.fill: parent; fillMode: VideoOutput.PreserveAspectFit }
+                // The letterbox is a BINDING on the stage's own size, so it is
+                // recomputed synchronously with the navigator drag, the rail
+                // width and the window width — not one drag-step behind an
+                // observer. A frame taller than its stage is CROPPED, not
+                // letterboxed, and a cropped evidentiary frame contradicts the
+                // letterbox rule outright.
+                readonly property real vW: Math.max(0, Math.min(width, height * 16 / 9))
+                readonly property real vH: Math.max(0, Math.round(vW * 9 / 16))
+                readonly property real vL: Math.round((width - vW) / 2)
+                readonly property real vT: Math.round((height - vH) / 2)
+                readonly property real gut: vL + 11        // 11px inside the visible video
+
+                Rectangle { anchors.fill: parent; color: "#0b0a0a" }
+
+                VideoOutput {
+                    id: vout
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH
+                    fillMode: VideoOutput.PreserveAspectFit
+                }
                 // Freeze-frame veil: while a backward step's recovery machinery
-                // (overseek + frame-walk) churns frames underneath, hold the pre-step
-                // image so the operator sees their frame "held", then the target lands.
+                // (overseek + frame-walk) churns frames underneath, hold the
+                // pre-step image so the operator sees their frame "held".
                 Image {
                     id: veilImg
-                    anchors.fill: parent
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH
                     fillMode: Image.PreserveAspectFit
                     cache: false
                     visible: stepper.veiled && status === Image.Ready
@@ -1789,740 +2052,395 @@ Item {
                         }
                     }
                 }
+                // A press anywhere on the picture dismisses the speed ladder and
+                // returns key focus to the screen; it never eats the press.
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onPressed: (m) => { root.ladderOpen = false; root.forceActiveFocus(); m.accepted = false }
+                }
 
                 LoadingState {
                     anchors.centerIn: parent
-                    visible: root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia && root.errorText === "")
-                    label: "Loading recording…"
-                }
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    visible: root.errorText !== ""
-                    Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 30; color: Theme.ink3 }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.errorText
-                        color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13 }
+                    visible: (root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia))
+                             && root.errorText === "" && !root.blocked
+                    label: qsTr("Loading recording…")
                 }
 
-                // Playback switched off → playback-service is stopped, so no recorded
-                // playback / mosaic session can be created. Calm; explains the deliberate
-                // state instead of a spinning or broken player. (CV split playback out of
-                // live_view — migration 0052; gate on the playback function, not live_view.)
-                Rectangle {
-                    anchors.fill: parent
-                    visible: root.cameraModel && root.cameraModel.playbackEnabled === false
-                    color: "#1d2120"
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 8
-                        width: parent.width
-                        Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 34; color: Theme.accent }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter
-                            text: qsTr("Playback unavailable"); color: Theme.ink
-                            font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.min(440, parent.width - 48); horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
-                            text: qsTr("Playback is switched off — recorded playback and export are paused. This is an operator setting, not a fault.")
-                            color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                // ---- top-left overlay: back · mode chips · camera ----------
+                Row {
+                    id: tlOvl
+                    x: stage.gut; y: stage.vT + 11
+                    spacing: 9
+                    z: 6
+                    IconButton {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "back"; iconColor: "#fff"; hoverIcon: Theme.accent
+                        tip: qsTr("Back"); onClicked: root.closed()
                     }
-                }
-
-                // top overlay
-                Rectangle {
-                    anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                    height: 60
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: Qt.rgba(0,0,0,0.75) }
-                        GradientStop { position: 1.0; color: "transparent" }
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: pbChipT.implicitWidth + 16; height: 18; color: Theme.accent
+                        Text { id: pbChipT; anchors.centerIn: parent; text: qsTr("PLAYBACK", "video mode chip")
+                            color: "#241a08"; font.family: Theme.fontMono; font.pixelSize: 10
+                            font.weight: Font.DemiBold; font.letterSpacing: 1.3 }
                     }
-                    RowLayout {
-                        anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                        anchors.leftMargin: 14; anchors.rightMargin: 16; anchors.topMargin: 12
-                        spacing: 10
-                        IconButton { name: "back"; iconColor: "#fff"; hoverIcon: Theme.accent; tip: "Back"; onClicked: root.closed() }
-                        Rectangle {
-                            implicitWidth: pbTag.implicitWidth + 14; implicitHeight: 18; color: Theme.accent
-                            Text { id: pbTag; anchors.centerIn: parent; text: "PLAYBACK"; color: Theme.bg
-                                font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.Bold; font.letterSpacing: 1 }
-                        }
-                        Text { text: root.camera ? root.camera.name : ""; color: "#fff"
-                            font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
-                        Item { Layout.fillWidth: true }
-                        // primary playhead readout — the main time reference while reviewing.
-                        // Paused adds milliseconds so single-frame steps are visibly counted
-                        // (frames are 25-100 ms apart on this fleet); playing keeps the calm clock.
-                        Text { text: Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") + " · " + root.fmtClock(root.playheadMs)
-                                     + (root.paused ? "." + String(Math.floor(root.playheadMs % 1000)).padStart(3, "0") : "")
-                            color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 22; font.weight: Font.DemiBold
-                            font.letterSpacing: 0.5; visible: root.frags.length > 0 }
+                    // Above 10× the picture skips frames. The boundary is disclosed
+                    // by COLOUR and by the rate cell's plain-language tooltip — not
+                    // by the words "SCAN"/"frames skipped", which read as a fault
+                    // report to a guard under pressure (spec §2.4).
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: root.playSpeed > root.maxDecodeRate
+                        width: scanChipT.implicitWidth + 16; height: 18; color: Theme.bad
+                        Text { id: scanChipT; anchors.centerIn: parent; text: xbar.fmtRate(root.playSpeed)
+                            color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 10
+                            font.weight: Font.DemiBold; font.letterSpacing: 1.3 }
                     }
-                }
-
-                // selection chip
-                Rectangle {
-                    anchors.top: parent.top; anchors.topMargin: 64; anchors.horizontalCenter: parent.horizontalCenter
-                    visible: root.hasSelection
-                    implicitWidth: selRow.implicitWidth + 20; implicitHeight: 32
-                    color: Qt.rgba(0,0,0,0.6); border.width: 1; border.color: Theme.accent
-                    Row {
-                        id: selRow; anchors.centerIn: parent; spacing: 10
-                        Text { anchors.verticalCenter: parent.verticalCenter
-                            text: "CLIP  " + root.fmtClock(root.selStartMs) + " → " + root.fmtClock(root.selEndMs)
-                                  + "  ·  " + root.fmtDur((root.selEndMs - root.selStartMs)/1000)
-                            color: "#fff"; font.family: Theme.fontMono; font.pixelSize: 11 }
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: expTxt.implicitWidth + 16; implicitHeight: 22; color: Theme.accent
-                            Text { id: expTxt; anchors.centerIn: parent; text: qsTr("Export Clip"); color: Theme.bg
-                                font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
-                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.openExportDrawer() }
-                        }
+                    // The exit legend belongs HERE, beside the mode chip, not
+                    // inside the filmstrip: in the band it cost picture-grade
+                    // width and clipped away the exit instruction it exists to
+                    // give, and it gave the band two more frames to leave.
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: root.frameMode
+                        width: frmChipT.implicitWidth + 16; height: 18
+                        color: Theme.accentSoft; border.width: 1; border.color: Theme.accentDim
+                        Text { id: frmChipT; anchors.centerIn: parent
+                            text: qsTr("FRAME-BY-FRAME") + " · " + qsTr("ESC TO EXIT")
+                            color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 10
+                            font.letterSpacing: 1.3 }
                     }
-                }
-
-                // bottom controls
-                Rectangle {
-                    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-                    height: 56
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "transparent" }
-                        GradientStop { position: 1.0; color: Qt.rgba(0,0,0,0.75) }
-                    }
-                    component Ctl: IconButton {
-                        bgColor: Qt.rgba(0,0,0,0.5); borderColor: Theme.line2
-                        iconColor: "#fff"; hoverBg: Theme.accent; hoverBorder: Theme.accent; hoverIcon: Theme.bg
-                    }
-                    // left cluster
-                    Row {
-                        anchors.left: parent.left; anchors.leftMargin: 16
-                        anchors.bottom: parent.bottom; anchors.bottomMargin: 12
-                        spacing: 6
-                        Ctl { name: "jumpBack"; tip: qsTr("Back 10s"); onClicked: { var b = root._smoothMs; stepper.cancelStep(); var p = Math.max(0, b - 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
-                        Ctl { name: "stepBack"; tip: qsTr("Step back one frame") + " (,)"
-                            enabled: !stepper.busy
-                            onClicked: stepper.stepBackward() }
-                        Ctl { name: root.advancing ? "pause" : "play"
-                            tip: qsTr("Play / pause")
-                            onClicked: root.togglePlay() }
-                        Ctl { name: "stepFwd"; tip: qsTr("Step forward one frame") + " (.)"
-                            enabled: !stepper.busy
-                            onClicked: stepper.stepForward() }
-                        Ctl { name: "jumpFwd"; tip: qsTr("Forward 10s"); onClicked: { var b = root._smoothMs; stepper.cancelStep(); var p = Math.min(player.duration, b + 10000); player.position = p; root._scanPos = p; root._smoothMs = p; } }
-                        // speed — popup of x1…x200 (x20+ scans, since the decoder caps ~14×)
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: 48; implicitHeight: 30; color: spdMa.containsMouse ? Theme.accent : Qt.rgba(0,0,0,0.5)
-                            border.width: 1; border.color: spdMa.containsMouse ? Theme.accent : Theme.line2
-                            Text { anchors.centerIn: parent; text: root.fmtSpeed(root.playSpeed); color: spdMa.containsMouse ? Theme.bg : "#fff"
-                                font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
-                            MouseArea { id: spdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: spdPopup.open() }
-                            C.Popup {
-                                id: spdPopup
-                                y: -implicitHeight - 4          // open upward (controls sit at the bottom)
-                                x: 0; width: 66; padding: 0
-                                background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
-                                contentItem: Column {
-                                    Repeater {
-                                        model: root.speeds
-                                        delegate: Rectangle {
-                                            required property var modelData
-                                            width: 66; height: 30
-                                            color: spdOptMa.containsMouse ? Theme.panel2 : "transparent"
-                                            Text { anchors.centerIn: parent; text: root.fmtSpeed(modelData)
-                                                color: root.playSpeed === modelData ? Theme.accent : Theme.ink
-                                                font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
-                                            MouseArea { id: spdOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                onClicked: { root.setSpeed(modelData); spdPopup.close() } }
-                                        }
-                                    }
-                                }
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: camNm.implicitWidth; height: camNm.implicitHeight
+                        Text { x: 1; y: 1; text: camNm.text; color: Qt.rgba(0, 0, 0, 0.9)
+                            font: camNm.font }
+                        Text { id: camNm
+                            // Several fleet names already carry the octet; do not
+                            // print it twice.
+                            text: {
+                                if (!root.camera) return "";
+                                var n = root.camera.name || "", ip = root.camera.ip || "";
+                                return (ip === "" || n.indexOf(ip) >= 0) ? n : n + " (" + ip + ")";
                             }
+                            color: Qt.rgba(1, 1, 1, 0.82); font.family: Theme.fontSans; font.pixelSize: 13 }
+                        C.ToolTip.visible: qualMa.containsMouse && qualTip !== ""
+                        C.ToolTip.delay: 400
+                        // `Quality` left the rail for hover: it is static per
+                        // session and did not earn a permanent row.
+                        readonly property string qualTip: {
+                            var f = root.fragAt(player.position / 1000);
+                            if (!f) return "";
+                            var c = f.codec === "hevc" ? "HEVC" : "H.264";
+                            return (f.resolution && f.resolution !== "") ? f.resolution + " (" + c + ")"
+                                   : (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)");
                         }
+                        C.ToolTip.text: qualTip
+                        MouseArea { id: qualMa; anchors.fill: parent; hoverEnabled: true }
                     }
-                    // right cluster
+                }
+
+                // recording off / offline — facts about the LIVE stream and about
+                // the future, not about the archive. A camera that dropped an hour
+                // ago still has a complete, playable archive, so neither blocks.
+                Row {
+                    x: stage.gut; y: stage.vT + 40
+                    spacing: 9
+                    z: 6
+                    visible: root.stOffline || root.stRecOff
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: stChipT.implicitWidth + 16; height: 17
+                        color: root.stOffline ? Theme.bad : Theme.accent
+                        Text { id: stChipT; anchors.centerIn: parent
+                            text: root.stOffline ? qsTr("OFFLINE", "camera state chip")
+                                                 : qsTr("NOT RECORDING", "camera state chip")
+                            color: root.stOffline ? "#ffffff" : "#241a08"
+                            font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.3 }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.stOffline
+                              ? qsTr("Its archive is complete up to the moment it dropped, and is fully playable below.")
+                              : qsTr("The archive below is everything this camera has. It will not grow while recording is off.")
+                        color: Qt.rgba(1, 1, 1, 0.72); font.family: Theme.fontSans; font.pixelSize: 12
+                    }
+                }
+
+                // ---- top-right: the evidentiary timestamp ------------------
+                // The single most-read element on the screen. One reading, not a
+                // caption on a value: hierarchy is carried by CONTRAST — 62%
+                // white for the date qualifier, full white for the time, accent
+                // for the milliseconds, all at the same size. May never be
+                // occluded, so it clears the visible video's right edge by 11px.
+                Item {
+                    id: tsOvl
+                    z: 6
+                    visible: root.frags.length > 0
+                    x: stage.vL + stage.vW - width - 13
+                    y: stage.vT + 11
+                    width: tsRow.implicitWidth; height: tsRow.implicitHeight
+                    readonly property int fs: stage.width < 1300 ? 16 : 20
                     Row {
-                        anchors.right: parent.right; anchors.rightMargin: 16
-                        anchors.bottom: parent.bottom; anchors.bottomMargin: 12
-                        spacing: 6
-                        Ctl { name: "shot"; tip: qsTr("Snapshot"); onClicked: root.snapshot() }
-                        Ctl { name: "shotStamp"; tip: qsTr("Snapshot with timestamp"); onClicked: root.snapshotStamped() }
-                        Ctl { name: "full"; tip: qsTr("Fullscreen"); onClicked: root.fullscreenRequested() }
-                        Rectangle {
-                            anchors.verticalCenter: parent.verticalCenter
-                            implicitWidth: rtlRow.implicitWidth + 18; implicitHeight: 30
-                            color: rtlMa.containsMouse ? Theme.bad : Qt.rgba(0,0,0,0.5)
-                            border.width: 1; border.color: Theme.bad
-                            Row { id: rtlRow; anchors.centerIn: parent; spacing: 6
-                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 4; color: rtlMa.containsMouse ? "#fff" : Theme.bad }
-                                Text { anchors.verticalCenter: parent.verticalCenter; text: "Return to Live"; color: "#fff"
-                                    font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            }
-                            MouseArea { id: rtlMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.returnToLive() }
-                        }
+                        x: 1; y: 1; spacing: 0
+                        Text { text: tsDate.text; color: Qt.rgba(0, 0, 0, 0.95); font: tsDate.font }
+                        Text { text: tsTime.text; color: Qt.rgba(0, 0, 0, 0.95); font: tsTime.font }
+                        Text { text: tsMs.text; color: Qt.rgba(0, 0, 0, 0.95); font: tsMs.font }
                     }
+                    Row {
+                        id: tsRow
+                        spacing: 0
+                        Text { id: tsDate
+                            text: PbFmt.wd(root.playheadMs) + " " + PbFmt.dmy(root.playheadMs) + " · "
+                            color: Qt.rgba(1, 1, 1, 0.62)
+                            font.family: Theme.fontMono; font.pixelSize: tsOvl.fs
+                            font.weight: Font.DemiBold; font.letterSpacing: 0.4 }
+                        Text { id: tsTime
+                            text: PbFmt.hms(root.playheadMs)
+                            color: "#ffffff"
+                            font.family: Theme.fontMono; font.pixelSize: tsOvl.fs
+                            font.weight: Font.DemiBold; font.letterSpacing: 0.4 }
+                        Text { id: tsMs
+                            text: "." + PbFmt.ms3(root.playheadMs)
+                            color: Theme.accent
+                            font.family: Theme.fontMono; font.pixelSize: tsOvl.fs
+                            font.weight: Font.DemiBold; font.letterSpacing: 0.4 }
+                    }
+                }
+
+                // ---- honest states (spec §4) -------------------------------
+                // Each is a TAG, a FACT and a CONSEQUENCE, and an action where
+                // one exists. None says "something went wrong". They centre on
+                // the picture because the rail is a column, not an overlay.
+                PbBanner {
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH; z: 7
+                    visible: root.stPlaybackOff
+                    tag: qsTr("PLAYBACK", "honest-state tag")
+                    tagInk: Theme.accent; tagBg: Theme.accentSoft; tagRing: Theme.accentDim
+                    fact: qsTr("Playback is switched off — recorded playback and export are paused.")
+                    consequence: qsTr("An operator turned this off in settings. Live view is unaffected.")
+                    action: qsTr("Open settings")
+                    onActionClicked: root.openSettingsRequested()
+                }
+                PbBanner {
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH; z: 7
+                    visible: root.stSessionError
+                    tag: qsTr("ERROR", "honest-state tag")
+                    tagInk: Theme.bad; tagBg: Theme.badSoft; tagRing: Theme.bad
+                    fact: qsTr("Could not open a playback session for this camera.")
+                    consequence: qsTr("The recording service did not answer. Nothing has been lost — this is a connection problem.")
+                    action: qsTr("Retry")
+                    onActionClicked: { root.errorText = ""; root._pendingOpen = true; root.tryOpen() }
+                }
+                PbBanner {
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH; z: 7
+                    visible: !root.stPlaybackOff && !root.stSessionError && root.archiveEmpty
+                    tag: qsTr("ARCHIVE", "honest-state tag")
+                    fact: qsTr("This camera has no recorded footage in the last %n day(s).", "", root.retentionDays)
+                    consequence: qsTr("Nothing to play back. The archive ribbon is empty because the archive is empty.")
+                }
+                PbBanner {
+                    x: stage.vL; y: stage.vT; width: stage.vW; height: stage.vH; z: 7
+                    visible: !root.stPlaybackOff && !root.stSessionError && !root.archiveEmpty
+                             && root.stNoFootageHere
+                    tag: qsTr("FOOTAGE", "honest-state tag")
+                    fact: qsTr("No footage recorded around this moment.")
+                    consequence: qsTr("The archive has a gap here. The nearest recorded footage is below.")
+                    // A gap-seek never SNAPS. It lands where the operator dropped
+                    // the playhead, states the gap, and offers the nearest footage
+                    // as a button — snapping silently is the player deciding where
+                    // they meant to look.
+                    action: root.nearestFootageMs > 0
+                            ? qsTr("Nearest footage %1 →").arg(PbFmt.hms(root.nearestFootageMs)) : ""
+                    onActionClicked: root.seekToWall(root.nearestFootageMs)
+                }
+
+                // ---- transport ---------------------------------------------
+                PbTransport {
+                    id: xbar
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                    height: 64
+                    z: 8
+                    padL: stage.gut
+                    padR: stage.gut
+                    playing: root.advancing
+                    canPlay: !root.blocked && root.frags.length > 0
+                    blocked: root.blocked
+                    rate: root.playSpeed
+                    rates: root.speeds
+                    maxDecodeRate: root.maxDecodeRate
+                    frameMode: root.frameMode
+                    rangeTools: root.frameMode || root.hasSelection
+                    ladderOpen: root.ladderOpen
+                    fullscreenOn: root.fullscreenOn
+                    markMs: root.markMs
+                    backFetching: root.backFetching
+                    onBack10: root.nudge(-10000)
+                    onStepBack: root.stepBackVisible()
+                    onPlayPause: root.togglePlay()
+                    onStepFwd: if (!stepper.busy) stepper.stepForward()
+                    onFwd10: root.nudge(10000)
+                    onLadderToggled: root.ladderOpen = !root.ladderOpen
+                    onRatePicked: (r) => { root.setSpeed(r); root.ladderOpen = false }
+                    onFrameToggled: root.frameMode ? root.exitFrameMode() : root.enterFrameMode()
+                    onMarkIn: root.markIn()
+                    onMarkOut: root.markOut()
+                    onExportClicked: root.openExportDrawer()
+                    onFullscreenToggled: root.fullscreenRequested()
+                    onSnapshot: root.snapshot()
+                    onSnapshotStamped: root.snapshotStamped()
+                    onReturnToLive: root.returnToLive()
                 }
             }
 
-            // ---- info aside ----
-            Rectangle {
-                Layout.preferredWidth: 340
+            PbEventsPanel {
+                id: evPanel
+                Layout.preferredWidth: root.panelW
                 Layout.fillHeight: true
-                color: Theme.panel
-                Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 1; color: Theme.line }
-                ColumnLayout {
-                    anchors.fill: parent; anchors.leftMargin: 1; spacing: 0
-                    component Hdr: Text {
-                        Layout.fillWidth: true; Layout.topMargin: 14; Layout.leftMargin: 16; Layout.bottomMargin: 8
-                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
-                        font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
-                    }
-                    component KV: RowLayout {
-                        property string k: ""; property string v: ""
-                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        Text { text: parent.k; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 120 }
-                        Text { text: parent.v; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
-                        Text { text: root.camera ? root.camera.name : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-                        Text { text: root.camera ? root.camera.groupName : ""; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
-                        Row { spacing: 4; topPadding: 4
-                            LiveStatusBadge {
-                                state: root.camera ? root.camera.live : CameraStatus.LiveUnknown
-                                sinceMs: root.cameraModel ? (root.cameraModel.stateRev, root.cameraModel.liveSinceMs(root.camId)) : -1
-                            }
-                            RecordingStatusBadge {
-                                state: root.camera ? root.camera.recording : CameraStatus.RecUnknown
-                                stateSinceMs: root.cameraModel ? (root.cameraModel.stateRev, root.cameraModel.recSinceMs(root.camId)) : -1
-                                lastMotionAtMs: root.eventsModel ? (root.eventsModel.motionRev, root.eventsModel.lastMotionAtMs(root.camId)) : -1
-                            }
-                        }
-                    }
-                    Hdr { text: "Status" }
-                    KV { k: "Playhead"; v: root.frags.length ? root.fmtClock(root.playheadMs) : "—" }
-                    // Last motion — CLICK seeks playback onto the episode (pre-roll included).
-                    RowLayout {
-                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        readonly property double lm: root.eventsModel
-                            ? (root.eventsModel.motionRev, root.eventsModel.lastMotionAtMs(root.camId)) : -1
-                        Text { text: qsTr("Last motion"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 120 }
-                        Text {
-                            text: parent.lm > 0 ? (root.fmtClock(parent.lm) + " ›") : "—"
-                            color: parent.lm > 0 ? Theme.accent : Theme.ink
-                            font.family: Theme.fontSans; font.pixelSize: 12
-                            font.underline: lmMa.containsMouse
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight
-                            MouseArea {
-                                id: lmMa
-                                anchors.fill: parent; anchors.margins: -4
-                                enabled: parent.parent.lm > 0
-                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: root.seekToWall(parent.parent.lm)
-                            }
-                        }
-                    }
-                    KV { k: "Quality"; v: { var f = root.fragAt(player.position/1000);
-                            if (!f) return "—";
-                            var c = f.codec === "hevc" ? "HEVC" : "H.264";
-                            // E5: read the real resolution field; fall back to codec inference
-                            // only for old rows where resolution is null.
-                            return (f.resolution && f.resolution !== "") ? (f.resolution + " (" + c + ")")
-                                   : (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)"); } }
-                    KV { k: "Coverage"; v: root.tlFrags.length + " segments" }
-                    KV { k: "Window"; v: root.selectedDay !== ""
-                            ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")
-                            : (root.zoomMin === 1440 ? "24 hours" : root.zoomMin === 720 ? "12 hours"
-                               : root.zoomMin === 360 ? "6 hours" : root.zoomMin === 60 ? "1 hour"
-                               : root.zoomMin + " min") }
-
-                    // footage calendar — pick a day to load its full 24h
-                    Item { Layout.fillWidth: true; Layout.preferredHeight: 10 }
-                    Rectangle { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 1; color: Theme.line }
-                    Item { Layout.fillWidth: true; Layout.preferredHeight: 14 }
-                    PlaybackCalendar {
-                        Layout.fillWidth: true
-                        retentionDays: root.retentionDays
-                        footageDays: root.footageDays
-                        pending: root.coveragePending
-                        selectedDate: root.selectedDay
-                        onDaySelected: (d) => root.openForDay(d)
-                    }
-
-                    Hdr { text: "Events" }
-                    // legend / per-type show-hide — one toggle per type present in the
-                    // window; click to show/hide that type's markers on the scrubber.
-                    Flow {
-                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        spacing: 6; visible: root.eventTypesPresent.length > 0
-                        Repeater {
-                            model: root.eventTypesPresent
-                            Rectangle {
-                                id: lg
-                                required property var modelData
-                                readonly property string key: lg.modelData
-                                readonly property bool on: root.typeVisible(lg.key)
-                                implicitWidth: lgRow.implicitWidth + 14; implicitHeight: 22
-                                color: lgMa.containsMouse ? Theme.panel2 : "transparent"
-                                border.width: 1; border.color: Theme.line2
-                                Row { id: lgRow; anchors.centerIn: parent; spacing: 6
-                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7
-                                        color: EventStyle.color(lg.key); opacity: lg.on ? 1 : 0.3 }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: EventStyle.label(lg.key)
-                                        color: lg.on ? Theme.ink : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
-                                }
-                                MouseArea { id: lgMa; anchors.fill: parent; hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor; onClicked: root.toggleType(lg.key) }
-                            }
-                        }
-                    }
-                    Text { visible: root.eventTypesPresent.length === 0
-                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        text: "No events in this range."; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
-
-                    Item { Layout.fillWidth: true; Layout.preferredHeight: 8 }
-                    // recent list — most recent events (visible types); click to jump
-                    Repeater {
-                        model: root.recentList
-                        Rectangle {
-                            id: evrow
-                            required property var modelData
-                            Layout.fillWidth: true; Layout.preferredHeight: 26
-                            color: evMa.containsMouse ? Theme.panel2 : "transparent"
-                            RowLayout {
-                                anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 8
-                                Rectangle { Layout.preferredWidth: 6; Layout.preferredHeight: 6; Layout.alignment: Qt.AlignVCenter
-                                    color: EventStyle.color(evrow.modelData.type) }
-                                Text { Layout.fillWidth: true; text: EventStyle.label(evrow.modelData.type); color: Theme.ink
-                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
-                                Text { text: root.fmtClock(evrow.modelData.ts); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
-                            }
-                            MouseArea { id: evMa; anchors.fill: parent; hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor; onClicked: root.seekToWall(evrow.modelData.ts) }
-                        }
-                    }
-                    Item { Layout.fillHeight: true }
+                visible: root.railOpen
+                items: root.winItemsNewest
+                unfilteredCount: root.winItemsUnfiltered
+                types: root.typeChips
+                hoverId: root.hoverId
+                selId: root.selId
+                onHovered: (id) => root.hoverId = id
+                onPicked: (id, ms) => root.pickItem(id, ms)
+                onTypeToggled: (k) => root.toggleType(k)
+                onCloseRequested: { root.railOpen = false; Settings.pbEventsPanel = false }
+                onResizeDragged: (dx) => {
+                    root.panelW = Math.max(232, Math.min(560, root.panelW + dx));
+                    prefSave.restart();
                 }
+                onResizeReset: { root.panelW = 296; Settings.pbPanelW = 296 }
             }
         }
 
-        // ---- timeline ----------------------------------------------------
-        Rectangle {
+        // ---- filmstrip band — frame mode only -----------------------------
+        // Stepping through a 25 fps archive changes the picture almost
+        // imperceptibly frame to frame; the strip makes the step legible by
+        // showing the neighbours it moved between, and puts the expensive
+        // backward direction on screen instead of behind a keypress.
+        Item {
+            id: stripBand
             Layout.fillWidth: true
-            // frameMode swaps the 22px controls row for the ~96px filmstrip
-            Layout.preferredHeight: root.frameMode ? 200 : (root._dayStripOn ? 182 : 124)
-            Behavior on Layout.preferredHeight { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-            color: Theme.bg
-            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
-
-            // frame-by-frame filmstrip (frameMode) — replaces the controls row
+            Layout.preferredHeight: root.frameMode ? 96 : 0
+            visible: root.frameMode
+            Behavior on Layout.preferredHeight { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+            Rectangle { anchors.fill: parent; color: Theme.bg }
+            Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top }
+                        height: 1; color: Theme.line2 }
             FrameStrip {
                 id: frameStripItem
-                visible: root.frameMode
-                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 8
-                height: 96
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                // padded by the rail so the frames sit under the PICTURE, not the rail
+                anchors.rightMargin: (root.railOpen ? root.panelW : 0) + 12
+                anchors.topMargin: 8; anchors.bottomMargin: 8
                 currentPts: FrameClock.lastPtsMs
-                clockOf: function(pts) { return root.frameClockOf(pts); }
+                clockOf: function (pts) { return root.frameClockOf(pts); }
                 onJumpRequested: (pts) => stepper.jumpToCachedPts(pts)
-                Rectangle {                        // mode chip: what this is + how to leave
-                    anchors.right: parent.right; anchors.top: parent.top
-                    implicitWidth: fmChip.implicitWidth + 14; implicitHeight: 18
-                    color: Qt.rgba(0, 0, 0, 0.65); border.width: 1; border.color: Theme.accent
-                    Text { id: fmChip; anchors.centerIn: parent
-                        text: qsTr("FRAME-BY-FRAME") + " · " + qsTr("F / Esc to exit") + " · ← →"
-                        color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.8 }
-                }
+            }
+        }
+
+        // ---- the navigator: ONE axis, two tiers ---------------------------
+        Item {
+            id: navigator
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.navH
+
+            Rectangle { anchors.fill: parent; color: Theme.bg }
+            Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top }
+                        height: 1; color: Theme.line2 }
+
+            PbRibbon {
+                id: ribbon
+                anchors { left: parent.left; right: parent.right; top: parent.top }
+                days: root.ribbonDays
+                selKey: root.selDayKey
+                selMs: root._selDay0
+                selSec: root.selDaySec
+                selClips: root.selDayClips
+                winA: root.winFracA
+                winB: root.winFracB
+                onDaySelected: (key) => root.selectDay(key)
             }
 
-            // controls row
-            RowLayout {
-                id: tlControls
-                visible: !root.frameMode
-                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                anchors.leftMargin: 16; anchors.rightMargin: 16; anchors.topMargin: 12
-                height: 22; spacing: 8
-                component Chip: Rectangle {
-                    property string label: ""
-                    property bool active: false
-                    signal clicked()
-                    implicitWidth: ct.implicitWidth + 18; implicitHeight: 22
-                    color: active ? Theme.accent : "transparent"
-                    border.width: 1; border.color: active ? Theme.accent : Theme.line2
-                    Text { id: ct; anchors.centerIn: parent; text: parent.label; color: parent.active ? Theme.bg : Theme.ink2
-                        font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8; font.capitalization: Font.AllUppercase }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
-                }
-                // The handoff's left group (Last hour / Yesterday / Exact time) merged into
-                // other affordances: its jump-presets collapsed into the zoom ladder on the
-                // right (identical setZoom targets, operator-reported duplication 2026-07-19),
-                // "Yesterday" became the footage calendar, "Exact time" the timeline seeks.
-                Text { text: root.frags.length ? ("PLAYHEAD · " + Qt.formatDate(new Date(root.playheadMs), "ddd") + " " + root.fmtClock(root.playheadMs)) : ""
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
-                Item { Layout.fillWidth: true }
-                Chip { label: "Events"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
-                // Window presets re-open the session; they de-highlight once you
-                // wheel/±-zoom the scrubber into a custom range (then a Custom chip
-                // shows the visible span; scroll/±/0 to zoom, Fit to reset).
-                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(60) }
-                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(360) }
-                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(720) }
-                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === "" && !root.tlZoomed; onClicked: root.setZoom(1440) }
-                Chip { visible: root.tlZoomed; active: true; label: root.fmtSpan(root.viewEndMs - root.viewStartMs); onClicked: root.resetView() }
-                Chip { visible: root.tlZoomed; label: "Fit"; onClicked: root.resetView() }
+            PbNavHeader {
+                id: navHdr
+                anchors { left: parent.left; right: parent.right; top: ribbon.bottom }
+                playheadMs: root.playheadMs
+                hasPlayhead: root.frags.length > 0
+                segCount: root._cov.n
+                coveredPct: root._cov.pct
+                lastMotionMs: root.lastMotionMs
+                markMs: root.markMs
+                showMotion: root.showMotionLane
+                showEvents: root.railOpen
+                spanMin: root.zoomMin
+                onJumpLastMotion: root.seekToWall(root.lastMotionMs)
+                onClearMark: root.clearMark()
+                onToggleMotion: Settings.eventsOnScrubber = !Settings.eventsOnScrubber
+                onToggleEvents: { root.railOpen = !root.railOpen; Settings.pbEventsPanel = root.railOpen }
+                onSpanPicked: (m) => root.setSpan(m)
             }
 
-            // Day-overview strip (CV /review/thumbnails, 24 keyframe tiles as one
-            // sprite): one glance at the loaded day; click a tile to jump there.
-            // Gaps are honest holes (never packed into the sheet) — dark cell +
-            // glyph. Tile x/width come PER-TILE off the metadata (mixed aspect
-            // ratios are legitimate; frozen contract 2026-07-12).
+            PbLanes {
+                id: lanesItem
+                anchors { left: parent.left; right: parent.right; top: navHdr.bottom }
+                height: 15 + root.footageLaneH + root.motionLaneH
+                winS: root.viewStartMs
+                winE: root.viewEndMs
+                segs: root.tlFrags
+                items: root.winItems
+                ph: root.playheadMs
+                markS: root.selStartMs
+                markE: root.selEndMs
+                hoverId: root.hoverId
+                selId: root.selId
+                showMotion: root.showMotionLane
+                footageH: root.footageLaneH
+                motionH: root.motionLaneH
+                onSeekRequested: (ms) => root.seekToWall(ms)
+                onHovered: (id) => root.hoverId = id
+                onPicked: (id, ms) => root.pickItem(id, ms)
+            }
+
+            // Height grip: straddles the navigator's TOP edge, absolutely
+            // positioned, so it costs 0px of picture. Only the lanes absorb the
+            // change — ribbon, header and ruler are fixed.
             Item {
-                id: dayStripItem
-                visible: root._dayStripOn
-                anchors.left: parent.left; anchors.right: parent.right
-                anchors.top: tlControls.bottom
-                anchors.topMargin: root._dayStripOn ? 8 : 0
-                anchors.leftMargin: 16; anchors.rightMargin: 16
-                height: root._dayStripOn ? 50 : 0
-                Row {
-                    anchors.fill: parent
-                    spacing: 2
-                    Repeater {
-                        model: root.dayTiles
-                        delegate: Rectangle {
-                            required property var modelData
-                            readonly property bool gap: !modelData.tileUrl || modelData.tileUrl === ""
-                            width: (dayStripItem.width - 2 * (root.dayTiles.length - 1)) / root.dayTiles.length
-                            height: 48
-                            color: "#16140f"
-                            border.width: dsMa.containsMouse ? 1 : 1
-                            border.color: dsMa.containsMouse ? Theme.accent : Theme.line
-                            Image {
-                                visible: !parent.gap
-                                anchors.fill: parent; anchors.margins: 1
-                                source: parent.gap ? "" : parent.modelData.tileUrl
-                                sourceSize.height: 96
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                            }
-                            Icon { visible: parent.gap; anchors.centerIn: parent; name: "shot"; size: 12; color: Theme.ink3 }
-                            MouseArea {
-                                id: dsMa
-                                anchors.fill: parent; hoverEnabled: true
-                                cursorShape: parent.gap ? Qt.ArrowCursor : Qt.PointingHandCursor
-                                onClicked: if (!parent.gap) root.seekToWall(Date.parse(parent.modelData.wallTime))
-                            }
-                            C.ToolTip.visible: dsMa.containsMouse
-                            C.ToolTip.delay: 300
-                            C.ToolTip.text: gap ? qsTr("No recording") : root.fmtClock(Date.parse(modelData.wallTime))
-                        }
-                    }
-                }
-            }
-
-            // Hover preview (CV /review/thumbnails, 1 keyframe tile near the hovered
-            // instant): a real frame from that moment, not a guess. A SIBLING of the
-            // scrubber, floating with its bottom edge just ABOVE the track — never
-            // covering the region being scrubbed (it used to render inside the bar,
-            // hiding the very timeline under the cursor; operator report 2026-07-28).
-            // z above the bar and the day/frame strips; x clamped to the bar's width.
-            Rectangle {
-                id: hoverPreview
-                visible: bar.hoverMs > 0 && root.hoverThumb !== null && !root.frameMode
-                x: bar.x + Math.max(2, Math.min(bar.width - width - 2, bar.hoverX - width / 2))
-                y: Math.max(0, bar.y - height - 6)
-                z: 40
-                width: 110; height: 74
-                color: Theme.panel; border.width: 1; border.color: Theme.line2
-                Image {
-                    anchors { top: parent.top; left: parent.left; right: parent.right; margins: 2 }
-                    height: 58
-                    source: root.hoverThumb ? root.hoverThumb.tileUrl : ""
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                }
-                Text {
-                    anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter; bottomMargin: 1 }
-                    text: bar.hoverMs > 0 ? root.fmtClock(bar.hoverMs) : ""
-                    color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
-                }
-                // Pointer caret: ties the floating card to the exact hovered instant.
+                id: navGrip
+                anchors { left: parent.left; right: parent.right }
+                y: -3; height: 7; z: 12
+                Rectangle { anchors.fill: parent; color: Theme.accentSoft
+                            visible: gripMa.containsMouse || gripMa.pressed }
                 Rectangle {
-                    anchors.top: parent.bottom
-                    x: Math.max(4, Math.min(parent.width - 12,
-                                            (bar.x + bar.hoverX) - hoverPreview.x - 4))
-                    width: 8; height: 8
-                    rotation: 45
-                    anchors.topMargin: -4
-                    color: Theme.panel
-                    border.width: 1; border.color: Theme.line2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 3; width: 36
+                    height: gripMa.containsMouse || gripMa.pressed ? 2 : 1
+                    color: gripMa.containsMouse || gripMa.pressed ? Theme.accent : Theme.line2
                 }
-            }
-
-            // bar
-            Rectangle {
-                id: bar
-                anchors.left: parent.left; anchors.right: parent.right
-                anchors.top: root.frameMode ? frameStripItem.bottom
-                             : (root._dayStripOn ? dayStripItem.bottom : tlControls.bottom)
-                anchors.topMargin: 10
-                anchors.leftMargin: 16; anchors.rightMargin: 16
-                height: 78
-                color: "#16140f"; border.width: 1; border.color: Theme.line
-
-                clip: true   // footage/selection outside the zoomed view are clipped
-                property double hoverX: -1
-                // The hover preview used to live HERE, inside the (clipped) bar —
-                // which drew it ON TOP of the very track being scrubbed (operator
-                // report 2026-07-28). It is now the `hoverPreview` SIBLING declared
-                // just above this bar, floating over the strip area instead.
-                readonly property double span: Math.max(1, root.viewEndMs - root.viewStartMs)
-                function xOf(ms) { return (ms - root.viewStartMs) / span * width }
-                function msOf(x) { return root.viewStartMs + (x / width) * span }
-                property double hoverMs: -1   // wall ms under the cursor (-1 = not hovering)
-                readonly property var rulerTicks: root.computeTicks(root.viewStartMs, root.viewEndMs, width)
-                // Motion episodes clipped to the visible window and MERGED by zoom: two
-                // episodes whose on-screen gap is < ~3px fuse into one band (so a busy
-                // 24h view collapses to legible density bands; zoom in and they resolve
-                // into discrete start→end spans). coveredMs/extent drives the intensity.
-                readonly property var visibleMotion: {
-                    if (root.bucketMode || !root.typeVisible("motion")) return [];
-                    var eps = root.motionEpisodes, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
-                    if (!eps || eps.length === 0 || sp <= 0 || w <= 0) return [];
-                    var minGapMs = (3 / w) * sp, out = [], cur = null;
-                    for (var i = 0; i < eps.length; i++) {
-                        var e = eps[i];
-                        if (e.endMs < vs || e.startMs > ve) continue;
-                        var s = Math.max(e.startMs, vs), en = Math.min(e.endMs, ve);
-                        if (cur && s - cur.eMs <= minGapMs) {
-                            cur.eMs = Math.max(cur.eMs, en); cur.count += 1; cur.coveredMs += (en - s);
-                        } else {
-                            if (cur) out.push(cur);
-                            cur = { sMs: s, eMs: en, count: 1, coveredMs: (en - s) };
-                        }
-                    }
-                    if (cur) out.push(cur);
-                    return out.map(function (b) {
-                        return { sMs: b.sMs, eMs: b.eMs, count: b.count,
-                                 intensity: Math.min(1, b.coveredMs / Math.max(1, b.eMs - b.sMs)) };
-                    });
-                }
-                // density-bucket band (server aggregation) — used instead of per-episode
-                // rendering for a very busy window. One segment per non-empty bin.
-                readonly property var bucketBand: {
-                    if (!root.bucketMode || !root.typeVisible("motion")) return [];
-                    var bk = root.motionBuckets, vs = root.viewStartMs, ve = root.viewEndMs, out = [];
-                    if (!bk || bk.length === 0) return [];
-                    for (var i = 0; i < bk.length; i++) {
-                        var b = bk[i];
-                        if (b.eMs < vs || b.sMs > ve || b.seconds <= 0) continue;
-                        var dur = Math.max(1, (b.eMs - b.sMs) / 1000);
-                        out.push({ sMs: b.sMs, eMs: b.eMs, count: b.count, intensity: Math.min(1, b.seconds / dur) });
-                    }
-                    return out;
-                }
-                readonly property var motionBand: root.bucketMode ? bucketBand : visibleMotion
-                function motionAt(ms) {
-                    var v = motionBand;
-                    for (var i = 0; i < v.length; i++) if (ms >= v[i].sMs && ms <= v[i].eMs) return v[i];
-                    return null;
-                }
-                readonly property var hoverMotion: hoverMs >= 0 ? motionAt(hoverMs) : null
-                // discrete (non-motion) events clipped to view + visible types, clustered
-                // by ~7px so dense runs collapse to one tick with a count.
-                readonly property var visiblePoints: {
-                    if (!Settings.eventsOnScrubber) return [];
-                    var pts = root.pointEvents, vs = root.viewStartMs, ve = root.viewEndMs, w = width, sp = ve - vs;
-                    if (!pts || pts.length === 0 || sp <= 0 || w <= 0) return [];
-                    var minGapMs = (7 / w) * sp, out = [], cur = null;
-                    for (var i = 0; i < pts.length; i++) {
-                        var p = pts[i];
-                        if (p.ms < vs || p.ms > ve || root.typeHidden(p.type)) continue;
-                        if (cur && p.ms - cur.lastMs <= minGapMs) {
-                            cur.count += 1; cur.lastMs = p.ms;
-                            if (cur.type !== p.type) cur.mixed = true;
-                        } else {
-                            if (cur) out.push(cur);
-                            cur = { ms: p.ms, lastMs: p.ms, count: 1, type: p.type, mixed: false };
-                        }
-                    }
-                    if (cur) out.push(cur);
-                    return out;
-                }
-                function pointAt(ms) {
-                    var v = visiblePoints, sp = root.viewEndMs - root.viewStartMs, tol = (6 / Math.max(1, width)) * sp;
-                    for (var i = 0; i < v.length; i++)
-                        if (Math.abs(ms - (v[i].ms + v[i].lastMs) / 2) <= tol) return v[i];
-                    return null;
-                }
-                readonly property var hoverPoint: hoverMs >= 0 ? pointAt(hoverMs) : null
-
-                // gap backdrop (whole bar = red stripe), footage drawn on top
-                Rectangle {
-                    anchors.fill: parent; anchors.margins: 1
-                    visible: root.tlFrags.length > 0
-                    color: "transparent"
-                    Rectangle { anchors.fill: parent; color: Theme.bad; opacity: 0.12 }
-                }
-
-                // footage segments (olive) — the TIMELINE's footage (tlFrags), not the loaded player
-                // window, so a far-seek re-open never shrinks the recorded track.
-                Repeater {
-                    model: root.tlFrags
-                    Rectangle {
-                        readonly property double x0: bar.xOf(modelData.ws)
-                        readonly property double x1: bar.xOf(modelData.we)
-                        x: Math.max(1, x0); y: 8
-                        width: Math.max(1, x1 - x0); height: 18
-                        color: modelData.codec === "hevc" ? Theme.good : Qt.lighter(Theme.good, 1.15)
-                        opacity: 0.75
-                    }
-                }
-                // motion episodes (amber) — a free-standing lane below the footage band;
-                // merged into density bands at wide zoom (see bar.visibleMotion). Click a
-                // band to seek into it; hover for the time range / count.
-                Repeater {
-                    model: bar.motionBand
-                    Rectangle {
-                        readonly property double bx0: bar.xOf(modelData.sMs)
-                        readonly property double bx1: bar.xOf(modelData.eMs)
-                        x: Math.max(1, bx0); y: 28
-                        width: Math.max(2, bx1 - bx0); height: 6
-                        color: Theme.accent
-                        opacity: 0.45 + 0.45 * modelData.intensity
-                    }
-                }
-                // lane labels
-                Row {
-                    anchors.left: parent.left; anchors.leftMargin: 6; anchors.top: parent.top; anchors.topMargin: 39
-                    spacing: 10
-                    Text { text: "FOOTAGE"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
-                    Text { visible: root.typeVisible("motion"); text: "MOTION"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1 }
-                }
-
-                // discrete event ticks (non-motion types) — clustered pins colored by
-                // type (neutral when a cluster mixes types); count shown for clusters.
-                Repeater {
-                    model: bar.visiblePoints
-                    Item {
-                        id: pin
-                        readonly property double px: bar.xOf((modelData.ms + modelData.lastMs) / 2)
-                        readonly property color c: modelData.mixed ? Theme.ink2 : EventStyle.color(modelData.type)
-                        visible: px >= -2 && px <= bar.width + 2
-                        x: px; y: 0
-                        Rectangle { x: -2; y: 22; width: 5; height: 5; color: pin.c }                 // dot cap
-                        Rectangle { x: 0; y: 24; width: 2; height: 14; color: pin.c; opacity: 0.9 }    // pin
-                        Text { visible: modelData.count > 1; x: 4; y: 19; text: modelData.count
-                            color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8 }
-                    }
-                }
-
-                // adaptive time ruler — major (labeled) + minor ticks at the bottom,
-                // intervals chosen from the visible span (re-evaluates on zoom/pan)
-                Repeater {
-                    model: bar.rulerTicks
-                    delegate: Item {
-                        required property var modelData
-                        readonly property real tx: bar.xOf(modelData.ms)
-                        visible: tx >= -1 && tx <= bar.width + 1
-                        Rectangle {
-                            x: parent.tx; width: 1
-                            height: parent.modelData.major ? 11 : 6
-                            y: bar.height - height - 1
-                            color: parent.modelData.major ? Qt.rgba(1, 1, 1, 0.40) : Qt.rgba(1, 1, 1, 0.16)
-                        }
-                        Text {
-                            visible: parent.modelData.major && parent.tx <= bar.width - implicitWidth - 2
-                            x: Math.round(parent.tx) + 3; y: bar.height - 27
-                            text: parent.modelData.lbl
-                            // bright + a touch larger so the ruler times read at a glance
-                            color: "#ffffff"; font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Medium
-                        }
-                    }
-                }
-
-                // selection overlay
-                Rectangle {
-                    visible: root.hasSelection
-                    x: bar.xOf(root.selStartMs); width: Math.max(2, bar.xOf(root.selEndMs) - bar.xOf(root.selStartMs))
-                    y: 0; height: parent.height
-                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
-                    Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 2; color: Theme.accent }
-                    Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 2; color: Theme.accent }
-                }
-
-                // playhead
-                Rectangle {
-                    visible: root.frags.length > 0
-                    x: Math.max(0, bar.xOf(root.playheadMs)) - 1; y: 0; width: 2; height: parent.height
-                    color: "#ffffff"
-                    Rectangle { anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; width: 7; height: 7; rotation: 45; color: "#fff" }
-                }
-
-                // (window start/end axis labels removed — the visible range is conveyed
-                // by the zoom buttons + calendar; the playhead readout above the video,
-                // the PLAYHEAD label, and the hover tooltip are the time references.)
-
-                // hover guide + time tooltip — the wall-clock time under the cursor
-                Rectangle {
-                    visible: bar.hoverMs >= 0
-                    x: Math.max(0, Math.min(bar.width - 1, bar.xOf(bar.hoverMs)))
-                    y: 0; width: 1; height: parent.height
-                    color: Qt.rgba(1, 1, 1, 0.35)
-                }
-                Rectangle {
-                    visible: bar.hoverMs >= 0
-                    readonly property real hx: bar.xOf(bar.hoverMs)
-                    width: hoverT.implicitWidth + 14; height: 20
-                    x: Math.max(0, Math.min(bar.width - width, hx - width / 2))
-                    y: 2
-                    color: Qt.rgba(0, 0, 0, 0.9); border.width: 1; border.color: Theme.line2
-                    Text { id: hoverT; anchors.centerIn: parent
-                        text: bar.hoverPoint
-                              ? ((bar.hoverPoint.count > 1 ? bar.hoverPoint.count + " events · " : EventStyle.label(bar.hoverPoint.type) + " · ")
-                                 + root.fmtClock((bar.hoverPoint.ms + bar.hoverPoint.lastMs) / 2))
-                              : bar.hoverMotion
-                                ? ((bar.hoverMotion.count > 1 ? bar.hoverMotion.count + " motions · " : "Motion · ")
-                                   + root.fmtClock(bar.hoverMotion.sMs) + "–" + root.fmtClock(bar.hoverMotion.eMs))
-                                : root.fmtClock(bar.hoverMs)
-                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
-                }
-
-                // click to seek, drag to select
                 MouseArea {
+                    id: gripMa
                     anchors.fill: parent
-                    property double pressMs: -1
-                    cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
-                    onPressed: (m) => { pressMs = bar.msOf(m.x); root.selStartMs = -1; root.selEndMs = -1 }
+                    cursorShape: Qt.SizeVerCursor
+                    property real _y0: 0
+                    onPressed: (m) => { _y0 = mapToItem(null, m.x, m.y).y }
                     onPositionChanged: (m) => {
-                        bar.hoverMs = bar.msOf(m.x);
-                        bar.hoverX = m.x;
-                        if (!root.frameMode) root.requestHoverThumb(bar.hoverMs);
-                        if (pressMs < 0) return;
-                        var cur = bar.msOf(m.x);
-                        root.selStartMs = Math.min(pressMs, cur);
-                        root.selEndMs = Math.max(pressMs, cur);
+                        if (!pressed) return;
+                        var ny = mapToItem(null, m.x, m.y).y;
+                        root.navH = Math.max(root.navMin,
+                            Math.min(Math.round(root.height * 0.52), root.navH + (_y0 - ny)));
+                        _y0 = ny;
+                        prefSave.restart();
                     }
-                    onExited: { bar.hoverMs = -1; root.hoverThumb = null; }
-                    onReleased: (m) => {
-                        var cur = bar.msOf(m.x);
-                        if (Math.abs(cur - pressMs) < bar.span / bar.width * 4) {  // a click, not a drag
-                            root.selStartMs = -1; root.selEndMs = -1;
-                            root.seekToWall(cur);
-                        }
-                        pressMs = -1;
-                    }
-                    // scroll = zoom on the cursor; Shift+scroll = pan (Premiere-style)
-                    onWheel: (w) => {
-                        if (w.modifiers & Qt.ShiftModifier)
-                            root.panView(w.angleDelta.y > 0 ? -bar.span * 0.15 : bar.span * 0.15);
-                        else
-                            root.zoomView(w.angleDelta.y > 0 ? 0.8 : 1.25, bar.msOf(w.x));
-                    }
+                    onDoubleClicked: { root.navH = root.navDefault; Settings.pbNavH = root.navDefault }
                 }
+                C.ToolTip.visible: gripMa.containsMouse
+                C.ToolTip.delay: 600
+                C.ToolTip.text: qsTr("Drag to resize · double-click to reset")
             }
         }
     }
@@ -2534,7 +2452,8 @@ Item {
         return null;
     }
 
-    signal fullscreenRequested()
+    signal fullscreenRequested()           // toggles the shell's fullscreen (Shift F / ⛶ / Esc)
+    signal openSettingsRequested()         // the playbackOff banner's action — wired, never inert
     signal snapshotSaved(string path, string camName)
     // Snapshot with the PLAYHEAD instant burned in — the recorded frame's wall
     // clock (matches the header readout), not the capture time.

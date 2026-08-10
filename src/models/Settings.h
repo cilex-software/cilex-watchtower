@@ -42,6 +42,14 @@ class Settings : public QObject
     Q_PROPERTY(int triageBodyH READ triageBodyH WRITE setTriageBodyH NOTIFY triageBodyHChanged)
     // Groups screen: operator-resizable left pane (spec default 264).
     Q_PROPERTY(int groupsPaneW READ groupsPaneW WRITE setGroupsPaneW NOTIFY groupsPaneWChanged)
+    // Playback "One Axis" navigator: operator-resizable height (spec default 115,
+    // floor 101 = 83 fixed chrome + an 18px lane minimum) and the right rail's
+    // width (spec default 296, 232–560).
+    Q_PROPERTY(int pbNavH READ pbNavH WRITE setPbNavH NOTIFY pbNavHChanged)
+    Q_PROPERTY(int pbPanelW READ pbPanelW WRITE setPbPanelW NOTIFY pbPanelWChanged)
+    // Playback right rail visible (the EVENTS column). Persistent, not a session
+    // toggle — the operator who closes it wants it closed tomorrow too.
+    Q_PROPERTY(bool pbEventsPanel READ pbEventsPanel WRITE setPbEventsPanel NOTIFY pbEventsPanelChanged)
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
@@ -81,6 +89,12 @@ public:
     bool triageQueueCollapsed() const { return m_triageQueueCollapsed; }
     int triageBodyH() const { return m_triageBodyH; }
     int groupsPaneW() const { return m_groupsPaneW; }
+    int pbNavH() const { return m_pbNavH; }
+    int pbPanelW() const { return m_pbPanelW; }
+    bool pbEventsPanel() const { return m_pbEventsPanel; }
+    void setPbNavH(int v);
+    void setPbPanelW(int v);
+    void setPbEventsPanel(bool v);
     void setBadgeTimers(bool v);
     void setTriageQueueCollapsed(bool v);
     void setTriageBodyH(int v);
@@ -147,6 +161,9 @@ signals:
     void triageQueueCollapsedChanged();
     void triageBodyHChanged();
     void groupsPaneWChanged();
+    void pbNavHChanged();
+    void pbPanelWChanged();
+    void pbEventsPanelChanged();
     void hiddenScrubberEventTypesChanged();
 
 private:
@@ -165,5 +182,8 @@ private:
     bool m_triageQueueCollapsed = false;
     int m_triageBodyH = 200;
     int m_groupsPaneW = 264;
+    int m_pbNavH = 115;
+    int m_pbPanelW = 296;
+    bool m_pbEventsPanel = true;
     QStringList m_hiddenScrubberEventTypes;
 };
