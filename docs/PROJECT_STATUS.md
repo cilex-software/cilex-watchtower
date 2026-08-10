@@ -122,6 +122,46 @@ Claude Design has not returned it.
 > across the QML boundary**. A wrong mirror silently reclassifies the entire
 > fleet — it briefly rendered all 39 cameras as OFF. Change one, change both.
 
+### The 16-camera wall: the compositor is innocent, the honesty is not (2026-08-10)
+
+Operator report: opening the wall from Live › "Go back in time" showed **2 of 16
+cameras with picture**, the rest black with a camera name and a ticking
+timestamp. Asked for all 16 playing within 3 s.
+
+**Both halves of that ask are answered, and neither is what it looked like.**
+
+- 🟢 **Speed is already inside the bar.** Measured against the pilot backend
+  (16 cams, 6 h window, **5 mosaic sessions, all disposed**): session create
+  **191–643 ms**, first segment at the window head **0.69 s**, prewarm → segment
+  served **1.2–2.4 s**. **The `~4–6 s` in `qml/WallPlayback.qml` was stale and is
+  corrected** — do not quote it again.
+- 🟢 **The compositor is not dropping cells.** Sampling the composited frame at
+  the instant each camera has its own segment, **7 of 7 lit their own cell**
+  (`.103 .104 .107 .108 .109 .133 .134`). Grid is 4×4, **1920×1080 @ 12 fps
+  h264**, cells 480×270.
+- 🔴 **"All 16 at once" is not reachable, and not a defect.** 14 of the 16 are
+  motion-triggered, so at any instant they have no recorded video. Sampled at six
+  instants across six hours, the lit count was **2/16 every time** — always
+  `.135`/`.136`, the two that record continuously; typical is **3–4 of 16**. You
+  cannot display footage that was never recorded. Anyone re-opening this should
+  treat it as a recording-policy question, not a client bug.
+- 🔴 **The real defect is honesty.** A black cell wearing a camera name and a
+  millisecond timestamp reads as "loading", not "this camera recorded nothing
+  here" — the no-green-by-default rule, broken. **The client cannot fix this
+  alone**: `availability` is per-FRAGMENT (whole grid) and the mosaic manifest
+  carries no per-cell truth. Needs a CV contract ask.
+- 🔴 **Contract mismatch worth a letter.** The manifest calls all ~3,594 fragments
+  `ready`, but a segment fetched at a random offset returns **HTTP 503 — 14 of 14
+  attempts** — until `prewarm` is called. Today `ready` means "will be rendered",
+  not "can be served".
+- 🔴 **Intermittent crash on the wall.** VA-API `Failed to sync surface` →
+  `Cannot map a video frame in ReadOnly mode!` → `corrupted double-linked list`
+  → SIGABRT at 14 s. Confirmed on the unmodified tree, so it predates the
+  2026-08-10 work. Faults reproduce every run; the abort does not.
+
+Measure it yourself with `WT_TRACE=1 WT_WALL_DAY=live` (`[WALL]` lines: grid,
+cell→camera map, availability histogram).
+
 ### Still open with CV / the fleet
 
 - 🔴 **Recording P1 (2026-08-07, unresolved):** 12 of 23 armed cameras

@@ -602,9 +602,16 @@ Item {
         }
     }
 
-    // Render watchdog: a cold 16-cell composite now takes the backend ~4-6s for
-    // the first segment (3043dbe: render chase + batched bounded resolves +
-    // ~3.7× realtime; was ~45-55s before 2026-06-12). Poll while "Compositing…"
+    // Render watchdog. RE-MEASURED 2026-08-10 (16 cams, 6 h window, 5 sessions
+    // against the pilot backend): session create 191-643 ms, first segment at the
+    // window head 0.69 s, and prewarm -> segment served 1.2-2.4 s. The "~4-6 s for
+    // the first segment" this comment used to claim is STALE — the backend is now
+    // well inside the operator's 3 s bar. History kept because it explains the
+    // shape: 3043dbe (render chase + batched bounded resolves + ~3.7× realtime)
+    // took it down from ~45-55 s before 2026-06-12.
+    // The 25 s budget below stays as-is: it is a never-hang backstop, not a target,
+    // and a loaded backend is exactly when it has to be generous. Poll while
+    // "Compositing…"
     // is up: if frames arrive, stand down; only fail honestly after a budget
     // comfortably above the measured cold start (the file's contract: never a
     // broken player — and never an error banner over video that IS playing).
