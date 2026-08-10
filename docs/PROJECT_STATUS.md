@@ -1,8 +1,140 @@
 # Cilex Watchtower — Project Status
 
-_Last updated: 2026-08-09. This file is the durable, crash-recoverable snapshot of
+_Last updated: 2026-08-10. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
+
+## Current status (2026-08-10) — P0 silent-playback-loss CLOSED client-side; "One Axis" Playback merged; the density sweep is complete
+
+**Written by the Linux dev agent.** `main` = `79ae858`, pushed, working tree
+clean, `wt-warden` active on the dev box. Everything below was verified from
+this box before the push.
+
+### 🔴→🟢 P0: playback died silently for a guard, and every health surface read green
+
+A guard at the booth had **no recorded playback and no export** for an unknown
+period. The visible symptom was five words — `Token expired` — inside one
+camera's video pane.
+
+- **Cause.** Watchtower refreshes its token in place at `exp − 600 s`.
+  `AuthController::applyToken()` swapped the token and updated the shared
+  network stack but **emitted no signal**, and two components keep their own
+  stack and copied the cookie only on *login* or *base-URL change*:
+  `PlaybackClient` and the local HLS proxy. A refresh is neither event, so from
+  the first renewal onward every `POST /review/sessions` and every proxied
+  segment carried a retired token. `/streams`, `/events`, snapshots and The
+  Watch read the token per request and never noticed.
+- **Fix** `f6b1890` — `AuthController` now emits `tokenChanged()` on every
+  in-place swap; `PlaybackClient` re-copies the cookie into its own stack and
+  into the proxy on it. **Verified by forcing the failure**: renewal interval
+  set to 25 s (`WT_AUTH_RENEW_S=25`), playback opened after **two** refreshes —
+  session opens, zero `Token expired`, zero 401s in the run.
+- **Self-heal + visibility** `910f35e` — a 401 on session open now calls
+  `noteUnauthorized()` (one refresh) and retries once before declaring
+  anything; previously that path had **no 401 handling at all**. A playback
+  fault now raises a station-level `PLAYBACK` strip on the Health screen beside
+  `STORAGE`, and emits `[WT-DEGRADED] subsystem=playback …` / `state=CLEARED`.
+- **The product failure was the silence, not the 401.** Letter
+  [`2026-08-10-p0-silent-playback-loss.md`](letters/2026-08-10-p0-silent-playback-loss.md)
+  states it as the motion-P1 shape in different clothes: *a gauge that only
+  exists once things work cannot page when they don't.*
+
+**CV has replied and shipped all four asks** (`090d9c4`, deployed, 113 tests) —
+[`…p0-silent-playback-loss.reply.md`](letters/2026-08-10-p0-silent-playback-loss.reply.md):
+the `subsystems` heartbeat field is accepted as proposed (names `[a-z0-9_-]`
+≤32 chars, **max 8 per beat**; **any state string other than `"ok"` is treated
+as fault**, so a future `"degraded"` fails safe; claims trusted only while
+Warden is fresh); `StationSubsystemFault` pages at 5 min with **three absence
+layers**; a subsystem fault lifts the station's severity into Cilex Pro
+Mobile › Health today, with station code `subsystem_fault` reserved for v2; and
+`cilex_client_unauthorized_total{surface}` + `ReviewAuthReplaySustained` now
+catch this class server-side.
+
+> **🔴 ACTION FOR WHOEVER PICKS THIS UP — the P0 is only half closed.**
+> **No client sends `subsystems` yet**, so CV's `subsystems_reported` gauge is
+> honestly reading **0 for both stations** and will keep firing until our beat
+> carries the field. The acceptance test is CV's: ship the field, then inject a
+> deliberate fault (force the 25 s renewal again) and expect the operator's
+> phone to page **within ~5 minutes**. Send CV a line when the first beat
+> carries it. Owner: whoever touches `warden/warden.py` next (the beat is built
+> at `:489`).
+
+### 🟢 "One Axis" Playback merged (`79ae858`, `--no-ff`, branch `design/playback-one-axis` preserved)
+
+Claude Design's variant, built to the handoff: **one navigator** (35-day
+archive ribbon + header + FOOTAGE/MOTION lanes on a single axis, replacing the
+old calendar-vs-zoom-buttons split), the info rail dissolved, a four-group
+transport, the ten-rate speed ladder with the **scan boundary above 10×
+disclosed by colour**, export-as-marked-range gated behind frame mode, the
+filmstrip regrown to nine cells, and a full keyboard map. Seven new components
+(`PbRibbon`, `PbNavHeader`, `PbLanes`, `PbTransport`, `PbEventsPanel`,
+`PbBanner`, `PbFmt`); **the session / seek / stepper machinery is preserved
+verbatim** — the engine constraints in the brief (§3.6) were not renegotiated.
+
+Two fixes rode along, found while verifying, and one is bigger than it sounds:
+- `d19aaf7` — **the English catalogue was never loaded**, so `%n` plurals
+  printed literally **app-wide**, not just on Playback.
+- `cfe87f5` — `Esc` unwinds the export drawer before leaving the screen.
+
+**Verified before pushing** (a push to `main` triggers CI, which republishes
+the rolling installer the booth machine installs from): clean compile
+(`[131/131] Linking`), smoke run with `WT_PLAYBACK_IP=192.168.1.160` giving
+**0 QML errors**, and **0 unfinished** RU strings.
+
+**Known-open on merge, recorded in the merge commit rather than left to
+memory:**
+- 🔴 **The filmstrip blanks immediately after an export completes**
+  (operator-reported 2026-08-10). Unresolved; a diagnosis prompt exists. Ten-
+  second triage first: press `,` / `.` to step one frame, then leave frame mode
+  (`Esc`) and re-enter (`F`) — that separates a stepper frame-cache
+  invalidation from the renderer-host trap.
+- 🟡 Video-area gain is **+8.8 % with the rail open** against the spec's ≥20 %
+  goal (+45 % with it closed). The spec's own arithmetic omitted our 72 px nav
+  rail and 36 px title bar; §7 and §2.6 contradict each other on this.
+- 🟡 The **`archive: calendar` month-grid preference is NOT built** — absent
+  from the build order and contradicted by the spec's §7.
+- 🟡 **Five of seven honest states are unverified** — reaching them needs
+  writes against the live backend, which real guards are watching.
+
+### The density sweep is now complete
+
+All four screens are shipped in Claude Design's density language (gapless
+hairline cells, inset rings never borders, computed-fit math never converging
+loops, overlays that never reflow): **Triage "Lanes"**, **Groups "Wall"**
+(`qml/CameraGroups.qml`, with `qml/GroupsStatus.js` as the single source of
+camera-status truth), **Playback "One Axis"**. **Verify "Strips" is the one
+outstanding handoff** — brief sent
+([`2026-08-07-verify-redesign.md`](design-briefs/2026-08-07-verify-redesign.md)),
+Claude Design has not returned it.
+
+> ⚠️ `qml/GroupsStatus.js:10-11` mirrors the `CameraStatus.h` enums **as ints
+> across the QML boundary**. A wrong mirror silently reclassifies the entire
+> fleet — it briefly rendered all 39 cameras as OFF. Change one, change both.
+
+### Still open with CV / the fleet
+
+- 🔴 **Recording P1 (2026-08-07, unresolved):** 12 of 23 armed cameras
+  **detect motion but do not record** (21–37 h, staggered), 53 % of events have
+  no clip, and storage-agent health flaps. Letter
+  [`2026-08-07-motion-without-recording.md`](letters/2026-08-07-motion-without-recording.md).
+  The client tells the truth about it now: tiles read `ARMED · NOT RECORDING`
+  (`qml/GroupsStatus.js:20-25` — recent detection while the newest segment is
+  over an hour older) and the badge carries `NOT READY` for a deaf armed
+  camera.
+- 🟡 **21 events dated Aug 8 are back in the open queue** after CV reverted the
+  Windows agent's soak writes (22 dispositions + 5 acks + 1 bookmark — *not*
+  the ≤84 feared; the exclusion set was empty, measured not assumed). **13 have
+  no footage** (outage-era, the prebuffer P1); **8 have footage and now await a
+  first real judgement.** The operator may want to re-apply any disposition
+  that was genuinely theirs — attribution through the NAT is `admin@10.0.0.1`
+  for everyone. CV's ranked advice: a dedicated `soak-bot` account, and
+  endurance soaks read-only by default.
+- 🟡 Asked CV for a **per-day segment count on `/review/coverage`**
+  ([`2026-08-10-coverage-per-day-segment-count.md`](letters/2026-08-10-coverage-per-day-segment-count.md))
+  — the archive ribbon's dots need it to be honest about *how much* footage a
+  day holds, not just whether any exists.
+- 🟡 Awaiting Codex on the ANPR certifications (`iDS-TCM203-A`,
+  `F-TA-M21-GI1`) and the ignore-devices → reserved-IPs feature.
 
 ## Current status (2026-08-09) — station token INSTALLED, `wt-sm-vnutri-01` now reports to CV; 8 h UI soak clean; 6 defects found
 
