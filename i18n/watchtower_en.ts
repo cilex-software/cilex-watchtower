@@ -620,63 +620,68 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="66"/>
+        <location filename="../qml/Main.qml" line="69"/>
         <source>Live wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="67"/>
-        <source>Groups</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/Main.qml" line="68"/>
-        <source>Views</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../qml/Main.qml" line="69"/>
-        <source>Events</source>
+        <source>Wall playback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="70"/>
-        <source>Health</source>
+        <source>Groups</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="71"/>
-        <source>Clips</source>
+        <source>Views</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/Main.qml" line="72"/>
-        <location filename="../qml/Main.qml" line="79"/>
+        <source>Events</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="73"/>
+        <source>Health</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="74"/>
+        <source>Clips</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="75"/>
+        <location filename="../qml/Main.qml" line="82"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="78"/>
+        <location filename="../qml/Main.qml" line="81"/>
         <source>Playback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2116"/>
+        <location filename="../qml/Main.qml" line="2119"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2121"/>
+        <location filename="../qml/Main.qml" line="2124"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2135"/>
+        <location filename="../qml/Main.qml" line="2138"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2139"/>
+        <location filename="../qml/Main.qml" line="2142"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1773,7 +1778,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="503"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="516"/>
         <source>No events recorded for this camera yet.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1993,13 +1998,74 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="510"/>
+        <location filename="../qml/WallPlayback.qml" line="592"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="931"/>
+        <location filename="../qml/WallPlayback.qml" line="1013"/>
+        <source>1 STREAM · %1/%2 RECORDING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1020"/>
+        <source>Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1086"/>
         <source>No cameras in this group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <source>CALENDAR DAY</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <source>ROLLING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1135"/>
+        <source>Midnight to midnight, clamped to now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1136"/>
+        <source>Ends now — the far left is %1 at %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1145"/>
+        <source>%1% of the window has footage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1173"/>
+        <source>ROLL CALL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1178"/>
+        <location filename="../qml/WallPlayback.qml" line="1220"/>
+        <source>RECORDING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1219"/>
+        <source>MOTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1221"/>
+        <source>nothing at this instant</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1222"/>
+        <source>availability unknown</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2055,6 +2121,44 @@
     <message>
         <location filename="../qml/WatchChip.qml" line="220"/>
         <source>Hand over / check out</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>WpCell</name>
+    <message>
+        <location filename="../qml/WpCell.qml" line="121"/>
+        <source>NOTHING RECORDED</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="121"/>
+        <source>AVAILABILITY UNKNOWN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="147"/>
+        <source>Jump to this camera&apos;s nearest footage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="152"/>
+        <source>none in this window</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="166"/>
+        <source>ADD CAMERA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="189"/>
+        <source>MOTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="230"/>
+        <source>Choose another camera for this tile</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -623,63 +623,68 @@
         <translation>Watchtower</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="66"/>
+        <location filename="../qml/Main.qml" line="69"/>
         <source>Live wall</source>
         <translation>Стена камер</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="67"/>
+        <location filename="../qml/Main.qml" line="69"/>
+        <source>Wall playback</source>
+        <translation>Воспроизведение стены</translation>
+    </message>
+    <message>
+        <location filename="../qml/Main.qml" line="70"/>
         <source>Groups</source>
         <translation>Группы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="68"/>
+        <location filename="../qml/Main.qml" line="71"/>
         <source>Views</source>
         <translation>Виды</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="69"/>
+        <location filename="../qml/Main.qml" line="72"/>
         <source>Events</source>
         <translation>События</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="70"/>
+        <location filename="../qml/Main.qml" line="73"/>
         <source>Health</source>
         <translation>Состояние</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="71"/>
+        <location filename="../qml/Main.qml" line="74"/>
         <source>Clips</source>
         <translation>Клипы</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="72"/>
-        <location filename="../qml/Main.qml" line="79"/>
+        <location filename="../qml/Main.qml" line="75"/>
+        <location filename="../qml/Main.qml" line="82"/>
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="78"/>
+        <location filename="../qml/Main.qml" line="81"/>
         <source>Playback</source>
         <translation>Воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2116"/>
+        <location filename="../qml/Main.qml" line="2119"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation>Автофокус запущен — объектив может настраиваться до 40 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2121"/>
+        <location filename="../qml/Main.qml" line="2124"/>
         <source>Autofocus finished</source>
         <translation>Автофокус завершён</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2135"/>
+        <location filename="../qml/Main.qml" line="2138"/>
         <source>New badge earned: %1 — %2</source>
         <translation>Новый значок: %1 — %2</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2139"/>
+        <location filename="../qml/Main.qml" line="2142"/>
         <source>The Watch</source>
         <translation>Дозор</translation>
     </message>
@@ -1781,7 +1786,7 @@
         <translation>загрузка…</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="503"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="516"/>
         <source>No events recorded for this camera yet.</source>
         <translation>События с этой камеры пока не записаны.</translation>
     </message>
@@ -2001,14 +2006,75 @@
         <translation>В группе «%1» нет камер для воспроизведения.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="510"/>
+        <location filename="../qml/WallPlayback.qml" line="592"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="931"/>
+        <location filename="../qml/WallPlayback.qml" line="1013"/>
+        <source>1 STREAM · %1/%2 RECORDING</source>
+        <translation>1 ПОТОК · ПИШУТ %1/%2</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1020"/>
+        <source>Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.</source>
+        <translation>Все ячейки — один и тот же момент по построению: единый composited-поток. Удерживайте T, чтобы проштамповать каждую ячейку.</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1086"/>
         <source>No cameras in this group</source>
         <translation>В этой группе нет камер</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <source>CALENDAR DAY</source>
+        <translation>КАЛЕНДАРНЫЙ ДЕНЬ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <source>ROLLING</source>
+        <translation>СКОЛЬЗЯЩЕЕ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1135"/>
+        <source>Midnight to midnight, clamped to now</source>
+        <translation>С полуночи до полуночи, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1136"/>
+        <source>Ends now — the far left is %1 at %2</source>
+        <translation>Кончается сейчас — крайнее левое: %1, %2</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1145"/>
+        <source>%1% of the window has footage</source>
+        <translation>%1% окна содержит запись</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1173"/>
+        <source>ROLL CALL</source>
+        <translation>ПЕРЕКЛИЧКА</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1178"/>
+        <location filename="../qml/WallPlayback.qml" line="1220"/>
+        <source>RECORDING</source>
+        <translation>ПИШЕТ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1219"/>
+        <source>MOTION</source>
+        <translation>ДВИЖ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1221"/>
+        <source>nothing at this instant</source>
+        <translation>в этот момент ничего</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1222"/>
+        <source>availability unknown</source>
+        <translation>доступность неизвестна</translation>
     </message>
 </context>
 <context>
@@ -2064,6 +2130,44 @@
         <location filename="../qml/WatchChip.qml" line="220"/>
         <source>Hand over / check out</source>
         <translation>Сдать пост</translation>
+    </message>
+</context>
+<context>
+    <name>WpCell</name>
+    <message>
+        <location filename="../qml/WpCell.qml" line="121"/>
+        <source>NOTHING RECORDED</source>
+        <translation>НЕ ЗАПИСЫВАЛОСЬ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="121"/>
+        <source>AVAILABILITY UNKNOWN</source>
+        <translation>ДОСТУПНОСТЬ НЕИЗВЕСТНА</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="147"/>
+        <source>Jump to this camera&apos;s nearest footage</source>
+        <translation>Перейти к ближайшей записи этой камеры</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="152"/>
+        <source>none in this window</source>
+        <translation>нет в этом окне</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="166"/>
+        <source>ADD CAMERA</source>
+        <translation>ДОБАВИТЬ КАМЕРУ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="189"/>
+        <source>MOTION</source>
+        <translation>ДВИЖ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WpCell.qml" line="230"/>
+        <source>Choose another camera for this tile</source>
+        <translation>Выбрать другую камеру для этой ячейки</translation>
     </message>
 </context>
 </TS>

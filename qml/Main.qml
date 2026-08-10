@@ -63,7 +63,10 @@ Window {
                                            && tabs[activeTab].kind === "prefs"
 
     function sectionLabel(sid) {
-        return sid === "live" ? qsTr("Live wall")
+        // The live section is TWO screens: the live wall and synchronized wall
+        // playback. Saying "Live wall" while the operator is scrubbing yesterday
+        // is the title bar contradicting the picture (spec §0, problem 10).
+        return sid === "live" ? (wallMode === "playback" ? qsTr("Wall playback") : qsTr("Live wall"))
              : sid === "groups" ? qsTr("Groups")
              : sid === "views" ? qsTr("Views")
              : sid === "events" ? qsTr("Events")

@@ -409,6 +409,88 @@ Item {
     // /events/timeline per camera (server pairs started↔ended); 16 concurrent
     // fetches are safe — PlaybackClient routes each reply back by camera id.
     property var motionByCam: ({})          // backendCamId -> [{startMs,endMs,intensity}]
+
+    // ===== "Roll Call": the cell state machine (spec §2.2) =================
+    // A cell is recording / dormant / unknown / empty, and we must never infer
+    // "nothing recorded" from a dark pixel — that is rendering an unknown as a
+    // fact. The mosaic manifest carries availability per FRAGMENT (whole grid),
+    // never per camera, so the honest answer comes from what the backend DOES
+    // report per camera:
+    //   recording_mode == "motion"  ->  a motion episode IS the recording
+    //       episode for that camera, widened by its own pre/post roll. So an
+    //       episode covering the playhead means it recorded; none means it did
+    //       not. Both directions are sound.
+    //   recording_mode absent       ->  we cannot tell. Say so ("availability
+    //       unknown"), hatch the cell, and never claim either way.
+    // Replace this whole derivation the day CV ships per-cell availability on
+    // the mosaic manifest (docs/letters/2026-08-10-mosaic-per-cell-availability.md).
+    property string hoverCamera: ""         // ONE value, three renderers (cell / lane / roll-call row)
+    property bool stampAll: false           // T held — the sync proof
+
+    function _camOf(camId) { return cameraModel ? cameraModel.cameraByBackendId(camId) : null; }
+    function _isMotionMode(camId) {
+        var c = _camOf(camId);
+        return !!(c && String(c.recProfileMode || "") === "motion");
+    }
+    // Motion spans widened by the camera's own recording roll = its footage spans.
+    function footageSpans(camId) {
+        if (!_isMotionMode(camId)) return null;      // null = UNKNOWN, not "empty"
+        var raw = motionByCam[camId] || [];
+        var c = _camOf(camId);
+        var pre = (c && c.recPreRollMs > 0) ? c.recPreRollMs : 5000;
+        var post = (c && c.recPostRollMs > 0) ? c.recPostRollMs : 5000;
+        var out = [];
+        for (var i = 0; i < raw.length; i++)
+            out.push({ s: raw[i].startMs - pre, e: raw[i].endMs + post });
+        return out;
+    }
+    function cellStateOf(camId) {
+        if (!camId) return "empty";
+        var sp = footageSpans(camId);
+        if (sp === null) return "unknown";
+        var p = playheadMs;
+        for (var i = 0; i < sp.length; i++) if (p >= sp[i].s && p <= sp[i].e) return "recording";
+        return "dormant";
+    }
+    function motionNowFor(camId) {
+        var raw = motionByCam[camId] || [], p = playheadMs;
+        for (var i = 0; i < raw.length; i++)
+            if (p >= raw[i].startMs - 2000 && p <= raw[i].endMs + 2000) return true;
+        return false;
+    }
+    // Nearest footage edge for this camera, inside the loaded window. -1 = none.
+    function nearestFootageMs(camId) {
+        var sp = footageSpans(camId);
+        if (!sp || sp.length === 0) return -1;
+        var p = playheadMs, best = -1, bestD = Infinity;
+        for (var i = 0; i < sp.length; i++) {
+            var t = (p < sp[i].s) ? sp[i].s : (p > sp[i].e ? sp[i].e : p);
+            if (t < winStartMs || t > winEndMs) continue;
+            var d = Math.abs(t - p);
+            if (d < bestD) { bestD = d; best = t; }
+        }
+        return best;
+    }
+    function offerLabelFor(camId) {
+        var t = nearestFootageMs(camId);
+        if (t < 0) return "";
+        return (t < playheadMs ? "← " : "→ ") + Settings.clock(t, false);
+    }
+    readonly property int recordingCount: {
+        var n = 0, ll = laneList;
+        for (var i = 0; i < ll.length; i++) if (cellStateOf(ll[i].camId) === "recording") n++;
+        return n;
+    }
+    // §2.5 — the union of composited footage across the loaded window, as a
+    // percentage. The one number that predicts whether scrubbing here is worth it.
+    readonly property int coveragePct: {
+        var span = winEndMs - winStartMs;
+        if (span <= 0 || frags.length === 0) return 0;
+        var cov = 0;
+        for (var i = 0; i < frags.length; i++)
+            cov += Math.max(0, Math.min(frags[i].we, winEndMs) - Math.max(frags[i].ws, winStartMs));
+        return Math.round(100 * Math.min(1, cov / span));
+    }
     readonly property var laneList: {
         var out = [];
         var cs = root.cells, g = root.grid;
@@ -655,6 +737,14 @@ Item {
     }
     // App teardown — release the live composite rather than leaning on the idle reaper.
     Component.onDestruction: if (root.sessionId !== "" && client) client.disposeMosaicSession(root.sessionId)
+    // Bindings must survive a Russian layout: match the Latin key OR the Cyrillic
+    // character the same physical key emits (the PlaybackScreen convention).
+    function _key(e, latin, cyr) { return e.key === latin || e.key === cyr }
+    Keys.onReleased: (e) => {
+        if (root._key(e, Qt.Key_T, 0x0415) && !e.isAutoRepeat) {
+            root.stampAll = false; e.accepted = true;
+        }
+    }
     // keyboard transport: space = play/pause, ←/→ = ∓10s (Shift = ∓60s)
     Keys.onPressed: (e) => {
         if (root.pickerOpen) {           // picker owns the keyboard while open
@@ -664,6 +754,16 @@ Item {
         if (root.cellPickerSlot >= 0) {  // per-cell picker owns the keyboard while open
             if (e.key === Qt.Key_Escape) { root.cellPickerSlot = -1; e.accepted = true; }
             return;
+        }
+        // T HELD stamps every cell (§2.3) — proof of synchronisation on demand
+        // rather than fourteen chips asserting it permanently.
+        // Layout-safe the way the rest of this product does it: the spec says
+        // "bind by physical code", but Qt exposes no portable one (nativeScanCode
+        // means different things on X11 and Windows — PlaybackScreen.qml:1077).
+        // So bind the Latin key PLUS the Cyrillic character the SAME PHYSICAL KEY
+        // emits on ЙЦУКЕН: T sits where Е does.
+        if (root._key(e, Qt.Key_T, 0x0415) && !e.isAutoRepeat) {
+            root.stampAll = true; e.accepted = true; return;
         }
         if (player.duration <= 0) return;
         if (e.key === Qt.Key_Space) {
@@ -735,32 +835,33 @@ Item {
                         y: playerArea.fitY + (modelData.row / rows) * playerArea.fitH
                         width: playerArea.fitW / cols
                         height: playerArea.fitH / rows
-                        Rectangle {   // name chip
-                            anchors { left: parent.left; top: parent.top; margins: 4 }
-                            width: nm.implicitWidth + 10; height: 16
-                            color: "#cc16140f"; radius: 2
-                            Text {
-                                id: nm; anchors.centerIn: parent
-                                text: {
-                                    var cam = root.cameraModel ? root.cameraModel.cameraByBackendId(modelData.camera_id) : null;
-                                    return cam && cam.name ? cam.name : modelData.camera_id;
-                                }
-                                color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9
+                        // "Roll Call" §2.2 — three explicit states, plus the honest
+                        // `unknown` the missing per-cell availability field forces.
+                        // The permanent per-cell timestamp is GONE: one clock in the
+                        // aside proves synchronisation better (§2.3), and T stamps
+                        // every cell on demand.
+                        WpCell {
+                            anchors.fill: parent
+                            camId: modelData.camera_id
+                            octet: {
+                                var c = root.cameraModel ? root.cameraModel.cameraByBackendId(modelData.camera_id) : null;
+                                var m = /\.(\d+)$/.exec((c && c.ip) || "");
+                                return m ? "." + m[1] : "";
                             }
-                        }
-                        // Per-cell wall-clock time being shown. Identical in every cell because
-                        // the wall is one composited stream — i.e. ms-synced by construction;
-                        // the matching readouts make that visible at a glance.
-                        Rectangle {   // time chip
-                            anchors { left: parent.left; bottom: parent.bottom; margins: 4 }
-                            width: tm.implicitWidth + 10; height: 16
-                            color: "#cc16140f"; radius: 2
-                            visible: root.frags.length > 0
-                            Text {
-                                id: tm; anchors.centerIn: parent
-                                text: root.fmtWallMs(root.playheadMs)
-                                color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 9
+                            model: {
+                                var c = root.cameraModel ? root.cameraModel.cameraByBackendId(modelData.camera_id) : null;
+                                return c && c.name ? String(c.name).replace(/\s*\((?:\d+\.){3}\d+\)\s*$/, "") : "";
                             }
+                            state: root.frags.length === 0 ? "unknown" : root.cellStateOf(modelData.camera_id)
+                            motionNow: root.motionNowFor(modelData.camera_id)
+                            hovered: root.hoverCamera === modelData.camera_id
+                            stamped: root.stampAll
+                            stampText: root.fmtWallMs(root.playheadMs)
+                            offerMs: root.nearestFootageMs(modelData.camera_id)
+                            offerLabel: root.offerLabelFor(modelData.camera_id)
+                            onJumpRequested: (ms) => root.seekToWall(ms)
+                            onPickRequested: root.cellPickerSlot = parent.slot
+                            onHoverChanged: (cid, on) => root.hoverCamera = on ? cid : ""
                         }
                         // drag feedback: source cell dims, hovered target gets an accent frame
                         Rectangle {
@@ -859,7 +960,7 @@ Item {
 
             // ---- aside: wall info + footage calendar ------------------------
             Rectangle {
-                Layout.preferredWidth: 320; Layout.fillHeight: true; color: Theme.panel
+                Layout.preferredWidth: 296; Layout.fillHeight: true; color: Theme.panel
                 Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 1; color: Theme.line }
                 ColumnLayout {
                     anchors.fill: parent; anchors.leftMargin: 1; spacing: 0
@@ -867,6 +968,60 @@ Item {
                         Layout.fillWidth: true; Layout.topMargin: 14; Layout.leftMargin: 16; Layout.bottomMargin: 8
                         color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
                         font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
+                    }
+
+                    // ===== §2.3 THE ONE CLOCK — top block, never over the mosaic ==
+                    // The fourteen per-cell chips are gone. One clock is STRONGER
+                    // proof: fourteen chips implicitly claim the cells could differ
+                    // and happen not to; the truth is they cannot, because there is
+                    // one stream. It lives here and not floated over the picture
+                    // because a 16:9 mosaic in a 16:9 stage leaves ~24px of
+                    // letterbox — any overlay is ON a camera, and top-left is where
+                    // the operator looks first.
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: clockCol.implicitHeight + 26
+                        Column {
+                            id: clockCol
+                            anchors { left: parent.left; right: parent.right; top: parent.top
+                                      leftMargin: 16; rightMargin: 16; topMargin: 13 }
+                            spacing: 2
+                            Text {
+                                text: root.frags.length ? Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") : "—"
+                                color: Qt.rgba(Theme.ink.r, Theme.ink.g, Theme.ink.b, 0.62)
+                                font.family: Theme.fontMono; font.pixelSize: 14
+                            }
+                            Row {
+                                spacing: 0
+                                Text {
+                                    text: root.frags.length ? Settings.clock(root.playheadMs, true) : "--:--:--"
+                                    color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 21
+                                }
+                                Text {
+                                    text: root.frags.length ? ("." + ("00" + Math.floor(root.playheadMs % 1000)).slice(-3)) : ""
+                                    color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 21
+                                }
+                            }
+                            // The badge names the MECHANISM, and its second half
+                            // answers "how many cells should I be seeing?" before
+                            // the operator reads a single cell.
+                            Rectangle {
+                                width: syncT.implicitWidth + 12; height: 16
+                                color: "transparent"; border.width: 1; border.color: Theme.line2
+                                Text {
+                                    id: syncT; anchors.centerIn: parent
+                                    text: qsTr("1 STREAM · %1/%2 RECORDING").arg(root.recordingCount).arg(root.laneList.length)
+                                    color: Theme.good; font.family: Theme.fontMono; font.pixelSize: 8
+                                    font.letterSpacing: 1.2; font.weight: Font.DemiBold
+                                }
+                                MouseArea { id: syncMa; anchors.fill: parent; hoverEnabled: true }
+                                C.ToolTip.visible: syncMa.containsMouse
+                                C.ToolTip.delay: 300
+                                C.ToolTip.text: qsTr("Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.")
+                            }
+                        }
+                        Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                    height: 1; color: Theme.line2 }
                     }
                     ColumnLayout {
                         Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
@@ -935,30 +1090,62 @@ Item {
                                 }
                             }
                         }
-                        // how to change a single tile's camera (mirrors the Live wall)
-                        Text {
-                            Layout.fillWidth: true; Layout.topMargin: 6
-                            text: "Right-click a tile to swap its camera · drag a tile to rearrange"
-                            color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap
-                        }
+                        // The hint line is DELETED (§2.6): its two gestures are now
+                        // affordances on the cells themselves (WpCell §2.2e). A
+                        // sentence that has to explain the interaction model is a
+                        // symptom, not documentation.
                     }
-                    Hdr { text: "Status" }
+
+                    // ===== §2.5 the window statement — model BEFORE value =====
+                    // The defect this fixes: rolling and calendar-day windows both
+                    // printed "24 hours", which is how an operator read the far left
+                    // of 24H as "just past midnight". They can no longer share words.
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 12 }
                     RowLayout {
                         Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        Text { text: "Playhead"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 110 }
-                        Text { text: root.frags.length ? root.fmtClock(root.playheadMs) : "—"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16
-                        Text { text: "Window"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.preferredWidth: 110 }
+                        spacing: 8
+                        Rectangle {
+                            implicitWidth: wmT.implicitWidth + 12; implicitHeight: 16
+                            color: root.selectedDay !== "" ? Theme.accentSoft : "transparent"
+                            border.width: 1
+                            border.color: root.selectedDay !== "" ? Theme.accent : Theme.info
+                            Text {
+                                id: wmT; anchors.centerIn: parent
+                                text: root.selectedDay !== "" ? qsTr("CALENDAR DAY") : qsTr("ROLLING")
+                                color: root.selectedDay !== "" ? Theme.accent : Theme.info
+                                font.family: Theme.fontMono; font.pixelSize: 8
+                                font.letterSpacing: 1.2; font.weight: Font.DemiBold
+                            }
+                        }
                         Text {
-                            text: root.selectedDay !== "" ? Qt.formatDate(new Date(root.selectedDay + "T00:00:00"), "ddd d MMM")
-                                  : (root.zoomMin === 1440 ? "24 hours" : root.zoomMin === 720 ? "12 hours"
-                                     : root.zoomMin === 360 ? "6 hours" : root.zoomMin === 60 ? "1 hour" : root.zoomMin + " min")
-                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight
+                            Layout.fillWidth: true
+                            text: root.frags.length === 0 ? "—"
+                                : (root.selectedDay !== ""
+                                   ? Qt.formatDate(new Date(root.winStartMs), "d MMM") + " · "
+                                     + Settings.clock(root.winStartMs, false) + "–" + Settings.clock(root.winEndMs, false)
+                                   : Settings.clock(root.winStartMs, false) + " → " + Settings.clock(root.winEndMs, false))
+                            color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 12
+                            elide: Text.ElideRight
                         }
                     }
-                    Item { Layout.fillWidth: true; Layout.preferredHeight: 10 }
+                    Text {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 4
+                        visible: root.frags.length > 0
+                        text: root.selectedDay !== ""
+                              ? qsTr("Midnight to midnight, clamped to now")
+                              : qsTr("Ends now — the far left is %1 at %2")
+                                .arg(Qt.formatDate(new Date(root.winStartMs), "ddd d MMM"))
+                                .arg(Settings.clock(root.winStartMs, false))
+                        color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                    }
+                    Text {
+                        Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 2
+                        visible: root.frags.length > 0
+                        text: qsTr("%1% of the window has footage").arg(root.coveragePct)
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
+                    Item { Layout.fillWidth: true; Layout.preferredHeight: 12 }
                     Rectangle { Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.preferredHeight: 1; color: Theme.line }
                     Item { Layout.fillWidth: true; Layout.preferredHeight: 14 }
                     PlaybackCalendar {
@@ -969,7 +1156,91 @@ Item {
                         selectedDate: root.selectedDay
                         onDaySelected: (d) => root.openForDay(d)
                     }
-                    Item { Layout.fillHeight: true }
+
+                    // ===== §2.4 ROLL CALL — the aside's one growable child =======
+                    // The register in list form. It answers "which cells are lit"
+                    // without scanning sixteen pictures, it is the correspondence
+                    // map between thin lanes and pictures, and it makes the jump
+                    // offer reachable for a camera in the far corner of the wall.
+                    // Everything above it is fixed-height, so without it the aside
+                    // would end in dead space (the Groups console lesson).
+                    Rectangle { Layout.fillWidth: true; Layout.topMargin: 12; Layout.leftMargin: 16
+                                Layout.rightMargin: 16; Layout.preferredHeight: 1; color: Theme.line }
+                    RowLayout {
+                        Layout.fillWidth: true; Layout.topMargin: 12; Layout.leftMargin: 16
+                        Layout.rightMargin: 16; Layout.bottomMargin: 6
+                        Text {
+                            Layout.fillWidth: true; text: qsTr("ROLL CALL")
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                            font.letterSpacing: 1.4; font.weight: Font.DemiBold
+                        }
+                        Text {
+                            text: root.recordingCount + "/" + root.laneList.length + " " + qsTr("RECORDING")
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
+                            font.letterSpacing: 1.2
+                        }
+                    }
+                    ListView {
+                        id: rollCall
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        Layout.leftMargin: 8; Layout.rightMargin: 8; Layout.bottomMargin: 8
+                        clip: true
+                        model: root.laneList                 // grid reading order
+                        boundsBehavior: Flickable.StopAtBounds
+                        C.ScrollBar.vertical: C.ScrollBar { }
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property string cs: root.cellStateOf(modelData.camId)
+                            readonly property bool mo: root.motionNowFor(modelData.camId)
+                            width: ListView.view.width; height: 24
+                            color: root.hoverCamera === modelData.camId ? Theme.panel2 : "transparent"
+                            Row {
+                                anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
+                                spacing: 7
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 7; height: 7
+                                    color: parent.parent.cs === "recording" ? Theme.good : "transparent"
+                                    border.width: parent.parent.cs === "recording" ? 0 : 1
+                                    border.color: Theme.line2
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: {
+                                        var c = root.cameraModel ? root.cameraModel.cameraByBackendId(modelData.camId) : null;
+                                        var m = /\.(\d+)$/.exec((c && c.ip) || "");
+                                        return m ? "." + m[1] : "";
+                                    }
+                                    color: parent.parent.cs === "recording" ? Theme.ink : Theme.ink2
+                                    font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: parent.parent.mo && parent.parent.cs === "recording" ? qsTr("MOTION")
+                                        : parent.parent.cs === "recording" ? qsTr("RECORDING")
+                                        : parent.parent.cs === "dormant" ? qsTr("nothing at this instant")
+                                        : qsTr("availability unknown")
+                                    color: parent.parent.mo && parent.parent.cs === "recording" ? Theme.accent
+                                         : parent.parent.cs === "recording" ? Theme.good : Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 9
+                                    font.letterSpacing: parent.parent.cs === "recording" ? 1.2 : 0
+                                }
+                            }
+                            Text {
+                                anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                                visible: parent.cs === "dormant" && root.nearestFootageMs(modelData.camId) > 0
+                                text: root.offerLabelFor(modelData.camId)
+                                color: jmpMa.containsMouse ? Theme.accent : Theme.ink3
+                                font.family: Theme.fontMono; font.pixelSize: 9
+                                MouseArea {
+                                    id: jmpMa; anchors.fill: parent; anchors.margins: -4
+                                    hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.seekToWall(root.nearestFootageMs(modelData.camId))
+                                }
+                            }
+                            HoverHandler { onHoveredChanged: root.hoverCamera = hovered ? modelData.camId : "" }
+                        }
+                    }
                 }
             }
         }

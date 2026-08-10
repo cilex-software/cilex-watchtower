@@ -138,6 +138,7 @@ qt_add_qml_module(watchtower
         qml/FrameHarvester.qml
         qml/PlaybackCalendar.qml
         qml/WallPlayback.qml
+        qml/WpCell.qml
         qml/ExportDrawer.qml
         qml/HealthScreen.qml
         qml/EventsScreen.qml
