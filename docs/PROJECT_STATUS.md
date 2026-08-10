@@ -83,11 +83,22 @@ the rolling installer the booth machine installs from): clean compile
 
 **Known-open on merge, recorded in the merge commit rather than left to
 memory:**
-- 🔴 **The filmstrip blanks immediately after an export completes**
-  (operator-reported 2026-08-10). Unresolved; a diagnosis prompt exists. Ten-
-  second triage first: press `,` / `.` to step one frame, then leave frame mode
-  (`Esc`) and re-enter (`F`) — that separates a stepper frame-cache
-  invalidation from the renderer-host trap.
+- 🔴→🟢 **The filmstrip blanking (operator-reported 2026-08-10) is FIXED**
+  (`0b68891`, merged `3a238a0`). **The export was innocent** — instrumented and
+  measured clean end to end over two real 10 s jobs (strip 9/9 lit throughout,
+  both files landed); `createExport` never touches the player. The trigger is a
+  session **re-open**, and in the operator's own session the flight recorder
+  (pid=1975323) shows `opens` 38 → 39 inside the same 30 s sample that opened
+  the export drawer at 03:32:41.6 — adjacent to the export, not caused by it.
+  Forcing a re-open under frame mode reproduced it exactly: **`lit=0/9` against
+  `cache=288f`** — a *full* cache — with playback running, for 60 s+. Three
+  defects: `onSessionReady` resumed playback under a paused-only mode (a moving
+  cursor can never chain to cached frames); two `<= 0` sentinels treated **PTS 0
+  as "no frame"**, which is precisely where a far-seek re-open lands (one killed
+  the strip, the other killed the *centre* cell over a cache that held it); and
+  a strip that could not resolve said nothing. Repro hook `WT_PB_EXPORT=1|2|3|4`
+  is documented in [DEVELOPMENT.md](DEVELOPMENT.md) — 1, 3 and 4 need no
+  backend write.
 - 🟡 Video-area gain is **+8.8 % with the rail open** against the spec's ≥20 %
   goal (+45 % with it closed). The spec's own arithmetic omitted our 72 px nav
   rail and 36 px title bar; §7 and §2.6 contradict each other on this.
