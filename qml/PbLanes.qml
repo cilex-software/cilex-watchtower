@@ -30,6 +30,8 @@ Item {
     signal seekRequested(double ms)
     signal hovered(string id)
     signal picked(string id, double ms)
+    signal zoomRequested(real factor, double atMs)
+    signal panRequested(double deltaMs)
 
     readonly property double span: Math.max(1, winE - winS)
     readonly property real trackW: Math.max(1, width - labelW)
@@ -252,6 +254,19 @@ Item {
                 var target = lanes.msOf(m.x);
                 lanes._dragMs = -1;
                 lanes.seekRequested(target);        // EXACTLY ONE seek, on release
+            }
+            // Wheel = zoom AT THE CURSOR, Shift+wheel = pan — the Premiere / Final
+            // Cut idiom, and what this scrubber did before the "One Axis" rebuild
+            // (added 0746a71, dropped by a36a062 because the gesture belonged to
+            // the old zoomable band and was not in the spec's preserved list).
+            // The host still owns the window maths; this only reports the gesture,
+            // so the ribbon and the span chips stay the single source of the view.
+            onWheel: (w) => {
+                var atMs = lanes.msOf(w.x - lanes.labelW);
+                if (w.modifiers & Qt.ShiftModifier)
+                    lanes.panRequested(w.angleDelta.y > 0 ? -lanes.span * 0.15 : lanes.span * 0.15);
+                else
+                    lanes.zoomRequested(w.angleDelta.y > 0 ? 0.8 : 1.25, atMs);   // up = in
             }
         }
     }

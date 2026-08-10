@@ -23,12 +23,14 @@ Item {
     property bool showMotion: true
     property bool showEvents: true
     property int spanMin: 60           // 15 / 60 / 360 / 720 / 1440
+    property bool zoomed: false        // a free-form wheel zoom is active -> show FIT
 
     signal jumpLastMotion()
     signal clearMark()
     signal toggleMotion()
     signal toggleEvents()
     signal spanPicked(int minutes)
+    signal fitRequested()
 
     readonly property int labelW: 120
 
@@ -160,6 +162,17 @@ Item {
                 label: modelData[0]
                 onActivated: hdr.spanPicked(modelData[1])
             }
+        }
+        // The way OUT of a free-form wheel zoom. It appears only while zoomed, for
+        // the same reason the wall's FIT does: a gesture that changes the view with
+        // no visible exit is a trap, and none of the span buttons above can express
+        // "back to the whole loaded window" once the view is a custom span.
+        Cell {
+            visible: hdr.zoomed
+            interactive: true; active: true
+            label: qsTr("FIT", "reset a custom timeline zoom")
+            tip: qsTr("Drop the custom zoom back to the loaded window")
+            onActivated: hdr.fitRequested()
         }
     }
 }

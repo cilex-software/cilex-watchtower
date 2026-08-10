@@ -2512,11 +2512,13 @@ Item {
                 showMotion: root.showMotionLane
                 showEvents: root.railOpen
                 spanMin: root.zoomMin
+                zoomed: root.tlZoomed
                 onJumpLastMotion: root.seekToWall(root.lastMotionMs)
                 onClearMark: root.clearMark()
                 onToggleMotion: Settings.eventsOnScrubber = !Settings.eventsOnScrubber
                 onToggleEvents: { root.railOpen = !root.railOpen; Settings.pbEventsPanel = root.railOpen }
                 onSpanPicked: (m) => root.setSpan(m)
+                onFitRequested: root.resetView()
             }
 
             PbLanes {
@@ -2536,6 +2538,8 @@ Item {
                 footageH: root.footageLaneH
                 motionH: root.motionLaneH
                 onSeekRequested: (ms) => root.seekToWall(ms)
+                onZoomRequested: (factor, atMs) => root.zoomView(factor, atMs)
+                onPanRequested: (deltaMs) => root.panView(deltaMs)
                 onHovered: (id) => root.hoverId = id
                 onPicked: (id, ms) => root.pickItem(id, ms)
             }

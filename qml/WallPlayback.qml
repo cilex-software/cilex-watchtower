@@ -1555,7 +1555,16 @@ Item {
                     clip: true
                     contentHeight: bar.laneContentH
                     boundsBehavior: Flickable.StopAtBounds
-                    C.ScrollBar.vertical: C.ScrollBar { policy: bar.laneContentH > bar.laneAreaH ? C.ScrollBar.AsNeeded : C.ScrollBar.AlwaysOff }
+                    // The scrubber's own MouseArea sits above this and takes drags
+                    // (they mark In->Out), so flicking here would never fire. The
+                    // scrollbar is left interactive and Ctrl+wheel drives contentY —
+                    // both are reachable, which a bare Flickable under a full-bleed
+                    // MouseArea is not.
+                    interactive: false
+                    C.ScrollBar.vertical: C.ScrollBar {
+                        policy: bar.laneContentH > bar.laneAreaH ? C.ScrollBar.AlwaysOn : C.ScrollBar.AlwaysOff
+                        interactive: true
+                    }
                     Item {
                         width: bar.width; height: bar.laneContentH
                         Repeater {
@@ -1688,6 +1697,20 @@ Item {
                     }
                     // mouse-wheel: zoom on the cursor; Shift+wheel pans (Premiere-style)
                     onWheel: (w) => {
+                        // Ctrl+wheel scrolls the LANE AREA. It needs its own modifier
+                        // because this MouseArea sits above the lane Flickable and
+                        // takes every wheel event first — so the Flickable added for
+                        // the 7px-floor overflow was unreachable by wheel OR drag,
+                        // i.e. a scroll region that could not be scrolled. Ctrl keeps
+                        // the unmodified wheel on zoom, which is the gesture the
+                        // operator actually came for.
+                        if ((w.modifiers & Qt.ControlModifier) && bar.lanesOn
+                            && bar.laneContentH > bar.laneAreaH) {
+                            var maxY = bar.laneContentH - bar.laneAreaH;
+                            laneFlick.contentY = Math.max(0, Math.min(maxY,
+                                laneFlick.contentY - (w.angleDelta.y > 0 ? 1 : -1) * bar.laneH * 2));
+                            return;
+                        }
                         if (w.modifiers & Qt.ShiftModifier) {
                             var d = (w.angleDelta.y > 0 ? -1 : 1) * bar.span * 0.15;
                             var ps = root.viewStartMs + d, pe = root.viewEndMs + d;

@@ -1041,24 +1041,24 @@
 <context>
     <name>PbLanes</name>
     <message>
-        <location filename="../qml/PbLanes.qml" line="70"/>
+        <location filename="../qml/PbLanes.qml" line="72"/>
         <source>FOOTAGE</source>
         <comment>playback lane label</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="72"/>
+        <location filename="../qml/PbLanes.qml" line="74"/>
         <source>MOTION</source>
         <comment>playback lane label</comment>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="131"/>
+        <location filename="../qml/PbLanes.qml" line="133"/>
         <source>NO FOOTAGE IN THIS WINDOW</source>
         <translation>НЕТ ЗАПИСИ В ЭТОМ ОКНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="238"/>
+        <location filename="../qml/PbLanes.qml" line="240"/>
         <source>release to seek</source>
         <translation>отпустите для перехода</translation>
     </message>
@@ -1066,92 +1066,103 @@
 <context>
     <name>PbNavHeader</name>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="86"/>
+        <location filename="../qml/PbNavHeader.qml" line="88"/>
         <source>PLAYHEAD</source>
         <comment>playback navigator header</comment>
         <translation>ПОЗИЦИЯ</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="109"/>
+        <location filename="../qml/PbNavHeader.qml" line="111"/>
         <source>no footage in this window</source>
         <translation>нет записи в этом окне</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="110"/>
+        <location filename="../qml/PbNavHeader.qml" line="112"/>
         <source>%1% covered</source>
         <translation>%1% заполнено</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="120"/>
+        <location filename="../qml/PbNavHeader.qml" line="122"/>
         <source>LAST MOTION</source>
         <translation>ПОСЛ. ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="121"/>
+        <location filename="../qml/PbNavHeader.qml" line="123"/>
         <source>Jump to the newest motion</source>
         <translation>Перейти к последнему движению</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="129"/>
+        <location filename="../qml/PbNavHeader.qml" line="131"/>
         <source>MARKED</source>
         <translation>ВЫДЕЛЕНО</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="130"/>
+        <location filename="../qml/PbNavHeader.qml" line="132"/>
         <source>Clear the marked range</source>
         <translation>Снять выделение</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="139"/>
+        <location filename="../qml/PbNavHeader.qml" line="141"/>
         <source>MOTION</source>
         <comment>navigator toggle</comment>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="140"/>
+        <location filename="../qml/PbNavHeader.qml" line="142"/>
         <source>Show or hide the motion lane</source>
         <translation>Показать или скрыть дорожку движения</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="146"/>
+        <location filename="../qml/PbNavHeader.qml" line="148"/>
         <source>EVENTS</source>
         <comment>navigator toggle</comment>
         <translation>СОБЫТИЯ</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="147"/>
+        <location filename="../qml/PbNavHeader.qml" line="149"/>
         <source>Show or hide the events column</source>
         <translation>Показать или скрыть колонку событий</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="151"/>
+        <location filename="../qml/PbNavHeader.qml" line="153"/>
         <source>15M</source>
         <comment>span button</comment>
         <translation>15М</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="151"/>
+        <location filename="../qml/PbNavHeader.qml" line="153"/>
         <source>1H</source>
         <comment>span button</comment>
         <translation>1Ч</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="152"/>
+        <location filename="../qml/PbNavHeader.qml" line="154"/>
         <source>6H</source>
         <comment>span button</comment>
         <translation>6Ч</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="152"/>
+        <location filename="../qml/PbNavHeader.qml" line="154"/>
         <source>12H</source>
         <comment>span button</comment>
         <translation>12Ч</translation>
     </message>
     <message>
-        <location filename="../qml/PbNavHeader.qml" line="153"/>
+        <location filename="../qml/PbNavHeader.qml" line="155"/>
         <source>24H</source>
         <comment>span button</comment>
         <translation>24Ч</translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="173"/>
+        <source>FIT</source>
+        <comment>reset a custom timeline zoom</comment>
+        <translation>ВЕСЬ</translation>
+    </message>
+    <message>
+        <location filename="../qml/PbNavHeader.qml" line="174"/>
+        <source>Drop the custom zoom back to the loaded window</source>
+        <translation>Сбросить масштаб к загруженному окну</translation>
     </message>
 </context>
 <context>
@@ -1390,7 +1401,7 @@
         <translation>Ближайшая запись %1 →</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2577"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2581"/>
         <source>Drag to resize · double-click to reset</source>
         <translation>Потяните, чтобы изменить высоту · двойной щелчок — сброс</translation>
     </message>
@@ -2172,7 +2183,7 @@
         <translation>ГОТОВИТСЯ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1725"/>
+        <location filename="../qml/WallPlayback.qml" line="1748"/>
         <source>spans a gap — some cameras have no footage inside it</source>
         <translation>пересекает пробел — у части камер внутри нет записи</translation>
     </message>
