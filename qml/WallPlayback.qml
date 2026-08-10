@@ -563,6 +563,25 @@ Item {
                            ws: Date.parse(f.wall_start), we: Date.parse(f.wall_end), avail: f.availability });
             }
             root.frags = out;
+            // WT_TRACE: what the SERVER actually returned for this grid. The operator
+            // sees black cells and cannot tell "no footage here" from "compositor did
+            // not render it"; neither can we, because availability is per-FRAGMENT
+            // (whole grid) and there is no per-cell truth in the manifest.
+            if (typeof wtTrace !== "undefined" && wtTrace) {
+                var av = {};
+                for (var k = 0; k < fragments.length; k++) {
+                    var a = fragments[k].availability || "?";
+                    av[a] = (av[a] || 0) + 1;
+                }
+                console.log("[WALL] session=" + sid + " grid=" + g.cols + "x" + g.rows
+                            + " " + g.width + "x" + g.height + "@" + g.fps + " " + g.codec
+                            + " cells=" + c.length + " frags=" + fragments.length
+                            + " kept=" + out.length + " availability=" + JSON.stringify(av)
+                            + " dur=" + Math.round(dur) + "s t=" + Date.now());
+                for (var m = 0; m < c.length; m++)
+                    console.log("[WALL] cell " + c[m].index + " r" + c[m].row + "c" + c[m].col
+                                + " cam=" + c[m].camera_id);
+            }
             root.loadWallTimeline();      // per-camera motion lanes for the scrubber
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             player.source = root.client.mosaicPlaylistUrl(sid);
