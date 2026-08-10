@@ -497,6 +497,10 @@ int main(int argc, char *argv[])
     // a verification screenshot shows the shipped behaviour, not a mock.
     engine.rootContext()->setContextProperty("wtPbLadder", qEnvironmentVariableIsSet("WT_PB_LADDER"));
     engine.rootContext()->setContextProperty("wtPbMark", qEnvironmentVariableIsSet("WT_PB_MARK"));
+    // WT_PB_EXPORT=1 opens the export drawer over a marked range (no backend
+    // write); =2 also confirms it, creating ONE real export job. Repro hook for
+    // the "filmstrip blanks after export" report — drives the real controls.
+    engine.rootContext()->setContextProperty("wtPbExport", qEnvironmentVariableIntValue("WT_PB_EXPORT"));
     // WT_STEPTEST=<N>: FrameStepper acceptance — N forward steps + backward smoke, then quit.
     engine.rootContext()->setContextProperty("wtStepTest", qEnvironmentVariableIntValue("WT_STEPTEST"));
     // WT_CHURNTEST=<N>: session-churn soak (P0 2026-07-10) — N openForDay switches between

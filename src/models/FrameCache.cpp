@@ -12,6 +12,14 @@
 #include <QThreadPool>
 
 namespace {
+// WT_TRACE: name WHO empties the strip. The cache has exactly two ways to go to
+// zero — an explicit clear() (stepper.invalidate) and a sink change in attach()
+// — and from QML they are indistinguishable after the fact.
+bool fcTrace()
+{
+    static const bool on = qEnvironmentVariableIsSet("WT_TRACE");
+    return on;
+}
 // Strip thumbnail width (px). The strip's largest slot is ~171 px wide (height
 // 96 × 16:9), so 256 keeps it crisp with headroom; WT_STRIP_THUMB_PX overrides
 // for the A/B sweep.
@@ -35,6 +43,9 @@ void FrameCache::attach(QObject *videoSink)
     auto *sink = qobject_cast<QVideoSink *>(videoSink);
     if (m_sink == sink)
         return;
+    if (fcTrace())
+        qInfo().noquote() << "[FCACHE] attach SINK CHANGED old=" << (void *)m_sink
+                          << "new=" << (void *)sink << "→ clear";
     if (m_sink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;
@@ -63,6 +74,10 @@ bool FrameCache::captureCurrent()
 
 void FrameCache::clear()
 {
+    if (fcTrace()) {
+        QMutexLocker l(&m_mx);
+        qInfo().noquote() << "[FCACHE] clear thumbs=" << m_store.size() << "full=" << m_fullStore.size();
+    }
     {
         QMutexLocker l(&m_mx);
         m_store.clear();

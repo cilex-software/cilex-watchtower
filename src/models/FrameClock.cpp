@@ -11,6 +11,11 @@ void FrameClock::attach(QObject *videoSink)
     auto *sink = qobject_cast<QVideoSink *>(videoSink);
     if (m_sink == sink)
         return;
+    // WT_TRACE: a sink change resets lastPtsMs to -1, which alone empties the
+    // filmstrip (every slot resolves off currentPts) — say so out loud.
+    if (qEnvironmentVariableIsSet("WT_TRACE"))
+        qInfo().noquote() << "[FCLOCK] attach SINK CHANGED old=" << (void *)m_sink
+                          << "new=" << (void *)sink << "→ reset (lastPtsMs -1)";
     if (m_sink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;

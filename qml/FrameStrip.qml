@@ -26,6 +26,25 @@ Item {
     property var clockOf: null                  // function(ptsMs) → "HH:mm:ss.mmm"
     signal jumpRequested(double pts)
 
+    // A strip where NOTHING resolves is the state the operator cannot read: nine
+    // placeholder dots say "there are no frames" even when the cache is full and
+    // the slots simply cannot chain to a cursor that has moved (measured 2026-08-10:
+    // lit=0/9 against cache=288f for 60 s+ after a re-open resumed playback).
+    // Each tile keeps its own bit here, so this costs nothing on the rev path —
+    // it only changes when a slot's pts changes.
+    property int _litMask: 0
+    readonly property bool _blank: _litMask === 0
+    // Debounced: a re-open legitimately blanks the strip for the ~1 s it takes the
+    // first frame to land. Only a blank that PERSISTS is worth explaining.
+    property bool _settled: false
+    readonly property bool _explain: _blank && _settled
+    Timer {
+        interval: 1500; repeat: false
+        running: strip._blank                       // restarts on every fresh blank
+        onRunningChanged: if (running) strip._settled = false
+        onTriggered: strip._settled = true
+    }
+
     // Cells FLEX rather than sit at a fixed size (spec §2.4, the filmstrip): a
     // 171px width cap, an 80px height cap and a 16:9 ratio, so whichever
     // dimension binds drives the other and the band fits its frames at any
@@ -46,7 +65,12 @@ Item {
 
     function ptsForIndex(i) {
         var rev = FrameCache.rev;               // dependency: re-evaluate on cache changes
-        if (currentPts <= 0) return -1;
+        // `< 0`, never `<= 0`: PTS 0 is a REAL frame — the first frame of a fresh
+        // window, which is exactly where a far-seek re-open lands. Rejecting it
+        // blanked all nine slots for as long as the cursor sat there (the same
+        // pts-0-is-a-valid-cursor rule the stepper chain learned in the 2026-07-11
+        // soak, never applied here).
+        if (currentPts < 0) return -1;
         var off = i - sideSlots;
         // center: the cursor's own frame, only if actually cached
         var c = FrameCache.cachedAround(currentPts + 2, 1, 0);
@@ -74,8 +98,17 @@ Item {
         return idx >= 0 ? left[idx] : -1;
     }
 
+    Text {
+        anchors.centerIn: parent
+        visible: strip._explain
+        text: qsTr("No frames cached around this moment — pause to fill the strip")
+        color: Theme.ink3
+        font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.4
+    }
+
     Row {
         anchors.centerIn: parent
+        visible: !strip._explain
         spacing: strip._gap
         Repeater {
             model: strip.slots                  // FIXED count — delegates persist
@@ -92,20 +125,27 @@ Item {
                 color: "#141312"
                 border.width: cur ? 2 : 1
                 border.color: cur ? Theme.accent : Theme.line
-                opacity: cur ? 1.0 : (shownPts > 0 ? 0.9 : 0.5)
+                opacity: cur ? 1.0 : (shownPts >= 0 ? 0.9 : 0.5)
 
                 function _url(p) { return "image://fcache/" + Math.round(p); }
+                // `< 0` is the only sentinel — PTS 0 is a REAL frame (the first frame
+                // of a window). Guarding with `<= 0` here left the CENTRE tile — the
+                // operator's own frame — showing a placeholder dot over a cache that
+                // held it, every time a re-open landed at the head of a window.
                 // Double-buffer: load the NEW frame into the back image; swap only
                 // when it's decoded — the front keeps the previous frame painted.
                 onPtsChanged: {
-                    if (pts <= 0) { shownPts = -1; imgA.source = ""; imgB.source = ""; return; }
-                    if (Math.abs(pts - shownPts) < 1) return;
+                    strip._litMask = pts >= 0 ? (strip._litMask | (1 << index))
+                                              : (strip._litMask & ~(1 << index));
+                    if (pts < 0) { shownPts = -1; imgA.source = ""; imgB.source = ""; return; }
+                    if (shownPts >= 0 && Math.abs(pts - shownPts) < 1) return;
                     (frontA ? imgB : imgA).source = _url(pts);
                 }
+                Component.onCompleted: if (pts >= 0) strip._litMask |= (1 << index);
                 function _swapIfReady(img, isA) {
                     if (img.status !== Image.Ready) return;
                     if (isA === frontA) return;                       // it's the front already
-                    if (tile.pts > 0 && String(img.source) === _url(tile.pts)) {
+                    if (tile.pts >= 0 && String(img.source) === _url(tile.pts)) {
                         frontA = isA;
                         shownPts = tile.pts;
                     }
@@ -113,7 +153,7 @@ Item {
                 Image {
                     id: imgA
                     anchors.fill: parent; anchors.margins: tile.cur ? 2 : 1
-                    visible: tile.frontA && tile.shownPts > 0
+                    visible: tile.frontA && tile.shownPts >= 0
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
                     onStatusChanged: tile._swapIfReady(imgA, true)
@@ -121,7 +161,7 @@ Item {
                 Image {
                     id: imgB
                     anchors.fill: parent; anchors.margins: tile.cur ? 2 : 1
-                    visible: !tile.frontA && tile.shownPts > 0
+                    visible: !tile.frontA && tile.shownPts >= 0
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
                     onStatusChanged: tile._swapIfReady(imgB, false)
@@ -133,12 +173,12 @@ Item {
                     color: Theme.ink3; font.pixelSize: 18
                 }
                 Rectangle {                       // per-thumb timestamp footer (only over a real frame)
-                    visible: tile.shownPts > 0
+                    visible: tile.shownPts >= 0
                     anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
                     height: 13; color: tile.cur ? Theme.accent : Qt.rgba(13 / 255, 12 / 255, 11 / 255, 0.78)
                     Text {
                         anchors.centerIn: parent
-                        text: tile.shownPts > 0 && strip.clockOf ? strip.clockOf(tile.shownPts) : ""
+                        text: tile.shownPts >= 0 && strip.clockOf ? strip.clockOf(tile.shownPts) : ""
                         color: tile.cur ? "#241a08" : "#ffffff"
                         font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6
                         font.weight: tile.cur ? Font.Bold : Font.Normal
@@ -146,7 +186,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: tile.pts > 0 && !tile.cur
+                    enabled: tile.pts >= 0 && !tile.cur
                     cursorShape: Qt.PointingHandCursor
                     onClicked: strip.jumpRequested(tile.pts)
                 }
