@@ -133,6 +133,7 @@ Item {
                 readonly property var d: rib.days[index]
                 readonly property bool has: d && d.has
                 readonly property bool isSel: d && d.key === rib.selKey
+                readonly property bool monthStart: d && new Date(d.ms).getDate() === 1
                 x: rib._cells.x[index]
                 width: rib._cells.w[index]
                 height: track.height
@@ -169,11 +170,18 @@ Item {
                     spacing: 2
                     // The weekday label carries the ribbon's whole wayfinding argument,
                     // so it sits AT the type floor (8px / 1.2 tracking), never below it.
+                    // On the 1st of a month the same slot carries the month name:
+                    // drawn as a free-floating label it landed on top of the weekday
+                    // and destroyed exactly the label the ribbon's argument rests on.
                     Text {
                         visible: !rib.tiny
                         width: parent.width; horizontalAlignment: Text.AlignHCenter
-                        text: cell.d ? (rib.compact ? PbFmt.wd1(cell.d.ms) : PbFmt.wd(cell.d.ms)) : ""
+                        elide: Text.ElideRight
+                        text: !cell.d ? ""
+                              : cell.monthStart ? PbFmt.mon(new Date(cell.d.ms).getMonth())
+                              : rib.compact ? PbFmt.wd1(cell.d.ms) : PbFmt.wd(cell.d.ms)
                         color: cell.isSel ? Theme.accent
+                               : cell.monthStart ? Theme.ink2
                                : cell.has ? Theme.ink3 : Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.32)
                         font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.2
                     }
@@ -237,22 +245,18 @@ Item {
                 color: Qt.rgba(68 / 255, 63 / 255, 55 / 255, 0.55)
             }
         }
-        // month dividers + label — stronger, and computed from the date
+        // month dividers — stronger than the week rule, and computed from the
+        // date so they survive any retention length. The month NAME is in the
+        // cell itself (above), where it cannot collide with the weekday.
         Repeater {
             model: rib.nDays
-            delegate: Item {
+            delegate: Rectangle {
                 required property int index
                 readonly property var d: rib.days[index]
-                readonly property bool isFirst: index > 0 && d && new Date(d.ms).getDate() === 1
-                visible: isFirst
-                x: rib._cells.x[index]
+                visible: index > 0 && d && new Date(d.ms).getDate() === 1
+                x: rib._cells.x[index]; width: 1
                 anchors { top: parent.top; bottom: parent.bottom }
-                Rectangle { width: 1; anchors { top: parent.top; bottom: parent.bottom } color: Theme.line2 }
-                Text {
-                    x: 3; y: 0
-                    text: parent.d ? PbFmt.mon(new Date(parent.d.ms).getMonth()) : ""
-                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.3
-                }
+                color: Theme.line2
             }
         }
     }

@@ -187,6 +187,7 @@ Item {
     }
     function seekToWall(ms) {
         if (!isFinite(ms)) { console.warn("[PB] seekToWall(non-finite) ignored"); return; }
+        root._nudgeAnchor = -1;   // an absolute seek re-bases the relative-move pointer
         stepper.cancelStep();   // cancel any in-flight step; cache stays (in-session pts remain valid)
         // A far-seek open is in flight: route straight to seekFar, which COALESCES
         // (replaces the pending target — last click wins). Deterministic, instead of
@@ -1079,13 +1080,21 @@ Item {
     // SAME PHYSICAL KEY emits on ЙЦУКЕН — Qt reports those as the uppercase
     // Unicode codepoint. Matching the Latin key alone is what dies silently.
     function _key(e, latin, cyr) { return e.key === latin || e.key === cyr }
-    // Relative moves read and write the playhead through seekToWall(playheadMs ± d).
-    // playheadMs is derived from the player's own position, which is updated by
-    // the seek itself, so two rapid presses cannot both read the same stale value
-    // the way a render-closure copy would.
+    // Every relative move goes through ONE synchronously-updated pointer.
+    // playheadMs is derived from the player's position, which lands
+    // asynchronously — so two `→` presses inside one tick would both read the
+    // same value and the second would overwrite the first, moving 10 s for two
+    // presses. It looks exactly like a dropped keypress. The anchor is read AND
+    // written inside the handler; any other seek clears it (seekToWall does),
+    // and it expires shortly after the last press so it re-syncs to reality.
+    property double _nudgeAnchor: -1
+    Timer { id: nudgeExpire; interval: 700; onTriggered: root._nudgeAnchor = -1 }
     function nudge(deltaMs) {
         if (frags.length === 0) return;
-        seekToWall(playheadMs + deltaMs);
+        var target = (_nudgeAnchor >= 0 ? _nudgeAnchor : playheadMs) + deltaMs;
+        seekToWall(target);
+        _nudgeAnchor = target;
+        nudgeExpire.restart();
     }
     function rateStep(dir) {
         var i = speeds.indexOf(playSpeed);
@@ -1188,6 +1197,27 @@ Item {
         running: (typeof wtFrameMode !== "undefined") && wtFrameMode && !root.frameMode
         onTriggered: if (root._frameSeq > 8 && root.frags.length > 0) root.enterFrameMode()
     }
+    // Dev/verification hooks for the redesign's interaction-only surfaces, so a
+    // screenshot can show them instead of a prose claim. They drive the REAL
+    // controls (the ladder's own flag, the real mark functions) — no fake data,
+    // no state the operator could not reach by hand. Inert unless set.
+    Timer {
+        id: pbDemoT
+        interval: 600; repeat: true
+        running: ((typeof wtPbLadder !== "undefined" && wtPbLadder)
+                  || (typeof wtPbMark !== "undefined" && wtPbMark)) && !_pbDemoDone
+        onTriggered: {
+            if (root._frameSeq <= 8 || root.frags.length === 0) return;
+            root._pbDemoDone = true;
+            if (typeof wtPbMark !== "undefined" && wtPbMark) {
+                var p = root.playheadMs;
+                root.markIn();
+                root.selEndMs = p + 252000;      // [ then ] four minutes later
+            }
+            if (typeof wtPbLadder !== "undefined" && wtPbLadder) root.ladderOpen = true;
+        }
+    }
+    property bool _pbDemoDone: false
 
     // Shift+←/→ = ±5 frames (the Premiere "step many" convention, research §5): a burst
     // of single steps chained on the stepper's completion — the busy-guard stays intact
@@ -2181,7 +2211,7 @@ Item {
                     x: stage.vL + stage.vW - width - 13
                     y: stage.vT + 11
                     width: tsRow.implicitWidth; height: tsRow.implicitHeight
-                    readonly property int fs: stage.width < 1300 ? 16 : 20
+                    readonly property int fs: root.width < 1300 ? 16 : 20
                     Row {
                         x: 1; y: 1; spacing: 0
                         Text { text: tsDate.text; color: Qt.rgba(0, 0, 0, 0.95); font: tsDate.font }
@@ -2259,7 +2289,11 @@ Item {
                 // ---- transport ---------------------------------------------
                 PbTransport {
                     id: xbar
-                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                    // On the PICTURE, like the overlays above it: when the video is
+                    // width-bound the bar rides the frame's bottom edge instead of
+                    // floating in the letterbox below it.
+                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom
+                              bottomMargin: stage.vT }
                     height: 64
                     z: 8
                     padL: stage.gut
@@ -2298,7 +2332,10 @@ Item {
                 id: evPanel
                 Layout.preferredWidth: root.panelW
                 Layout.fillHeight: true
-                visible: root.railOpen
+                // Fullscreen means the video fills the window: chrome, rail,
+                // filmstrip and navigator all stand down. Shift F advertises
+                // that, so it must actually happen.
+                visible: root.railOpen && !root.fullscreenOn
                 items: root.winItemsNewest
                 unfilteredCount: root.winItemsUnfiltered
                 types: root.typeChips
@@ -2324,8 +2361,8 @@ Item {
         Item {
             id: stripBand
             Layout.fillWidth: true
-            Layout.preferredHeight: root.frameMode ? 96 : 0
-            visible: root.frameMode
+            Layout.preferredHeight: (root.frameMode && !root.fullscreenOn) ? 96 : 0
+            visible: root.frameMode && !root.fullscreenOn
             Behavior on Layout.preferredHeight { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
             Rectangle { anchors.fill: parent; color: Theme.bg }
             Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top }
@@ -2347,7 +2384,8 @@ Item {
         Item {
             id: navigator
             Layout.fillWidth: true
-            Layout.preferredHeight: root.navH
+            Layout.preferredHeight: root.fullscreenOn ? 0 : root.navH
+            visible: !root.fullscreenOn
 
             Rectangle { anchors.fill: parent; color: Theme.bg }
             Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top }

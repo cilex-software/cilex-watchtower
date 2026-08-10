@@ -186,14 +186,20 @@ Item {
             }
             Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom } width: 1; color: Theme.accent }
             Rectangle { anchors { right: parent.right; top: parent.top; bottom: parent.bottom } width: 1; color: Theme.accent }
+            // End caps only when the band is wide enough to hold both: at 24H a
+            // four-minute range is ~4px, and two 11px caps anchored to opposite
+            // edges then cross over and read as "] [". The band's own accent
+            // edges carry it below that, and the header states the duration.
             Rectangle {
                 anchors { left: parent.left; top: parent.top }
+                visible: parent.width >= 26
                 width: capA.implicitWidth + 6; height: 11; color: Theme.accent
                 Text { id: capA; anchors.centerIn: parent; text: "["; color: "#241a08"
                     font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.2; font.weight: Font.Bold }
             }
             Rectangle {
                 anchors { right: parent.right; top: parent.top }
+                visible: parent.width >= 26
                 width: capB.implicitWidth + 6; height: 11; color: Theme.accent
                 Text { id: capB; anchors.centerIn: parent; text: "]"; color: "#241a08"
                     font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.2; font.weight: Font.Bold }
