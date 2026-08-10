@@ -45,8 +45,34 @@ Item {
     // the cvframe image provider) instead of the procedural scene. Mock keeps the
     // procedural still (no backend).
     readonly property bool _real: EventsStore.realMode && !!ev && !!ev.id
-    // event still 404'd but the camera's live frame loaded → showing a "now" frame
-    readonly property bool _showingLive: root._real && evImg.status === Image.Error && liveImg.status === Image.Ready
+
+    // NO EPISODE → DON'T ASK. `events/{id}/snapshot` does not serve a stored still: it
+    // EXTRACTS a JPEG from recorded video at the event moment, so a 404 means exactly one
+    // thing — no footage covers that moment. CV blessed the event payload itself as the
+    // cheap negative (letter 2026-08-09, reply §1.3), deliberately refusing a `has_snapshot`
+    // alias because "a second name for one fact is how contracts rot":
+    //
+    //   recordingId ""      → no episode; the request WILL 404 → skip it (this property)
+    //   recordingId set,    → episode still being written; may 404 for ~60 s (fragment-flush
+    //     durationSec 0       lag) → still ask, the live-frame fallback below is the bridge
+    //   both set            → extraction should succeed; a 404 here is retention (>35 d) or
+    //                         a server defect, and is worth reporting (warned below)
+    //
+    // Measured cost of not doing this: 17 218 such 404s in one 8 h session on
+    // wt-sm-vnutri-01 (91% of ALL log output) — see docs/perf/2026-08-08-win-8h-soak.md.
+    // Most were the motion-without-recording P1; events born inside that outage window have
+    // no footage that could ever be extracted, so they 404 forever and this skip is
+    // permanent for them, not a transient optimisation.
+    readonly property bool _noEpisode: root._real && !!root.ev && !root.ev.recordingId
+
+    // "The still is not coming." Skipping the request leaves evImg at status Null, NOT Error
+    // — so every consumer below must test THIS, not `evImg.status === Image.Error`, or the
+    // live-frame fallback and the honest "no frame" state would both silently stop firing
+    // for exactly the events that need them most.
+    readonly property bool _stillUnavailable: root._noEpisode || evImg.status === Image.Error
+
+    // event still unavailable but the camera's live frame loaded → showing a "now" frame
+    readonly property bool _showingLive: root._real && root._stillUnavailable && liveImg.status === Image.Ready
 
     Rectangle { anchors.fill: parent; color: "#0b0d10" }
 
@@ -73,7 +99,18 @@ Item {
             // evImg.status===Error confines go2rtc traffic to the genuine no-stored-still fallback case.
             // Route via the cvframe provider (attaches the auth cookie) — the cached snapshot endpoint
             // requires auth and a bare QML Image sends none → 401. Strip scheme+host (backend echoes our host).
-            source: (_base === "" || evImg.status !== Image.Error) ? ""
+            // (…and it now also fires when we skipped the still outright — `_stillUnavailable`
+            // covers both "asked and 404'd" and "knew better than to ask".)
+            //
+            // TIMING CHANGE worth a reviewer's eye: for a no-episode event the fallback used to
+            // wait for the still's 404 to come back; now it starts immediately, so a list of
+            // such events reaches go2rtc together rather than staggered by their round trips.
+            // The TOTAL number of go2rtc fetches is unchanged (those events always ended up
+            // here), and the cvframe provider still queues by netPriority with the fallback one
+            // tier below the still — but this file's own history says eager go2rtc fetching
+            // contributed to the 2026-06-29 OOM-kills, so the burstiness is the thing to watch
+            // when this is exercised against a real fleet. Unmeasured from the station box.
+            source: (_base === "" || !root._stillUnavailable) ? ""
                     : ("image://cvframe/" + root._prioPfx(root.netPriority - 1) + _base.replace(/^[a-z]+:\/\/[^\/]+\//, "") + (_retry > 0 ? ("?_r=" + _retry) : ""))
             visible: status === Image.Ready && evImg.status !== Image.Ready
             onStatusChanged: if (status === Image.Error && _retry < 3) liveRetry.restart()
@@ -84,13 +121,22 @@ Item {
             anchors.fill: parent; fillMode: Image.PreserveAspectCrop
             asynchronous: true; cache: true
             sourceSize: Qt.size(width, height)           // requestedSize → provider downscales before caching
-            source: (root._real && root.ev) ? ("image://cvframe/" + root._prioPfx(root.netPriority) + "events/" + root.ev.id + "/snapshot") : ""
+            source: (root._real && root.ev && !root._noEpisode)
+                    ? ("image://cvframe/" + root._prioPfx(root.netPriority) + "events/" + root.ev.id + "/snapshot") : ""
             visible: status === Image.Ready
+            // A 404 on an event that HAS a finished episode is the interesting one: per CV it
+            // means retention (>35 d) or a server defect, unlike the two boring cases we now
+            // either skip or expect. Say so once, so it is distinguishable in the flight
+            // recorder instead of drowning in the noise this change removes.
+            onStatusChanged: if (status === Image.Error && root.ev && root.ev.recordingId && root.ev.durationSec > 0)
+                                 console.warn("EvSnapshot: snapshot 404 on a COMPLETE episode (event="
+                                              + root.ev.id + " recording=" + root.ev.recordingId
+                                              + " dur=" + root.ev.durationSec + "s) — retention or server-side")
         }
         // honest "no frame" only when neither the still nor the live frame loaded
         Item {
             anchors.fill: parent
-            visible: evImg.status === Image.Error && liveImg.status !== Image.Ready
+            visible: root._stillUnavailable && liveImg.status !== Image.Ready
             Column { anchors.centerIn: parent; spacing: 5
                 EvIcon { visible: !root.mini; anchors.horizontalCenter: parent.horizontalCenter; name: "clock"; size: 18; color: Theme.ink3 }
                 Text { visible: !root.mini; text: "NO FRAME AT EVENT TIME"; color: Theme.ink3
