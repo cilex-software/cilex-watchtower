@@ -515,12 +515,61 @@
 <context>
     <name>HealthScreen</name>
     <message>
-        <location filename="../qml/HealthScreen.qml" line="248"/>
+        <location filename="../qml/HealthScreen.qml" line="222"/>
+        <location filename="../qml/HealthScreen.qml" line="227"/>
+        <source>Status unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="225"/>
+        <source>Intermittent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="226"/>
+        <location filename="../qml/HealthScreen.qml" line="231"/>
+        <source>Unreachable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="232"/>
+        <source>Degraded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="233"/>
+        <source>Unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="260"/>
+        <source>%1s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="261"/>
+        <source>%1m</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="262"/>
+        <source>%1h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="263"/>
+        <source>last ok %1 ago</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="293"/>
         <source>Not authorised — recorded playback and export are DOWN</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/HealthScreen.qml" line="249"/>
+        <location filename="../qml/HealthScreen.qml" line="224"/>
+        <location filename="../qml/HealthScreen.qml" line="230"/>
+        <location filename="../qml/HealthScreen.qml" line="294"/>
         <source>Operational</source>
         <translation type="unfinished"></translation>
     </message>

@@ -518,12 +518,61 @@
 <context>
     <name>HealthScreen</name>
     <message>
-        <location filename="../qml/HealthScreen.qml" line="248"/>
+        <location filename="../qml/HealthScreen.qml" line="222"/>
+        <location filename="../qml/HealthScreen.qml" line="227"/>
+        <source>Status unknown</source>
+        <translation>Состояние неизвестно</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="225"/>
+        <source>Intermittent</source>
+        <translation>С перебоями</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="226"/>
+        <location filename="../qml/HealthScreen.qml" line="231"/>
+        <source>Unreachable</source>
+        <translation>Недоступно</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="232"/>
+        <source>Degraded</source>
+        <translation>Деградировано</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="233"/>
+        <source>Unknown</source>
+        <translation>Неизвестно</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="260"/>
+        <source>%1s</source>
+        <translation>%1 с</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="261"/>
+        <source>%1m</source>
+        <translation>%1 мин</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="262"/>
+        <source>%1h</source>
+        <translation>%1 ч</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="263"/>
+        <source>last ok %1 ago</source>
+        <translation>последний успех %1 назад</translation>
+    </message>
+    <message>
+        <location filename="../qml/HealthScreen.qml" line="293"/>
         <source>Not authorised — recorded playback and export are DOWN</source>
         <translation>Нет авторизации — запись и экспорт НЕДОСТУПНЫ</translation>
     </message>
     <message>
-        <location filename="../qml/HealthScreen.qml" line="249"/>
+        <location filename="../qml/HealthScreen.qml" line="224"/>
+        <location filename="../qml/HealthScreen.qml" line="230"/>
+        <location filename="../qml/HealthScreen.qml" line="294"/>
         <source>Operational</source>
         <translation>Работает</translation>
     </message>

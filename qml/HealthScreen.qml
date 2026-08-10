@@ -27,6 +27,10 @@ Item {
     onVisibleChanged: if (visible && storageHealth) storageHealth.refresh()
     Component.onCompleted: { _refreshRows(); if (storageHealth) storageHealth.refresh() }
     Timer { interval: 30000; running: root.visible && root.storageHealth !== null; repeat: true; onTriggered: root.storageHealth.refresh() }
+    // Ticks the "last ok Ns ago" age. The endpoint is cached server-side now, so
+    // the age must advance between refreshes rather than freezing at fetch time.
+    property double nowMs: Date.now()
+    Timer { interval: 1000; running: root.visible; repeat: true; onTriggered: root.nowMs = Date.now() }
 
     // table rows for the active filter (status-sorted; all of them — the table scrolls).
     // page() is a Q_INVOKABLE, so QML cannot track it: a plain binding evaluates
@@ -193,31 +197,72 @@ Item {
             Row {
                 anchors.left: parent.left; anchors.leftMargin: 18; anchors.right: parent.right; anchors.rightMargin: 18
                 anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                // CV's `state` is rendered VERBATIM (their 912dc73, §2 of the reply
+                // to our false-unreachable letter). We used to re-derive a verdict
+                // from the booleans and paint one timed-out probe as a confident
+                // red — the mirror image of a false green, and just as dishonest.
+                // `intermittent` is a Docker stall burst with a healthy agent: it
+                // is warn, never bad, and it carries the age of the last good check
+                // so the operator can see how stale the failure is.
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 4
                     color: (!parent.parent.sh || !parent.parent.sh.loaded) ? Theme.ink3
+                         : (parent.parent.sh.state === "ok" ? Theme.good
+                         : parent.parent.sh.state === "intermittent" ? Theme.warn
+                         : parent.parent.sh.state === "unreachable" ? Theme.bad
+                         : parent.parent.sh.state === "unknown" ? Theme.ink3
                          : (parent.parent.sh.ok ? Theme.good
-                         : ((!parent.parent.sh.reachable || parent.parent.sh.circuitOpen) ? Theme.bad : Theme.warn))
+                            : ((!parent.parent.sh.reachable || parent.parent.sh.circuitOpen) ? Theme.bad : Theme.warn)))
                 }
                 Text { anchors.verticalCenter: parent.verticalCenter; text: "STORAGE SUBSYSTEM"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
                         var sh = parent.parent.sh;
-                        if (!sh || !sh.loaded) return "Status unknown";
-                        if (sh.ok) return "Operational";
-                        if (!sh.reachable || sh.circuitOpen) return "Unreachable";
-                        if (sh.degraded) return "Degraded";
-                        return sh.status ? sh.status : "Unknown";
+                        if (!sh || !sh.loaded) return qsTr("Status unknown");
+                        switch (sh.state) {
+                        case "ok":           return qsTr("Operational");
+                        case "intermittent": return qsTr("Intermittent");
+                        case "unreachable":  return qsTr("Unreachable");
+                        case "unknown":      return qsTr("Status unknown");
+                        }
+                        // pre-912dc73 backend: fall back to the old derivation
+                        if (sh.ok) return qsTr("Operational");
+                        if (!sh.reachable || sh.circuitOpen) return qsTr("Unreachable");
+                        if (sh.degraded) return qsTr("Degraded");
+                        return sh.status ? sh.status : qsTr("Unknown");
                     }
                     color: {
                         var sh = parent.parent.sh;
                         if (!sh || !sh.loaded) return Theme.ink3;
+                        if (sh.state === "ok") return Theme.ink2;
+                        if (sh.state === "intermittent") return Theme.warn;
+                        if (sh.state === "unreachable") return Theme.bad;
+                        if (sh.state === "unknown") return Theme.ink3;
                         if (sh.ok) return Theme.ink2;
                         if (!sh.reachable || sh.circuitOpen) return Theme.bad;
                         return Theme.warn;
                     }
                     font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
+                }
+                // "last ok 40s ago" — the age of the last good check, which is what
+                // turns "failing" into "failing, and here is how briefly".
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: parent.parent.sh && parent.parent.sh.loaded
+                             && parent.parent.sh.state !== "ok" && parent.parent.sh.lastOkAt !== ""
+                    text: {
+                        var sh = parent.parent.sh;
+                        if (!sh || sh.lastOkAt === "") return "";
+                        var t = Date.parse(sh.lastOkAt);
+                        if (isNaN(t)) return "";
+                        var s = Math.max(0, Math.round((root.nowMs - t) / 1000));
+                        var age = s < 60 ? qsTr("%1s").arg(s)
+                                : s < 3600 ? qsTr("%1m").arg(Math.floor(s / 60))
+                                : qsTr("%1h").arg(Math.floor(s / 3600));
+                        return "· " + qsTr("last ok %1 ago").arg(age);
+                    }
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter

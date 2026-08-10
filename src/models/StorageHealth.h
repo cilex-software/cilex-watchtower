@@ -5,8 +5,18 @@
 
 class QNetworkAccessManager;
 
-// Storage-subsystem health from cilex-vision's GET /health/storage
-// { status, degraded, storage_agent_reachable, circuit_open, last_error, reason }.
+// Storage-subsystem health from cilex-vision's GET /health/storage.
+//
+// CV's 912dc73 (reply to docs/letters/2026-08-10-storage-health-probe-false-
+// unreachable.md) made this endpoint CACHED — it never probes on read, so it is
+// free to poll — and added the field that matters: an explicit `state` of
+// ok | intermittent | unreachable | unknown, plus last_ok_at.
+//
+// `intermittent` means "failing right now, but the agent answered within 180s"
+// — a Docker stall burst, NOT a degraded subsystem and NOT a red. Rendering one
+// timed-out probe as a confident red is the defect we reported; rendering CV's
+// state verbatim, with the age of the last good check beside it, is the fix they
+// asked us to build (their §2: one authority beats two sample windows).
 // Uses the shared session (AuthController) — no own login. Polled by the Health
 // screen while it's visible. `loaded` is false until the first successful fetch
 // (so the UI can show "status unknown" honestly when the backend is unreachable).
@@ -21,6 +31,11 @@ class StorageHealth : public QObject
     Q_PROPERTY(bool circuitOpen READ circuitOpen NOTIFY changed)
     Q_PROPERTY(QString reason READ reason NOTIFY changed)
     Q_PROPERTY(bool ok READ ok NOTIFY changed)
+    // Rendered VERBATIM — never re-derived from the booleans.
+    Q_PROPERTY(QString state READ state NOTIFY changed)
+    Q_PROPERTY(QString lastOkAt READ lastOkAt NOTIFY changed)
+    Q_PROPERTY(QString checkedAt READ checkedAt NOTIFY changed)
+    Q_PROPERTY(int consecutiveFailures READ consecutiveFailures NOTIFY changed)
 
 public:
     explicit StorageHealth(QObject *parent = nullptr);
@@ -31,7 +46,19 @@ public:
     bool reachable() const { return m_reachable; }
     bool circuitOpen() const { return m_circuitOpen; }
     QString reason() const { return m_reason; }
-    bool ok() const { return m_loaded && m_status == QLatin1String("ok") && !m_degraded && m_reachable && !m_circuitOpen; }
+    QString state() const { return m_state; }
+    QString lastOkAt() const { return m_lastOkAt; }
+    QString checkedAt() const { return m_checkedAt; }
+    int consecutiveFailures() const { return m_consecutiveFailures; }
+    // Trust `state` when the backend sends it; fall back to the old booleans only
+    // for a backend that predates 912dc73.
+    bool ok() const {
+        if (!m_loaded)
+            return false;
+        if (!m_state.isEmpty())
+            return m_state == QLatin1String("ok");
+        return m_status == QLatin1String("ok") && !m_degraded && m_reachable && !m_circuitOpen;
+    }
 
     Q_INVOKABLE void refresh();
 
@@ -45,7 +72,8 @@ private:
     QString m_baseUrl;
     bool m_loading = false;
     bool m_loaded = false;
-    QString m_status, m_reason;
+    QString m_status, m_reason, m_state, m_lastOkAt, m_checkedAt;
+    int m_consecutiveFailures = 0;
     bool m_degraded = false;
     bool m_reachable = true;
     bool m_circuitOpen = false;

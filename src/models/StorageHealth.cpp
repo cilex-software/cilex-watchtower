@@ -49,6 +49,10 @@ void StorageHealth::fetch()
         m_degraded = o.value("degraded").toBool();
         m_reachable = o.value("storage_agent_reachable").toBool(true);
         m_circuitOpen = o.value("circuit_open").toBool();
+        m_state = o.value("state").toString();
+        m_lastOkAt = o.value("last_ok_at").toString();
+        m_checkedAt = o.value("checked_at").toString();
+        m_consecutiveFailures = o.value("consecutive_failures").toInt();
         m_reason = o.value("reason").toString();
         if (m_reason.isEmpty())
             m_reason = o.value("last_error").toString();
