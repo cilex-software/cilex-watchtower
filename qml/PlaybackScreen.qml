@@ -1900,6 +1900,9 @@ Item {
     // exiting. Called from Main.qml's global Escape shortcut, which pre-empts
     // item key handlers. Returns true when a layer was consumed.
     function escapeLayer() {
+        // The export drawer is the most nested layer of all: without this, Esc
+        // with the drawer open would clear the very range the drawer is about.
+        if (exportDrawer.visible) { exportDrawer.close(); return true; }
         if (fullscreenOn) { fullscreenRequested(); return true; }
         if (ladderOpen) { ladderOpen = false; return true; }
         if (frameMode) { exitFrameMode(); return true; }
