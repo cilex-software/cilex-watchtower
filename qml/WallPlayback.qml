@@ -481,6 +481,23 @@ Item {
         for (var i = 0; i < ll.length; i++) if (cellStateOf(ll[i].camId) === "recording") n++;
         return n;
     }
+    // True when at least one camera on the wall has NO footage covering the whole
+    // marked range — the export stays valid, but the short clips stop being a
+    // surprise. Cameras whose availability we cannot derive are not counted as
+    // gaps: an unknown is not evidence of absence.
+    readonly property bool selectionSpansGap: {
+        if (!hasSelection) return false;
+        var ll = laneList;
+        for (var i = 0; i < ll.length; i++) {
+            var sp = footageSpans(ll[i].camId);
+            if (sp === null) continue;                 // unknown — never claimed as a gap
+            var covered = false;
+            for (var j = 0; j < sp.length; j++)
+                if (sp[j].s <= selStartMs && sp[j].e >= selEndMs) { covered = true; break; }
+            if (!covered) return true;
+        }
+        return false;
+    }
     // §2.5 — the union of composited footage across the loaded window, as a
     // percentage. The one number that predicts whether scrubbing here is worth it.
     readonly property int coveragePct: {
@@ -776,8 +793,36 @@ Item {
             player.position = Math.min(player.duration, player.position + ((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000));
             e.accepted = true;
         } else if (e.key === Qt.Key_0 || e.key === Qt.Key_Home) {
-            root.resetView(); e.accepted = true;   // Fit: drop a custom wheel-zoom back to the full window
+            root.resetView(); e.accepted = true;   // FIT: drop a custom wheel-zoom back to the full window
         }
+        // ---- §3, the rest. Latin + the Cyrillic the SAME PHYSICAL KEY emits ----
+        else if (root._key(e, Qt.Key_BracketLeft, 0x0425)) {    // [ = Х
+            root.selStartMs = root.playheadMs;
+            if (!(root.selEndMs > root.selStartMs)) root.selEndMs = root.selStartMs + 30000;
+            e.accepted = true;
+        } else if (root._key(e, Qt.Key_BracketRight, 0x042A)) { // ] = Ъ
+            root.selEndMs = root.playheadMs;
+            if (!(root.selStartMs >= 0 && root.selStartMs < root.selEndMs))
+                root.selStartMs = Math.max(root.winStartMs, root.selEndMs - 30000);
+            e.accepted = true;
+        } else if (root._key(e, Qt.Key_X, 0x0427)) {            // X = Ч
+            if (root.hasSelection) root.exportSelection();
+            e.accepted = true;
+        } else if (root._key(e, Qt.Key_E, 0x0423)) {            // E = У
+            Settings.eventsOnScrubber = !Settings.eventsOnScrubber; e.accepted = true;
+        } else if (e.key >= Qt.Key_1 && e.key <= Qt.Key_5) {
+            root.setViewPreset([15, 60, 360, 720, 1440][e.key - Qt.Key_1]); e.accepted = true;
+        }
+    }
+    // §3 — Esc unwinds ONE layer per press: modal, then selection, then zoom. Any
+    // other order is ambiguous about which thing it will close. Returns true when
+    // it consumed a layer, so Main's app-wide Esc can fall through to fullscreen.
+    function escapeLayer() {
+        if (pickerOpen) { pickerOpen = false; return true; }
+        if (cellPickerSlot >= 0) { cellPickerSlot = -1; return true; }
+        if (hasSelection) { selStartMs = -1; selEndMs = -1; return true; }
+        if (customZoom) { resetView(); return true; }
+        return false;
     }
 
     // ======================================================================
@@ -1247,7 +1292,13 @@ Item {
 
         // ---- master timeline + transport ---------------------------------
         Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 140; color: Theme.bg
+            // transport (38) + the scrubber's own height + margins. Derived, not a
+            // constant: the scrubber is resizable now, and a fixed band would let
+            // it overflow the window instead of taking height from the stage —
+            // which is exactly the trade §0's density arithmetic asks for.
+            Layout.fillWidth: true
+            Layout.preferredHeight: 38 + Settings.wallScrubH + 14
+            color: Theme.bg
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 1; color: Theme.line }
 
             // Wall-wide loading bar — the play-wall analogue of the per-camera tile loading bar
@@ -1283,12 +1334,31 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 16; rightMargin: 16; topMargin: 12 }
                 height: 24; spacing: 8
                 component Chip: Rectangle {
-                    property string label: ""; property bool active: false; signal clicked()
+                    id: chip
+                    property string label: ""; property bool active: false
+                    property string tip: ""
+                    // §2.8 — `ghost` is for a PREFERENCE (the lane toggle), which
+                    // gets an underline rather than a fill: filling it would read as
+                    // a mode.
+                    property bool ghost: false
+                    signal clicked()
                     implicitWidth: ct.implicitWidth + 18; implicitHeight: 24
-                    color: active ? Theme.accent : "transparent"; border.width: 1; border.color: active ? Theme.accent : Theme.line2
-                    Text { id: ct; anchors.centerIn: parent; text: parent.label; color: parent.active ? Theme.bg : Theme.ink2
+                    color: ghost ? (active ? Theme.accentSoft : "transparent")
+                                 : (active ? Theme.accent : "transparent")
+                    border.width: 1
+                    border.color: (active && !ghost) ? Theme.accent : Theme.line2
+                    Text { id: ct; anchors.centerIn: parent; text: parent.label
+                        color: (parent.active && !parent.ghost) ? Theme.bg
+                             : (parent.active ? Theme.accent : Theme.ink2)
                         font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.8; font.capitalization: Font.AllUppercase }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+                    Rectangle { visible: parent.ghost && parent.active
+                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                        height: 2; color: Theme.accent }
+                    MouseArea { id: chMa; anchors.fill: parent; hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
+                    C.ToolTip.visible: chMa.containsMouse && chip.tip !== ""
+                    C.ToolTip.delay: 400
+                    C.ToolTip.text: chip.tip
                 }
                 Chip {
                     label: player.playbackState === MediaPlayer.PlayingState ? "❚❚" : "▶"
@@ -1304,16 +1374,31 @@ Item {
                 // Window presets move the view inside the loaded composite window;
                 // they de-highlight once you wheel-zoom into a custom span (then the
                 // Custom chip shows the visible span; Fit / 0-key resets).
-                Chip { label: "15m"; active: root.zoomMin === 15 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(15) }
-                Chip { label: "1h"; active: root.zoomMin === 60 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(60) }
-                Chip { label: "6h"; active: root.zoomMin === 360 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(360) }
-                Chip { label: "12h"; active: root.zoomMin === 720 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(720) }
-                Chip { label: "24h"; active: root.zoomMin === 1440 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(1440) }
+                // §2.8 — the coverage readout sits with the span controls, because
+                // that is where the operator decides whether this window is worth
+                // scrubbing at all.
+                Text {
+                    visible: root.frags.length > 0
+                    text: qsTr("%1% of the window has footage").arg(root.coveragePct)
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                }
+                Rectangle { visible: root.frags.length > 0; width: 1; height: 16; color: Theme.line2 }
+                // Span chips NAME their model in the tooltip — these are rolling
+                // windows ending now, and the calendar is the other model.
+                Chip { label: "15m"; tip: qsTr("Rolling window — the last 15 min, ending now"); active: root.zoomMin === 15 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(15) }
+                Chip { label: "1h"; tip: qsTr("Rolling window — the last 1h, ending now"); active: root.zoomMin === 60 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(60) }
+                Chip { label: "6h"; tip: qsTr("Rolling window — the last 6h, ending now"); active: root.zoomMin === 360 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(360) }
+                Chip { label: "12h"; tip: qsTr("Rolling window — the last 12h, ending now"); active: root.zoomMin === 720 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(720) }
+                Chip { label: "24h"; tip: qsTr("Rolling window — the last 24h, ending now"); active: root.zoomMin === 1440 && root.selectedDay === "" && !root.customZoom; onClicked: root.setViewPreset(1440) }
                 Chip { visible: root.customZoom; active: true; label: root.fmtSpan(root.viewEndMs - root.viewStartMs); onClicked: root.resetView() }
-                Chip { visible: root.customZoom; label: "Fit"; onClicked: root.resetView() }
+                Chip { visible: root.customZoom; label: "FIT"; tip: qsTr("Drop the custom zoom back to the loaded window"); onClicked: root.resetView() }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
-                Chip { label: "Events"; active: Settings.eventsOnScrubber; onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
-                Chip { visible: root.hasSelection; label: "Export selection"; active: true; onClicked: root.exportSelection() }
+                Chip { label: "Events"; ghost: true; active: Settings.eventsOnScrubber
+                    tip: qsTr("Show a motion lane per camera in the scrubber")
+                    onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
+                Chip { visible: root.hasSelection; active: true
+                    label: "↥ " + qsTr("Export selection") + " · " + root.fmtSpan(root.selEndMs - root.selStartMs)
+                    onClicked: root.exportSelection() }
                 Chip { label: "Return to live"; onClicked: root.returnToLive() }
             }
 
@@ -1321,7 +1406,10 @@ Item {
             Rectangle {
                 id: bar
                 anchors { left: parent.left; right: parent.right; top: tlControls.bottom; topMargin: 10; leftMargin: 16; rightMargin: 16 }
-                height: 88
+                // §2.7 — 160px default, resizable 36-420. The scrubber is where the
+                // operator WORKS on this screen, and 88px could not hold fourteen
+                // lanes above the 7px legibility floor.
+                height: Settings.wallScrubH
                 color: "#16140f"; border.width: 1; border.color: Theme.line
 
                 // span/x↔ms use the (zoomable) VIEW window, not the full session window
@@ -1332,13 +1420,70 @@ Item {
                 property double hoverMs: -1
                 property int hoverLane: -1
 
-                // ---- lane geometry: one thin lane per displayed camera ----------
+                // ---- band geometry (§2.7): coverage and ruler are FIXED, and the
+                // lanes are the single child that absorbs a resize. Flexing a
+                // container whose children are all fixed relocates the void rather
+                // than filling it (the Groups console lesson).
                 readonly property bool lanesOn: Settings.eventsOnScrubber && root.laneList.length > 0
                 readonly property int laneCount: root.laneList.length
-                readonly property real coverH: lanesOn ? 11 : height        // footage strip (fills the bar when lanes are off)
-                readonly property real laneTop: coverH + 2
+                readonly property real coverH: lanesOn ? 14 : height
+                readonly property real rulerH: lanesOn ? 15 : 0
+                readonly property real laneTop: coverH + rulerH
                 readonly property real laneAreaH: Math.max(0, height - laneTop - 2)
-                readonly property real laneH: (lanesOn && laneCount > 0) ? laneAreaH / laneCount : 0
+                // 7px floor: below it the lane AREA scrolls instead of crushing
+                // fourteen cameras into 2px each.
+                readonly property real laneH: (lanesOn && laneCount > 0)
+                    ? Math.max(7, Math.floor(laneAreaH / laneCount)) : 0
+                readonly property real laneContentH: laneH * laneCount
+                readonly property bool hasWarming: {
+                    for (var i = 0; i < root.frags.length; i++)
+                        if (root.frags[i].avail !== "ready"
+                            && root.frags[i].we >= root.viewStartMs && root.frags[i].ws <= root.viewEndMs) return true;
+                    return false;
+                }
+                // Ruler ticks derived from the visible span, so the label density
+                // stays readable from 15 minutes to 35 days.
+                readonly property var tickList: {
+                    var sp = span, out = [];
+                    if (sp <= 0 || width <= 0) return out;
+                    var steps = [10000, 30000, 60000, 300000, 900000, 1800000, 3600000,
+                                 10800000, 21600000, 43200000, 86400000];
+                    var step = steps[steps.length - 1];
+                    for (var i = 0; i < steps.length; i++)
+                        if (sp / steps[i] <= Math.max(4, width / 90)) { step = steps[i]; break; }
+                    var t = Math.ceil(root.viewStartMs / step) * step;
+                    var n = 0;
+                    while (t <= root.viewEndMs && n < 400) {
+                        out.push({ ms: t, major: (t % (step * 2)) === 0 || step >= 3600000 });
+                        t += step; n++;
+                    }
+                    return out;
+                }
+                // §2.7 — the grip STRADDLES the top edge (it is positioned outside
+                // the bar), so it costs 0px of picture at rest. A 5px band inside
+                // the bar would spend picture on chrome.
+                MouseArea {
+                    id: grip
+                    z: 40
+                    anchors { left: parent.left; right: parent.right }
+                    y: -4; height: 8
+                    cursorShape: Qt.SizeVerCursor
+                    property real pressY: 0
+                    property int pressH: 0
+                    onPressed: (m) => { pressY = m.y; pressH = Settings.wallScrubH }
+                    onPositionChanged: (m) => {
+                        if (!pressed) return;
+                        Settings.wallScrubH = pressH - Math.round(m.y - pressY);
+                    }
+                    onDoubleClicked: Settings.wallScrubH = 160
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 44; height: 3
+                        visible: grip.containsMouse || grip.pressed
+                        color: Theme.accent
+                    }
+                    hoverEnabled: true
+                }
                 // merge a camera's motion spans by ~2px gap so a busy lane reads as a
                 // band, not a thousand hairlines; clipped to the visible view window.
                 function laneSpans(camId) {
@@ -1370,31 +1515,103 @@ Item {
                 }
                 Rectangle { visible: bar.lanesOn; x: 0; y: bar.coverH; width: bar.width; height: 1; color: Theme.line }
 
-                // ---- per-camera motion lanes (grid reading order) ----
+                // ---- WARMING label (§2.7) — the compositor has not rendered this
+                // stretch yet. A first-class colour, never a spinner and never a gap.
+                Rectangle {
+                    visible: bar.hasWarming
+                    x: bar.width - wrmT.implicitWidth - 12; y: 1
+                    width: wrmT.implicitWidth + 10; height: 12
+                    color: "#4a4327"
+                    Text { id: wrmT; anchors.centerIn: parent; text: qsTr("WARMING")
+                        color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.2 }
+                }
+
+                // ---- ruler (§2.7) — span-derived ticks + hh:mm ----------------
                 Item {
                     visible: bar.lanesOn
-                    x: 0; y: bar.laneTop; width: bar.width; height: bar.laneAreaH; clip: true
+                    x: 0; y: bar.coverH + 1; width: bar.width; height: bar.rulerH - 1
+                    clip: true
                     Repeater {
-                        model: root.laneList
+                        model: bar.tickList
                         delegate: Item {
-                            id: lane
-                            required property int index
                             required property var modelData
-                            readonly property string camId: modelData.camId
-                            y: lane.index * bar.laneH; width: bar.width; height: bar.laneH
-                            Rectangle { anchors.fill: parent; visible: lane.index % 2 === 0; color: Qt.rgba(1, 1, 1, 0.022) }       // zebra
-                            Rectangle { anchors.fill: parent; visible: bar.hoverLane === lane.index; color: Theme.accentSoft }       // hover row
-                            Repeater {
-                                model: bar.laneSpans(lane.camId)
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    x: Math.max(0, bar.xOf(modelData.sMs))
-                                    width: Math.max(2, bar.xOf(modelData.eMs) - bar.xOf(modelData.sMs))
-                                    height: Math.max(2, Math.min(lane.height - 1, 6))
-                                    y: (lane.height - height) / 2
-                                    color: Theme.accent
-                                    opacity: 0.45 + 0.45 * modelData.it
+                            x: bar.xOf(modelData.ms); width: 1; height: parent.height
+                            Rectangle { width: 1; height: modelData.major ? 5 : 3; color: Theme.line2 }
+                            Text {
+                                visible: modelData.major
+                                x: 3; y: 1
+                                text: Settings.clock(modelData.ms, false)
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9
+                            }
+                        }
+                    }
+                }
+
+                // ---- per-camera motion lanes (grid reading order) ----
+                Flickable {
+                    id: laneFlick
+                    visible: bar.lanesOn
+                    x: 0; y: bar.laneTop; width: bar.width; height: bar.laneAreaH
+                    clip: true
+                    contentHeight: bar.laneContentH
+                    boundsBehavior: Flickable.StopAtBounds
+                    C.ScrollBar.vertical: C.ScrollBar { policy: bar.laneContentH > bar.laneAreaH ? C.ScrollBar.AsNeeded : C.ScrollBar.AlwaysOff }
+                    Item {
+                        width: bar.width; height: bar.laneContentH
+                        Repeater {
+                            model: root.laneList
+                            delegate: Item {
+                                id: lane
+                                required property int index
+                                required property var modelData
+                                readonly property string camId: modelData.camId
+                                readonly property bool hot: root.hoverCamera === camId
+                                // §2.7 — a lane whose camera contributes NOTHING to
+                                // this window takes a faint bad hatch: the lane
+                                // equivalent of a dormant cell, so "this camera has
+                                // no footage here" reads in both places.
+                                readonly property bool barren: bar.laneSpans(camId).length === 0
+                                y: lane.index * bar.laneH; width: bar.width; height: bar.laneH
+                                Rectangle { anchors.fill: parent; visible: lane.index % 2 === 0; color: Qt.rgba(1, 1, 1, 0.022) }
+                                Item {                                   // barren hatch
+                                    anchors.fill: parent; visible: lane.barren; clip: true; opacity: 0.30
+                                    Repeater {
+                                        model: Math.ceil(bar.width / 10) + 2
+                                        delegate: Rectangle {
+                                            required property int index
+                                            width: 2; height: lane.height * 2.2; color: Theme.bad
+                                            transformOrigin: Item.Center; rotation: 45
+                                            x: index * 10 - lane.height
+                                            y: (lane.height - height) / 2
+                                        }
+                                    }
                                 }
+                                Rectangle { anchors.fill: parent; visible: lane.hot; color: Theme.accentSoft }   // shared hoverCamera
+                                // lane label appears once the lane can carry it (§2.7)
+                                Text {
+                                    visible: bar.laneH >= 11
+                                    x: 3; anchors.verticalCenter: parent.verticalCenter
+                                    text: {
+                                        var c = root.cameraModel ? root.cameraModel.cameraByBackendId(lane.camId) : null;
+                                        var m = /\.(\d+)$/.exec((c && c.ip) || "");
+                                        return m ? "." + m[1] : "";
+                                    }
+                                    color: lane.hot ? Theme.ink2 : Theme.ink3
+                                    font.family: Theme.fontMono; font.pixelSize: 8
+                                }
+                                Repeater {
+                                    model: bar.laneSpans(lane.camId)
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        x: Math.max(0, bar.xOf(modelData.sMs))
+                                        width: Math.max(2, bar.xOf(modelData.eMs) - bar.xOf(modelData.sMs))
+                                        height: Math.max(2, Math.min(lane.height - 1, 6))
+                                        y: (lane.height - height) / 2
+                                        color: Theme.accent
+                                        opacity: 0.45 + 0.45 * modelData.it
+                                    }
+                                }
+                                HoverHandler { onHoveredChanged: root.hoverCamera = hovered ? lane.camId : "" }
                             }
                         }
                     }
@@ -1427,8 +1644,19 @@ Item {
                     width: wTip.implicitWidth + 14; height: 20
                     x: Math.max(0, Math.min(bar.width - width, hx - width / 2)); y: 2
                     color: Qt.rgba(0, 0, 0, 0.9); border.width: 1; border.color: Theme.line2
+                    // §2.7 — the WEEKDAY rides the tooltip for the same reason the
+                    // clock carries the date: a rolling window crosses midnight by
+                    // construction, so a bare time is ambiguous.
                     Text { id: wTip; anchors.centerIn: parent
-                        text: (bar.hoverLane >= 0 && bar.hoverLane < root.laneList.length ? root.laneList[bar.hoverLane].name + " · " : "") + root.fmtClock(bar.hoverMs)
+                        text: {
+                            var pre = "";
+                            if (root.hoverCamera !== "") {
+                                var c = root.cameraModel ? root.cameraModel.cameraByBackendId(root.hoverCamera) : null;
+                                var m = /\.(\d+)$/.exec((c && c.ip) || "");
+                                if (m) pre = "." + m[1] + " · ";
+                            }
+                            return pre + Qt.formatDate(new Date(bar.hoverMs), "ddd") + " " + root.fmtClock(bar.hoverMs);
+                        }
                         color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
 
@@ -1487,8 +1715,14 @@ Item {
                     anchors { left: parent.left; bottom: parent.bottom; margins: 4 }
                     width: selT.implicitWidth + 12; height: 16
                     color: Qt.rgba(0, 0, 0, 0.82); border.width: 1; border.color: Theme.line2
+                    // §2.7 — a selection that crosses a stretch where some camera has
+                    // no footage is still a valid export; the operator simply must
+                    // not be surprised when four of fourteen clips come back short.
+                    // So it is NAMED before the export, not discovered after it.
                     Text { id: selT; anchors.centerIn: parent
                         text: "IN " + root.fmtClock(root.selStartMs) + " → OUT " + root.fmtClock(root.selEndMs)
+                              + " · " + root.fmtSpan(root.selEndMs - root.selStartMs)
+                              + (root.selectionSpansGap ? " · " + qsTr("spans a gap — some cameras have no footage inside it") : "")
                         color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
                 }
             }

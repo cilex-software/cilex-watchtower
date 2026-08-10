@@ -22,6 +22,7 @@ Settings::Settings(QObject *parent)
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
     m_pbNavH = m_settings.value(QStringLiteral("playback/navHeight"), 115).toInt();
+    m_wallScrubH = m_settings.value(QStringLiteral("wall/scrubHeight"), 160).toInt();
     m_pbPanelW = m_settings.value(QStringLiteral("playback/panelWidth"), 296).toInt();
     m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
@@ -288,4 +289,14 @@ void Settings::setBadgeTimers(bool v)
     m_badgeTimers = v;
     m_settings.setValue(QStringLiteral("ui/badgeTimers"), v);
     emit badgeTimersChanged();
+}
+
+void Settings::setWallScrubH(int v)
+{
+    v = qBound(36, v, 420);
+    if (m_wallScrubH == v)
+        return;
+    m_wallScrubH = v;
+    m_settings.setValue(QStringLiteral("wall/scrubHeight"), v);
+    emit wallScrubHChanged();
 }

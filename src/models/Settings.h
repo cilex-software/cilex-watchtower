@@ -46,6 +46,8 @@ class Settings : public QObject
     // floor 101 = 83 fixed chrome + an 18px lane minimum) and the right rail's
     // width (spec default 296, 232–560).
     Q_PROPERTY(int pbNavH READ pbNavH WRITE setPbNavH NOTIFY pbNavHChanged)
+    // Wall playback scrubber height ("Roll Call" §2.7): 160 default, 36-420.
+    Q_PROPERTY(int wallScrubH READ wallScrubH WRITE setWallScrubH NOTIFY wallScrubHChanged)
     Q_PROPERTY(int pbPanelW READ pbPanelW WRITE setPbPanelW NOTIFY pbPanelWChanged)
     // Playback right rail visible (the EVENTS column). Persistent, not a session
     // toggle — the operator who closes it wants it closed tomorrow too.
@@ -90,6 +92,8 @@ public:
     int triageBodyH() const { return m_triageBodyH; }
     int groupsPaneW() const { return m_groupsPaneW; }
     int pbNavH() const { return m_pbNavH; }
+    int wallScrubH() const { return m_wallScrubH; }
+    void setWallScrubH(int v);
     int pbPanelW() const { return m_pbPanelW; }
     bool pbEventsPanel() const { return m_pbEventsPanel; }
     void setPbNavH(int v);
@@ -162,6 +166,7 @@ signals:
     void triageBodyHChanged();
     void groupsPaneWChanged();
     void pbNavHChanged();
+    void wallScrubHChanged();
     void pbPanelWChanged();
     void pbEventsPanelChanged();
     void hiddenScrubberEventTypesChanged();
@@ -183,6 +188,7 @@ private:
     int m_triageBodyH = 200;
     int m_groupsPaneW = 264;
     int m_pbNavH = 115;
+    int m_wallScrubH = 160;
     int m_pbPanelW = 296;
     bool m_pbEventsPanel = true;
     QStringList m_hiddenScrubberEventTypes;

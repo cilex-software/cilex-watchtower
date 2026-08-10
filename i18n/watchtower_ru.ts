@@ -2006,75 +2006,126 @@
         <translation>В группе «%1» нет камер для воспроизведения.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="592"/>
+        <location filename="../qml/WallPlayback.qml" line="609"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1013"/>
+        <location filename="../qml/WallPlayback.qml" line="1058"/>
         <source>1 STREAM · %1/%2 RECORDING</source>
         <translation>1 ПОТОК · ПИШУТ %1/%2</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1020"/>
+        <location filename="../qml/WallPlayback.qml" line="1065"/>
         <source>Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.</source>
         <translation>Все ячейки — один и тот же момент по построению: единый composited-поток. Удерживайте T, чтобы проштамповать каждую ячейку.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1086"/>
+        <location filename="../qml/WallPlayback.qml" line="1131"/>
         <source>No cameras in this group</source>
         <translation>В этой группе нет камер</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <location filename="../qml/WallPlayback.qml" line="1159"/>
         <source>CALENDAR DAY</source>
         <translation>КАЛЕНДАРНЫЙ ДЕНЬ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1114"/>
+        <location filename="../qml/WallPlayback.qml" line="1159"/>
         <source>ROLLING</source>
         <translation>СКОЛЬЗЯЩЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1135"/>
+        <location filename="../qml/WallPlayback.qml" line="1180"/>
         <source>Midnight to midnight, clamped to now</source>
         <translation>С полуночи до полуночи, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1136"/>
+        <location filename="../qml/WallPlayback.qml" line="1181"/>
         <source>Ends now — the far left is %1 at %2</source>
         <translation>Кончается сейчас — крайнее левое: %1, %2</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1145"/>
+        <location filename="../qml/WallPlayback.qml" line="1190"/>
+        <location filename="../qml/WallPlayback.qml" line="1382"/>
         <source>%1% of the window has footage</source>
         <translation>%1% окна содержит запись</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1173"/>
+        <location filename="../qml/WallPlayback.qml" line="1218"/>
         <source>ROLL CALL</source>
         <translation>ПЕРЕКЛИЧКА</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1178"/>
-        <location filename="../qml/WallPlayback.qml" line="1220"/>
+        <location filename="../qml/WallPlayback.qml" line="1223"/>
+        <location filename="../qml/WallPlayback.qml" line="1265"/>
         <source>RECORDING</source>
         <translation>ПИШЕТ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1219"/>
+        <location filename="../qml/WallPlayback.qml" line="1264"/>
         <source>MOTION</source>
         <translation>ДВИЖ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1221"/>
+        <location filename="../qml/WallPlayback.qml" line="1266"/>
         <source>nothing at this instant</source>
         <translation>в этот момент ничего</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1222"/>
+        <location filename="../qml/WallPlayback.qml" line="1267"/>
         <source>availability unknown</source>
         <translation>доступность неизвестна</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1388"/>
+        <source>Rolling window — the last 15 min, ending now</source>
+        <translation>Скользящее окно — последние 15 мин, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1389"/>
+        <source>Rolling window — the last 1h, ending now</source>
+        <translation>Скользящее окно — последний 1 ч, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1390"/>
+        <source>Rolling window — the last 6h, ending now</source>
+        <translation>Скользящее окно — последние 6 ч, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1391"/>
+        <source>Rolling window — the last 12h, ending now</source>
+        <translation>Скользящее окно — последние 12 ч, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1392"/>
+        <source>Rolling window — the last 24h, ending now</source>
+        <translation>Скользящее окно — последние 24 ч, до текущего момента</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1394"/>
+        <source>Drop the custom zoom back to the loaded window</source>
+        <translation>Сбросить масштаб к загруженному окну</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1397"/>
+        <source>Show a motion lane per camera in the scrubber</source>
+        <translation>Показать дорожку движения для каждой камеры</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1400"/>
+        <source>Export selection</source>
+        <translation>Экспорт выделения</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1525"/>
+        <source>WARMING</source>
+        <translation>ГОТОВИТСЯ</translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1725"/>
+        <source>spans a gap — some cameras have no footage inside it</source>
+        <translation>пересекает пробел — у части камер внутри нет записи</translation>
     </message>
 </context>
 <context>
