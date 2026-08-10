@@ -72,9 +72,11 @@ Left → right:
   part of this redesign).
 - **Three fleet-status pills** — `● ONLINE 39` (good), `● OFFLINE 0` (bad),
   `● NOT REC 0` (accent). Counted across the **whole roster**, not the current
-  page or group. **Each is a button**: clicking one re-scopes the wall to that
-  status. They are the fastest path from "something is wrong" to "show me
-  which".
+  page or group. **Each is a toggle** that sets the Live wall's status filter
+  (clicking the active one clears it). On this screen that is the fastest path
+  from "something is wrong" to "show me which". **They do not navigate**,
+  though — pressed from any other screen they silently change a filter the
+  operator cannot see, which is a defect tracked in the wall-playback brief.
 - **Watch chip** — `Check in` when nobody is on watch (ghost button, opens a
   roster picker); when someone is on watch it shows who and for how long. This
   is the shift check-in, part of a separate feature called The Watch.
