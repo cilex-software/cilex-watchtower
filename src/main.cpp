@@ -280,7 +280,6 @@ int main(int argc, char *argv[])
     // manager's own decorations and the alt-tab switcher. The logo is already
     // in the binary — NavRail draws it from the same resource path.
     QGuiApplication::setDesktopFileName(QStringLiteral("cilex-watchtower"));
-    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/images/cilex-logo.png")));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
     QGuiApplication::setOrganizationName(QStringLiteral("Cilex Vision"));
 #ifdef WT_GIT_SHA
@@ -290,6 +289,11 @@ int main(int argc, char *argv[])
 #endif
 
     QGuiApplication app(argc, argv);
+    // MUST be after the QGuiApplication exists: constructing a QIcon builds a
+    // QPixmap, and Qt makes that a hard fatal before the app object ("Must
+    // construct a QGuiApplication before a QPixmap") — it aborts on the spot.
+    // setDesktopFileName above is fine pre-construction; it only stores a string.
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/images/cilex-logo.png")));
     FlightRecorder::startPeriodic(&app);   // CW-02: modules/BuildID snapshots (30 s, on change)
 
     // GUI-thread hang watchdog (Warden CW-08, app half). A frozen wall that keeps
