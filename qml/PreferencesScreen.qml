@@ -16,6 +16,14 @@ Item {
     property var cameraModel: null
 
     // Default-landing options: Live Monitor + each saved view + each group.
+    function decodeOptions() {
+        var out = [];
+        var vals = [8, 16, 24, 32, 48, 64];
+        for (var i = 0; i < vals.length; i++)
+            out.push({ value: String(vals[i]), label: qsTr("%1 cameras").arg(vals[i]) });
+        return out;
+    }
+
     function landingOptions() {
         var opts = [{ value: "live", label: "Live Monitor" }];
         if (root.savedViewModel) {
@@ -202,6 +210,15 @@ Item {
 
             PrefSection {
                 title: qsTr("Video")
+                PrefRow {
+                    label: qsTr("Simultaneous live streams on the wall")
+                    desc: qsTr("How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every second, badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server \u2014 every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.")
+                    PrefDropdown {
+                        options: root.decodeOptions()
+                        currentValue: String(Settings.maxLiveDecodes)
+                        onPickedValue: (val) => Settings.maxLiveDecodes = parseInt(val)
+                    }
+                }
                 PrefRow {
                     label: qsTr("Default stream quality (focused view)")
                     desc: qsTr("Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile.")

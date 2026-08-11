@@ -158,8 +158,13 @@ Item {
     // Under the RSS-shed safety valve (a memory runaway — e.g. the live-pipeline leak under go2rtc
     // instability) collapse to a single live decode so the wall sheds to snapshot tiles and RSS stops
     // climbing, rather than OOM-killing the client. Restores automatically when RSS recovers (hysteresis).
+    // Precedence, highest first: the RSS-shed safety valve (a real memory runaway
+    // always wins — it is what stops an OOM kill), then the WT_MAX_DECODES dev
+    // override, then the operator's Preferences value. Default 32 (was a hardcoded
+    // 16) at the operator's direction, 2026-08-11.
     readonly property int maxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
-        : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes : 16)
+        : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes
+                                                                    : Settings.maxLiveDecodes)
     // Which cameras on the page get the ≤maxLiveDecodes LIVE decode slots — the most IMPORTANT ones, not just
     // the first N by sort position. An ARMED (motion-armed) camera gets a live pipeline ahead of an idle one,
     // so it's real-time, not a snapshot lagging behind. Stable: keyed off the roster/sort (not every status

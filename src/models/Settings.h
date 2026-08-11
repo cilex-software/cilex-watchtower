@@ -16,6 +16,12 @@ class Settings : public QObject
 
     // false = SD (substream, default — lighter/more responsive); true = HD (main).
     Q_PROPERTY(bool defaultStreamHd READ defaultStreamHd WRITE setDefaultStreamHd NOTIFY defaultStreamHdChanged)
+    // Max simultaneous live decodes on the wall. Operator-settable (2026-08-11);
+    // was a hardcoded 16. Bounded 4-64: each decode holds iGPU memory on THIS
+    // machine, and the cap is what stands between a big wall and the ~5.8 GB
+    // client OOM it was introduced for. The RSS-shed valve still overrides it
+    // down to 1 under real memory pressure, whatever this says.
+    Q_PROPERTY(int maxLiveDecodes READ maxLiveDecodes WRITE setMaxLiveDecodes NOTIFY maxLiveDecodesChanged)
     // Landing target on launch: "live" | "view:<id>" | "group:<id>".
     Q_PROPERTY(QString defaultLanding READ defaultLanding WRITE setDefaultLanding NOTIFY defaultLandingChanged)
     // Clock display: true = 24-hour (default), false = 12-hour.
@@ -60,6 +66,8 @@ public:
     explicit Settings(QObject *parent = nullptr);
 
     bool defaultStreamHd() const { return m_defaultStreamHd; }
+    int maxLiveDecodes() const { return m_maxLiveDecodes; }
+    void setMaxLiveDecodes(int v);
     void setDefaultStreamHd(bool v);
 
     QString defaultLanding() const { return m_defaultLanding; }
@@ -152,6 +160,7 @@ public:
 
 signals:
     void defaultStreamHdChanged();
+    void maxLiveDecodesChanged();
     void defaultLandingChanged();
     void time24hChanged();
     void alertSoundChanged();
@@ -174,6 +183,7 @@ signals:
 private:
     QSettings m_settings;
     bool m_defaultStreamHd = false;
+    int m_maxLiveDecodes = 32;
     QString m_defaultLanding = QStringLiteral("live");
     bool m_time24h = true;
     bool m_alertSound = true;

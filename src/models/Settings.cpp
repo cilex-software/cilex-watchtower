@@ -22,6 +22,7 @@ Settings::Settings(QObject *parent)
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
     m_pbNavH = m_settings.value(QStringLiteral("playback/navHeight"), 115).toInt();
+    m_maxLiveDecodes = qBound(4, m_settings.value(QStringLiteral("video/maxLiveDecodes"), 32).toInt(), 64);
     m_wallScrubH = m_settings.value(QStringLiteral("wall/scrubHeight"), 160).toInt();
     m_pbPanelW = m_settings.value(QStringLiteral("playback/panelWidth"), 296).toInt();
     m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
@@ -299,4 +300,14 @@ void Settings::setWallScrubH(int v)
     m_wallScrubH = v;
     m_settings.setValue(QStringLiteral("wall/scrubHeight"), v);
     emit wallScrubHChanged();
+}
+
+void Settings::setMaxLiveDecodes(int v)
+{
+    v = qBound(4, v, 64);
+    if (m_maxLiveDecodes == v)
+        return;
+    m_maxLiveDecodes = v;
+    m_settings.setValue(QStringLiteral("video/maxLiveDecodes"), v);
+    emit maxLiveDecodesChanged();
 }
