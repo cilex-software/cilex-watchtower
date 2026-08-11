@@ -130,7 +130,15 @@ Item {
     // light and near real-time, so the wall never follows the global HD preference.
     // The per-tile HD button can still promote a single tile on demand. (gridMode
     // is the wall — the only place CameraTile is used today.)
-    property bool useMainStream: gridMode ? false : Settings.defaultStreamHd
+    // -1 = follow the global preference, 0 = forced SD, 1 = forced HD. A tri-state
+    // rather than assigning over `useMainStream`: an imperative write destroys the
+    // binding to Settings.defaultStreamHd for the life of the component, so after one
+    // tap on this tile's SD/HD button the global preference silently stopped applying
+    // to it until the app restarted. That is the "I changed SD to HD and it needed a
+    // restart" report.
+    property int hdOverride: -1
+    readonly property bool useMainStream: gridMode ? false
+        : (hdOverride < 0 ? Settings.defaultStreamHd : hdOverride === 1)
     readonly property string streamUrl: (useMainStream && rtspUrl !== "")
         ? rtspUrl
         : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
@@ -622,7 +630,7 @@ Item {
                     // In the wall the parent gates HD promotion against the
                     // concurrency cap; a focused tile flips its own stream.
                     onClicked: root.gridMode ? root.hdToggleRequested()
-                                             : (root.useMainStream = !root.useMainStream)
+                                             : (root.hdOverride = root.useMainStream ? 0 : 1)
                 }
             }
 

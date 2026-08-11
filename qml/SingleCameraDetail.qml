@@ -16,7 +16,12 @@ Item {
     // off). Lets the detail view show a deliberate "switched off" instead of a fault.
     readonly property bool recOff:  cameraModel ? (cameraModel.recordingEnabled === false) : false
     readonly property bool liveOff: cameraModel ? (cameraModel.liveViewEnabled === false) : false
-    property bool useMain: Settings.defaultStreamHd   // focused view follows the global SD/HD preference; the HD toggle overrides
+    // Tri-state so the toggle OVERRIDES without destroying the binding: -1 follow the
+    // global preference, 0 SD, 1 HD. Assigning straight over `useMain` broke the
+    // binding permanently, which is why changing the preference appeared to need a
+    // restart once this view's HD button had been touched.
+    property int hdOverride: -1
+    readonly property bool useMain: hdOverride < 0 ? Settings.defaultStreamHd : hdOverride === 1
     property bool ptzOpen: typeof wtPtzOpen !== "undefined" && wtPtzOpen   // dev: WT_PTZ_OPEN=1 opens the panel
     // Hardware pre-gate for the PTZ/lens button, derived ONLY from the backend-
     // reported model string (no invented capability): HiWatch/Hikvision motorized-
@@ -329,7 +334,7 @@ Item {
                         color: hdMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.55)
                         border.width: 1; border.color: hdMa.containsMouse ? Theme.accent : Theme.line2
                         Text { anchors.centerIn: parent; text: root.useMain ? "HD" : "SD"; color: hdMa.containsMouse ? Theme.bg : (root.useMain ? Theme.accent : "#ffffff"); font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
-                        MouseArea { id: hdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.useMain = !root.useMain }
+                        MouseArea { id: hdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.hdOverride = root.useMain ? 0 : 1 }
                     }
 
                     component CtlButton: IconButton {
