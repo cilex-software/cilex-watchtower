@@ -146,17 +146,41 @@ Item {
             // there would navigate on click #1; the wall gets the AF chip twin
             // instead. tapCount===3 cannot fire on an ordinary double-click, and
             // PtzClient.focusAutoRequest adds the hard 5 s per-camera debounce.
+            // Double-click closes the view; triple-click is autofocus. Both live on
+            // the same picture, so the double MUST wait: TapHandler reports tapCount
+            // 1,2,3 in sequence, and closing on 2 would tear the view down before the
+            // third tap of an AF gesture could arrive. So a double-tap arms a short
+            // grace timer that a third tap cancels — the AF gesture keeps working and
+            // a plain double-click still feels immediate.
+            Timer {
+                id: dblClose
+                interval: 320; repeat: false
+                onTriggered: root.closed()
+            }
             TapHandler {
-                enabled: root.ptzCapable
                 acceptedButtons: Qt.LeftButton
                 onTapped: {
-                    if (tapCount === 3 && root.camera && root.camera.camId) {
-                        if (Ptz.capsFor(root.camera.camId) === "")
-                            Ptz.probe(root.camera.camId);   // warm the gate for next time
-                        Ptz.focusAutoRequest(root.camera.camId);
+                    if (tapCount === 2) {
+                        // AF only exists on lens-capable models; with no AF to wait
+                        // for, close at once rather than adding latency for nothing.
+                        if (root.ptzCapable) dblClose.restart();
+                        else root.closed();
+                        return;
+                    }
+                    if (tapCount === 3) {
+                        dblClose.stop();                    // it was an AF gesture, not a close
+                        if (root.ptzCapable && root.camera && root.camera.camId) {
+                            if (Ptz.capsFor(root.camera.camId) === "")
+                                Ptz.probe(root.camera.camId);   // warm the gate for next time
+                            Ptz.focusAutoRequest(root.camera.camId);
+                        }
                     }
                 }
             }
+            // Esc leaves the camera, matching the double-click and the back chevron.
+            // focus:true on the root would fight the app-wide shortcut chain, so this
+            // is wired in Main's Escape handler instead — see Main.qml.
+
 
             // connecting / offline / unavailable
             LoadingState {

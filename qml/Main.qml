@@ -1643,7 +1643,7 @@ Window {
     // mark), so it is delegated: escapeLayer() returns true when it consumed a
     // layer. Written flat here it cleared a marked range while leaving the
     // operator inside the very mode the on-picture chip advertises exiting.
-    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.escapeLayer()) { } else if (wallPlayback.visible && wallPlayback.escapeLayer()) { } else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0 || liveMonitor.mergeSel !== null)) liveMonitor.escapeArrange(); else if (win.fullscreen) win.fullscreen = false } }
+    Shortcut { sequence: "Escape"; onActivated: { if (commandPalette.visible) commandPalette.close(); else if (playbackScreen.visible && playbackScreen.escapeLayer()) { } else if (wallPlayback.visible && wallPlayback.escapeLayer()) { } else if (liveMonitor.visible && (liveMonitor.arrangeMode || liveMonitor.pickerCell >= 0 || liveMonitor.mergeSel !== null)) liveMonitor.escapeArrange(); else if (win.focusedCamera !== null && win.playbackCamera === null) win.closeCameraHere(); else if (win.fullscreen) win.fullscreen = false } }
     Shortcut { sequence: "1"; onActivated: win.setLayout("1") }
     Shortcut { sequence: "2"; onActivated: win.setLayout("4") }
     Shortcut { sequence: "3"; onActivated: win.setLayout("9") }
