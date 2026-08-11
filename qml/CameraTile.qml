@@ -238,10 +238,55 @@ Item {
         // failed pipelines is cheap) so it is FRESHLY recreated, and reconnects,
         // when Live View is switched back on (otherwise the players stay stuck on
         // STREAM UNAVAILABLE and never retry).
+        // Self-heal a STUCK tile (operator-reported: "STREAM UNAVAILABLE" while the
+        // badges still read LIVE, cleared only by navigating away and back).
+        //
+        // VideoSurface's reconnect() re-assigns the same source on the SAME
+        // MediaPlayer, which does not clear a latched player error — and the tile's
+        // STREAM UNAVAILABLE is exactly `player.error != NoError`. The recovery that
+        // always works is destroying and recreating the pipeline, which is all that
+        // navigating away and back actually does. So do that here, automatically,
+        // rather than making a guard leave the wall to fix a tile.
+        //
+        // Backs off 6s -> 15s -> 30s -> 60s: a camera that is genuinely down must not
+        // cost a pipeline rebuild every few seconds, and at 130 cameras across 9 pages
+        // that cost is multiplied by everything else the wall is doing.
+        property bool _recycling: false
+        property int _recycleTry: 0
+        readonly property var _recycleBackoff: [6000, 15000, 30000, 60000]
+        Timer {
+            id: recycleHold                      // pipeline fully torn down before rebuild
+            interval: 250
+            onTriggered: _recycling = false
+        }
+        Timer {
+            id: errRecycle
+            interval: _recycleBackoff[Math.min(_recycleTry, _recycleBackoff.length - 1)]
+            repeat: false
+            running: root.streamErrored && !_recycling && root.videoActive
+                     && root.liveViewEnabled && root.liveDecodeAllowed
+            onTriggered: {
+                if (!root.streamErrored) return;
+                // Logged unconditionally: a stuck tile healing itself must still be
+                // COUNTABLE, or "the wall is flaky" stays an anecdote. There were zero
+                // VideoSurface: warnings in the flight recorder across the whole
+                // incident window, which is why this had no measurement at all.
+                console.warn("[WT-TILE] recycling stuck pipeline ip=" + root.ip
+                             + " try=" + (_recycleTry + 1));
+                _recycleTry = Math.min(_recycleTry + 1, _recycleBackoff.length - 1);
+                _recycling = true;          // drops the Loader -> VideoSurface destroyed
+                recycleHold.restart();           // ...and rebuilt fresh on release
+            }
+        }
+        Connections {                          // frames back -> forget the backoff
+            target: root
+            function onStreamPlayingChanged() { if (root.streamPlaying) _recycleTry = 0 }
+        }
+
         Loader {
             id: videoLoader
             anchors.fill: parent
-            active: root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
+            active: !_recycling && root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
                 url: root.streamUrl
