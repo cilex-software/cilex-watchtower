@@ -44,7 +44,7 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 20; anchors.rightMargin: 20; spacing: 16
                 Row {
                     spacing: 6
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Activity timeline"; color: Theme.ink
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Activity timeline"); color: Theme.ink
                         font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold }
                     Text { anchors.verticalCenter: parent.verticalCenter
                         text: "· " + tl._camKeys.length + " cameras · " + EventsStore.events.length + " events"; color: Theme.ink3
@@ -235,7 +235,7 @@ Item {
                         model: Math.ceil(parent.height / 8)
                         delegate: Rectangle { required property int index; y: index * 8; width: 1.5; height: 4; color: Theme.bad }
                     }
-                    Text { x: -implicitWidth - 4; y: 2; text: "now " + EventsStore.hhmm(tl._now); color: Theme.bad
+                    Text { x: -implicitWidth - 4; y: 2; text: qsTr("now ") + EventsStore.hhmm(tl._now); color: Theme.bad
                         font.family: Theme.fontMono; font.pixelSize: 9 }
                 }
 
@@ -271,12 +271,12 @@ Item {
                                 }
                                 RowLayout {
                                     width: parent.width - 22; spacing: 5
-                                    EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: "Review"
+                                    EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: qsTr("Review")
                                         onClicked: if (popOv.e) tl.openInTriage(popOv.e.id) }
                                     EvButton { small: true; on: popOv.e && popOv.e.bookmarked
                                         icon: (popOv.e && popOv.e.bookmarked) ? "bookmarkF" : "bookmark"
                                         onClicked: if (popOv.e) EventsStore.bookmark(popOv.e.id) }
-                                    EvButton { small: true; icon: "check"; label: "Ack"
+                                    EvButton { small: true; icon: "check"; label: qsTr("Ack")
                                         onClicked: { if (popOv.e) EventsStore.ack(popOv.e.id); tl.pop = ""; } }
                                 }
                             }

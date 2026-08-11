@@ -57,7 +57,7 @@ Rectangle {
                 anchors { right: parent.right; top: parent.top }
                 implicitWidth: 22; implicitHeight: 22
                 name: "x"; iconSize: 14; iconColor: Theme.ink3; hoverIcon: Theme.ink
-                tip: "Dismiss"
+                tip: qsTr("Dismiss")
                 onClicked: root.closed()
             }
         }

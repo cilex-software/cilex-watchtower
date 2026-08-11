@@ -7,7 +7,7 @@ import Watchtower
 Item {
     id: root
 
-    property string label: "Loading…"
+    property string label: qsTr("Loading…")
     property int ringSize: 20
     property color ringColor: Theme.accent
 

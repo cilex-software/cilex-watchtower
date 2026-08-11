@@ -16,7 +16,7 @@ Item {
     property string statusFilter: ""
     property string sortMode: "live"      // live cameras first (offline last); see CameraModel
     property string groupId: ""
-    property string groupLabel: "All cameras"
+    property string groupLabel: qsTr("All cameras")
     property bool fullscreen: false
 
     signal layoutRequested(string id)
@@ -54,7 +54,7 @@ Item {
     // Release a tile's slot when it is torn down (paging/relayout).
     function releaseHd(wasOn) { if (wasOn) hdCount = Math.max(0, hdCount - 1); }
 
-    // "All cameras" + every backend group, for the header group switcher. Reads
+    // qsTr("All cameras") + every backend group, for the header group switcher. Reads
     // cameraModel.total so it re-evaluates when the roster/groups (re)load.
     // The count is groupList()'s `total`, which is computed from OUR roster —
     // never the backend's /groups camera_count, which counts cameras this client
@@ -63,7 +63,7 @@ Item {
     // show. Zero is a real answer and is rendered as one: an empty group used to
     // look identical to a group of 22 until you clicked it.
     readonly property var groupOpts: {
-        var out = [{ id: "", name: "All cameras", count: cameraModel ? cameraModel.total : 0 }];
+        var out = [{ id: "", name: qsTr("All cameras"), count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency
             var gs = cameraModel.groupList();
@@ -526,21 +526,21 @@ Item {
     // Empty-state copy: a genuinely empty roster (no camera access) vs a non-empty
     // roster whose current filter/group simply matched nothing (honest "no matches").
     function rosterEmpty() { return !cameraModel || cameraModel.total === 0; }
-    function emptyTitle() { return rosterEmpty() ? "No cameras" : "No matches"; }
+    function emptyTitle() { return rosterEmpty() ? qsTr("No cameras") : qsTr("No matches"); }
     function emptySubtitle() {
         if (rosterEmpty())
-            return "No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.";
-        var where = (groupId === "" ? "" : " in " + groupLabel);
+            return qsTr("No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.");
+        var where = (groupId === "" ? "" : qsTr(" in %1").arg(groupLabel));
         switch (statusFilter) {
-        case "recent":    return "No cameras have had an event in the last hour" + where + ".";
-        case "online":    return "No cameras are online" + where + " right now.";
-        case "offline":   return "No cameras are offline" + where + " — all good.";
-        case "degraded":  return "No cameras are degraded" + where + ".";
-        case "recording": return "No cameras are recording" + where + ".";
-        case "notrec":    return "All cameras are recording" + where + " — none stopped.";
-        case "favorites": return "No starred cameras" + where + " yet. Tap a tile's star to pin it here.";
-        case "issues":    return "No cameras have issues" + where + " — everything looks healthy.";
-        default:          return "No cameras" + where + ".";
+        case "recent":    return qsTr("No cameras have had an event in the last hour") + where + ".";
+        case "online":    return qsTr("No cameras are online") + where + " right now.";
+        case "offline":   return qsTr("No cameras are offline") + where + " — all good.";
+        case "degraded":  return qsTr("No cameras are degraded") + where + ".";
+        case "recording": return qsTr("No cameras are recording") + where + ".";
+        case "notrec":    return qsTr("All cameras are recording") + where + " — none stopped.";
+        case "favorites": return qsTr("No starred cameras") + where + " yet. Tap a tile's star to pin it here.";
+        case "issues":    return qsTr("No cameras have issues") + where + " — everything looks healthy.";
+        default:          return qsTr("No cameras") + where + ".";
         }
     }
 
@@ -580,10 +580,10 @@ Item {
     Component.onCompleted: syncGrid(pagedCameras)
     readonly property string rangeText: {
         if (total === 0)
-            return "0 of 0";
+            return qsTr("0 of 0");
         const start = (page - 1) * perPage + 1;
         const end = Math.min(page * perPage, total);
-        return start + "–" + end + " of " + total;
+        return qsTr("%1–%2 of %3").arg(start).arg(end).arg(total);
     }
 
     readonly property var sortLabels: ({ "live": "Live first", "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
@@ -626,7 +626,7 @@ Item {
                                 { id: "4",     lbl: "2×2",   cols: 2, rows: 2, big: null, gap: 1.4, pad: 1.6, sw: 1.4  },
                                 { id: "9",     lbl: "3×3",   cols: 3, rows: 3, big: null, gap: 1.2, pad: 1.6, sw: 1.25 },
                                 { id: "16",    lbl: "4×4",   cols: 4, rows: 4, big: null, gap: 1.0, pad: 1.6, sw: 1.1  },
-                                { id: "other", lbl: "Other", cols: 3, rows: 3, big: { c: 0, r: 0, cw: 2, ch: 2 }, gap: 1.2, pad: 1.6, sw: 1.25 }
+                                { id: "other", lbl: qsTr("Other"), cols: 3, rows: 3, big: { c: 0, r: 0, cw: 2, ch: 2 }, gap: 1.2, pad: 1.6, sw: 1.25 }
                             ]
                             delegate: Item {
                                 id: seg
@@ -698,7 +698,7 @@ Item {
                             spacing: 14
 
                             Text {
-                                text: "OTHER LAYOUTS"
+                                text: qsTr("OTHER LAYOUTS")
                                 color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: Theme.fsLabel
                                 font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold
                             }
@@ -881,7 +881,7 @@ Item {
                                 color: grpSyncMa.containsMouse ? Theme.panel2 : "transparent"
                                 Text {
                                     anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                                    text: "↻  Sync from server"
+                                    text: qsTr("↻  Sync from server")
                                     color: grpSyncMa.containsMouse ? Theme.accent : Theme.ink2
                                     font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
                                 }
@@ -905,7 +905,7 @@ Item {
                     Row {
                         id: clrRow; anchors.centerIn: parent; spacing: 6
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "✕"; color: clrMa.containsMouse ? Theme.accent : Theme.ink2; font.pixelSize: 12 }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Clear selection"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Clear selection"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                     MouseArea {
                         id: clrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -917,7 +917,7 @@ Item {
 
                 // filter pills
                 FilterPill {
-                    label: "Favorites"
+                    label: qsTr("Favorites")
                     leadingStar: true
                     active: root.statusFilter === "favorites"
                     removable: root.statusFilter === "favorites"
@@ -925,19 +925,19 @@ Item {
                     onRemoved: root.statusFilterRequested("")
                 }
                 FilterPill {
-                    label: "Online"
+                    label: qsTr("Online")
                     active: root.statusFilter === "online"
                     removable: root.statusFilter === "online"
                     onClicked: root.statusFilterRequested(root.statusFilter === "online" ? "" : "online")
                     onRemoved: root.statusFilterRequested("")
                 }
                 FilterPill {
-                    label: "Recent events"
+                    label: qsTr("Recent events")
                     active: root.statusFilter === "recent"
                     onClicked: root.statusFilterRequested(root.statusFilter === "recent" ? "" : "recent")
                 }
                 FilterPill {
-                    label: root.statusFilter === "issues" ? "Issues" : "Filter"
+                    label: root.statusFilter === "issues" ? qsTr("Issues") : qsTr("Filter")
                     leadingPlus: root.statusFilter !== "issues"
                     removable: root.statusFilter === "issues"
                     active: ["offline", "degraded", "recording", "notrec", "favorites", "issues"].indexOf(root.statusFilter) >= 0
@@ -961,7 +961,7 @@ Item {
                         Icon { anchors.verticalCenter: parent.verticalCenter; name: "history"; size: 15; color: Theme.ink2 }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Go back in time"; color: Theme.ink2
+                            text: qsTr("Go back in time"); color: Theme.ink2
                             font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
                         }
                     }
@@ -983,7 +983,7 @@ Item {
                     Text {
                         id: saveTxt
                         anchors.centerIn: parent
-                        text: "Save current view"
+                        text: qsTr("Save current view")
                         color: Theme.ink2
                         font.family: Theme.fontSans
                         font.pixelSize: 12
@@ -1009,7 +1009,7 @@ Item {
                     border.color: root.arrangeMode ? Theme.accent : (arrMa.containsMouse ? Theme.accent : Theme.line2)
                     Text {
                         id: arrTxt; anchors.centerIn: parent
-                        text: root.arrangeMode ? "Done arranging" : "Arrange"
+                        text: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange")
                         color: root.arrangeMode ? Theme.bg : Theme.ink2
                         font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium
                     }
@@ -1026,7 +1026,7 @@ Item {
                     implicitWidth: resetTxt.implicitWidth + 24
                     color: resetMa.containsMouse ? Theme.panel : "transparent"
                     border.width: 1; border.color: resetMa.containsMouse ? Theme.accent : Theme.line2
-                    Text { id: resetTxt; anchors.centerIn: parent; text: "Reset"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                    Text { id: resetTxt; anchors.centerIn: parent; text: qsTr("Reset"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     MouseArea { id: resetMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.resetArrangement() }
                 }
 
@@ -1045,7 +1045,7 @@ Item {
                         spacing: 8
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Sort: " + root.sortLabels[root.sortMode]
+                            text: qsTr("Sort: ") + root.sortLabels[root.sortMode]
                             color: Theme.ink
                             font.family: Theme.fontSans
                             font.pixelSize: 12
@@ -1110,7 +1110,7 @@ Item {
                     bgColor: Theme.panel
                     hoverIcon: Theme.accent
                     hoverBorder: Theme.accent
-                    tip: "Full-screen monitoring (F)"
+                    tip: qsTr("Full-screen monitoring (F)")
                     implicitWidth: 38
                     implicitHeight: 38
                     onClicked: root.fullscreenToggled()
@@ -1162,16 +1162,16 @@ Item {
                                 MouseArea { id: orMa; anchors.fill: parent; hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor; onClicked: { parent.triggered(); ovPopup.close() } }
                             }
-                            OvRow { label: "Go back in time"; icon: "history"; onTriggered: root.wallPlaybackRequested() }
-                            OvRow { label: "Save current view"; icon: "bookmark"; onTriggered: root.saveViewRequested() }
-                            OvRow { label: root.arrangeMode ? "Done arranging" : "Arrange"; icon: "grid"
+                            OvRow { label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
+                            OvRow { label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
+                            OvRow { label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"
                                 onTriggered: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1 } }
                             OvRow { visible: root.arrangeMode && root.hasArrangement
-                                label: "Reset arrangement"; icon: "back"; onTriggered: root.resetArrangement() }
-                            OvRow { label: "Full-screen"; icon: "full"; onTriggered: root.fullscreenToggled() }
+                                label: qsTr("Reset arrangement"); icon: "back"; onTriggered: root.resetArrangement() }
+                            OvRow { label: qsTr("Full-screen"); icon: "full"; onTriggered: root.fullscreenToggled() }
                             Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
                             Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
-                                text: "SORT BY"; color: Theme.ink3; font.family: Theme.fontMono
+                                text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
                                 font.pixelSize: 9; font.letterSpacing: 1 }
                             Repeater {
                                 model: [ { id: "live", lbl: "Live first" }, { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
@@ -1387,13 +1387,13 @@ Item {
                                 Column {
                                     anchors.centerIn: parent; spacing: 4; width: parent.width - 16
                                     Text { anchors.horizontalCenter: parent.horizontalCenter
-                                        text: (cellWrap.index === 0 && root.lspec.big) ? "CENTER" : ("CELL " + (cellWrap.index + 1))
+                                        text: (cellWrap.index === 0 && root.lspec.big) ? qsTr("CENTER") : ("CELL " + (cellWrap.index + 1))
                                         color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1 }
                                     Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width
                                         horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                                         text: cellWrap.modelData.name; color: "#fff"; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
                                     Text { anchors.horizontalCenter: parent.horizontalCenter
-                                        text: "Tap to change"; color: Qt.rgba(1, 1, 1, 0.7); font.family: Theme.fontSans; font.pixelSize: 11 }
+                                        text: qsTr("Tap to change"); color: Qt.rgba(1, 1, 1, 0.7); font.family: Theme.fontSans; font.pixelSize: 11 }
                                 }
                                 MouseArea {
                                     id: cellOvMa
@@ -1558,7 +1558,7 @@ Item {
                 anchors.centerIn: parent
                 visible: root.total === 0 && !root.fullscreen
                         && root.cameraModel && root.cameraModel.loading
-                label: "Loading cameras…"
+                label: qsTr("Loading cameras…")
             }
 
             // Empty grid: distinguish an empty roster (no camera access — provisioned
@@ -1589,7 +1589,7 @@ Item {
                     Icon { anchors.verticalCenter: parent.verticalCenter; name: "x"; size: 14; color: Theme.ink }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Exit full-screen"
+                        text: qsTr("Exit full-screen")
                         color: Theme.ink
                         font.family: Theme.fontSans
                         font.pixelSize: 12
@@ -1616,7 +1616,7 @@ Item {
                 anchors.rightMargin: 20
                 spacing: 12
                 Text {
-                    text: root.groupLabel + " · " + root.total + " cameras · Page " + root.page + " of " + root.pageCount
+                    text: qsTr("%1 · %2 cameras · Page %3 of %4").arg(root.groupLabel).arg(root.total).arg(root.page).arg(root.pageCount)
                     color: Theme.ink3
                     font.family: Theme.fontMono
                     font.pixelSize: Theme.fsMono
@@ -1666,11 +1666,11 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Camera for " + ((root.pickerCell === 0 && root.lspec.big) ? "the center cell" : ("cell " + (root.pickerCell + 1)))
+                    text: qsTr("Camera for ") + ((root.pickerCell === 0 && root.lspec.big) ? "the center cell" : ("cell " + (root.pickerCell + 1)))
                     color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold
                 }
 
-                // Group filter — "All cameras" + each configured group as pills.
+                // Group filter — qsTr("All cameras") + each configured group as pills.
                 Flow {
                     Layout.fillWidth: true; spacing: 6
                     visible: root.groupOpts.length > 1
@@ -1703,7 +1703,7 @@ Item {
                             anchors.fill: parent; anchors.margins: 1
                             text: root.pickerSearch
                             onTextChanged: root.pickerSearch = text
-                            placeholderText: "Search cameras…"
+                            placeholderText: qsTr("Search cameras…")
                             color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13
                             leftPadding: 10; verticalAlignment: TextInput.AlignVCenter
                             background: Rectangle { color: "transparent" }
@@ -1715,7 +1715,7 @@ Item {
                         border.width: 1; border.color: root.pickerHideShown ? Theme.accent : Theme.line2
                         Text {
                             id: hideTxt; anchors.centerIn: parent
-                            text: "Hide on-wall"
+                            text: qsTr("Hide on-wall")
                             color: root.pickerHideShown ? Theme.bg : Theme.ink2
                             font.family: Theme.fontSans; font.pixelSize: 12
                         }
@@ -1828,7 +1828,7 @@ Item {
                                         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4
                                         height: 15; width: owT.implicitWidth + 8; radius: 7
                                         color: Qt.rgba(0, 0, 0, 0.66); border.color: Theme.accent; border.width: 1
-                                        Text { id: owT; anchors.centerIn: parent; text: "ON WALL"; color: Theme.accent
+                                        Text { id: owT; anchors.centerIn: parent; text: qsTr("ON WALL"); color: Theme.accent
                                             font.family: Theme.fontMono; font.pixelSize: 8; font.weight: Font.Bold }
                                     }
                                 }
@@ -1851,14 +1851,14 @@ Item {
                         text: root.pickerHideShown
                               ? "Every matching camera is already on the wall."
                               : ((root.pickerSearch !== "" || root.pickerGroup !== "")
-                                 ? "No cameras match." : "No cameras available.")
+                                 ? qsTr("No cameras match.") : qsTr("No cameras available."))
                         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
                     }
                 }
 
                 Text {
                     Layout.alignment: Qt.AlignRight
-                    text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
+                    text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
                     MouseArea { anchors.fill: parent; anchors.margins: -10; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerCell = -1 }
                 }
             }

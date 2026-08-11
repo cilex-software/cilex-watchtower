@@ -189,7 +189,7 @@ Item {
                                             Row {
                                                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 5
                                                 visible: srow.e.status === "new"
-                                                EvButton { small: true; icon: "check"; label: "Ack"; onClicked: EventsStore.ack(srow.e.id) }
+                                                EvButton { small: true; icon: "check"; label: qsTr("Ack"); onClicked: EventsStore.ack(srow.e.id) }
                                                 EvButton { small: true; on: srow.e.bookmarked; enabledBtn: !EventsStore.actionsPending
                                                     icon: srow.e.bookmarked ? "bookmarkF" : "bookmark"; onClicked: EventsStore.bookmark(srow.e.id) }
                                             }
@@ -222,9 +222,9 @@ Item {
             anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 10
             Text { text: ses._pickedIds.length + " selected"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 12 }
             Item { Layout.fillWidth: true }
-            EvButton { small: true; icon: "x"; label: "Dismiss as noise"; enabledBtn: !EventsStore.actionsPending; onClicked: ses._bulkDismiss() }
-            EvButton { small: true; variant: "pri"; icon: "check"; label: "Acknowledge selected"; onClicked: ses._bulkAck() }
-            EvButton { small: true; variant: "ghost"; label: "Clear"; onClicked: ses.picked = ({}) }
+            EvButton { small: true; icon: "x"; label: qsTr("Dismiss as noise"); enabledBtn: !EventsStore.actionsPending; onClicked: ses._bulkDismiss() }
+            EvButton { small: true; variant: "pri"; icon: "check"; label: qsTr("Acknowledge selected"); onClicked: ses._bulkAck() }
+            EvButton { small: true; variant: "ghost"; label: qsTr("Clear"); onClicked: ses.picked = ({}) }
         }
     }
 }

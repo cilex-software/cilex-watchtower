@@ -75,7 +75,7 @@ Item {
     Text {
         anchors.right: parent.right; anchors.bottom: parent.bottom
         anchors.rightMargin: Theme.s12; anchors.bottomMargin: Theme.s8
-        text: "build " + ((typeof wtBuild !== "undefined") ? wtBuild : "dev")
+        text: qsTr("build ") + ((typeof wtBuild !== "undefined") ? wtBuild : "dev")
         color: Theme.ink3
         font.family: Theme.fontMono
         font.pixelSize: Theme.fsLabel
@@ -99,7 +99,7 @@ Item {
             ColumnLayout {
                 spacing: 2
                 Text {
-                    text: "CILEX VISION"; color: Theme.ink3
+                    text: qsTr("CILEX VISION"); color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: Theme.fsLabel
                     font.letterSpacing: 1.6; font.capitalization: Font.AllUppercase
                 }

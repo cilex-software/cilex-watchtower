@@ -12,7 +12,7 @@ Window {
     height: 900
     visible: true
     color: Theme.bg
-    title: qsTr("Watchtower")
+    title: "Watchtower"
     // Frameless — Watchtower draws the designed 36px title bar itself (TitleBar.qml).
     // The host chrome we get under GNOME/Wayland is Qt's own client-side decoration,
     // which paints a title strip with NO usable minimize/maximize/close buttons
@@ -37,7 +37,7 @@ Window {
     // still wins. See CameraModel "live" sort.
     property string sortMode: "live"
     property string groupFilter: ""
-    property string groupLabel: "All cameras"
+    property string groupLabel: qsTr("All cameras")
     property bool fullscreen: false
     property var focusedCamera: null    // shows Single Camera Detail when non-null
     property var playbackCamera: null   // shows Playback (S06) when non-null
@@ -184,7 +184,7 @@ Window {
             status: statusFilter, sort: sortMode,
             // The map-selection pseudo-group is session-local — never persist it.
             group: groupFilter === "__selected__" ? "" : groupFilter,
-            groupLabel: groupFilter === "__selected__" ? "All cameras" : groupLabel,
+            groupLabel: groupFilter === "__selected__" ? qsTr("All cameras") : groupLabel,
             sidebar: opsSidebarOpen,
             mainCam: mainTabCamera ? mainTabCamera.camId : "",
             tabs: t, active: activeTab
@@ -236,7 +236,7 @@ Window {
             win.statusFilter = s.status || "";
             win.sortMode = s.sort || "live";
             win.groupFilter = s.group || "";
-            win.groupLabel = s.groupLabel || "All cameras";
+            win.groupLabel = s.groupLabel || qsTr("All cameras");
             win.opsSidebarOpen = s.sidebar !== false;
             win.section = (!s.section || s.section === "preferences") ? "live" : s.section;
             var t = [{ "kind": "main" }];
@@ -326,7 +326,7 @@ Window {
         gridPage = 1;
         statusFilter = "";                 // show every selected camera regardless of status
         groupFilter = "__selected__";
-        groupLabel = "Selected (" + ids.length + ")";
+        groupLabel = qsTr("Selected (%1)").arg(ids.length);
         mainTabCamera = null;
         activateTab(0);
         wallMode = "live";
@@ -457,7 +457,7 @@ Window {
         gridLayout = n; gridPage = 1;
         // A layout preset means "show me a normal grid", so exit a transient map-selection
         // scope ("Selected (N)") instead of staying stuck re-tiling just those few cameras.
-        if (groupFilter === "__selected__") { groupFilter = ""; groupLabel = "All cameras"; }
+        if (groupFilter === "__selected__") { groupFilter = ""; groupLabel = qsTr("All cameras"); }
     }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
     function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
@@ -472,12 +472,12 @@ Window {
     // deleted group). Resolve it against the current backend group list; if it's
     // gone, fall back to "all cameras". Kept as-is while groups are still loading.
     function resolveGroup(gid, label) {
-        if (!gid) return { id: "", label: "All cameras" };
+        if (!gid) return { id: "", label: qsTr("All cameras") };
         var gs = cameraModel.groupList();
         if (gs.length === 0) return { id: gid, label: label };
         for (var i = 0; i < gs.length; i++)
             if (gs[i].id === gid) return { id: gid, label: gs[i].name };
-        return { id: "", label: "All cameras" };
+        return { id: "", label: qsTr("All cameras") };
     }
 
     // Apply the user's default landing screen on launch (Live / a saved view / a
@@ -1349,7 +1349,7 @@ Window {
                     var ms = now - tFm;
                     console.log("[FSOAK] t=" + now + " n=" + n + " strip_ms=" + ms + " chained=" + ch
                                 + " cache=" + FrameCache.frames + "f "
-                                + (ms <= 1000 ? "PASS" : "SLOW"));
+                                + (ms <= 1000 ? qsTr("PASS") : qsTr("SLOW")));
                     if (ms > 1000) fail("strip_slow", "strip_ms=" + ms
                         + " c=" + FrameClock.lastPtsMs.toFixed(1) + " dur=" + dur().toFixed(1)
                         + " around=" + JSON.stringify(FrameCache.cachedAround(FrameClock.lastPtsMs, 3, 3)));
@@ -1457,7 +1457,7 @@ Window {
                                                + " cam=" + (c ? c.ip : "?") + " day=" + nightSoak.curDay); return false; }
             var dest = Artifacts.newExportPath((c.name || id), "mp4");
             nightSoak.expT0 = Date.now();
-            nightSoak.expTag = "cam=" + c.ip + " q=" + (hi ? "HIGH" : "STD") + " durMin=" + durMin + " day=" + nightSoak.curDay + " tag=" + (tag || "rand");
+            nightSoak.expTag = "cam=" + c.ip + " q=" + (hi ? qsTr("HIGH") : qsTr("STD")) + " durMin=" + durMin + " day=" + nightSoak.curDay + " tag=" + (tag || "rand");
             console.log("[XSOAK] t=" + Date.now() + " action=export " + nightSoak.expTag
                         + " range=" + Qt.formatDateTime(new Date(r.s), "HH:mm:ss") + "-" + Qt.formatDateTime(new Date(r.e), "HH:mm:ss")
                         + " dest=" + dest);
@@ -1971,7 +1971,7 @@ Window {
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"
-                        title: "Coming soon"
+                        title: qsTr("Coming soon")
                         subtitle: win.section + " is part of a later phase."
                     }
                 }
@@ -2149,7 +2149,7 @@ Window {
         onSaved: (name, shared) => {
             savedViewModel.saveCurrent(name, shared, win.gridLayout, win.statusFilter,
                                        win.sortMode, win.groupFilter, win.groupLabel);
-            toastHost.show("View saved", name + " · " + (shared ? "Shared" : "Mine"), "good", "", "");
+            toastHost.show("View saved", name + " · " + (shared ? qsTr("Shared") : qsTr("Mine")), "good", "", "");
         }
     }
 

@@ -8,13 +8,13 @@ StatusBadge {
 
     label: {
         switch (state) {
-        case CameraStatus.Live: return "LIVE";
-        case CameraStatus.Offline: return "OFFLINE";
-        case CameraStatus.Degraded: return "DEGRADED";
-        case CameraStatus.Loading: return "LOADING";
-        case CameraStatus.NoSignal: return "NO SIGNAL";
-        case CameraStatus.PermissionDenied: return "NO ACCESS";
-        default: return "UNKNOWN";
+        case CameraStatus.Live: return qsTr("LIVE");
+        case CameraStatus.Offline: return qsTr("OFFLINE");
+        case CameraStatus.Degraded: return qsTr("DEGRADED");
+        case CameraStatus.Loading: return qsTr("LOADING");
+        case CameraStatus.NoSignal: return qsTr("NO SIGNAL");
+        case CameraStatus.PermissionDenied: return qsTr("NO ACCESS");
+        default: return qsTr("UNKNOWN");
         }
     }
     fg: {

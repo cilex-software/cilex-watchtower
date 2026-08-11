@@ -979,7 +979,7 @@ Item {
                 LoadingState {
                     anchors.centerIn: parent
                     visible: root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia && root.errorText === "" && !root.pending)
-                    label: root.loading ? "Opening wall session…" : "Compositing…"
+                    label: root.loading ? qsTr("Opening wall session…") : qsTr("Compositing…")
                 }
                 // honest pending / error / empty state
                 Column {
@@ -997,7 +997,7 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter; horizontalAlignment: Text.AlignHCenter
                         width: parent.width; wrapMode: Text.WordWrap
                         visible: root.pending
-                        text: "The server-composited grid stream (E1) isn't live yet. Live tiles are unaffected — use Return to live."
+                        text: qsTr("The server-composited grid stream (E1) isn't live yet. Live tiles are unaffected — use Return to live.")
                         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
                     }
                 }
@@ -1070,7 +1070,7 @@ Item {
                     }
                     ColumnLayout {
                         Layout.fillWidth: true; Layout.topMargin: 16; Layout.leftMargin: 16; Layout.rightMargin: 16; spacing: 2
-                        Text { text: "Wall playback"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+                        Text { text: qsTr("Wall playback"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 8
                             Text { text: root.cameras.length + " cameras · synchronized"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
@@ -1078,7 +1078,7 @@ Item {
                                 implicitWidth: ecT.implicitWidth + 16; implicitHeight: 20
                                 color: ecMa.containsMouse ? Theme.accent : "transparent"
                                 border.width: 1; border.color: ecMa.containsMouse ? Theme.accent : Theme.line2
-                                Text { id: ecT; anchors.centerIn: parent; text: "EDIT CAMERAS"; color: ecMa.containsMouse ? Theme.bg : Theme.ink2
+                                Text { id: ecT; anchors.centerIn: parent; text: qsTr("EDIT CAMERAS"); color: ecMa.containsMouse ? Theme.bg : Theme.ink2
                                     font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.8 }
                                 MouseArea { id: ecMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPicker() }
                             }
@@ -1086,7 +1086,7 @@ Item {
                         // quick group switch — load a camera group's cameras onto the wall
                         RowLayout {
                             Layout.fillWidth: true; Layout.topMargin: 6; spacing: 8
-                            Text { text: "GROUP"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1; Layout.alignment: Qt.AlignVCenter }
+                            Text { text: qsTr("GROUP"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1; Layout.alignment: Qt.AlignVCenter }
                             Rectangle {
                                 id: wgCtl
                                 Layout.fillWidth: true; implicitHeight: 28
@@ -1364,10 +1364,10 @@ Item {
                     label: player.playbackState === MediaPlayer.PlayingState ? "❚❚" : "▶"
                     onClicked: player.playbackState === MediaPlayer.PlayingState ? player.pause() : player.play()
                 }
-                Chip { label: "−10s"; onClicked: player.position = Math.max(0, player.position - 10000) }
-                Chip { label: "+10s"; onClicked: player.position = Math.min(player.duration, player.position + 10000) }
-                Chip { label: "Last hour"; onClicked: root.setViewPreset(60) }
-                Chip { label: "Last 15 min"; onClicked: root.setViewPreset(15) }
+                Chip { label: qsTr("−10s"); onClicked: player.position = Math.max(0, player.position - 10000) }
+                Chip { label: qsTr("+10s"); onClicked: player.position = Math.min(player.duration, player.position + 10000) }
+                Chip { label: qsTr("Last hour"); onClicked: root.setViewPreset(60) }
+                Chip { label: qsTr("Last 15 min"); onClicked: root.setViewPreset(15) }
                 Text { text: root.frags.length ? (Qt.formatDate(new Date(root.playheadMs), "ddd d MMM yyyy") + " · " + root.fmtClock(root.playheadMs)) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; Layout.leftMargin: 8 }
                 Item { Layout.fillWidth: true }
@@ -1393,13 +1393,13 @@ Item {
                 Chip { visible: root.customZoom; active: true; label: root.fmtSpan(root.viewEndMs - root.viewStartMs); onClicked: root.resetView() }
                 Chip { visible: root.customZoom; label: "FIT"; tip: qsTr("Drop the custom zoom back to the loaded window"); onClicked: root.resetView() }
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 18; color: Theme.line2 }
-                Chip { label: "Events"; ghost: true; active: Settings.eventsOnScrubber
+                Chip { label: qsTr("Events"); ghost: true; active: Settings.eventsOnScrubber
                     tip: qsTr("Show a motion lane per camera in the scrubber")
                     onClicked: Settings.eventsOnScrubber = !Settings.eventsOnScrubber }
                 Chip { visible: root.hasSelection; active: true
                     label: "↥ " + qsTr("Export selection") + " · " + root.fmtSpan(root.selEndMs - root.selStartMs)
                     onClicked: root.exportSelection() }
-                Chip { label: "Return to live"; onClicked: root.returnToLive() }
+                Chip { label: qsTr("Return to live"); onClicked: root.returnToLive() }
             }
 
             // scrub bar — composited footage vs whole-grid gaps + playhead
@@ -1762,7 +1762,7 @@ Item {
                     // not be surprised when four of fourteen clips come back short.
                     // So it is NAMED before the export, not discovered after it.
                     Text { id: selT; anchors.centerIn: parent
-                        text: "IN " + root.fmtClock(root.selStartMs) + " → OUT " + root.fmtClock(root.selEndMs)
+                        text: qsTr("IN ") + root.fmtClock(root.selStartMs) + " → OUT " + root.fmtClock(root.selEndMs)
                               + " · " + root.fmtSpan(root.selEndMs - root.selStartMs)
                               + (root.selectionSpansGap ? " · " + qsTr("spans a gap — some cameras have no footage inside it") : "")
                         color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
@@ -1788,8 +1788,8 @@ Item {
                     Layout.fillWidth: true
                     ColumnLayout {
                         spacing: 1; Layout.fillWidth: true
-                        Text { text: "Assign cameras"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
-                        Text { text: "The wall re-composites at the current moment"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                        Text { text: qsTr("Assign cameras"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
+                        Text { text: qsTr("The wall re-composites at the current moment"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                     }
                     Text { text: root.pickerCount + " / 16"; color: root.pickerCount >= 16 ? Theme.accent : Theme.ink3
                         font.family: Theme.fontMono; font.pixelSize: 13; font.weight: Font.DemiBold }
@@ -1811,7 +1811,7 @@ Item {
                     Text {
                         visible: pickInput.text === ""
                         anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 10
-                        text: "Search name, IP or group…"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                        text: qsTr("Search name, IP or group…"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
                     }
                 }
                 // roster checklist
@@ -1855,7 +1855,7 @@ Item {
                     Rectangle {
                         implicitWidth: plT.implicitWidth + 18; implicitHeight: 28
                         color: "transparent"; border.width: 1; border.color: plMa.containsMouse ? Theme.ink3 : Theme.line2
-                        Text { id: plT; anchors.centerIn: parent; text: "Use live wall"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { id: plT; anchors.centerIn: parent; text: qsTr("Use live wall"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: plMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: { Settings.clearWallLayout(); root.pickerOpen = false; root.resetToLiveRequested() } }
                     }
@@ -1867,7 +1867,7 @@ Item {
                     Rectangle {
                         implicitWidth: pcT.implicitWidth + 22; implicitHeight: 28
                         color: "transparent"; border.width: 1; border.color: pcMa.containsMouse ? Theme.ink3 : Theme.line2
-                        Text { id: pcT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { id: pcT; anchors.centerIn: parent; text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: pcMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerOpen = false }
                     }
                     Rectangle {
@@ -1875,7 +1875,7 @@ Item {
                         implicitWidth: paT.implicitWidth + 22; implicitHeight: 28
                         color: enabled ? (paMa.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent) : Theme.panel2
                         Text { id: paT; anchors.centerIn: parent
-                            text: "Apply · " + root.pickerCount + (root.pickerCount === 1 ? " camera" : " cameras")
+                            text: qsTr("Apply · ") + root.pickerCount + (root.pickerCount === 1 ? " camera" : " cameras")
                             color: parent.enabled ? Theme.bg : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                         MouseArea { id: paMa; anchors.fill: parent; hoverEnabled: true
                             cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
@@ -1902,12 +1902,12 @@ Item {
                 anchors.fill: parent; anchors.margins: 14; spacing: 10
                 ColumnLayout {
                     spacing: 1; Layout.fillWidth: true
-                    Text { text: "Choose camera for this tile"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
+                    Text { text: qsTr("Choose camera for this tile"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
                     Text {
                         readonly property var _cur: root.cellPickerSlot >= 0 ? root.cellAtSlot(root.cellPickerSlot) : null
                         readonly property var _cam: _cur ? (root.cameraModel ? root.cameraModel.cameraByBackendId(_cur.camera_id) : null) : null
                         Layout.fillWidth: true; elide: Text.ElideRight
-                        text: "Replaces " + (_cam && _cam.name ? _cam.name : (_cur ? _cur.camera_id : "")) + " · the wall re-composites"
+                        text: qsTr("Replaces ") + (_cam && _cam.name ? _cam.name : (_cur ? _cur.camera_id : "")) + " · the wall re-composites"
                         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
                     }
                 }
@@ -1923,7 +1923,7 @@ Item {
                         Connections { target: root; function onCellPickerSlotChanged() { if (root.cellPickerSlot >= 0) { cpInput.text = ""; cpInput.forceActiveFocus() } } }
                     }
                     Text { visible: cpInput.text === ""; anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 10
-                        text: "Search name, IP or group…"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        text: qsTr("Search name, IP or group…"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
                 }
                 ListView {
                     Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -1944,7 +1944,7 @@ Item {
                             Text { text: modelData.ip + (modelData.groupName ? "  ·  " + modelData.groupName : ""); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width }
                         }
                         Text { id: onTag; visible: parent.onWall; anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
-                            text: "ON WALL"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
+                            text: qsTr("ON WALL"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.6 }
                         MouseArea { id: cpRowMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: root.setSlotCamera(root.cellPickerSlot, modelData) }
                     }
@@ -1955,7 +1955,7 @@ Item {
                     Rectangle {
                         implicitWidth: ccT.implicitWidth + 22; implicitHeight: 28
                         color: "transparent"; border.width: 1; border.color: ccMa.containsMouse ? Theme.ink3 : Theme.line2
-                        Text { id: ccT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { id: ccT; anchors.centerIn: parent; text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: ccMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.cellPickerSlot = -1 }
                     }
                 }
@@ -2017,15 +2017,15 @@ Item {
             for (var a = 0; a < inStream.length; a++) {
                 var O = inStream[a] * 60000;
                 for (var i = 1; i <= perf.iters; i++) {
-                    p.push({ kind: "seek", offMin: inStream[a], dir: "FF", iter: i, toMs: perf.baseSmall + O });
-                    p.push({ kind: "seek", offMin: inStream[a], dir: "RW", iter: i, toMs: perf.baseSmall });
+                    p.push({ kind: "seek", offMin: inStream[a], dir: qsTr("FF"), iter: i, toMs: perf.baseSmall + O });
+                    p.push({ kind: "seek", offMin: inStream[a], dir: qsTr("RW"), iter: i, toMs: perf.baseSmall });
                 }
             }
             for (var b = 0; b < reopen.length; b++) {
                 var Ob = reopen[b] * 60000;
                 for (var j = 1; j <= perf.iters; j++) {
-                    p.push({ kind: "reopen", offMin: reopen[b], dir: "FF", iter: j, toMs: perf.baseBig + Ob });
-                    p.push({ kind: "reopen", offMin: reopen[b], dir: "RW", iter: j, toMs: perf.baseBig });
+                    p.push({ kind: "reopen", offMin: reopen[b], dir: qsTr("FF"), iter: j, toMs: perf.baseBig + Ob });
+                    p.push({ kind: "reopen", offMin: reopen[b], dir: qsTr("RW"), iter: j, toMs: perf.baseBig });
                 }
             }
             return p;

@@ -24,7 +24,7 @@ Row {
         iconColor: Theme.ink2
         hoverIcon: Theme.accent
         hoverBorder: Theme.accent
-        tip: "Previous page"
+        tip: qsTr("Previous page")
         onClicked: root.prev()
     }
 
@@ -46,7 +46,7 @@ Row {
         iconColor: Theme.ink2
         hoverIcon: Theme.accent
         hoverBorder: Theme.accent
-        tip: "Next page"
+        tip: qsTr("Next page")
         onClicked: root.next()
     }
 }

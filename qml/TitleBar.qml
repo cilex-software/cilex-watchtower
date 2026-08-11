@@ -163,7 +163,7 @@ Item {
 
         Text {
             Layout.alignment: Qt.AlignVCenter
-            text: "WATCHTOWER"
+            text: qsTr("WATCHTOWER")
             color: Theme.ink
             font.family: Theme.fontMono
             font.pixelSize: 11

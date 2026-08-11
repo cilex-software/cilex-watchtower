@@ -33,12 +33,12 @@ Item {
     property string timeRange: "all"    // all | 30d | 7d | 24h | today
     // Camera scope for the server-side query (camera_id on /events). "" = all.
     property string qCameraId: ""
-    property string qCameraLabel: "All cameras"
+    property string qCameraLabel: qsTr("All cameras")
     // Roster for the camera-scope dropdown — sourced from the full CameraModel
     // (rebuilds when cameras load), NOT the loaded events, so scoping to one
     // camera never removes the others from the list.
     property var cameraOpts: {
-        var out = [{ camId: "", name: "All cameras" }];
+        var out = [{ camId: "", name: qsTr("All cameras") }];
         var n = root.cameraModel ? root.cameraModel.total : 0;
         for (var i = 0; i < n; i++) {
             var c = root.cameraModel.get(i);
@@ -84,9 +84,9 @@ Item {
     }
     // Human label for an event-triggered export, shown in the Clips library.
     function exportPurpose(ev) {
-        if (!ev) return "Event clip";
+        if (!ev) return qsTr("Event clip");
         var d = (ev.desc && ev.desc !== "") ? ev.desc : ("" + ev.type);
-        return "Event · " + d;
+        return qsTr("Event · ") + d;
     }
 
     function timeToSecs(t) { var p = ("" + t).split(":"); return (+p[0] || 0) * 3600 + (+p[1] || 0) * 60 + (+p[2] || 0); }
@@ -97,7 +97,7 @@ Item {
         case "camera": return root.camDisplay(ev);
         case "group":  return root.groupDisplay(ev);
         case "time":   return ev.time;
-        case "status": return ev.ack ? "Acknowledged" : "New";
+        case "status": return ev.ack ? qsTr("Acknowledged") : qsTr("New");
         }
         return "";
     }
@@ -319,10 +319,10 @@ Item {
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 6
-                Pill { label: "Unacknowledged"; on: root.fUnack; onToggled: root.fUnack = !root.fUnack }
-                Pill { label: "Motion"; on: root.fMotion; onToggled: root.fMotion = !root.fMotion }
-                Pill { label: "Offline"; on: root.fOffline; onToggled: root.fOffline = !root.fOffline }
-                Pill { label: "Bookmarks"; on: root.fBookmark; onToggled: root.fBookmark = !root.fBookmark }
+                Pill { label: qsTr("Unacknowledged"); on: root.fUnack; onToggled: root.fUnack = !root.fUnack }
+                Pill { label: qsTr("Motion"); on: root.fMotion; onToggled: root.fMotion = !root.fMotion }
+                Pill { label: qsTr("Offline"); on: root.fOffline; onToggled: root.fOffline = !root.fOffline }
+                Pill { label: qsTr("Bookmarks"); on: root.fBookmark; onToggled: root.fBookmark = !root.fBookmark }
                 Item { Layout.fillWidth: true }
                 // Camera scope for the database query (drives /events camera_id)
                 Rectangle {
@@ -370,7 +370,7 @@ Item {
                     }
                 }
                 // Time window for the database query (sets /events start/end)
-                Text { Layout.alignment: Qt.AlignVCenter; text: "Window"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                Text { Layout.alignment: Qt.AlignVCenter; text: qsTr("Window"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                 Row {
                     Layout.alignment: Qt.AlignVCenter
                     spacing: 4
@@ -389,7 +389,7 @@ Item {
                         }
                     }
                 }
-                Btn { ghost: true; label: "Clear all"; onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false; root.timeRange = "all"; root.qCameraLabel = "All cameras"; root.qCameraId = "" } }
+                Btn { ghost: true; label: qsTr("Clear all"); onClicked: { root.fUnack = false; root.fMotion = false; root.fOffline = false; root.fBookmark = false; root.timeRange = "all"; root.qCameraLabel = qsTr("All cameras"); root.qCameraId = "" } }
             }
         }
 
@@ -476,11 +476,11 @@ Item {
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
                         Th { text: ""; Layout.preferredWidth: root.wIcon }
-                        HCol { key: "event"; label: "Event"; Layout.fillWidth: true; Layout.minimumWidth: root.minEvent }
-                        HCol { key: "camera"; label: "Camera"; resizable: true; Layout.preferredWidth: root.wCam }
-                        HCol { key: "group"; label: "Group"; resizable: true; Layout.preferredWidth: root.wGroup }
-                        HCol { key: "time"; label: "Time"; resizable: true; Layout.preferredWidth: root.wTime }
-                        HCol { key: "status"; label: "Status"; resizable: true; Layout.preferredWidth: root.wStatus }
+                        HCol { key: "event"; label: qsTr("Event"); Layout.fillWidth: true; Layout.minimumWidth: root.minEvent }
+                        HCol { key: "camera"; label: qsTr("Camera"); resizable: true; Layout.preferredWidth: root.wCam }
+                        HCol { key: "group"; label: qsTr("Group"); resizable: true; Layout.preferredWidth: root.wGroup }
+                        HCol { key: "time"; label: qsTr("Time"); resizable: true; Layout.preferredWidth: root.wTime }
+                        HCol { key: "status"; label: qsTr("Status"); resizable: true; Layout.preferredWidth: root.wStatus }
                         Th { text: ""; Layout.preferredWidth: root.wAct }
                     }
                 }
@@ -567,7 +567,7 @@ Item {
                                     visible: rowItem.modelData.ack
                                     Row { spacing: 4
                                         Icon { anchors.verticalCenter: parent.verticalCenter; name: "check"; size: 12; color: Theme.accent }
-                                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Acknowledged"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11 }
+                                        Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Acknowledged"); color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11 }
                                     }
                                     Text { text: (rowItem.modelData.ackBy ? rowItem.modelData.ackBy : "") + (rowItem.modelData.ackTime ? ("  ·  " + rowItem.modelData.ackTime) : ""); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                                 }
@@ -576,12 +576,12 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter; spacing: 6
                                     visible: !rowItem.modelData.ack
                                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3; color: Theme.bad }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "NEW"; color: Theme.bad; font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("NEW"); color: Theme.bad; font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.DemiBold }
                                 }
                             }
                             // action
                             Item { Layout.preferredWidth: root.wAct; Layout.fillHeight: true
-                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "chev"; label: "Details"; onClicked: root.sel = rowItem.modelData } }
+                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; icon: "chev"; label: qsTr("Details"); onClicked: root.sel = rowItem.modelData } }
                         }
                     }
 
@@ -593,7 +593,7 @@ Item {
                         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: (root.eventModel && root.eventModel.loading) ? "pulse" : "check"; size: 28; color: Theme.ink3 }
                         Text { anchors.horizontalCenter: parent.horizontalCenter
                             text: (root.eventModel && root.eventModel.loading) ? "Loading events…"
-                                  : ((root.eventModel && root.eventModel.total > 0) ? "No events match these filters." : "No events recorded.")
+                                  : ((root.eventModel && root.eventModel.total > 0) ? qsTr("No events match these filters.") : qsTr("No events recorded."))
                             color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13 }
                     }
                 }
@@ -621,7 +621,7 @@ Item {
                                 Text { text: root.sel ? root.sel.desc : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Text { text: root.sel ? (("" + root.sel.type).toUpperCase() + "  ·  " + root.sel.time) : ""; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
                             }
-                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Close"; onClicked: root.sel = null }
+                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Close"); onClicked: root.sel = null }
                         }
                     }
 
@@ -666,7 +666,7 @@ Item {
                             KV { k: "Camera"; v: root.sel ? root.camDisplay(root.sel) : "" }
                             KV { k: "Group"; v: root.sel ? root.groupDisplay(root.sel) : "" }
                             KV { k: "Time"; v: root.sel ? root.sel.time : "" }
-                            KV { k: "Status"; v: root.sel ? (root.sel.ack ? "ACKNOWLEDGED" : "NEW") : ""; vColor: root.sel && root.sel.ack ? Theme.accent : Theme.bad }
+                            KV { k: "Status"; v: root.sel ? (root.sel.ack ? qsTr("ACKNOWLEDGED") : qsTr("NEW")) : ""; vColor: root.sel && root.sel.ack ? Theme.accent : Theme.bad }
                             KV { k: "Acknowledged by"; v: root.sel ? root.sel.ackBy : ""; visible: root.sel && root.sel.ack }
                             KV { k: "Acknowledged at"; v: root.sel ? root.sel.ackTime : ""; visible: root.sel && root.sel.ack }
 
@@ -674,21 +674,21 @@ Item {
                             Flow {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14
                                 spacing: 6
-                                Btn { primary: true; icon: "clip"; label: "Open playback"; onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
+                                Btn { primary: true; icon: "clip"; label: qsTr("Open playback"); onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
                                 // Export a clip around the event moment straight to the Clips
                                 // library — no scrubbing. Fixed window (15s before → 45s after);
                                 // Open playback → the export drawer covers custom ranges. Hidden
                                 // for events with no real timestamp (the window would be bogus).
-                                Btn { icon: "download"; label: "Export clip"
+                                Btn { icon: "download"; label: qsTr("Export clip")
                                     visible: root.sel && (root.sel.ts || 0) > 0
                                     onClicked: if (root.sel) root.exportClip(root.sel.camId, root.sel.ts, root.exportPurpose(root.sel)) }
-                                Btn { icon: "check"; label: "Acknowledge"; visible: root.sel && !root.sel.ack; onClicked: if (root.sel && root.eventModel) root.eventModel.acknowledgeById(root.sel.eventId) }
+                                Btn { icon: "check"; label: qsTr("Acknowledge"); visible: root.sel && !root.sel.ack; onClicked: if (root.sel && root.eventModel) root.eventModel.acknowledgeById(root.sel.eventId) }
                             }
                             // honest note about what "Export clip" grabs
                             Text {
                                 visible: root.sel && (root.sel.ts || 0) > 0
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 8; Layout.bottomMargin: 14
-                                text: "“Export clip” saves a 1-minute clip — 15s before to 45s after the event."
+                                text: qsTr("“Export clip” saves a 1-minute clip — 15s before to 45s after the event.")
                                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap
                             }
                         }
@@ -759,7 +759,7 @@ Item {
                         onTextChanged: root.filterSearch = text
                         onAccepted: root.applySearch(root.openFilter)   // Enter → apply + close
                         color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; clip: true
-                        Text { visible: parent.text === ""; text: "Search values…"; color: Theme.ink3; font: parent.font }
+                        Text { visible: parent.text === ""; text: qsTr("Search values…"); color: Theme.ink3; font: parent.font }
                     }
                 }
             }
@@ -767,9 +767,9 @@ Item {
             // select all / clear
             RowLayout {
                 Layout.fillWidth: true; spacing: 14
-                Text { text: "Select all"; color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11
+                Text { text: qsTr("Select all"); color: Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11
                     MouseArea { anchors.fill: parent; anchors.margins: -5; cursorShape: Qt.PointingHandCursor; onClicked: root.setColAll(root.openFilter, true) } }
-                Text { text: "Clear"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                Text { text: qsTr("Clear"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
                     MouseArea { anchors.fill: parent; anchors.margins: -5; cursorShape: Qt.PointingHandCursor; onClicked: root.setColAll(root.openFilter, false) } }
                 Item { Layout.fillWidth: true }
             }

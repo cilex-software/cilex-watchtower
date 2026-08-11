@@ -431,7 +431,7 @@ Item {
                         height: 22; width: hintT.implicitWidth + 18; radius: 11; color: Qt.rgba(0, 0, 0, 0.55)
                         border.width: 1; border.color: Theme.line2; z: 19
                         Text { id: hintT; anchors.centerIn: parent
-                            text: "Ctrl/Option-click pins or drag a box to select cameras for wall playback"
+                            text: qsTr("Ctrl/Option-click pins or drag a box to select cameras for wall playback")
                             color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 10 }
                     }
 
@@ -454,7 +454,7 @@ Item {
                                 border.width: 1; border.color: Theme.accent
                                 Row { id: slRow; anchors.centerIn: parent; spacing: 6
                                     Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 3.5; color: Theme.good }   // live dot
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Show live"; color: Theme.accent
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Show live"); color: Theme.accent
                                         font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold } }
                                 MouseArea { id: slMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._liveSelected() }
                             }
@@ -464,7 +464,7 @@ Item {
                                 color: pwMa.containsMouse ? Qt.lighter(Theme.accent, 1.1) : Theme.accent
                                 Row { id: pwRow; anchors.centerIn: parent; spacing: 6
                                     EvIcon { anchors.verticalCenter: parent.verticalCenter; name: "play"; size: 13; color: Theme.bg }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Play in wall"; color: Theme.bg
+                                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Play in wall"); color: Theme.bg
                                         font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold } }
                                 MouseArea { id: pwMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._playSelected() }
                             }
@@ -472,7 +472,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: clrT.implicitWidth + 20; height: 32; radius: 3
                                 color: "transparent"; border.width: 1; border.color: clrMa.containsMouse ? Theme.ink3 : Theme.line2
-                                Text { id: clrT; anchors.centerIn: parent; text: "Clear"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                                Text { id: clrT; anchors.centerIn: parent; text: qsTr("Clear"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                                 MouseArea { id: clrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map._clearSel() }
                             }
                         }
@@ -512,7 +512,7 @@ Item {
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16
-                        Text { text: "LIVE FEED"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 1.0 }
+                        Text { text: qsTr("LIVE FEED"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 1.0 }
                         Item { Layout.fillWidth: true }
                         Text { text: map._feed.length + " open"; color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 11 }
                     }
@@ -562,7 +562,7 @@ Item {
                     x: 16; y: 16; width: parent.width - 32; spacing: 6
 
                     Text {
-                        text: "‹ All zones"; color: backMa.containsMouse ? Theme.accent : Theme.ink2
+                        text: qsTr("‹ All zones"); color: backMa.containsMouse ? Theme.accent : Theme.ink2
                         font.family: Theme.fontSans; font.pixelSize: 12
                         MouseArea { id: backMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: map.active = "" }
                     }
@@ -583,20 +583,20 @@ Item {
                     RowLayout {
                         visible: map._curEv !== null
                         width: parent.width; spacing: 6
-                        EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: "Verify"
+                        EvButton { Layout.fillWidth: true; small: true; variant: "pri"; icon: "play"; label: qsTr("Verify")
                             onClicked: if (map._curEv) map.openInTriage(map._curEv.id) }
-                        EvButton { Layout.fillWidth: true; small: true; variant: "danger"; icon: "dispatch"; label: "Dispatch"
+                        EvButton { Layout.fillWidth: true; small: true; variant: "danger"; icon: "dispatch"; label: qsTr("Dispatch")
                             enabledBtn: !EventsStore.actionsPending
                             onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "dispatched", "") }
-                        EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "check"; label: "Clear"
+                        EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "check"; label: qsTr("Clear")
                             enabledBtn: !EventsStore.actionsPending
                             onClicked: if (map._curEv) EventsStore.dispose(map._curEv.id, "authorized", "") }
                     }
                     Item { width: 1; height: 10 }
 
-                    Text { visible: map._curEv !== null; text: "RECENT AT THIS CAMERA"; color: Theme.ink3
+                    Text { visible: map._curEv !== null; text: qsTr("RECENT AT THIS CAMERA"); color: Theme.ink3
                         font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.0 }
-                    Text { visible: map._curEv === null; text: "No events at this camera."; color: Theme.ink3
+                    Text { visible: map._curEv === null; text: qsTr("No events at this camera."); color: Theme.ink3
                         font.family: Theme.fontSans; font.pixelSize: 12; topPadding: 10 }
 
                     Repeater {

@@ -46,7 +46,7 @@ Item {
         return {
             _kind: "clip", key: j.job_id,
             title: (j.purpose && j.purpose !== "") ? j.purpose
-                   : (j.kind === "mosaic" ? "Synchronized grid clip" : "Camera clip"),
+                   : (j.kind === "mosaic" ? qsTr("Synchronized grid clip") : qsTr("Camera clip")),
             camera: camName, capturedIso: j.created_at, bytes: j.output_bytes,
             state: j.state, status: ("" + j.state).toUpperCase(),
             openUrl: (j.state === "ready" && j.downloadUrl) ? j.downloadUrl : "",
@@ -62,7 +62,7 @@ Item {
                 var s = snaps[i];
                 out.push({ _kind: "snapshot", key: s.filePath, title: s.title, camera: s.camera,
                            capturedIso: s.capturedIso, bytes: s.bytes, fileUrl: s.fileUrl,
-                           fileName: s.fileName, state: "ready", status: "READY", openUrl: s.fileUrl });
+                           fileName: s.fileName, state: "ready", status: qsTr("READY"), openUrl: s.fileUrl });
             }
         }
         if (root.pill !== "snapshots") {
@@ -128,10 +128,10 @@ Item {
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 6
-                Text { text: "Clips & Snapshots"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold; Layout.rightMargin: 8 }
-                Pill { label: "All"; on: root.pill === "all"; onClicked: root.pill = "all" }
-                Pill { label: "Snapshots" + (root.snapshotModel ? " · " + root.snapshotModel.total : ""); on: root.pill === "snapshots"; onClicked: root.pill = "snapshots" }
-                Pill { label: "Clips · " + root.serverClips.length; on: root.pill === "clips"; onClicked: root.pill = "clips" }
+                Text { text: qsTr("Clips & Snapshots"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold; Layout.rightMargin: 8 }
+                Pill { label: qsTr("All"); on: root.pill === "all"; onClicked: root.pill = "all" }
+                Pill { label: qsTr("Snapshots") + (root.snapshotModel ? " · " + root.snapshotModel.total : ""); on: root.pill === "snapshots"; onClicked: root.pill = "snapshots" }
+                Pill { label: qsTr("Clips · ") + root.serverClips.length; on: root.pill === "clips"; onClicked: root.pill = "clips" }
                 Item { Layout.fillWidth: true }
                 Rectangle {
                     implicitHeight: 30; implicitWidth: rfRow.implicitWidth + 22
@@ -140,7 +140,7 @@ Item {
                     Row {
                         id: rfRow; anchors.centerIn: parent; spacing: 6
                         Icon { anchors.verticalCenter: parent.verticalCenter; name: "pulse"; size: 13; color: Theme.ink2 }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Refresh"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                     MouseArea { id: rfMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.refresh() }
                 }
@@ -171,11 +171,11 @@ Item {
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
                         Th { text: ""; Layout.preferredWidth: root.wGlyph }
-                        Th { text: "Title"; Layout.fillWidth: true }
-                        Th { text: "Camera"; Layout.preferredWidth: root.wCam }
-                        Th { text: "Captured"; Layout.preferredWidth: root.wWhen }
-                        Th { text: "Size"; Layout.preferredWidth: root.wSize }
-                        Th { text: "Status"; Layout.preferredWidth: root.wStatus }
+                        Th { text: qsTr("Title"); Layout.fillWidth: true }
+                        Th { text: qsTr("Camera"); Layout.preferredWidth: root.wCam }
+                        Th { text: qsTr("Captured"); Layout.preferredWidth: root.wWhen }
+                        Th { text: qsTr("Size"); Layout.preferredWidth: root.wSize }
+                        Th { text: qsTr("Status"); Layout.preferredWidth: root.wStatus }
                         Th { text: ""; Layout.preferredWidth: root.wAct }
                     }
                 }
@@ -215,7 +215,7 @@ Item {
                                     visible: rowItem.modelData.openUrl !== ""
                                     anchors.verticalCenter: parent.verticalCenter; implicitWidth: opT.implicitWidth + 16; implicitHeight: 24
                                     color: opMa.containsMouse ? Theme.panel2 : "transparent"; border.width: 1; border.color: opMa.containsMouse ? Theme.accent : Theme.line2
-                                    Text { id: opT; anchors.centerIn: parent; text: "Open"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
+                                    Text { id: opT; anchors.centerIn: parent; text: qsTr("Open"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 11 }
                                     MouseArea { id: opMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.openUrlExternally(rowItem.modelData.openUrl) }
                                 }
                             }
@@ -229,7 +229,7 @@ Item {
                         visible: root.rows.length === 0
                         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: root.pill === "clips" ? "clip" : "shot"; size: 30; color: Theme.ink3 }
                         Text { anchors.horizontalCenter: parent.horizontalCenter
-                            text: root.pill === "clips" ? "No exported clips here yet" : "No snapshots yet."
+                            text: root.pill === "clips" ? qsTr("No exported clips here yet") : qsTr("No snapshots yet.")
                             color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 14 }
                         Text { anchors.horizontalCenter: parent.horizontalCenter
                             text: root.pill === "clips" ? "Export a clip from playback or a synchronized wall selection."
@@ -257,9 +257,9 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: 1
                                 Text { text: root.sel ? root.sel.title : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Text { text: !root.sel ? "" : ((root.sel._kind === "clip" ? (root.sel.kindLabel === "mosaic" ? "GRID CLIP" : "CAMERA CLIP") : "SNAPSHOT") + " · " + root.fmtCaptured(root.sel.capturedIso)); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
+                                Text { text: !root.sel ? "" : ((root.sel._kind === "clip" ? (root.sel.kindLabel === "mosaic" ? qsTr("GRID CLIP") : qsTr("CAMERA CLIP")) : "SNAPSHOT") + " · " + root.fmtCaptured(root.sel.capturedIso)); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
                             }
-                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Close"; onClicked: root.sel = null }
+                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Close"); onClicked: root.sel = null }
                         }
                     }
                     // body
@@ -298,7 +298,7 @@ Item {
                                 Text { text: kv.v; color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight }
                             }
                             Item { Layout.preferredHeight: 10 }
-                            KV { k: "Type"; v: !root.sel ? "" : (root.sel._kind === "clip" ? (root.sel.kindLabel === "mosaic" ? "Combined grid clip (MP4)" : "Camera clip (MP4)") : "Snapshot (PNG)") }
+                            KV { k: "Type"; v: !root.sel ? "" : (root.sel._kind === "clip" ? (root.sel.kindLabel === "mosaic" ? qsTr("Combined grid clip (MP4)") : qsTr("Camera clip (MP4)")) : "Snapshot (PNG)") }
                             KV { k: "Camera"; v: root.sel ? (root.sel.camera || "—") : "" }
                             KV { k: "Captured"; v: root.sel ? root.fmtCaptured(root.sel.capturedIso) : "" }
                             KV { k: "Size"; v: root.sel ? root.fmtSize(root.sel.bytes) : "" }
@@ -323,10 +323,10 @@ Item {
                                     }
                                     MouseArea { id: abMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
                                 }
-                                ABtn { primary: true; icon: "newtab"; label: "Open"
+                                ABtn { primary: true; icon: "newtab"; label: qsTr("Open")
                                     visible: root.sel && root.sel.openUrl !== ""
                                     onClicked: if (root.sel && root.sel.openUrl !== "") Qt.openUrlExternally(root.sel.openUrl) }
-                                ABtn { icon: "clip"; label: "Reveal in folder"
+                                ABtn { icon: "clip"; label: qsTr("Reveal in folder")
                                     visible: root.sel && root.sel._kind === "snapshot"
                                     onClicked: if (root.snapshotModel) Qt.openUrlExternally("file://" + root.snapshotModel.dir) }
                             }

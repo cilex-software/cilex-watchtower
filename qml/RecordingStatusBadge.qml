@@ -81,19 +81,19 @@ StatusBadge {
 
     label: {
         switch (state) {
-        case CameraStatus.Recording: return "REC";
-        case CameraStatus.Stalled: return "STALLED";
+        case CameraStatus.Recording: return qsTr("REC");
+        case CameraStatus.Stalled: return qsTr("STALLED");
         case CameraStatus.Armed:
             if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
             if (_notRecording) return "ARMED · " + qsTr("NOT RECORDING");
-            if (_age !== "") return "ARMED · " + _age;
-            if (_silentArmed) return "ARMED · " + (_silentAge !== ""
+            if (_age !== "") return qsTr("ARMED · ") + _age;
+            if (_silentArmed) return qsTr("ARMED · ") + (_silentAge !== ""
                 ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
-            return "ARMED";
-        case CameraStatus.Disabled: return "OFF";
-        case CameraStatus.NotRecording: return "NOT REC";
-        case CameraStatus.RecordingGap: return "GAP";
-        default: return "REC ?";
+            return qsTr("ARMED");
+        case CameraStatus.Disabled: return qsTr("OFF");
+        case CameraStatus.NotRecording: return qsTr("NOT REC");
+        case CameraStatus.RecordingGap: return qsTr("GAP");
+        default: return qsTr("REC ?");
         }
     }
     fg: {

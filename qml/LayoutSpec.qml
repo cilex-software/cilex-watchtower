@@ -86,15 +86,15 @@ QtObject {
     // Human label, e.g. "4×4 · 16", "1 + 5 · 6", "Center + 12 · 13", "5×4 · 20".
     function label(id) {
         switch (id) {
-        case "1":   return "Single · 1";
-        case "4":   return "2×2 · 4";
-        case "9":   return "3×3 · 9";
-        case "16":  return "4×4 · 16";
-        case "25":  return "5×5 · 25";
-        case "plus4":    return "1 + 3 · 4";
-        case "plus6":    return "1 + 5 · 6";
-        case "plus8":    return "1 + 7 · 8";
-        case "center13": return "Center + 12 · 13";
+        case "1":   return qsTr("Single · 1");
+        case "4":   return qsTr("2×2 · 4");
+        case "9":   return qsTr("3×3 · 9");
+        case "16":  return qsTr("4×4 · 16");
+        case "25":  return qsTr("5×5 · 25");
+        case "plus4":    return qsTr("1 + 3 · 4");
+        case "plus6":    return qsTr("1 + 5 · 6");
+        case "plus8":    return qsTr("1 + 7 · 8");
+        case "center13": return qsTr("Center + 12 · 13");
         }
         const m = /^(\d+)x(\d+)$/.exec(id);
         if (m) return m[1] + "×" + m[2] + " · " + (parseInt(m[1]) * parseInt(m[2]));

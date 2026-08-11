@@ -48,7 +48,7 @@ Item {
                 Layout.leftMargin: 16
                 Layout.rightMargin: 16
                 Layout.bottomMargin: 8
-                text: "Site Status"
+                text: qsTr("Site Status")
                 color: Theme.ink3
                 font.family: Theme.fontMono
                 font.pixelSize: 10
@@ -102,10 +102,10 @@ Item {
                         }
                     }
 
-                    StatCell { lbl: "Online";   value: root.cameraModel ? root.cameraModel.onlineCount : 0;       valueColor: Theme.good }
-                    StatCell { lbl: "Offline";  value: root.cameraModel ? root.cameraModel.offlineCount : 0;      valueColor: Theme.bad }
-                    StatCell { lbl: "Degraded"; value: root.cameraModel ? root.cameraModel.degradedCount : 0;     valueColor: Theme.warn }
-                    StatCell { lbl: "Not rec";  value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; valueColor: Theme.warn }
+                    StatCell { lbl: qsTr("Online");   value: root.cameraModel ? root.cameraModel.onlineCount : 0;       valueColor: Theme.good }
+                    StatCell { lbl: qsTr("Offline");  value: root.cameraModel ? root.cameraModel.offlineCount : 0;      valueColor: Theme.bad }
+                    StatCell { lbl: qsTr("Degraded"); value: root.cameraModel ? root.cameraModel.degradedCount : 0;     valueColor: Theme.warn }
+                    StatCell { lbl: qsTr("Not rec");  value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; valueColor: Theme.warn }
                 }
             }
 
@@ -118,7 +118,7 @@ Item {
                 Layout.bottomMargin: 8
                 Text {
                     Layout.fillWidth: true
-                    text: "Live Events"
+                    text: qsTr("Live Events")
                     color: Theme.ink3
                     font.family: Theme.fontMono
                     font.pixelSize: 10
@@ -127,7 +127,7 @@ Item {
                     font.capitalization: Font.AllUppercase
                 }
                 Text {
-                    text: "View all →"
+                    text: qsTr("View all →")
                     color: Theme.accent
                     font.family: Theme.fontSans
                     font.pixelSize: 11

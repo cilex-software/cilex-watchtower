@@ -57,7 +57,7 @@ Item {
                 color: Qt.rgba(0, 0, 0, 0.55); height: 18; width: stateT.implicitWidth + 14
                 Text {
                     id: stateT; anchors.centerIn: parent
-                    text: (pl.playing ? "▶ " : "❚❚ ") + (pl._inEvent ? "EVENT" : "PLAYBACK")
+                    text: (pl.playing ? "▶ " : "❚❚ ") + (pl._inEvent ? qsTr("EVENT") : qsTr("PLAYBACK"))
                     color: pl._inEvent ? Theme.accent : Qt.rgba(1, 1, 1, 0.7)
                     font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9
                 }

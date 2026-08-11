@@ -479,7 +479,7 @@ Item {
                 EvIcon { anchors.centerIn: parent; anchors.horizontalCenterOffset: 2; name: "play"; size: 22; color: "#ffffff" }
             }
             Text { visible: hp._loading; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.margins: 8
-                text: "Loading recording…"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
+                text: qsTr("Loading recording…"); color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10 }
             Text { visible: hp._error !== ""; anchors.centerIn: parent; width: parent.width * 0.7
                 text: hp._error; color: Theme.ink2; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
                 font.family: Theme.fontSans; font.pixelSize: 12 }

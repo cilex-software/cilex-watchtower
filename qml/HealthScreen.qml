@@ -68,23 +68,23 @@ Item {
 
     function liveText(s) {
         switch (s) {
-        case CameraStatus.Live: return "Live";
-        case CameraStatus.Offline: return "Offline";
-        case CameraStatus.Degraded: return "Degraded";
-        case CameraStatus.NoSignal: return "No signal";
-        case CameraStatus.Loading: return "Loading";
-        default: return "Unknown";
+        case CameraStatus.Live: return qsTr("Live");
+        case CameraStatus.Offline: return qsTr("Offline");
+        case CameraStatus.Degraded: return qsTr("Degraded");
+        case CameraStatus.NoSignal: return qsTr("No signal");
+        case CameraStatus.Loading: return qsTr("Loading");
+        default: return qsTr("Unknown");
         }
     }
     function recText(s) {
         switch (s) {
-        case CameraStatus.Recording: return "Recording";
-        case CameraStatus.Stalled: return "Stalled";
-        case CameraStatus.Armed: return "Motion armed";
-        case CameraStatus.Disabled: return "Disabled";
-        case CameraStatus.NotRecording: return "Not recording";
-        case CameraStatus.RecordingGap: return "Recording gap";
-        default: return "Unknown";
+        case CameraStatus.Recording: return qsTr("Recording");
+        case CameraStatus.Stalled: return qsTr("Stalled");
+        case CameraStatus.Armed: return qsTr("Motion armed");
+        case CameraStatus.Disabled: return qsTr("Disabled");
+        case CameraStatus.NotRecording: return qsTr("Not recording");
+        case CameraStatus.RecordingGap: return qsTr("Recording gap");
+        default: return qsTr("Unknown");
         }
     }
     function _notRec(cam) {
@@ -94,15 +94,15 @@ Item {
         return v > 0 && (Date.now() - v) < 10800000 && (sgm <= 0 || (v - sgm) > 3600000);
     }
     function issueText(cam) {
-        if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return "No signal";
-        if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return "Motion detector not ready";
-        if (root._notRec(cam)) return "Detecting but NOT recording";
-        if (cam.recording === CameraStatus.Stalled) return "Recording stalled";
-        if (cam.recording === CameraStatus.RecordingGap) return "Recent recording gap";
-        if (cam.live === CameraStatus.Degraded) return "Stream degraded";
-        if (cam.recording === CameraStatus.NotRecording) return "Live but not recording";
+        if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return qsTr("No signal");
+        if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return qsTr("Motion detector not ready");
+        if (root._notRec(cam)) return qsTr("Detecting but NOT recording");
+        if (cam.recording === CameraStatus.Stalled) return qsTr("Recording stalled");
+        if (cam.recording === CameraStatus.RecordingGap) return qsTr("Recent recording gap");
+        if (cam.live === CameraStatus.Degraded) return qsTr("Stream degraded");
+        if (cam.recording === CameraStatus.NotRecording) return qsTr("Live but not recording");
         if (cam.recording === CameraStatus.Armed && cam.motionKnown && cam.motionReady && !cam.motionConfirmed)
-            return "Motion never verified";   // unproven is not broken — neutral, not a fault
+            return qsTr("Motion never verified");   // unproven is not broken — neutral, not a fault
         return "—";
     }
     function issueColor(cam) {
@@ -125,18 +125,18 @@ Item {
     }
     function calloutText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal)
-            return "<b>Camera is offline.</b> " + (cam.lastSeen ? ("Last seen " + cam.lastSeen + ". ") : "")
+            return qsTr("<b>Camera is offline.</b> ") + (cam.lastSeen ? ("Last seen " + cam.lastSeen + ". ") : "")
                  + "Playback may still be available for footage recorded before the outage.";
         if (cam.recording === CameraStatus.Stalled)
-            return "<b>Recording stalled.</b> The recorder stopped producing footage for this camera; it's being restarted automatically.";
+            return qsTr("<b>Recording stalled.</b> The recorder stopped producing footage for this camera; it's being restarted automatically.");
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.NotRecording)
-            return "<b>Camera is live but not recording.</b> Live monitoring works; no new footage is being saved.";
+            return qsTr("<b>Camera is live but not recording.</b> Live monitoring works; no new footage is being saved.");
         if (cam.recording === CameraStatus.RecordingGap)
-            return "<b>Recording gap detected.</b> Some footage in the recent window is missing.";
+            return qsTr("<b>Recording gap detected.</b> Some footage in the recent window is missing.");
         if (cam.live === CameraStatus.Degraded)
-            return "<b>Stream degraded.</b> Reduced bitrate due to network conditions; recording continues.";
+            return qsTr("<b>Stream degraded.</b> Reduced bitrate due to network conditions; recording continues.");
         if (root._notRec(cam))
-            return "<b>Detecting motion, but not recording.</b> This camera reported motion at "
+            return qsTr("<b>Detecting motion, but not recording.</b> This camera reported motion at ")
                  + Qt.formatDateTime(new Date(cam.motionLastVmdAt), "HH:mm:ss")
                  + ", yet its newest recorded footage is older than that — the recorder is not writing this camera. Reported to the backend; playback for recent events will be empty.";
         if (cam.recording === CameraStatus.Armed && cam.motionKnown) {
@@ -144,20 +144,20 @@ Item {
             // (1cc987d): confirmed survives config-only passes; last_vmd_at is
             // monotone. Absent key falls through to the no-claim text below.
             if (!cam.motionReady)
-                return "<b>Motion detector not ready.</b> The camera is armed but the backend preflight says its detector cannot fire"
+                return qsTr("<b>Motion detector not ready.</b> The camera is armed but the backend preflight says its detector cannot fire")
                      + (cam.motionStatus ? " (" + cam.motionStatus + ")" : "") + ". Motion will not be recorded until this is repaired.";
             if (!cam.motionConfirmed)
-                return "<b>Motion-armed, never verified.</b> Configuration checks out, but this camera has never produced a verified detection. A short walk through its field of view would prove the chain.";
-            return "<b>Motion-armed and verified.</b> Recording on motion; idle between events — not a fault."
+                return qsTr("<b>Motion-armed, never verified.</b> Configuration checks out, but this camera has never produced a verified detection. A short walk through its field of view would prove the chain.");
+            return qsTr("<b>Motion-armed and verified.</b> Recording on motion; idle between events — not a fault.")
                  + (cam.motionLastVmdAt ? (" Last verified motion " + Qt.formatDateTime(new Date(cam.motionLastVmdAt), "ddd d MMM, HH:mm:ss") + ".") : "");
         }
         if (cam.recording === CameraStatus.Armed)
-            return "<b>Motion-armed.</b> Recording on motion; idle between events — not a fault.";
+            return qsTr("<b>Motion-armed.</b> Recording on motion; idle between events — not a fault.");
         if (cam.live === CameraStatus.Live && cam.recording === CameraStatus.Recording)
-            return "<b>Camera is live and recording.</b> No issues detected.";
+            return qsTr("<b>Camera is live and recording.</b> No issues detected.");
         if (cam.live === CameraStatus.Live)
-            return "<b>Camera is live.</b> Recording status isn't being reported for this camera.";
-        return "<b>Status unknown.</b> No recent health signal for this camera.";
+            return qsTr("<b>Camera is live.</b> Recording status isn't being reported for this camera.");
+        return qsTr("<b>Status unknown.</b> No recent health signal for this camera.");
     }
     readonly property bool selOffline: sel && (sel.live === CameraStatus.Offline || sel.live === CameraStatus.NoSignal)
 
@@ -214,7 +214,7 @@ Item {
                          : (parent.parent.sh.ok ? Theme.good
                             : ((!parent.parent.sh.reachable || parent.parent.sh.circuitOpen) ? Theme.bad : Theme.warn)))
                 }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: "STORAGE SUBSYSTEM"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2 }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("STORAGE SUBSYSTEM"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
@@ -283,7 +283,7 @@ Item {
                 Text {
                     visible: root.playbackClient !== null
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "PLAYBACK"; color: Theme.ink3
+                    text: qsTr("PLAYBACK"); color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2
                 }
                 Text {
@@ -341,12 +341,12 @@ Item {
             RowLayout {
                 anchors.fill: parent
                 spacing: 0
-                Card { key: "";         label: "Visible";       value: root.cameraModel ? root.cameraModel.total : 0;            numColor: Theme.ink }
-                Card { key: "online";   label: "Online";        value: root.cameraModel ? root.cameraModel.onlineCount : 0;      numColor: Theme.good }
-                Card { key: "offline";  label: "Offline";       value: root.cameraModel ? root.cameraModel.offlineCount : 0;     numColor: Theme.bad }
-                Card { key: "degraded"; label: "Degraded";      value: root.cameraModel ? root.cameraModel.degradedCount : 0;    numColor: Theme.accent }
-                Card { key: "notrec";   label: "Not recording"; value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; numColor: Theme.accent }
-                Card { key: "gap";      label: "Recent gaps";   value: root.cameraModel ? root.cameraModel.recordingGapCount : 0; numColor: Theme.accent; last: true }
+                Card { key: "";         label: qsTr("Visible");       value: root.cameraModel ? root.cameraModel.total : 0;            numColor: Theme.ink }
+                Card { key: "online";   label: qsTr("Online");        value: root.cameraModel ? root.cameraModel.onlineCount : 0;      numColor: Theme.good }
+                Card { key: "offline";  label: qsTr("Offline");       value: root.cameraModel ? root.cameraModel.offlineCount : 0;     numColor: Theme.bad }
+                Card { key: "degraded"; label: qsTr("Degraded");      value: root.cameraModel ? root.cameraModel.degradedCount : 0;    numColor: Theme.accent }
+                Card { key: "notrec";   label: qsTr("Not recording"); value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; numColor: Theme.accent }
+                Card { key: "gap";      label: qsTr("Recent gaps");   value: root.cameraModel ? root.cameraModel.recordingGapCount : 0; numColor: Theme.accent; last: true }
             }
         }
 
@@ -375,12 +375,12 @@ Item {
                     }
                     RowLayout {
                         anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
-                        Th { text: "Camera"; Layout.fillWidth: true }
-                        Th { text: "Group"; Layout.preferredWidth: root.wGroup }
-                        Th { text: "Live"; Layout.preferredWidth: root.wLive }
-                        Th { text: "Recording"; Layout.preferredWidth: root.wRec }
-                        Th { text: "Last seen"; Layout.preferredWidth: root.wSeen }
-                        Th { text: "Recent issue"; Layout.preferredWidth: root.wIssue }
+                        Th { text: qsTr("Camera"); Layout.fillWidth: true }
+                        Th { text: qsTr("Group"); Layout.preferredWidth: root.wGroup }
+                        Th { text: qsTr("Live"); Layout.preferredWidth: root.wLive }
+                        Th { text: qsTr("Recording"); Layout.preferredWidth: root.wRec }
+                        Th { text: qsTr("Last seen"); Layout.preferredWidth: root.wSeen }
+                        Th { text: qsTr("Recent issue"); Layout.preferredWidth: root.wIssue }
                         Th { text: ""; Layout.preferredWidth: root.wAct }
                     }
                 }
@@ -434,7 +434,7 @@ Item {
                             Text { Layout.preferredWidth: root.wIssue; color: root.issueColor(rowItem.modelData); font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight; text: root.issueText(rowItem.modelData) }
                             // action
                             Item { Layout.preferredWidth: root.wAct; Layout.fillHeight: true
-                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; label: "Open"; onClicked: root.openLive(rowItem.modelData) } }
+                                Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; label: qsTr("Open"); onClicked: root.openLive(rowItem.modelData) } }
                         }
                     }
 
@@ -443,8 +443,8 @@ Item {
                         anchors.centerIn: parent
                         visible: root.rows.length === 0
                         icon: "check"
-                        title: "Nothing here"
-                        subtitle: "No cameras match this filter."
+                        title: qsTr("Nothing here")
+                        subtitle: qsTr("No cameras match this filter.")
                     }
                 }
             }
@@ -473,7 +473,7 @@ Item {
                                 Text { text: root.sel ? root.sel.name : ""; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Text { text: root.sel ? (root.sel.camId + "  ·  " + root.sel.groupName) : ""; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight; Layout.fillWidth: true }
                             }
-                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Close"; onClicked: root.sel = null }
+                            IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Close"); onClicked: root.sel = null }
                         }
                     }
 
@@ -496,7 +496,7 @@ Item {
                                     Column {
                                         anchors.centerIn: parent; spacing: 4
                                         Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 28; color: Theme.bad }
-                                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "NO SIGNAL"; color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.3 }
+                                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("NO SIGNAL"); color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.3 }
                                         Text { anchors.horizontalCenter: parent.horizontalCenter; visible: root.sel && root.sel.lastSeen; text: root.sel ? ("last seen " + root.sel.lastSeen) : ""; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                                     }
                                 }
@@ -548,7 +548,7 @@ Item {
                             KV { k: "Last recording"; v: (root.sel && root.sel.lastSegmentAt) ? Qt.formatDateTime(new Date(root.sel.lastSegmentAt), "ddd d MMM, HH:mm:ss") : "—" }
                             KV { visible: root.sel !== null && root.sel.motionKnown === true; k: "Motion detector"
                                  v: !root.sel ? "" : (!root.sel.motionReady ? ("Not ready" + (root.sel.motionStatus ? " · " + root.sel.motionStatus : ""))
-                                    : (root.sel.motionConfirmed ? "Verified" : "Ready, never verified")) }
+                                    : (root.sel.motionConfirmed ? qsTr("Verified") : qsTr("Ready, never verified"))) }
                             KV { visible: root.sel !== null && root.sel.motionKnown === true; k: "Last verified motion"
                                  v: (root.sel && root.sel.motionLastVmdAt) ? Qt.formatDateTime(new Date(root.sel.motionLastVmdAt), "ddd d MMM, HH:mm:ss") : "—" }
                             KV { k: "Group"; v: root.sel ? root.sel.groupName : "" }
@@ -557,9 +557,9 @@ Item {
                             Flow {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 14
                                 spacing: 6
-                                Btn { icon: "monitor"; label: "Open live"; onClicked: if (root.sel) root.openLive(root.sel) }
-                                Btn { icon: "clip"; label: "Playback"; onClicked: if (root.sel) root.openPlayback(root.sel) }
-                                Btn { icon: "bell"; label: "Events"; ghost: true; onClicked: if (root.sel) root.openEvents(root.sel) }
+                                Btn { icon: "monitor"; label: qsTr("Open live"); onClicked: if (root.sel) root.openLive(root.sel) }
+                                Btn { icon: "clip"; label: qsTr("Playback"); onClicked: if (root.sel) root.openPlayback(root.sel) }
+                                Btn { icon: "bell"; label: qsTr("Events"); ghost: true; onClicked: if (root.sel) root.openEvents(root.sel) }
                             }
                         }
                     }

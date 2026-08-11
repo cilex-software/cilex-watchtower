@@ -28,11 +28,11 @@ Item {
         var t = Date.parse(iso);
         if (isNaN(t)) return "—";
         var diff = Date.now() - t;
-        if (diff < 60000) return "Just now";
+        if (diff < 60000) return qsTr("Just now");
         var now = new Date(), then = new Date(t);
-        if (now.toDateString() === then.toDateString()) return "Today";
+        if (now.toDateString() === then.toDateString()) return qsTr("Today");
         var days = Math.floor(diff / 86400000);
-        if (days <= 1) return "Yesterday";
+        if (days <= 1) return qsTr("Yesterday");
         if (days < 7) return days + " days ago";
         return Qt.formatDate(then, "MMM d");
     }
@@ -85,17 +85,17 @@ Item {
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 6
-                Pill { label: "All views"; on: root.pill === "all"; onClicked: root.pill = "all" }
-                Pill { label: "Mine"; on: root.pill === "mine"; onClicked: root.pill = "mine" }
-                Pill { label: "Shared"; on: root.pill === "shared"; onClicked: root.pill = "shared" }
-                Pill { label: "Favorites"; on: root.pill === "favorites"; onClicked: root.pill = "favorites" }
-                Pill { label: "Contains issues"; on: root.pill === "issues"; onClicked: root.pill = "issues" }
+                Pill { label: qsTr("All views"); on: root.pill === "all"; onClicked: root.pill = "all" }
+                Pill { label: qsTr("Mine"); on: root.pill === "mine"; onClicked: root.pill = "mine" }
+                Pill { label: qsTr("Shared"); on: root.pill === "shared"; onClicked: root.pill = "shared" }
+                Pill { label: qsTr("Favorites"); on: root.pill === "favorites"; onClicked: root.pill = "favorites" }
+                Pill { label: qsTr("Contains issues"); on: root.pill === "issues"; onClicked: root.pill = "issues" }
                 Item { Layout.fillWidth: true }
                 // + Save current view (primary)
                 Rectangle {
                     implicitWidth: scT.implicitWidth + 26; implicitHeight: 34
                     color: scMa.containsMouse ? "#f0b04e" : Theme.accent
-                    Text { id: scT; anchors.centerIn: parent; text: "+ Save current view"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                    Text { id: scT; anchors.centerIn: parent; text: qsTr("+ Save current view"); color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                     MouseArea { id: scMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.saveCurrentRequested() }
                 }
             }
@@ -177,14 +177,14 @@ Item {
                                 IconButton {
                                     visible: cardMa.containsMouse
                                     name: "x"; iconSize: 12; iconColor: "#fff"; hoverIcon: Theme.bad
-                                    bgColor: Qt.rgba(0,0,0,0.5); hoverBg: Qt.rgba(0,0,0,0.7); tip: "Delete view"
+                                    bgColor: Qt.rgba(0,0,0,0.5); hoverBg: Qt.rgba(0,0,0,0.7); tip: qsTr("Delete view")
                                     onClicked: if (root.savedViewModel) root.savedViewModel.remove(modelData.viewId)
                                 }
                                 IconButton {
                                     name: "star"; iconSize: 13
                                     iconColor: modelData.favorite ? Theme.violet : "#fff"
                                     hoverIcon: Theme.violet; bgColor: Qt.rgba(0,0,0,0.5); hoverBg: Qt.rgba(0,0,0,0.7)
-                                    tip: modelData.favorite ? "Unfavorite" : "Favorite"
+                                    tip: modelData.favorite ? qsTr("Unfavorite") : qsTr("Favorite")
                                     onClicked: if (root.savedViewModel) root.savedViewModel.toggleFavorite(modelData.viewId)
                                 }
                             }
@@ -198,7 +198,7 @@ Item {
                             Text { text: modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
                             Row {
                                 spacing: 10
-                                Text { text: modelData.shared ? "Shared" : "Mine"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                                Text { text: modelData.shared ? qsTr("Shared") : qsTr("Mine"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                                 Text { text: LayoutSpec.label(modelData.layout); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                                 Text { text: root.countFor(modelData) + " cams"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                             }
@@ -214,7 +214,7 @@ Item {
                                 Layout.fillWidth: true; Layout.topMargin: 6; implicitHeight: 30
                                 color: openMa.containsMouse ? Theme.panel2 : Theme.bg
                                 border.width: 1; border.color: openMa.containsMouse ? Theme.accent : Theme.line2
-                                Text { anchors.centerIn: parent; text: "Open"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                                Text { anchors.centerIn: parent; text: qsTr("Open"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                                 MouseArea { id: openMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openView(modelData) }
                             }
                         }
@@ -230,11 +230,11 @@ Item {
                 visible: root.rows.length === 0
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "grid"; size: 30; color: Theme.ink3 }
                 Text { anchors.horizontalCenter: parent.horizontalCenter
-                    text: (root.savedViewModel && root.savedViewModel.total > 0) ? "No views match this filter." : "No saved views yet."
+                    text: (root.savedViewModel && root.savedViewModel.total > 0) ? qsTr("No views match this filter.") : qsTr("No saved views yet.")
                     color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 14 }
                 Text { anchors.horizontalCenter: parent.horizontalCenter
                     visible: !(root.savedViewModel && root.savedViewModel.total > 0)
-                    text: "Set up the Live Monitor, then “Save current view”."
+                    text: qsTr("Set up the Live Monitor, then “Save current view”.")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
             }
         }

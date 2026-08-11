@@ -59,7 +59,7 @@ Item {
                     spacing: 8
                     EvIcon { anchors.verticalCenter: parent.verticalCenter; name: "person"; size: 13; color: Theme.accent }
                     Text { anchors.verticalCenter: parent.verticalCenter
-                        text: "Verify what you see — confirm a real threat or dismiss a false alarm without leaving the grid."
+                        text: qsTr("Verify what you see — confirm a real threat or dismiss a false alarm without leaving the grid.")
                         color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                 }
             }
@@ -133,7 +133,7 @@ Item {
                             Rectangle {
                                 visible: cell._verified; anchors.fill: parent; color: Qt.rgba(10/255, 9/255, 8/255, 0.55)
                                 Text { anchors.centerIn: parent
-                                    text: cell.e.status === "resolved" ? "CLEARED" : "DISMISSED"
+                                    text: cell.e.status === "resolved" ? qsTr("CLEARED") : qsTr("DISMISSED")
                                     color: cell.e.status === "resolved" ? Theme.good : Theme.ink2
                                     font.family: Theme.fontMono; font.pixelSize: 13; font.weight: Font.Bold; font.letterSpacing: 2.6 }
                             }
@@ -159,10 +159,10 @@ Item {
                         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
                         anchors.leftMargin: 11; anchors.rightMargin: 11; anchors.bottomMargin: 11
                         spacing: 5
-                        EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "escalate"; label: "Threat"
+                        EvButton { Layout.fillWidth: true; small: true; variant: "good"; icon: "escalate"; label: qsTr("Threat")
                             enabledBtn: !EventsStore.actionsPending
                             onClicked: EventsStore.dispose(cell.e.id, "verified", "") }
-                        EvButton { Layout.fillWidth: true; small: true; variant: ""; icon: "x"; label: "Dismiss"
+                        EvButton { Layout.fillWidth: true; small: true; variant: ""; icon: "x"; label: qsTr("Dismiss")
                             enabledBtn: !EventsStore.actionsPending
                             onClicked: EventsStore.dispose(cell.e.id, "false_alarm", "") }
                         EvButton { small: true; variant: ""; on: cell.e.bookmarked

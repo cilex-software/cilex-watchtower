@@ -15,7 +15,7 @@ Item {
     // captured state (set by the parent before open(), used in the summary)
     property string layout: "16"
     property string statusFilter: ""
-    property string groupLabel: "All cameras"
+    property string groupLabel: qsTr("All cameras")
 
     property string viewName: ""
     property bool shared: false
@@ -32,16 +32,16 @@ Item {
 
     function filterLabel(f) {
         switch (f) {
-        case "": return "None";
-        case "online": return "Online";
-        case "offline": return "Offline";
-        case "degraded": return "Degraded";
-        case "recording": return "Recording";
-        case "notrec": return "Not recording";
-        case "gap": return "Recent gaps";
-        case "favorites": return "Favorites";
-        case "issues": return "Contains issues";
-        case "recent": return "Recent events";
+        case "": return qsTr("None");
+        case "online": return qsTr("Online");
+        case "offline": return qsTr("Offline");
+        case "degraded": return qsTr("Degraded");
+        case "recording": return qsTr("Recording");
+        case "notrec": return qsTr("Not recording");
+        case "gap": return qsTr("Recent gaps");
+        case "favorites": return qsTr("Favorites");
+        case "issues": return qsTr("Contains issues");
+        case "recent": return qsTr("Recent events");
         default: return f;
         }
     }
@@ -68,8 +68,8 @@ Item {
             anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
             height: 56; color: Theme.panel
             Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
-            Text { anchors.left: parent.left; anchors.leftMargin: 22; anchors.verticalCenter: parent.verticalCenter; text: "Save current view"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-            IconButton { anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Cancel"; onClicked: root.close() }
+            Text { anchors.left: parent.left; anchors.leftMargin: 22; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Save current view"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+            IconButton { anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Cancel"); onClicked: root.close() }
         }
 
         ColumnLayout {
@@ -83,7 +83,7 @@ Item {
                 Layout.fillWidth: true; spacing: 6
                 RowLayout {
                     spacing: 4
-                    Text { text: "View name"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+                    Text { text: qsTr("View name"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
                     Text { text: "*"; color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 10 }
                 }
                 Rectangle {
@@ -99,14 +99,14 @@ Item {
                         onTextChanged: root.viewName = text
                         Keys.onReturnPressed: if (root.canSave) { root.saved(root.viewName.trim(), root.shared); root.close() }
                     }
-                    Text { visible: nameInput.text === ""; anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; text: "e.g. First Floor — afternoon shift"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13 }
+                    Text { visible: nameInput.text === ""; anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; text: qsTr("e.g. First Floor — afternoon shift"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13 }
                 }
             }
 
             // visibility
             ColumnLayout {
                 Layout.fillWidth: true; spacing: 6
-                Text { text: "Visibility"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+                Text { text: qsTr("Visibility"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
                 Rectangle {
                     implicitHeight: 34; implicitWidth: visRow.implicitWidth
                     color: Theme.bg; border.width: 1; border.color: Theme.line2
@@ -121,8 +121,8 @@ Item {
                             Text { anchors.centerIn: parent; text: parent.label; color: parent.on ? Theme.bg : Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
                         }
-                        Seg { label: "Mine"; on: !root.shared; onClicked: root.shared = false }
-                        Seg { label: "Shared (team)"; on: root.shared; onClicked: root.shared = true }
+                        Seg { label: qsTr("Mine"); on: !root.shared; onClicked: root.shared = false }
+                        Seg { label: qsTr("Shared (team)"); on: root.shared; onClicked: root.shared = true }
                     }
                 }
             }
@@ -140,9 +140,9 @@ Item {
                         textFormat: Text.StyledText
                         color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12
                     }
-                    Line { text: "<b>Layout:</b> " + LayoutSpec.label(root.layout) + " tiles" }
-                    Line { text: "<b>Group context:</b> " + root.groupLabel }
-                    Line { text: "<b>Active filter:</b> " + root.filterLabel(root.statusFilter) }
+                    Line { text: qsTr("<b>Layout:</b> ") + LayoutSpec.label(root.layout) + " tiles" }
+                    Line { text: qsTr("<b>Group context:</b> ") + root.groupLabel }
+                    Line { text: qsTr("<b>Active filter:</b> ") + root.filterLabel(root.statusFilter) }
                 }
             }
         }
@@ -158,14 +158,14 @@ Item {
                 Rectangle {
                     implicitWidth: cancT.implicitWidth + 28; implicitHeight: 34
                     color: cancMa.containsMouse ? Theme.panel2 : "transparent"
-                    Text { id: cancT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                    Text { id: cancT; anchors.centerIn: parent; text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                     MouseArea { id: cancMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.close() }
                 }
                 Rectangle {
                     implicitWidth: saveT.implicitWidth + 28; implicitHeight: 34
                     opacity: root.canSave ? 1 : 0.55
                     color: !root.canSave ? Theme.line2 : (saveMa.containsMouse ? "#f0b04e" : Theme.accent)
-                    Text { id: saveT; anchors.centerIn: parent; text: "Save view"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                    Text { id: saveT; anchors.centerIn: parent; text: qsTr("Save view"); color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                     MouseArea { id: saveMa; anchors.fill: parent; enabled: root.canSave; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: { root.saved(root.viewName.trim(), root.shared); root.close() } }
                 }

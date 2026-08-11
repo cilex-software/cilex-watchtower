@@ -139,7 +139,7 @@ Item {
             var aheadBase = (ahead.count > 0 ? ahead.endPts : hv.userPts) + hv.anchorOffMs;
             var atEnd = player.duration > 0 && aheadBase >= player.duration - 450;
             if (ahead.count < hv.aheadLow && !atEnd) { hv._fillAhead(ahead); return; }
-            if (hv.mode === "ahead" && (ahead.count >= hv.aheadTarget || atEnd)) hv._park(atEnd ? "at end" : "ahead full");
+            if (hv.mode === "ahead" && (ahead.count >= hv.aheadTarget || atEnd)) hv._park(atEnd ? qsTr("at end") : qsTr("ahead full"));
             var floor = hv.chainFloor();
             var behindFrames = (hv.userPts - floor) / Math.max(1, hv.frameDurMs);
             if (behindFrames < hv.behindLow && floor > hv.frameDurMs) { hv._fillBehind(floor); return; }

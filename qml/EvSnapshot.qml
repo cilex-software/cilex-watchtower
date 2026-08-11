@@ -139,7 +139,7 @@ Item {
             visible: root._stillUnavailable && liveImg.status !== Image.Ready
             Column { anchors.centerIn: parent; spacing: 5
                 EvIcon { visible: !root.mini; anchors.horizontalCenter: parent.horizontalCenter; name: "clock"; size: 18; color: Theme.ink3 }
-                Text { visible: !root.mini; text: "NO FRAME AT EVENT TIME"; color: Theme.ink3
+                Text { visible: !root.mini; text: qsTr("NO FRAME AT EVENT TIME"); color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.0 } }
         }
     }
@@ -218,7 +218,7 @@ Item {
                 color: root._isThreat ? Theme.bad : Theme.accent
                 Text {
                     id: lab; anchors.centerIn: parent
-                    text: ((EventsStore.types[root._type] ? EventsStore.types[root._type].label : "OBJECT").split(" ")[0]).toUpperCase()
+                    text: ((EventsStore.types[root._type] ? EventsStore.types[root._type].label : qsTr("OBJECT")).split(" ")[0]).toUpperCase()
                           + (root._conf ? (" " + root._conf + "%") : "")
                     color: root._isThreat ? "#1a0f0c" : "#14110c"
                     font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.Bold; font.letterSpacing: 0.34
@@ -231,7 +231,7 @@ Item {
     Rectangle {                                          // tamper obscure
         visible: !_real && _type === "tamper"; anchors.fill: parent
         color: Qt.rgba(20/255,12/255,10/255,0.45)
-        Text { visible: !root.mini; anchors.centerIn: parent; text: "VIEW OBSTRUCTED"; color: Theme.bad
+        Text { visible: !root.mini; anchors.centerIn: parent; text: qsTr("VIEW OBSTRUCTED"); color: Theme.bad
             font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.8 }
     }
     Item {                                               // offline lost signal
@@ -239,7 +239,7 @@ Item {
         Rectangle { anchors.fill: parent; color: "#0a0a0a" }
         Column { anchors.centerIn: parent; spacing: 6
             EvIcon { anchors.horizontalCenter: parent.horizontalCenter; name: "offline"; size: 20; color: Theme.bad }
-            Text { text: "SIGNAL LOST"; color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 2.2 } }
+            Text { text: qsTr("SIGNAL LOST"); color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 11; font.letterSpacing: 2.2 } }
     }
 
     // ---- on-screen display (OSD) overlays ----

@@ -25,14 +25,14 @@ Item {
     }
 
     function landingOptions() {
-        var opts = [{ value: "live", label: "Live Monitor" }];
+        var opts = [{ value: "live", label: qsTr("Live Monitor") }];
         if (root.savedViewModel) {
             var vs = root.savedViewModel.list();
-            for (var i = 0; i < vs.length; i++) opts.push({ value: "view:" + vs[i].viewId, label: "View · " + vs[i].name });
+            for (var i = 0; i < vs.length; i++) opts.push({ value: "view:" + vs[i].viewId, label: qsTr("View · ") + vs[i].name });
         }
         if (root.cameraModel) {
             var gs = root.cameraModel.groupList();
-            for (var j = 0; j < gs.length; j++) opts.push({ value: "group:" + gs[j].id, label: "Group · " + gs[j].name });
+            for (var j = 0; j < gs.length; j++) opts.push({ value: "group:" + gs[j].id, label: qsTr("Group · ") + gs[j].name });
         }
         return opts;
     }
@@ -231,7 +231,7 @@ Item {
                         Row {
                             anchors.fill: parent
                             Repeater {
-                                model: [{ k: "SD", hd: false }, { k: "HD", hd: true }]
+                                model: [{ k: qsTr("SD"), hd: false }, { k: qsTr("HD"), hd: true }]
                                 delegate: Rectangle {
                                     required property var modelData
                                     width: 60; height: 30

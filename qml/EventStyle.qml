@@ -41,25 +41,25 @@ QtObject {
 
     function label(t) {
         switch (t) {
-        case "motion":          return "Motion";
-        case "motion_started":  return "Motion started";
-        case "motion_ended":    return "Motion ended";
-        case "motion_detected": return "Motion detected";
-        case "entered_scene":   return "Entered scene";
-        case "exited_scene":    return "Exited scene";
-        case "stopped":         return "Stopped";
-        case "loitering":       return "Loitering";
-        case "line_crossing":   return "Line crossing";
-        case "intrusion":       return "Intrusion";
-        case "region_entrance": return "Region entrance";
-        case "region_exiting":  return "Region exiting";
-        case "tamper":          return "Tamper";
-        case "scene_change":    return "Scene change";
-        case "video_loss":      return "Video loss";
-        case "face_detected":   return "Face detected";
-        case "defocus":         return "Defocus";
-        case "pir":             return "PIR";
-        case "camera_event":    return "Camera event";
+        case "motion":          return qsTr("Motion");
+        case "motion_started":  return qsTr("Motion started");
+        case "motion_ended":    return qsTr("Motion ended");
+        case "motion_detected": return qsTr("Motion detected");
+        case "entered_scene":   return qsTr("Entered scene");
+        case "exited_scene":    return qsTr("Exited scene");
+        case "stopped":         return qsTr("Stopped");
+        case "loitering":       return qsTr("Loitering");
+        case "line_crossing":   return qsTr("Line crossing");
+        case "intrusion":       return qsTr("Intrusion");
+        case "region_entrance": return qsTr("Region entrance");
+        case "region_exiting":  return qsTr("Region exiting");
+        case "tamper":          return qsTr("Tamper");
+        case "scene_change":    return qsTr("Scene change");
+        case "video_loss":      return qsTr("Video loss");
+        case "face_detected":   return qsTr("Face detected");
+        case "defocus":         return qsTr("Defocus");
+        case "pir":             return qsTr("PIR");
+        case "camera_event":    return qsTr("Camera event");
         default:
             var s = ("" + t).replace(/_/g, " ");
             return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : "Event";

@@ -58,7 +58,7 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 // contextual control — Size (Wall) or Sort (Sessions)
-                Text { text: rev.layoutMode === "wall" ? "Size" : "Sort"; color: Theme.ink3
+                Text { text: rev.layoutMode === "wall" ? qsTr("Size") : qsTr("Sort"); color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 11 }
 
                 // S / M / L (Wall only)

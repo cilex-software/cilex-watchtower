@@ -1158,7 +1158,7 @@ Item {
                                 MouseArea { anchors.fill: parent; anchors.margins: -4
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: { var cam = modal.c; root.openId = ""; root.openCamera(cam) } } }
-                            Text { text: "← → ESC"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                            Text { text: qsTr("← → ESC"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
                         }
                     }
                 }

@@ -811,7 +811,7 @@ Item {
                                         visible: tri._cur && tri._cur.restricted
                                         height: 18; width: rzT.implicitWidth + 12; color: "transparent"
                                         border.width: 1; border.color: Theme.badDim
-                                        Text { id: rzT; anchors.centerIn: parent; text: "RESTRICTED ZONE"; color: Theme.bad
+                                        Text { id: rzT; anchors.centerIn: parent; text: qsTr("RESTRICTED ZONE"); color: Theme.bad
                                             font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 0.9 }
                                     }
                                 }

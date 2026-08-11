@@ -186,21 +186,21 @@ Item {
             LoadingState {
                 anchors.centerIn: parent
                 visible: vsurf.active && !vsurf.playing && !vsurf.errored
-                label: "Connecting…"
+                label: qsTr("Connecting…")
             }
             Column {
                 anchors.centerIn: parent
                 spacing: 6
                 visible: root.camera && root.camera.live === CameraStatus.Offline
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 36; color: Theme.bad }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "NO SIGNAL"; color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 14; font.letterSpacing: 1.4 }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("NO SIGNAL"); color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 14; font.letterSpacing: 1.4 }
             }
             Column {
                 anchors.centerIn: parent
                 spacing: 6
                 visible: vsurf.errored && root.camera && root.camera.live !== CameraStatus.Offline
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "alert"; size: 32; color: Theme.warn }
-                Text { anchors.horizontalCenter: parent.horizontalCenter; text: "STREAM UNAVAILABLE"; color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.0 }
+                Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("STREAM UNAVAILABLE"); color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.0 }
             }
 
             // Live View switched off by an operator (go2rtc stopped) — a deliberate
@@ -213,8 +213,8 @@ Item {
                     anchors.centerIn: parent
                     spacing: 6
                     Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 36; color: Theme.ink3 }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "LIVE VIEW OFF"; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 14; font.letterSpacing: 1.4 }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "switched off by operator"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("LIVE VIEW OFF"); color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 14; font.letterSpacing: 1.4 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("switched off by operator"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11 }
                 }
             }
 
@@ -229,7 +229,7 @@ Item {
                 RowLayout {
                     anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 14; rightMargin: 16; topMargin: 12 }
                     spacing: 12
-                    IconButton { name: "back"; iconColor: "#ffffff"; hoverIcon: Theme.accent; tip: "Back"; onClicked: root.closed() }
+                    IconButton { name: "back"; iconColor: "#ffffff"; hoverIcon: Theme.accent; tip: qsTr("Back"); onClicked: root.closed() }
                     ColumnLayout {
                         spacing: 0
                         Text { text: root.camName; color: "#ffffff"; font.family: Theme.fontSans; font.pixelSize: 15; font.weight: Font.DemiBold }
@@ -357,7 +357,7 @@ Item {
                         implicitWidth: 36; implicitHeight: 30
                         color: hdMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.55)
                         border.width: 1; border.color: hdMa.containsMouse ? Theme.accent : Theme.line2
-                        Text { anchors.centerIn: parent; text: root.useMain ? "HD" : "SD"; color: hdMa.containsMouse ? Theme.bg : (root.useMain ? Theme.accent : "#ffffff"); font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
+                        Text { anchors.centerIn: parent; text: root.useMain ? qsTr("HD") : qsTr("SD"); color: hdMa.containsMouse ? Theme.bg : (root.useMain ? Theme.accent : "#ffffff"); font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
                         MouseArea { id: hdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.hdOverride = root.useMain ? 0 : 1 }
                     }
 
@@ -383,7 +383,7 @@ Item {
                         Row {
                             id: pbRow; anchors.centerIn: parent; spacing: 8
                             Icon { anchors.verticalCenter: parent.verticalCenter; name: "clip"; size: 14; color: pbMa.containsMouse ? Theme.bg : Theme.accent }
-                            Text { anchors.verticalCenter: parent.verticalCenter; text: "Open playback"; color: pbMa.containsMouse ? Theme.bg : Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                            Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Open playback"); color: pbMa.containsMouse ? Theme.bg : Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                         }
                         MouseArea { id: pbMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPlayback(root.camera ? root.camera.mac : "") }
                     }
@@ -415,7 +415,7 @@ Item {
                     Layout.topMargin: 14; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 8
                     spacing: 7
                     Text {
-                        text: "EVENTS"; color: Theme.ink3
+                        text: qsTr("EVENTS"); color: Theme.ink3
                         font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.4
                     }
                     Text {
@@ -555,7 +555,7 @@ Item {
                     Layout.topMargin: 14; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 8
                     spacing: 7
                     Text {
-                        text: "SAME GROUP"; color: Theme.ink3
+                        text: qsTr("SAME GROUP"); color: Theme.ink3
                         font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.4
                     }
                     Text {
@@ -609,7 +609,7 @@ Item {
                     visible: root.groupSiblings.length === 0
                     Layout.fillWidth: true
                     Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 4; Layout.bottomMargin: 12
-                    text: (root.camera && root.camera.groupName) ? "No other cameras in this group." : "This camera isn't in a group."
+                    text: (root.camera && root.camera.groupName) ? qsTr("No other cameras in this group.") : qsTr("This camera isn't in a group.")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.WordWrap
                     verticalAlignment: Text.AlignTop
                 }

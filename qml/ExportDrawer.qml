@@ -192,14 +192,14 @@ Item {
     readonly property string tzLabel: {
         var off = -(new Date(startMs).getTimezoneOffset());
         var sign = off >= 0 ? "+" : "−"; off = Math.abs(off);
-        return "UTC" + sign + pad(off / 60) + ":" + pad(off % 60);
+        return qsTr("UTC") + sign + pad(off / 60) + ":" + pad(off % 60);
     }
     readonly property string availLabel: {
         if (!frags.length || durMs <= 0) return "—";
         var cov = coveredMs(startMs, endMs);
-        if (cov >= durMs - 500) return "Continuous";
-        if (cov <= 0) return "No footage";
-        return "Partial · " + gapList.length + (gapList.length === 1 ? " gap" : " gaps");
+        if (cov >= durMs - 500) return qsTr("Continuous");
+        if (cov <= 0) return qsTr("No footage");
+        return qsTr("Partial · ") + gapList.length + (gapList.length === 1 ? " gap" : " gaps");
     }
     readonly property string effectivePurpose: purpose === "Other…" ? customPurpose.trim() : purpose
     readonly property string overlaySummary: {
@@ -253,10 +253,10 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 10; spacing: 8
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 1
-                    Text { text: "Export clip"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
-                    Text { text: "From timeline selection"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
+                    Text { text: qsTr("Export clip"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
+                    Text { text: qsTr("From timeline selection"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
-                IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Close"; onClicked: root.close() }
+                IconButton { name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Close"); onClicked: root.close() }
             }
         }
 
@@ -274,7 +274,7 @@ Item {
                 Rectangle {
                     implicitWidth: cancT.implicitWidth + 28; implicitHeight: 34
                     color: cancMa.containsMouse ? Theme.panel2 : "transparent"
-                    Text { id: cancT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                    Text { id: cancT; anchors.centerIn: parent; text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                     MouseArea { id: cancMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.close() }
                 }
                 // Export clip (primary)
@@ -285,7 +285,7 @@ Item {
                     Row {
                         id: expRow; anchors.centerIn: parent; spacing: 7
                         Icon { anchors.verticalCenter: parent.verticalCenter; name: "download"; size: 13; color: Theme.bg }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Export clip"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Export clip"); color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                     }
                     MouseArea { id: expMa; anchors.fill: parent; enabled: root.exportEnabled; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.confirming = true }
                 }
@@ -376,13 +376,13 @@ Item {
                     }
                     Text {
                         anchors.centerIn: parent; visible: root.previewSource == ""
-                        text: "No preview frame"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
+                        text: qsTr("No preview frame"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12
                     }
                     Rectangle {
                         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 6
                         color: Qt.rgba(11 / 255, 14 / 255, 18 / 255, 0.85)
                         implicitWidth: rib.implicitWidth + 12; implicitHeight: 18
-                        Text { id: rib; anchors.centerIn: parent; text: "PREVIEW · NOT LIVE"; color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.6 }
+                        Text { id: rib; anchors.centerIn: parent; text: qsTr("PREVIEW · NOT LIVE"); color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.6 }
                     }
                 }
 
@@ -396,13 +396,13 @@ Item {
                 KV { k: "Saves to"; v: Artifacts.exportDir }
 
                 // --- range ---
-                SecLabel { text: "Range" }
+                SecLabel { text: qsTr("Range") }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 8
                     // start
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 6
-                        Text { text: "Start"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+                        Text { text: qsTr("Start"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
                         Rectangle {
                             Layout.fillWidth: true; implicitHeight: 34
                             color: Theme.bg; border.width: 1; border.color: startInp.activeFocus ? Theme.accent : Theme.line2
@@ -428,7 +428,7 @@ Item {
                     // end
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 6
-                        Text { text: "End"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
+                        Text { text: qsTr("End"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.capitalization: Font.AllUppercase; font.letterSpacing: 1.2; font.weight: Font.DemiBold }
                         Rectangle {
                             Layout.fillWidth: true; implicitHeight: 34
                             color: Theme.bg; border.width: 1; border.color: endInp.activeFocus ? Theme.accent : Theme.line2
@@ -454,14 +454,14 @@ Item {
                 }
                 RowLayout {
                     Layout.fillWidth: true; Layout.topMargin: 2; spacing: 4
-                    Nudge { label: "−1s"; onClicked: root.endMs = root.clampEnd(root.endMs - 1000) }
-                    Nudge { label: "+1s"; onClicked: root.endMs = root.clampEnd(root.endMs + 1000) }
-                    Nudge { label: "Set start from playhead"; onClicked: root.startMs = root.clampStart(root.playheadMs) }
+                    Nudge { label: qsTr("−1s"); onClicked: root.endMs = root.clampEnd(root.endMs - 1000) }
+                    Nudge { label: qsTr("+1s"); onClicked: root.endMs = root.clampEnd(root.endMs + 1000) }
+                    Nudge { label: qsTr("Set start from playhead"); onClicked: root.startMs = root.clampStart(root.playheadMs) }
                     Item { Layout.fillWidth: true }
                 }
 
                 // --- quality: high-res original vs standard sub ---
-                SecLabel { text: "Quality" }
+                SecLabel { text: qsTr("Quality") }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 6
                     // High quality (HEVC 1440p original) — grays out (with a tooltip)
@@ -477,9 +477,9 @@ Item {
                         opacity: root.highAvailable ? 1 : 0.45
                         Column {
                             anchors.centerIn: parent; spacing: 1
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "High quality"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("High quality")
                                 color: hqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "1440p · original"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("1440p · original")
                                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
                         }
                         MouseArea {
@@ -512,9 +512,9 @@ Item {
                         border.width: 1; border.color: on ? Theme.accent : Theme.line2
                         Column {
                             anchors.centerIn: parent; spacing: 1
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Standard quality"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Standard quality")
                                 color: sqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "720p · smaller file"
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("720p · smaller file")
                                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
                         }
                         MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -523,12 +523,12 @@ Item {
                 }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
-                    text: "High quality is the full-resolution original (1440p, kept a limited time); standard is the smaller, universally-playable copy. The original ages out of storage after a few days — once it has, only standard is available for that footage."
+                    text: qsTr("High quality is the full-resolution original (1440p, kept a limited time); standard is the smaller, universally-playable copy. The original ages out of storage after a few days — once it has, only standard is available for that footage.")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; wrapMode: Text.WordWrap; lineHeight: 1.3
                 }
 
                 // --- compression (client-side local re-encode) ---
-                SecLabel { text: "Compression" }
+                SecLabel { text: qsTr("Compression") }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 6
                     Repeater {
@@ -553,10 +553,10 @@ Item {
                 }
 
                 // --- options ---
-                SecLabel { text: "Options" }
-                OptCheck { label: "Burn in timestamp overlay"; isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
-                OptCheck { label: "Burn in camera-name overlay"; isOn: root.overlayName; onToggled: root.overlayName = !root.overlayName }
-                OptCheck { label: "Include audio"; isOn: root.audioOn; active: false; hint: "(unavailable — video export only)" }
+                SecLabel { text: qsTr("Options") }
+                OptCheck { label: qsTr("Burn in timestamp overlay"); isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
+                OptCheck { label: qsTr("Burn in camera-name overlay"); isOn: root.overlayName; onToggled: root.overlayName = !root.overlayName }
+                OptCheck { label: qsTr("Include audio"); isOn: root.audioOn; active: false; hint: qsTr("(unavailable — video export only)") }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
                     text: root.willTranscode
@@ -566,7 +566,7 @@ Item {
                 }
 
                 // --- timeline mode: wallclock (freeze gaps) vs compact (drop gaps) ---
-                SecLabel { text: "Timeline" }
+                SecLabel { text: qsTr("Timeline") }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 6
                     Repeater {
@@ -592,7 +592,7 @@ Item {
                 // --- purpose (required) ---
                 RowLayout {
                     Layout.fillWidth: true; Layout.topMargin: 8; spacing: 4
-                    Text { text: "Purpose"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.9 }
+                    Text { text: qsTr("Purpose"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; font.capitalization: Font.AllUppercase; font.letterSpacing: 0.9 }
                     Text { text: "*"; color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 11 }
                     Item { Layout.fillWidth: true }
                 }
@@ -635,7 +635,7 @@ Item {
                         text: root.customPurpose
                         onTextChanged: root.customPurpose = text
                     }
-                    Text { visible: custInp.text === ""; anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; text: "Describe the purpose…"; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13 }
+                    Text { visible: custInp.text === ""; anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Describe the purpose…"); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13 }
                 }
 
                 // --- gap warning ---
@@ -650,7 +650,7 @@ Item {
                         spacing: 4
                         Text {
                             width: parent.width; wrapMode: Text.WordWrap
-                            text: "⚠ Selection spans " + (root.gapList.length === 1 ? "a recording gap" : root.gapList.length + " recording gaps") + ". " + (root.mode === "compact" ? "These gaps will be dropped from the clip:" : "The export will freeze-frame through:")
+                            text: qsTr("⚠ Selection spans ") + (root.gapList.length === 1 ? "a recording gap" : root.gapList.length + " recording gaps") + ". " + (root.mode === "compact" ? "These gaps will be dropped from the clip:" : "The export will freeze-frame through:")
                             color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold; lineHeight: 1.3
                         }
                         Repeater {
@@ -687,8 +687,8 @@ Item {
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
                 height: 56; color: Theme.panel
                 Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
-                Text { anchors.left: parent.left; anchors.leftMargin: 22; anchors.verticalCenter: parent.verticalCenter; text: "Confirm export"; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
-                IconButton { anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: "Cancel"; onClicked: root.confirming = false }
+                Text { anchors.left: parent.left; anchors.leftMargin: 22; anchors.verticalCenter: parent.verticalCenter; text: qsTr("Confirm export"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.DemiBold }
+                IconButton { anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; name: "x"; iconColor: Theme.ink2; hoverIcon: Theme.ink; hoverBg: Theme.panel2; hoverBorder: Theme.line2; tip: qsTr("Cancel"); onClicked: root.confirming = false }
             }
 
             ColumnLayout {
@@ -698,7 +698,7 @@ Item {
                 spacing: 12
                 Text {
                     Layout.fillWidth: true; wrapMode: Text.WordWrap; textFormat: Text.StyledText
-                    text: "You are about to export footage from <b>" + root.camLabel + "</b> for <b>"
+                    text: qsTr("You are about to export footage from <b>") + root.camLabel + "</b> for <b>"
                           + root.fmtClockShort(root.startMs) + " – " + root.fmtClockShort(root.endMs)
                           + "</b> (<b>" + root.fmtDur(root.durMs) + "</b>) for purpose <b>"
                           + (root.effectivePurpose === "" ? "—" : root.effectivePurpose) + "</b>."
@@ -712,11 +712,11 @@ Item {
                         id: factCol
                         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                         spacing: 4
-                        Text { text: "• MP4 · " + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.quality === "high" && !root.highAvailable; text: "• High-quality original unavailable for this range — exporting standard (720p)"; color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { text: "• This export will be visible to your supervisor"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { text: "• Estimated size: ~ " + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.willTranscode; text: "• Re-encoded on this machine after download" + ((root.overlayTs || root.overlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { text: qsTr("• MP4 · ") + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.quality === "high" && !root.highAvailable; text: qsTr("• High-quality original unavailable for this range — exporting standard (720p)"); color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { text: qsTr("• This export will be visible to your supervisor"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { text: qsTr("• Estimated size: ~ ") + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.willTranscode; text: qsTr("• Re-encoded on this machine after download") + ((root.overlayTs || root.overlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                 }
             }
@@ -732,13 +732,13 @@ Item {
                     Rectangle {
                         implicitWidth: cT.implicitWidth + 28; implicitHeight: 34
                         color: cMa.containsMouse ? Theme.panel2 : "transparent"
-                        Text { id: cT; anchors.centerIn: parent; text: "Cancel"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
+                        Text { id: cT; anchors.centerIn: parent; text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                         MouseArea { id: cMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.confirming = false }
                     }
                     Rectangle {
                         implicitWidth: okT.implicitWidth + 28; implicitHeight: 34
                         color: okMa.containsMouse ? "#f0b04e" : Theme.accent
-                        Text { id: okT; anchors.centerIn: parent; text: "Confirm export"; color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { id: okT; anchors.centerIn: parent; text: qsTr("Confirm export"); color: Theme.bg; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose, root.effectiveQuality,

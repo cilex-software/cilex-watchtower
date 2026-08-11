@@ -39,22 +39,22 @@ QtObject {
     })
 
     readonly property var types: ({
-        "person":     { label:"Person detected",  code:"AI_PERSON",  icon:"person" },
-        "vehicle":    { label:"Vehicle detected", code:"AI_VEHICLE", icon:"vehicle" },
-        "motion":     { label:"Motion",           code:"MOTION",     icon:"motion" },
-        "line_cross": { label:"Line crossing",    code:"LINE_CROSS", icon:"line_cross" },
-        "loiter":     { label:"Loitering",        code:"LOITER",     icon:"loiter" },
-        "tamper":     { label:"Camera tamper",    code:"TAMPER",     icon:"tamper" },
-        "offline":    { label:"Camera offline",   code:"CONN_LOST",  icon:"offline" }
+        "person":     { label:qsTr("Person detected"),  code:"AI_PERSON",  icon:"person" },
+        "vehicle":    { label:qsTr("Vehicle detected"), code:"AI_VEHICLE", icon:"vehicle" },
+        "motion":     { label:qsTr("Motion"),           code:"MOTION",     icon:"motion" },
+        "line_cross": { label:qsTr("Line crossing"),    code:"LINE_CROSS", icon:"line_cross" },
+        "loiter":     { label:qsTr("Loitering"),        code:"LOITER",     icon:"loiter" },
+        "tamper":     { label:qsTr("Camera tamper"),    code:"TAMPER",     icon:"tamper" },
+        "offline":    { label:qsTr("Camera offline"),   code:"CONN_LOST",  icon:"offline" }
     })
 
     // disposition vocabulary recorded when an event is closed
     readonly property var dispoDefs: ({
-        "verified":    { label:"Verified threat",    cls:"danger", icon:"escalate" },
-        "dispatched":  { label:"Dispatched",         cls:"danger", icon:"dispatch" },
-        "authorized":  { label:"Authorized activity", cls:"good",  icon:"check" },
-        "false_alarm": { label:"False alarm",        cls:"",       icon:"x" },
-        "env":         { label:"Environmental",      cls:"",       icon:"x" }
+        "verified":    { label:qsTr("Verified threat"),    cls:"danger", icon:"escalate" },
+        "dispatched":  { label:qsTr("Dispatched"),         cls:"danger", icon:"dispatch" },
+        "authorized":  { label:qsTr("Authorized activity"), cls:"good",  icon:"check" },
+        "false_alarm": { label:qsTr("False alarm"),        cls:"",       icon:"x" },
+        "env":         { label:qsTr("Environmental"),      cls:"",       icon:"x" }
     })
 
     readonly property var sevRank: ({ "critical":0, "high":1, "medium":2, "low":3 })
@@ -80,7 +80,7 @@ QtObject {
         var t = new Date(store.now.getTime() - o.ago * 1000);
         var subject = (o.type === "person" || o.type === "loiter" || o.type === "line_cross") ? "person"
                     : (o.type === "vehicle" ? "vehicle" : "none");
-        var e = { id:"EV-" + (7400 + uid), ts:t, status:"new", conf:null, sx:48, sy:8, tod:"night",
+        var e = { id:qsTr("EV-") + (7400 + uid), ts:t, status:"new", conf:null, sx:48, sy:8, tod:"night",
                   subject:subject, bookmarked:false, assignedTo:"", dispo:null, note:"", restricted:false, durationSec:0 };
         for (var k in o) e[k] = o[k];          // raw overrides defaults
         e.cam = store.cams[o.cam];             // resolve camera key → object

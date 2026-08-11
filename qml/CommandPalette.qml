@@ -42,7 +42,7 @@ Item {
                 if (mm(c.name) || mm(c.camId) || mm(c.ip) || mm(c.groupName))
                     cr.push({ type: "camera", title: c.name, subtitle: (c.camId || c.ip) + " · " + (c.groupName || ""), glyph: "monitor", isCam: true, live: c.live, recording: c.recording, data: c });
             }
-            if (cr.length) groups.push({ label: "Cameras", count: cr.length, rows: cr.slice(0, 5) });
+            if (cr.length) groups.push({ label: qsTr("Cameras"), count: cr.length, rows: cr.slice(0, 5) });
         }
         if (cameraModel) {
             var gs = cameraModel.groupList(), gr = [];
@@ -50,15 +50,15 @@ Item {
                 var g = gs[j];
                 if (mm(g.name)) gr.push({ type: "group", title: g.name, subtitle: (g.total || 0) + " cameras", glyph: "layers", glyphColor: Theme.ink3, data: g });
             }
-            if (gr.length) groups.push({ label: "Groups", count: gr.length, rows: gr.slice(0, 5) });
+            if (gr.length) groups.push({ label: qsTr("Groups"), count: gr.length, rows: gr.slice(0, 5) });
         }
         if (savedViewModel) {
             var vs = savedViewModel.list(), vr = [];
             for (var k = 0; k < vs.length; k++) {
                 var v = vs[k];
-                if (mm(v.name)) vr.push({ type: "view", title: v.name, subtitle: (v.shared ? "Shared" : "Mine") + " · " + LayoutSpec.label(v.layout) + " layout", glyph: "grid", glyphColor: Theme.ink3, data: v });
+                if (mm(v.name)) vr.push({ type: "view", title: v.name, subtitle: (v.shared ? qsTr("Shared") : qsTr("Mine")) + " · " + LayoutSpec.label(v.layout) + " layout", glyph: "grid", glyphColor: Theme.ink3, data: v });
             }
-            if (vr.length) groups.push({ label: "Saved Views", count: vr.length, rows: vr.slice(0, 5) });
+            if (vr.length) groups.push({ label: qsTr("Saved Views"), count: vr.length, rows: vr.slice(0, 5) });
         }
         if (eventModel) {
             var es = eventModel.all(), er = [];
@@ -67,16 +67,16 @@ Item {
                 if (mm(e.desc) || mm(e.camName) || mm(e.type))
                     er.push({ type: "event", title: e.desc, subtitle: ("" + e.type).toUpperCase() + " · " + e.time, glyph: eventGlyph(e.type), glyphColor: eventColor(e.type), data: e });
             }
-            if (er.length) groups.push({ label: "Events", count: er.length, rows: er.slice(0, 5) });
+            if (er.length) groups.push({ label: qsTr("Events"), count: er.length, rows: er.slice(0, 5) });
         }
         if (snapshotModel) {
             var ss = snapshotModel.all(), sr = [];
             for (var p = 0; p < ss.length; p++) {
                 var s = ss[p];
                 if (mm(s.title) || mm(s.camera) || mm("snapshot"))
-                    sr.push({ type: "clip", title: s.title, subtitle: "Snapshot · " + (s.camera || ""), glyph: "shot", glyphColor: Theme.ink2, data: s });
+                    sr.push({ type: "clip", title: s.title, subtitle: qsTr("Snapshot · ") + (s.camera || ""), glyph: "shot", glyphColor: Theme.ink2, data: s });
             }
-            if (sr.length) groups.push({ label: "Clips & Snapshots", count: sr.length, rows: sr.slice(0, 5) });
+            if (sr.length) groups.push({ label: qsTr("Clips & Snapshots"), count: sr.length, rows: sr.slice(0, 5) });
         }
         var flat = [], display = [];
         for (var gi = 0; gi < groups.length; gi++) {
@@ -174,7 +174,7 @@ Item {
                 Text {
                     visible: searchInput.text === ""
                     anchors.left: parent.left; anchors.leftMargin: 50; anchors.verticalCenter: parent.verticalCenter
-                    text: "Search cameras, groups, views, events…"
+                    text: qsTr("Search cameras, groups, views, events…")
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 16
                 }
             }
@@ -256,7 +256,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: root.built.flat.length === 0
-                    text: root.query === "" ? "Type to search" : "No matches for “" + root.query + "”"
+                    text: root.query === "" ? qsTr("Type to search") : qsTr("No matches for “") + root.query + "”"
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
                 }
             }
@@ -277,9 +277,9 @@ Item {
                             Text { id: kt; anchors.centerIn: parent; text: parent.parent.k; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 } }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: parent.label; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                     }
-                    Hint { k: "↑↓"; label: "Navigate" }
-                    Hint { k: "↵"; label: "Open" }
-                    Hint { k: "Esc"; label: "Close" }
+                    Hint { k: "↑↓"; label: qsTr("Navigate") }
+                    Hint { k: "↵"; label: qsTr("Open") }
+                    Hint { k: "Esc"; label: qsTr("Close") }
                     Item { Layout.fillWidth: true }
                     Text { text: root.countSummary(); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                 }

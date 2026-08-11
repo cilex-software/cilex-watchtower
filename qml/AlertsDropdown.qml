@@ -32,14 +32,14 @@ C.Popup {
             Layout.margins: 14
             Text {
                 Layout.fillWidth: true
-                text: "Alerts"
+                text: qsTr("Alerts")
                 color: Theme.ink
                 font.family: Theme.fontSans
                 font.pixelSize: Theme.fsTitle
                 font.weight: Font.DemiBold
             }
             Text {
-                text: "View all →"
+                text: qsTr("View all →")
                 color: Theme.accent
                 font.family: Theme.fontSans
                 font.pixelSize: 11
@@ -68,7 +68,7 @@ C.Popup {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: (root.eventModel && root.eventModel.loading) ? "Loading alerts…" : "No alerts"
+                    text: (root.eventModel && root.eventModel.loading) ? qsTr("Loading alerts…") : qsTr("No alerts")
                     color: Theme.ink2
                     font.family: Theme.fontSans
                     font.pixelSize: Theme.fsSmall

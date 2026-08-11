@@ -871,7 +871,7 @@ Item {
         _skWait.stop(); root._skWaiting = false;
         if (!ok) root._skStepFail++;
         console.log("[SK] s=" + root._skLabel + " req=" + root._skReq + " act=" + Math.round(root._skAct) +
-                    " lat=" + lat + " " + (ok ? "ok" : "TIMEOUT") + " t=" + Date.now());
+                    " lat=" + lat + " " + (ok ? "ok" : qsTr("TIMEOUT")) + " t=" + Date.now());
         root._skJi++; root._skSeek();
     }
 
@@ -1703,7 +1703,7 @@ Item {
                 console.log("[CHURN] SUMMARY switches=" + churnTest.done + " frags=" + root.frags.length
                             + " frameSeq=" + root._frameSeq + " frameMode=" + root.frameMode
                             + " cache=" + FrameCache.frames + "f/" + FrameCache.bytesMB.toFixed(1) + "MB"
-                            + " harv=" + harvester.mode + " -> " + (pass ? "PASS" : "FAIL"));
+                            + " harv=" + harvester.mode + " -> " + (pass ? qsTr("PASS") : qsTr("FAIL")));
                 console.log("[CHURN] DONE");
                 Qt.quit();
             }
@@ -2029,7 +2029,7 @@ Item {
                 Icon { anchors.verticalCenter: parent.verticalCenter; name: "off"; size: 14; color: Theme.bad }
                 Text { anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 24; elide: Text.ElideRight
-                    text: "Unstable build for playback — this launch runs Qt " + (qtBanner._v.join(".")
+                    text: qsTr("Unstable build for playback — this launch runs Qt ") + (qtBanner._v.join(".")
                           ) + " (GStreamer backend), which can crash on seeks. Close and start via ./run.sh (Qt 6.8.3)."
                     color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
             }
@@ -2258,9 +2258,9 @@ Item {
                         readonly property string qualTip: {
                             var f = root.fragAt(player.position / 1000);
                             if (!f) return "";
-                            var c = f.codec === "hevc" ? "HEVC" : "H.264";
+                            var c = f.codec === "hevc" ? qsTr("HEVC") : "H.264";
                             return (f.resolution && f.resolution !== "") ? f.resolution + " (" + c + ")"
-                                   : (f.codec === "hevc" ? "HD 1440p (HEVC)" : "SD 720p (H.264)");
+                                   : (f.codec === "hevc" ? qsTr("HD 1440p (HEVC)") : qsTr("SD 720p (H.264)"));
                         }
                         C.ToolTip.text: qualTip
                         MouseArea { id: qualMa; anchors.fill: parent; hoverEnabled: true }

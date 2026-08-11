@@ -63,11 +63,11 @@ ColumnLayout {
         onTriggered: if (cal.ymd(new Date()) !== cal._builtFor) cal.rebuild()
     }
 
-    // header: "FOOTAGE" + status (pending / N days)
+    // header: qsTr("FOOTAGE") + status (pending / N days)
     RowLayout {
         Layout.fillWidth: true; Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 6
         Text {
-            text: "Footage"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+            text: qsTr("Footage"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
             font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
         }
         Item { Layout.fillWidth: true }
@@ -151,12 +151,12 @@ ColumnLayout {
         RowLayout {
             spacing: 5
             Rectangle { width: 3; height: 3; radius: 1.5; color: Theme.accent }
-            Text { text: "has footage"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+            Text { text: qsTr("has footage"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
         }
         RowLayout {
             spacing: 5
             Rectangle { width: 7; height: 7; color: "transparent"; border.width: 1; border.color: Theme.line2 }
-            Text { text: "today"; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+            Text { text: qsTr("today"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
         }
         Item { Layout.fillWidth: true }
     }

@@ -32,7 +32,7 @@ Item {
         var off = -(new Date(root.now).getTimezoneOffset());
         var sign = off >= 0 ? "+" : "−"; off = Math.abs(off);
         var h = Math.floor(off / 60), m = off % 60;
-        return "UTC" + sign + h + (m ? (":" + (m < 10 ? "0" : "") + m) : "");
+        return qsTr("UTC") + sign + h + (m ? (":" + (m < 10 ? "0" : "") + m) : "");
     }
 
     Rectangle {
@@ -123,7 +123,7 @@ Item {
                     Text {
                         id: kbd
                         anchors.centerIn: parent
-                        text: "CTRL K"
+                        text: qsTr("CTRL K")
                         color: Theme.ink3
                         font.family: Theme.fontMono
                         font.pixelSize: 10
@@ -240,7 +240,7 @@ Item {
                 MouseArea { id: spMa; anchors.fill: parent; hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor; onClicked: root.toggleSidePanelRequested() }
                 C.ToolTip.visible: spMa.containsMouse
-                C.ToolTip.text: root.sidePanelOpen ? "Hide side panel" : "Show side panel"
+                C.ToolTip.text: root.sidePanelOpen ? qsTr("Hide side panel") : qsTr("Show side panel")
                 C.ToolTip.delay: 400
             }
 
