@@ -73,10 +73,13 @@ Item {
                             font.weight: Font.DemiBold
                             font.letterSpacing: -0.16
                         }
-                        // Build identifier (short git SHA) — visible at a glance
-                        // so a relaunch confirms which binary is running.
+                        // Version + build identifier. The version answers "is this
+                        // the latest?" without a lookup; the short git SHA still
+                        // identifies the exact binary, so a relaunch confirms which
+                        // one is running and a bug report pins it precisely.
                         Text {
-                            text: (typeof wtBuild !== "undefined") ? wtBuild : "dev"
+                            text: ((typeof wtVersion !== "undefined" && wtVersion !== "") ? wtVersion + "  " : "")
+                                  + ((typeof wtBuild !== "undefined") ? wtBuild : "dev")
                             color: Theme.ink3
                             font.family: Theme.fontMono
                             font.pixelSize: 10

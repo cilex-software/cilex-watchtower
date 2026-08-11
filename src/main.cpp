@@ -708,6 +708,9 @@ int main(int argc, char *argv[])
     // confirms which binary is running. Set via CMake compile definition.
 #ifdef WT_GIT_SHA
     engine.rootContext()->setContextProperty("wtBuild", QStringLiteral(WT_GIT_SHA));
+    // Product version beside the build SHA: the SHA identifies the exact binary,
+    // the version is what an operator can quote when asked "are you on the latest?"
+    engine.rootContext()->setContextProperty("wtVersion", QStringLiteral(WT_VERSION));
 #else
     engine.rootContext()->setContextProperty("wtBuild", QStringLiteral("dev"));
 #endif
