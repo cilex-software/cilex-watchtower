@@ -246,7 +246,7 @@ Item {
         // failed pipelines is cheap) so it is FRESHLY recreated, and reconnects,
         // when Live View is switched back on (otherwise the players stay stuck on
         // STREAM UNAVAILABLE and never retry).
-        // Self-heal a STUCK tile (operator-reported: "STREAM UNAVAILABLE" while the
+        // Self-heal a STUCK tile (operator-reported: qsTr("STREAM UNAVAILABLE") while the
         // badges still read LIVE, cleared only by navigating away and back).
         //
         // VideoSurface's reconnect() re-assigns the same source on the SAME
@@ -265,13 +265,13 @@ Item {
         Timer {
             id: recycleHold                      // pipeline fully torn down before rebuild
             interval: 250
-            onTriggered: _recycling = false
+            onTriggered: base._recycling = false
         }
         Timer {
             id: errRecycle
-            interval: _recycleBackoff[Math.min(_recycleTry, _recycleBackoff.length - 1)]
+            interval: base._recycleBackoff[Math.min(base._recycleTry, base._recycleBackoff.length - 1)]
             repeat: false
-            running: root.streamErrored && !_recycling && root.videoActive
+            running: root.streamErrored && !base._recycling && root.videoActive
                      && root.liveViewEnabled && root.liveDecodeAllowed
             onTriggered: {
                 if (!root.streamErrored) return;
@@ -280,21 +280,21 @@ Item {
                 // VideoSurface: warnings in the flight recorder across the whole
                 // incident window, which is why this had no measurement at all.
                 console.warn("[WT-TILE] recycling stuck pipeline ip=" + root.ip
-                             + " try=" + (_recycleTry + 1));
-                _recycleTry = Math.min(_recycleTry + 1, _recycleBackoff.length - 1);
-                _recycling = true;          // drops the Loader -> VideoSurface destroyed
+                             + " try=" + (base._recycleTry + 1));
+                base._recycleTry = Math.min(base._recycleTry + 1, base._recycleBackoff.length - 1);
+                base._recycling = true;          // drops the Loader -> VideoSurface destroyed
                 recycleHold.restart();           // ...and rebuilt fresh on release
             }
         }
         Connections {                          // frames back -> forget the backoff
             target: root
-            function onStreamPlayingChanged() { if (root.streamPlaying) _recycleTry = 0 }
+            function onStreamPlayingChanged() { if (root.streamPlaying) base._recycleTry = 0 }
         }
 
         Loader {
             id: videoLoader
             anchors.fill: parent
-            active: !_recycling && root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
+            active: !base._recycling && root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
                 url: root.streamUrl
@@ -334,7 +334,7 @@ Item {
         LoadingState {
             anchors.centerIn: parent
             visible: root.hasStream && !root.streamPlaying && !root.streamErrored && root.liveDecodeAllowed
-            label: "Connecting…"
+            label: qsTr("Connecting…")
             ringSize: 18
         }
 
@@ -372,12 +372,12 @@ Item {
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 28; color: Theme.bad }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "NO SIGNAL"; color: Theme.bad
+                    text: qsTr("NO SIGNAL"); color: Theme.bad
                     font.family: Theme.fontMono; font.pixelSize: 13; font.letterSpacing: 1.3
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "last seen " + root.lastSeen; color: Theme.ink3
+                    text: qsTr("last seen ") + root.lastSeen; color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 10
                 }
             }
@@ -415,12 +415,12 @@ Item {
                 Icon { anchors.horizontalCenter: parent.horizontalCenter; name: "off"; size: 26; color: Theme.ink3 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "LIVE VIEW OFF"; color: Theme.ink2
+                    text: qsTr("LIVE VIEW OFF"); color: Theme.ink2
                     font.family: Theme.fontMono; font.pixelSize: 12; font.letterSpacing: 1.1
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "switched off by operator"; color: Theme.ink3
+                    text: qsTr("switched off by operator"); color: Theme.ink3
                     font.family: Theme.fontSans; font.pixelSize: 10
                 }
             }
@@ -482,7 +482,7 @@ Item {
                     height: 14; radius: 2; width: snapLbl.implicitWidth + 9
                     color: Qt.rgba(0, 0, 0, 0.55); border.width: 1; border.color: Theme.line2
                     Text {
-                        id: snapLbl; anchors.centerIn: parent; text: "◌ SNAPSHOT"
+                        id: snapLbl; anchors.centerIn: parent; text: qsTr("◌ SNAPSHOT")
                         color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 0.6
                     }
                 }
@@ -616,7 +616,7 @@ Item {
                 border.color: (hdMa.containsMouse || on) ? Theme.accent : Theme.line2
                 Text {
                     anchors.centerIn: parent
-                    text: parent.on ? "HD" : "SD"
+                    text: parent.on ? qsTr("HD") : qsTr("SD")
                     color: (hdMa.containsMouse || parent.on) ? Theme.bg : Theme.ink
                     font.family: Theme.fontMono
                     font.pixelSize: 10
@@ -649,7 +649,7 @@ Item {
                         Ptz.probe(root.camId);   // free, cached, never touches the camera
                 }
                 Text {
-                    id: afTileTxt; anchors.centerIn: parent; text: "AF"
+                    id: afTileTxt; anchors.centerIn: parent; text: qsTr("AF")
                     color: afTileMa.containsMouse ? Theme.bg : Theme.ink
                     font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.Bold
                 }
@@ -659,15 +659,15 @@ Item {
                     onClicked: Ptz.focusAutoRequest(root.camId)
                 }
             }
-            TileAction { name: "playback"; tip: "Open playback"; onClicked: root.played() }
-            TileAction { name: "shot"; tip: "Capture snapshot"; onClicked: root.captureSnapshot() }
+            TileAction { name: "playback"; tip: qsTr("Open playback"); onClicked: root.played() }
+            TileAction { name: "shot"; tip: qsTr("Capture snapshot"); onClicked: root.captureSnapshot() }
             TileToggle {
                 name: "star"
                 on: root.favorite
-                tip: root.favorite ? "Remove from favorites" : "Add to favorites"
+                tip: root.favorite ? qsTr("Remove from favorites") : qsTr("Add to favorites")
                 onClicked: root.favoriteToggled()
             }
-            TileAction { name: "newtab"; tip: "Open in new tab"; onClicked: root.openedNewTab() }
+            TileAction { name: "newtab"; tip: qsTr("Open in new tab"); onClicked: root.openedNewTab() }
             TileAction { visible: root.spanned; name: "split"; tip: qsTr("Split into 1×1 cells")
                          onClicked: root.splitRequested() }
         }
