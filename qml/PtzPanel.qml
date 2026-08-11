@@ -96,12 +96,37 @@ Rectangle {
         Icon { anchors.centerIn: parent; name: hb.glyph; size: 15
                rotation: hb.glyphRotation
                color: hma.pressed ? Theme.bg : "#ffffff" }
+        // A CLICK must move the lens far enough to see. Passing the raw press/release
+        // through sent move+stop ~60ms apart (measured in the flight recorder:
+        // 14:16:28.383 move -> 14:16:28.444 stop), which on a motorised varifocal is
+        // an imperceptible nudge — but ANY lens movement makes the camera re-run
+        // autofocus, so the only visible result was a refocus hunt. That is the
+        // operator's "it goes into focus mode instead of zooming".
+        //
+        // So a tap is held open for minStepMs before stopping, while a real press-and-
+        // hold still runs for as long as the button is down. Both end in exactly one
+        // stopped() — the actuator is never left running.
+        property int minStepMs: 400
+        property bool _down: false
+        property bool _stopSent: false
+        Timer {
+            id: minStep
+            interval: hb.minStepMs; repeat: false
+            onTriggered: if (!hb._down && !hb._stopSent) { hb._stopSent = true; hb.stopped() }
+        }
         MouseArea {
             id: hma; anchors.fill: parent; hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onPressed: hb.started()
-            onReleased: hb.stopped()
-            onCanceled: hb.stopped()
+            onPressed: { hb._down = true; hb._stopSent = false; minStep.restart(); hb.started() }
+            onReleased: {
+                hb._down = false;
+                if (!minStep.running && !hb._stopSent) { hb._stopSent = true; hb.stopped() }
+                // else: the floor is still running and will stop it on expiry
+            }
+            onCanceled: {
+                hb._down = false;
+                if (!hb._stopSent) { hb._stopSent = true; minStep.stop(); hb.stopped() }
+            }
         }
         ToolTip.text: hb.tip
         ToolTip.visible: hb.tip !== "" && hma.containsMouse
