@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QVersionNumber>
@@ -272,6 +273,14 @@ int main(int argc, char *argv[])
     // recorder before QGuiApplication captures QPA/plugin startup warnings too —
     // on Windows this file is the only journal there is.
     QGuiApplication::setApplicationName(QStringLiteral("Watchtower"));
+    // Desktop-shell identity. Without these the Ubuntu dock cannot match this
+    // window to any .desktop entry and falls back to a generic gear icon.
+    // setDesktopFileName is the one that matters on Wayland (the shell matches
+    // by app-id, not by window class); setWindowIcon covers X11, the window
+    // manager's own decorations and the alt-tab switcher. The logo is already
+    // in the binary — NavRail draws it from the same resource path.
+    QGuiApplication::setDesktopFileName(QStringLiteral("cilex-watchtower"));
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/images/cilex-logo.png")));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
     QGuiApplication::setOrganizationName(QStringLiteral("Cilex Vision"));
 #ifdef WT_GIT_SHA

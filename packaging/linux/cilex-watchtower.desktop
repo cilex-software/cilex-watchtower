@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Cilex Watchtower
+GenericName=Surveillance operator client
+Comment=Live wall, playback and triage for the Cilex Vision platform
+Exec=__EXEC__
+Icon=cilex-watchtower
+Terminal=false
+Categories=AudioVideo;Video;Security;
+Keywords=cctv;surveillance;cameras;vms;watchtower;
+# X11 matches the window by class; Wayland matches by app-id, which the app sets
+# via QGuiApplication::setDesktopFileName("cilex-watchtower"). Both must agree
+# with THIS file's basename or the shell falls back to a generic icon.
+StartupWMClass=watchtower
+StartupNotify=true
