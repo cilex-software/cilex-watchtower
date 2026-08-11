@@ -169,9 +169,27 @@ Item {
                 onErrorOccurred: (err, str) => console.warn("VideoSurface:", root.url, "-", str)
             }
 
+            // INITIAL connects are serialised through the same global coordinator as
+            // reconnects. Reconnects were already rate-limited; first connects were
+            // not — so every page change on a large wall fired all 16 live-decode
+            // slots at once, 16 simultaneous RTSP negotiations plus 16 VA-API decode
+            // contexts. Measured on the 130-camera wall (9 pages): substantially the
+            // whole budget came up "Connecting…" then STREAM UNAVAILABLE together.
+            // Staggering costs a progressive fill — each tile already shows its
+            // snapshot until frames flow, so the wall is never blank — and buys tiles
+            // that actually connect.
+            property bool _playPending: false
             function maybePlay() {
-                if (root.active && root.url !== "")
-                    player.play();
+                if (!(root.active && root.url !== "") || _playPending)
+                    return;
+                _playPending = true;
+                ReconnectCoordinator.request(function () {
+                    _playPending = false;
+                    // Self-guard: the slot may arrive after the tile went inactive,
+                    // changed camera, or already started playing.
+                    if (root.active && root.url !== "" && !root.playing)
+                        player.play();
+                });
             }
             // Force a fresh pipeline to recover a stall: release the source (async, never
             // the GUI-blocking stop()) and re-arm. Best-effort — this is the non-default
