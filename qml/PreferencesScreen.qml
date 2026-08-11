@@ -355,6 +355,30 @@ Item {
                     }
                 }
             }
+
+            // Which backend this client is actually talking to. Subtle by intent —
+            // it is not a setting and must not read as one — but an operator asked
+            // for it by name, and "which server am I on?" is otherwise answerable
+            // only by signing out to look at the login screen.
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 18; Layout.bottomMargin: 8
+                Layout.leftMargin: 2
+                spacing: 8
+                Text {
+                    text: qsTr("CONNECTED TO")
+                    color: Theme.ink3
+                    font.family: Theme.fontMono; font.pixelSize: 9
+                    font.letterSpacing: 1.3; font.weight: Font.DemiBold
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: AuthController.baseUrl !== "" ? AuthController.baseUrl : qsTr("not connected")
+                    color: Theme.ink2
+                    font.family: Theme.fontMono; font.pixelSize: 11
+                    elide: Text.ElideRight
+                }
+            }
         }
     }
 }

@@ -1041,24 +1041,24 @@
 <context>
     <name>PbLanes</name>
     <message>
-        <location filename="../qml/PbLanes.qml" line="72"/>
+        <location filename="../qml/PbLanes.qml" line="82"/>
         <source>FOOTAGE</source>
         <comment>playback lane label</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="74"/>
+        <location filename="../qml/PbLanes.qml" line="84"/>
         <source>MOTION</source>
         <comment>playback lane label</comment>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="133"/>
+        <location filename="../qml/PbLanes.qml" line="143"/>
         <source>NO FOOTAGE IN THIS WINDOW</source>
         <translation>НЕТ ЗАПИСИ В ЭТОМ ОКНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="240"/>
+        <location filename="../qml/PbLanes.qml" line="250"/>
         <source>release to seek</source>
         <translation>отпустите для перехода</translation>
     </message>
@@ -1401,7 +1401,7 @@
         <translation>Ближайшая запись %1 →</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2581"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2589"/>
         <source>Drag to resize · double-click to reset</source>
         <translation>Потяните, чтобы изменить высоту · двойной щелчок — сброс</translation>
     </message>
@@ -1638,6 +1638,16 @@
         <location filename="../qml/PreferencesScreen.qml" line="346"/>
         <source>Clip export folder</source>
         <translation>Папка для экспорта клипов</translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="369"/>
+        <source>CONNECTED TO</source>
+        <translation>ПОДКЛЮЧЕНО К</translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="376"/>
+        <source>not connected</source>
+        <translation>нет подключения</translation>
     </message>
 </context>
 <context>
@@ -2015,32 +2025,32 @@
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../qml/TopBar.qml" line="108"/>
+        <location filename="../qml/TopBar.qml" line="111"/>
         <source>Search cameras, groups, views, clips, events…</source>
         <translation>Поиск камер, групп, видов, клипов, событий…</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="149"/>
+        <location filename="../qml/TopBar.qml" line="152"/>
         <source>Online</source>
         <translation>Онлайн</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="156"/>
+        <location filename="../qml/TopBar.qml" line="159"/>
         <source>Offline</source>
         <translation>Не в сети</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="163"/>
+        <location filename="../qml/TopBar.qml" line="166"/>
         <source>Not Rec</source>
         <translation>Нет записи</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="327"/>
+        <location filename="../qml/TopBar.qml" line="330"/>
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="341"/>
+        <location filename="../qml/TopBar.qml" line="344"/>
         <source>Sign out</source>
         <translation>Выйти</translation>
     </message>
@@ -2183,7 +2193,7 @@
         <translation>ГОТОВИТСЯ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1748"/>
+        <location filename="../qml/WallPlayback.qml" line="1767"/>
         <source>spans a gap — some cameras have no footage inside it</source>
         <translation>пересекает пробел — у части камер внутри нет записи</translation>
     </message>

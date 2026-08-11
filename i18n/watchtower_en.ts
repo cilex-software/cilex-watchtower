@@ -1034,24 +1034,24 @@
 <context>
     <name>PbLanes</name>
     <message>
-        <location filename="../qml/PbLanes.qml" line="72"/>
+        <location filename="../qml/PbLanes.qml" line="82"/>
         <source>FOOTAGE</source>
         <comment>playback lane label</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="74"/>
+        <location filename="../qml/PbLanes.qml" line="84"/>
         <source>MOTION</source>
         <comment>playback lane label</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="133"/>
+        <location filename="../qml/PbLanes.qml" line="143"/>
         <source>NO FOOTAGE IN THIS WINDOW</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PbLanes.qml" line="240"/>
+        <location filename="../qml/PbLanes.qml" line="250"/>
         <source>release to seek</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1393,7 +1393,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2581"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2589"/>
         <source>Drag to resize · double-click to reset</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1629,6 +1629,16 @@
     <message>
         <location filename="../qml/PreferencesScreen.qml" line="346"/>
         <source>Clip export folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="369"/>
+        <source>CONNECTED TO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="376"/>
+        <source>not connected</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2007,32 +2017,32 @@
 <context>
     <name>TopBar</name>
     <message>
-        <location filename="../qml/TopBar.qml" line="108"/>
+        <location filename="../qml/TopBar.qml" line="111"/>
         <source>Search cameras, groups, views, clips, events…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="149"/>
+        <location filename="../qml/TopBar.qml" line="152"/>
         <source>Online</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="156"/>
+        <location filename="../qml/TopBar.qml" line="159"/>
         <source>Offline</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="163"/>
+        <location filename="../qml/TopBar.qml" line="166"/>
         <source>Not Rec</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="327"/>
+        <location filename="../qml/TopBar.qml" line="330"/>
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/TopBar.qml" line="341"/>
+        <location filename="../qml/TopBar.qml" line="344"/>
         <source>Sign out</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2175,7 +2185,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1748"/>
+        <location filename="../qml/WallPlayback.qml" line="1767"/>
         <source>spans a gap — some cameras have no footage inside it</source>
         <translation type="unfinished"></translation>
     </message>
