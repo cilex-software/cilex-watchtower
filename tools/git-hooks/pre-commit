@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Cilex Watchtower — bump the patch version on every commit.
+#
+# Policy (operator decision 2026-08-12): every commit that lands on GitHub gets
+# its own version. 1.1.1, 1.1.2, 1.1.3 … Only the PATCH component moves; major
+# and minor stay put until the operator says otherwise.
+#
+# The bumped files are added to THIS commit, so the version and the code it
+# describes are always the same commit — there is no "version bump" commit
+# trailing the change it names, and no commit that reuses its parent's number.
+#
+# Deliberately skipped, because in each of these the commit is not new work and
+# a bump would either be wrong or would fight the operation in progress:
+#   - merges, rebases, cherry-picks (the version already travelled with the commit)
+#   - WT_NO_BUMP=1, the manual escape hatch
+#
+# NOT auto-detected: `git commit --amend`. Amending re-runs this hook and would
+# bump a second time for one logical change. Use:  WT_NO_BUMP=1 git commit --amend
+set -euo pipefail
+
+[[ "${WT_NO_BUMP:-}" == "1" ]] && exit 0
+
+GIT_DIR_PATH="$(git rev-parse --git-dir)"
+for marker in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply; do
+    [[ -e "$GIT_DIR_PATH/$marker" ]] && exit 0
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+NEW="$("$ROOT/tools/bump-version.sh")"
+
+# Stage only the files the bumper owns, and only those that actually changed —
+# never `git add -A`, which would sweep unrelated work into someone's commit.
+for f in CMakeLists.txt packaging/windows/watchtower.rc \
+         packaging/windows/installer.nsi packaging/windows/app.manifest; do
+    [[ -f "$ROOT/$f" ]] && ! git -C "$ROOT" diff --quiet -- "$f" && git -C "$ROOT" add -- "$f"
+done
+
+echo "watchtower: version -> $NEW"

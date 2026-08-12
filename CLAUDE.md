@@ -81,4 +81,9 @@ and only publish locally when no CI run is in flight (`gh run list`).
   data renders as unknown, never as healthy.
 - **Real data or an honest empty state.** Mock data lives behind `WT_DEMO`.
 - **Conventional Commits**, with the trailers this repo uses.
+- **One version per commit.** Run `git config core.hooksPath tools/git-hooks`
+  once per clone — **including the Windows checkout**. A `pre-commit` hook then
+  bumps the PATCH component (1.1.1, 1.1.2, …) and restages the five files that
+  carry it. Only patch moves; major/minor change only when the operator says so.
+  Amending needs `WT_NO_BUMP=1 git commit --amend`. See `docs/DEVELOPMENT.md`.
 - Never commit secrets (tokens, camera passwords, station tokens).

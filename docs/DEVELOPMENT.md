@@ -62,6 +62,43 @@ caveats:
   — renders the window then quits; read the PNG back. The standard visual-verification path. On a real
   Wayland session (`WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000`) the 6.12 `build/` renders fine.
 
+## Versioning — automatic, one version per commit
+
+**Operator decision 2026-08-12: every commit that lands on GitHub gets its own
+version.** The PATCH component increments and nothing else: 1.1.1, 1.1.2,
+1.1.3 … Major and minor never move on their own — they change only when the
+operator explicitly says so.
+
+`project(VERSION x.y.z)` in `CMakeLists.txt` is the ONE source of truth. It
+reaches the UI as `WT_VERSION` → the `wtVersion` context property → the number
+beside the git hash in the top-left corner. The four Windows spots
+(`watchtower.rc` ×4 fields, `installer.nsi`, `app.manifest`) are **derived**,
+never hand-edited.
+
+Enforced by a tracked `pre-commit` hook. **Each clone must opt in once** — hooks
+are not distributed by git:
+
+```
+git config core.hooksPath tools/git-hooks
+```
+
+Do that in the Windows checkout too, or commits from that box will reuse a
+version number. Verify with `tools/bump-version.sh --print`.
+
+- `tools/bump-version.sh` — bump patch, rewrite all five files, print the new version
+- `tools/bump-version.sh --set 1.2.0` — explicit major/minor change
+- `WT_NO_BUMP=1 git commit --amend` — **required when amending.** Amend re-runs
+  the hook and would otherwise bump twice for one logical change.
+
+Merges, rebases, cherry-picks and reverts are skipped automatically: the version
+already travelled with the commit.
+
+**Both agents bumping the same line will conflict** when the Windows agent's
+`win/<topic>` branch meets `main`. The conflict is always in
+`CMakeLists.txt:4` plus the packaging files, and the resolution is always "take
+the higher number, then re-run `tools/bump-version.sh` if the result collides
+with a version already pushed."
+
 ## Dev hooks (environment variables)
 
 | Var | Effect |
