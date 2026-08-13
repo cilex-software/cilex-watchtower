@@ -643,6 +643,15 @@ Two operator-reported shell gaps, both closed:
   on .106. Remaining: hardware walk-test when the Z fleet returns (CV flags
   autofocus/reset ISAPI shapes as best-effort until then; lens "wide" approximated
   via bounded zoom-out).**
+  **CLOSED 2026-08-14 — the hardware walk-test is done. The operator verified the
+  PTZ/lens functions on real Z-model cameras and reports them all working.** This
+  closes the last open item on PTZ: the client panel, CV's five endpoints, and the
+  optics now agree end to end on real hardware. The final client-side defect was a
+  click producing move+stop 61 ms apart (flight-recorder measured) — imperceptible
+  zoom travel next to a very visible autofocus hunt, which is why it read as
+  "zoom refocuses instead of zooming"; `HoldBtn.minStepMs = 400` in
+  `qml/PtzPanel.qml` guarantees a visible step from a tap. Do not re-litigate this
+  as open — it was verified by the operator on the fleet, not inferred from code.
 - **netem network-impairment harness** (`tools/netem-harness/`): port-scoped lo
   shaping (8000/8554/1984 both directions via docker-proxy path, verified), 13
   literature-grounded profiles, matrix runner reusing the soak gates, measured-RTT
