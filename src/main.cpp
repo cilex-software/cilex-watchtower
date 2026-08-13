@@ -578,6 +578,9 @@ int main(int argc, char *argv[])
     // that camera at startup; WT_PTZ_OPEN=1 opens its PTZ/lens panel (screenshot
     // verification + deterministic PTZ testing once the backend endpoint ships).
     engine.rootContext()->setContextProperty("wtDetailIp", qEnvironmentVariable("WT_DETAIL_IP"));
+    // Dev: WT_LAYOUT=<layout id> forces the Live grid layout ("25", "8x8", …).
+    // Exists so dense-grid chrome can be screenshot-verified at every tier.
+    engine.rootContext()->setContextProperty("wtLayout", qEnvironmentVariable("WT_LAYOUT"));
     // Dev: WT_WINSIZE=WxH forces the window geometry (letterbox-ratio screenshots).
     engine.rootContext()->setContextProperty("wtWinSize", qEnvironmentVariable("WT_WINSIZE"));
     // Dev: WT_TRIAGE_TEST="solo:146"|"type:14" drives the triage lane filter (screenshot verification).

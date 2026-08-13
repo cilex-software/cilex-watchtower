@@ -62,6 +62,47 @@ Item {
         if (Settings.overlayShowId && camId !== "") parts.push(camId);
         return parts.join("  ·  ");
     }
+
+    // ---- header chrome density -------------------------------------------------
+    // Which identity survives at a given tile size. Derived from the tile's OWN
+    // measured width, never from the layout id: a 10x10 wall on a 4K panel has
+    // wider tiles than a 6x6 on a laptop, and the operator's screen decides.
+    //
+    // Deliberately NOT a function of how many badges this tile happens to show.
+    // Badge count tracks LIVE STATE (motion fires, recording stops), so folding it
+    // in restyles the header while the operator is watching — the name truncates
+    // and the address changes form because a person walked past. One tier per tile
+    // size means the wall looks the same at rest and in an incident.
+    //
+    //   2  >= 322px  badges with label and age
+    //   1  >= 226px  badges with label, no age
+    //   0   < 226px  badges as coloured squares
+    //
+    // The ADDRESS is deliberately NOT tiered — it is measured on its own line
+    // (see metaText) and prints in full wherever it fits, which at these widths
+    // is most of the time.
+    //
+    // 88px is reserved for the meta line so a full dotted quad stays legible at
+    // 10px mono; 234/138 are three labelled badges with and without their age.
+    readonly property int chromeTier: {
+        if (width <= 0) return 2;                       // pre-layout: assume roomy
+        var forBadges = width - 88;
+        if (forBadges >= 234) return 2;
+        if (forBadges >= 138) return 1;
+        return 0;
+    }
+    // The word SNAPSHOT is the longest string in the badge row and the one the
+    // operator complained about. It earns its space only on a genuinely roomy
+    // tile; below that the ring glyph alone carries the meaning.
+    readonly property bool snapshotVerbose: width >= 420
+    // ".104" — across a /24 fleet the last octet is the only part that differs,
+    // so it is the part worth keeping when the full address will not fit. The old
+    // behaviour elided RIGHT ("192.168.1.1…"), throwing away the only octet that
+    // identified the camera.
+    readonly property string ipShort: {
+        var i = ip.lastIndexOf(".");
+        return i >= 0 ? ip.slice(i) : ip;
+    }
     property string groupName: ""
     property int live: CameraStatus.Live
     property int recording: CameraStatus.Recording
@@ -440,7 +481,8 @@ Item {
         Item {
             id: hdr
             anchors { top: parent.top; left: parent.left; right: parent.right }
-            height: 48
+            // A fixed 48px header ate 60% of a 10x10 tile. Scale it with the tier.
+            height: root.chromeTier === 0 ? 33 : (root.chromeTier === 1 ? 42 : 48)
 
             Rectangle {
                 anchors.fill: parent
@@ -450,24 +492,52 @@ Item {
                 }
             }
 
-            Column {
+            // Name and address are anchored SEPARATELY, not stacked in one Column.
+            // The badge row only occupies the FIRST line, so only the name is
+            // competing with it for width; the address sits underneath, where the
+            // full header width is free. Sharing one badge-clamped Column was what
+            // made a three-badge tile print ".119" beside a two-badge neighbour
+            // printing 192.168.1.118 at the identical cell size.
+            Text {
+                id: nameText
                 anchors { top: parent.top; left: parent.left; topMargin: 6; leftMargin: 8 }
                 anchors.right: badges.left
                 anchors.rightMargin: 8
-                spacing: 1
-                Text {
-                    width: parent.width
-                    visible: Settings.overlayShowName && text !== ""
-                    text: root.displayName; color: "#ffffff"; elide: Text.ElideRight
-                    font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.DemiBold
-                    style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.8)
-                }
-                Text {
-                    width: parent.width
-                    visible: text !== ""
-                    text: root.overlayMeta; color: Qt.rgba(1, 1, 1, 0.6); elide: Text.ElideRight
-                    font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 0.4
-                }
+                // Below ~28px the name can only render as a lone ellipsis, which is
+                // clutter, not information — the address identifies the camera there.
+                visible: Settings.overlayShowName && text !== "" && width > 28
+                text: root.displayName; color: "#ffffff"; elide: Text.ElideRight
+                font.family: Theme.fontSans
+                font.pixelSize: root.chromeTier === 0 ? 10 : 11
+                font.weight: Font.DemiBold
+                style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.8)
+            }
+            Text {
+                id: metaText
+                // Clears whichever of the two is taller — the name or the badge
+                // row — so the address can never slide under a badge.
+                y: Math.max(nameText.visible ? nameText.y + nameText.height : 0,
+                            badges.y + badges.height) + 1
+                anchors { left: parent.left; leftMargin: 8; right: parent.right; rightMargin: 8 }
+                visible: text !== ""
+                // Not tiered. The full address prints wherever it MEASURES as
+                // fitting, and drops to the last octet only where it genuinely
+                // does not — a luxury afforded whenever the cell allows it.
+                // ElideLeft is the last-resort guard: it sacrifices the prefix,
+                // never the octet that identifies the camera.
+                text: metaFull.width <= width ? root.overlayMeta : root.ipShort
+                color: Qt.rgba(1, 1, 1, root.chromeTier === 0 ? 0.78 : 0.6)
+                elide: Text.ElideLeft
+                style: Text.Raised; styleColor: Qt.rgba(0, 0, 0, 0.85)
+                font.family: Theme.fontMono
+                font.pixelSize: root.chromeTier === 0 ? 9 : 10
+                font.letterSpacing: 0.4
+            }
+
+            TextMetrics {
+                id: metaFull
+                font: metaText.font
+                text: root.overlayMeta
             }
 
             Row {
@@ -479,21 +549,27 @@ Item {
                 Rectangle {
                     visible: root.snapshotMode
                     anchors.verticalCenter: parent.verticalCenter
-                    height: 14; radius: 2; width: snapLbl.implicitWidth + 9
+                    height: root.chromeTier === 0 ? 12 : 14; radius: 2
+                    width: root.chromeTier === 0 ? 12 : snapLbl.implicitWidth + 9
                     color: Qt.rgba(0, 0, 0, 0.55); border.width: 1; border.color: Theme.line2
                     Text {
-                        id: snapLbl; anchors.centerIn: parent; text: qsTr("◌ SNAPSHOT")
-                        color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 0.6
+                        id: snapLbl; anchors.centerIn: parent
+                        text: root.snapshotVerbose ? qsTr("◌ SNAPSHOT") : "◌"
+                        color: Theme.ink2; font.family: Theme.fontMono
+                        font.pixelSize: root.chromeTier === 0 ? 9 : 8
+                        font.letterSpacing: 0.6
                     }
                 }
                 StatusBadge {                     // live event-registration signal
                     visible: root.motionHot
                     label: qsTr("MOTION")
+                    tier: root.chromeTier
                     fg: Theme.accent; bgColor: Theme.accentDim
                     dotColor: Theme.accent; dotPulse: true; dotHollow: false
                 }
-                LiveStatusBadge { state: root.live; sinceMs: root.liveSinceMs }
+                LiveStatusBadge { state: root.live; sinceMs: root.liveSinceMs; tier: root.chromeTier }
                 RecordingStatusBadge {
+                    tier: root.chromeTier
                     state: root.recOff ? CameraStatus.Disabled : root.recording
                     lastMotionAtMs: root.lastMotionAtMs
                     stateSinceMs: root.recSinceMs
@@ -505,7 +581,7 @@ Item {
                 // Audio-recording state (backend `audio` fields; letter 2026-07-16).
                 // No ear at all when the camera can't record audio / state unknown.
                 Icon {
-                    visible: root.hasAudio
+                    visible: root.hasAudio && root.chromeTier > 0
                     anchors.verticalCenter: parent.verticalCenter
                     name: root.audioRecording ? "ear" : "earMute"
                     size: 13

@@ -86,6 +86,12 @@ StatusBadge {
         case CameraStatus.Armed:
             if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
             if (_notRecording) return "ARMED · " + qsTr("NOT RECORDING");
+            // Below tier 2 the qualifier is dropped, but only the INFORMATIONAL
+            // ones — how long it has been armed, how long it has been silent.
+            // The two fault qualifiers above keep their words at every tier that
+            // has words at all: "armed but not recording" is not something an
+            // operator should have to infer from a colour.
+            if (tier < 2) return qsTr("ARMED");
             if (_age !== "") return qsTr("ARMED · ") + _age;
             if (_silentArmed) return qsTr("ARMED · ") + (_silentAge !== ""
                 ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));

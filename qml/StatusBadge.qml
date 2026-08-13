@@ -12,6 +12,15 @@ Rectangle {
     // unknown (no suffix). Rendered as "LABEL · 4m", gated by Settings.badgeTimers
     // (Preferences → Display). Ticks every 30 s.
     property double sinceMs: -1
+    // Chrome density, set by the tile from its own measured width
+    // (CameraTile.chromeTier). The badge gives up detail in the order an
+    // operator misses it least:
+    //   2  dot + label + age    "■ LIVE · 42m"
+    //   1  dot + label          "■ LIVE"        — the age goes first
+    //   0  dot only             a coloured square. Recording keeps dotPulse, so
+    //                           it reads as a camcorder tally light rather than
+    //                           as a label that has been taken away.
+    property int tier: 2
     property int _tick: 0
     Timer {
         interval: 30000; repeat: true
@@ -20,6 +29,7 @@ Rectangle {
     }
     readonly property string ageSuffix: {
         _tick;
+        if (tier < 2) return "";        // no room for the age at this density
         if (!Settings.badgeTimers || sinceMs <= 0) return "";
         var s = Math.max(0, (Date.now() - sinceMs) / 1000);
         if (s < 60) return " · " + qsTr("now");
@@ -33,9 +43,12 @@ Rectangle {
     property bool dotHollow: false   // not-recording / gap: hollow ring
     property bool dotPulse: false    // recording: pulsing
 
-    implicitHeight: 18
-    implicitWidth: content.implicitWidth + 12
-    height: 18
+    // Padding and height shrink with the tier; at tier 0 the badge is a 12x12
+    // square holding nothing but its dot.
+    readonly property int _pad: tier === 0 ? 4 : (tier === 1 ? 9 : 12)
+    implicitHeight: tier === 0 ? 12 : (tier === 1 ? 16 : 18)
+    implicitWidth: content.implicitWidth + _pad
+    height: implicitHeight
     color: bgColor
     radius: 0
 
@@ -46,7 +59,7 @@ Rectangle {
 
         Rectangle {
             id: dot
-            width: root.dotHollow ? 7 : 6
+            width: root.tier === 0 ? 8 : (root.dotHollow ? 7 : 6)
             height: width
             radius: 0
             anchors.verticalCenter: parent.verticalCenter
@@ -63,6 +76,7 @@ Rectangle {
         }
 
         Text {
+            visible: root.tier > 0
             anchors.verticalCenter: parent.verticalCenter
             text: root.label + root.ageSuffix
             color: root.fg

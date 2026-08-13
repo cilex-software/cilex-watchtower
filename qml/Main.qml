@@ -29,7 +29,8 @@ Window {
     onClosing: Settings.markOperatorQuit()
 
     property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
-    property string gridLayout: "16"     // canonical layout id (see LayoutSpec)
+    property string gridLayout: (typeof wtLayout !== "undefined" && wtLayout !== "")
+                                ? wtLayout : "16"   // canonical layout id (see LayoutSpec)
     property int gridPage: 1
     property string statusFilter: (typeof wtStatusFilter !== "undefined" && wtStatusFilter !== "") ? wtStatusFilter : ""
     // Live wall leads with cameras that are actually live (offline tiles sink to the
