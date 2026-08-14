@@ -370,34 +370,36 @@ Item {
             cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live })
         }
 
-        // Connecting indicator (while the stream negotiates / buffers). Live mode only —
-        // a decode-capped tile is showing a snapshot, not connecting.
-        LoadingState {
-            anchors.centerIn: parent
-            visible: root.hasStream && !root.streamPlaying && !root.streamErrored && root.liveDecodeAllowed
-            label: qsTr("Connecting…")
-            ringSize: 18
-        }
-
-        // Loading progress bar along the bottom edge while the stream is connecting or
-        // reconnecting (no frames yet). Indeterminate — a stream connection has no real
-        // percentage, so an honest sweeping segment signals "working on it" without
-        // fabricating progress. Disappears the moment frames flow (streamPlaying).
+        // Connecting: ONE indicator, and a quiet one.
+        //
+        // This used to be two — a centred LoadingState (rotating arc + the word
+        // "Connecting…") AND this bar — both driven by the identical condition, so
+        // they were not two signals but one state drawn twice. On a weak link that
+        // put a spinner and a label over most of the wall at once. The centred one
+        // went: it is the one that covers the picture, and its label is the first
+        // thing to stop fitting as tiles get smaller.
+        //
+        // LoadingState is retained in the single-camera view and in playback, where
+        // there is exactly one of it on screen and the words are affordable.
+        //
+        // Indeterminate by design: a stream connection has no honest percentage, so
+        // a sweeping segment says "working on it" without fabricating progress. It
+        // clears the instant frames flow (streamPlaying).
         Rectangle {
             id: loadBar
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            height: 3
+            height: 2
             visible: root.hasStream && !root.streamPlaying && !root.streamErrored && root.liveDecodeAllowed
-            color: "#141a22"          // dim track
+            color: Qt.rgba(1, 1, 1, 0.06)     // barely-there track, not a solid rail
             clip: true
             Rectangle {
                 height: parent.height
-                width: parent.width * 0.35
-                color: Theme.accent
+                width: parent.width * 0.28
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.75)
                 SequentialAnimation on x {
                     running: loadBar.visible
                     loops: Animation.Infinite
-                    NumberAnimation { from: -loadBar.width * 0.35; to: loadBar.width; duration: 1100; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: -loadBar.width * 0.28; to: loadBar.width; duration: 1500; easing.type: Easing.InOutSine }
                 }
             }
         }
