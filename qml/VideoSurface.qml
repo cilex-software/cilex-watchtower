@@ -39,8 +39,20 @@ Item {
     // `playing` false on a slow pipe would fire _armReconnect() below, putting every slow
     // tile on a wall into simultaneous reconnect — a behavioural change that must not ride
     // along with an honesty fix. This property changes what the operator SEES, nothing else.
-    property real degradedBelowFps: 2.0     // under this it is a slideshow, not video
-    readonly property bool degraded: playing && _fpsValid && fps < degradedBelowFps
+    // 5 fps = a third of the fleet's 15. Below that a guard is watching a slideshow,
+    // and the booth was right that 2.0 set the bar so low a plainly-broken tile still
+    // read as healthy. The rate is set ON THE CAMERAS (CLAUDE.md) — this only judges
+    // what arrived, it never requests or caps anything.
+    property real degradedBelowFps: 5.0
+    // NOTE the `!playing` term, which the first version of this fix did not have.
+    // It read `playing && fps < floor`, and `playing` is itself a 2500 ms gap detector —
+    // so a tile so broken that its gaps EXCEEDED 2.5 s fell out of `degraded` entirely
+    // and the badge reverted to the model's green LIVE. The worse the stream, the less
+    // likely it was flagged; measured at the booth on 2026-08-15 as tiles updating once
+    // per ~9 s (~0.1 fps) still wearing a green badge. Once a surface has ever played,
+    // anything short of a real rate is degraded — including nothing at all.
+    readonly property bool degraded:
+        _everPlayed && (!playing || (_fpsValid && fps < degradedBelowFps))
     // Rolling frame rate over the last window. -1 until the first full window has closed,
     // so a tile that has just started is never reported as degraded.
     property real fps: -1
