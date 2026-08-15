@@ -110,6 +110,65 @@ Rectangle {
              : (thumb.cam && thumb.cam.live === CameraStatus.Offline) ? Theme.bad : Theme.accent
         border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.4)
     }
+    // ---- staleness -------------------------------------------------------------
+    // From 2026-08-16 this endpoint answers an OFFLINE camera with its last recorded
+    // frame and HTTP 200 (CV deploy; verified here — four offline cameras returned
+    // 26–60 KB JPEGs at X-Snapshot-Age-S ≈ 129,700, i.e. ~36 h old, against an online
+    // control at age 0). That is a real improvement over an eternal 404, but a 36-hour
+    // photograph of a quiet corridor is indistinguishable from a live one, and a guard
+    // must never be shown a dead camera's last good moment as if it were now. So the
+    // age is drawn, always, whenever the picture is not current.
+    //
+    // The age comes from `lastSegmentAt` (CameraModel.cpp:399), because a QML Image
+    // cannot read CV's X-Snapshot-Age-S header.
+    //
+    // The two are NOT the same quantity, and only converge when the camera is offline.
+    // Measured 2026-08-16: an ONLINE camera returned age 0 (the endpoint served a live
+    // frame) while its last_segment_at was ~2 min old — segments land in batches, so
+    // segment time lags a live snapshot by up to a segment. Thresholding on segment age
+    // therefore painted almost the whole Groups wall stale on the first build of this
+    // change; the screenshot caught it. For an OFFLINE camera there is no live frame, so
+    // the served picture IS the last segment and the two agree (measured: last segment
+    // 2026-08-14T09:27:53 against a header age of 129,716 s).
+    //
+    // So: badge only when the endpoint is knowingly serving history — an offline camera.
+    readonly property int _ageS: {
+        thumb._tick;                                   // re-evaluate on each refresh
+        if (!thumb.cam || !thumb.cam.lastSegmentAt) return -1;
+        var t = Date.parse(thumb.cam.lastSegmentAt);
+        return isNaN(t) ? -1 : Math.max(0, Math.round((Date.now() - t) / 1000));
+    }
+    readonly property bool _stale: _everLoaded
+        && cam && cam.live === CameraStatus.Offline
+    function _rel(s) {
+        if (s < 90)     return qsTr("just now");
+        if (s < 5400)   return qsTr("%1 min ago").arg(Math.round(s / 60));
+        if (s < 172800) return qsTr("%1 h ago").arg(Math.round(s / 3600));
+        return qsTr("%1 d ago").arg(Math.round(s / 86400));
+    }
+    // An unknown age on an offline camera is still not-current, and says so rather
+    // than staying silent — absent data renders as unknown, never as healthy.
+    readonly property string _ageText: _ageS >= 0 ? _rel(_ageS) : qsTr("not live")
+    Rectangle {   // knock the stale frame back so it cannot read as a live picture
+        visible: thumb._stale
+        anchors.fill: parent; anchors.margins: 1
+        color: Qt.rgba(0, 0, 0, 0.38)
+    }
+    Rectangle {   // "36 h ago" — never gated on showStatus; this one is not optional
+        visible: thumb._stale && thumb.width >= 90 && thumb.height >= 44
+        anchors { left: parent.left; top: parent.top; margins: 3 }
+        width: ageT.implicitWidth + 8; height: ageT.implicitHeight + 3; radius: 2
+        color: Qt.rgba(0, 0, 0, 0.58)
+        Text {
+            id: ageT; anchors.centerIn: parent; text: thumb._ageText
+            color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10
+        }
+    }
+    Rectangle {   // too small for words (the 50×29 adjacent-frame plate) — still marked
+        visible: thumb._stale && !(thumb.width >= 90 && thumb.height >= 44)
+        anchors { left: parent.left; top: parent.top; margins: 3 }
+        width: 5; height: 5; radius: 1; color: Theme.warn
+    }
     Rectangle {   // faint octet badge (e.g. ".101")
         visible: thumb.showOctet && octT.text !== ""
         anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 3
@@ -122,7 +181,22 @@ Rectangle {
         }
     }
     // periodic live refresh — only while the host view is shown (interval backs
-    // off to 15 s after 3 straight failures; recovers on the first success)
-    Timer { interval: thumb._effectiveMs; repeat: true; running: thumb.active && thumb._base !== ""; onTriggered: thumb._refresh() }
+    // off to 15 s after 3 straight failures; recovers on the first success).
+    //
+    // `visible` is in the condition deliberately. Two call sites hide an offline
+    // camera's thumbnail with `visible: !off` and one of them carries the comment
+    // "offline is never requested" — which was FALSE: visibility never gated this
+    // timer, only `active` did, so hidden thumbnails polled on regardless. That is
+    // where the bulk of the 20,542 snapshot 404s came from (measured 2026-08-07→15).
+    // It stopped being merely wasteful on 2026-08-16, when CV made the endpoint
+    // serve an offline camera's last recorded frame: the same hidden pollers now
+    // pull a 60 KB JPEG apiece instead of a tiny 404 body. Qt Quick's `visible` is
+    // effective visibility (a child of a hidden parent reads false), so this also
+    // parks thumbnails behind a closed modal or an unselected tab.
+    Timer {
+        interval: thumb._effectiveMs; repeat: true
+        running: thumb.active && thumb.visible && thumb._base !== ""
+        onTriggered: thumb._refresh()
+    }
     MouseArea { id: tMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: thumb.clicked() }
 }
