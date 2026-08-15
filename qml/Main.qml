@@ -1806,6 +1806,7 @@ Window {
                     Layout.fillHeight: true
                     visible: win.section === "groups" && win.focusedCamera === null && !win.prefsTabActive
                     cameraModel: cameraModel
+                    onNotify: (message) => toastHost.show(qsTr("Groups"), message, "accent", "", "")
                     onOpenInLive: (gid, label) => {
                         win.groupFilter = gid;
                         win.groupLabel = label;

@@ -29,6 +29,8 @@ Item {
     property string facet: "all"                  // all | unnamed | faults
 
     signal openInLive(string groupId, string label)
+
+    signal notify(string message)   // surfaced by the host as a toast
     signal openCamera(var cam)
 
     Connections {
@@ -316,6 +318,22 @@ Item {
                         width: groupList.width
                         gid: modelData.id; gname: modelData.name; gcount: modelData.total
                     }
+                }
+
+                // c2 · Suggestions derived from camera names. Sits directly under the
+                // group list because that is the thing it completes — measured
+                // 2026-08-16, the operator's own groups ARE the location-word axis
+                // (Внутри 100% Холл, Лифты 100% Лифт, Крыша 100% Крыша) and 75 of
+                // 133 cameras fall outside any group once "Корпус 2" is retired.
+                // Editors only: it proposes writes, so a read-only session must not
+                // be offered buttons it cannot honour.
+                GroupSuggestions {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 12; Layout.rightMargin: 10; Layout.topMargin: 10
+                    visible: root.canEdit && implicitHeight > 0
+                    cameraModel: root.cameraModel
+                    rev: root.groupsData.length + root.fleet.length
+                    onApplied: function (message) { root.notify(message) }
                 }
 
                 // d · + New group — creates nothing until a name is committed
