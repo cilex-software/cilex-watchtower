@@ -508,11 +508,19 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: root.openId = wq.modelData.cam.camId }
                             }
+                            // An empty work queue means one of two very different
+                            // things. With no roster it means we know NOTHING, and
+                            // saying "every camera is fine" is an all-clear assembled
+                            // out of absent data (seen 2026-08-16 when /streams
+                            // returned no cameras under backend load).
                             Text {
                                 anchors.centerIn: parent; width: parent.width - 28
                                 visible: workQueue.count === 0
-                                text: qsTr("Nothing needs attention. Every camera is named, grouped and recording.")
-                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                                text: root.fleet.length === 0
+                                      ? qsTr("No cameras loaded — nothing is known about the fleet.")
+                                      : qsTr("Nothing needs attention. Every camera is named, grouped and recording.")
+                                color: root.fleet.length === 0 ? Theme.warn : Theme.ink3
+                                font.family: Theme.fontSans; font.pixelSize: 11
                                 wrapMode: Text.WordWrap; horizontalAlignment: Text.AlignHCenter
                             }
                         }

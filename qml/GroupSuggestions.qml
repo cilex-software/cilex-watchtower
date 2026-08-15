@@ -157,6 +157,12 @@ Item {
     }
 
     implicitHeight: col.implicitHeight
+    // The host pane is a fixed 320 px. Nothing in here may report an implicitWidth
+    // larger than that, or the ColumnLayout it sits in widens and the cards spill
+    // over the camera wall (operator screenshot, 2026-08-16). Every button below
+    // therefore carries Layout.minimumWidth: 0 and an ELIDING contentItem — a
+    // Button's default implicitWidth is its full untruncated label.
+    clip: true
 
     ColumnLayout {
         id: col
@@ -169,8 +175,19 @@ Item {
             font.pixelSize: 11; font.letterSpacing: 1.2
         }
 
+        // "Nothing to suggest" and "nothing to suggest FROM" are different facts.
+        // Caught 2026-08-16: a run where /streams returned no cameras rendered the
+        // all-clear below, which is a false reassurance built out of missing data —
+        // the exact thing this repo forbids. An empty roster now says so.
         Text {
-            visible: root.analysis.suggestions.length === 0
+            visible: root.analysis.total === 0
+            Layout.fillWidth: true; wrapMode: Text.WordWrap
+            text: qsTr("No cameras loaded — nothing can be suggested yet.")
+            color: Theme.warn; font.pixelSize: 12
+        }
+        Text {
+            visible: root.analysis.total > 0
+                     && root.analysis.suggestions.length === 0
                      && root.analysis.mismatches.length === 0
             Layout.fillWidth: true; wrapMode: Text.WordWrap
             text: qsTr("Every camera whose name matches a known location is already in the matching group.")
@@ -183,6 +200,7 @@ Item {
                 required property var modelData
                 id: card
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 implicitHeight: cardCol.implicitHeight + 20
                 color: Theme.panel2; radius: 3
                 border.width: 1; border.color: Theme.line2
@@ -212,12 +230,20 @@ Item {
                             color: Theme.ink; font.pixelSize: 13
                         }
                         C.Button {
+                            id: revBtn
+                            Layout.minimumWidth: 0
+                            implicitWidth: revLabel.implicitWidth + 14
+                            implicitHeight: revLabel.implicitHeight + 8
                             text: card.expanded ? qsTr("Hide") : qsTr("Review")
                             onClicked: card.expanded = !card.expanded
                             background: Rectangle { color: "transparent"; border.width: 1
                                                     border.color: Theme.line2; radius: 2 }
-                            contentItem: Text { text: parent.text; color: Theme.ink2
-                                                font.pixelSize: 12; padding: 4 }
+                            contentItem: Text {
+                                id: revLabel; text: revBtn.text; color: Theme.ink2
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                         }
                     }
 
@@ -227,7 +253,8 @@ Item {
                         visible: card.homeless; Layout.fillWidth: true; spacing: 6
                         Text { text: qsTr("Create group"); color: Theme.ink3; font.pixelSize: 12 }
                         Rectangle {
-                            Layout.fillWidth: true; height: 26; radius: 2
+                            Layout.fillWidth: true; Layout.minimumWidth: 0
+                            height: 26; radius: 2
                             color: Theme.panel3; border.width: 1; border.color: Theme.line2
                             C.TextField {
                                 id: nameField
@@ -267,6 +294,8 @@ Item {
                                     font.pixelSize: 12
                                 }
                                 Text {
+                                    Layout.maximumWidth: 78
+                                    elide: Text.ElideRight
                                     text: modelData.groupId ? qsTr("in %1").arg(modelData.groupName || "—")
                                                             : qsTr("ungrouped")
                                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
@@ -276,7 +305,11 @@ Item {
                     }
 
                     C.Button {
-                        Layout.alignment: Qt.AlignRight
+                        id: applyBtn
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        implicitWidth: 0                      // fillWidth decides, not the label
+                        implicitHeight: applyLabel.implicitHeight + 10
                         enabled: root._onCount(card.modelData.cameras) > 0
                                  && (!card.homeless || card.newName.trim() !== "")
                         text: card.homeless
@@ -286,10 +319,14 @@ Item {
                                      root._onCount(card.modelData.cameras)).arg(card.modelData.homeName)
                         onClicked: root._apply(card.modelData, card.homeless, card.newName.trim())
                         background: Rectangle { radius: 2
-                                                color: parent.enabled ? Theme.accent : Theme.panel3 }
+                                                color: applyBtn.enabled ? Theme.accent : Theme.panel3 }
                         contentItem: Text {
-                            text: parent.text; padding: 5; font.pixelSize: 12
-                            color: parent.enabled ? "#1a1408" : Theme.ink3
+                            id: applyLabel
+                            text: applyBtn.text; font.pixelSize: 12
+                            elide: Text.ElideRight; wrapMode: Text.NoWrap
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            color: applyBtn.enabled ? "#1a1408" : Theme.ink3
                         }
                     }
                 }
