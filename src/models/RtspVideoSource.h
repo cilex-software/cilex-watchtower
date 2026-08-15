@@ -62,6 +62,10 @@ public:
     // count (stable count + rising RSS = a per-decode VA-API leak, not pipeline accumulation).
     static int livePipelineCount();
     static long long totalFramesDelivered();
+    // Decode-side totals. totalFramesDelivered() counts frames that reached a sink;
+    // these count frames that reached the CLIENT and frames the GUI thread lost.
+    static long long totalFramesIn();
+    static long long totalFramesCoalesced();
 
 signals:
     void urlChanged();
@@ -102,4 +106,7 @@ private:
     QVideoFrame m_pendingFrame;
     bool m_deliverQueued = false;
     std::mutex m_frameMutex;
+    // Per-pipeline decode-side tallies, written under m_frameMutex in onNewSample.
+    long long m_framesIn = 0;          // frames the appsink handed us
+    long long m_framesCoalesced = 0;   // frames the GUI thread never drained
 };

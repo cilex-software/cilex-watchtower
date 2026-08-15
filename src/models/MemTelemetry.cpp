@@ -121,9 +121,20 @@ void MemTelemetry::tick()
     // livePipes = live-wall VA-API decode pipelines currently built. If RSS climbs while playSec stays flat,
     // this is the path to watch — a livePipes count that ratchets up (not bounded by maxLiveDecodes) is the
     // live-wall pipeline leak (the GLib g_object_unref teardown failure leaking pipelines under reconnect churn).
-    qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d frames=%lld",
+    // framesIn vs frames(=delivered) is the decode-path-vs-present-path split, added
+    // 2026-08-16. `frames` alone cannot distinguish "the decoder is slow" from "the
+    // decoder is fine and the GUI thread is dropping four of every five" — the booth
+    // read 3.2 fps/tile off it and reasonably, but wrongly, concluded the former.
+    // coalesced counts frames the single-slot mailbox discarded undelivered:
+    //   coalesced ≈ 0        → the GUI thread keeps up; a low rate is upstream of us
+    //   coalesced large      → the PRESENT path is the limiter, not the decoder
+    const long long fin = RtspVideoSource::totalFramesIn();
+    const long long fdel = RtspVideoSource::totalFramesDelivered();
+    const long long fco = RtspVideoSource::totalFramesCoalesced();
+    qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d "
+          "frames=%lld framesIn=%lld coalesced=%lld drop=%.1f%%",
           static_cast<long long>(m_uptime.elapsed() / 1000), rssMb(),
           static_cast<long long>(playMs / 1000), static_cast<long long>(m_opens),
           static_cast<int>(m_playing.size()), RtspVideoSource::livePipelineCount(),
-          static_cast<long long>(RtspVideoSource::totalFramesDelivered()));
+          fdel, fin, fco, fin > 0 ? (100.0 * double(fco) / double(fin)) : 0.0);
 }

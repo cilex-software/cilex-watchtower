@@ -239,8 +239,17 @@ void RtspVideoSource::setErrored(bool e, const QString &msg)
 // P0 memory-trace diagnostics (see header): live GStreamer pipelines + total frames delivered.
 static std::atomic<int> g_livePipelines{0};
 static std::atomic<long long> g_totalFrames{0};
+// Decode-side counters (see onNewSample). g_framesIn is what the appsink handed us;
+// g_framesCoalesced is what the single-slot mailbox threw away because the GUI thread
+// had not drained the previous frame yet. g_totalFrames is what reached a sink.
+//   framesIn ≈ totalFrames            → the GUI thread is keeping up; a low rate is upstream
+//   framesIn >> totalFrames           → the decoder is fine and the PRESENT path is the limiter
+static std::atomic<long long> g_framesIn{0};
+static std::atomic<long long> g_framesCoalesced{0};
 int RtspVideoSource::livePipelineCount() { return g_livePipelines.load(); }
 long long RtspVideoSource::totalFramesDelivered() { return g_totalFrames.load(); }
+long long RtspVideoSource::totalFramesIn() { return g_framesIn.load(); }
+long long RtspVideoSource::totalFramesCoalesced() { return g_framesCoalesced.load(); }
 
 void RtspVideoSource::teardown()
 {
@@ -501,6 +510,25 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
         bool needPost = false;
         {
             std::lock_guard<std::mutex> flock(me->m_frameMutex);
+            // Count what ARRIVES here and what dies here. Until 2026-08-16 neither was
+            // counted: `g_totalFrames` increments in deliver() and VideoSurface's own
+            // tick fires on QVideoSink::videoFrameChanged, so BOTH existing frame
+            // counters measure frames that reached the screen. The booth read
+            // 3.2 fps/tile off the delivered counter and concluded the decoder was
+            // running at a fifth of the fleet rate — but that counter cannot see the
+            // decoder. A decoder running at a full 15 fps with four of every five
+            // frames coalesced away right here produces exactly the same reading.
+            //
+            // So: framesIn is the decode-side rate, framesCoalesced is what the GUI
+            // thread could not keep up with, and the difference between framesIn and
+            // g_totalFrames is the loss. Same lesson as livePipes counting
+            // construction instead of attachment — measure the thing, not its shadow.
+            ++g_framesIn;
+            ++me->m_framesIn;
+            if (me->m_pendingFrame.isValid()) {         // replacing an UNDELIVERED frame
+                ++g_framesCoalesced;
+                ++me->m_framesCoalesced;
+            }
             me->m_pendingFrame = frame;                 // drop any undelivered older frame
             if (!me->m_deliverQueued) { me->m_deliverQueued = true; needPost = true; }
         }
