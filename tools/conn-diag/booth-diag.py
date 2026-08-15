@@ -60,12 +60,21 @@ def app():
                     return {"pid": p.info["pid"], "uptime_s": NA, "rss_mb": NA}
         return None
     if WIN:
+        # pid is parsed INDEPENDENTLY of the memory field. Coupling them cost six
+        # columns on wt-sm-vnutri-01: that locale renders memory as "688 856 K"
+        # (space-separated thousands), the combined regex missed, and est_cv /
+        # syn_sent / time_wait / close_wait / rss_mb all cascaded to NA.
         out = run('tasklist /FI "IMAGENAME eq %s.exe" /FO CSV /NH' % APPNAME)
-        m = re.search(r'"[^"]*","(\d+)"[^"]*"[^"]*","[^"]*","([\d.,\s]+) K"', out)
-        if m:
-            return {"pid": int(m.group(1)), "uptime_s": NA,
-                    "rss_mb": int(re.sub(r"[^\d]", "", m.group(2))) // 1024}
-        return None
+        mp = re.search(r'^"[^"]*","(\d+)"', out, re.M)
+        if not mp:
+            return None
+        rss = NA
+        mm = re.search(r',"([^"]*?)\s*K"\s*$', out, re.M)
+        if mm:
+            digits = re.sub(r"\D", "", mm.group(1))
+            if digits:
+                rss = int(digits) // 1024
+        return {"pid": int(mp.group(1)), "uptime_s": NA, "rss_mb": rss}
     out = run("pgrep -x %s | head -1" % APPNAME).strip()
     if not out:
         return None
@@ -134,10 +143,23 @@ def nic():
             return int(open(base + "rx_bytes").read()), int(open(base + "tx_bytes").read())
         except Exception:
             return None, None
-    out = run("netstat -e")
-    n = re.findall(r"(\d[\d,\s]*)", out)
-    return (None, None) if len(n) < 2 else (int(re.sub(r"\D", "", n[0])),
-                                            int(re.sub(r"\D", "", n[1])))
+    # Windows: measure the interface that ROUTES TO CV, matching what the Linux
+    # branch above does via `ip route get`. Two reasons the old netstat -e path
+    # was wrong: (a) `(\d[\d,\s]*)` spans the whitespace between the Received and
+    # Sent columns, so it returned ONE 19-digit number formed by concatenating
+    # both (1495453706 + 480238975), which is where 2e10 Mbit/s came from; and
+    # (b) netstat -e is machine-wide, and on a Tailscale station the tunnel rides
+    # inside Ethernet, so both count the same bytes and the total is ~doubled.
+    ps = ("$i=(Find-NetRoute -RemoteIPAddress '%s'|Select-Object -First 1)"
+          ".InterfaceAlias;$s=Get-NetAdapterStatistics -Name $i;"
+          "'{0} {1}' -f $s.ReceivedBytes,$s.SentBytes" % CV)
+    m = re.search(r"(\d+)\s+(\d+)",
+                  run('powershell -NoProfile -NonInteractive -Command "%s"' % ps))
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    # Fallback keeps the per-column split correct even if the above is blocked.
+    m = re.search(r"Bytes\s+(\d+)\s+(\d+)", run("netstat -e"))
+    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
 
 
 def tcp_counters():
