@@ -40,3 +40,5 @@ w2-out/
 *.dmp
 aqtinstall.log
 buildasan/
+__pycache__/
+*.pyc
