@@ -86,4 +86,15 @@ and only publish locally when no CI run is in flight (`gh run list`).
   bumps the PATCH component (1.1.1, 1.1.2, …) and restages the five files that
   carry it. Only patch moves; major/minor change only when the operator says so.
   Amending needs `WT_NO_BUMP=1 git commit --amend`. See `docs/DEVELOPMENT.md`.
+- **15 fps is set ON THE CAMERAS and nowhere else.** The fleet broadcasts at 15;
+  no client, proxy or transcode may change it. Verified 2026-08-15: zero
+  frame-rate setters in `src/`+`qml/`, and go2rtc's 133 transcode producers pass
+  `#video=h264#width=1280#hardware=vaapi` — codec and width only, no `#fps=`.
+  Do not "fix" slow tiles by capping or resampling rate; a rate that differs
+  from 15 is a fault to diagnose, not a number to tune. `Settings.maxLiveDecodes`
+  caps how many streams decode at once (capped tiles fall back to badged
+  snapshots) — it is not a rate limit. The one place frames are legitimately
+  dropped is GUI-thread backpressure (`RtspVideoSource.h:98-100`), which
+  coalesces newer over older; that lowers DISPLAYED fps without changing any
+  configured rate.
 - Never commit secrets (tokens, camera passwords, station tokens).
