@@ -17,7 +17,7 @@ Conventions, fixed:
     median est_cv (self-normalised, so different fleet sizes cannot confound)
   * Spearman, not Pearson: these are counts with heavy tails
 """
-import json, math, sys
+import bisect, json, math, sys, time
 from collections import Counter
 
 NA = "NA"
@@ -193,12 +193,31 @@ def report(path, rows):
 
 def paired(a_rows, b_rows):
     print("\n## §5/§6 Paired\n")
-    idx = {r["ts_utc"][:16]: r for r in b_rows if "ts_utc" in r}
+    # Nearest-sample match within +/-15 s, NOT minute truncation.
+    # The two stations' clocks differ (booth measured +1.827 s against
+    # time.windows.com, server room +0.002 s). Truncating to the minute puts a
+    # booth sample stamped :00.5 into the previous minute on the server's clock
+    # and silently drops ~6 % of pairs at boundaries. Nearest-match is immune to
+    # any skew smaller than half the cadence and needs no correction constant.
+    import calendar
+    def epoch(t):
+        return calendar.timegm(time.strptime(t, "%Y-%m-%dT%H:%M:%SZ"))
+    bs = sorted(((epoch(r["ts_utc"]), r) for r in b_rows if "ts_utc" in r),
+                key=lambda x: x[0])
+    bt = [x[0] for x in bs]
     pa, pb = [], []
     for r in a_rows:
-        m = idx.get(r.get("ts_utc", "")[:16])
-        if not m:
+        if "ts_utc" not in r:
             continue
+        t = epoch(r["ts_utc"])
+        i = bisect.bisect_left(bt, t)
+        cand = [j for j in (i - 1, i) if 0 <= j < len(bt)]
+        if not cand:
+            continue
+        j = min(cand, key=lambda j: abs(bt[j] - t))
+        if abs(bt[j] - t) > 15:
+            continue
+        m = bs[j][1]
         x, y = r.get("reconnects_interval"), m.get("go2rtc.detach")
         if x not in (None, NA) and y not in (None, NA):
             pa.append(float(x)); pb.append(float(y))
