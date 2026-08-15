@@ -27,6 +27,37 @@ Item {
     // reaching the sink (_hasRecentFrame), and the cover below hides the raw VideoOutput until
     // then. Standing rule: green must never appear anywhere.
     readonly property bool playing: _hasRecentFrame
+
+    // ---- degraded: frames ARE arriving, but too slowly to be video ---------------------
+    // `playing` above is a GAP detector: any frame inside stallTimer's 2500 ms window makes
+    // it true. It was written to catch a stream that STOPS and cannot see one that DEGRADES,
+    // so a pipe limping at 0.7 fps — one frame every ~1.4 s — reads as fully live and the
+    // tile keeps a green LIVE badge over a picture that visibly never changes. That is the
+    // 2026-08-15 P1: six cells at the guard booth frozen, badged live, saying nothing.
+    //
+    // `degraded` is deliberately a SEPARATE signal and NOT a change to `playing`. Flipping
+    // `playing` false on a slow pipe would fire _armReconnect() below, putting every slow
+    // tile on a wall into simultaneous reconnect — a behavioural change that must not ride
+    // along with an honesty fix. This property changes what the operator SEES, nothing else.
+    property real degradedBelowFps: 2.0     // under this it is a slideshow, not video
+    readonly property bool degraded: playing && _fpsValid && fps < degradedBelowFps
+    // Rolling frame rate over the last window. -1 until the first full window has closed,
+    // so a tile that has just started is never reported as degraded.
+    property real fps: -1
+    property bool _fpsValid: false
+    property int _frameTicks: 0
+    Timer {
+        id: fpsTimer
+        interval: 2000
+        repeat: true
+        running: root.active && root.url !== "" && root._everPlayed
+        onTriggered: {
+            root.fps = root._frameTicks / (interval / 1000);
+            root._frameTicks = 0;
+            root._fpsValid = true;          // one closed window is enough to judge
+        }
+        onRunningChanged: if (!running) { root.fps = -1; root._fpsValid = false; root._frameTicks = 0; }
+    }
     // Where the fitted (letterboxed) video actually sits inside this item —
     // consumers place chrome in the bars instead of over the pixels.
     readonly property rect contentRect: videoOut.contentRect
@@ -121,6 +152,7 @@ Item {
         function onVideoFrameChanged() {
             root._hasRecentFrame = true;
             root._everPlayed = true;
+            root._frameTicks++;
             stallTimer.restart();
         }
     }
@@ -138,6 +170,7 @@ Item {
         }
         function onUrlChanged() {          // new stream: forget all prior frame/backoff state
             root._hasRecentFrame = false; root._everPlayed = false; stallTimer.stop();
+            root.fps = -1; root._fpsValid = false; root._frameTicks = 0;
             reconnectTimer.stop(); root._reconnectAttempt = 0;
             root._armReconnect();
         }

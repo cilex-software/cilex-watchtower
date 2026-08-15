@@ -186,6 +186,10 @@ Item {
     readonly property bool hasStream: streamUrl !== "" && videoActive && !isOffline
     readonly property bool streamPlaying: videoLoader.item ? videoLoader.item.playing : false
     readonly property bool streamErrored: videoLoader.item ? videoLoader.item.errored : false
+    // Frames arriving, but too slowly to be video. NOT a substate of "not playing" —
+    // see VideoSurface.degraded for why this is separate from streamPlaying.
+    readonly property bool streamDegraded: videoLoader.item ? videoLoader.item.degraded : false
+    readonly property real streamFps: videoLoader.item ? videoLoader.item.fps : -1
 
     readonly property bool isOffline: live === CameraStatus.Offline
     readonly property bool isNotRec: recording === CameraStatus.NotRecording
@@ -569,7 +573,16 @@ Item {
                     fg: Theme.accent; bgColor: Theme.accentDim
                     dotColor: Theme.accent; dotPulse: true; dotHollow: false
                 }
-                LiveStatusBadge { state: root.live; sinceMs: root.liveSinceMs; tier: root.chromeTier }
+                LiveStatusBadge {
+                    state: root.live
+                    // A degraded tile must not carry a green LIVE badge — that badge is
+                    // precisely the lie the operator cannot see through. The age is dropped
+                    // in favour of the measured rate: "how long" matters less than "how bad".
+                    degraded: root.streamDegraded
+                    fps: root.streamFps
+                    sinceMs: root.streamDegraded ? -1 : root.liveSinceMs
+                    tier: root.chromeTier
+                }
                 RecordingStatusBadge {
                     tier: root.chromeTier
                     state: root.recOff ? CameraStatus.Disabled : root.recording
