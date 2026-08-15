@@ -18,6 +18,55 @@ Item {
 
     function eventIcon(type) { return EventStyle.icon(type); }
     function eventColor(type) { return EventStyle.color(type); }
+
+    // Still-fetch state per event id, held on the ROOT so it survives ListView delegate
+    // recycling — a recycled delegate re-assigns `source` and would otherwise restart
+    // the whole attempt sequence every time a row scrolls back into view.
+    //
+    // Why retry at all: measured 2026-08-15, `events/{id}/snapshot` answers the newest
+    // events with
+    //     503 {"detail":"Footage for this event is still being written/uploaded"}
+    //     Retry-After: 30
+    // That is a NOT YET, not a failure — and this rail shows the 14 most recent events,
+    // i.e. exactly the ones whose footage is still being flushed. Giving up on the first
+    // error would guarantee a permanently empty rail. (CvImageProvider retries 503
+    // internally but clamps Retry-After to 5 s and stops after 3 tries, so all of its
+    // attempts land inside the first ~15 s of a 30 s wait and cannot succeed here.)
+    // Two separate counters, deliberately. `_stillGen` keys the request URL and is bumped
+    // ONLY by the retry timer — binding the URL to the failure count instead would make
+    // every error rewrite the source and refetch immediately, i.e. a hot retry loop.
+    // `_stillFails` counts errors however they arrive and drives the give-up latch; it
+    // must be independent because the feed re-polls every 15 s and rebuilds all
+    // delegates, which resets any per-delegate state and would otherwise mean an event
+    // that can never produce a still is re-requested forever.
+    property var _stillGen: ({})         // evId -> request generation (URL cache-buster)
+    property var _stillFails: ({})       // evId -> errors seen, across delegate rebuilds
+    property var _stillFailed: ({})      // evId -> true once we have stopped trying
+    readonly property int _stillMaxTries: 4
+    function _bumpStillGen(evId) {
+        var g = {};
+        for (var k in _stillGen) g[k] = _stillGen[k];
+        g[evId] = (g[evId] || 0) + 1;
+        _stillGen = g;
+    }
+    function _noteStillFail(evId) {      // returns the new failure count
+        var f = {};
+        for (var k in _stillFails) f[k] = _stillFails[k];
+        f[evId] = (f[evId] || 0) + 1;
+        _stillFails = f;
+        return f[evId];
+    }
+    function _noteStillFailed(evId, url) {
+        if (!evId || _stillFailed[evId]) return;
+        var d = {};
+        for (var k in _stillFailed) d[k] = _stillFailed[k];
+        d[evId] = true;
+        _stillFailed = d;
+        // Log the URL, not just the code. The 2026-08-15 thumbnail investigation had to
+        // ask CV which endpoint we were calling because we only ever recorded the status.
+        console.warn("[EVRAIL] gave up on event still after "
+                     + (_stillFails[evId] || 0) + " attempts: " + url);
+    }
     function relTime(tsMs) {
         if (!tsMs || tsMs <= 0) return "";
         var s = Math.max(0, (Date.now() - tsMs) / 1000);
@@ -181,6 +230,7 @@ Item {
 
                         // mid-incident still — 16:9, never black
                         Rectangle {
+                            id: stillCell
                             Layout.preferredWidth: 96
                             Layout.preferredHeight: 54
                             Layout.alignment: Qt.AlignVCenter
@@ -188,6 +238,28 @@ Item {
                             border.width: 1
                             border.color: Theme.line2
                             clip: true
+
+                            // Four states that must never render alike. Until 2026-08-15 a
+                            // failed fetch and an event with nothing to show drew the SAME
+                            // muted glyph, so an operator — and this agent, reading a
+                            // screenshot — could not tell "no picture exists" from "the
+                            // picture did not arrive".
+                            readonly property string evId: "" + row.modelData.id
+                            // Ask only when a recording covers the moment. `recordingId`, NOT
+                            // `hasClip`: the endpoint extracts a frame from recorded video and
+                            // has nothing to do with clip_url (see EventModel.cpp's live-feed
+                            // map). Gating on hasClip is why the rail never asked at all —
+                            // measured on the pilot feed, clip_url was set on 1 row of 14
+                            // while 3 of 14 had a recording_id.
+                            readonly property bool noEpisode: !row.modelData.recordingId
+                            readonly property bool latched: root._stillFailed[evId] === true
+                            readonly property int gen: root._stillGen[evId] || 0
+                            property bool waiting: false          // inside a Retry-After pause
+                            // Cache-buster: QML caches by URL, so a retry needs a new one.
+                            readonly property string stillUrl:
+                                "image://cvframe/events/" + evId + "/snapshot?pos=mid"
+                            readonly property bool failed: latched
+
                             Image {
                                 id: still
                                 anchors.fill: parent
@@ -195,10 +267,30 @@ Item {
                                 asynchronous: true
                                 fillMode: Image.PreserveAspectCrop
                                 sourceSize.width: 192
-                                source: row.modelData.hasClip
-                                        ? "image://cvframe/events/" + row.modelData.id + "/snapshot?pos=mid"
-                                        : ""
+                                source: (stillCell.noEpisode || stillCell.latched)
+                                        ? "" : (stillCell.stillUrl + "&_t=" + stillCell.gen)
                                 visible: status === Image.Ready
+                                onStatusChanged: {
+                                    if (status !== Image.Error)
+                                        return;
+                                    // The server's own answer to a too-new event is "retry in
+                                    // 30 s", so honour it rather than treating the first error
+                                    // as final. Bounded by the failure count, then latched.
+                                    if (root._noteStillFail(stillCell.evId) >= root._stillMaxTries) {
+                                        root._noteStillFailed(stillCell.evId, stillCell.stillUrl);
+                                    } else {
+                                        stillCell.waiting = true;
+                                        retryStill.restart();
+                                    }
+                                }
+                            }
+                            Timer {
+                                id: retryStill
+                                interval: 30000               // = the endpoint's Retry-After
+                                onTriggered: {
+                                    stillCell.waiting = false;
+                                    root._bumpStillGen(stillCell.evId);   // → new URL → refetch
+                                }
                             }
                             Rectangle {                     // shimmer while the queued fetch runs
                                 anchors.fill: parent
@@ -212,12 +304,28 @@ Item {
                                     NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
                                 }
                             }
-                            Icon {                          // no clip / no recorded video → muted glyph
+                            Icon {                          // footage still being written — will retry
                                 anchors.centerIn: parent
-                                visible: still.status !== Image.Ready && still.status !== Image.Loading
+                                visible: stillCell.waiting
+                                name: "history"
+                                size: 16
+                                color: Theme.ink2
+                            }
+                            Icon {                          // nothing recorded at that moment
+                                anchors.centerIn: parent
+                                visible: !stillCell.failed && !stillCell.waiting
+                                         && still.status !== Image.Ready
+                                         && still.status !== Image.Loading
                                 name: "shot"
                                 size: 16
                                 color: Theme.ink3
+                            }
+                            Icon {                          // asked, retried, never arrived —
+                                anchors.centerIn: parent    // NOT the same as "no picture exists"
+                                visible: stillCell.failed
+                                name: "alert"
+                                size: 16
+                                color: Theme.warn
                             }
                         }
 

@@ -9,9 +9,16 @@
 #include <QThread>
 #include <QTimer>
 
-// The event-snapshot path 503-sheds under memory pressure (the backend governor).
-// That's transient + carries Retry-After, so retry a bounded few times before
-// giving up to the live-frame fallback. 404 (no clip) still fails immediately.
+// The event-snapshot path 503s for two DIFFERENT reasons, both carrying Retry-After:
+// the memory-pressure governor shedding load, and (measured 2026-08-15)
+//   {"detail":"Footage for this event is still being written/uploaded"}  Retry-After: 30
+// on any event newer than the fragment-flush lag. Retry a bounded few times, then give
+// up to the caller's fallback. 404 (no episode) still fails immediately.
+//
+// Do NOT raise the Retry-After clamp below to honour a 30 s hint: a waiting response
+// holds one of the two extraction slots, so three of them would stall the whole rail
+// for the entire window. Failing fast frees the slot; the LONG wait belongs to the
+// caller, which is where OpsSidebar's 30 s re-request timer lives.
 static constexpr int kMaxSnapshotRetries = 3;
 
 // [EVIMG] — WT_TRACE-gated per-fetch diagnostics (code + latency), to verify the

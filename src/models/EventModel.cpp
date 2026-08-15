@@ -566,8 +566,15 @@ void EventModel::pollMotion()
 }
 
 // Live Events sidebar: one row per motion incident. Server-side exclude_types
-// keeps lifecycle bookends and readiness warnings out; every returned row is a
-// real incident with a clip (=> a mid-event still exists for it).
+// keeps lifecycle bookends and readiness warnings out.
+//
+// The old comment here claimed "every returned row is a real incident with a clip
+// (=> a mid-event still exists for it)". Measured on the pilot 2026-08-15: of 14
+// returned rows, clip_url was set on ONE and metadata.recording_id on three. The
+// sidebar gated its thumbnail on clip_url because of that claim, so it issued no
+// snapshot request at all for 13 of 14 rows and the whole rail drew placeholder
+// glyphs. Gate on recording_id — the precondition the extraction endpoint actually
+// has — and never re-derive one fact from a different one.
 void EventModel::fetchLiveFeed()
 {
     if (m_baseUrl.isEmpty())
@@ -610,6 +617,18 @@ void EventModel::fetchLiveFeed()
             const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
             m.insert("tsMs", dt.isValid() ? double(dt.toMSecsSinceEpoch()) : -1.0);
             m.insert("hasClip", !o.value("clip_url").toString().isEmpty());
+            // The sidebar's still comes from `events/{id}/snapshot`, which EXTRACTS a
+            // frame from recorded video — it has nothing to do with `clip_url`. Its
+            // precondition is a recording_id (CV letter 2026-08-09 reply §1.3, and see
+            // the contract table in EvSnapshot.qml). Gating the rail's thumbnail on
+            // hasClip meant asking "is there a downloadable clip?" to decide whether a
+            // FRAME could be extracted — two different facts, and the answer to the
+            // wrong one was no, so the rail never asked and every row drew the
+            // no-content glyph (operator report 2026-08-15; zero OpsSidebar image
+            // warnings in a 7 h run confirmed no request was ever made).
+            m.insert("recordingId", o.value("metadata").toObject()
+                                     .value("recording_id").toString());
+            m.insert("durationMs", o.value("duration_ms").toVariant().toLongLong());
             const bool ack = !o.value("triage_state").toString().isEmpty()
                              && o.value("triage_state").toString() != QLatin1String("new");
             m.insert("ack", ack);
