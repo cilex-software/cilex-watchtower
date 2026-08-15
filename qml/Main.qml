@@ -224,8 +224,25 @@ Window {
             if (raw === "") { win._vsFinish("none"); return; }
             // Tabs/cameras resolve against the roster — wait for it (bounded:
             // a backendless boot must still arm saves eventually).
-            if (!AuthController.authenticated || cameraModel.total === 0) {
-                if (tries > 60) win._vsFinish("timeout-no-roster");
+            // Two different waits, deliberately. Not-authenticated is the
+            // backendless boot the short bound exists for — saves must arm
+            // eventually even with no server. Authenticated-but-empty is a
+            // server that IS there and merely slow, and giving up on it throws
+            // away the operator's saved wall for the rest of the session.
+            //
+            // Observed 2026-08-16 02:30: /streams 500'd after 31 s under host
+            // load (8-11 s typical, 30 s timeout), restore gave up at 02:31:10,
+            // and the roster landed at 02:31:56 — 46 s after we stopped caring.
+            // The wall then came up in a default layout and the operator
+            // reasonably read that as "no cameras loaded". 42 s is not a
+            // property of the operator's intent, it is a property of a bad
+            // afternoon on the backend.
+            if (!AuthController.authenticated) {
+                if (tries > 60) win._vsFinish("timeout-no-auth");     // ~42 s
+                return;
+            }
+            if (cameraModel.total === 0) {
+                if (tries > 430) win._vsFinish("timeout-no-roster");  // ~5 min
                 return;
             }
             var s;
