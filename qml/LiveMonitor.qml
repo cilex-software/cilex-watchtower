@@ -269,21 +269,27 @@ Item {
         }
         return out;
     }
-    // Fallback thumbnail when a camera has no backend snapshot_url: go2rtc serves
-    // a JPEG of the sub-stream at http://<host>:1984/api/frame.jpeg?src=<stream>.
-    // Sub-stream keeps it light; the Image loads async + caches. (The preferred
-    // source is the backend's snapshotUrl — see the picker Image.)
+    // Fallback thumbnail for a camera with no backend snapshot_url.
+    //
+    // This used to derive go2rtc's own JPEG endpoint from the RTSP URL —
+    // http://<host>:1984/api/frame.jpeg?src=<stream>. **:1984 was CLOSED on
+    // 2026-08-15** (every producer URL on that port carried a camera password);
+    // verified refused on LAN and tailnet. There is no second source: the backend's
+    // snapshot_url IS the snapshot service now, so a camera without one has no
+    // picture available to us at all.
+    //
+    // So this now builds the ONE remaining source, and fixes a second defect while
+    // it is here: the picker used `cam.snapshotUrl` as a bare QML Image source, and
+    // that endpoint requires the session cookie — measured 2026-08-16, an
+    // unauthenticated GET returns **401**. A QML Image carries no cookie, so those
+    // requests were failing and the cell was quietly falling back to the camera
+    // initial. Route through the cvframe provider, which attaches the cookie, the
+    // same way LiveThumb does. A camera with no snapshot_url has no picture
+    // available at all; "" is the honest answer and the picker draws the initial.
     function _thumbUrl(cam) {
-        var u = (cam && cam.rtspSubUrl && cam.rtspSubUrl !== "") ? cam.rtspSubUrl
-              : ((cam && cam.rtspUrl) ? cam.rtspUrl : "");
-        if (u.indexOf("rtsp://") !== 0) return "";
-        var rest = u.substring(7), slash = rest.indexOf("/");
-        if (slash < 0) return "";
-        var hostport = rest.substring(0, slash), colon = hostport.indexOf(":");
-        var host = colon >= 0 ? hostport.substring(0, colon) : hostport;
-        var stream = rest.substring(slash + 1);
-        if (host === "" || stream === "") return "";
-        return "http://" + host + ":1984/api/frame.jpeg?src=" + encodeURIComponent(stream);
+        var base = (cam && cam.snapshotUrl) ? cam.snapshotUrl : "";
+        if (base === "") return "";
+        return "image://cvframe/" + base.replace(/^[a-z]+:\/\/[^\/]+\//, "");
     }
     // Cameras whose go2rtc frame.jpeg snapshot can't be decoded (e.g. an HEVC-only or
     // wedged producer that returns a non-JPEG). Recorded on the FIRST failure so we stop
@@ -1784,9 +1790,7 @@ Item {
                                                  || !(root._thumbLoaded[pickCell.modelData.camId]
                                                       || ((root.arrangeMode || root.pickerCell >= 0)
                                                           && root._thumbGranted[pickCell.modelData.camId]))) ? ""
-                                                : ((pickCell.modelData.snapshotUrl && pickCell.modelData.snapshotUrl !== "")
-                                                   ? pickCell.modelData.snapshotUrl
-                                                   : root._thumbUrl(pickCell.modelData))
+                                                : root._thumbUrl(pickCell.modelData)
                                         onStatusChanged: {
                                             // Mark loaded (keep-alive across open/close) the first time it's Ready.
                                             if (status === Image.Ready && pickCell.modelData && pickCell.modelData.camId

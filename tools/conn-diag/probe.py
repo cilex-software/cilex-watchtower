@@ -11,7 +11,16 @@ per camera per sample. Nothing is written to the fleet, no PTZ, no acks.
 """
 import json, os, sys, time, urllib.request, urllib.error
 
-G2 = "http://192.168.1.79:1984"
+# :1984 was CLOSED by CV on 2026-08-15 (every go2rtc producer URL on that port
+# carried a camera password). Verified refused on LAN and tailnet 2026-08-16.
+# Every G2 call below is therefore dead. They are left in place rather than
+# deleted because this harness is still the record of the open consumer-attrition
+# investigation — but they must NEVER be allowed to report a zero, because "the
+# port is gone" and "the value is zero" are different facts and conflating them is
+# how three wrong findings got written this week.
+# Replacements: consumer counts -> GET /client/streams/consumers (authenticated);
+# per-camera frame rate -> tools/conn-diag/fps-sweep.sh over RTSP :8554.
+G2 = None          # hard-fail any surviving caller instead of silently timing out
 # Pinned by IP so both machines probe the same optics. -sub is what the wall
 # actually consumes; the main streams are HEVC and only the recorder pulls them.
 PROBES = [

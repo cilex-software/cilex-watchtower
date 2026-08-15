@@ -1,4 +1,5 @@
 #include "Artifacts.h"
+#include "AuthController.h"
 
 #include <QPainter>
 #include <QFontMetrics>
@@ -133,34 +134,48 @@ QString Artifacts::newExportPath(const QString &camId, const QString &ext) const
 void Artifacts::captureMainStreamSnapshot(const QString &camId, const QString &camName,
                                           const QString &mainRtspUrl)
 {
-    // mainRtspUrl looks like: rtsp://192.168.1.79:8554/hiwatch-<mac>
-    // go2rtc's HTTP API serves a JPEG of any registered stream at:
-    //   http://<host>:1984/api/frame.jpeg?src=<stream-name>
-    // Port 1984 is the go2rtc default and matches our current deployment.
-    // TODO: a proper backend ask to expose this URL on /streams would let us
-    // drop the hard-coded port and authenticate per user.
+    // Was: http://<host>:1984/api/frame.jpeg?src=<stream>, go2rtc's own HTTP API,
+    // with a hard-coded port and no authentication — carrying the TODO that asked
+    // for exactly the endpoint we now use. **:1984 was CLOSED on 2026-08-15** (CV
+    // deleted the publish; every producer URL on that port carried a camera
+    // password). Verified refused on both LAN and tailnet, so this path was dead,
+    // not deprecated.
+    //
+    // The replacement is query-api's cached camera snapshot, authenticated with the
+    // session cookie like every other backend call. Measured 2026-08-16: 1280×720
+    // JPEG — the same width go2rtc's transcode produces, so an operator's saved
+    // snapshot loses no resolution in the move.
+    //
+    // mainRtspUrl is no longer needed to build the URL. It is still accepted and
+    // validated, because it is the caller's proof that this camera HAS a main
+    // stream — capturing a still for a camera with no stream should fail, not
+    // silently save a substream frame.
+    Q_UNUSED(mainRtspUrl);
+    auto *auth = AuthController::instance();
+    if (!auth || auth->baseUrl().isEmpty()) {
+        emit snapshotCaptureFailed(camId, camName, QStringLiteral("not signed in"));
+        return;
+    }
     const QUrl rtsp(mainRtspUrl);
     if (rtsp.scheme() != QLatin1String("rtsp") || rtsp.host().isEmpty() || rtsp.path().size() <= 1) {
         emit snapshotCaptureFailed(camId, camName, QStringLiteral("invalid rtsp url"));
         return;
     }
-    const QString streamId = rtsp.path().mid(1);   // strip leading "/"
 
-    QUrl httpUrl;
-    httpUrl.setScheme(QStringLiteral("http"));
-    httpUrl.setHost(rtsp.host());
-    httpUrl.setPort(1984);
-    httpUrl.setPath(QStringLiteral("/api/frame.jpeg"));
-    QUrlQuery q;
-    q.addQueryItem(QStringLiteral("src"), streamId);
-    httpUrl.setQuery(q);
+    QString safeCam = camId;
+    safeCam.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9._-]")), QStringLiteral("_"));
+    const QUrl httpUrl(auth->baseUrl() + QStringLiteral("/streams/cameras/")
+                       + safeCam + QStringLiteral("/snapshot"));
 
     if (!m_nam)
         m_nam = new QNetworkAccessManager(this);
 
     QNetworkRequest req(httpUrl);
-    // First main-stream pull can take 1–3s if go2rtc has no live consumer
-    // (it opens the upstream RTSP on demand). Be patient.
+    // Private NAM, so the login cookie never lands in this jar — attach it per
+    // request, the same contract CvImageProvider uses.
+    req.setRawHeader("Cookie", "access_token=" + auth->token().toUtf8());
+    // First pull can take 1–3s on a cache miss (the backend fills from the stream
+    // behind its own semaphore). Be patient.
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, camId, camName]() {
         reply->deleteLater();
