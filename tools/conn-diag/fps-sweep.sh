@@ -30,7 +30,7 @@ EXPECTED="${EXPECTED:-15}"    # the rate the cameras are configured for
 printf 'stream\tfps\tframes\tsecs\tverdict\n'
 while read -r s; do
   [ -z "$s" ] && continue
-  out=$(timeout $((SECS + 15)) ffmpeg -hide_banner -rtsp_transport tcp \
+  out=$(timeout $((SECS + 15)) ffmpeg -nostdin -hide_banner -rtsp_transport tcp \
         -i "rtsp://$HOST:8554/$s" -t "$SECS" -f null - 2>&1)
   fr=$(printf '%s' "$out" | grep -oE 'frame=\s*[0-9]+' | tail -1 | grep -oE '[0-9]+')
   tm=$(printf '%s' "$out" | grep -oE 'time=[0-9]{2}:[0-9]{2}:[0-9.]+' | tail -1 | cut -d= -f2)
