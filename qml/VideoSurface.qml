@@ -43,7 +43,16 @@ Item {
     // and the booth was right that 2.0 set the bar so low a plainly-broken tile still
     // read as healthy. The rate is set ON THE CAMERAS (CLAUDE.md) — this only judges
     // what arrived, it never requests or caps anything.
-    property real degradedBelowFps: 5.0
+    // 10 fps. Operator spec 2026-08-15: the fleet runs a near-constant 15 with small
+    // deviations, and anything under 10 is to be reported as a fault — so the badge and
+    // the Health report use ONE threshold. (Rate is set on the cameras; this only judges
+    // what arrived — CLAUDE.md.)
+    property real degradedBelowFps: 10.0
+    // Debounce: 3 consecutive sub-threshold windows (~6 s) before the badge turns. At a
+    // 10 fps bar against a 15 fps source, ordinary jitter WILL dip a single 2 s window,
+    // and a badge that flickers amber on a healthy wall teaches the guard to ignore amber.
+    property int degradedWindows: 3
+    property int _lowRuns: 0
     // NOTE the `!playing` term, which the first version of this fix did not have.
     // It read `playing && fps < floor`, and `playing` is itself a 2500 ms gap detector —
     // so a tile so broken that its gaps EXCEEDED 2.5 s fell out of `degraded` entirely
@@ -52,10 +61,14 @@ Item {
     // per ~9 s (~0.1 fps) still wearing a green badge. Once a surface has ever played,
     // anything short of a real rate is degraded — including nothing at all.
     readonly property bool degraded:
-        _everPlayed && (!playing || (_fpsValid && fps < degradedBelowFps))
+        _everPlayed && (!playing || (_fpsValid && _lowRuns >= degradedWindows))
     // Rolling frame rate over the last window. -1 until the first full window has closed,
     // so a tile that has just started is never reported as degraded.
     property real fps: -1
+    // Rolling 60 s mean, -1 until at least 30 s of windows exist. This is the number
+    // that goes to CV Health / Cilex Pro Mobile — reported when it falls under 10.
+    property real fpsMean60: -1
+    property var _win: []
     property bool _fpsValid: false
     property int _frameTicks: 0
     Timer {
@@ -66,7 +79,14 @@ Item {
         onTriggered: {
             root.fps = root._frameTicks / (interval / 1000);
             root._frameTicks = 0;
-            root._fpsValid = true;          // one closed window is enough to judge
+            root._fpsValid = true;
+            root._lowRuns = (root.fps < root.degradedBelowFps) ? root._lowRuns + 1 : 0;
+            // 60 s mean for the Health report — a single window is too twitchy to send
+            // to a fleet-health surface, and the operator asked for an AVERAGE.
+            root._win.push(root.fps);
+            while (root._win.length > 30) root._win.shift();
+            var t = 0; for (var i = 0; i < root._win.length; i++) t += root._win[i];
+            root.fpsMean60 = root._win.length >= 15 ? t / root._win.length : -1;
         }
         onRunningChanged: if (!running) { root.fps = -1; root._fpsValid = false; root._frameTicks = 0; }
     }
