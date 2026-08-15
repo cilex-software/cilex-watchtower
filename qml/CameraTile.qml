@@ -364,14 +364,25 @@ Item {
         //   black + "Connecting…" for seconds; the ≤10 s-old snapshot is already in
         //   the pixmap cache, so show IT until real frames flow.
         LiveThumb {
+            id: snapThumb
             anchors.fill: parent
-            visible: root.snapshotMode || (root.videoActive && !root.isOffline && !root.streamPlaying)
+            // Offline is now a THIRD reason to draw this. From 2026-08-16 the backend
+            // answers an offline camera with its last recorded frame (HTTP 200), and
+            // CV's access log showed this tile fetching those bytes 44 times and
+            // discarding every one: the NO SIGNAL overlay below is opaque, so the
+            // picture was delivered and painted over. A guard asking "what did that
+            // camera last see?" had the answer on the wire and not on the screen.
+            visible: root.snapshotMode
+                     || (root.videoActive && !root.isOffline && !root.streamPlaying)
+                     || (root.isOffline && root.snapshotUrl !== "")
             active: root.videoActive
             refreshMs: root.snapshotMode
                        ? ((typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 1000)
-                       : 10500
+                       : (root.isOffline ? 60000 : 10500)   // a dead camera's last frame cannot change
             showOctet: false; showStatus: false      // the tile draws its own badges/octet
-            cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live })
+            showStale: false                         // ...and its own offline treatment, below
+            cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live,
+                    lastSegmentAt: root.lastSegmentAt })
         }
 
         // Connecting: ONE indicator, and a quiet one.
@@ -412,7 +423,11 @@ Item {
         Rectangle {
             anchors.fill: parent
             visible: root.isOffline
-            color: "#0a0d11"
+            // Translucent ONLY when there is a real last-seen frame underneath to let
+            // through; opaque otherwise, so a tile with nothing to show never pretends
+            // there is something behind the scrim. The scrim is heavy on purpose — the
+            // frame is up to days old and must never be mistaken for a live picture.
+            color: snapThumb._everLoaded ? Qt.rgba(0.039, 0.051, 0.067, 0.72) : "#0a0d11"
             Column {
                 anchors.centerIn: parent
                 spacing: 4
@@ -424,7 +439,13 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("last seen ") + root.lastSeen; color: Theme.ink3
+                    // Name what the picture IS when one is showing, not just when the
+                    // camera was last heard from — those are different facts and the
+                    // operator is looking at the first one.
+                    text: snapThumb._everLoaded
+                          ? (qsTr("last seen ") + root.lastSeen + "  ·  " + qsTr("image ") + snapThumb._ageText)
+                          : (qsTr("last seen ") + root.lastSeen)
+                    color: snapThumb._everLoaded ? Theme.warn : Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 10
                 }
             }

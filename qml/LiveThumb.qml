@@ -31,6 +31,9 @@ Rectangle {
         ? Qt.size(wtThumbScale, Math.round(wtThumbScale * 9 / 16))
         : Qt.size(Math.ceil(width), Math.ceil(height))
     property bool showStatus: true
+    // A host that draws its own offline treatment (CameraTile's NO SIGNAL overlay
+    // already prints "last seen …") sets this false so the marking is not doubled.
+    property bool showStale: true
     signal clicked()
 
     color: "#0b0d10"; clip: true
@@ -150,12 +153,12 @@ Rectangle {
     // than staying silent — absent data renders as unknown, never as healthy.
     readonly property string _ageText: _ageS >= 0 ? _rel(_ageS) : qsTr("not live")
     Rectangle {   // knock the stale frame back so it cannot read as a live picture
-        visible: thumb._stale
+        visible: thumb._stale && thumb.showStale
         anchors.fill: parent; anchors.margins: 1
         color: Qt.rgba(0, 0, 0, 0.38)
     }
     Rectangle {   // "36 h ago" — never gated on showStatus; this one is not optional
-        visible: thumb._stale && thumb.width >= 90 && thumb.height >= 44
+        visible: thumb._stale && thumb.showStale && thumb.width >= 90 && thumb.height >= 44
         anchors { left: parent.left; top: parent.top; margins: 3 }
         width: ageT.implicitWidth + 8; height: ageT.implicitHeight + 3; radius: 2
         color: Qt.rgba(0, 0, 0, 0.58)
@@ -165,7 +168,7 @@ Rectangle {
         }
     }
     Rectangle {   // too small for words (the 50×29 adjacent-frame plate) — still marked
-        visible: thumb._stale && !(thumb.width >= 90 && thumb.height >= 44)
+        visible: thumb._stale && thumb.showStale && !(thumb.width >= 90 && thumb.height >= 44)
         anchors { left: parent.left; top: parent.top; margins: 3 }
         width: 5; height: 5; radius: 1; color: Theme.warn
     }
