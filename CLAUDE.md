@@ -98,6 +98,14 @@ GitHub releases themselves cost nothing; only Actions minutes did.
   no client, proxy or transcode may change it. Verified 2026-08-15: zero
   frame-rate setters in `src/`+`qml/`, and go2rtc's 133 transcode producers pass
   `#video=h264#width=1280#hardware=vaapi` — codec and width only, no `#fps=`.
+  **That string is bound to the MAIN stream** (`main_transcode`, CV's
+  `streams.py:514`). `{camera_id}-sub` — what the Live wall actually consumes —
+  is a **raw channel-102 passthrough**: no ffmpeg, no transcode, no width
+  parameter, natively 1280×720 from the camera. Corrected 2026-08-16 by CV
+  after this booth read the MAIN width as the wall's and recommended changing
+  it; the change would have moved wall traffic by zero. `-sub` is also what the
+  **warm storage tier records** (35-day retention), so it cannot be cheapened in
+  place to suit a remote wall — a lower-rate wall feed needs its own variant.
   Do not "fix" slow tiles by capping or resampling rate; a rate that differs
   from 15 is a fault to diagnose, not a number to tune. `Settings.maxLiveDecodes`
   caps how many streams decode at once (capped tiles fall back to badged
