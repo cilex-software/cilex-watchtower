@@ -363,6 +363,7 @@ void CameraModel::fetchCameras()
         // receives the raw direct_rtsp_* fields, so non-admins always get go2rtc.
         const QString liveTransport = QSettings().value(QStringLiteral("video/liveTransport"),
                                                         QStringLiteral("go2rtc")).toString();
+        bool sawDirect = false;
         for (const auto &v : arr) {
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
@@ -420,6 +421,7 @@ void CameraModel::fetchCameras()
             const QString go2rtcSubUrl = o.value("rtsp_sub_url").toString();
             const QString directUrl    = o.value("direct_rtsp_url").toString();
             const QString directSubUrl = o.value("direct_rtsp_sub_url").toString();
+            if (!directUrl.isEmpty()) sawDirect = true;
             if (liveTransport == QLatin1String("rtsp") && !directUrl.isEmpty()) {
                 c.rtspUrl = directUrl;
                 if (!directSubUrl.isEmpty()) c.rtspSubUrl = directSubUrl;
@@ -449,6 +451,10 @@ void CameraModel::fetchCameras()
         }
 
         beginResetModel();
+        if (m_directRtspAvailable != sawDirect) {
+            m_directRtspAvailable = sawDirect;
+            emit directRtspAvailableChanged();
+        }
         m_all = out;
         endResetModel();
         recompute();

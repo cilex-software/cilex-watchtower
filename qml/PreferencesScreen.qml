@@ -248,11 +248,31 @@ Item {
                     visible: AuthController.isAdmin
                     label: qsTr("Live video transport (admin)")
                     desc: qsTr("How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision.")
-                    Segmented {
-                        opts: [{ k: "go2rtc", v: "go2rtc" }, { k: qsTr("Direct RTSP"), v: "rtsp" }]
-                        value: Settings.liveTransport
-                        segW: 96
-                        onPicked: (v) => Settings.liveTransport = v
+                    ColumnLayout {
+                        spacing: 4
+                        Segmented {
+                            opts: [{ k: "go2rtc", v: "go2rtc" },
+                                   { k: qsTr("Direct RTSP"), v: "rtsp" }]
+                            value: Settings.liveTransport
+                            segW: 96
+                            onPicked: (v) => Settings.liveTransport = v
+                        }
+                        // Direct RTSP only works if the server publishes the
+                        // credentialed URLs. CV can now strip them to close the
+                        // credential exposure, and the client then falls back to
+                        // go2rtc — so say that, rather than leave a selected
+                        // control quietly doing nothing.
+                        Text {
+                            visible: Settings.liveTransport === "rtsp"
+                                     && cameraModel && !cameraModel.directRtspAvailable
+                            Layout.maximumWidth: 320
+                            wrapMode: Text.WordWrap
+                            text: qsTr("Not in use: Cilex Vision no longer publishes camera "
+                                       + "credentials in the camera list, so the wall is "
+                                       + "running on go2rtc.")
+                            color: Theme.warn
+                            font.family: Theme.fontSans; font.pixelSize: 11
+                        }
                     }
                 }
             }

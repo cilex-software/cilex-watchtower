@@ -42,6 +42,12 @@ class CameraModel : public QAbstractListModel
     // Bumped when any camera's observed live/recording state CHANGES between polls —
     // badge timers bind to this (invokables below), avoiding per-row re-paging.
     Q_PROPERTY(int stateRev READ stateRev NOTIFY stateRevChanged)
+    // True when the last /streams response actually carried direct_rtsp_* URLs.
+    // CV can strip them (?include_direct_rtsp=false, 2026-08-16) to close the
+    // credential exposure, and the client then silently falls back to go2rtc —
+    // so the admin transport control must be able to say it is not honoured
+    // rather than showing a selection that does nothing.
+    Q_PROPERTY(bool directRtspAvailable READ directRtspAvailable NOTIFY directRtspAvailableChanged)
 
 public:
     enum Roles {
@@ -148,6 +154,7 @@ public:
     bool liveViewEnabled() const { return m_liveViewEnabled; }
     bool playbackEnabled() const { return m_playbackEnabled; }
     int stateRev() const { return m_stateRev; }
+    bool directRtspAvailable() const { return m_directRtspAvailable; }
     // Live-state onset for the badge timers. Prefers the backend's authoritative
     // `status_since` (trigger-stamped + backfilled — CV letter 2026-07-10.reply,
     // correct from first render and restart-proof); falls back to the onset this
@@ -173,6 +180,7 @@ signals:
     void loadingChanged();
     void functionsChanged();
     void stateRevChanged();
+    void directRtspAvailableChanged();
 
 private:
     void recompute();
@@ -203,6 +211,7 @@ private:
     QHash<QString, qint64> m_recSinceAuth;    // camera_id → backend recording_since (null post-flip ≤30s)
     QHash<QString, qint64> m_recSince;    // camera_id → observed rec-state onset (ms)
     int m_stateRev = 0;
+    bool m_directRtspAvailable = false;
     int m_online = 0;
     int m_offline = 0;
     int m_degraded = 0;

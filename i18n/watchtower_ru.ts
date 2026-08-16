@@ -3428,32 +3428,32 @@
         <translation>Как стена мониторинга получает видео с камер. go2rtc хранит учётные данные камер на сервере (рекомендуется). Прямой RTSP подключает каждый клиент напрямую к камерам, используя учётные данные, предоставленные Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="252"/>
+        <location filename="../qml/PreferencesScreen.qml" line="255"/>
         <source>Direct RTSP</source>
         <translation>Прямой RTSP</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="261"/>
+        <location filename="../qml/PreferencesScreen.qml" line="281"/>
         <source>Live tile overlay</source>
         <translation>Наложение на плитке</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="263"/>
+        <location filename="../qml/PreferencesScreen.qml" line="283"/>
         <source>Camera name</source>
         <translation>Имя камеры</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="264"/>
+        <location filename="../qml/PreferencesScreen.qml" line="284"/>
         <source>Show the camera name/model on each live tile.</source>
         <translation>Показывать имя/модель камеры на каждой плитке.</translation>
     </message>
     <message>
         <location filename="../qml/PreferencesScreen.qml" line="199"/>
-        <location filename="../qml/PreferencesScreen.qml" line="266"/>
-        <location filename="../qml/PreferencesScreen.qml" line="276"/>
         <location filename="../qml/PreferencesScreen.qml" line="286"/>
-        <location filename="../qml/PreferencesScreen.qml" line="325"/>
-        <location filename="../qml/PreferencesScreen.qml" line="335"/>
+        <location filename="../qml/PreferencesScreen.qml" line="296"/>
+        <location filename="../qml/PreferencesScreen.qml" line="306"/>
+        <location filename="../qml/PreferencesScreen.qml" line="345"/>
+        <location filename="../qml/PreferencesScreen.qml" line="355"/>
         <source>Off</source>
         <translation>Выкл</translation>
     </message>
@@ -3489,11 +3489,11 @@
     </message>
     <message>
         <location filename="../qml/PreferencesScreen.qml" line="199"/>
-        <location filename="../qml/PreferencesScreen.qml" line="266"/>
-        <location filename="../qml/PreferencesScreen.qml" line="276"/>
         <location filename="../qml/PreferencesScreen.qml" line="286"/>
-        <location filename="../qml/PreferencesScreen.qml" line="325"/>
-        <location filename="../qml/PreferencesScreen.qml" line="335"/>
+        <location filename="../qml/PreferencesScreen.qml" line="296"/>
+        <location filename="../qml/PreferencesScreen.qml" line="306"/>
+        <location filename="../qml/PreferencesScreen.qml" line="345"/>
+        <location filename="../qml/PreferencesScreen.qml" line="355"/>
         <source>On</source>
         <translation>Вкл</translation>
     </message>
@@ -3518,118 +3518,123 @@
         <translation>HD</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="273"/>
+        <location filename="../qml/PreferencesScreen.qml" line="270"/>
+        <source>Not in use: Cilex Vision no longer publishes camera credentials in the camera list, so the wall is running on go2rtc.</source>
+        <translation>Не используется: Cilex Vision больше не передаёт учётные данные камер в списке камер, поэтому стена работает через go2rtc.</translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="293"/>
         <source>IP address</source>
         <translation>IP-адрес</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="274"/>
+        <location filename="../qml/PreferencesScreen.qml" line="294"/>
         <source>Show the camera&apos;s IP address on each live tile.</source>
         <translation>Показывать IP-адрес камеры на каждой плитке.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="283"/>
+        <location filename="../qml/PreferencesScreen.qml" line="303"/>
         <source>Camera ID</source>
         <translation>ID камеры</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="284"/>
+        <location filename="../qml/PreferencesScreen.qml" line="304"/>
         <source>Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile.</source>
         <translation>Показывать серверный ID камеры (например, hiwatch-083bc14effb2) на каждой плитке.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="295"/>
+        <location filename="../qml/PreferencesScreen.qml" line="315"/>
         <source>Time &amp; language</source>
         <translation>Время и язык</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="297"/>
+        <location filename="../qml/PreferencesScreen.qml" line="317"/>
         <source>Time format</source>
         <translation>Формат времени</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="298"/>
+        <location filename="../qml/PreferencesScreen.qml" line="318"/>
         <source>How clocks are shown across the app.</source>
         <translation>Как отображается время в приложении.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="300"/>
+        <location filename="../qml/PreferencesScreen.qml" line="320"/>
         <source>24-hour</source>
         <translation>24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="300"/>
+        <location filename="../qml/PreferencesScreen.qml" line="320"/>
         <source>12-hour</source>
         <translation>12 часов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="307"/>
+        <location filename="../qml/PreferencesScreen.qml" line="327"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="308"/>
+        <location filename="../qml/PreferencesScreen.qml" line="328"/>
         <source>Interface language. Defaults to your operating system&apos;s language; changes apply immediately.</source>
         <translation>Язык интерфейса. По умолчанию используется язык операционной системы; изменения применяются сразу.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="320"/>
+        <location filename="../qml/PreferencesScreen.qml" line="340"/>
         <source>Alerts</source>
         <translation>Оповещения</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="322"/>
+        <location filename="../qml/PreferencesScreen.qml" line="342"/>
         <source>Alert sound</source>
         <translation>Звук оповещения</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="323"/>
+        <location filename="../qml/PreferencesScreen.qml" line="343"/>
         <source>Play a sound when a camera raises an alert.</source>
         <translation>Воспроизводить звук при срабатывании оповещения камеры.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="332"/>
+        <location filename="../qml/PreferencesScreen.qml" line="352"/>
         <source>Desktop notifications</source>
         <translation>Уведомления рабочего стола</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="333"/>
+        <location filename="../qml/PreferencesScreen.qml" line="353"/>
         <source>Show an OS notification for alerts even when Watchtower isn&apos;t focused.</source>
         <translation>Показывать системные уведомления об оповещениях, даже когда Watchtower не в фокусе.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="343"/>
+        <location filename="../qml/PreferencesScreen.qml" line="363"/>
         <source>Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive.</source>
         <translation>Оповещения формируются из событий камер (движение, потеря связи, пропуски записи). Эти настройки действуют при поступлении оповещений.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="349"/>
+        <location filename="../qml/PreferencesScreen.qml" line="369"/>
         <source>Snapshots &amp; clips</source>
         <translation>Снимки и клипы</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="351"/>
+        <location filename="../qml/PreferencesScreen.qml" line="371"/>
         <source>Snapshot folder</source>
         <translation>Папка для снимков</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="358"/>
-        <location filename="../qml/PreferencesScreen.qml" line="370"/>
+        <location filename="../qml/PreferencesScreen.qml" line="378"/>
+        <location filename="../qml/PreferencesScreen.qml" line="390"/>
         <source>Change…</source>
         <translation>Изменить…</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="363"/>
+        <location filename="../qml/PreferencesScreen.qml" line="383"/>
         <source>Clip export folder</source>
         <translation>Папка для экспорта клипов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="386"/>
+        <location filename="../qml/PreferencesScreen.qml" line="406"/>
         <source>CONNECTED TO</source>
         <translation>ПОДКЛЮЧЕНО К</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="393"/>
+        <location filename="../qml/PreferencesScreen.qml" line="413"/>
         <source>not connected</source>
         <translation>нет подключения</translation>
     </message>
