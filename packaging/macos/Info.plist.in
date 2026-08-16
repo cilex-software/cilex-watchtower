@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Configured by CMake (MACOSX_BUNDLE_INFO_PLIST) — version flows from
+     PROJECT_VERSION automatically, so this file never joins the bump-hook set.
+     WRITTEN 2026-08-16 ON LINUX, NEVER CONSUMED BY A MAC BUILD YET (M0 of
+     docs/plans/mac-port/ is the first configure). Bundle identifier is
+     PROVISIONAL until the operator confirms it at M4. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>      <string>en</string>
+    <key>CFBundleExecutable</key>             <string>@MACOSX_BUNDLE_EXECUTABLE_NAME@</string>
+    <key>CFBundleIdentifier</key>             <string>@MACOSX_BUNDLE_GUI_IDENTIFIER@</string>
+    <key>CFBundleInfoDictionaryVersion</key>  <string>6.0</string>
+    <key>CFBundleName</key>                   <string>Cilex Watchtower</string>
+    <key>CFBundleDisplayName</key>            <string>Cilex Watchtower</string>
+    <key>CFBundlePackageType</key>            <string>APPL</string>
+    <key>CFBundleShortVersionString</key>     <string>@MACOSX_BUNDLE_SHORT_VERSION_STRING@</string>
+    <key>CFBundleVersion</key>                <string>@MACOSX_BUNDLE_BUNDLE_VERSION@</string>
+    <key>LSMinimumSystemVersion</key>         <string>12.0</string>
+    <key>NSHighResolutionCapable</key>        <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key> <true/>
+    <!-- The app talks plain HTTP/RTSP to the pilot over LAN/tailnet. Qt and
+         GStreamer use their own sockets (not NSURLSession), so ATS should not
+         apply — VERIFY AT M1; if stills/API calls fail only on macOS, add the
+         NSAppTransportSecurity/NSAllowsArbitraryLoads pair here and re-test. -->
+</dict>
+</plist>

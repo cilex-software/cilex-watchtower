@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.73
+    VERSION 1.1.74
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -289,3 +289,17 @@ if(WIN32)
         VERBATIM
         COMMENT "windeployqt + GStreamer bundling (packaging/windows/deploy.ps1)")
 endif()
+
+# macOS packaging (scaffold, 2026-08-16). Inert off-APPLE. NEVER CONFIGURED ON A
+# MAC YET — M0 of docs/plans/mac-port/ is the first run. Version flows from
+# PROJECT_VERSION into the bundle, so Info.plist.in never joins the bump-hook
+# file set. Bundle id is provisional until the operator confirms at M4.
+if(APPLE)
+    set_target_properties(watchtower PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.cilexvision.watchtower"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
+endif()
+

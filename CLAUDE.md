@@ -27,6 +27,7 @@ Two Claude Code sessions now work this codebase:
 |---|---|---|
 | **Linux dev agent** | `cilex-vision` dev box (Ubuntu) | the product: `src/`, `qml/`, `i18n/`, `docs/`, letters, releases |
 | **Windows station agent** | `wt-sm-vnutri-01` (guard booth, Win 11) | Windows reality: `packaging/windows/`, `warden/install-windows.ps1`, `.github/workflows/windows.yml`, Windows perf/bring-up notes |
+| **macOS station agent** *(planned — no machine yet; row activates at M0 of `docs/plans/mac-port/`)* | TBD | macOS reality: `packaging/macos/`, `warden/install-macos.sh` (M3), mac perf notes. Shared code via `mac/<topic>` PRs, same rule as `win/*` |
 
 Rules that keep them out of each other's way:
 
@@ -68,7 +69,10 @@ Actions budget; the workflow is `workflow_dispatch`-only). `windows-latest`
 is FROZEN at v1.1.44 — do not install from it expecting current code.
 
 Windows builds now come from **`packaging/windows/build-local.ps1` on a
-Windows box** (owned by the Windows station agent). `-Publish` no longer
+Windows box** (owned by the Windows station agent). macOS mirrors this from
+day one: **`packaging/macos/build-local.sh`** on the Mac, publishing the
+rolling **`macos-latest`** prerelease (scaffold; nothing published yet —
+macOS CI was never an option at 10× billing). `-Publish` no longer
 races CI (there is none) but needs a GitHub credential the booth deliberately
 does not hold — publishing to `windows-latest` is by operator provision only.
 GitHub releases themselves cost nothing; only Actions minutes did.
