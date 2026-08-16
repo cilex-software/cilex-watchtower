@@ -1,23 +1,44 @@
 # Cilex Watchtower — Project Status
 
 <!-- 2026-08-16 pointer -->
-> **2026-08-16 — the booth slow-wall investigation, current state.** Read
-> `docs/letters/2026-08-16-booth-preface-slow-wall.md` (the investigation map)
-> then `…booth-restart-package-preface.md` (the leading finding). Short form:
-> booth streams die BINARY within 44 s of startup (survivors ≈ √N, per-stream
-> throughput never degrades); leading mechanism — go2rtc releases consumers
-> without closing sockets, client waits forever on ESTABLISHED connections
-> nobody feeds ("no consumer for a socket the client still believes in");
-> coordinated three-witness restart ran at epoch 1786887900. The mitigation
-> (v1.1.53 backstop watchdog) is BUILT and Linux-proven but cannot reach the
-> booth: CI Windows builds are OFF (no Actions budget), windows-latest frozen
-> at v1.1.44, booth has no toolchain. Eight shipped-but-undeliverable items
-> queue behind the operator's build-channel decision. Secondary fault closed:
-> bursty jitterbuffer delivery overwrites the single-slot mailbox (25 %
-> present-path loss, density-independent); timeBeginPeriod(1) shipped as the
-> candidate smoother. Warden gaps found at the booth: cp1251 config read
-> (fixed v1.1.57, needs warden.exe rebuild), no persisted Warden log on
-> Windows, an unexplained clean-exit respawn at 11:47:51 UTC.
+> **2026-08-16 — the booth slow-wall is ROOT-CAUSED: the link, not the code.**
+> Read `docs/letters/2026-08-16-wall-is-bandwidth-bound.md`. Measured from the
+> booth (Tailscale peer byte counters): **4 live streams pull 4.50 Mbit/s and
+> are stable; 32 live streams pull 4.18 Mbit/s and thrash.** Eight times the
+> demand delivers LESS data — the path is saturated at ~4.3 Mbit/s. A 720p
+> sub-stream costs ~1.1 Mbit/s, so 32 tiles demand ~35 Mbit/s; the booth's
+> entire internet downlink measures 13.8 Mbit/s, so the wall never fit even in
+> the best case. Per-tile rate is just 4.3 Mbit/s divided N ways: 13.3 fps at
+> N=4, 3.4 fps at N=32. **The fix is CV's**: the 133 transcode producers pass
+> `#video=h264#width=1280#hardware=vaapi`, shipping 1280 px over a WAN to be
+> drawn in a ~235 px cell (~30× the pixels displayed); `width=320` should cut
+> bitrate 6–8× and put 32 tiles at ~5–6 Mbit/s. Width only — frame rate
+> untouched, the 15 fps rule stands.
+>
+> This SUPERSEDES the earlier leading mechanism ("go2rtc releases consumers
+> without closing sockets"). CV's TCP capture was right in every particular —
+> send queue pegged at 63,456 bytes with ZERO retransmits, read timeout,
+> `close()` — and a full pipe is exactly what produces it: writing 1.1 Mbit/s
+> into a socket draining at ~135 kbit/s (4.3 ÷ 32). What was missing underneath
+> was why the socket drained so slowly. Survivor law ≈√N was a bandwidth
+> artefact, not a lifecycle one.
+>
+> **Four hypotheses died with tests, recorded in that letter's §5**: burst-at-
+> build (`WT_BUILD_STAGGER_MS` 1500 vs 120 ms — no change, ~26 stalls/min
+> either way), GUI/density saturation (dies at 8 streams and 57 fps with an
+> idle GUI), decoder-blocks-the-reader (leaky queue shipped, deaths held at
+> ~23/min), and gst-launch `Parse error` deaths (harness ran alongside the app
+> → 64 sessions to one NAT'd IP; not filed as a go2rtc bug).
+>
+> **Build channel is OPEN.** The booth now has its own toolchain (MSVC 14.44,
+> Qt 6.12.0, GStreamer 1.26.11, CMake, Ninja); v1.1.68+ is built and deployed
+> on the guard wall from `packaging/windows`-adjacent local scripts. The
+> eight-item undeliverable queue is unblocked. Also found and fixed: go2rtc
+> **refuses UDP** (`No supported stream was found`, bare gst-launch), so every
+> consumer is forced onto TCP interleaved where congestion kills sessions
+> instead of degrading them; and `RtspVideoSource::setErrored()` never logged,
+> so bus errors never reached the flight recorder (`err=0` against a dying
+> wall) — `[WT-ERR]` added in PR #4.
 
 
 _Last updated: 2026-08-10. This file is the durable, crash-recoverable snapshot of
