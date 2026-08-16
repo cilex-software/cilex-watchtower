@@ -1,5 +1,25 @@
 # Cilex Watchtower — Project Status
 
+<!-- 2026-08-16 pointer -->
+> **2026-08-16 — the booth slow-wall investigation, current state.** Read
+> `docs/letters/2026-08-16-booth-preface-slow-wall.md` (the investigation map)
+> then `…booth-restart-package-preface.md` (the leading finding). Short form:
+> booth streams die BINARY within 44 s of startup (survivors ≈ √N, per-stream
+> throughput never degrades); leading mechanism — go2rtc releases consumers
+> without closing sockets, client waits forever on ESTABLISHED connections
+> nobody feeds ("no consumer for a socket the client still believes in");
+> coordinated three-witness restart ran at epoch 1786887900. The mitigation
+> (v1.1.53 backstop watchdog) is BUILT and Linux-proven but cannot reach the
+> booth: CI Windows builds are OFF (no Actions budget), windows-latest frozen
+> at v1.1.44, booth has no toolchain. Eight shipped-but-undeliverable items
+> queue behind the operator's build-channel decision. Secondary fault closed:
+> bursty jitterbuffer delivery overwrites the single-slot mailbox (25 %
+> present-path loss, density-independent); timeBeginPeriod(1) shipped as the
+> candidate smoother. Warden gaps found at the booth: cp1251 config read
+> (fixed v1.1.57, needs warden.exe rebuild), no persisted Warden log on
+> Windows, an unexplained clean-exit respawn at 11:47:51 UTC.
+
+
 _Last updated: 2026-08-10. This file is the durable, crash-recoverable snapshot of
 where the build is. Implementation details live in [DEVELOPMENT.md](DEVELOPMENT.md);
 the design spec is `designs/design_handoff_watchtower/README.md`._
