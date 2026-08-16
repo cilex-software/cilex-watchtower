@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.60
+    VERSION 1.1.61
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -275,7 +275,7 @@ if(WIN32)
     # PSAPI: GetProcessMemoryInfo — the Windows RSS reader in main.cpp / MemTelemetry.cpp
     # (the /proc/self/statm equivalent). SetUnhandledExceptionFilter is in kernel32 (auto-linked).
     # DBGHELP: MiniDumpWriteDump — the crash-time minidump (FlightRecorder, Warden CW-04).
-    target_link_libraries(watchtower PRIVATE psapi dbghelp)
+    target_link_libraries(watchtower PRIVATE psapi dbghelp winmm)   # winmm: timeBeginPeriod (main.cpp)
 
     # Bundle the runtime: windeployqt (Qt DLLs/QML/plugins) + the GStreamer LGPL subset.
     # Explicit target:  cmake --build <dir> --target deploy-windows

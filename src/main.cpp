@@ -34,6 +34,7 @@
 #  endif
 #  include <windows.h>
 #  include <psapi.h>            // GetProcessMemoryInfo (RSS) — link psapi (CMakeLists WIN32 block)
+#  include <timeapi.h>          // timeBeginPeriod — link winmm (CMakeLists WIN32 block)
 #  include <realtimeapiset.h>   // QueryUnbiasedInterruptTime — suspend-excluding clock (CW-08 watchdog)
 #else
 #  include <sys/resource.h>     // getrlimit/setrlimit(RLIMIT_NOFILE)
@@ -250,6 +251,16 @@ void maybeArmScreenshot(QQmlApplicationEngine &engine)
 
 int main(int argc, char *argv[])
 {
+#if defined(Q_OS_WIN)
+    // 1 ms system timer resolution for this process. The GStreamer jitterbuffer
+    // loop spends its life in timed condition waits (booth histogram A: median
+    // 16.25 ms waiting vs 58 µs pushing per cycle), and Windows quantizes those
+    // waits to the current timer period — 15.6 ms by default, PER PROCESS since
+    // Win10 2004, so no other app can mask it for us. Media players all do this.
+    // WT_NO_TIMEPERIOD=1 opts out for A/B measurement.
+    if (!qEnvironmentVariableIsSet("WT_NO_TIMEPERIOD"))
+        timeBeginPeriod(1);
+#endif
     // Every console record carries a wall-clock timestamp — an operator pasting
     // a log tail must be able to answer "is this from today?" (ask 2026-08-03).
     // QT_MESSAGE_PATTERN still overrides (harnesses set their own patterns).

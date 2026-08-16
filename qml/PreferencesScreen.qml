@@ -18,7 +18,10 @@ Item {
     // Default-landing options: Live Monitor + each saved view + each group.
     function decodeOptions() {
         var out = [];
-        var vals = [8, 16, 24, 32, 48, 64];
+        // 1, 2 and 4 exist because the booth investigation needed a true single
+        // decode and the old floor of 4 silently rewrote it — the UI could not
+        // express the only configuration that ran at full rate there.
+        var vals = [1, 2, 4, 8, 16, 24, 32, 48, 64];
         for (var i = 0; i < vals.length; i++)
             out.push({ value: String(vals[i]), label: qsTr("%1 cameras").arg(vals[i]) });
         return out;

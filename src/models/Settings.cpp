@@ -22,7 +22,7 @@ Settings::Settings(QObject *parent)
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
     m_pbNavH = m_settings.value(QStringLiteral("playback/navHeight"), 115).toInt();
-    m_maxLiveDecodes = qBound(4, m_settings.value(QStringLiteral("video/maxLiveDecodes"), 32).toInt(), 64);
+    m_maxLiveDecodes = qBound(1, m_settings.value(QStringLiteral("video/maxLiveDecodes"), 32).toInt(), 64);
     m_wallScrubH = m_settings.value(QStringLiteral("wall/scrubHeight"), 160).toInt();
     m_pbPanelW = m_settings.value(QStringLiteral("playback/panelWidth"), 296).toInt();
     m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
@@ -304,7 +304,12 @@ void Settings::setWallScrubH(int v)
 
 void Settings::setMaxLiveDecodes(int v)
 {
-    v = qBound(4, v, 64);
+    // Floor 1, not 4 (changed 2026-08-16): the booth investigation needed a true
+    // single live decode and discovered Preferences SILENTLY turned 1 into 4 —
+    // the UI could not express the only configuration that ran at full rate
+    // (14.79 fps at 1 pipe vs 6.66 at the clamped 4). A floor above 1 makes the
+    // diagnostic configuration unreachable and turns "set it to 1" into a lie.
+    v = qBound(1, v, 64);
     if (m_maxLiveDecodes == v)
         return;
     m_maxLiveDecodes = v;
