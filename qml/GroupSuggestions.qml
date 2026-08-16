@@ -34,6 +34,50 @@ Item {
     property int rev: 0
     signal applied(string message)
 
+    // `analysis` reads cameraModel.page(), a Q_INVOKABLE that QML cannot track, so it
+    // only re-runs when something it DOES track changes. The host's `rev` is
+    // groups.length + fleet.length, and neither moves when a camera changes group —
+    // so after an apply the panel kept showing the same card and the operator could
+    // click it repeatedly (reported 2026-08-16). setCameraGroup emits groupsChanged +
+    // countsChanged per camera on success; listen to those instead, coalesced.
+    property int _modelRev: 0
+    Timer { id: recalc; interval: 250; onTriggered: root._modelRev++ }
+    Connections {
+        target: root.cameraModel
+        ignoreUnknownSignals: true
+        function onGroupsChanged() { recalc.restart(); root._noteWriteLanded() }
+        function onCountsChanged() { recalc.restart() }
+        function onModelReset()    { recalc.restart() }
+    }
+
+    // ONE batch of writes at a time, and every apply button is disabled while it runs.
+    // Assignments are individual PUTs; without this the second click re-sends the ones
+    // still in flight.
+    property string _busyWord: ""
+    property int _busyRemaining: 0
+    property string _busyTarget: ""
+    function _noteWriteLanded() {
+        if (_busyWord === "") return;
+        if (--_busyRemaining > 0) return;
+        var n = _busyTotal, tgt = _busyTarget;
+        _busyWord = ""; _busyTarget = ""; busyWatchdog.stop();
+        _modelRev++;
+        applied(qsTr("Moved %n camera(s) to %1", "", n).arg(tgt));
+    }
+    property int _busyTotal: 0
+    Timer {
+        id: busyWatchdog
+        interval: 20000
+        // A failed assignment only qWarns in CameraModel — QML gets no signal at all,
+        // so silence here means "some writes never landed", not "success".
+        onTriggered: {
+            if (root._busyWord === "") return;
+            root._busyWord = ""; root._busyTarget = "";
+            root._modelRev++;
+            root.applied(qsTr("Some cameras did not move — check the group and retry"));
+        }
+    }
+
     // The location vocabulary, as DATA and in both alphabets the fleet actually
     // uses (measured: 129 Cyrillic names, 4 Latin — "10 street 6", "10.1.6 hall").
     // A matcher that only knew one alphabet would silently skip cameras, which is
@@ -60,7 +104,7 @@ Item {
 
     // ---- the model -------------------------------------------------------------
     readonly property var analysis: {
-        root.rev;                                        // recompute trigger
+        root.rev; root._modelRev;                        // recompute triggers
         var out = { suggestions: [], mismatches: [], unmatched: [], total: 0 };
         if (!cameraModel) return out;
 
@@ -397,10 +441,17 @@ Item {
             applied(qsTr("Creating “%1”…").arg(newName));
             return;
         }
+        // Announce nothing yet. The previous version toasted "Moved N cameras"
+        // immediately after ISSUING the PUTs, i.e. it reported a success it had not
+        // observed. _noteWriteLanded() says it once the writes actually land, and the
+        // watchdog says the opposite if they do not.
+        _busyWord = sug.word;
+        _busyTarget = sug.homeName;
+        _busyRemaining = picked.length;
+        _busyTotal = picked.length;
+        busyWatchdog.restart();
         for (var j = 0; j < picked.length; j++)
             cameraModel.setCameraGroup(picked[j].camId, sug.homeId);
-        applied(qsTr("Moved %n camera(s) to %1", "", picked.length).arg(sug.homeName));
-        root.rev++;
     }
 
     property string _pendingName: ""

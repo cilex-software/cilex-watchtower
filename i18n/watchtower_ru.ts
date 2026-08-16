@@ -1527,47 +1527,47 @@
 <context>
     <name>GroupSuggestions</name>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="42"/>
+        <location filename="../qml/GroupSuggestions.qml" line="86"/>
         <source>Halls</source>
         <translation>Холлы</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="43"/>
+        <location filename="../qml/GroupSuggestions.qml" line="87"/>
         <source>Streets</source>
         <translation>Улицы</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="44"/>
+        <location filename="../qml/GroupSuggestions.qml" line="88"/>
         <source>Entrances</source>
         <translation>Входы</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="45"/>
+        <location filename="../qml/GroupSuggestions.qml" line="89"/>
         <source>Lifts</source>
         <translation>Лифты</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="46"/>
+        <location filename="../qml/GroupSuggestions.qml" line="90"/>
         <source>Roofs</source>
         <translation>Крыши</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="173"/>
+        <location filename="../qml/GroupSuggestions.qml" line="217"/>
         <source>Suggested from camera names</source>
         <translation>Предложено по именам камер</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="185"/>
+        <location filename="../qml/GroupSuggestions.qml" line="229"/>
         <source>No cameras loaded — nothing can be suggested yet.</source>
         <translation>Камеры не загружены — предлагать пока нечего.</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="193"/>
+        <location filename="../qml/GroupSuggestions.qml" line="237"/>
         <source>Every camera whose name matches a known location is already in the matching group.</source>
         <translation>Все камеры с известным местом в имени уже находятся в соответствующих группах.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="225"/>
+        <location filename="../qml/GroupSuggestions.qml" line="269"/>
         <source>%n camera(s) named “%1” are in no matching group</source>
         <translation>
             <numerusform>%n камера с именем «%1» не входит в подходящую группу</numerusform>
@@ -1576,7 +1576,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="227"/>
+        <location filename="../qml/GroupSuggestions.qml" line="271"/>
         <source>%n camera(s) named “%1” are not in %2</source>
         <translation>
             <numerusform>%n камера с именем «%1» не в группе «%2»</numerusform>
@@ -1585,32 +1585,32 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="237"/>
+        <location filename="../qml/GroupSuggestions.qml" line="281"/>
         <source>Hide</source>
         <translation>Скрыть</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="237"/>
+        <location filename="../qml/GroupSuggestions.qml" line="281"/>
         <source>Review</source>
         <translation>Проверить</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="254"/>
+        <location filename="../qml/GroupSuggestions.qml" line="298"/>
         <source>Create group</source>
         <translation>Создать группу</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="299"/>
+        <location filename="../qml/GroupSuggestions.qml" line="343"/>
         <source>in %1</source>
         <translation>в «%1»</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="300"/>
+        <location filename="../qml/GroupSuggestions.qml" line="344"/>
         <source>ungrouped</source>
         <translation>без группы</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="316"/>
+        <location filename="../qml/GroupSuggestions.qml" line="360"/>
         <source>Create “%1” with %n camera(s)</source>
         <translation>
             <numerusform>Создать «%1» с %n камерой</numerusform>
@@ -1619,7 +1619,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="318"/>
+        <location filename="../qml/GroupSuggestions.qml" line="362"/>
         <source>Add %n camera(s) to %1</source>
         <translation>
             <numerusform>Добавить %n камеру в «%1»</numerusform>
@@ -1628,27 +1628,27 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="348"/>
+        <location filename="../qml/GroupSuggestions.qml" line="392"/>
         <source>Filed against their name — check, do not assume these are wrong</source>
         <translation>Не совпадают с именем — проверьте, это не обязательно ошибка</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="358"/>
+        <location filename="../qml/GroupSuggestions.qml" line="402"/>
         <source>in %1, named %2</source>
         <translation>в группе «%1», в имени — %2</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="369"/>
+        <location filename="../qml/GroupSuggestions.qml" line="413"/>
         <source>%1 of %2 cameras have no recognised location word and are not covered here: %3</source>
         <translation>%1 из %2 камер не содержат известного места в имени и здесь не учтены: %3</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="397"/>
+        <location filename="../qml/GroupSuggestions.qml" line="441"/>
         <source>Creating “%1”…</source>
         <translation>Создание «%1»…</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="402"/>
+        <location filename="../qml/GroupSuggestions.qml" line="65"/>
         <source>Moved %n camera(s) to %1</source>
         <translation>
             <numerusform>%n камера перемещена в «%1»</numerusform>
@@ -1656,8 +1656,13 @@
             <numerusform>%n камер перемещены в «%1»</numerusform>
         </translation>
     </message>
+    <message>
+        <location filename="../qml/GroupSuggestions.qml" line="77"/>
+        <source>Some cameras did not move — check the group and retry</source>
+        <translation>Часть камер не перемещена — проверьте группу и повторите</translation>
+    </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="419"/>
+        <location filename="../qml/GroupSuggestions.qml" line="470"/>
         <source>Created “%1” with %n camera(s)</source>
         <translation>
             <numerusform>Создана «%1» с %n камерой</numerusform>
@@ -1666,7 +1671,7 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="428"/>
+        <location filename="../qml/GroupSuggestions.qml" line="479"/>
         <source>Group “%1” was not created — no cameras were moved</source>
         <translation>Группа «%1» не создана — камеры не перемещены</translation>
     </message>
