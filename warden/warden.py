@@ -72,7 +72,7 @@ def load_config():
     for p in ("/etc/watchtower-warden.conf",
               str(Path.home() / ".config/watchtower-warden/warden.conf")):
         try:
-            for line in Path(p).read_text().splitlines():
+            for line in Path(p).read_text(encoding="utf-8-sig").splitlines():
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     k, v = line.split("=", 1)
@@ -139,7 +139,7 @@ def _station_seed():
     yields a fresh seed per box."""
     f = W / "station-seed"
     try:
-        seed = f.read_text().strip()
+        seed = f.read_text(encoding="utf-8-sig").strip()
         if seed:
             return seed
     except OSError:
@@ -147,7 +147,7 @@ def _station_seed():
     seed = str(uuid.uuid4())
     try:
         W.mkdir(parents=True, exist_ok=True)
-        f.write_text(seed + "\n")
+        f.write_text(seed + "\n", encoding="utf-8")
     except OSError:
         return ""
     return seed
@@ -196,7 +196,7 @@ def machine_id_hash():
         return _MID_CACHE
     for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
         try:
-            mid = Path(p).read_text().strip()
+            mid = Path(p).read_text(encoding="utf-8-sig").strip()
             _MID_CACHE = "sha256:" + hashlib.sha256(mid.encode()).hexdigest()
             return _MID_CACHE
         except OSError:
@@ -217,7 +217,7 @@ def core_pattern_ok():
     if WIN:
         return False, ""
     try:
-        pat = Path("/proc/sys/kernel/core_pattern").read_text().strip()
+        pat = Path("/proc/sys/kernel/core_pattern").read_text(encoding="utf-8-sig").strip()
     except OSError:
         return False, ""
     return pat.startswith(str(CRASH)), pat
@@ -252,7 +252,7 @@ def os_facts():
         facts["display"] = "windows"
         return facts
     try:
-        for line in Path("/etc/os-release").read_text().splitlines():
+        for line in Path("/etc/os-release").read_text(encoding="utf-8-sig").splitlines():
             if line.startswith("PRETTY_NAME="):
                 facts["os"] = line.split("=", 1)[1].strip('"')
     except OSError:
@@ -279,7 +279,7 @@ def scrubbed(path: Path, cap: int) -> bytes:
 def parse_marker(path: Path):
     """First line JSON header, rest raw backtrace (FlightRecorder CW-03)."""
     try:
-        lines = path.read_text(errors="replace").splitlines()
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         head = json.loads(lines[0])
         head["backtrace"] = "\n".join(lines[1:])[:8192]
         return head
@@ -341,7 +341,7 @@ def package(report_dir: Path, manifest: dict, artifacts: list):
                 log(f"package: skipping {arc}: {e}")
     manifest["artifacts"] = names
     manifest["bundle_bytes"] = bundle.stat().st_size
-    (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=1))
+    (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     return bundle
 
 
@@ -380,7 +380,7 @@ def collect(report_id, trigger, head, console_file, marker_path=None, core=None)
     if dump.exists():
         dump.rename(rd / "minidump.consumed.dmp")   # consumed like markers: no double-collect
     (rd / "state.json").write_text(json.dumps(
-        {"phase": "manifest", "attempts": 0, "next_retry": 0}))
+        {"phase": "manifest", "attempts": 0, "next_retry": 0}), encoding="utf-8")
     if marker_path and marker_path.exists():
         marker_path.rename(rd / "marker.consumed.json")     # consume: boot replay key
     log(f"collected report={report_id} trigger={trigger} "
@@ -569,7 +569,7 @@ class Uploader(threading.Thread):
             for rd in sorted(PENDING.iterdir()) if PENDING.exists() else []:
                 st_file = rd / "state.json"
                 try:
-                    st = json.loads(st_file.read_text())
+                    st = json.loads(st_file.read_text(encoding="utf-8-sig"))
                 except (OSError, json.JSONDecodeError):
                     continue
                 if st.get("next_retry", 0) > now:
@@ -581,7 +581,7 @@ class Uploader(threading.Thread):
         st["attempts"] = st.get("attempts", 0) + 1
         delay = retry_after or min(60 * (2 ** min(st["attempts"], 6)), 3600)
         st["next_retry"] = time.time() + delay
-        (rd / "state.json").write_text(json.dumps(st))
+        (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
 
     def finish(self, rd, dest, why):
         dest.mkdir(exist_ok=True)
@@ -606,7 +606,7 @@ class Uploader(threading.Thread):
                 st["phase"] = "bundle"
                 st["attempts"] = 0
                 st["next_retry"] = 0
-                (rd / "state.json").write_text(json.dumps(st))
+                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
             elif code == 400:
                 alarm("upload-400", f"deterministic reject of manifest {rid} — warden bug")
                 self.finish(rd, QUAR, "400")
@@ -631,7 +631,7 @@ class Uploader(threading.Thread):
                 self.finish(rd, SENT, "stored")
             elif code == 409:              # manifest lost server-side? replay it
                 st["phase"] = "manifest"
-                (rd / "state.json").write_text(json.dumps(st))
+                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
             elif code == 413:
                 # Rebuild without the core (degenerate truncation), re-PUT the
                 # manifest too — last-write-wins records the smaller artifact set.
@@ -639,7 +639,7 @@ class Uploader(threading.Thread):
                 self.strip_core(rd)
                 st["phase"] = "manifest"
                 st["attempts"] = 0
-                (rd / "state.json").write_text(json.dumps(st))
+                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
             elif code == 400:
                 alarm("upload-400", f"deterministic reject of bundle {rid}")
                 self.finish(rd, QUAR, "400")
@@ -655,7 +655,7 @@ class Uploader(threading.Thread):
                 self.backoff(rd, st)
 
     def strip_core(self, rd):
-        manifest = json.loads((rd / "manifest.json").read_text())
+        manifest = json.loads((rd / "manifest.json").read_text(encoding="utf-8-sig"))
         manifest.setdefault("notes", []).append("core dropped after 413")
         arts = []
         with tarfile.open(rd / "bundle.tar.gz", "r:gz") as tar:
@@ -858,7 +858,7 @@ class Supervisor:
             return
         self.loop_last_put = time.time()
         try:
-            manifest = json.loads((rd / "manifest.json").read_text())
+            manifest = json.loads((rd / "manifest.json").read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
             return
         manifest["loop"] = {"deaths": self.loop_count,
@@ -866,12 +866,12 @@ class Supervisor:
                                                    time.gmtime(self.loop_first)),
                             "last_trigger": last_trigger}
         manifest["backtrace"] = head.get("backtrace", manifest.get("backtrace", ""))
-        (rd / "manifest.json").write_text(json.dumps(manifest, indent=1))
+        (rd / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
         if rd.parent == SENT:            # already uploaded once -> re-PUT the update
             rd.rename(PENDING / rd.name)
             rd = PENDING / rd.name
         st = {"phase": "manifest", "attempts": 0, "next_retry": 0}
-        (rd / "state.json").write_text(json.dumps(st))
+        (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
 
     def loop_tick(self):
         if self.loop_id and self.deaths and \
@@ -1021,7 +1021,7 @@ def cmd_reimport(src):
     up = Uploader()
     n = 0
     for mf in Path(src).glob("**/manifest.json"):
-        manifest = json.loads(mf.read_text())
+        manifest = json.loads(mf.read_text(encoding="utf-8-sig"))
         rid = manifest["report_id"]
         code, body, _ = up.put(f"/client/reports/{rid}", mf.read_bytes(),
                                "application/json", 30)
