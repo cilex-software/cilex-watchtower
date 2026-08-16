@@ -83,10 +83,21 @@ right-click-open or `xattr -d com.apple.quarantine` — fine for one internal
 station; signing + notarization needs an Apple Developer account ($99/yr) —
 the same class of budget call as the CI one, and it is the operator's.
 
-## What this plan does NOT assume
+## The machine (named 2026-08-16, same evening)
 
-- That a Mac exists yet, or which one (Apple Silicon assumed if bought new —
-  Qt 6.12 + GStreamer are fine on arm64; Intel Macs also fine).
+Operator's **MacBook Pro 16" 2021, Apple M1 Pro, 32 GB, macOS 26 (Tahoe
+26.3.1)** — arm64. Two consequences a desk Mac would not have:
+
+- **It sleeps constantly.** The M1.4 lid-close watchdog test is MANDATORY,
+  first session — a laptop that aborts-on-wake is unusable, and that is
+  exactly the booth's `GetTickCount64` bug shape.
+- **It roams.** On the pilot's LAN it is a dev box; anywhere else it is a
+  WAN station and the 4.3 Mbit/s lesson applies in full. Every measurement
+  reports which network it was taken on, or it is not a measurement.
+- macOS 26 is current-year; Qt 6.12 and Homebrew target it, but any
+  Tahoe-specific breakage found at M0 is a finding, not a surprise.
+
+## What this plan does NOT assume
 - That macOS CI ever exists (macOS runners bill at 10× Linux — out, given the
   Actions decision; local builds are the channel, like Windows now).
 - That the Mac station needs the full Warden day one — M1 runs bare

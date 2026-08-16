@@ -27,7 +27,7 @@ Two Claude Code sessions now work this codebase:
 |---|---|---|
 | **Linux dev agent** | `cilex-vision` dev box (Ubuntu) | the product: `src/`, `qml/`, `i18n/`, `docs/`, letters, releases |
 | **Windows station agent** | `wt-sm-vnutri-01` (guard booth, Win 11) | Windows reality: `packaging/windows/`, `warden/install-windows.ps1`, `.github/workflows/windows.yml`, Windows perf/bring-up notes |
-| **macOS station agent** *(planned — no machine yet; row activates at M0 of `docs/plans/mac-port/`)* | TBD | macOS reality: `packaging/macos/`, `warden/install-macos.sh` (M3), mac perf notes. Shared code via `mac/<topic>` PRs, same rule as `win/*` |
+| **macOS agent** *(machine named 2026-08-16; M0 pending first session)* | operator's MacBook Pro 16" 2021, Apple M1 Pro, 32 GB, macOS 26 (Tahoe) — a PERSONAL LAPTOP, not a 24/7 station: it sleeps, it roams networks | macOS reality: `packaging/macos/`, `warden/install-macos.sh` (M3), mac perf notes. Shared code via `mac/<topic>` PRs, same rule as `win/*` |
 
 Rules that keep them out of each other's way:
 
