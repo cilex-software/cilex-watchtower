@@ -132,6 +132,7 @@ Item {
     }
     // Ask the global coordinator for a slot (it serializes initiations app-wide).
     function _requestReconnect() {
+        if (typeof wtReconOff !== "undefined" && wtReconOff) return;   // isolation runs: backstop owns recovery
         if (root._reconnectPending) return;
         if (!root.active || root.url === "" || root.playing) return;
         root._reconnectPending = true;

@@ -317,6 +317,7 @@ Item {
             interval: base._recycleBackoff[Math.min(base._recycleTry, base._recycleBackoff.length - 1)]
             repeat: false
             running: root.streamErrored && !base._recycling && root.videoActive
+                     && !(typeof wtReconOff !== "undefined" && wtReconOff)   // isolation runs
                      && root.liveViewEnabled && root.liveDecodeAllowed
             onTriggered: {
                 if (!root.streamErrored) return;

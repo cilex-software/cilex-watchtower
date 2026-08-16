@@ -590,6 +590,11 @@ int main(int argc, char *argv[])
     // Dev: WT_LAYOUT=<layout id> forces the Live grid layout ("25", "8x8", …).
     // Exists so dense-grid chrome can be screenshot-verified at every tier.
     engine.rootContext()->setContextProperty("wtLayout", qEnvironmentVariable("WT_LAYOUT"));
+    // WT_RECON_OFF: disable BOTH QML recovery layers (VideoSurface reconnect,
+    // CameraTile error-recycle) so the C++ backstop watchdog can be observed in
+    // isolation. Test hook only — never set in production.
+    engine.rootContext()->setContextProperty("wtReconOff",
+        qEnvironmentVariableIsSet("WT_RECON_OFF"));
     // Dev: WT_WINSIZE=WxH forces the window geometry (letterbox-ratio screenshots).
     engine.rootContext()->setContextProperty("wtWinSize", qEnvironmentVariable("WT_WINSIZE"));
     // Dev: WT_TRIAGE_TEST="solo:146"|"type:14" drives the triage lane filter (screenshot verification).

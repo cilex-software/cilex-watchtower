@@ -131,10 +131,19 @@ void MemTelemetry::tick()
     const long long fin = RtspVideoSource::totalFramesIn();
     const long long fdel = RtspVideoSource::totalFramesDelivered();
     const long long fco = RtspVideoSource::totalFramesCoalesced();
+    // dec/lit/err are the lifecycle split (constructed vs decoder-bound vs
+    // delivering vs errored) — livePipes alone conflated all four, which is how
+    // "26 live" hid 5 pipelines with no decoder for a week. swd= is backstop
+    // rebuilds (nonzero on a healthy wall means the QML recovery layers failed);
+    // recon=ran/refused makes a requested-but-refused rebuild a number.
     qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d "
-          "frames=%lld framesIn=%lld coalesced=%lld drop=%.1f%%",
+          "frames=%lld framesIn=%lld coalesced=%lld drop=%.1f%% "
+          "dec=%d lit=%d err=%d swd=%lld recon=%lld/%lld",
           static_cast<long long>(m_uptime.elapsed() / 1000), rssMb(),
           static_cast<long long>(playMs / 1000), static_cast<long long>(m_opens),
           static_cast<int>(m_playing.size()), RtspVideoSource::livePipelineCount(),
-          fdel, fin, fco, fin > 0 ? (100.0 * double(fco) / double(fin)) : 0.0);
+          fdel, fin, fco, fin > 0 ? (100.0 * double(fco) / double(fin)) : 0.0,
+          RtspVideoSource::decoderBoundCount(), RtspVideoSource::litCount(),
+          RtspVideoSource::erroredCount(), RtspVideoSource::watchdogRebuilds(),
+          RtspVideoSource::reconnectRuns(), RtspVideoSource::reconnectNoops());
 }

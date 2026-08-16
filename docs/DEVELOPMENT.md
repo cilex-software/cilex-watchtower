@@ -164,3 +164,29 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
 ## Verification convention
 
 Every change: (1) `cmake --build build` clean; (2) offscreen smoke → zero QML warnings; (3) `WT_SCREENSHOT` PNG for any UI change (use `WT_SECTION`/`WT_DEMO` to reach the screen; a temporary auto-select scaffold is OK for detail panels, but revert it before committing).
+
+
+## Diagnostic counters name their measurement point (2026-08-16)
+
+Three instruments in one investigation each answered a narrower question than
+their name implied, and each cost days: `livePipes` counts pipelines
+**constructed** (it kept saying 26 while 5 had no decoder), `playing` is a
+**2.5 s gap detector** (tiles at 0.1 fps stayed green), and `frames=` counts
+frames **presented** after the GUI-thread mailbox (3.2 fps/tile was read as a
+decoder rate; the decoder was never measured). The rule: **a counter's exposed
+name states WHERE it measures, not what it is about.**
+
+The `[MEMTEL]` line now carries the whole split: `livePipes` (constructed) ·
+`dec` (decodebin bound a decoder) · `lit` (delivered a frame ≤5 s ago) · `err`
+(bus-error state) · `framesIn` (appsink → client) · `frames` (presented) ·
+`coalesced` (mailbox drops) · `swd` (backstop rebuilds — **nonzero on a healthy
+wall means the QML recovery layers failed**) · `recon=ran/refused`.
+
+Stream recovery is three layers, outermost first: CameraTile error-recycle
+(6/15/30/60 s, destroys the element), VideoSurface coordinator-serialized
+reconnect (8 s cold start), and the C++ backstop watchdog in RtspVideoSource
+(45 s first-frame / 30 s stall, ×2 backoff capped 120 s) which shares no
+machinery with the QML layers precisely so a wedged singleton cannot take all
+three down. Env: `WT_SWD_FIRST_S` / `WT_SWD_STALL_S` (test cadences),
+`WT_STREAM_WATCHDOG_OFF`, and `WT_RECON_OFF` (disables both QML layers — the
+backstop-isolation harness; never set in production).

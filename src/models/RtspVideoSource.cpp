@@ -40,6 +40,12 @@ std::mutex &teardownMutex() { static std::mutex m; return m; }
 std::condition_variable &teardownCv() { static std::condition_variable cv; return cv; }
 int &teardownInflight() { static int n = 0; return n; }
 
+static std::atomic<long long> g_swdRebuilds{0};
+static std::atomic<long long> g_reconRuns{0};
+static std::atomic<long long> g_reconNoops{0};
+// Monotonic ms for watchdog arithmetic — GLib's clock, immune to NTP steps.
+static qint64 steadyMs() { return g_get_monotonic_time() / 1000; }
+
 // True if an NV12 frame is the decoder "empty surface": the all-zero buffer a decoder emits before a
 // real keyframe (or for a wedged sub-stream). All-zero NV12 is Y≈0 AND chroma≈0, which renders as the
 // notorious solid green RGB(0,135,0). The chroma test is what makes it surgical: a REAL black frame is
@@ -214,9 +220,55 @@ void RtspVideoSource::reconnect()
     // calls this to force a clean rebuild. No-op when we're not meant to be streaming;
     // teardown() routes the old pipeline through the global teardown semaphore, so even
     // a burst of reconnects can't stack unbounded pipeline ops on the GUI thread.
-    if (!m_active || m_url.isEmpty() || !m_sink)
+    if (!m_active || m_url.isEmpty() || !m_sink) {
+        ++g_reconNoops;   // a rebuild someone asked for and we refused — a number, not a silence
         return;
+    }
+    ++g_reconRuns;
     rebuild();
+}
+
+// BACKSTOP, not first line of defence. Two QML layers already own recovery:
+// VideoSurface's coordinator-serialized reconnect (8 s cold start, backoff after
+// first play) and CameraTile's error recycle (6/15/30/60 s, destroys the whole
+// element). Both route through app-wide singletons that can wedge — the booth's
+// five never-recovered pipelines and CV's collapse window 2 (consumers at 0,
+// never rebuilt) carry exactly that signature. This layer shares nothing with
+// them: its own QTimer per source, straight to reconnect(). Thresholds sit far
+// above the QML layers' cadences, so on a healthy wall it is SILENT — a
+// [WT-SWD] line in production means the primary layers failed.
+// Env: WT_SWD_FIRST_S / WT_SWD_STALL_S override (test cadences),
+// WT_STREAM_WATCHDOG_OFF disables, WT_WALL_CHURN implies off (harness owns
+// reconnects), WT_RECON_OFF (QML layers disabled for isolation runs) hands the
+// errored state to this layer too.
+void RtspVideoSource::swdTick()
+{
+    static const bool off = qEnvironmentVariableIsSet("WT_STREAM_WATCHDOG_OFF")
+                         || qEnvironmentVariableIsSet("WT_WALL_CHURN");
+    static const bool qmlLayersOff = qEnvironmentVariableIsSet("WT_RECON_OFF");
+    static const qint64 firstMs = qEnvironmentVariableIntValue("WT_SWD_FIRST_S") > 0
+        ? qEnvironmentVariableIntValue("WT_SWD_FIRST_S") * 1000LL : 45000;
+    static const qint64 stallMs = qEnvironmentVariableIntValue("WT_SWD_STALL_S") > 0
+        ? qEnvironmentVariableIntValue("WT_SWD_STALL_S") * 1000LL : 30000;
+    if (off || !m_active || m_url.isEmpty() || !m_sink)
+        return;
+    if (m_errored && !qmlLayersOff)
+        return;                          // CameraTile's recycle owns the errored state
+    const qint64 now = steadyMs();
+    const qint64 last = m_deliveredSinceBuild ? m_lastDeliverMs
+                                              : (m_builtAtMs ? m_builtAtMs : now);
+    const qint64 need = m_deliveredSinceBuild ? stallMs : firstMs;
+    if (now - last < need || now < m_swdNextMs)
+        return;
+    ++m_swdAttempts;
+    ++g_swdRebuilds;
+    const qint64 backoff = qMin<qint64>(firstMs << qMin(m_swdAttempts, 3), qint64(120000));
+    m_swdNextMs = now + backoff;
+    qWarning("[WT-SWD] %s attempt=%d silent=%llds backoff=%llds url=…%s",
+             m_deliveredSinceBuild ? "stall" : "first-frame", m_swdAttempts,
+             (long long)((now - last) / 1000), (long long)(backoff / 1000),
+             m_url.right(24).toUtf8().constData());
+    reconnect();
 }
 
 void RtspVideoSource::setPlaying(bool p)
@@ -250,6 +302,36 @@ int RtspVideoSource::livePipelineCount() { return g_livePipelines.load(); }
 long long RtspVideoSource::totalFramesDelivered() { return g_totalFrames.load(); }
 long long RtspVideoSource::totalFramesIn() { return g_framesIn.load(); }
 long long RtspVideoSource::totalFramesCoalesced() { return g_framesCoalesced.load(); }
+long long RtspVideoSource::watchdogRebuilds() { return g_swdRebuilds.load(); }
+long long RtspVideoSource::reconnectRuns() { return g_reconRuns.load(); }
+long long RtspVideoSource::reconnectNoops() { return g_reconNoops.load(); }
+// Gauge accessors iterate the alive-set (GUI thread; instances mutate their own
+// fields on the GUI thread, m_decoderBound is the one streaming-thread write).
+int RtspVideoSource::decoderBoundCount()
+{
+    std::lock_guard<std::mutex> lock(aliveMutex());
+    int n = 0;
+    for (RtspVideoSource *s : aliveSet())
+        if (s->m_decoderBound.load() && s->m_pipeline) ++n;
+    return n;
+}
+int RtspVideoSource::litCount()
+{
+    std::lock_guard<std::mutex> lock(aliveMutex());
+    const qint64 now = steadyMs();
+    int n = 0;
+    for (RtspVideoSource *s : aliveSet())
+        if (s->m_lastDeliverMs && now - s->m_lastDeliverMs <= 5000) ++n;
+    return n;
+}
+int RtspVideoSource::erroredCount()
+{
+    std::lock_guard<std::mutex> lock(aliveMutex());
+    int n = 0;
+    for (RtspVideoSource *s : aliveSet())
+        if (s->m_errored) ++n;
+    return n;
+}
 
 void RtspVideoSource::teardown()
 {
@@ -347,14 +429,18 @@ static gint onAutoplugSelect(GstElement *, GstPad *, GstCaps *caps,
 
 // onDeepDecoderAdded logs the decoder actually instantiated (the definitive "what is running") under
 // WT_TRACE — autoplug-select only shows candidates considered, not the final binding.
-static void onDeepDecoderAdded(GstBin *, GstBin *, GstElement *element, gpointer)
+static void onDeepDecoderAdded(GstBin *, GstBin *, GstElement *element, gpointer user)
 {
-    static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
-    if (!trace)
-        return;
     GstElementFactory *f = gst_element_get_factory(element);
     const char *klass = f ? gst_element_factory_get_klass(f) : nullptr;
     if (!klass || !std::strstr(klass, "Decoder") || !std::strstr(klass, "Video"))
+        return;
+    // Streaming thread — the one fact recorded here feeds the dec= gauge. Until
+    // 2026-08-16 this was trace-only, which is why "26 built / 21 with decoders"
+    // was something the booth had to measure with external tooling.
+    static_cast<RtspVideoSource *>(user)->noteDecoderBound();
+    static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+    if (!trace)
         return;
     qInfo().noquote() << "[WT-DEC] using" << gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(f))
                       << (std::strstr(klass, "Hardware") ? "(hardware)" : "(SOFTWARE - patent/perf risk)");
@@ -420,7 +506,7 @@ void RtspVideoSource::startPipelineNow()
     // exposure). WT_TRACE logs the codec + decoder; WT_HW_ONLY refuses software video decoders outright.
     if (GstElement *dec = gst_bin_get_by_name(GST_BIN(m_pipeline), "dec")) {
         g_signal_connect(dec, "autoplug-select", G_CALLBACK(onAutoplugSelect), nullptr);
-        g_signal_connect(dec, "deep-element-added", G_CALLBACK(onDeepDecoderAdded), nullptr);
+        g_signal_connect(dec, "deep-element-added", G_CALLBACK(onDeepDecoderAdded), this);
         gst_object_unref(dec);
     }
 
@@ -429,6 +515,19 @@ void RtspVideoSource::startPipelineNow()
 
     gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
     ++g_livePipelines;   // P0 trace: a new pipeline is now live
+
+    // Arm the backstop watchdog (never stopped once started: after an
+    // error-teardown the tick is exactly what brings the stream back).
+    m_decoderBound.store(false);
+    m_deliveredSinceBuild = false;
+    m_builtAtMs = steadyMs();
+    if (!m_swd) {
+        m_swd = new QTimer(this);
+        m_swd->setInterval(5000);
+        connect(m_swd, &QTimer::timeout, this, &RtspVideoSource::swdTick);
+    }
+    if (!m_swd->isActive())
+        m_swd->start();
 }
 
 GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
@@ -556,6 +655,14 @@ void RtspVideoSource::deliver()
     setErrored(false);
     setPlaying(true);
     ++g_totalFrames;   // P0 trace: a frame reached the sink
+    m_lastDeliverMs = steadyMs();
+    m_deliveredSinceBuild = true;
+    if (m_swdAttempts) {
+        qInfo("[WT-SWD] recovered after %d attempt(s) url=…%s",
+              m_swdAttempts, m_url.right(24).toUtf8().constData());
+        m_swdAttempts = 0;
+        m_swdNextMs = 0;
+    }
 }
 
 gboolean RtspVideoSource::onBus(GstBus *, GstMessage *msg, gpointer self)

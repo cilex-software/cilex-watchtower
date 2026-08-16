@@ -17,6 +17,8 @@
 //
 // Opt-in behind WT_LOWLATENCY; QMediaPlayer remains the default path. Mirrors the
 // VideoSurface API (url/active/playing/errored) so it's a drop-in alternative.
+class QTimer;
+
 class RtspVideoSource : public QObject
 {
     Q_OBJECT
@@ -66,6 +68,25 @@ public:
     // these count frames that reached the CLIENT and frames the GUI thread lost.
     static long long totalFramesIn();
     static long long totalFramesCoalesced();
+    // Lifecycle gauges, each named by its MEASUREMENT POINT (see DEVELOPMENT.md:
+    // livePipes/playing/frames each cost the 08-15/16 investigation days by
+    // answering a narrower question than their name implied):
+    //   livePipelineCount()  gst pipeline objects CONSTRUCTED
+    //   decoderBoundCount()  decodebin actually bound a video decoder
+    //   litCount()           delivered a frame to the sink in the last 5 s
+    //   erroredCount()       sitting in bus-error state (CameraTile recycle owns these)
+    static int decoderBoundCount();
+    static int litCount();
+    static int erroredCount();
+    // Backstop watchdog rebuilds forced, and reconnect() calls that ran vs
+    // no-op'd at the guard — a rebuild someone asked for and nobody performed
+    // must be a number, not a silence.
+    static long long watchdogRebuilds();
+    static long long reconnectRuns();
+    static long long reconnectNoops();
+    // Called from decodebin's deep-element-added on the STREAMING thread — the
+    // only cross-thread write in the gauge set, hence the atomic.
+    void noteDecoderBound() { m_decoderBound.store(true); }
 
 signals:
     void urlChanged();
@@ -109,4 +130,14 @@ private:
     // Per-pipeline decode-side tallies, written under m_frameMutex in onNewSample.
     long long m_framesIn = 0;          // frames the appsink handed us
     long long m_framesCoalesced = 0;   // frames the GUI thread never drained
+
+    // Backstop stream watchdog + lifecycle-gauge state (see swdTick()).
+    void swdTick();
+    std::atomic<bool> m_decoderBound{false};   // written on the streaming thread
+    qint64 m_lastDeliverMs = 0;                // GUI thread (deliver())
+    qint64 m_builtAtMs = 0;
+    bool m_deliveredSinceBuild = false;
+    int m_swdAttempts = 0;
+    qint64 m_swdNextMs = 0;
+    QTimer *m_swd = nullptr;
 };
