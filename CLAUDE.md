@@ -63,11 +63,15 @@ fleet, which real guards are watching.
 
 ## Release channel
 
-`windows-latest` is a ROLLING GitHub prerelease. CI **deletes and recreates
-that tag on every push to main**, and `packaging/windows/build-local.ps1
--Publish` does the same thing from a Windows box. They will clobber each
-other. So: prefer `build-local.ps1` WITHOUT `-Publish` for local testing,
-and only publish locally when no CI run is in flight (`gh run list`).
+**CI Windows builds are OFF since 2026-08-16** (operator decision: no GitHub
+Actions budget; the workflow is `workflow_dispatch`-only). `windows-latest`
+is FROZEN at v1.1.44 — do not install from it expecting current code.
+
+Windows builds now come from **`packaging/windows/build-local.ps1` on a
+Windows box** (owned by the Windows station agent). `-Publish` no longer
+races CI (there is none) but needs a GitHub credential the booth deliberately
+does not hold — publishing to `windows-latest` is by operator provision only.
+GitHub releases themselves cost nothing; only Actions minutes did.
 
 ## House rules (both agents)
 
