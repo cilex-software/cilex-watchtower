@@ -38,7 +38,9 @@
 #  include <realtimeapiset.h>   // QueryUnbiasedInterruptTime — suspend-excluding clock (CW-08 watchdog)
 #else
 #  include <sys/resource.h>     // getrlimit/setrlimit(RLIMIT_NOFILE)
-#  include <sys/prctl.h>        // prctl(PR_SET_PTRACER) — Yama, Linux-only
+#  if defined(Q_OS_LINUX)
+#    include <sys/prctl.h>      // prctl(PR_SET_PTRACER) — Yama, Linux-only
+#  endif
 #  include <malloc.h>           // mallopt/malloc_trim — glibc arena control, Linux-only
 #  include <unistd.h>           // read/write/close/sysconf
 #  include <fcntl.h>            // open, O_RDONLY
@@ -277,7 +279,9 @@ int main(int argc, char *argv[])
     // Linux/Yama-specific; on Windows the W3 supervisor uses procdump (no opt-in needed).
 #if defined(Q_OS_LINUX)
     if (qEnvironmentVariableIsSet("WT_PTRACE_ANY"))
-        prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);
+#if defined(Q_OS_LINUX)
+        prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0);   // Yama is Linux-only; macOS needs no equivalent
+#endif
 #endif
 
     // Application identity BEFORE the app object: the flight recorder derives its

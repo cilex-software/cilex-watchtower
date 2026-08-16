@@ -16,6 +16,8 @@
 #  endif
 #  include <windows.h>
 #  include <psapi.h>
+#elif defined(Q_OS_MACOS)
+#  include <mach/mach.h>         // task_info(MACH_TASK_BASIC_INFO) — the /proc/self/statm equivalent
 #else
 #  include <QFile>
 #  include <QByteArrayList>
@@ -28,6 +30,15 @@ static long rssMb()
     PROCESS_MEMORY_COUNTERS pmc;
     if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
         return long(pmc.WorkingSetSize / (1024 * 1024));
+    return -1;
+#elif defined(Q_OS_MACOS)
+    // WRITTEN ON LINUX, NEVER COMPILED ON A MAC (2026-08-16, M2 of the mac-port
+    // plan verifies it). Standard mach call; resident_size is bytes.
+    mach_task_basic_info info;
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                  reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS)
+        return long(info.resident_size / (1024 * 1024));
     return -1;
 #else
     QFile f(QStringLiteral("/proc/self/statm"));   // field 2 = resident pages
