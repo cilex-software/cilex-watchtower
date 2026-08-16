@@ -629,6 +629,7 @@ Item {
 
         // ---- inline issue strip (stalled / not-recording / degraded) ----
         Rectangle {
+            id: issueStrip
             visible: root.isDegraded || (!root.recOff && (root.isNotRec || root.isStalled))
             // Above the hover action row: their bands nearly touch in short tiles, and
             // the VIEW ISSUE link must never lose clicks to an overlapping panel.
@@ -638,6 +639,12 @@ Item {
             width: Math.min(implicitWidth, parent.width - 16)
             height: 22
             color: Qt.rgba(0, 0, 0, 0.9)
+            // The Row inside renders at natural width and Rectangles do not clip
+            // children — at 4x4 density "RECORDING STALLED · since 15:31" painted
+            // past this strip's edge, over the wall background and into the
+            // neighbouring tile (operator screenshot, 2026-08-16). Belt: clip.
+            // Braces: the message Text below is width-bounded and elides.
+            clip: true
 
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
@@ -652,19 +659,31 @@ Item {
                 anchors.leftMargin: 10
                 spacing: 8
                 Text {
+                    id: issueGlyph
                     anchors.verticalCenter: parent.verticalCenter
                     text: (root.isStalled || root.isNotRec) ? "⚠" : "~"
                     color: root.isStalled ? Theme.bad : Theme.warn; font.pixelSize: 11
                 }
                 Text {
+                    id: issueMsg
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.isStalled
                           ? (qsTr("RECORDING STALLED") + (root.lastSegmentAt !== "" ? "  ·  " + qsTr("since") + " " + Settings.clock(new Date(root.lastSegmentAt).getTime(), false) : ""))
                           : (root.isNotRec ? qsTr("LIVE, NO RECORDING") : qsTr("STREAM DEGRADED"))
+                    // Bounded to what the strip can actually show once the glyph, the
+                    // VIEW ISSUE link, spacings and padding are paid for. ElideMiddle,
+                    // not Right: the tail carries the "since 15:31" timestamp, which is
+                    // the part a guard acts on — cut the label's middle, keep the time.
+                    width: Math.min(implicitWidth, Math.max(0,
+                               root.width - 16 - 20 - issueGlyph.width
+                               - (issueLink.visible ? issueLink.width + issueRow.spacing : 0)
+                               - issueRow.spacing))
+                    elide: Text.ElideMiddle
                     color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 10
                     font.weight: Font.DemiBold; font.letterSpacing: 0.6
                 }
                 Text {
+                    id: issueLink
                     visible: root.isNotRec || root.isStalled
                     anchors.verticalCenter: parent.verticalCenter
                     text: qsTr("VIEW ISSUE") + " ›"; color: Theme.accent
