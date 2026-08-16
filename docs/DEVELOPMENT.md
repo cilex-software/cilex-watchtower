@@ -190,3 +190,18 @@ machinery with the QML layers precisely so a wedged singleton cannot take all
 three down. Env: `WT_SWD_FIRST_S` / `WT_SWD_STALL_S` (test cadences),
 `WT_STREAM_WATCHDOG_OFF`, and `WT_RECON_OFF` (disables both QML layers — the
 backstop-isolation harness; never set in production).
+
+
+## Socket state is not liveness (2026-08-16, the coordinated-restart verdict)
+
+A TCP socket can read `ESTABLISHED` forever on a stream that ended minutes ago:
+if our reader stops draining, the kernel advertises a zero window; the server's
+send queue pegs (flat byte count, ZERO retransmits — flow control, not loss);
+the server times out and close()s — and its FIN queues behind bytes the
+zero-window connection will never carry. Server: FIN_WAIT1. Client:
+ESTABLISHED, eternally. Measured live: booth 32 ESTABLISHED with ~5.5
+delivering, go2rtc 6 ESTABLISHED + 8 FIN_WAIT1 — the same reality from both
+ends. Therefore: **liveness = frames received recently, never socket or
+pipeline state** — which is exactly what the swd backstop keys on, and why
+`lit=` exists on the [MEMTEL] line. Related knob: `WT_BUILD_STAGGER_MS`
+(pipeline build pacing — the death burst correlates with build bursts).

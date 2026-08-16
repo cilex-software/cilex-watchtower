@@ -87,6 +87,20 @@ bool isEmptyGreenNV12(const unsigned char *y, int yStride,
 // spaces out bursts. (Teardown is separately bounded by the kMaxConcurrentTeardowns
 // semaphore, so create+destroy churn is capped on both sides.)
 constexpr int kBuildStaggerMs = 120;
+// WT_BUILD_STAGGER_MS overrides the stagger. Exists because of the 2026-08-16
+// coordinated-restart verdict: on the booth's 6-core box, a 32-pipeline build
+// burst wedges ~sqrt(N) readers' worth of streams — readers stop, the kernel
+// closes its receive window, go2rtc times the consumer out, and its FIN queues
+// forever behind bytes a zero-window connection will not carry (client socket
+// stays ESTABLISHED on a stream that ended). Streams built AFTER the burst
+// survived (death-forensics table: jb9, +3.2 s post-burst, lived). A/B knob,
+// default unchanged until the booth measures; if slower builds eliminate the
+// deaths, the Windows default gets set from that data.
+static int buildStaggerMs()
+{
+    static const int v = qEnvironmentVariableIntValue("WT_BUILD_STAGGER_MS");
+    return v > 0 ? v : kBuildStaggerMs;
+}
 
 class PipelineBuildPump
 {
@@ -120,15 +134,15 @@ private:
         if (m_queue.empty())
             return;
         const qint64 since = m_clock.elapsed() - m_lastBuildMs;
-        if (since >= kBuildStaggerMs) {
+        if (since >= buildStaggerMs()) {
             RtspVideoSource *src = m_queue.front();
             m_queue.pop_front();
             m_lastBuildMs = m_clock.elapsed();
             src->startPipelineNow();              // the actual gst build — one at a time
             if (!m_queue.empty())
-                m_timer.start(kBuildStaggerMs);
+                m_timer.start(buildStaggerMs());
         } else {
-            m_timer.start(int(kBuildStaggerMs - since));   // wait out the remaining gap
+            m_timer.start(int(buildStaggerMs() - since));   // wait out the remaining gap
         }
     }
     QTimer m_timer;
