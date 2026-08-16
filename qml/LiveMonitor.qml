@@ -363,6 +363,44 @@ Item {
     // picker opens instantly on every cell; right-click opens (no Arrange) free on close.
     onArrangeModeChanged: { if (!arrangeMode && pickerCell < 0) _thumbResetLoads(); }
     onPickerCellChanged: { if (pickerCell < 0 && !arrangeMode) _thumbResetLoads(); }
+    // ---- drag-to-swap on the wall -------------------------------------------
+    // The gesture the merge-selection MouseArea has been reserving ("plain drag
+    // (reserved for future drag-swap)", selMa). Arrangement is an ORDERED ID LIST
+    // (Settings.liveLayout) and geometry lives separately in spanState, so a drop
+    // is a swap of two positions in that list — the grid does not move. That is
+    // what makes merged tiles free: a big region stays big where it is, the
+    // dragged camera fills it, the displaced camera takes the dragged tile's old
+    // cell, and _spanCells() reflows the small cells around the region exactly as
+    // before. No special case for 2x2 or larger.
+    property int dragCell: -1                  // enumerated cell index being dragged
+    property int dropCell: -1                  // enumerated cell index under the cursor
+    property string dragCamId: ""
+    property string dragCamName: ""
+    function cancelDrag() { dragCell = -1; dropCell = -1; dragCamId = ""; dragCamName = ""; }
+    // Map a grid coordinate to the enumerated cell index. NOT c + r*cols: with a
+    // span present the enumeration skips covered cells, so the two disagree the
+    // moment anything is merged.
+    // `gCols` is the AUTO-FIT column count, which only equals lspec.cols on a fixed
+    // net — pass it in rather than re-deriving it here.
+    function cellIndexAt(c, r, gCols) {
+        if (useFixedNet) {
+            var cs = lcells;
+            for (var i = 0; i < cs.length; i++) {
+                var e = cs[i];
+                if (c >= e.c && c < e.c + e.cw && r >= e.r && r < e.r + e.ch) return i;
+            }
+            return -1;
+        }
+        return r * gCols + c;                    // auto-fit: every cell is 1x1
+    }
+    function dropOnCell(targetIndex) {
+        if (targetIndex < 0 || dragCell < 0 || targetIndex === dragCell || dragCamId === "") {
+            cancelDrag(); return;
+        }
+        assignToCell(targetIndex, dragCamId);   // swaps the two ids; geometry untouched
+        cancelDrag();
+    }
+
     function assignToCell(tileIndex, camId) {
         var ids = _fullIds();
         var target = (page - 1) * perPage + tileIndex;
@@ -386,9 +424,9 @@ Item {
     // mergeSel = {c0,r0,c1,r1, ac,ar} — normalized inclusive rect + the ANCHOR
     // cell (where the drag started; its camera is the one that goes big).
     property var mergeSel: null
-    onLayoutChanged: mergeSel = null
+    onLayoutChanged: { mergeSel = null; cancelDrag() }
     onGroupIdChanged: mergeSel = null
-    onPageChanged: mergeSel = null
+    onPageChanged: { mergeSel = null; cancelDrag() }
     // Selection normalization: swallow any merged region the rect touches (the
     // Excel rule) — the highlight always shows the TRUE result of the merge.
     function _normSel(ac, ar, bc, br) {
@@ -1277,6 +1315,27 @@ Item {
                     readonly property real cellW: (width - (gCols - 1) * gSpace) / gCols
                     readonly property real cellH: (height - (gRows - 1) * gSpace) / gRows
 
+                    // What the operator is carrying. Deliberately a label, not a live
+                    // video copy — a second decode of the dragged camera for the length
+                    // of a drag is real GPU cost on a wall already at its decode budget.
+                    Rectangle {
+                        id: dragGhost
+                        visible: root.dragCell >= 0 && root.dragCamName !== ""
+                        z: 200
+                        width: ghostLabel.implicitWidth + 16
+                        height: ghostLabel.implicitHeight + 10
+                        radius: 3
+                        color: Qt.rgba(0.10, 0.09, 0.07, 0.94)
+                        border.width: 1; border.color: Theme.accent
+                        Text {
+                            id: ghostLabel
+                            anchors.centerIn: parent
+                            text: root.dragCamName
+                            color: Theme.accent
+                            font.family: Theme.fontSans; font.pixelSize: 12
+                        }
+                    }
+
                     Repeater {
                         id: gridRepeater
                         model: gridModel
@@ -1387,8 +1446,15 @@ Item {
                             Rectangle {
                                 anchors.fill: parent
                                 visible: root.arrangeMode
-                                color: cellOvMa.containsMouse ? Qt.rgba(0, 0, 0, 0.32) : Qt.rgba(0, 0, 0, 0.58)
-                                border.width: 2
+                                readonly property bool isDropTarget:
+                                    root.dragCell >= 0 && root.dropCell === cellWrap.index
+                                                       && root.dropCell !== root.dragCell
+                                readonly property bool isDragSource: root.dragCell === cellWrap.index
+                                color: isDropTarget ? Qt.rgba(0.91, 0.63, 0.23, 0.30)
+                                     : isDragSource ? Qt.rgba(0, 0, 0, 0.72)
+                                     : cellOvMa.containsMouse ? Qt.rgba(0, 0, 0, 0.32)
+                                                              : Qt.rgba(0, 0, 0, 0.58)
+                                border.width: isDropTarget ? 3 : 2
                                 border.color: Theme.accent
                                 Column {
                                     anchors.centerIn: parent; spacing: 4; width: parent.width - 16
@@ -1403,8 +1469,42 @@ Item {
                                 }
                                 MouseArea {
                                     id: cellOvMa
-                                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.openCellPicker(cellWrap.index)
+                                    anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: root.dragCell >= 0 ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                                    // Click still opens the picker; a drag past the
+                                    // threshold becomes a move instead, and then the
+                                    // release must NOT also open the picker.
+                                    property bool moved: false
+                                    property real pressX: 0
+                                    property real pressY: 0
+                                    onPressed: (m) => {
+                                        moved = false; pressX = m.x; pressY = m.y;
+                                        root.dragCell = cellWrap.index;
+                                        root.dropCell = cellWrap.index;
+                                        root.dragCamId = cellWrap.modelData.camId;
+                                        root.dragCamName = cellWrap.modelData.name;
+                                    }
+                                    onPositionChanged: (m) => {
+                                        if (root.dragCell < 0) return;
+                                        // Threshold first: a shaky click must stay a click,
+                                        // or every picker open becomes an accidental move.
+                                        if (!moved
+                                            && Math.abs(m.x - pressX) < 6
+                                            && Math.abs(m.y - pressY) < 6) return;
+                                        moved = true;
+                                        var pt = mapToItem(gridArea, m.x, m.y);
+                                        dragGhost.x = pt.x + 10;
+                                        dragGhost.y = pt.y + 10;
+                                        var c = Math.floor(pt.x / (gridArea.cellW + gridArea.gSpace));
+                                        var r = Math.floor(pt.y / (gridArea.cellH + gridArea.gSpace));
+                                        root.dropCell = (c < 0 || r < 0 || c >= gridArea.gCols || r >= gridArea.gRows)
+                                                        ? -1 : root.cellIndexAt(c, r, gridArea.gCols);
+                                    }
+                                    onReleased: {
+                                        if (moved) root.dropOnCell(root.dropCell);
+                                        else { root.cancelDrag(); root.openCellPicker(cellWrap.index); }
+                                    }
+                                    onCanceled: root.cancelDrag()
                                 }
                             }
 
