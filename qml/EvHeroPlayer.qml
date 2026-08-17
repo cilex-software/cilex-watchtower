@@ -64,6 +64,12 @@ Item {
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
     property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog
+    // A frame of the CURRENT session has actually rendered. This — not MediaPlayer.mediaStatus —
+    // gates the poster and the wall-clock OSD: the FFmpeg backend's status enum is not portable
+    // (macOS parks below BufferedMedia over HLS while frames flow, so the poster covered a playing
+    // video and its live-frame fallback said "LIVE" over a recording — operator report 2026-08-17).
+    // Frames rendered is the only cross-platform truth about whether there is a picture.
+    property bool _lit: false
     property int _seekWatchSeq: -1                       // _frameSeq when a direct continuous seek was issued; -1 = idle
     property double _seekWatchWall: 0                    // that seek's target, for the watchdog's fallback re-open
     // wall-clock time of the frame currently on screen (compact playhead → wall, via the ready fragments)
@@ -115,6 +121,14 @@ Item {
         function onVideoFrameChanged(frame) {
             hp._frameSeq++;
             hp.testFrames++;
+            // Ignore the sink's clearing flush: stop()/source="" emits one EMPTY frame (measured:
+            // "first frame" with status=0 dur=0 during teardown) — counting it would yield the
+            // poster to a black stage. Real frames only arrive while a source is set.
+            if (!hp._lit && String(player.source) !== "") {
+                hp._lit = true;   // one line per session generation — the Mac-vs-Linux render discriminator
+                console.log("[HERO] first frame gen=" + hp._gen + " status=" + player.mediaStatus
+                            + " dur=" + player.duration);
+            }
             if (hp._htOpenPending) {
                 hp._htOpenPending = false;
                 console.log("[HT] OPEN lat=" + (Date.now() - hp._htOpenT0) + " dur=" + Math.round(player.duration / 1000)
@@ -185,6 +199,14 @@ Item {
         if (nid !== "" && nid === hp._evId) return;      // same episode, rebuilt object — keep the session
         hp._evId = nid;
         hp._reset(); hp._pre = null; hp._preTag = "";
+        // The timeline is knowable from event data alone — set it NOW so the scrubber has real
+        // geometry and the transport shows the true duration before the first play-tap (it read
+        // 00:00/00:00 pre-play, and a pre-play scrubber click had no span to map the X into).
+        if (ev && ev.id) {
+            var w0 = EventsStore.episodeWindow(ev);
+            hp.mkStartMs = w0.startMs; hp.mkEndMs = (w0.endMs > w0.startMs ? w0.endMs : w0.startMs + 1000);
+            hp.tlStartMs = hp.mkStartMs - hp.padPreMs; hp.tlEndMs = hp.mkEndMs + hp.padPostMs;
+        }
         hp._prefetch();
         if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) {
             if (typeof wtHeroAutoplayMs !== "undefined" && wtHeroAutoplayMs > 0) autoplayDelay.restart();
@@ -199,7 +221,7 @@ Item {
 
     function _reset() {
         heroStepper.invalidate();   // cached frames belong to the torn-down clip
-        _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false;
+        _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false; _lit = false;
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
         seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
     }
@@ -211,6 +233,7 @@ Item {
         _gen++;
         openDeadline.restart();
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
+        _lit = false;                                    // fresh session: poster holds until ITS first frame
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
         // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
@@ -246,7 +269,16 @@ Item {
     //    jumps froze, 58-79% for ≥10s), so anything past a tiny in-buffer nudge re-opens a short window at
     //    the target — the A1 PlaybackScreen workaround. Either way the episode timeline (tl*) is kept.
     function seekToWall(wall) {
-        if (!_started) return;
+        // Pre-play (or failed) scrub: a silent no-op is a banned dead control — load the
+        // recording AND land on the clicked moment. _open() sets _pendingSeekMs to the display
+        // start; override it with the click target after the call (tl* are valid pre-open now).
+        if (!_started || _error !== "") {
+            if (!ev || !ev.id || !playbackClient) return;
+            _open();
+            _pendingSeekMs = Math.max(tlStartMs, Math.min(tlEndMs, wall));
+            _seekingToWall = _pendingSeekMs;   // hold the scrubber at the click while the session loads
+            return;
+        }
         heroStepper.invalidate();   // a real seek supersedes any cache-step state / in-flight step
         wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
         if (_continuous) {
@@ -275,6 +307,7 @@ Item {
         _gen++;
         openDeadline.restart();
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall; _seekingToWall = wall;
+        _lit = false;                                    // re-open: poster holds until the landed frame renders
         player.stop(); player.source = "";
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
@@ -448,6 +481,11 @@ Item {
                 audioOutput: null
                 playbackRate: hp._speed
                 onPlaybackStateChanged: if (typeof MemTel !== "undefined") MemTel.setPlaying(1, playbackState === MediaPlayer.PlayingState)
+                // Errors are rare and precious — always logged. Status flaps over HLS — trace only.
+                onErrorOccurred: (error, errorString) =>
+                    console.log("[HERO] player ERROR " + error + " '" + errorString + "' status=" + mediaStatus)
+                onMediaStatusChanged: if (typeof wtTrace !== "undefined" && wtTrace)
+                    console.log("[HERO] status=" + mediaStatus + " state=" + playbackState + " pos=" + position)
                 // Seek to the event once the pipeline is seekable (a position set on
                 // durationChanged before preroll is dropped). Land on the recorded
                 // footage CLOSEST to the event — same logic as PlaybackScreen.
@@ -474,7 +512,10 @@ Item {
             // the PLAYBACK chip overlapping it.
             EvSnapshot {
                 anchors.fill: parent
-                visible: hp._loading || hp._error !== "" || player.mediaStatus < MediaPlayer.BufferedMedia
+                // Yield to the video on RENDERED FRAMES (_lit), never on mediaStatus: macOS's FFmpeg
+                // backend plays HLS without ever reporting BufferedMedia, so the enum gate left this
+                // poster (and its "● LIVE" fallback chip) covering a playing recording forever.
+                visible: hp._loading || hp._error !== "" || !hp._lit
                 ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false
             }
             // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)
@@ -531,7 +572,7 @@ Item {
             Rectangle {
                 anchors.top: parent.top; anchors.right: parent.right; anchors.topMargin: 8; anchors.rightMargin: 10
                 visible: hp._started && !hp._loading && hp._error === "" && hp._frags.length > 0
-                         && player.mediaStatus >= MediaPlayer.BufferedMedia
+                         && hp._lit
                 color: Qt.rgba(0, 0, 0, 0.6); height: 24; width: tsT.implicitWidth + 16
                 Text { id: tsT; anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(hp._playheadWallMs), "yyyy-MM-dd HH:mm:ss")
