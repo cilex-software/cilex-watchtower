@@ -106,6 +106,46 @@ Item {
         else
             seekToWall(_playheadWallMs + deltaMs);                              // the REAL seek path (near direct / far re-open)
     }
+    // Mid-play stall rescue: review-session segments are cut LAZILY server-side, and the FFmpeg
+    // demuxer can abandon a VOD playlist after 404s on a not-yet-ready segment (measured
+    // 2026-08-17, CV logs: the Mac's sessions fetched seg 0-1, retried seg 2 four times in
+    // ~1.2 s, then never asked again — the picture froze while PlayingState kept running).
+    // If the player claims Playing but ZERO frames render for ~6 s and the media hasn't ended,
+    // re-open at the current wall position — the fresh playlist carries the now-cut segments.
+    // Two rescues per user-initiated session, then the honest error path (no silent freeze,
+    // no endless churn). Distinct from seekWatch (post-seek only); if both race, whichever
+    // re-opens first sets _loading and disarms the other.
+    property int _stallRescues: 0
+    Timer {
+        id: stallWatch
+        interval: 3000; repeat: true
+        running: hp._started && !hp._loading && hp._error === ""
+                 && player.playbackState === MediaPlayer.PlayingState
+                 && player.mediaStatus !== MediaPlayer.EndOfMedia
+        property int _seqAt: -1
+        property int _strikes: 0
+        onRunningChanged: { _seqAt = -1; _strikes = 0; }
+        onTriggered: {
+            if (hp._frameSeq === _seqAt) {
+                if (++_strikes >= 2) {                   // two 3s ticks = ~6s playing with no rendered frame
+                    _strikes = 0;
+                    if (hp._stallRescues < 2) {
+                        hp._stallRescues++;
+                        console.log("[HERO] STALL reopen #" + hp._stallRescues
+                                    + " wall=" + Math.round(hp._playheadWallMs) + " seq=" + hp._frameSeq);
+                        hp._seekFar(hp._playheadWallMs);
+                    } else {
+                        console.log("[HERO] STALL gave up after 2 reopens");
+                        player.pause();
+                        hp._error = qsTr("Playback stalled — the recording backend stopped serving this window. Tap play to retry.");
+                    }
+                }
+            } else {
+                _strikes = 0;
+            }
+            _seqAt = hp._frameSeq;
+        }
+    }
     // Freeze-watchdog (LAST RESORT only): on a continuous session direct seeks land ~99% — the slow ones are
     // cold BASE renditions (S3 fetch, ~2-4s) that DO land, and re-opening hits the same cold base, so a tight
     // watchdog just churns. So it's deliberately long: it re-opens only a genuine >6s hang, never the cold tail.

@@ -575,12 +575,17 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="307"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="140"/>
+        <source>Playback stalled — the recording backend stopped serving this window. Tap play to retry.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="393"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="482"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="576"/>
         <source>Loading recording…</source>
         <translation type="unfinished"></translation>
     </message>
