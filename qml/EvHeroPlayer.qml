@@ -58,6 +58,8 @@ Item {
     property double mkMeasuredMs: -1
     Connections {
         target: MotionScan
+        // No-PTS backends (macOS darwin): feed the player position as the frame time source.
+        function onFrameScanned() { MotionScan.notePosition(player.position) }
         function onFirstMotionChanged() {
             var pts = MotionScan.firstMotionPtsMs;
             if (pts < 0 || !hp._armed || hp._frags.length === 0) return;

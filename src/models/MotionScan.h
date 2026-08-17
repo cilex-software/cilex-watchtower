@@ -26,6 +26,11 @@ public:
 
     Q_INVOKABLE void attach(QObject *videoSink);   // QVideoSink*; re-attach replaces
     Q_INVOKABLE void reset();                      // new session window → fresh scan
+    // No-PTS backends (macOS darwin/AVFoundation delivers frames without startTime): the
+    // player feeds its position here on every scanned frame; it becomes the frame's time
+    // source, with wall-clock gaps as the contiguity gate. WT_MSCAN_NOPTS=1 forces this
+    // path on any platform so the fallback is verifiable against the PTS path on Linux.
+    Q_INVOKABLE void notePosition(double posMs) { m_notedPosMs = posMs; }
 
     double firstMotionPtsMs() const { return m_firstMotionPtsMs; }
     double earliestPtsMs() const { return m_earliestPtsMs; }
@@ -58,6 +63,10 @@ private:
     QVector<quint8> m_prev, m_cur;
     QVector<quint8> m_chPrev, m_chCur;             // changed-cell masks (this frame vs previous)
     double m_prevPtsMs = -1;
+    double m_notedPosMs = -1;
+    qint64 m_prevWallMs = -1;                      // arrival wall clock (contiguity when no PTS)
+    bool m_forceNoPts = false;
+    bool m_saidNoPts = false;
     double m_earliestPtsMs = -1;
     double m_firstMotionPtsMs = -1;
     double m_candPtsMs = -1;

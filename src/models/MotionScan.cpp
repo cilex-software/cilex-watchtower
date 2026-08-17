@@ -6,11 +6,13 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <QDateTime>
 
 MotionScan::MotionScan(QObject *parent)
     : QObject(parent)
 {
     m_trace = qEnvironmentVariableIsSet("WT_TRACE");
+    m_forceNoPts = qEnvironmentVariableIsSet("WT_MSCAN_NOPTS");
     m_prev.resize(kGW * kGH);
     m_cur.resize(kGW * kGH);
     m_chPrev.resize(kGW * kGH);
@@ -35,6 +37,8 @@ void MotionScan::attach(QObject *videoSink)
 void MotionScan::reset()
 {
     m_prevPtsMs = -1;
+    m_prevWallMs = -1;
+    m_notedPosMs = -1;
     m_earliestPtsMs = -1;
     m_firstMotionPtsMs = -1;
     m_candPtsMs = -1;
@@ -53,8 +57,17 @@ void MotionScan::onFrame(const QVideoFrame &frame)
               int(frame.pixelFormat()), frame.width(), frame.height());
     if (!frame.isValid())
         return;
-    const qint64 stUs = frame.startTime();
-    const double ptsMs = stUs >= 0 ? double(stUs) / 1000.0 : -1;
+    const qint64 stUs = m_forceNoPts ? -1 : frame.startTime();
+    const bool havePts = stUs >= 0;
+    // No-PTS fallback: the player's noted position stands in for the frame time, and the
+    // ARRIVAL wall clock provides contiguity (steady ~66ms cadence during 1x playback;
+    // seeks/stalls open a gap and rebaseline). macOS's darwin backend stamps nothing.
+    const double ptsMs = havePts ? double(stUs) / 1000.0 : m_notedPosMs;
+    const qint64 wallNow = QDateTime::currentMSecsSinceEpoch();
+    if (!havePts && !m_saidNoPts && ptsMs >= 0) {
+        m_saidNoPts = true;
+        qInfo("[MSCAN] no PTS from backend — timing via player position");
+    }
 
     // Map on THIS thread, downsample, unmap — nothing frame-shaped leaves the handler.
     QVideoFrame f(frame);                          // shallow copy so we can map const input
@@ -83,8 +96,14 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         m_earliestPtsMs = ptsMs;
 
     // Contiguity gate: only score against the immediately-preceding played frame.
-    const bool contiguous = m_prevPtsMs >= 0 && ptsMs >= 0
-                            && ptsMs > m_prevPtsMs && (ptsMs - m_prevPtsMs) <= kMaxGapMs;
+    // PTS when the backend stamps frames; arrival wall-clock cadence when it doesn't
+    // (position alone is too coarse over HLS to gate on).
+    const bool contiguous = havePts
+        ? (m_prevPtsMs >= 0 && ptsMs >= 0
+           && ptsMs > m_prevPtsMs && (ptsMs - m_prevPtsMs) <= kMaxGapMs)
+        : (m_prevWallMs > 0 && ptsMs >= 0
+           && (wallNow - m_prevWallMs) > 0 && double(wallNow - m_prevWallMs) <= kMaxGapMs);
+    m_prevWallMs = wallNow;
     if (contiguous && m_firstMotionPtsMs < 0) {
         int changed = 0;
         for (int i = 0; i < kGW * kGH; ++i)
