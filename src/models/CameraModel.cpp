@@ -429,6 +429,30 @@ void CameraModel::fetchCameras()
                 c.rtspUrl = go2rtcUrl;
                 if (!go2rtcSubUrl.isEmpty()) c.rtspSubUrl = go2rtcSubUrl;
             }
+            // WT_WALL_STREAM_SUFFIX=<name>: swap the go2rtc stream suffix the WALL consumes
+            // (leaves rtspUrl/main alone). CV shipped `{camera_id}-wall` (0a5807d): a 320x180
+            // transcode of -sub measured on their box at 73.0 kbit/s against -sub's 851.3 —
+            // 11.7x cheaper. This booth's WAN path carries ~1.5-2 Mbit/s before packet loss
+            // sets in (0 % idle, 18-30 % under our own load), so -sub at ~0.85 Mbit/s cannot
+            // feed a wall and -wall can. Client-side rewrite so the booth can A/B before the
+            // backend's rtsp_sub_url moves. CV's box OOMs at 16 concurrent transcodes and is
+            // not comfortable at 8, so keep Settings.maxLiveDecodes <= 8 while this is set.
+            {
+                static const QByteArray suffix = qgetenv("WT_WALL_STREAM_SUFFIX");
+                const QString before = c.rtspSubUrl;
+                if (!c.rtspSubUrl.isEmpty() && !suffix.isEmpty()
+                    && c.rtspSubUrl.endsWith(QLatin1String("-sub"))) {
+                    c.rtspSubUrl.chop(4);
+                    c.rtspSubUrl += QLatin1Char('-') + QString::fromUtf8(suffix);
+                }
+                static bool logged = false;
+                if (!logged) {
+                    logged = true;
+                    qInfo("[WT-URL] suffix='%s' main='%s' sub_before='%s' sub_after='%s'",
+                          suffix.constData(), qUtf8Printable(c.rtspUrl),
+                          qUtf8Printable(before), qUtf8Printable(c.rtspSubUrl));
+                }
+            }
             // Backend-owned still-frame URL for thumbnails (go2rtc frame.jpeg) —
             // preferred over a client-derived URL so the host/port/path live
             // server-side, not hard-coded here.
