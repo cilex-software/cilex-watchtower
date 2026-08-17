@@ -364,6 +364,33 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
         kept.append(line);
     }
 
+#ifdef Q_OS_MACOS
+    // macOS diet (2026-08-17): trust the UPSTREAM discontinuity structure — dedupe and
+    // drop leading tags, but never inject. The injector below marks EVERY segment
+    // boundary as a discontinuity (the legacy-session crutch); FFmpeg tolerates that,
+    // but if the darwin/AVFoundation backend is serving MediaPlayer, AVPlayer restarts
+    // its pipeline at each marked break and freezes after the first segment — the
+    // operator's v1.1.101 symptom (first frame renders, then a still). Measured upstream
+    // tonight: a continuous session's playlist carries NO mid-window discontinuities;
+    // the injected ones were pure fabrication for this player.
+    {
+        QList<QByteArray> mout;
+        mout.reserve(kept.size());
+        bool sawSeg = false, pendingDisc = false;
+        for (const QByteArray &line : kept) {
+            const QByteArray t = line.trimmed();
+            if (t == "#EXT-X-DISCONTINUITY") { pendingDisc = sawSeg; continue; }   // hold one; drop leading
+            if (pendingDisc && (t.startsWith("#EXTINF") || t.startsWith("#EXT-X-PROGRAM-DATE-TIME"))) {
+                mout.append(QByteArrayLiteral("#EXT-X-DISCONTINUITY"));
+                pendingDisc = false;
+            }
+            mout.append(line);
+            if (t.endsWith(".ts")) sawSeg = true;
+        }
+        return mout.join('\n');
+    }
+#endif
+
     // Pass 2 — ensure each real segment is preceded by exactly one discontinuity
     // (inject before its metadata block; dedupe consecutive; drop leading ones —
     // the first segment establishes the timeline and needs none).
