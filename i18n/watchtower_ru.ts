@@ -4316,44 +4316,39 @@
         <translation>Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="176"/>
-        <source>Supervised by Cilex Warden %1</source>
-        <translation>Хранитель Cilex Warden %1 наблюдает</translation>
+        <location filename="../qml/TitleBar.qml" line="219"/>
+        <source>Watches · Restarts · Reports</source>
+        <translation>Наблюдает · Перезапустит · Доложит</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="177"/>
-        <source>Supervised by Cilex Warden</source>
-        <translation>Хранитель Cilex Warden наблюдает</translation>
+        <location filename="../qml/TitleBar.qml" line="238"/>
+        <source>SERVER</source>
+        <translation>СЕРВЕР</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="178"/>
-        <source>Auto-restart and crash reporting armed</source>
-        <translation>Автоперезапуск и отчёты о сбоях включены</translation>
+        <location filename="../qml/TitleBar.qml" line="245"/>
+        <source>SESSION</source>
+        <translation>СЕАНС</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="182"/>
-        <source>Cilex Vision: %1</source>
-        <translation>Сервер Cilex Vision: %1</translation>
+        <location filename="../qml/TitleBar.qml" line="259"/>
+        <source>WARDEN</source>
+        <translation>ХРАНИТЕЛЬ</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="183"/>
+        <location filename="../qml/TitleBar.qml" line="244"/>
         <source>not configured</source>
         <translation>не задан</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="186"/>
-        <source>Signed in: no</source>
-        <translation>Вход не выполнен</translation>
+        <location filename="../qml/TitleBar.qml" line="172"/>
+        <source>not signed in</source>
+        <translation>вход не выполнен</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="190"/>
-        <source>Signed in as %1 (%2)</source>
-        <translation>Вход выполнен: %1 (%2)</translation>
-    </message>
-    <message>
-        <location filename="../qml/TitleBar.qml" line="191"/>
-        <source>Signed in as %1</source>
-        <translation>Вход выполнен: %1</translation>
+        <location filename="../qml/TitleBar.qml" line="266"/>
+        <source>unknown</source>
+        <translation>неизвестна</translation>
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="166"/>

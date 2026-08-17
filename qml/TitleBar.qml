@@ -154,44 +154,144 @@ Item {
                     opacity: 0.8
                 }
                 MouseArea { id: eyeMa; anchors.fill: parent; hoverEnabled: true }
-                C.ToolTip.visible: eyeMa.containsMouse
-                C.ToolTip.delay: 400
-                // The tooltip answers "what is this station actually attached to?" — the
-                // question an operator standing at the booth cannot otherwise resolve
-                // without reading logs.
+                // The Warden's own plate. Roman inscriptional capitals — the Trajan
+                // lineage — carried by whatever of the stack the host actually has;
+                // Palatino/Constantia/Cambria all descend from humanist letterforms cut
+                // from Roman inscriptions, and all carry CYRILLIC, which is not optional
+                // on a station whose guards read Russian. Cinzel/Trajan lead the stack so
+                // the plate upgrades for free if either is ever bundled.
                 //
-                // `AuthController.baseUrl` is deliberately the EFFECTIVE address, not
-                // WT_CV_URL. Those two disagree: a restored session carries its own host
-                // and outranks the environment, so a station can be talking to a server
-                // nobody configured in its env. Printing the env var here would have been
-                // a plausible-looking lie (2026-08-17: an agent lost an hour to exactly
-                // that assumption while forcing a failure state).
-                //
-                // Wording avoids claiming the link is HEALTHY: `authenticated` means a
-                // session exists, not that the server answered recently. "Signed in as"
-                // is a fact; "connected" would not be.
-                C.ToolTip.text: {
-                    var wv = (typeof wtWardenVersion !== "undefined" && wtWardenVersion !== "")
-                             ? wtWardenVersion : "";
-                    var lines = [ wv !== "" ? qsTr("Supervised by Cilex Warden %1").arg(wv)
-                                            : qsTr("Supervised by Cilex Warden"),
-                                  qsTr("Auto-restart and crash reporting armed"),
-                                  "" ];
-                    var url = (typeof AuthController !== "undefined" && AuthController.baseUrl)
-                              ? AuthController.baseUrl : "";
-                    lines.push(qsTr("Cilex Vision: %1")
-                               .arg(url !== "" ? url : qsTr("not configured")));
-                    if (typeof AuthController !== "undefined") {
-                        if (!AuthController.authenticated) {
-                            lines.push(qsTr("Signed in: no"));
-                        } else {
-                            var who = AuthController.username;
-                            lines.push(AuthController.role !== ""
-                                       ? qsTr("Signed in as %1 (%2)").arg(who).arg(AuthController.role)
-                                       : qsTr("Signed in as %1").arg(who));
+                // The flourish is entirely typographic. The words stay literally true —
+                // the Warden does watch, does restart, does report — because chrome on a
+                // security console must not drift into invented lore, and the facts below
+                // the rule stay in JetBrains Mono so an operator can read an address off
+                // the screen without squinting at a serif.
+                // Resolved at runtime rather than declared as a font stack: the QML `font`
+                // value type has no `families` list here, so the first installed face wins
+                // and anything absent costs nothing. Falls back to the UI sans, never to an
+                // unreadable default.
+                readonly property string serifFamily: {
+                    var stack = ["Cinzel", "Trajan Pro", "Palatino Linotype",
+                                 "Constantia", "Book Antiqua", "Cambria", "Georgia"];
+                    var have = Qt.fontFamilies();
+                    for (var i = 0; i < stack.length; ++i)
+                        if (have.indexOf(stack[i]) !== -1)
+                            return stack[i];
+                    return Theme.fontSans;
+                }
+                readonly property string cvUrl:
+                    (typeof AuthController !== "undefined" && AuthController.baseUrl)
+                    ? AuthController.baseUrl : ""
+                readonly property string sessionLine: {
+                    if (typeof AuthController === "undefined" || !AuthController.authenticated)
+                        return qsTr("not signed in");
+                    return AuthController.role !== ""
+                           ? "%1 (%2)".arg(AuthController.username).arg(AuthController.role)
+                           : AuthController.username;
+                }
+
+                C.ToolTip {
+                    id: eyePlate
+                    visible: eyeMa.containsMouse
+                    delay: 400
+                    padding: 0
+                    margins: 8
+                    background: Rectangle {
+                        color: Theme.tileBg
+                        border.width: 1
+                        border.color: Theme.accentDim
+                        radius: 2
+                    }
+                    contentItem: ColumnLayout {
+                        spacing: 0
+
+                        Text {                                   // the sigil line
+                            Layout.fillWidth: true
+                            Layout.topMargin: 11
+                            Layout.leftMargin: 18
+                            Layout.rightMargin: 18
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "CILEX WARDEN"
+                            font.family: wardenEye.serifFamily
+                            font.pixelSize: 15
+                            font.letterSpacing: 4.5
+                            font.bold: true
+                            color: Theme.accent
+                        }
+                        Rectangle {                              // hairline under the sigil
+                            Layout.fillWidth: true
+                            Layout.topMargin: 8
+                            Layout.leftMargin: 18
+                            Layout.rightMargin: 18
+                            height: 1
+                            color: Theme.accentDim
+                        }
+                        Text {                                   // the vow — true, not lore
+                            Layout.fillWidth: true
+                            Layout.topMargin: 7
+                            Layout.leftMargin: 18
+                            Layout.rightMargin: 18
+                            horizontalAlignment: Text.AlignHCenter
+                            text: qsTr("Watches · Restarts · Reports")
+                            font.family: wardenEye.serifFamily
+                            font.pixelSize: 11
+                            font.italic: true
+                            font.letterSpacing: 1.2
+                            color: Theme.ink3
+                        }
+
+                        GridLayout {                             // the facts, in mono
+                            Layout.topMargin: 12
+                            Layout.bottomMargin: 13
+                            Layout.leftMargin: 18
+                            Layout.rightMargin: 18
+                            columns: 2
+                            rowSpacing: 4
+                            columnSpacing: 14
+
+                            Text {
+                                text: qsTr("SERVER")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                text: wardenEye.cvUrl !== "" ? wardenEye.cvUrl : qsTr("not configured")
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: wardenEye.cvUrl !== "" ? Theme.ink : Theme.ink3
+                            }
+                            Text {
+                                text: qsTr("SESSION")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                text: wardenEye.sessionLine
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: (typeof AuthController !== "undefined" && AuthController.authenticated)
+                                       ? Theme.ink2 : Theme.ink3
+                            }
+                            Text {
+                                text: qsTr("WARDEN")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                text: (typeof wtWardenVersion !== "undefined" && wtWardenVersion !== "")
+                                      ? wtWardenVersion : qsTr("unknown")
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: Theme.ink2
+                            }
                         }
                     }
-                    return lines.join("\n");
                 }
             }
         }
