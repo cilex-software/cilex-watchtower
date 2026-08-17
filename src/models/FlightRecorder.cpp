@@ -22,10 +22,12 @@
 #  include <psapi.h>
 #  include <dbghelp.h>
 #else
-#  include <elf.h>
 #  include <fcntl.h>
-#  include <link.h>
 #  include <unistd.h>
+#  if defined(Q_OS_LINUX)
+#    include <elf.h>            // NT_GNU_BUILD_ID walk — ELF is a Linux concept;
+#    include <link.h>           // macOS is Mach-O (M1 defect #4: dyld walk is the
+#  endif                        //  M2 item; until then the module list degrades honestly)
 #endif
 
 namespace {
@@ -152,7 +154,7 @@ void handler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
 //   <base-hex> <buildid-or-pe-key> <path>
 // The BuildID is what matches a backtrace's `lib.so(+0xOFFSET)` frames to the
 // EXACT binary — a guard box's Qt may not be the Qt we still have.
-#if !defined(Q_OS_WIN)
+#if defined(Q_OS_LINUX)
 struct ModWalk { QByteArray lines; };
 
 int phdrCb(struct dl_phdr_info *info, size_t, void *out)
@@ -196,7 +198,7 @@ QByteArray moduleLines()
     dl_iterate_phdr(phdrCb, &w);
     return w.lines;
 }
-#else
+#elif defined(Q_OS_WIN)
 // Windows: TimeDateStamp+SizeOfImage identify the module on a symbol server;
 // the RSDS record (PDB GUID+age) identifies the matching .pdb — which CI must
 // archive per release (plan CW-17). Parsed from the loaded image in memory.
@@ -251,6 +253,13 @@ QByteArray moduleLines()
     }
     return out;
 }
+#else
+// macOS: modules are Mach-O, not ELF/PE — the dyld-API walk is the M2 item of
+// docs/plans/mac-port/. Until it exists this returns an HONEST empty list (the
+// crash marker, console and backtrace channels are unaffected); an empty
+// modules.txt on a Mac means "not implemented", never "no modules".
+QByteArray moduleLines() { return {}; }
+
 #endif
 
 QByteArray s_lastModules;                 // change detector — rewrite only on delta

@@ -18,6 +18,8 @@
 #  include <psapi.h>
 #elif defined(Q_OS_MACOS)
 #  include <mach/mach.h>         // task_info(MACH_TASK_BASIC_INFO) — the /proc/self/statm equivalent
+#  include <unistd.h>            // getppid — the warden-eye parent watch (M1 defect #3:
+                                 //  my mach branch took over this arm and dropped it)
 #else
 #  include <QFile>
 #  include <QByteArrayList>
