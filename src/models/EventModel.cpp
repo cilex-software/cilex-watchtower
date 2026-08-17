@@ -614,6 +614,11 @@ void EventModel::fetchLiveFeed()
             }
             m.insert("ip", ip);
             m.insert("camName", name.isEmpty() ? o.value("camera_id").toString() : name);
+            // camId, so the rail can draw the camera's CURRENT still while the recorded
+            // event frame is still being written. The paged/search map (toMap above) has
+            // carried camId all along; this live-feed map never did, so OpsSidebar's
+            // preview had nothing to ask for and every fresh row stayed blank.
+            m.insert("camId", o.value("camera_id").toString());
             const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
             m.insert("tsMs", dt.isValid() ? double(dt.toMSecsSinceEpoch()) : -1.0);
             m.insert("hasClip", !o.value("clip_url").toString().isEmpty());

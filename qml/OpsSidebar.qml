@@ -239,7 +239,10 @@ Item {
                             border.color: Theme.line2
                             clip: true
 
-                            // Four states that must never render alike. Until 2026-08-15 a
+                            // FIVE states that must never render alike (a fifth was added
+                            // 2026-08-17: the live camera preview below, badged with a corner
+                            // dot so it cannot be read as the recorded event frame). Until
+                            // 2026-08-15 a
                             // failed fetch and an event with nothing to show drew the SAME
                             // muted glyph, so an operator — and this agent, reading a
                             // screenshot — could not tell "no picture exists" from "the
@@ -259,6 +262,46 @@ Item {
                             readonly property string stillUrl:
                                 "image://cvframe/events/" + evId + "/snapshot?pos=mid"
                             readonly property bool failed: latched
+
+                            // IMMEDIATE preview: the camera's CURRENT still, not the event's frame.
+                            //
+                            // The true thumbnail is extracted from recorded video, and for a fresh
+                            // event that video does not exist yet: the row is created before the
+                            // fragment flushes, so `recordingId` is empty (we never ask) or the
+                            // endpoint answers 503 "footage is still being written". Measured on
+                            // the booth 2026-08-17: 3796 of 4495 event-snapshot requests were 503
+                            // — 84 % — against 93 % success on the camera-still path. The rail was
+                            // therefore mostly blank squares at exactly the moment an operator
+                            // most wants a picture: when the event has just fired.
+                            //
+                            // So draw what we CAN get instantly, and never let it impersonate the
+                            // event frame: `still` above paints over this the moment the real
+                            // extraction lands, and while this is showing, the corner dot marks it
+                            // as the live camera view rather than the recorded moment. For a
+                            // seconds-old event the two are near-identical; for an older one they
+                            // are not, which is precisely why it is badged instead of silently
+                            // substituted.
+                            Image {
+                                id: camNow
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                asynchronous: true
+                                cache: false
+                                fillMode: Image.PreserveAspectCrop
+                                sourceSize.width: 192
+                                source: (row.modelData.camId && still.status !== Image.Ready)
+                                        ? "image://cvframe/streams/cameras/" + row.modelData.camId + "/snapshot"
+                                        : ""
+                                visible: status === Image.Ready && still.status !== Image.Ready
+                            }
+                            Rectangle {                     // "this is the camera now, not the event"
+                                visible: camNow.visible
+                                anchors { right: parent.right; bottom: parent.bottom; margins: 3 }
+                                width: 6; height: 6; radius: 3
+                                color: Theme.accent
+                                border.width: 1
+                                border.color: Qt.rgba(0, 0, 0, 0.5)
+                            }
 
                             Image {
                                 id: still
@@ -295,7 +338,7 @@ Item {
                             Rectangle {                     // shimmer while the queued fetch runs
                                 anchors.fill: parent
                                 anchors.margins: 1
-                                visible: still.status === Image.Loading
+                                visible: still.status === Image.Loading && !camNow.visible
                                 color: Theme.panel3
                                 SequentialAnimation on opacity {
                                     running: still.status === Image.Loading
@@ -306,7 +349,7 @@ Item {
                             }
                             Icon {                          // footage still being written — will retry
                                 anchors.centerIn: parent
-                                visible: stillCell.waiting
+                                visible: stillCell.waiting && !camNow.visible
                                 name: "history"
                                 size: 16
                                 color: Theme.ink2
@@ -316,13 +359,14 @@ Item {
                                 visible: !stillCell.failed && !stillCell.waiting
                                          && still.status !== Image.Ready
                                          && still.status !== Image.Loading
+                                         && !camNow.visible
                                 name: "shot"
                                 size: 16
                                 color: Theme.ink3
                             }
                             Icon {                          // asked, retried, never arrived —
                                 anchors.centerIn: parent    // NOT the same as "no picture exists"
-                                visible: stillCell.failed
+                                visible: stillCell.failed && !camNow.visible
                                 name: "alert"
                                 size: 16
                                 color: Theme.warn
