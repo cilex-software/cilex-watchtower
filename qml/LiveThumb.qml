@@ -75,8 +75,35 @@ Rectangle {
         imgA.source = ""; imgB.source = "";
         if (_base !== "") imgA.source = _provBase + _sep + "0";
     }
-    onCamChanged: _reset()
-    Component.onCompleted: if (_base !== "") imgA.source = _provBase + _sep + "0"
+    // Reset ONLY when this thumb is pointed at a DIFFERENT camera — never on a
+    // mere re-assignment of `cam`.
+    //
+    // `cam` arrives as an object LITERAL (CameraTile.qml: `cam: ({ snapshotUrl…,
+    // lastSegmentAt: root.lastSegmentAt })`), so QML builds a brand-new object
+    // whenever any field changes — and `last_segment_at` ticks forward on EVERY
+    // /streams poll, i.e. every 15 s for every recording camera
+    // (CameraModel.cpp:593). Binding to `onCamChanged` therefore fired _reset()
+    // on a timer: both buffers cleared, `_everLoaded` false, the monitor glyph
+    // back, and the tile BLACK until a fresh JPEG arrived 0.5–4.6 s later.
+    //
+    // Measured on the booth wall before this change: 25 of 36 tiles went dark
+    // simultaneously and took ~6 s to recover, repeating with the poll. That is
+    // the operator's "streams disappear and are replaced with black squares".
+    //
+    // Nothing about a new `last_segment_at` invalidates the picture on screen,
+    // and the imgA/imgB pair above already refreshes without blanking — it loads
+    // the off-screen buffer and swaps only on Ready. Keying the reset on the
+    // snapshot URL restores that: a genuine camera swap (delegate recycling)
+    // still clears, so one camera's still can never be shown under another's name.
+    property string _loadedBase: ""
+    function _ensureFor() {
+        if (_base === _loadedBase)
+            return;                       // same camera — keep what is on screen
+        _loadedBase = _base;
+        _reset();
+    }
+    onCamChanged: _ensureFor()
+    Component.onCompleted: _ensureFor()
     // Fire immediately on (re)activation — the repeat Timer's first tick is a full
     // interval away, which added a flat +1 s before a section switch even STARTED
     // filling its thumbs (measured in the 2026-08-02 [NAV]/[EVIMG] trace). Skip
