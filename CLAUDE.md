@@ -87,6 +87,14 @@ GitHub releases themselves cost nothing; only Actions minutes did.
 - **Honest UI states.** No invented content, no placeholder identities, no
   silent no-op controls, no green-by-default for unknown states. Absent
   data renders as unknown, never as healthy.
+- **Stability beats flicker.** (Operator rule, 2026-08-17.) A slightly stale
+  picture beats a correct one that arrives via a black frame — a guard cannot
+  tell "refreshing" from "failed", so every avoidable blank costs trust in the
+  whole wall. Never clear an on-screen image except on a REAL identity change:
+  one camera's frame must never sit under another camera's name — that boundary
+  is correctness, not a performance knob. Case law: the every-poll tile
+  blanking (`888c5da`) and the events-rail strobe (`f5021b7`), both defeated
+  machinery built to prevent exactly them.
 - **Real data or an honest empty state.** Mock data lives behind `WT_DEMO`.
 - **Conventional Commits**, with the trailers this repo uses.
 - **One version per commit.** Run `git config core.hooksPath tools/git-hooks`
