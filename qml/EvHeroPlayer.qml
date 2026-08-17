@@ -170,7 +170,20 @@ Item {
         repeat: false
         onTriggered: hp._open()
     }
+    // Identity guard (the LiveThumb lesson, same day): every events refresh rebuilds ALL row
+    // objects (EventsStore.ingestReal ends with `events = out`; ack/dispose remap the list),
+    // so EvTriage._cur hands this player a NEW object for the SAME episode on every poll and
+    // on every triage action. Without the guard each refresh ran _reset() — player.stop(),
+    // source = "", playhead to 0 — so a playing clip rewound to 00:00 at poll cadence, which
+    // lands right as the playhead reaches the motion span (pre-roll ≈ poll interval; operator
+    // report 2026-08-17, reproduced: 6 session re-dispatches in 52 s with zero user input).
+    // Tear down only when the EPISODE ID actually changes. An in-progress episode keeps the
+    // window it was opened with (no silent re-open mid-watch); reselecting re-opens fresh.
+    property string _evId: ""
     onEvChanged: {
+        var nid = (ev && ev.id) ? String(ev.id) : "";
+        if (nid !== "" && nid === hp._evId) return;      // same episode, rebuilt object — keep the session
+        hp._evId = nid;
         hp._reset(); hp._pre = null; hp._preTag = "";
         hp._prefetch();
         if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) {
