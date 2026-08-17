@@ -241,6 +241,16 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
                                     const QString &wallEndIso, bool hevcCapable, int attempt,
                                     const QString &tag)
 {
+#ifdef Q_OS_MACOS
+    // Apple's HLS authoring rules do not allow HEVC in MPEG-TS (HEVC requires fMP4), and
+    // review sessions serve HEVC-in-TS (measured 2026-08-17: hevc/Main/2560x1440 in seg .ts).
+    // Three decode-level overrides changed nothing on the operator's M1 — the media stack
+    // never surfaced a single frame. So declare the truth the contract's flag exists for:
+    // this platform cannot play the HEVC variant; ask for H.264. Server-side verified the
+    // same evening: hevc_capable=false returns h264/Main (640x360 transcode tier — a playing
+    // 360p beats a 1440p poster; the quality-tier conversation belongs to CV, not this flag).
+    hevcCapable = false;
+#endif
     // [PBTIME] pairs with the QML open-path stage logs (see PlaybackScreen.qml).
     static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
                                || qEnvironmentVariableIsSet("WT_TTFF_DAYS");
