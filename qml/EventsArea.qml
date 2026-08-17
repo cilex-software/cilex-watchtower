@@ -145,6 +145,7 @@ Item {
             EventsStore.realDispose = function (id, d, note) { if (area.eventModel) area.eventModel.setDisposition(id, d, note); };
             EventsStore.realBookmark = function (id, value) { if (area.eventModel) area.eventModel.setBookmark(id, value); };
             EventsStore.realAssign = function (id, who) { if (area.eventModel) area.eventModel.assignEvent(id, who); };
+            EventsStore.realCameraScope = function (camId) { if (area.eventModel) area.eventModel.search(camId, "", ""); };
             area.eventModel.fetchOperators();
             EventsStore.operators = area.eventModel.operators();
             area._ingestReal();

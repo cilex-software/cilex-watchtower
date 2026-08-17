@@ -129,6 +129,13 @@ Item {
     // ===================== variant B "Lanes" state =====================
     // designs/handoff-camera-filter/2026-08-06-triage-camera-filter-variant-b-lanes.md
     property var solo: []                         // camera KEYS (stable ids), in solo order
+    // Server-side scope for a single soloed lane (operator, 2026-08-17: ".189 shows none
+    // while the server holds 243"): the loaded feed is only the newest ~page fleet-wide,
+    // so a camera quiet for minutes scrolls out and its solo showed a false zero. Lane
+    // keys ARE camera ids (EventsArea._buildLookup), so one soloed camera fetches ITS
+    // events from the server; solo off (or multi-solo) restores the shared feed. Lane
+    // muting/visuals stay client-side and unchanged.
+    onSoloChanged: if (EventsStore.realMode) EventsStore.cameraScope(solo.length === 1 ? solo[0] : "")
     property var fold: []                         // per-lane fold (alt-click)
     property string buf: ""                       // digit type-ahead buffer (max 3)
     readonly property int rowH: 44                // dense (compact 48 / ultra 36)

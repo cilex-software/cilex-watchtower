@@ -74,6 +74,7 @@ QtObject {
     property var realDispose: null                        // function(id, dispo, note) → EventModel.setDisposition
     property var realBookmark: null                       // function(id, value)     → EventModel.setBookmark
     property var realAssign: null                         // function(id, assignee)  → EventModel.assignEvent
+    property var realCameraScope: null                    // function(camIdOrEmpty)   → EventModel.search (server-side lane scope)
     property var operators: []                            // assignable roster (GET /operators), set by EventsArea
 
     function _ev(o, uid) {
@@ -282,6 +283,11 @@ QtObject {
         _patch(id, who ? { assignedTo: who, status: "progress" } : { assignedTo: "" });
     }
     function find(id) { for (var i = 0; i < events.length; i++) if (events[i].id === id) return events[i]; return null; }
+    // Server-side camera scope for a soloed lane (2026-08-17): the loaded feed is only the
+    // newest ~page of a fleet firing ~20 rows/min, so a camera quiet for minutes scrolls out
+    // and a client-side solo reads as "no events" while the server holds hundreds. One
+    // soloed camera asks the SERVER for its history; "" restores the shared feed.
+    function cameraScope(camId) { if (realMode && realCameraScope) realCameraScope(camId || ""); }
 
     // ---- derived counts (top-bar chips + nav badge) ----
     readonly property int openCount:    events.filter(function (e) { return e.status === "new"; }).length
