@@ -260,10 +260,19 @@ void RtspVideoSource::swdTick()
     static const bool off = qEnvironmentVariableIsSet("WT_STREAM_WATCHDOG_OFF")
                          || qEnvironmentVariableIsSet("WT_WALL_CHURN");
     static const bool qmlLayersOff = qEnvironmentVariableIsSet("WT_RECON_OFF");
+    // Defaults raised 45/30 -> 75/75 on 2026-08-17 (booth §4 + CV's arithmetic:
+    // go2rtc's own give-up policies are 45 s and 60 s, and a client that tears
+    // down at 30 s ALWAYS jumps first — so the server's decision was never
+    // observable, and the booth spent a night reading our own recycle storm as
+    // server evictions. Client patience must exceed server policy: at 75 s the
+    // server acts first, its RST/FIN (or its absence) becomes evidence, and the
+    // backstop remains what its name says — the layer that acts when everyone
+    // else has provably given up. The QML ladders are untouched: they fire on
+    // bus ERRORS, which are signals, not silence.
     static const qint64 firstMs = qEnvironmentVariableIntValue("WT_SWD_FIRST_S") > 0
-        ? qEnvironmentVariableIntValue("WT_SWD_FIRST_S") * 1000LL : 45000;
+        ? qEnvironmentVariableIntValue("WT_SWD_FIRST_S") * 1000LL : 75000;
     static const qint64 stallMs = qEnvironmentVariableIntValue("WT_SWD_STALL_S") > 0
-        ? qEnvironmentVariableIntValue("WT_SWD_STALL_S") * 1000LL : 30000;
+        ? qEnvironmentVariableIntValue("WT_SWD_STALL_S") * 1000LL : 75000;
     if (off || !m_active || m_url.isEmpty() || !m_sink)
         return;
     if (m_errored && !qmlLayersOff)
