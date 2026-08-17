@@ -1,6 +1,52 @@
 # Cilex Watchtower — Project Status
 
-<!-- 2026-08-16 pointer -->
+<!-- 2026-08-17 pointer -->
+> **2026-08-17 — the booth slow-wall is FIXED and the wall PASSES the
+> operator's bar.** Measured: **15 minutes, zero stalls, 8/8 tiles lit, worst
+> 19.1 fps/stream, no SLOW badge** (was: 10–15 of 32 thrashing at ~23
+> stalls/min). See `docs/letters/2026-08-17-booth-designing-to-1500kbit.booth-reply.md`
+> and PR #5. Two client changes did it, both "ask for the size we draw":
+>
+> 1. **`WT_SNAPSHOT_WIDTH_CAP`** — the client was requesting **FULL-SIZE**
+>    stills and downscaling after decode (`CvImageProvider.cpp:190`, a June RSS
+>    fix that does nothing for the network). Measured 3.72 fetches/s ×
+>    **123.8 KB** ≈ 3.7 Mbit/s, service times to 3635 ms. With CV's shipped
+>    `?w=` ceiling: link **4.74 → 1.82 Mbit/s**, loss **12–20 % → 3 %**, RTT
+>    **25 → 9 ms**. One query parameter, 62 %.
+> 2. **`WT_WALL_STREAM_SUFFIX=wall`** — CV's `{camera_id}-wall` (320×180 of
+>    `-sub`) measures **50.5 kbit/s** vs `-sub`'s 368.5, so 8 live tiles cost
+>    ~0.4 Mbit/s. **Keep `maxLiveDecodes ≤ 8`**: CV measured ~56 MiB RSS per
+>    transcode in a 1 GiB cap; 16 concurrent OOMs their box and takes down every
+>    stream on it.
+>
+> **The path's real budget is ~1.5–2 Mbit/s.** Loss is 0 % idle and 0 % up to 2
+> streams, 2 % at 3, 5 % at 4, 30 % at 6 — self-inflicted congestion, not a sick
+> path (RTT 8–9 ms idle).
+>
+> **The reconnect churn was OURS.** CV's arithmetic: our silence watchdog fires
+> at **31 s**, go2rtc closes at **45 s and 60 s**, so the booth always tears down
+> first. Their 46.7 attaches/hour at 5.8× turnover was our own watchdog
+> recycling sessions, and the "median stream lifetime ~23 s" measured our timer,
+> not stream death. **Open: move the threshold above 60 s** so the server's
+> decision is observable at all.
+>
+> **Open faults:** `-wall` delivers **18.1–19.8 fps** where the fleet broadcasts
+> 15 (31 consecutive samples — a fault to diagnose, filed with CV); only 8 of 35
+> cameras are live video (CV's transcode memory, not our link); CV's 15-minute
+> N=2 bare run is unrun because it now costs a *working* wall 15 minutes of
+> downtime — operator's call.
+>
+> **Dead ends, so nobody re-runs them:** build-burst stagger, decode cost,
+> decoder-blocks-reader (leaky queue), GUI/density saturation, PMTU blackhole,
+> the Tailscale exit node (peer traffic is 1 hop, not via London), and CV's
+> keepalive theory (they retracted it: silence needs 60 s, our sessions "died"
+> at 23 s — our own watchdog). Withdrawn numbers: `width=1280` on `-sub` (it is
+> `main_transcode`), `13.8 Mbit/s booth downlink` (measured through the exit
+> node), `~5 Mbit/s usable` (that was throughput incl. retransmits), and
+> `10.7 KB per still` (inferred, not measured — the real figure is 123.8 KB).
+
+<details><summary>Superseded 2026-08-16 pointer (bandwidth-only reading)</summary>
+
 > **2026-08-16 — the booth slow-wall is ROOT-CAUSED: the link, not the code.**
 > Read `docs/letters/2026-08-16-wall-is-bandwidth-bound.md`. Measured from the
 > booth (Tailscale peer byte counters): **4 live streams pull 4.50 Mbit/s and
@@ -39,6 +85,9 @@
 > instead of degrading them; and `RtspVideoSource::setErrored()` never logged,
 > so bus errors never reached the flight recorder (`err=0` against a dying
 > wall) — `[WT-ERR]` added in PR #4.
+
+
+</details>
 
 
 _Last updated: 2026-08-10. This file is the durable, crash-recoverable snapshot of
