@@ -280,113 +280,113 @@
         <translation type="vanished">Подключение…</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="438"/>
+        <location filename="../qml/CameraTile.qml" line="440"/>
         <source>NO SIGNAL</source>
         <translation>НЕТ СИГНАЛА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="447"/>
-        <location filename="../qml/CameraTile.qml" line="448"/>
+        <location filename="../qml/CameraTile.qml" line="449"/>
+        <location filename="../qml/CameraTile.qml" line="450"/>
         <source>last seen </source>
         <translation>был на связи </translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="447"/>
+        <location filename="../qml/CameraTile.qml" line="449"/>
         <source>image </source>
         <translation>снимок </translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="467"/>
+        <location filename="../qml/CameraTile.qml" line="469"/>
         <source>STREAM UNAVAILABLE</source>
         <translation>ПОТОК НЕДОСТУПЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="487"/>
+        <location filename="../qml/CameraTile.qml" line="489"/>
         <source>LIVE VIEW OFF</source>
         <translation>ЭФИР ВЫКЛЮЧЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="492"/>
+        <location filename="../qml/CameraTile.qml" line="494"/>
         <source>switched off by operator</source>
         <translation>выключено оператором</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="585"/>
+        <location filename="../qml/CameraTile.qml" line="587"/>
         <source>◌ SNAPSHOT</source>
         <translation>◌ СНИМОК</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="593"/>
+        <location filename="../qml/CameraTile.qml" line="595"/>
         <source>MOTION</source>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="662"/>
+        <location filename="../qml/CameraTile.qml" line="673"/>
         <source>RECORDING STALLED</source>
         <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="662"/>
+        <location filename="../qml/CameraTile.qml" line="673"/>
         <source>since</source>
         <translation>с</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="663"/>
+        <location filename="../qml/CameraTile.qml" line="674"/>
         <source>LIVE, NO RECORDING</source>
         <translation>ЭФИР БЕЗ ЗАПИСИ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="663"/>
+        <location filename="../qml/CameraTile.qml" line="674"/>
         <source>STREAM DEGRADED</source>
         <translation>СБОИ ПОТОКА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="670"/>
+        <location filename="../qml/CameraTile.qml" line="691"/>
         <source>VIEW ISSUE</source>
         <translation>ПОДРОБНЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="732"/>
+        <location filename="../qml/CameraTile.qml" line="753"/>
         <source>HD</source>
         <translation>HD</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="732"/>
+        <location filename="../qml/CameraTile.qml" line="753"/>
         <source>SD</source>
         <translation>SD</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="765"/>
+        <location filename="../qml/CameraTile.qml" line="786"/>
         <source>AF</source>
         <translation>АФ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="775"/>
+        <location filename="../qml/CameraTile.qml" line="796"/>
         <source>Open playback</source>
         <translation>Открыть воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="776"/>
+        <location filename="../qml/CameraTile.qml" line="797"/>
         <source>Capture snapshot</source>
         <translation>Сделать снимок</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="780"/>
+        <location filename="../qml/CameraTile.qml" line="801"/>
         <source>Remove from favorites</source>
         <translation>Убрать из избранного</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="780"/>
+        <location filename="../qml/CameraTile.qml" line="801"/>
         <source>Add to favorites</source>
         <translation>В избранное</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="783"/>
+        <location filename="../qml/CameraTile.qml" line="804"/>
         <source>Open in new tab</source>
         <translation>Открыть в новой вкладке</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="784"/>
+        <location filename="../qml/CameraTile.qml" line="805"/>
         <source>Split into 1×1 cells</source>
         <translation>Разделить на ячейки 1×1</translation>
     </message>
@@ -2360,27 +2360,27 @@
 <context>
     <name>LiveThumb</name>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="147"/>
+        <location filename="../qml/LiveThumb.qml" line="153"/>
         <source>just now</source>
         <translation>только что</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="148"/>
+        <location filename="../qml/LiveThumb.qml" line="154"/>
         <source>%1 min ago</source>
         <translation>%1 мин назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="149"/>
+        <location filename="../qml/LiveThumb.qml" line="155"/>
         <source>%1 h ago</source>
         <translation>%1 ч назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="150"/>
+        <location filename="../qml/LiveThumb.qml" line="156"/>
         <source>%1 d ago</source>
         <translation>%1 сут назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="154"/>
+        <location filename="../qml/LiveThumb.qml" line="160"/>
         <source>not live</source>
         <translation>не в эфире</translation>
     </message>
@@ -3408,6 +3408,11 @@
         <translation>Видео</translation>
     </message>
     <message>
+        <location filename="../qml/PreferencesScreen.qml" line="218"/>
+        <source>How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every few seconds (matching the server&apos;s snapshot cache), badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server — every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.</source>
+        <translation></translation>
+    </message>
+    <message>
         <location filename="../qml/PreferencesScreen.qml" line="226"/>
         <source>Default stream quality (focused view)</source>
         <translation>Качество потока по умолчанию (детальный просмотр)</translation>
@@ -3503,9 +3508,8 @@
         <translation>Одновременных живых потоков на стене</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="218"/>
         <source>How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every second, badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server — every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.</source>
-        <translation>Сколько плиток стены декодируют живое видео одновременно. Остальные показывают снимок, обновляемый раз в секунду, с меткой SNAPSHOT; индикаторы состояния в любом случае остаются живыми. Это ограничение ЭТОГО компьютера, а не сервера — каждый живой декод занимает память его видеочипа. Если поставить больше, чем тянет оборудование, вся стена перейдёт на снимки или приложение закроется. При нехватке памяти Watchtower сам оставит один живой поток до восстановления.</translation>
+        <translation type="vanished">Сколько плиток стены декодируют живое видео одновременно. Остальные показывают снимок, обновляемый раз в секунду, с меткой SNAPSHOT; индикаторы состояния в любом случае остаются живыми. Это ограничение ЭТОГО компьютера, а не сервера — каждый живой декод занимает память его видеочипа. Если поставить больше, чем тянет оборудование, вся стена перейдёт на снимки или приложение закроется. При нехватке памяти Watchtower сам оставит один живой поток до восстановления.</translation>
     </message>
     <message>
         <location filename="../qml/PreferencesScreen.qml" line="237"/>

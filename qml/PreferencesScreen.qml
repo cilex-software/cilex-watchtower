@@ -215,7 +215,7 @@ Item {
                 title: qsTr("Video")
                 PrefRow {
                     label: qsTr("Simultaneous live streams on the wall")
-                    desc: qsTr("How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every second, badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server \u2014 every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.")
+                    desc: qsTr("How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every few seconds (matching the server's snapshot cache), badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server \u2014 every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.")
                     PrefDropdown {
                         options: root.decodeOptions()
                         currentValue: String(Settings.maxLiveDecodes)
