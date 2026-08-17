@@ -136,6 +136,17 @@ Item {
     // events from the server; solo off (or multi-solo) restores the shared feed. Lane
     // muting/visuals stay client-side and unchanged.
     onSoloChanged: if (EventsStore.realMode) EventsStore.cameraScope(solo.length === 1 ? solo[0] : "")
+    // Fixture hook (WT_HERO_EVENT): select one known event by id the moment the feed
+    // carries it — pairs with WT_HERO_SCOPE_CAM + WT_HERO_AUTOPLAY for scanner fixtures.
+    property bool _devSelected: false
+    Connections {
+        target: EventsStore
+        function onEventsChanged() {
+            if (tri._devSelected) return;
+            if (typeof wtHeroEvent === "undefined" || wtHeroEvent === "") { tri._devSelected = true; return; }
+            if (EventsStore.find(wtHeroEvent)) { tri._devSelected = true; tri.select(wtHeroEvent); }
+        }
+    }
     property var fold: []                         // per-lane fold (alt-click)
     property string buf: ""                       // digit type-ahead buffer (max 3)
     readonly property int rowH: 44                // dense (compact 48 / ultra 36)

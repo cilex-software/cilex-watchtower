@@ -56,6 +56,7 @@
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
 #include "models/FrameClock.h"
+#include "models/MotionScan.h"
 #include "models/FrameCache.h"
 #include "models/PlaybackClient.h"
 #include "models/PtzClient.h"
@@ -513,6 +514,8 @@ int main(int argc, char *argv[])
     // Inert until a QML surface attaches its videoSink. WT_STEPSPIKE=<reps> runs the P0
     // measurement sequence in PlaybackScreen and quits.
     engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
+    // Measured-motion scanner for the events hero (yellow-span sync, 2026-08-17).
+    engine.rootContext()->setContextProperty("MotionScan", new MotionScan(&app));
     // Decoded-frame cache: instant hot backward steps (capture is step-gated inside
     // FrameStepper) + the frame-by-frame filmstrip's thumbnails (image://fcache/...).
     auto *frameCache = new FrameCache(&app);
@@ -621,6 +624,10 @@ int main(int argc, char *argv[])
     // exercised (simulates the human select->tap gap; 0/unset = immediate).
     engine.rootContext()->setContextProperty("wtHeroAutoplayMs", qEnvironmentVariableIntValue("WT_HERO_AUTOPLAY_MS"));
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
+    // Fixture hooks (verification): scope the events feed to one camera and select one
+    // event by id at startup — lets a headless run land on an immutable known clip.
+    engine.rootContext()->setContextProperty("wtHeroScopeCam", qEnvironmentVariable("WT_HERO_SCOPE_CAM"));
+    engine.rootContext()->setContextProperty("wtHeroEvent", qEnvironmentVariable("WT_HERO_EVENT"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));
     // WT_HERO_SETTLE_MS: openonly per-open dwell (playback time before re-selecting). Default ~2.1s.
     // Raising it (e.g. 30000) holds fewer opens at equal playback time → discriminates open-driven vs

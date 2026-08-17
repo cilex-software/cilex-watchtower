@@ -151,10 +151,21 @@ Item {
             area._ingestReal();
         }
     }
+    // Fixture hook (WT_HERO_SCOPE_CAM): scope the feed to one camera at startup so a
+    // headless verification run can land on an immutable known event (hours old — far
+    // outside the newest-page window). Same path a user's single-lane solo takes.
+    property bool _devScoped: false
     Connections {
         target: area.eventModel
         enabled: !area.demo && area.eventModel !== null
-        function onChanged() { area._ingestReal(); }
+        function onChanged() {
+            area._ingestReal();
+            if (!area._devScoped) {
+                area._devScoped = true;
+                if (typeof wtHeroScopeCam !== "undefined" && wtHeroScopeCam !== "")
+                    EventsStore.cameraScope(wtHeroScopeCam);
+            }
+        }
         function onOperatorsChanged() { EventsStore.operators = area.eventModel.operators(); }
     }
     on_CamCountChanged: if (!demo && eventModel) area._ingestReal()    // cameras load async → re-resolve names/zones

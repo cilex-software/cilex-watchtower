@@ -50,6 +50,29 @@ Item {
     // played frame — and this span renders as the thin accent underline).
     property double mkStartMs: 0
     property double mkEndMs: 0
+    // Movement span start MEASURED from the decoded footage (MotionScan): camera motion
+    // stamps skew per camera (−20 s / +2 s / +7 s measured 2026-08-17), so once the scan
+    // has covered the window head and finds sustained pixel motion, the yellow span snaps
+    // to it. −1 = no measurement yet (detector stamp shown). CV-side clock fix tracked in
+    // docs/letters/2026-08-17-null-clock-fields-block-marker-sync.md — both were ordered.
+    property double mkMeasuredMs: -1
+    Connections {
+        target: MotionScan
+        function onFirstMotionChanged() {
+            var pts = MotionScan.firstMotionPtsMs;
+            if (pts < 0 || !hp._armed || hp._frags.length === 0) return;
+            // Trust only a scan that covered the window HEAD — a mid-window start would
+            // miss earlier movement and shift the span to wherever playback began.
+            if (hp._posToWall(MotionScan.earliestPtsMs) > hp.tlStartMs + 2500) return;
+            var wall = hp._posToWall(pts);
+            // Head dead-zone is tiny on purpose: "already moving at window start" is a REAL
+            // verdict (fixture C: stamp trails entry by 20 s — the span belongs at the head).
+            if (wall <= hp.tlStartMs + 50 || wall >= hp.mkEndMs - 1000) return;
+            hp.mkMeasuredMs = wall;
+            console.log("[MSCAN] span start MEASURED wall=" + Math.round(wall)
+                        + " detectorDeltaMs=" + Math.round(wall - hp.mkStartMs));
+        }
+    }
     // Displayed pre/post-roll around the movement (operator ask 2026-08-06):
     // reads the camera's EFFECTIVE recording profile from /streams (da3be8e,
     // via the events camera lookup). Recordings may CONTAIN 15-25s of roll;
@@ -204,7 +227,7 @@ Item {
     // playback tab and the hero consuming each other's sessions.
     property string _uid: ""
     property int _gen: 0
-    Component.onCompleted: _uid = "hero" + Date.now() % 1000000
+    Component.onCompleted: { _uid = "hero" + Date.now() % 1000000; MotionScan.attach(vout.videoSink); }
     readonly property string _curTag: _uid + ":" + _gen
     // PREFETCH-ON-SELECTION (500 ms clip budget, 2026-08-04): the moment an
     // event is selected, open its review session in the BACKGROUND and hold
@@ -278,6 +301,7 @@ Item {
     function _reset() {
         heroStepper.invalidate();   // cached frames belong to the torn-down clip
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false; _lit = false;
+        mkMeasuredMs = -1; MotionScan.reset();
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
         seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
     }
@@ -290,6 +314,7 @@ Item {
         openDeadline.restart();
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
         _lit = false;                                    // fresh session: poster holds until ITS first frame
+        mkMeasuredMs = -1; MotionScan.reset();           // fresh window: fresh scan
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
         // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
@@ -364,6 +389,7 @@ Item {
         openDeadline.restart();
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall; _seekingToWall = wall;
         _lit = false;                                    // re-open: poster holds until the landed frame renders
+        MotionScan.reset();                              // new compact timeline: old PTS mapping is void
         player.stop(); player.source = "";
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
@@ -714,7 +740,7 @@ Item {
                     readonly property real _span: hp.tlEndMs - hp.tlStartMs
                     readonly property real _f: _span > 0 ? Math.max(0, Math.min(1, (hp._playheadWallMs - hp.tlStartMs) / _span)) : 0
                     function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(_w, x - _pad)) / _w * _span); }
-                    readonly property real _m0: _span > 0 ? Math.max(0, Math.min(1, (hp.mkStartMs - hp.tlStartMs) / _span)) : 0
+                    readonly property real _m0: _span > 0 ? Math.max(0, Math.min(1, ((hp.mkMeasuredMs > 0 ? hp.mkMeasuredMs : hp.mkStartMs) - hp.tlStartMs) / _span)) : 0
                     readonly property real _m1: _span > 0 ? Math.max(0, Math.min(1, (hp.mkEndMs - hp.tlStartMs) / _span)) : 0
                     Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
                     Rectangle { x: parent._pad; anchors.verticalCenter: parent.verticalCenter; width: parent._w; height: 5; color: Theme.panel3 }
