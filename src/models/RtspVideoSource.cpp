@@ -295,6 +295,13 @@ void RtspVideoSource::setPlaying(bool p)
 
 void RtspVideoSource::setErrored(bool e, const QString &msg)
 {
+    // Log every entry into the errored state. Before this, GStreamer bus errors were set on the object
+    // and shown on the tile but NEVER written to the flight recorder — so a wall full of dying streams
+    // produced err=0 and an empty log, and the watchdog's 31 s silence was the only visible symptom.
+    // Bare gst-launch against the same server logs "Could not receive message. (Parse error)" from
+    // gst_rtspsrc_loop_interleaved; without this line we cannot tell whether the app dies the same way.
+    if (e && m_errorText != msg)
+        qWarning("[WT-ERR] %s — %s", qUtf8Printable(m_url.mid(m_url.lastIndexOf('/') + 1)), qUtf8Printable(msg));
     m_errorText = e ? msg : QString();
     if (m_errored != e) {
         m_errored = e;
@@ -477,14 +484,37 @@ void RtspVideoSource::startPipelineNow()
     // frame buffers (appsink NV12 → QVideoFrame → texture — the RSS-resident copies, NOT the GPU decode
     // surfaces) are produced at WxH instead of native 720p. Lets us MEASURE the per-tile frame-buffer
     // saving of display-resolution rendering before committing to the real (dynamic) implementation.
+    // WT_RTSP_QUEUE_MS=<ms>: decouple the RTSP socket reader from the decoder.
+    //
+    // Without a queue here, rtspsrc's streaming thread drives decodebin SYNCHRONOUSLY — the thread that
+    // drains the TCP socket is the same thread that waits on the decoder. go2rtc serves RTSP over TCP
+    // interleaved ONLY (UDP SETUP is refused: "No supported stream was found", measured 2026-08-16 with
+    // gst-launch against the pilot box), so media rides the one transport where a stalled reader is fatal:
+    // a decoder that blocks — e.g. D3D12 output-surface contention with N decoders on one iGPU — stops the
+    // socket being read, the receive window goes to zero, go2rtc's write blocks until its read timeout and
+    // it close()s the session. The stream does not slow down; it dies. That is the zero-window fault CV
+    // captured on the wire, and it is why deaths are random per-stream and immune to build pacing.
+    //
+    // A leaky queue makes the reader independent of decode: under fault we lose RTP packets (recoverable at
+    // the next keyframe, exactly like normal UDP loss) instead of losing the stream. This does NOT change
+    // any configured frame rate — the fleet still broadcasts at 15 and nothing here resamples; the queue
+    // only sheds under a decoder stall that would otherwise kill the connection outright.
+    const int qms = qEnvironmentVariableIntValue("WT_RTSP_QUEUE_MS");
+    QByteArray rtspQ;
+    if (qms > 0) {
+        rtspQ = QByteArray("! queue name=q leaky=downstream max-size-buffers=0 max-size-bytes=0 "
+                           "max-size-time=") + QByteArray::number(qint64(qms) * 1000000) + " ";
+        qInfo("[WT-Q] reader/decoder decoupling active — %d ms leaky queue after rtspsrc", qms);
+    }
+
     QByteArray pipeStr =
-        "rtspsrc name=src drop-on-latency=true ! decodebin name=dec ! videoconvert "
+        "rtspsrc name=src drop-on-latency=true " + rtspQ + "! decodebin name=dec ! videoconvert "
         "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true";
     const QList<QByteArray> wh = qgetenv("WT_DECODE_SCALE").split('x');
     if (wh.size() == 2 && !wh[0].trimmed().isEmpty() && !wh[1].trimmed().isEmpty()) {
         pipeStr = QByteArray(
-            "rtspsrc name=src drop-on-latency=true ! decodebin name=dec ! videoscale ! videoconvert "
-            "! video/x-raw,format=NV12,width=") + wh[0].trimmed() + ",height=" + wh[1].trimmed() +
+            "rtspsrc name=src drop-on-latency=true ") + rtspQ + "! decodebin name=dec ! videoscale ! videoconvert "
+            "! video/x-raw,format=NV12,width=" + wh[0].trimmed() + ",height=" + wh[1].trimmed() +
             " ! appsink name=sink sync=false max-buffers=2 drop=true";
         qInfo("[WT-RES] WT_DECODE_SCALE active — decoding to %s", pipeStr.mid(pipeStr.indexOf("width=")).constData());
     }
