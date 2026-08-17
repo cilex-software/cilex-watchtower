@@ -37,8 +37,12 @@ and station tokens.
 
 ## Known open questions this scaffold carries (verify at M0/M1)
 
-1. Does `vtdec_hw`'s factory klass contain the literal `Hardware`? The
-   `WT_HW_ONLY` gate and the `dec=` gauge key on that string.
+1. ~~Does `vtdec_hw`'s factory klass contain the literal `Hardware`?~~
+   **ANSWERED 2026-08-17, measured on the operator's M1 Pro** (gstreamer
+   1.28.6 via Homebrew): `Klass: Codec/Decoder/Video/Hardware`, rank
+   `primary + 1 (257)` — so decodebin prefers it AND the `WT_HW_ONLY` gate,
+   the `dec=` gauge and the `[WT-DEC] (hardware)` label all work unchanged.
+   The port's largest single risk is closed.
 2. Does ATS interfere with plain-HTTP stills? (Expected no — Qt sockets, not
    NSURLSession. Info.plist.in carries the note.)
 3. `CLOCK_MONOTONIC` across lid-close sleep — the hang watchdog's clock. If it
