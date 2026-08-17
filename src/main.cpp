@@ -41,7 +41,10 @@
 #  if defined(Q_OS_LINUX)
 #    include <sys/prctl.h>      // prctl(PR_SET_PTRACER) — Yama, Linux-only
 #  endif
-#  include <malloc.h>           // mallopt/malloc_trim — glibc arena control, Linux-only
+#  if defined(Q_OS_LINUX)
+#    include <malloc.h>         // mallopt/malloc_trim — glibc arena control, Linux-only
+#  endif                        // (macOS has no malloc.h; its malloc lives in stdlib.h
+                                //  and has no arena pathology to tune — M1 defect #2)
 #  include <unistd.h>           // read/write/close/sysconf
 #  include <fcntl.h>            // open, O_RDONLY
 #  include <execinfo.h>         // backtrace — async-signal-safe crash trace
@@ -384,7 +387,15 @@ int main(int argc, char *argv[])
 
     // QtMultimedia (GStreamer backend, VA-API HW decode) renders video frames
     // through the scene graph; pin the OpenGL RHI backend before any window.
+    // Linux-motivated (VA-API/GL interop) and left as-is on Windows, where the
+    // booth has run against it throughout the investigation. macOS is EXEMPT:
+    // forcing OpenGL there means a deprecated compatibility layer — the Metal
+    // default is the supported path for QRhi and video-frame upload on Apple
+    // hardware. First exercised at M1; if VideoToolbox frames misrender under
+    // Metal, that is a finding for the plan, not a reason to force GL blind.
+#if !defined(Q_OS_MACOS)
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+#endif
 
     // Native (FreeType-hinted) text rendering — crisper for this dense UI than
     // the default distance-field rendering, which can look soft at small sizes.
