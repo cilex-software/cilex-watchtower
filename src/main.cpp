@@ -408,6 +408,16 @@ int main(int argc, char *argv[])
     // re-enabling VT with QT_DISABLE_HW_TEXTURES_CONVERSION=1 is the follow-up to try.
     if (!qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES"))
         qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "");
+    // Round four (2026-08-17, late): the Mac's startup logs NEVER print the
+    // "Using Qt multimedia with FFmpeg version …" banner that Linux prints in the same
+    // init gap — so MediaPlayer there has been served by the DARWIN (AVFoundation)
+    // backend all along, which (a) rejects HEVC-in-TS per Apple's HLS rules and
+    // (b) delivered zero sink frames even for the H.264 fallback here. Force the
+    // cross-platform backend; if the plugin is missing Qt logs a warning and falls
+    // back, and the banner's absence in the next log names the real fix (bundle the
+    // ffmpeg plugin — M4 scope). The env respects an operator override, as above.
+    if (!qEnvironmentVariableIsSet("QT_MEDIA_BACKEND"))
+        qputenv("QT_MEDIA_BACKEND", "ffmpeg");
 #endif
 
     // Native (FreeType-hinted) text rendering — crisper for this dense UI than
