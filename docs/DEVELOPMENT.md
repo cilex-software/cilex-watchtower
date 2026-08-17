@@ -205,3 +205,15 @@ ends. Therefore: **liveness = frames received recently, never socket or
 pipeline state** — which is exactly what the swd backstop keys on, and why
 `lit=` exists on the [MEMTEL] line. Related knob: `WT_BUILD_STAGGER_MS`
 (pipeline build pacing — the death burst correlates with build bursts).
+
+
+## Qt toolchain reality check (2026-08-17, web-verified)
+
+The "Qt 6.12.0" this box has run since 2026-07-02 is a **pre-release** — as of
+August 2026 the latest released Qt is **6.11.1**, with 6.12.0 targeted for
+September 2026 (`~/Qt/6.12.0-patched-beta1` beside the kit is the tell). Two
+consequences: the 6.12 tool crashes we carry workarounds for (qmlcachegen AOT
+SIGSEGV, `--dump-aot-stats`, offscreen QPA SIGBUS) are BETA bugs and must be
+re-tested against 6.12.0 final when it ships; and the Mac port's Homebrew Qt
+6.11.1 is the newest stable in existence — the Mac is not the lagging platform,
+this box is the bleeding-edge one.
