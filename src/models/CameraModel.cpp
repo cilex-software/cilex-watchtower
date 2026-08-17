@@ -136,6 +136,7 @@ CameraModel::CameraModel(QObject *parent)
             if (!pollDisabled) m_pollTimer->start();
         } else {
             m_pollTimer->stop();
+            if (m_listUnavailable) { m_listUnavailable = false; emit listUnavailableChanged(); }
             beginResetModel();
             m_all.clear();
             endResetModel();
@@ -351,8 +352,10 @@ void CameraModel::fetchCameras()
         if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "Watchtower: /streams fetch failed" << code << reply->errorString();
-            return;   // keep the last-known list
+            if (!m_listUnavailable) { m_listUnavailable = true; emit listUnavailableChanged(); }
+            return;   // keep the last-known list — but SAY the list is stale/unknown
         }
+        if (m_listUnavailable) { m_listUnavailable = false; emit listUnavailableChanged(); }
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         applyFunctions(obj.value("functions").toObject());   // business-function state
         const auto arr = obj.value("streams").toArray();

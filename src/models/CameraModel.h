@@ -32,6 +32,13 @@ class CameraModel : public QAbstractListModel
     Q_PROPERTY(int recUnknownCount READ recUnknownCount NOTIFY countsChanged)
     Q_PROPERTY(int recordingGapCount READ recordingGapCount NOTIFY countsChanged)
     // True while the first /streams fetch is in flight (auth -> list arrives).
+    // Third roster state (booth letter 2026-08-17): "we asked and could not find
+    // out" is neither "loading" nor "empty". Without it a /streams 500 rendered
+    // as "no cameras are assigned to your account" — a confident, wrong
+    // instruction to a guard. True after a failed roster fetch, cleared by any
+    // successful one; the roster itself is kept, so this matters chiefly on
+    // cold start, exactly when a station is most likely to be believed.
+    Q_PROPERTY(bool listUnavailable READ listUnavailable NOTIFY listUnavailableChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     // Business-function state from /streams `functions` (fail-safe: true unless the
     // backend explicitly reports enabled:false). Lets the UI show a deliberate
@@ -144,6 +151,7 @@ public:
     int recUnknownCount() const { return m_recUnknown; }
     int recordingGapCount() const { return m_gap; }
     bool loading() const { return m_loading; }
+    bool listUnavailable() const { return m_listUnavailable; }
 
     Q_INVOKABLE void toggleFavorite(int row);
     // Toggle by backend camera_id — the Live Monitor tiles carry the camera_id
@@ -178,6 +186,7 @@ signals:
     void groupsChanged();
     void groupCreated(const QString &groupId);
     void loadingChanged();
+    void listUnavailableChanged();
     void functionsChanged();
     void stateRevChanged();
     void directRtspAvailableChanged();
@@ -203,6 +212,7 @@ private:
     QSet<QString> m_recentCamIds;                   // cameras with a recent event ("recent" filter)
     QSet<QString> m_selectedCamIds;                 // ad-hoc selection ("__selected__" pseudo-group)
     bool m_loading = false;
+    bool m_listUnavailable = false;
     bool m_recordingEnabled = true;   // fail-safe defaults: a function is "on" unless
     bool m_liveViewEnabled = true;    // /streams explicitly reports enabled:false
     bool m_playbackEnabled = true;    // /streams `functions.playback` (fail-safe true)

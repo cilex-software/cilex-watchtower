@@ -573,8 +573,20 @@ Item {
     // Empty-state copy: a genuinely empty roster (no camera access) vs a non-empty
     // roster whose current filter/group simply matched nothing (honest "no matches").
     function rosterEmpty() { return !cameraModel || cameraModel.total === 0; }
-    function emptyTitle() { return rosterEmpty() ? qsTr("No cameras") : qsTr("No matches"); }
+    // Three states, not two (booth, 2026-08-17): unavailable ("we asked and could
+    // not find out") must outrank empty ("your account has no cameras") — a
+    // /streams 500 on cold start used to render as the second, sending a guard
+    // to chase an access problem that did not exist. The unavailable text names
+    // no culprit and issues no instruction, because at that moment we know
+    // neither.
+    function rosterUnavailable() { return cameraModel && cameraModel.listUnavailable && cameraModel.total === 0; }
+    function emptyTitle() {
+        if (rosterUnavailable()) return qsTr("Camera list unavailable");
+        return rosterEmpty() ? qsTr("No cameras") : qsTr("No matches");
+    }
     function emptySubtitle() {
+        if (rosterUnavailable())
+            return qsTr("Could not fetch the camera list from Cilex Vision. Watchtower keeps retrying automatically.");
         if (rosterEmpty())
             return qsTr("No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.");
         var where = (groupId === "" ? "" : qsTr(" in %1").arg(groupLabel));
@@ -1677,7 +1689,7 @@ Item {
                 anchors.margins: 24
                 visible: root.total === 0 && !root.fullscreen
                         && !(root.cameraModel && root.cameraModel.loading)
-                icon: "monitor"
+                icon: root.rosterUnavailable() ? "alert" : "monitor"
                 title: root.emptyTitle()
                 subtitle: root.emptySubtitle()
             }

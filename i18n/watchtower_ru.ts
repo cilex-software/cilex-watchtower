@@ -2049,262 +2049,272 @@
         <translation>Все камеры</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="576"/>
-        <location filename="../qml/LiveMonitor.qml" line="590"/>
+        <location filename="../qml/LiveMonitor.qml" line="584"/>
+        <source>Camera list unavailable</source>
+        <translation>Список камер недоступен</translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="585"/>
+        <location filename="../qml/LiveMonitor.qml" line="602"/>
         <source>No cameras</source>
         <translation>Нет камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="576"/>
+        <location filename="../qml/LiveMonitor.qml" line="585"/>
         <source>No matches</source>
         <translation>Совпадений нет</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="579"/>
+        <location filename="../qml/LiveMonitor.qml" line="589"/>
+        <source>Could not fetch the camera list from Cilex Vision. Watchtower keeps retrying automatically.</source>
+        <translation>Не удалось получить список камер от Cilex Vision. Watchtower продолжает попытки автоматически.</translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="591"/>
         <source>No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.</source>
         <translation>К вашей учётной записи не привязано ни одной камеры. Попросите администратора выдать доступ к камерам в Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="580"/>
+        <location filename="../qml/LiveMonitor.qml" line="592"/>
         <source> in %1</source>
         <translation> в %1</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="582"/>
+        <location filename="../qml/LiveMonitor.qml" line="594"/>
         <source>No cameras have had an event in the last hour</source>
         <translation>Ни по одной камере не было событий за последний час</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="583"/>
+        <location filename="../qml/LiveMonitor.qml" line="595"/>
         <source>No cameras are online</source>
         <translation>Нет камер в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="584"/>
+        <location filename="../qml/LiveMonitor.qml" line="596"/>
         <source>No cameras are offline</source>
         <translation>Нет камер не в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="585"/>
+        <location filename="../qml/LiveMonitor.qml" line="597"/>
         <source>No cameras are degraded</source>
         <translation>Нет камер с ухудшением</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="586"/>
+        <location filename="../qml/LiveMonitor.qml" line="598"/>
         <source>No cameras are recording</source>
         <translation>Нет пишущих камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="587"/>
+        <location filename="../qml/LiveMonitor.qml" line="599"/>
         <source>All cameras are recording</source>
         <translation>Все камеры пишут</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="588"/>
+        <location filename="../qml/LiveMonitor.qml" line="600"/>
         <source>No starred cameras</source>
         <translation>Нет избранных камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="589"/>
+        <location filename="../qml/LiveMonitor.qml" line="601"/>
         <source>No cameras have issues</source>
         <translation>Ни по одной камере нет проблем</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="630"/>
+        <location filename="../qml/LiveMonitor.qml" line="642"/>
         <source>0 of 0</source>
         <translation>0 из 0</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="633"/>
+        <location filename="../qml/LiveMonitor.qml" line="645"/>
         <source>%1–%2 of %3</source>
         <translation>%1–%2 из %3</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="676"/>
+        <location filename="../qml/LiveMonitor.qml" line="688"/>
         <source>Other</source>
         <translation>Другие</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="748"/>
+        <location filename="../qml/LiveMonitor.qml" line="760"/>
         <source>OTHER LAYOUTS</source>
         <translation>ДРУГИЕ РАСКЛАДКИ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="931"/>
+        <location filename="../qml/LiveMonitor.qml" line="943"/>
         <source>↻  Sync from server</source>
         <translation>↻  Синхронизировать с сервером</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="955"/>
+        <location filename="../qml/LiveMonitor.qml" line="967"/>
         <source>Clear selection</source>
         <translation>Снять выделение</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="967"/>
+        <location filename="../qml/LiveMonitor.qml" line="979"/>
         <source>Favorites</source>
         <translation>Избранное</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="975"/>
+        <location filename="../qml/LiveMonitor.qml" line="987"/>
         <source>Online</source>
         <translation>Онлайн</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="982"/>
+        <location filename="../qml/LiveMonitor.qml" line="994"/>
         <source>Recent events</source>
         <translation>Недавние события</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="987"/>
+        <location filename="../qml/LiveMonitor.qml" line="999"/>
         <source>Issues</source>
         <translation>Проблемы</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="987"/>
+        <location filename="../qml/LiveMonitor.qml" line="999"/>
         <source>Filter</source>
         <translation>Фильтр</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1011"/>
-        <location filename="../qml/LiveMonitor.qml" line="1212"/>
+        <location filename="../qml/LiveMonitor.qml" line="1023"/>
+        <location filename="../qml/LiveMonitor.qml" line="1224"/>
         <source>Go back in time</source>
         <translation>Назад во времени</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1033"/>
-        <location filename="../qml/LiveMonitor.qml" line="1213"/>
+        <location filename="../qml/LiveMonitor.qml" line="1045"/>
+        <location filename="../qml/LiveMonitor.qml" line="1225"/>
         <source>Save current view</source>
         <translation>Сохранить текущий вид</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1059"/>
-        <location filename="../qml/LiveMonitor.qml" line="1214"/>
+        <location filename="../qml/LiveMonitor.qml" line="1071"/>
+        <location filename="../qml/LiveMonitor.qml" line="1226"/>
         <source>Done arranging</source>
         <translation>Готово</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1059"/>
-        <location filename="../qml/LiveMonitor.qml" line="1214"/>
+        <location filename="../qml/LiveMonitor.qml" line="1071"/>
+        <location filename="../qml/LiveMonitor.qml" line="1226"/>
         <source>Arrange</source>
         <translation>Расстановка</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1076"/>
+        <location filename="../qml/LiveMonitor.qml" line="1088"/>
         <source>Reset</source>
         <translation>Сбросить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1095"/>
+        <location filename="../qml/LiveMonitor.qml" line="1107"/>
         <source>Sort: </source>
         <translation>Сортировка: </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1160"/>
+        <location filename="../qml/LiveMonitor.qml" line="1172"/>
         <source>Full-screen monitoring (F)</source>
         <translation>Полноэкранный мониторинг (F)</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1217"/>
+        <location filename="../qml/LiveMonitor.qml" line="1229"/>
         <source>Reset arrangement</source>
         <translation>Сбросить расстановку</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1218"/>
+        <location filename="../qml/LiveMonitor.qml" line="1230"/>
         <source>Full-screen</source>
         <translation>Полный экран</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1221"/>
+        <location filename="../qml/LiveMonitor.qml" line="1233"/>
         <source>SORT BY</source>
         <translation>СОРТИРОВКА</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1465"/>
+        <location filename="../qml/LiveMonitor.qml" line="1477"/>
         <source>CENTER</source>
         <translation>ЦЕНТР</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1471"/>
+        <location filename="../qml/LiveMonitor.qml" line="1483"/>
         <source>Tap to change</source>
         <translation>Нажмите, чтобы изменить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1610"/>
+        <location filename="../qml/LiveMonitor.qml" line="1622"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation>Объединение недоступно в этой раскладке</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1611"/>
+        <location filename="../qml/LiveMonitor.qml" line="1623"/>
         <source>Split %1×%2</source>
         <translation>Разделить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1613"/>
+        <location filename="../qml/LiveMonitor.qml" line="1625"/>
         <source>Merge %1×%2</source>
         <translation>Объединить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1615"/>
+        <location filename="../qml/LiveMonitor.qml" line="1627"/>
         <source>Shift+drag to select cells to merge</source>
         <translation>Shift+перетаскивание — выделить ячейки для объединения</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1670"/>
+        <location filename="../qml/LiveMonitor.qml" line="1682"/>
         <source>Loading cameras…</source>
         <translation>Загрузка камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1701"/>
+        <location filename="../qml/LiveMonitor.qml" line="1713"/>
         <source>Exit full-screen</source>
         <translation>Выйти из полного экрана</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1728"/>
+        <location filename="../qml/LiveMonitor.qml" line="1740"/>
         <source>%1 · %2 cameras · Page %3 of %4</source>
         <translation>%1 · камер: %2 · страница %3 из %4</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1738"/>
+        <location filename="../qml/LiveMonitor.qml" line="1750"/>
         <source>M — merge · Esc — cancel</source>
         <translation>M — объединить · Esc — отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1739"/>
+        <location filename="../qml/LiveMonitor.qml" line="1751"/>
         <source>⇧ drag — merge cells</source>
         <translation>⇧ перетаскивание — объединить ячейки</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1778"/>
+        <location filename="../qml/LiveMonitor.qml" line="1790"/>
         <source>Camera for </source>
         <translation>Камера для </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1815"/>
+        <location filename="../qml/LiveMonitor.qml" line="1827"/>
         <source>Search cameras…</source>
         <translation>Поиск камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1827"/>
+        <location filename="../qml/LiveMonitor.qml" line="1839"/>
         <source>Hide on-wall</source>
         <translation>Скрыть на стене</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1938"/>
+        <location filename="../qml/LiveMonitor.qml" line="1950"/>
         <source>ON WALL</source>
         <translation>НА СТЕНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1961"/>
+        <location filename="../qml/LiveMonitor.qml" line="1973"/>
         <source>No cameras match.</source>
         <translation>Нет подходящих камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1961"/>
+        <location filename="../qml/LiveMonitor.qml" line="1973"/>
         <source>No cameras available.</source>
         <translation>Нет доступных камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1968"/>
+        <location filename="../qml/LiveMonitor.qml" line="1980"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>

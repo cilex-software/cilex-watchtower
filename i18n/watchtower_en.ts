@@ -2036,262 +2036,272 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="576"/>
-        <location filename="../qml/LiveMonitor.qml" line="590"/>
-        <source>No cameras</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="576"/>
-        <source>No matches</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="579"/>
-        <source>No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="580"/>
-        <source> in %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="582"/>
-        <source>No cameras have had an event in the last hour</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="583"/>
-        <source>No cameras are online</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../qml/LiveMonitor.qml" line="584"/>
-        <source>No cameras are offline</source>
+        <source>Camera list unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="585"/>
-        <source>No cameras are degraded</source>
+        <location filename="../qml/LiveMonitor.qml" line="602"/>
+        <source>No cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="586"/>
-        <source>No cameras are recording</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="587"/>
-        <source>All cameras are recording</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="588"/>
-        <source>No starred cameras</source>
+        <location filename="../qml/LiveMonitor.qml" line="585"/>
+        <source>No matches</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="589"/>
+        <source>Could not fetch the camera list from Cilex Vision. Watchtower keeps retrying automatically.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="591"/>
+        <source>No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="592"/>
+        <source> in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="594"/>
+        <source>No cameras have had an event in the last hour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="595"/>
+        <source>No cameras are online</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="596"/>
+        <source>No cameras are offline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="597"/>
+        <source>No cameras are degraded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="598"/>
+        <source>No cameras are recording</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="599"/>
+        <source>All cameras are recording</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="600"/>
+        <source>No starred cameras</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LiveMonitor.qml" line="601"/>
         <source>No cameras have issues</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="630"/>
+        <location filename="../qml/LiveMonitor.qml" line="642"/>
         <source>0 of 0</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="633"/>
+        <location filename="../qml/LiveMonitor.qml" line="645"/>
         <source>%1–%2 of %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="676"/>
+        <location filename="../qml/LiveMonitor.qml" line="688"/>
         <source>Other</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="748"/>
+        <location filename="../qml/LiveMonitor.qml" line="760"/>
         <source>OTHER LAYOUTS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="931"/>
+        <location filename="../qml/LiveMonitor.qml" line="943"/>
         <source>↻  Sync from server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="955"/>
+        <location filename="../qml/LiveMonitor.qml" line="967"/>
         <source>Clear selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="967"/>
+        <location filename="../qml/LiveMonitor.qml" line="979"/>
         <source>Favorites</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="975"/>
+        <location filename="../qml/LiveMonitor.qml" line="987"/>
         <source>Online</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="982"/>
+        <location filename="../qml/LiveMonitor.qml" line="994"/>
         <source>Recent events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="987"/>
+        <location filename="../qml/LiveMonitor.qml" line="999"/>
         <source>Issues</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="987"/>
+        <location filename="../qml/LiveMonitor.qml" line="999"/>
         <source>Filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1011"/>
-        <location filename="../qml/LiveMonitor.qml" line="1212"/>
+        <location filename="../qml/LiveMonitor.qml" line="1023"/>
+        <location filename="../qml/LiveMonitor.qml" line="1224"/>
         <source>Go back in time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1033"/>
-        <location filename="../qml/LiveMonitor.qml" line="1213"/>
+        <location filename="../qml/LiveMonitor.qml" line="1045"/>
+        <location filename="../qml/LiveMonitor.qml" line="1225"/>
         <source>Save current view</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1059"/>
-        <location filename="../qml/LiveMonitor.qml" line="1214"/>
+        <location filename="../qml/LiveMonitor.qml" line="1071"/>
+        <location filename="../qml/LiveMonitor.qml" line="1226"/>
         <source>Done arranging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1059"/>
-        <location filename="../qml/LiveMonitor.qml" line="1214"/>
+        <location filename="../qml/LiveMonitor.qml" line="1071"/>
+        <location filename="../qml/LiveMonitor.qml" line="1226"/>
         <source>Arrange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1076"/>
+        <location filename="../qml/LiveMonitor.qml" line="1088"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1095"/>
+        <location filename="../qml/LiveMonitor.qml" line="1107"/>
         <source>Sort: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1160"/>
+        <location filename="../qml/LiveMonitor.qml" line="1172"/>
         <source>Full-screen monitoring (F)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1217"/>
+        <location filename="../qml/LiveMonitor.qml" line="1229"/>
         <source>Reset arrangement</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1218"/>
+        <location filename="../qml/LiveMonitor.qml" line="1230"/>
         <source>Full-screen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1221"/>
+        <location filename="../qml/LiveMonitor.qml" line="1233"/>
         <source>SORT BY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1465"/>
+        <location filename="../qml/LiveMonitor.qml" line="1477"/>
         <source>CENTER</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1471"/>
+        <location filename="../qml/LiveMonitor.qml" line="1483"/>
         <source>Tap to change</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1610"/>
+        <location filename="../qml/LiveMonitor.qml" line="1622"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1611"/>
+        <location filename="../qml/LiveMonitor.qml" line="1623"/>
         <source>Split %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1613"/>
+        <location filename="../qml/LiveMonitor.qml" line="1625"/>
         <source>Merge %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1615"/>
+        <location filename="../qml/LiveMonitor.qml" line="1627"/>
         <source>Shift+drag to select cells to merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1670"/>
+        <location filename="../qml/LiveMonitor.qml" line="1682"/>
         <source>Loading cameras…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1701"/>
+        <location filename="../qml/LiveMonitor.qml" line="1713"/>
         <source>Exit full-screen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1728"/>
+        <location filename="../qml/LiveMonitor.qml" line="1740"/>
         <source>%1 · %2 cameras · Page %3 of %4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1738"/>
+        <location filename="../qml/LiveMonitor.qml" line="1750"/>
         <source>M — merge · Esc — cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1739"/>
+        <location filename="../qml/LiveMonitor.qml" line="1751"/>
         <source>⇧ drag — merge cells</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1778"/>
+        <location filename="../qml/LiveMonitor.qml" line="1790"/>
         <source>Camera for </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1815"/>
+        <location filename="../qml/LiveMonitor.qml" line="1827"/>
         <source>Search cameras…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1827"/>
+        <location filename="../qml/LiveMonitor.qml" line="1839"/>
         <source>Hide on-wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1938"/>
+        <location filename="../qml/LiveMonitor.qml" line="1950"/>
         <source>ON WALL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1961"/>
+        <location filename="../qml/LiveMonitor.qml" line="1973"/>
         <source>No cameras match.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1961"/>
+        <location filename="../qml/LiveMonitor.qml" line="1973"/>
         <source>No cameras available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1968"/>
+        <location filename="../qml/LiveMonitor.qml" line="1980"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
