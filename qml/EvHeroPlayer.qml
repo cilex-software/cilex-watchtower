@@ -86,7 +86,11 @@ Item {
     // real seek (large divergence) — keeps the scrubber gliding, not twitching.
     Timer {
         interval: 33; repeat: true
-        running: player.playbackState === MediaPlayer.PlayingState
+        // _lit gate (2026-08-17): during preroll the player reports PlayingState before any
+        // frame exists, so the glide advanced a counter over a poster and the first real
+        // frame snapped it back to ~0 — read by the operator as "plays 2-3s then resets".
+        // No frames rendered yet = no time to glide over.
+        running: player.playbackState === MediaPlayer.PlayingState && hp._lit
         onTriggered: hp._smoothMs = Math.min(player.duration > 0 ? player.duration : hp._smoothMs,
                                              hp._smoothMs + 33 * player.playbackRate)
     }
@@ -583,7 +587,7 @@ Item {
                 // backend plays HLS without ever reporting BufferedMedia, so the enum gate left this
                 // poster (and its "● LIVE" fallback chip) covering a playing recording forever.
                 visible: hp._loading || hp._error !== "" || !hp._lit
-                ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false
+                ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false; fitMode: true
             }
             // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)
             MouseArea {

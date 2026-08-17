@@ -11,6 +11,9 @@ Item {
     property var ev: null
     property bool playing: false
     property bool showOsd: true
+    // fitMode: letterbox like a VideoOutput instead of cropping to fill — the hero player
+    // sets it so the poster and the video share one geometry and nothing pops at first frame.
+    property bool fitMode: false
     property bool showIdent: true                // top-left camera identity; a host that draws its own
                                                  // header (EvHeroPlayer) sets this false to avoid overlap
     property bool mini: false
@@ -83,7 +86,7 @@ Item {
         anchors.fill: parent
         Image {                                          // live frame fallback (below)
             id: liveImg
-            anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+            anchors.fill: parent; fillMode: root.fitMode ? Image.PreserveAspectFit : Image.PreserveAspectCrop
             asynchronous: true; cache: false
             sourceSize: Qt.size(width, height)           // decode at display size — full 1440p stills are ~14MB each
 
@@ -118,7 +121,7 @@ Item {
         }
         Image {                                          // event-moment still (primary, on top)
             id: evImg
-            anchors.fill: parent; fillMode: Image.PreserveAspectCrop
+            anchors.fill: parent; fillMode: root.fitMode ? Image.PreserveAspectFit : Image.PreserveAspectCrop
             asynchronous: true; cache: true
             sourceSize: Qt.size(width, height)           // requestedSize → provider downscales before caching
             source: (root._real && root.ev && !root._noEpisode)
