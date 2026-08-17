@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.85
+    VERSION 1.1.87
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -26,6 +26,30 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Sql N
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET
     gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
+
+# macOS: Homebrew's glib->libffi .pc chain bakes an include path INTO THE CLT
+# SDK (…/MacOSX<ver>.sdk/usr/include/ffi) which does not exist on current
+# Tahoe SDKs — and CMake hard-errors on any non-existent dir in an imported
+# target's INTERFACE_INCLUDE_DIRECTORIES (M0 defect, operator's M1 Pro,
+# 2026-08-17). Our code never includes ffi headers (that is a
+# gobject-introspection build-time need), so a missing dir contributes nothing
+# but the error: filter every non-existent path out rather than chasing
+# Apple SDK drift per machine.
+if(APPLE)
+    get_target_property(_wt_gst_inc PkgConfig::GST INTERFACE_INCLUDE_DIRECTORIES)
+    if(_wt_gst_inc)
+        set(_wt_gst_inc_ok "")
+        foreach(_d IN LISTS _wt_gst_inc)
+            if(EXISTS "${_d}")
+                list(APPEND _wt_gst_inc_ok "${_d}")
+            else()
+                message(STATUS "watchtower: dropping non-existent GST include dir: ${_d}")
+            endif()
+        endforeach()
+        set_target_properties(PkgConfig::GST PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${_wt_gst_inc_ok}")
+    endif()
+endif()
 
 qt_standard_project_setup(REQUIRES 6.8)
 
