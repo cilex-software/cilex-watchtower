@@ -378,8 +378,10 @@ Item {
                      || (root.isOffline && root.snapshotUrl !== "")
             active: root.videoActive
             refreshMs: root.snapshotMode
-                       ? ((typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 1000)
+                       ? ((typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 10000)
                        : (root.isOffline ? 60000 : 10500)   // a dead camera's last frame cannot change
+                       // snapshotMode default now matches the server's 10 s cache TTL —
+                       // 1 s polling fetched the same cached JPEG ten times (2026-08-17).
             showOctet: false; showStatus: false      // the tile draws its own badges/octet
             showStale: false                         // ...and its own offline treatment, below
             cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live,

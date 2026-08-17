@@ -18,10 +18,16 @@ Rectangle {
     id: thumb
     property var cam: null
     property bool active: true
-    // Snapshot poll interval for decode-capped tiles. Now that the backend serves snapshots from a cached,
-    // concurrency-bounded query-api endpoint (no go2rtc producer wake), a fast poll is cheap — so default 1 s
-    // (was 4 s, which read as a 2–3 s "lag" on capped cameras). Env-tunable via WT_THUMB_REFRESH_MS.
-    property int refreshMs: (typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 1000
+    // Snapshot poll interval. Default = the server's SNAPSHOT_CACHE_TTL_S (10 s):
+    // polling faster returns byte-identical cached JPEGs — measured 2026-08-17,
+    // CV's TTL disclosure — so the old 1 s default paid 10× the bandwidth for
+    // zero fresher pixels, and on the booth's starved WAN that waste was ~half
+    // the link (their bandwidth correction letter). The 1 s era predates the
+    // server cache; the "snappier" it bought has not existed since the cache
+    // landed. If the operator wants fresher stills, CV tunes the TTL and this
+    // default moves WITH it — the two must agree or one side is lying to the
+    // other. Env-tunable via WT_THUMB_REFRESH_MS.
+    property int refreshMs: (typeof wtThumbRefreshMs !== "undefined" && wtThumbRefreshMs > 0) ? wtThumbRefreshMs : 10000
     property bool showOctet: true
     // Decode snapshots at the tile's display size, NOT full camera resolution. A snapshot tile is only
     // ever shown at tile size, so full-res JPEG decode (QImage + GPU texture, ×2 for the imgA/imgB

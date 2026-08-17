@@ -61,6 +61,7 @@ private:
     AuthController *m_auth = nullptr;
     QNetworkAccessManager *m_nam = nullptr;   // the provider's private NAM (GUI-thread affine)
     QString m_path;
+    QString m_effectivePath;   // request path incl. derived params (w=)
     QString m_error;
     QImage m_image;
     QSize m_reqSize;                    // QML sourceSize → decode/cache at display size, not full sensor res

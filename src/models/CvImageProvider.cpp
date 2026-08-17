@@ -170,8 +170,28 @@ void CvImageResponse::start()
                                               : QNetworkRequest::NormalPriority;
         path = path.mid(5);
     }
+    // Camera stills: ask the server to scale, not just ourselves. CV's snapshot
+    // endpoint takes ?w= (a width CEILING, never an upscale, clamped 64–1280,
+    // quantised to 16 px, cached per (camera,width) — their 2026-08-17 letter).
+    // Until today the client sent NO width and downscaled locally after paying
+    // full-size bytes on the wire: measured server-side, a full frame is
+    // 123.8 KB where w=240 is 6.3 KB — a ~20× wire saving for a booth tile that
+    // renders at ~235 px. requestedSize is already the tile's pixel size
+    // (LiveThumb passes sourceSize), so the ceiling is honest by construction.
+    // Only the cached-camera path takes ?w=; the events-extraction path does not.
+    if (m_reqSize.isValid() && m_reqSize.width() > 0
+        && path.contains(QLatin1String("streams/cameras/"))
+        && path.contains(QLatin1String("/snapshot"))) {
+        const int w = qBound(64, (m_reqSize.width() + 15) / 16 * 16, 1280);
+        path += (path.contains(QLatin1Char('?')) ? QLatin1Char('&') : QLatin1Char('?'));
+        path += QLatin1String("w=") + QString::number(w);
+    }
     QNetworkRequest req{QUrl(m_auth->baseUrl() + "/" + path)};
     req.setPriority(prio);
+    m_effectivePath = path;   // what actually went on the wire (m_path is the cache
+                              // identity and never carries the derived w= — logging
+                              // m_path here is how a live w= stayed invisible for
+                              // three verification runs on 2026-08-17)
     // Private pool + explicit cookie: the login lands on AuthController's NAM, so
     // this jar never sees it — attach the session cookie per request (always the
     // current token, survives relogin with no signal plumbing).
@@ -182,8 +202,8 @@ void CvImageResponse::start()
         if (!r) { releaseSnapshotSlot(); finish(); return; }
         const int code = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (s_imgLog)
-            qInfo("[EVIMG] code=%d ms=%lld %s", code, (long long)m_timer.elapsed(),
-                  qPrintable(m_path.right(44)));
+            qInfo("[EVIMG] code=%d ms=%lld req=%dx%d %s", code, (long long)m_timer.elapsed(),
+                  m_reqSize.width(), m_reqSize.height(), qPrintable(m_effectivePath.right(44)));
         if (code == 200) {
             QImage img;
             if (img.loadFromData(r->readAll())) {
