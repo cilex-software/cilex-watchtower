@@ -4318,7 +4318,7 @@
     <message>
         <location filename="../qml/TitleBar.qml" line="219"/>
         <source>Watches · Restarts · Reports</source>
-        <translation>Наблюдает · Перезапустит · Сообщит</translation>
+        <translation>Наблюдает · Перезапускает · Сообщает</translation>
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="238"/>
