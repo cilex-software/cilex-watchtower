@@ -396,6 +396,19 @@ int main(int argc, char *argv[])
 #if !defined(Q_OS_MACOS)
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 #endif
+#ifdef Q_OS_MACOS
+    // The M1 finding the comment above anticipated, arrived 2026-08-17: review clips are
+    // HEVC Main 1440p (measured — ffprobe on a live review segment), and Qt's FFmpeg
+    // backend over VideoToolbox renders NOTHING for that HLS on macOS 26 (demux advances,
+    // zero frames reach the sink; operator's M1 Pro, v1.1.97). Default the MediaPlayer
+    // path to SOFTWARE decode: an empty QT_FFMPEG_DECODING_HW_DEVICE_TYPES means "no HW
+    // decoders" (verified against the plugin — "No HW decoder found", frames render).
+    // 1440p15 HEVC in software is light work for Apple silicon, one clip at a time; the
+    // Live wall is GStreamer/vtdec_hw and unaffected. Set the env yourself to override;
+    // re-enabling VT with QT_DISABLE_HW_TEXTURES_CONVERSION=1 is the follow-up to try.
+    if (!qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES"))
+        qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "");
+#endif
 
     // Native (FreeType-hinted) text rendering — crisper for this dense UI than
     // the default distance-field rendering, which can look soft at small sizes.
