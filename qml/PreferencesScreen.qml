@@ -24,6 +24,9 @@ Item {
         var vals = [1, 2, 4, 8, 16, 24, 32, 48, 64];
         for (var i = 0; i < vals.length; i++)
             out.push({ value: String(vals[i]), label: qsTr("%1 cameras").arg(vals[i]) });
+        // 0 = no limit (operator ask, 2026-08-17): every tile on the page decodes
+        // live; the hardware and the path become the only governors.
+        out.push({ value: "0", label: qsTr("No limit") });
         return out;
     }
 

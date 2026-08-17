@@ -175,7 +175,10 @@ Item {
         for (var i = 0; i < cams.length; i++)
             ranked.push({ id: cams[i].camId, armed: (cams[i].recording === CameraStatus.Armed), pos: i });
         ranked.sort(function(a, b) { return (a.armed === b.armed) ? (a.pos - b.pos) : (a.armed ? -1 : 1); });
-        var set = ({}), n = Math.min(root.maxLiveDecodes, ranked.length);
+        // maxLiveDecodes 0 = NO LIMIT (operator setting): every ranked tile
+        // gets a live slot; the shed valve (MemTel.shedLive -> 1) still wins.
+        var set = ({}), n = root.maxLiveDecodes > 0
+                            ? Math.min(root.maxLiveDecodes, ranked.length) : ranked.length;
         for (var k = 0; k < n; k++) set[ranked[k].id] = true;
         return set;
     }

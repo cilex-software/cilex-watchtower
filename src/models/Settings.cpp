@@ -22,7 +22,14 @@ Settings::Settings(QObject *parent)
     m_triageBodyH = m_settings.value(QStringLiteral("events/triageBodyH"), 200).toInt();
     m_groupsPaneW = m_settings.value(QStringLiteral("groups/paneWidth"), 264).toInt();
     m_pbNavH = m_settings.value(QStringLiteral("playback/navHeight"), 115).toInt();
-    m_maxLiveDecodes = qBound(1, m_settings.value(QStringLiteral("video/maxLiveDecodes"), 32).toInt(), 64);
+    // Default 64 (operator decision 2026-08-17: dedicated booth PC, guards rarely
+    // page past 64 tiles). 0 is the sentinel for NO LIMIT — every tile on the
+    // page decodes live and hardware/bandwidth become the only governors (the
+    // RSS shed valve still applies). Numeric values clamp 1..64 as before.
+    {
+        int v = m_settings.value(QStringLiteral("video/maxLiveDecodes"), 64).toInt();
+        m_maxLiveDecodes = (v == 0) ? 0 : qBound(1, v, 64);
+    }
     m_wallScrubH = m_settings.value(QStringLiteral("wall/scrubHeight"), 160).toInt();
     m_pbPanelW = m_settings.value(QStringLiteral("playback/panelWidth"), 296).toInt();
     m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
@@ -309,7 +316,9 @@ void Settings::setMaxLiveDecodes(int v)
     // the UI could not express the only configuration that ran at full rate
     // (14.79 fps at 1 pipe vs 6.66 at the clamped 4). A floor above 1 makes the
     // diagnostic configuration unreachable and turns "set it to 1" into a lie.
-    v = qBound(1, v, 64);
+    // 0 = no limit (2026-08-17), same sentinel as the loader above.
+    if (v != 0)
+        v = qBound(1, v, 64);
     if (m_maxLiveDecodes == v)
         return;
     m_maxLiveDecodes = v;

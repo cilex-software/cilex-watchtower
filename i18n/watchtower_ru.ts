@@ -2049,262 +2049,262 @@
         <translation>Все камеры</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="573"/>
-        <location filename="../qml/LiveMonitor.qml" line="587"/>
+        <location filename="../qml/LiveMonitor.qml" line="576"/>
+        <location filename="../qml/LiveMonitor.qml" line="590"/>
         <source>No cameras</source>
         <translation>Нет камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="573"/>
+        <location filename="../qml/LiveMonitor.qml" line="576"/>
         <source>No matches</source>
         <translation>Совпадений нет</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="576"/>
+        <location filename="../qml/LiveMonitor.qml" line="579"/>
         <source>No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.</source>
         <translation>К вашей учётной записи не привязано ни одной камеры. Попросите администратора выдать доступ к камерам в Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="577"/>
+        <location filename="../qml/LiveMonitor.qml" line="580"/>
         <source> in %1</source>
         <translation> в %1</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="579"/>
+        <location filename="../qml/LiveMonitor.qml" line="582"/>
         <source>No cameras have had an event in the last hour</source>
         <translation>Ни по одной камере не было событий за последний час</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="580"/>
+        <location filename="../qml/LiveMonitor.qml" line="583"/>
         <source>No cameras are online</source>
         <translation>Нет камер в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="581"/>
+        <location filename="../qml/LiveMonitor.qml" line="584"/>
         <source>No cameras are offline</source>
         <translation>Нет камер не в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="582"/>
+        <location filename="../qml/LiveMonitor.qml" line="585"/>
         <source>No cameras are degraded</source>
         <translation>Нет камер с ухудшением</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="583"/>
+        <location filename="../qml/LiveMonitor.qml" line="586"/>
         <source>No cameras are recording</source>
         <translation>Нет пишущих камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="584"/>
+        <location filename="../qml/LiveMonitor.qml" line="587"/>
         <source>All cameras are recording</source>
         <translation>Все камеры пишут</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="585"/>
+        <location filename="../qml/LiveMonitor.qml" line="588"/>
         <source>No starred cameras</source>
         <translation>Нет избранных камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="586"/>
+        <location filename="../qml/LiveMonitor.qml" line="589"/>
         <source>No cameras have issues</source>
         <translation>Ни по одной камере нет проблем</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="627"/>
+        <location filename="../qml/LiveMonitor.qml" line="630"/>
         <source>0 of 0</source>
         <translation>0 из 0</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="630"/>
+        <location filename="../qml/LiveMonitor.qml" line="633"/>
         <source>%1–%2 of %3</source>
         <translation>%1–%2 из %3</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="673"/>
+        <location filename="../qml/LiveMonitor.qml" line="676"/>
         <source>Other</source>
         <translation>Другие</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="745"/>
+        <location filename="../qml/LiveMonitor.qml" line="748"/>
         <source>OTHER LAYOUTS</source>
         <translation>ДРУГИЕ РАСКЛАДКИ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="928"/>
+        <location filename="../qml/LiveMonitor.qml" line="931"/>
         <source>↻  Sync from server</source>
         <translation>↻  Синхронизировать с сервером</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="952"/>
+        <location filename="../qml/LiveMonitor.qml" line="955"/>
         <source>Clear selection</source>
         <translation>Снять выделение</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="964"/>
+        <location filename="../qml/LiveMonitor.qml" line="967"/>
         <source>Favorites</source>
         <translation>Избранное</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="972"/>
+        <location filename="../qml/LiveMonitor.qml" line="975"/>
         <source>Online</source>
         <translation>Онлайн</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="979"/>
+        <location filename="../qml/LiveMonitor.qml" line="982"/>
         <source>Recent events</source>
         <translation>Недавние события</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="984"/>
+        <location filename="../qml/LiveMonitor.qml" line="987"/>
         <source>Issues</source>
         <translation>Проблемы</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="984"/>
+        <location filename="../qml/LiveMonitor.qml" line="987"/>
         <source>Filter</source>
         <translation>Фильтр</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1008"/>
-        <location filename="../qml/LiveMonitor.qml" line="1209"/>
+        <location filename="../qml/LiveMonitor.qml" line="1011"/>
+        <location filename="../qml/LiveMonitor.qml" line="1212"/>
         <source>Go back in time</source>
         <translation>Назад во времени</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1030"/>
-        <location filename="../qml/LiveMonitor.qml" line="1210"/>
+        <location filename="../qml/LiveMonitor.qml" line="1033"/>
+        <location filename="../qml/LiveMonitor.qml" line="1213"/>
         <source>Save current view</source>
         <translation>Сохранить текущий вид</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1056"/>
-        <location filename="../qml/LiveMonitor.qml" line="1211"/>
+        <location filename="../qml/LiveMonitor.qml" line="1059"/>
+        <location filename="../qml/LiveMonitor.qml" line="1214"/>
         <source>Done arranging</source>
         <translation>Готово</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1056"/>
-        <location filename="../qml/LiveMonitor.qml" line="1211"/>
+        <location filename="../qml/LiveMonitor.qml" line="1059"/>
+        <location filename="../qml/LiveMonitor.qml" line="1214"/>
         <source>Arrange</source>
         <translation>Расстановка</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1073"/>
+        <location filename="../qml/LiveMonitor.qml" line="1076"/>
         <source>Reset</source>
         <translation>Сбросить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1092"/>
+        <location filename="../qml/LiveMonitor.qml" line="1095"/>
         <source>Sort: </source>
         <translation>Сортировка: </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1157"/>
+        <location filename="../qml/LiveMonitor.qml" line="1160"/>
         <source>Full-screen monitoring (F)</source>
         <translation>Полноэкранный мониторинг (F)</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1214"/>
+        <location filename="../qml/LiveMonitor.qml" line="1217"/>
         <source>Reset arrangement</source>
         <translation>Сбросить расстановку</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1215"/>
+        <location filename="../qml/LiveMonitor.qml" line="1218"/>
         <source>Full-screen</source>
         <translation>Полный экран</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1218"/>
+        <location filename="../qml/LiveMonitor.qml" line="1221"/>
         <source>SORT BY</source>
         <translation>СОРТИРОВКА</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1462"/>
+        <location filename="../qml/LiveMonitor.qml" line="1465"/>
         <source>CENTER</source>
         <translation>ЦЕНТР</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1468"/>
+        <location filename="../qml/LiveMonitor.qml" line="1471"/>
         <source>Tap to change</source>
         <translation>Нажмите, чтобы изменить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1607"/>
+        <location filename="../qml/LiveMonitor.qml" line="1610"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation>Объединение недоступно в этой раскладке</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1608"/>
+        <location filename="../qml/LiveMonitor.qml" line="1611"/>
         <source>Split %1×%2</source>
         <translation>Разделить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1610"/>
+        <location filename="../qml/LiveMonitor.qml" line="1613"/>
         <source>Merge %1×%2</source>
         <translation>Объединить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1612"/>
+        <location filename="../qml/LiveMonitor.qml" line="1615"/>
         <source>Shift+drag to select cells to merge</source>
         <translation>Shift+перетаскивание — выделить ячейки для объединения</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1667"/>
+        <location filename="../qml/LiveMonitor.qml" line="1670"/>
         <source>Loading cameras…</source>
         <translation>Загрузка камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1698"/>
+        <location filename="../qml/LiveMonitor.qml" line="1701"/>
         <source>Exit full-screen</source>
         <translation>Выйти из полного экрана</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1725"/>
+        <location filename="../qml/LiveMonitor.qml" line="1728"/>
         <source>%1 · %2 cameras · Page %3 of %4</source>
         <translation>%1 · камер: %2 · страница %3 из %4</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1735"/>
+        <location filename="../qml/LiveMonitor.qml" line="1738"/>
         <source>M — merge · Esc — cancel</source>
         <translation>M — объединить · Esc — отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1736"/>
+        <location filename="../qml/LiveMonitor.qml" line="1739"/>
         <source>⇧ drag — merge cells</source>
         <translation>⇧ перетаскивание — объединить ячейки</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1775"/>
+        <location filename="../qml/LiveMonitor.qml" line="1778"/>
         <source>Camera for </source>
         <translation>Камера для </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1812"/>
+        <location filename="../qml/LiveMonitor.qml" line="1815"/>
         <source>Search cameras…</source>
         <translation>Поиск камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1824"/>
+        <location filename="../qml/LiveMonitor.qml" line="1827"/>
         <source>Hide on-wall</source>
         <translation>Скрыть на стене</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1935"/>
+        <location filename="../qml/LiveMonitor.qml" line="1938"/>
         <source>ON WALL</source>
         <translation>НА СТЕНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1958"/>
+        <location filename="../qml/LiveMonitor.qml" line="1961"/>
         <source>No cameras match.</source>
         <translation>Нет подходящих камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1958"/>
+        <location filename="../qml/LiveMonitor.qml" line="1961"/>
         <source>No cameras available.</source>
         <translation>Нет доступных камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1965"/>
+        <location filename="../qml/LiveMonitor.qml" line="1968"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
@@ -3353,112 +3353,112 @@
 <context>
     <name>PreferencesScreen</name>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="45"/>
+        <location filename="../qml/PreferencesScreen.qml" line="48"/>
         <source>Choose the snapshot folder</source>
         <translation>Выберите папку для снимков</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="51"/>
+        <location filename="../qml/PreferencesScreen.qml" line="54"/>
         <source>Choose the clip export folder</source>
         <translation>Выберите папку для экспорта клипов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="177"/>
+        <location filename="../qml/PreferencesScreen.qml" line="180"/>
         <source>Preferences</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="182"/>
+        <location filename="../qml/PreferencesScreen.qml" line="185"/>
         <source>Back to monitoring</source>
         <translation>Вернуться к мониторингу</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="188"/>
+        <location filename="../qml/PreferencesScreen.qml" line="191"/>
         <source>Workspace</source>
         <translation>Рабочее пространство</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="190"/>
+        <location filename="../qml/PreferencesScreen.qml" line="193"/>
         <source>Default landing screen</source>
         <translation>Экран по умолчанию при запуске</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="191"/>
+        <location filename="../qml/PreferencesScreen.qml" line="194"/>
         <source>Where Watchtower opens on launch.</source>
         <translation>Какой экран открывается при запуске Watchtower.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="208"/>
+        <location filename="../qml/PreferencesScreen.qml" line="211"/>
         <source>Theme</source>
         <translation>Тема</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="209"/>
+        <location filename="../qml/PreferencesScreen.qml" line="212"/>
         <source>Light and System themes are planned for a later phase.</source>
         <translation>Светлая и системная темы появятся позже.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="210"/>
+        <location filename="../qml/PreferencesScreen.qml" line="213"/>
         <source>Dark</source>
         <translation>Тёмная</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="215"/>
+        <location filename="../qml/PreferencesScreen.qml" line="218"/>
         <source>Video</source>
         <translation>Видео</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="218"/>
+        <location filename="../qml/PreferencesScreen.qml" line="221"/>
         <source>How many wall tiles decode live video at once. Tiles beyond this show a snapshot refreshed every few seconds (matching the server&apos;s snapshot cache), badged SNAPSHOT, and their status badges stay live either way. This is a limit of THIS computer, not of the server — every live decode holds memory on its graphics chip. Raising it past what the hardware carries makes the whole wall degrade to snapshots, or the app close. If memory does run short, Watchtower drops to a single live stream on its own until it recovers.</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="226"/>
+        <location filename="../qml/PreferencesScreen.qml" line="229"/>
         <source>Default stream quality (focused view)</source>
         <translation>Качество потока по умолчанию (детальный просмотр)</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="227"/>
+        <location filename="../qml/PreferencesScreen.qml" line="230"/>
         <source>Default quality when you open a single camera. SD uses the substream (lighter, near real-time); HD uses the main stream. The live monitor wall is always SD for performance; you can still promote any tile to HD from its live tile.</source>
         <translation>Качество по умолчанию при открытии одной камеры. SD использует дополнительный поток (легче, почти в реальном времени); HD — основной поток. Стена мониторинга всегда работает в SD для производительности; любую плитку можно переключить в HD прямо на ней.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="252"/>
+        <location filename="../qml/PreferencesScreen.qml" line="255"/>
         <source>Live video transport (admin)</source>
         <translation>Транспорт живого видео (администратор)</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="253"/>
+        <location filename="../qml/PreferencesScreen.qml" line="256"/>
         <source>How the live wall pulls camera video. go2rtc keeps camera credentials on the server (recommended). Direct RTSP connects each client straight to the cameras using credentials delivered by Cilex Vision.</source>
         <translation>Как стена мониторинга получает видео с камер. go2rtc хранит учётные данные камер на сервере (рекомендуется). Прямой RTSP подключает каждый клиент напрямую к камерам, используя учётные данные, предоставленные Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="258"/>
+        <location filename="../qml/PreferencesScreen.qml" line="261"/>
         <source>Direct RTSP</source>
         <translation>Прямой RTSP</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="284"/>
+        <location filename="../qml/PreferencesScreen.qml" line="287"/>
         <source>Live tile overlay</source>
         <translation>Наложение на плитке</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="286"/>
+        <location filename="../qml/PreferencesScreen.qml" line="289"/>
         <source>Camera name</source>
         <translation>Имя камеры</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="287"/>
+        <location filename="../qml/PreferencesScreen.qml" line="290"/>
         <source>Show the camera name/model on each live tile.</source>
         <translation>Показывать имя/модель камеры на каждой плитке.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="202"/>
-        <location filename="../qml/PreferencesScreen.qml" line="289"/>
-        <location filename="../qml/PreferencesScreen.qml" line="299"/>
-        <location filename="../qml/PreferencesScreen.qml" line="309"/>
-        <location filename="../qml/PreferencesScreen.qml" line="348"/>
-        <location filename="../qml/PreferencesScreen.qml" line="358"/>
+        <location filename="../qml/PreferencesScreen.qml" line="205"/>
+        <location filename="../qml/PreferencesScreen.qml" line="292"/>
+        <location filename="../qml/PreferencesScreen.qml" line="302"/>
+        <location filename="../qml/PreferencesScreen.qml" line="312"/>
+        <location filename="../qml/PreferencesScreen.qml" line="351"/>
+        <location filename="../qml/PreferencesScreen.qml" line="361"/>
         <source>Off</source>
         <translation>Выкл</translation>
     </message>
@@ -3468,42 +3468,47 @@
         <translation>%1 камер</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="31"/>
+        <location filename="../qml/PreferencesScreen.qml" line="29"/>
+        <source>No limit</source>
+        <translation>Без ограничения</translation>
+    </message>
+    <message>
+        <location filename="../qml/PreferencesScreen.qml" line="34"/>
         <source>Live Monitor</source>
         <translation>Монитор эфира</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="34"/>
+        <location filename="../qml/PreferencesScreen.qml" line="37"/>
         <source>View · </source>
         <translation>Вид · </translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="38"/>
+        <location filename="../qml/PreferencesScreen.qml" line="41"/>
         <source>Group · </source>
         <translation>Группа · </translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="199"/>
+        <location filename="../qml/PreferencesScreen.qml" line="202"/>
         <source>Status badge timers</source>
         <translation>Таймеры статусов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="200"/>
+        <location filename="../qml/PreferencesScreen.qml" line="203"/>
         <source>Show how long each camera has been in its current state (LIVE, REC, OFFLINE…). Times count from when Watchtower observed the change.</source>
         <translation>Показывать, как долго камера находится в текущем состоянии (LIVE, REC, OFFLINE…). Отсчёт — с момента, когда Watchtower зафиксировал изменение.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="202"/>
-        <location filename="../qml/PreferencesScreen.qml" line="289"/>
-        <location filename="../qml/PreferencesScreen.qml" line="299"/>
-        <location filename="../qml/PreferencesScreen.qml" line="309"/>
-        <location filename="../qml/PreferencesScreen.qml" line="348"/>
-        <location filename="../qml/PreferencesScreen.qml" line="358"/>
+        <location filename="../qml/PreferencesScreen.qml" line="205"/>
+        <location filename="../qml/PreferencesScreen.qml" line="292"/>
+        <location filename="../qml/PreferencesScreen.qml" line="302"/>
+        <location filename="../qml/PreferencesScreen.qml" line="312"/>
+        <location filename="../qml/PreferencesScreen.qml" line="351"/>
+        <location filename="../qml/PreferencesScreen.qml" line="361"/>
         <source>On</source>
         <translation>Вкл</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="217"/>
+        <location filename="../qml/PreferencesScreen.qml" line="220"/>
         <source>Simultaneous live streams on the wall</source>
         <translation>Одновременных живых потоков на стене</translation>
     </message>
@@ -3512,133 +3517,133 @@
         <translation type="vanished">Сколько плиток стены декодируют живое видео одновременно. Остальные показывают снимок, обновляемый раз в секунду, с меткой SNAPSHOT; индикаторы состояния в любом случае остаются живыми. Это ограничение ЭТОГО компьютера, а не сервера — каждый живой декод занимает память его видеочипа. Если поставить больше, чем тянет оборудование, вся стена перейдёт на снимки или приложение закроется. При нехватке памяти Watchtower сам оставит один живой поток до восстановления.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="237"/>
+        <location filename="../qml/PreferencesScreen.qml" line="240"/>
         <source>SD</source>
         <translation>SD</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="237"/>
+        <location filename="../qml/PreferencesScreen.qml" line="240"/>
         <source>HD</source>
         <translation>HD</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="273"/>
+        <location filename="../qml/PreferencesScreen.qml" line="276"/>
         <source>Not in use: Cilex Vision no longer publishes camera credentials in the camera list, so the wall is running on go2rtc.</source>
         <translation>Не используется: Cilex Vision больше не передаёт учётные данные камер в списке камер, поэтому стена работает через go2rtc.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="296"/>
+        <location filename="../qml/PreferencesScreen.qml" line="299"/>
         <source>IP address</source>
         <translation>IP-адрес</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="297"/>
+        <location filename="../qml/PreferencesScreen.qml" line="300"/>
         <source>Show the camera&apos;s IP address on each live tile.</source>
         <translation>Показывать IP-адрес камеры на каждой плитке.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="306"/>
+        <location filename="../qml/PreferencesScreen.qml" line="309"/>
         <source>Camera ID</source>
         <translation>ID камеры</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="307"/>
+        <location filename="../qml/PreferencesScreen.qml" line="310"/>
         <source>Show the backend camera ID (e.g. hiwatch-083bc14effb2) on each live tile.</source>
         <translation>Показывать серверный ID камеры (например, hiwatch-083bc14effb2) на каждой плитке.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="318"/>
+        <location filename="../qml/PreferencesScreen.qml" line="321"/>
         <source>Time &amp; language</source>
         <translation>Время и язык</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="320"/>
+        <location filename="../qml/PreferencesScreen.qml" line="323"/>
         <source>Time format</source>
         <translation>Формат времени</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="321"/>
+        <location filename="../qml/PreferencesScreen.qml" line="324"/>
         <source>How clocks are shown across the app.</source>
         <translation>Как отображается время в приложении.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="323"/>
+        <location filename="../qml/PreferencesScreen.qml" line="326"/>
         <source>24-hour</source>
         <translation>24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="323"/>
+        <location filename="../qml/PreferencesScreen.qml" line="326"/>
         <source>12-hour</source>
         <translation>12 часов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="330"/>
+        <location filename="../qml/PreferencesScreen.qml" line="333"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="331"/>
+        <location filename="../qml/PreferencesScreen.qml" line="334"/>
         <source>Interface language. Defaults to your operating system&apos;s language; changes apply immediately.</source>
         <translation>Язык интерфейса. По умолчанию используется язык операционной системы; изменения применяются сразу.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="343"/>
+        <location filename="../qml/PreferencesScreen.qml" line="346"/>
         <source>Alerts</source>
         <translation>Оповещения</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="345"/>
+        <location filename="../qml/PreferencesScreen.qml" line="348"/>
         <source>Alert sound</source>
         <translation>Звук оповещения</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="346"/>
+        <location filename="../qml/PreferencesScreen.qml" line="349"/>
         <source>Play a sound when a camera raises an alert.</source>
         <translation>Воспроизводить звук при срабатывании оповещения камеры.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="355"/>
+        <location filename="../qml/PreferencesScreen.qml" line="358"/>
         <source>Desktop notifications</source>
         <translation>Уведомления рабочего стола</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="356"/>
+        <location filename="../qml/PreferencesScreen.qml" line="359"/>
         <source>Show an OS notification for alerts even when Watchtower isn&apos;t focused.</source>
         <translation>Показывать системные уведомления об оповещениях, даже когда Watchtower не в фокусе.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="366"/>
+        <location filename="../qml/PreferencesScreen.qml" line="369"/>
         <source>Alerts are raised from camera events (motion, offline, recording gaps). These preferences take effect when alerts arrive.</source>
         <translation>Оповещения формируются из событий камер (движение, потеря связи, пропуски записи). Эти настройки действуют при поступлении оповещений.</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="372"/>
+        <location filename="../qml/PreferencesScreen.qml" line="375"/>
         <source>Snapshots &amp; clips</source>
         <translation>Снимки и клипы</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="374"/>
+        <location filename="../qml/PreferencesScreen.qml" line="377"/>
         <source>Snapshot folder</source>
         <translation>Папка для снимков</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="381"/>
-        <location filename="../qml/PreferencesScreen.qml" line="393"/>
+        <location filename="../qml/PreferencesScreen.qml" line="384"/>
+        <location filename="../qml/PreferencesScreen.qml" line="396"/>
         <source>Change…</source>
         <translation>Изменить…</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="386"/>
+        <location filename="../qml/PreferencesScreen.qml" line="389"/>
         <source>Clip export folder</source>
         <translation>Папка для экспорта клипов</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="409"/>
+        <location filename="../qml/PreferencesScreen.qml" line="412"/>
         <source>CONNECTED TO</source>
         <translation>ПОДКЛЮЧЕНО К</translation>
     </message>
     <message>
-        <location filename="../qml/PreferencesScreen.qml" line="416"/>
+        <location filename="../qml/PreferencesScreen.qml" line="419"/>
         <source>not connected</source>
         <translation>нет подключения</translation>
     </message>
