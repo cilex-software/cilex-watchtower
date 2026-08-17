@@ -170,6 +170,28 @@ void CvImageResponse::start()
                                               : QNetworkRequest::NormalPriority;
         path = path.mid(5);
     }
+    // WT_SNAPSHOT_WIDTH_CAP: ask the backend for a still no wider than the cell we draw it in.
+    // 0/unset = off (unchanged behaviour); 1 = use the QML display width; N>1 = force N px.
+    //
+    // Below, the response is downscaled to m_reqSize AFTER decode — which fixed an RSS leak but
+    // does nothing for the network: the full frame is bought and 95 % of it discarded. CV shipped
+    // `?w=` (a width CEILING, never an upscale, clamped 64–1280, quantised to 16 px, cached per
+    // (camera,width)). Measured on a real frame: full 123.8 KB, w=320 10.7 KB, w=240 6.3 KB — a
+    // ~20× saving at the ~235 px our wall cells actually are. It matters because this booth is
+    // WAN-attached: measured 3.72 snapshot fetches/s × 123.8 KB ≈ 3.7 Mbit/s on a path that
+    // starts dropping packets above ~1.5 Mbit/s, i.e. the stills alone were oversubscribing the
+    // link that the live tiles also had to share. Off by default — the booth A/Bs it first, and
+    // an older backend that does not know `?w=` should ignore it, but that is unverified here.
+    const int capMode = qEnvironmentVariableIntValue("WT_SNAPSHOT_WIDTH_CAP");
+    if (capMode > 0 && path.contains(QLatin1String("/snapshot"))) {
+        int w = capMode > 1 ? capMode
+                            : (m_reqSize.isValid() ? m_reqSize.width() : 0);
+        if (w >= 16) {
+            w = qBound(64, ((w + 15) / 16) * 16, 1280);   // quantise up — matches CV's cache key
+            path += (path.contains(QLatin1Char('?')) ? QLatin1Char('&') : QLatin1Char('?'));
+            path += QStringLiteral("w=") + QString::number(w);
+        }
+    }
     QNetworkRequest req{QUrl(m_auth->baseUrl() + "/" + path)};
     req.setPriority(prio);
     // Private pool + explicit cookie: the login lands on AuthController's NAM, so
