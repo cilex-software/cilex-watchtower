@@ -48,10 +48,11 @@ audit and comes back to the Linux box as a list.
 
 1. Login + camera list + snapshots (pure Qt/HTTP — expected clean).
 2. **Live wall decode path**: `WT_TRACE=1` → `[WT-DEC] using <factory>`.
-   Expected `vtdec_hw (hardware)`. **Two things to verify on hardware, both
-   flagged now**: does decodebin rank vtdec first, and does its factory klass
-   contain the literal `Hardware` — the `WT_HW_ONLY` skip and the `dec=` gauge
-   both key on that string (`RtspVideoSource.cpp, onAutoplugSelect`).
+   Expected `vtdec_hw (hardware)`. ~~Two things to verify on hardware~~
+   **BOTH ANSWERED at M0 (2026-08-17, measured)**: rank `primary + 1` (decodebin
+   prefers it) and `Klass: Codec/Decoder/Video/Hardware` (the literal string the
+   `WT_HW_ONLY` skip and `dec=` gauge key on). M1 only needs to see the
+   `[WT-DEC]` line confirm it end-to-end.
 3. `[MEMTEL]` line sane: `rss=` from the new mach branch (first compile of
    that code happens here), `framesIn`/tile ≈ 15 on LAN.
 4. The watchdog clock: `CLOCK_MONOTONIC` on Darwin is expected to pause across
