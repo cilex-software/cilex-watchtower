@@ -204,12 +204,57 @@ Item {
                 Layout.bottomMargin: 12
                 clip: true
                 spacing: 0
-                model: root.eventModel ? root.eventModel.liveFeed : []
+                model: feedModel
+
+                // The live feed arrives as a QVariantList (EventModel.h:104), so EVERY new
+                // event replaced the whole model and the ListView destroyed and rebuilt
+                // every delegate — taking their loaded thumbnails with them. Measured on
+                // the booth: rows 5-10, which already held pictures, blanked 17 times in
+                // 26 samples, five of them in the same instant.
+                //
+                // Mirroring the feed into a ListModel and applying the DIFFERENCE keyed on
+                // event id (insert / move / remove) leaves untouched rows untouched, so a
+                // new event pushes the list down and the thumbnails already on screen are
+                // never rebuilt. Operator's rule: minimise flicker in favour of a stable
+                // picture — a row that already has its image must keep it.
+                ListModel { id: feedModel; dynamicRoles: true }
+
+                function _syncFeed() {
+                    var src = (root.eventModel && root.eventModel.liveFeed)
+                              ? root.eventModel.liveFeed : [];
+                    var i, j;
+                    var present = ({});
+                    for (i = 0; i < src.length; ++i)
+                        present["" + src[i].id] = true;
+                    for (j = feedModel.count - 1; j >= 0; --j)
+                        if (!present["" + feedModel.get(j).ev.id])
+                            feedModel.remove(j);
+                    for (i = 0; i < src.length; ++i) {
+                        var id = "" + src[i].id;
+                        if (i < feedModel.count && ("" + feedModel.get(i).ev.id) === id)
+                            continue;                       // already in place — leave it alone
+                        var at = -1;
+                        for (j = i; j < feedModel.count; ++j)
+                            if (("" + feedModel.get(j).ev.id) === id) { at = j; break; }
+                        if (at === -1) feedModel.insert(i, { ev: src[i] });
+                        else           feedModel.move(at, i, 1);
+                    }
+                    while (feedModel.count > src.length)
+                        feedModel.remove(feedModel.count - 1);
+                }
+                Connections {
+                    target: root.eventModel
+                    function onLiveFeedChanged() { feed._syncFeed(); }
+                }
+                Component.onCompleted: feed._syncFeed()
 
                 delegate: Item {
                     id: row
                     required property int index
-                    required property var modelData
+                    required property var ev
+                    // Bridge: the delegate below reads `modelData` in 14 places and those
+                    // stay valid whichever model feeds this view.
+                    readonly property var modelData: ev
                     readonly property double tsMs: modelData.tsMs
 
                     width: ListView.view.width
@@ -286,7 +331,22 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 asynchronous: true
-                                cache: false
+                                // CACHED, and the URL carries no cache-buster — deliberately.
+                                //
+                                // `liveFeed` is a QVariantList (EventModel.h:104), so ANY new event
+                                // replaces the whole model and the ListView destroys and rebuilds
+                                // every delegate. With `cache: false` each rebuild re-fetched this
+                                // preview over the network, so the entire rail went blank whenever
+                                // an event arrived — measured: 5 of 10 thumbnails at once.
+                                //
+                                // Cached, a rebuilt delegate repaints from Qt's pixmap cache with no
+                                // request and no blank frame, which is what the operator asked for:
+                                // a new event should push the list down, not black out the ones
+                                // already on screen. The cost is that the preview is "this camera,
+                                // recently" rather than "right now" — correct for a fallback standing
+                                // in for a moment that has already passed, and the true extracted
+                                // frame still paints over it the instant it lands.
+                                cache: true
                                 fillMode: Image.PreserveAspectCrop
                                 sourceSize.width: 192
                                 source: (row.modelData.camId && still.status !== Image.Ready)
