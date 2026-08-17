@@ -156,8 +156,43 @@ Item {
                 MouseArea { id: eyeMa; anchors.fill: parent; hoverEnabled: true }
                 C.ToolTip.visible: eyeMa.containsMouse
                 C.ToolTip.delay: 400
-                C.ToolTip.text: qsTr("Supervised by Cilex Warden %1 — auto-restart and crash reporting armed")
-                                .arg(typeof wtWardenVersion !== "undefined" && wtWardenVersion !== "" ? wtWardenVersion : "")
+                // The tooltip answers "what is this station actually attached to?" — the
+                // question an operator standing at the booth cannot otherwise resolve
+                // without reading logs.
+                //
+                // `AuthController.baseUrl` is deliberately the EFFECTIVE address, not
+                // WT_CV_URL. Those two disagree: a restored session carries its own host
+                // and outranks the environment, so a station can be talking to a server
+                // nobody configured in its env. Printing the env var here would have been
+                // a plausible-looking lie (2026-08-17: an agent lost an hour to exactly
+                // that assumption while forcing a failure state).
+                //
+                // Wording avoids claiming the link is HEALTHY: `authenticated` means a
+                // session exists, not that the server answered recently. "Signed in as"
+                // is a fact; "connected" would not be.
+                C.ToolTip.text: {
+                    var wv = (typeof wtWardenVersion !== "undefined" && wtWardenVersion !== "")
+                             ? wtWardenVersion : "";
+                    var lines = [ wv !== "" ? qsTr("Supervised by Cilex Warden %1").arg(wv)
+                                            : qsTr("Supervised by Cilex Warden"),
+                                  qsTr("Auto-restart and crash reporting armed"),
+                                  "" ];
+                    var url = (typeof AuthController !== "undefined" && AuthController.baseUrl)
+                              ? AuthController.baseUrl : "";
+                    lines.push(qsTr("Cilex Vision: %1")
+                               .arg(url !== "" ? url : qsTr("not configured")));
+                    if (typeof AuthController !== "undefined") {
+                        if (!AuthController.authenticated) {
+                            lines.push(qsTr("Signed in: no"));
+                        } else {
+                            var who = AuthController.username;
+                            lines.push(AuthController.role !== ""
+                                       ? qsTr("Signed in as %1 (%2)").arg(who).arg(AuthController.role)
+                                       : qsTr("Signed in as %1").arg(who));
+                        }
+                    }
+                    return lines.join("\n");
+                }
             }
         }
 

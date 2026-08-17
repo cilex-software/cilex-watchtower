@@ -4316,6 +4316,46 @@
         <translation>Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>
     <message>
+        <location filename="../qml/TitleBar.qml" line="176"/>
+        <source>Supervised by Cilex Warden %1</source>
+        <translation>Хранитель Cilex Warden %1 наблюдает</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="177"/>
+        <source>Supervised by Cilex Warden</source>
+        <translation>Хранитель Cilex Warden наблюдает</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="178"/>
+        <source>Auto-restart and crash reporting armed</source>
+        <translation>Автоперезапуск и отчёты о сбоях включены</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="182"/>
+        <source>Cilex Vision: %1</source>
+        <translation>Сервер Cilex Vision: %1</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="183"/>
+        <source>not configured</source>
+        <translation>не задан</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="186"/>
+        <source>Signed in: no</source>
+        <translation>Вход не выполнен</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="190"/>
+        <source>Signed in as %1 (%2)</source>
+        <translation>Вход выполнен: %1 (%2)</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="191"/>
+        <source>Signed in as %1</source>
+        <translation>Вход выполнен: %1</translation>
+    </message>
+    <message>
         <location filename="../qml/TitleBar.qml" line="166"/>
         <source>WATCHTOWER</source>
         <translation>WATCHTOWER</translation>
