@@ -581,17 +581,27 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="140"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="145"/>
         <source>Playback stalled — the recording backend stopped serving this window. Tap play to retry.</source>
         <translation>Воспроизведение остановилось — сервер записи перестал отдавать этот участок. Нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="393"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="405"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation>Сервер записи не ответил за 25 с — нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="576"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="500"/>
+        <source>Recording in progress — waiting for the first footage…</source>
+        <translation>Идёт запись — ждём первые кадры…</translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="503"/>
+        <source>No footage recorded around this moment.</source>
+        <translation>Нет записи в этот момент.</translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="603"/>
         <source>Loading recording…</source>
         <translation>Загрузка записи…</translation>
     </message>

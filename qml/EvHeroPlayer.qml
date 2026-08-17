@@ -57,8 +57,13 @@ Item {
     // same. Absent profile (no assignment) → 5s/5s default, matching today's
     // Motion profile; mode "continuous" → no roll contract exists, show a
     // generous 15s of context instead (CV reply, 2026-08-06).
-    readonly property int padPreMs: (ev && ev.cam && ev.cam.recMode === "continuous") ? 15000
-        : (ev && ev.cam && ev.cam.preRollMs > 0) ? ev.cam.preRollMs : 5000
+    // Pre-roll floor raised 5s -> 15s (operator, 2026-08-17, Mac session): cameras stamp motion
+    // LATE — "the person has walked through half of the picture before the movement was
+    // detected" — and clipping display to the 5s profile cropped the approach out of a
+    // recording that CONTAINS 15-25s of roll. If footage starts later than the widened
+    // window, _applySeek lands on the nearest recorded frame, so an over-wide ask is safe.
+    readonly property int padPreMs: Math.max(15000,
+        (ev && ev.cam && ev.cam.preRollMs > 0) ? ev.cam.preRollMs : 0)
     readonly property int padPostMs: (ev && ev.cam && ev.cam.recMode === "continuous") ? 15000
         : (ev && ev.cam && ev.cam.postRollMs > 0) ? ev.cam.postRollMs : 5000
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
@@ -234,10 +239,17 @@ Item {
     // Tear down only when the EPISODE ID actually changes. An in-progress episode keeps the
     // window it was opened with (no silent re-open mid-watch); reselecting re-opens fresh.
     property string _evId: ""
+    property int _zeroFragRetries: 0
+    Timer {   // in-progress event, no fragments cut yet: re-open until footage appears (bounded)
+        id: zeroFragRetry
+        interval: 5000; repeat: false
+        onTriggered: if (hp.ev && hp.ev.id === hp._evId && hp._error !== "") hp._open()
+    }
     onEvChanged: {
         var nid = (ev && ev.id) ? String(ev.id) : "";
         if (nid !== "" && nid === hp._evId) return;      // same episode, rebuilt object — keep the session
         hp._evId = nid;
+        hp._zeroFragRetries = 0; zeroFragRetry.stop();
         hp._reset(); hp._pre = null; hp._preTag = "";
         // The timeline is knowable from event data alone — set it NOW so the scrubber has real
         // geometry and the transport shows the true duration before the first play-tap (it read
@@ -477,7 +489,22 @@ Item {
         if (typeof wtTrace !== "undefined" && wtTrace)
             console.log("[HERO] session ready: " + out.length + " ready fragments · ev=" + (ev ? ev.rawType : "?")
                         + " dur=" + (ev ? ev.durationSec : 0) + "s");
-        if (out.length === 0) { hp._loading = false; hp._error = "No footage recorded around this moment."; return; }
+        if (out.length === 0) {
+            hp._loading = false;
+            // A seconds-old in-progress event legitimately has NO cut fragments yet — declaring
+            // "no footage" there is premature (operator hit it twice, 2026-08-17). Say the true
+            // state and retry; only an event old enough that footage MUST exist gets the verdict.
+            var ageMs = (hp.ev && hp.ev.ts) ? (Date.now() - hp.ev.ts.getTime()) : 1e9;
+            if (ageMs < 90000 && hp._zeroFragRetries < 6) {
+                hp._zeroFragRetries++;
+                hp._error = qsTr("Recording in progress — waiting for the first footage…");
+                zeroFragRetry.restart();
+            } else {
+                hp._error = qsTr("No footage recorded around this moment.");
+            }
+            return;
+        }
+        hp._zeroFragRetries = 0;
         hp._loading = false; hp._error = "";
         if (typeof wtHeroNoplay === "undefined" || !wtHeroNoplay) {   // leak bisect: WT_HERO_NOPLAY skips the decode
             player.source = hp.playbackClient.playlistUrl(hp._sid);
