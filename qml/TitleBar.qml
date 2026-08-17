@@ -182,11 +182,28 @@ Item {
                 readonly property string cvUrl:
                     (typeof AuthController !== "undefined" && AuthController.baseUrl)
                     ? AuthController.baseUrl : ""
+                // The backend hands the role back as an English identifier ("operator",
+                // "admin"). Known ones are localised so a Russian guard reads a Russian
+                // word; an UNKNOWN role is printed verbatim rather than guessed at or
+                // hidden — a role we cannot name is still a fact about the session, and
+                // inventing a translation for it would be worse than showing the raw id.
+                function localizedRole(r) {
+                    switch (r.toLowerCase()) {
+                    case "operator":       return qsTr("operator");
+                    case "admin":
+                    case "administrator":  return qsTr("administrator");
+                    case "viewer":         return qsTr("viewer");
+                    case "manager":        return qsTr("manager");
+                    case "installer":      return qsTr("installer");
+                    default:               return r;
+                    }
+                }
                 readonly property string sessionLine: {
                     if (typeof AuthController === "undefined" || !AuthController.authenticated)
                         return qsTr("not signed in");
                     return AuthController.role !== ""
-                           ? "%1 (%2)".arg(AuthController.username).arg(AuthController.role)
+                           ? "%1 (%2)".arg(AuthController.username)
+                                      .arg(wardenEye.localizedRole(AuthController.role))
                            : AuthController.username;
                 }
 

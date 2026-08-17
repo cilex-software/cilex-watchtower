@@ -4318,7 +4318,7 @@
     <message>
         <location filename="../qml/TitleBar.qml" line="219"/>
         <source>Watches · Restarts · Reports</source>
-        <translation>Наблюдает · Перезапустит · Доложит</translation>
+        <translation>Наблюдает · Перезапустит · Сообщит</translation>
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="238"/>
@@ -4349,6 +4349,31 @@
         <location filename="../qml/TitleBar.qml" line="266"/>
         <source>unknown</source>
         <translation>неизвестна</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="188"/>
+        <source>operator</source>
+        <translation>оператор</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="190"/>
+        <source>administrator</source>
+        <translation>администратор</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="191"/>
+        <source>viewer</source>
+        <translation>наблюдатель</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="192"/>
+        <source>manager</source>
+        <translation>руководитель</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="193"/>
+        <source>installer</source>
+        <translation>монтажник</translation>
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="166"/>
