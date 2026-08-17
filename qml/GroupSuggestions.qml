@@ -229,13 +229,17 @@ Item {
             text: qsTr("No cameras loaded — nothing can be suggested yet.")
             color: Theme.warn; font.pixelSize: 12
         }
+        // IDLE STATE — one clear sentence, not meta-fragments. The operator read
+        // the old two-paragraph version as "truncated, can't tell what it's for"
+        // (2026-08-17, on the Mac's first Groups screen, of all places). When
+        // there is nothing to do, the panel's whole job is to say so legibly.
         Text {
             visible: root.analysis.total > 0
                      && root.analysis.suggestions.length === 0
                      && root.analysis.mismatches.length === 0
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: qsTr("Every camera whose name matches a known location is already in the matching group.")
-            color: Theme.ink3; font.pixelSize: 12
+            text: qsTr("Nothing to suggest — every recognised camera name is already in its matching group.")
+            color: Theme.ink2; font.pixelSize: 12
         }
 
         Repeater {
@@ -407,11 +411,13 @@ Item {
         }
 
         // Never let the panel imply it covered the whole fleet.
+        // The honesty clause, rephrased from jargon ("not covered here") into what
+        // it means. Names print in full — an elide here would recreate the exact
+        // "truncated text" complaint this rewrite answers.
         Text {
             visible: root.analysis.unmatched.length > 0
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: qsTr("%1 of %2 cameras have no recognised location word and are not covered here: %3")
-                  .arg(root.analysis.unmatched.length).arg(root.analysis.total)
+            text: qsTr("No recognisable place in the name (these stay wherever you put them): %1")
                   .arg(root._unmatchedNames())
             color: Theme.ink3; font.pixelSize: 11
         }

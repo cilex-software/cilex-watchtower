@@ -1562,12 +1562,11 @@
         <translation>Камеры не загружены — предлагать пока нечего.</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="237"/>
         <source>Every camera whose name matches a known location is already in the matching group.</source>
-        <translation>Все камеры с известным местом в имени уже находятся в соответствующих группах.</translation>
+        <translation type="vanished">Все камеры с известным местом в имени уже находятся в соответствующих группах.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="269"/>
+        <location filename="../qml/GroupSuggestions.qml" line="273"/>
         <source>%n camera(s) named “%1” are in no matching group</source>
         <translation>
             <numerusform>%n камера с именем «%1» не входит в подходящую группу</numerusform>
@@ -1576,7 +1575,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="271"/>
+        <location filename="../qml/GroupSuggestions.qml" line="275"/>
         <source>%n camera(s) named “%1” are not in %2</source>
         <translation>
             <numerusform>%n камера с именем «%1» не в группе «%2»</numerusform>
@@ -1585,32 +1584,32 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="281"/>
+        <location filename="../qml/GroupSuggestions.qml" line="285"/>
         <source>Hide</source>
         <translation>Скрыть</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="281"/>
+        <location filename="../qml/GroupSuggestions.qml" line="285"/>
         <source>Review</source>
         <translation>Проверить</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="298"/>
+        <location filename="../qml/GroupSuggestions.qml" line="302"/>
         <source>Create group</source>
         <translation>Создать группу</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="343"/>
+        <location filename="../qml/GroupSuggestions.qml" line="347"/>
         <source>in %1</source>
         <translation>в «%1»</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="344"/>
+        <location filename="../qml/GroupSuggestions.qml" line="348"/>
         <source>ungrouped</source>
         <translation>без группы</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="360"/>
+        <location filename="../qml/GroupSuggestions.qml" line="364"/>
         <source>Create “%1” with %n camera(s)</source>
         <translation>
             <numerusform>Создать «%1» с %n камерой</numerusform>
@@ -1619,7 +1618,7 @@
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="362"/>
+        <location filename="../qml/GroupSuggestions.qml" line="366"/>
         <source>Add %n camera(s) to %1</source>
         <translation>
             <numerusform>Добавить %n камеру в «%1»</numerusform>
@@ -1628,22 +1627,21 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="392"/>
+        <location filename="../qml/GroupSuggestions.qml" line="396"/>
         <source>Filed against their name — check, do not assume these are wrong</source>
         <translation>Не совпадают с именем — проверьте, это не обязательно ошибка</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="402"/>
+        <location filename="../qml/GroupSuggestions.qml" line="406"/>
         <source>in %1, named %2</source>
         <translation>в группе «%1», в имени — %2</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="413"/>
         <source>%1 of %2 cameras have no recognised location word and are not covered here: %3</source>
-        <translation>%1 из %2 камер не содержат известного места в имени и здесь не учтены: %3</translation>
+        <translation type="vanished">%1 из %2 камер не содержат известного места в имени и здесь не учтены: %3</translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="441"/>
+        <location filename="../qml/GroupSuggestions.qml" line="447"/>
         <source>Creating “%1”…</source>
         <translation>Создание «%1»…</translation>
     </message>
@@ -1661,8 +1659,18 @@
         <source>Some cameras did not move — check the group and retry</source>
         <translation>Часть камер не перемещена — проверьте группу и повторите</translation>
     </message>
+    <message>
+        <location filename="../qml/GroupSuggestions.qml" line="241"/>
+        <source>Nothing to suggest — every recognised camera name is already in its matching group.</source>
+        <translation>Предлагать нечего — все камеры с распознанным местом в имени уже в своих группах.</translation>
+    </message>
+    <message>
+        <location filename="../qml/GroupSuggestions.qml" line="420"/>
+        <source>No recognisable place in the name (these stay wherever you put them): %1</source>
+        <translation>Без распознаваемого места в имени (остаются там, куда вы их поместили): %1</translation>
+    </message>
     <message numerus="yes">
-        <location filename="../qml/GroupSuggestions.qml" line="470"/>
+        <location filename="../qml/GroupSuggestions.qml" line="476"/>
         <source>Created “%1” with %n camera(s)</source>
         <translation>
             <numerusform>Создана «%1» с %n камерой</numerusform>
@@ -1671,7 +1679,7 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/GroupSuggestions.qml" line="479"/>
+        <location filename="../qml/GroupSuggestions.qml" line="485"/>
         <source>Group “%1” was not created — no cameras were moved</source>
         <translation>Группа «%1» не создана — камеры не перемещены</translation>
     </message>
@@ -2370,27 +2378,27 @@
 <context>
     <name>LiveThumb</name>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="153"/>
+        <location filename="../qml/LiveThumb.qml" line="180"/>
         <source>just now</source>
         <translation>только что</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="154"/>
+        <location filename="../qml/LiveThumb.qml" line="181"/>
         <source>%1 min ago</source>
         <translation>%1 мин назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="155"/>
+        <location filename="../qml/LiveThumb.qml" line="182"/>
         <source>%1 h ago</source>
         <translation>%1 ч назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="156"/>
+        <location filename="../qml/LiveThumb.qml" line="183"/>
         <source>%1 d ago</source>
         <translation>%1 сут назад</translation>
     </message>
     <message>
-        <location filename="../qml/LiveThumb.qml" line="160"/>
+        <location filename="../qml/LiveThumb.qml" line="187"/>
         <source>not live</source>
         <translation>не в эфире</translation>
     </message>
@@ -2677,7 +2685,7 @@
         <translation>Все →</translation>
     </message>
     <message>
-        <location filename="../qml/OpsSidebar.qml" line="380"/>
+        <location filename="../qml/OpsSidebar.qml" line="484"/>
         <source>Acknowledge</source>
         <translation>Подтвердить</translation>
     </message>
@@ -4311,92 +4319,91 @@
 <context>
     <name>TitleBar</name>
     <message>
-        <location filename="../qml/TitleBar.qml" line="159"/>
         <source>Supervised by Cilex Warden %1 — auto-restart and crash reporting armed</source>
-        <translation>Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
+        <translation type="vanished">Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="219"/>
+        <location filename="../qml/TitleBar.qml" line="252"/>
         <source>Watches · Restarts · Reports</source>
         <translation>Наблюдает · Перезапускает · Сообщает</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="238"/>
+        <location filename="../qml/TitleBar.qml" line="270"/>
         <source>SERVER</source>
         <translation>СЕРВЕР</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="245"/>
+        <location filename="../qml/TitleBar.qml" line="283"/>
         <source>SESSION</source>
         <translation>СЕАНС</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="259"/>
+        <location filename="../qml/TitleBar.qml" line="297"/>
         <source>WARDEN</source>
         <translation>ХРАНИТЕЛЬ</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="244"/>
+        <location filename="../qml/TitleBar.qml" line="277"/>
         <source>not configured</source>
         <translation>не задан</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="172"/>
+        <location filename="../qml/TitleBar.qml" line="203"/>
         <source>not signed in</source>
         <translation>вход не выполнен</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="266"/>
+        <location filename="../qml/TitleBar.qml" line="305"/>
         <source>unknown</source>
         <translation>неизвестна</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="188"/>
+        <location filename="../qml/TitleBar.qml" line="192"/>
         <source>operator</source>
         <translation>оператор</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="190"/>
+        <location filename="../qml/TitleBar.qml" line="194"/>
         <source>administrator</source>
         <translation>администратор</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="191"/>
+        <location filename="../qml/TitleBar.qml" line="195"/>
         <source>viewer</source>
         <translation>наблюдатель</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="192"/>
+        <location filename="../qml/TitleBar.qml" line="196"/>
         <source>manager</source>
         <translation>руководитель</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="193"/>
+        <location filename="../qml/TitleBar.qml" line="197"/>
         <source>installer</source>
         <translation>монтажник</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="166"/>
+        <location filename="../qml/TitleBar.qml" line="318"/>
         <source>WATCHTOWER</source>
         <translation>WATCHTOWER</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="187"/>
+        <location filename="../qml/TitleBar.qml" line="339"/>
         <source>Minimize</source>
         <translation>Свернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="191"/>
+        <location filename="../qml/TitleBar.qml" line="343"/>
         <source>Restore</source>
         <translation>Восстановить</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="191"/>
+        <location filename="../qml/TitleBar.qml" line="343"/>
         <source>Maximize</source>
         <translation>Развернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="195"/>
+        <location filename="../qml/TitleBar.qml" line="347"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
