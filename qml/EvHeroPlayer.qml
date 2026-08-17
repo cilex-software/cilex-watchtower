@@ -82,15 +82,15 @@ Item {
     // same. Absent profile (no assignment) → 5s/5s default, matching today's
     // Motion profile; mode "continuous" → no roll contract exists, show a
     // generous 15s of context instead (CV reply, 2026-08-06).
-    // Pre-roll floor raised 5s -> 15s (operator, 2026-08-17, Mac session): cameras stamp motion
-    // LATE — "the person has walked through half of the picture before the movement was
-    // detected" — and clipping display to the 5s profile cropped the approach out of a
-    // recording that CONTAINS 15-25s of roll. If footage starts later than the widened
-    // window, _applySeek lands on the nearest recorded frame, so an over-wide ask is safe.
-    readonly property int padPreMs: Math.max(15000,
-        (ev && ev.cam && ev.cam.preRollMs > 0) ? ev.cam.preRollMs : 0)
-    readonly property int padPostMs: (ev && ev.cam && ev.cam.recMode === "continuous") ? 15000
-        : (ev && ev.cam && ev.cam.postRollMs > 0) ? ev.cam.postRollMs : 5000
+    // Displayed pre/post-roll = the camera profile's OWN roll values, nothing more
+    // (operator, 2026-08-18: "no more than what's currently defined in the camera profile" —
+    // supersedes the 2026-08-17 15s pre-roll floor and the continuous-mode 15s default; the
+    // profile carries real values for continuous cameras too, measured: .110 = 5s/5s).
+    // Stated consequence the operator accepted: on cameras that stamp motion late (−20s
+    // measured), a 5s pre-roll can start the clip after the approach — the profile is the
+    // contract. Absent profile → 5s/5s, mirroring the fleet's Motion profile.
+    readonly property int padPreMs: (ev && ev.cam && ev.cam.preRollMs > 0) ? ev.cam.preRollMs : 5000
+    readonly property int padPostMs: (ev && ev.cam && ev.cam.postRollMs > 0) ? ev.cam.postRollMs : 5000
     property double _seekingToWall: -1                  // target held on the scrubber while a far-seek re-opens
     property bool _continuous: false                    // continuous-timeline session ⇒ direct seeks land within a run
     property int _frameSeq: 0                            // ++ on every rendered frame — input to the freeze-watchdog
