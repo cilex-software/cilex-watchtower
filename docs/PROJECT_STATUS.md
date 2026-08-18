@@ -18,10 +18,18 @@
 >    ~0.4 Mbit/s. ~~Keep `maxLiveDecodes ≤ 8`~~ **SUPERSEDED 2026-08-18** (CV's
 >    go2rtc-OOM P0 letter): the "~56 MiB / 8-stream ceiling" figure was measured
 >    with evictable page cache — real cost is **~34 MiB anon per consumed -wall
->    transcode**, and the container cap is now **3 GiB → ~88 transcodes**. The
->    booth's blackout days (51 kernel OOM kills on 08-18 alone) were go2rtc dying
->    under the old 1 GiB cap — every tile drops at once, and each mass reconnect
->    re-crossed the line. 135 tiles still does NOT fit pre-LAN (135×34 ≈ 4.6 GB);
+>    transcode**, and the ceiling is **min(memory, pids) ≈ 89**: memory
+>    (3072−40)/34 ≈ 89 binds; pids (2048−61)/16.6 ≈ 120 does not — the healthy
+>    state. **Warning (CV, 2026-08-18): if anyone trims the container's
+>    pids_limit back toward 512 as "generous", the ceiling silently returns to
+>    ~27 with ZERO kernel OOM evidence** — go2rtc can't fork its own healthcheck,
+>    Docker marks it unhealthy, the watchdog restarts it, and the OOM counter
+>    stays 0. The booth's blackout days (51 kernel OOM kills on 08-18 alone) were
+>    go2rtc dying under the old 1 GiB cap — every tile drops at once, and each
+>    mass reconnect re-crossed the line. The oft-quoted "~25 tiles in booth
+>    practice" is suspect as a demand figure: it sat within one tile of the old
+>    ~27 ceiling and rose to 40 within 30 min of the limits lifting (CV §4) —
+>    booth attempted-vs-rendered counts are the real demand number. 135 tiles still does NOT fit pre-LAN (135×34 ≈ 4.6 GB);
 >    the LAN plan retires -wall entirely (`-sub` passthrough, no ffmpeg). Also:
 >    `rtsp_wall_url` is now ADVERTISED on /streams — client consumption queued,
 >    suffix-append still works meanwhile.
