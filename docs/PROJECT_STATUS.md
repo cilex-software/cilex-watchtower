@@ -15,9 +15,16 @@
 >    **25 → 9 ms**. One query parameter, 62 %.
 > 2. **`WT_WALL_STREAM_SUFFIX=wall`** — CV's `{camera_id}-wall` (320×180 of
 >    `-sub`) measures **50.5 kbit/s** vs `-sub`'s 368.5, so 8 live tiles cost
->    ~0.4 Mbit/s. **Keep `maxLiveDecodes ≤ 8`**: CV measured ~56 MiB RSS per
->    transcode in a 1 GiB cap; 16 concurrent OOMs their box and takes down every
->    stream on it.
+>    ~0.4 Mbit/s. ~~Keep `maxLiveDecodes ≤ 8`~~ **SUPERSEDED 2026-08-18** (CV's
+>    go2rtc-OOM P0 letter): the "~56 MiB / 8-stream ceiling" figure was measured
+>    with evictable page cache — real cost is **~34 MiB anon per consumed -wall
+>    transcode**, and the container cap is now **3 GiB → ~88 transcodes**. The
+>    booth's blackout days (51 kernel OOM kills on 08-18 alone) were go2rtc dying
+>    under the old 1 GiB cap — every tile drops at once, and each mass reconnect
+>    re-crossed the line. 135 tiles still does NOT fit pre-LAN (135×34 ≈ 4.6 GB);
+>    the LAN plan retires -wall entirely (`-sub` passthrough, no ffmpeg). Also:
+>    `rtsp_wall_url` is now ADVERTISED on /streams — client consumption queued,
+>    suffix-append still works meanwhile.
 >
 > **The path's real budget is ~1.5–2 Mbit/s.** Loss is 0 % idle and 0 % up to 2
 > streams, 2 % at 3, 5 % at 4, 30 % at 6 — self-inflicted congestion, not a sick
