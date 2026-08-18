@@ -45,9 +45,13 @@ indication in the job payload. The app's own Export button inherits this: an
 operator exporting a recent event gets a silently short clip. **Fleet-visible; CV letter to follow.**
 
 **B2 — Clip open fails with FFmpeg "Invalid data found when processing input"
-(server cut / client-visible).** 41 of 803 opens (5.1 %) — the session's leading
-segment cut poisons the demuxer at open. The client shows an honest error with
-tap-to-retry; only 4 opens never recovered within the driver's 15 s patience.
+(server cut / client-visible).** CORRECTED 2026-08-18 (was "41 of 803 opens,
+5.1 %"): the 41 are error LINES — FFmpeg emits ~6 per poisoned open — and they
+collapse to **7 unique events = 0.9 % of opens**. Age at failure: 268 s–7,570 s
+(zero under 120 s), so this is NOT the finalization horizon (CV's WB1, answered
+in the roundup reply) — it is an age-independent leading-cut/keyframe defect.
+The client shows an honest error with tap-to-retry; 4 opens never recovered
+within the driver's 15 s patience.
 
 **B3 — Export download requires the signed per-job token.** `download` with the
 auth token 404s; only the `download_url` from the ready payload works. Cost three
