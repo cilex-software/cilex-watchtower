@@ -626,6 +626,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtHeroTest", qEnvironmentVariableIsSet("WT_HERO_TEST"));
     // Fixture hooks (verification): scope the events feed to one camera and select one
     // event by id at startup — lets a headless run land on an immutable known clip.
+    engine.rootContext()->setContextProperty("wtMarkerTest", qEnvironmentVariableIsSet("WT_MARKER_TEST"));
     engine.rootContext()->setContextProperty("wtHeroScopeCam", qEnvironmentVariable("WT_HERO_SCOPE_CAM"));
     engine.rootContext()->setContextProperty("wtHeroEvent", qEnvironmentVariable("WT_HERO_EVENT"));
     engine.rootContext()->setContextProperty("wtHeroOpenonly", qEnvironmentVariableIsSet("WT_HERO_OPENONLY"));

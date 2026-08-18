@@ -68,6 +68,17 @@ Item {
             return;
         }
         if (_htState === "settle") {                    // let the player play + buffer ahead before seeking
+            // Marker-soak mode (WT_MARKER_TEST): play the WHOLE window through at 2x so
+            // MotionScan covers head AND tail (the [MKT] verdict fires from the hero);
+            // move on when the hero marks the scan complete or a window-sized timeout lapses.
+            if (typeof wtMarkerTest !== "undefined" && wtMarkerTest) {
+                if (_ht && _ht._speed !== 2) _ht._speed = 2;   // playbackRate binds to _speed; _open() resets to 1
+                var winTicks = _ht ? Math.round(((_ht.tlEndMs - _ht.tlStartMs) / 2 + 12000) / 30) : 700;
+                if ((_ht && _ht._mktDone) || ++_htWaits >= Math.max(200, winTicks)) {
+                    _htWaits = 0; _htState = "seek";
+                }
+                return;
+            }
             if (++_htWaits >= _htSettleTicks) {          // dwell (default ~2.1s; WT_HERO_SETTLE_MS)
                 _htWaits = 0;
                 if (_htOpenonly) { _htOpens++; if (_htOpens % 20 === 0) console.log("[HT] OPENONLY opens=" + _htOpens + " t=" + Date.now()); _htState = "sel"; }
@@ -77,7 +88,8 @@ Item {
         }
         if (_htState === "seek") {
             if (_htDone()) { console.log("[HT] DONE jumps=" + _htJumps + _htSummary() + " t=" + Date.now()); Qt.quit(); return; }
-            if (_htEvSeeks >= 20) { _htState = "sel"; return; }       // periodically re-open for fresh events too
+            var seekCap = (typeof wtMarkerTest !== "undefined" && wtMarkerTest) ? 5 : 20;
+            if (_htEvSeeks >= seekCap) { _htState = "sel"; return; }  // periodically re-open for fresh events too
             var step = _htPickStep();
             if (step <= 0) { _htState = "sel"; return; }
             _ht.testSeek((Math.random() < 0.5 ? 1 : -1) * step);

@@ -20,6 +20,8 @@ class MotionScan : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(double firstMotionPtsMs READ firstMotionPtsMs NOTIFY firstMotionChanged)
+    Q_PROPERTY(double lastMotionPtsMs READ lastMotionPtsMs NOTIFY frameScanned)
+    Q_PROPERTY(double latestPtsMs READ latestPtsMs NOTIFY frameScanned)
     Q_PROPERTY(double earliestPtsMs READ earliestPtsMs NOTIFY frameScanned)
 public:
     explicit MotionScan(QObject *parent = nullptr);
@@ -33,6 +35,8 @@ public:
     Q_INVOKABLE void notePosition(double posMs) { m_notedPosMs = posMs; }
 
     double firstMotionPtsMs() const { return m_firstMotionPtsMs; }
+    double lastMotionPtsMs() const { return m_lastMotionPtsMs; }
+    double latestPtsMs() const { return m_latestPtsMs; }
     double earliestPtsMs() const { return m_earliestPtsMs; }
 
 signals:
@@ -69,6 +73,13 @@ private:
     bool m_saidNoPts = false;
     double m_earliestPtsMs = -1;
     double m_firstMotionPtsMs = -1;
+    double m_lastMotionPtsMs = -1;                 // last sustained-motion frame seen this scan
+    double m_latestPtsMs = -1;                     // scan coverage tail (for completeness checks)
+    // Adaptive gate (2026-08-19): trailing median of recent scores = the scene's noise
+    // floor (GOP spikes are single-frame, medians ignore them). A dark mover that never
+    // clears the absolute floor still clears many multiples of ITS OWN floor.
+    double m_recent[32] = {0};
+    int m_recentN = 0, m_recentI = 0;
     double m_candPtsMs = -1;
     int m_consec = 0;
     int m_mapFails = 0;

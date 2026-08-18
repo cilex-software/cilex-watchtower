@@ -56,6 +56,35 @@ Item {
     // to it. −1 = no measurement yet (detector stamp shown). CV-side clock fix tracked in
     // docs/letters/2026-08-17-null-clock-fields-block-marker-sync.md — both were ordered.
     property double mkMeasuredMs: -1
+    // Movement span END, measured (2026-08-19 marker soak): valid once the scan has covered
+    // the window TAIL; the scrubber's yellow then ends where motion ended, not where the
+    // camera's duration guess ended. −1 = unmeasured (stamp end shown).
+    property double mkMeasuredEndMs: -1
+    property bool _mktDone: false
+    Timer {   // window-completion check: scan covered head AND tail → apply end + emit [MKT]
+        interval: 500; repeat: true
+        running: hp._started && hp._lit && !hp._mktDone && hp._frags.length > 0
+        onTriggered: {
+            if (MotionScan.latestPtsMs < 0) return;
+            var tailWall = hp._posToWall(MotionScan.latestPtsMs);
+            // Tail covered = scanned to the window end, OR the media genuinely ended earlier
+            // (recordings often stop short of the padded window; EndOfMedia is honest coverage).
+            var ended = player.mediaStatus === MediaPlayer.EndOfMedia
+                        || (player.duration > 0 && player.position >= player.duration - 800);
+            if (tailWall < hp.tlEndMs - 1500 && !ended) return;
+            if (hp._posToWall(MotionScan.earliestPtsMs) > hp.tlStartMs + 2500) return;   // head never covered
+            hp._mktDone = true;
+            var mEnd = MotionScan.lastMotionPtsMs >= 0 ? hp._posToWall(MotionScan.lastMotionPtsMs) : -1;
+            if (mEnd > hp.tlStartMs && mEnd <= hp.tlEndMs && hp.mkMeasuredMs > 0 && mEnd > hp.mkMeasuredMs)
+                hp.mkMeasuredEndMs = mEnd;
+            // One verdict line per fully-scanned clip — the marker-soak datum.
+            var ds = hp.mkMeasuredMs > 0 ? Math.round(hp.mkMeasuredMs - hp.mkStartMs) : "nolock";
+            var de = mEnd > 0 ? Math.round(mEnd - hp.mkEndMs) : "nolock";
+            console.log("[MKT] ev=" + (hp.ev ? hp.ev.id : "?") + " cam=" + (hp.ev && hp.ev.cam ? hp.ev.cam.id : "?")
+                        + " startDeltaMs=" + ds + " endDeltaMs=" + de
+                        + " win=" + Math.round((hp.tlEndMs - hp.tlStartMs) / 1000) + "s");
+        }
+    }
     Connections {
         target: MotionScan
         // No-PTS backends (macOS darwin): feed the player position as the frame time source.
@@ -316,7 +345,7 @@ Item {
         openDeadline.restart();
         _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
         _lit = false;                                    // fresh session: poster holds until ITS first frame
-        mkMeasuredMs = -1; MotionScan.reset();           // fresh window: fresh scan
+        mkMeasuredMs = -1; mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();   // fresh window: fresh scan
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
         // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
@@ -743,7 +772,7 @@ Item {
                     readonly property real _f: _span > 0 ? Math.max(0, Math.min(1, (hp._playheadWallMs - hp.tlStartMs) / _span)) : 0
                     function _seekX(x) { if (_span > 0) hp.seekToWall(hp.tlStartMs + Math.max(0, Math.min(_w, x - _pad)) / _w * _span); }
                     readonly property real _m0: _span > 0 ? Math.max(0, Math.min(1, ((hp.mkMeasuredMs > 0 ? hp.mkMeasuredMs : hp.mkStartMs) - hp.tlStartMs) / _span)) : 0
-                    readonly property real _m1: _span > 0 ? Math.max(0, Math.min(1, (hp.mkEndMs - hp.tlStartMs) / _span)) : 0
+                    readonly property real _m1: _span > 0 ? Math.max(0, Math.min(1, ((hp.mkMeasuredEndMs > 0 ? hp.mkMeasuredEndMs : hp.mkEndMs) - hp.tlStartMs) / _span)) : 0
                     Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: Theme.line }
                     Rectangle { x: parent._pad; anchors.verticalCenter: parent.verticalCenter; width: parent._w; height: 5; color: Theme.panel3 }
                     Rectangle { x: parent._pad; anchors.verticalCenter: parent.verticalCenter; height: 5; color: Theme.accent; width: parent._w * parent._f }

@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <algorithm>
 #include <QDateTime>
 
 MotionScan::MotionScan(QObject *parent)
@@ -39,6 +40,9 @@ void MotionScan::reset()
     m_prevPtsMs = -1;
     m_prevWallMs = -1;
     m_notedPosMs = -1;
+    m_lastMotionPtsMs = -1;
+    m_latestPtsMs = -1;
+    m_recentN = 0; m_recentI = 0;
     m_earliestPtsMs = -1;
     m_firstMotionPtsMs = -1;
     m_candPtsMs = -1;
@@ -94,6 +98,8 @@ void MotionScan::onFrame(const QVideoFrame &frame)
 
     if (ptsMs >= 0 && (m_earliestPtsMs < 0 || ptsMs < m_earliestPtsMs))
         m_earliestPtsMs = ptsMs;
+    if (ptsMs > m_latestPtsMs)
+        m_latestPtsMs = ptsMs;
 
     // Contiguity gate: only score against the immediately-preceding played frame.
     // PTS when the backend stamps frames; arrival wall-clock cadence when it doesn't
@@ -104,12 +110,26 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         : (m_prevWallMs > 0 && ptsMs >= 0
            && (wallNow - m_prevWallMs) > 0 && double(wallNow - m_prevWallMs) <= kMaxGapMs);
     m_prevWallMs = wallNow;
-    if (contiguous && m_firstMotionPtsMs < 0) {
+    if (contiguous) {
         int changed = 0;
         for (int i = 0; i < kGW * kGH; ++i)
             if (std::abs(int(m_cur[i]) - int(m_prev[i])) > kDiffThresh)
                 ++changed;
         const double score = double(changed) / double(kGW * kGH);
+        // Scene noise floor: median of the trailing ring (single-frame GOP spikes can't move a median).
+        double floorv = 0;
+        if (m_recentN >= 8) {
+            double tmp[32]; int n = m_recentN;
+            for (int i = 0; i < n; ++i) tmp[i] = m_recent[i];
+            std::sort(tmp, tmp + n);
+            floorv = tmp[n / 2];
+        }
+        m_recent[m_recentI] = score; m_recentI = (m_recentI + 1) % 32;
+        if (m_recentN < 32) ++m_recentN;
+        // Movement = absolute floor OR many multiples of this scene's own noise floor
+        // (adaptive path needs a real floor history and a nontrivial absolute minimum).
+        const bool moving = (score >= kCellFrac)
+                            || (m_recentN >= 8 && floorv > 0.0001 && score >= 6.0 * floorv && score >= 0.008);
         if (m_trace) {                                  // score telemetry: max per ~2s bucket
             if (score > m_bucketMax) m_bucketMax = score;
             if (ptsMs - m_bucketT0 >= 2000) {
@@ -117,13 +137,17 @@ void MotionScan::onFrame(const QVideoFrame &frame)
                 m_bucketT0 = ptsMs; m_bucketMax = 0;
             }
         }
-        if (score >= kCellFrac) {
+        if (moving) {
             if (m_consec == 0)
                 m_candPtsMs = m_prevPtsMs;         // motion began between prev and this frame
             if (++m_consec >= kConsecNeed) {
-                m_firstMotionPtsMs = m_candPtsMs;
-                qInfo("[MSCAN] first motion pts=%.0fms score=%.3f", m_firstMotionPtsMs, score);
-                emit firstMotionChanged();
+                if (m_firstMotionPtsMs < 0) {
+                    m_firstMotionPtsMs = m_candPtsMs;
+                    qInfo("[MSCAN] first motion pts=%.0fms score=%.3f floor=%.4f", m_firstMotionPtsMs, score, floorv);
+                    emit firstMotionChanged();
+                }
+                if (ptsMs > m_lastMotionPtsMs)
+                    m_lastMotionPtsMs = ptsMs;     // rolls forward with every sustained-motion frame
             }
         } else {
             m_consec = 0;
