@@ -18,6 +18,12 @@ Item {
                                                  // header (EvHeroPlayer) sets this false to avoid overlap
     property bool mini: false
     property bool showPlayhead: true             // Player hides this; its transport owns the scrub
+    // Soak probe P4 (poster honesty, 2026-08-20 mac iteration two): when set (hero poster
+    // only), log which state this poster resolved to — real event frame vs live-now
+    // fallback — so the run can COUNT both instead of anecdote them. Inert when "".
+    property string probeTag: ""
+    on_ShowingLiveChanged: if (probeTag !== "" && _showingLive && ev)
+                               console.log("[P4] " + probeTag + " ev=" + ev.id + " state=liveFallback")
     clip: true
 
     // Network-scheduling priority for the cvframe image provider (see CvImageProvider):
@@ -137,10 +143,14 @@ Item {
             // means retention (>35 d) or a server defect, unlike the two boring cases we now
             // either skip or expect. Say so once, so it is distinguishable in the flight
             // recorder instead of drowning in the noise this change removes.
-            onStatusChanged: if (status === Image.Error && root.ev && root.ev.recordingId && root.ev.durationSec > 0)
-                                 console.warn("EvSnapshot: snapshot 404 on a COMPLETE episode (event="
-                                              + root.ev.id + " recording=" + root.ev.recordingId
-                                              + " dur=" + root.ev.durationSec + "s) — retention or server-side")
+            onStatusChanged: {
+                if (status === Image.Ready && root.probeTag !== "" && root.ev)
+                    console.log("[P4] " + root.probeTag + " ev=" + root.ev.id + " state=eventFrame");
+                if (status === Image.Error && root.ev && root.ev.recordingId && root.ev.durationSec > 0)
+                    console.warn("EvSnapshot: snapshot 404 on a COMPLETE episode (event="
+                                 + root.ev.id + " recording=" + root.ev.recordingId
+                                 + " dur=" + root.ev.durationSec + "s) — retention or server-side");
+            }
         }
         // honest "no frame" only when neither the still nor the live frame loaded
         Item {
