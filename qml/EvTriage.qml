@@ -88,7 +88,9 @@ Item {
         }
         if (_htState === "seek") {
             if (_htDone()) { console.log("[HT] DONE jumps=" + _htJumps + _htSummary() + " t=" + Date.now()); Qt.quit(); return; }
-            var seekCap = (typeof wtMarkerTest !== "undefined" && wtMarkerTest) ? 5 : 20;
+            // Marker soak iteration 2 (operator): seek battery back to first-iteration
+            // strength — a per-event cap in [15,30], varied deterministically per event.
+            var seekCap = (typeof wtMarkerTest !== "undefined" && wtMarkerTest) ? (15 + (_htOpens + _htJumps) % 16) : 20;
             if (_htEvSeeks >= seekCap) { _htState = "sel"; return; }  // periodically re-open for fresh events too
             var step = _htPickStep();
             if (step <= 0) { _htState = "sel"; return; }
