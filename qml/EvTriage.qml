@@ -48,6 +48,16 @@ Item {
     // at equal playback time, discriminating open-driven vs playback-time-driven RSS growth.
     readonly property int _htSettleTicks: (typeof wtHeroSettleMs !== "undefined" && wtHeroSettleMs > 0) ? Math.max(1, Math.round(wtHeroSettleMs / 30)) : 70
     property int _htOpens: 0
+    // ---- soak iteration-two state (2026-08-20 mac): per-clip seek budget + probes 3/5/6/8 ----
+    property int _htSeekCapThis: 20        // marker mode: re-rolled 15–30 per clip (operator order, iteration two)
+    property int _htSelCount: 0
+    property bool _p3Done: false           // P3: one queue-integrity scan per app run
+    property string _p5Ev: ""              // P5: deliberately-selected seconds-old event
+    property double _p5T0: 0
+    property int _p6Clip: 0                // P6: paused-seek staleness battery, every ~12th clip
+    property int _p6F0: 0
+    property double _p6Wall0: 0
+    property int _p8Clip: 0                // P8: export-window announce, every ~10th clip
     Timer {
         interval: 30; repeat: true; running: tri._htRun
         onTriggered: tri._htTick()
@@ -63,8 +73,32 @@ Item {
         if (_htState === "waitopen") {
             var ready = _htOpenonly ? (_ht && _ht._armed && !_ht._loading)             // openonly: session ready (no decode/frame needed)
                                     : (_ht && !_ht._htOpenPending && _ht.testFrames > 0 && _ht.testDurMs > 1500);
-            if (ready) { _htEvSeeks = 0; _htWaits = 0; _htState = "settle"; }
-            else if (++_htWaits > 500) { console.log("[HT] OPEN TIMEOUT t=" + Date.now()); _htState = "sel"; }   // 15s
+            if (ready) {
+                if (_p5Ev !== "" && selId === _p5Ev) {     // P5: seconds-old event reached first frame
+                    console.log("[P5] firstframe ev=" + _p5Ev + " ms=" + (Date.now() - _p5T0));
+                    _p5Ev = "";
+                }
+                _htEvSeeks = 0; _htWaits = 0; _htState = "settle";
+                // P8: every ~10th clip, announce the episode window for the external export prober
+                if (typeof wtMarkerTest !== "undefined" && wtMarkerTest && (++_p8Clip % 10 === 0)
+                        && _ht && _ht.ev && _ht.ev.cam)
+                    console.log("[P8] ev=" + selId + " cam=" + _ht.ev.cam.id
+                                + " s=" + new Date(_ht.testTlStartMs).toISOString()
+                                + " e=" + new Date(_ht.testTlEndMs).toISOString());
+            }
+            else {
+                ++_htWaits;
+                if (_p5Ev !== "" && selId === _p5Ev && _ht && _ht.testError !== "" && _htWaits % 100 === 0)
+                    console.log("[P5] state ev=" + _p5Ev + " tMs=" + (Date.now() - _p5T0) + " err=\"" + _ht.testError + "\"");
+                if (_htWaits > 500) {                      // 15s
+                    if (_p5Ev !== "" && selId === _p5Ev) { // P5: never lit within the driver's patience
+                        console.log("[P5] timeout ev=" + _p5Ev + " ms=" + (Date.now() - _p5T0)
+                                    + " err=\"" + (_ht ? _ht.testError : "?") + "\"");
+                        _p5Ev = "";
+                    }
+                    console.log("[HT] OPEN TIMEOUT t=" + Date.now()); _htState = "sel";
+                }
+            }
             return;
         }
         if (_htState === "settle") {                    // let the player play + buffer ahead before seeking
@@ -88,10 +122,18 @@ Item {
         }
         if (_htState === "seek") {
             if (_htDone()) { console.log("[HT] DONE jumps=" + _htJumps + _htSummary() + " t=" + Date.now()); Qt.quit(); return; }
-            // Marker soak iteration 2 (operator): seek battery back to first-iteration
-            // strength — a per-event cap in [15,30], varied deterministically per event.
-            var seekCap = (typeof wtMarkerTest !== "undefined" && wtMarkerTest) ? (15 + (_htOpens + _htJumps) % 16) : 20;
-            if (_htEvSeeks >= seekCap) { _htState = "sel"; return; }  // periodically re-open for fresh events too
+            // Iteration two (operator order): marker mode's battery back to first-iteration
+            // strength — a random 15–30 per clip, re-rolled in _htSelect (was 5; supersedes
+            // 8721a4c's deterministic per-event variant, same operator order both sides).
+            var seekCap = (typeof wtMarkerTest !== "undefined" && wtMarkerTest) ? _htSeekCapThis : 20;
+            if (_htEvSeeks >= seekCap) {                                  // battery done for this clip
+                // P6: every ~12th clip, run the paused-seek staleness probe before moving on
+                if (typeof wtMarkerTest !== "undefined" && wtMarkerTest
+                        && (++_p6Clip % 12 === 0) && _ht && !_ht.testLoading && _ht.testFrames > 0) {
+                    _ht.testPause(); _htState = "p6pause"; _htWaits = 0; return;
+                }
+                _htState = "sel"; return;                                 // periodically re-open for fresh events too
+            }
             var step = _htPickStep();
             if (step <= 0) { _htState = "sel"; return; }
             _ht.testSeek((Math.random() < 0.5 ? 1 : -1) * step);
@@ -107,6 +149,32 @@ Item {
             }
             return;
         }
+        // ---- P6 (paused-seek staleness, open item E12): pause, click elsewhere on the
+        // scrubber via the USER's code path, and demand the PICTURE moved with the playhead.
+        // testFrames is the rendered-frame counter — unchanged after 1.2 s = stale frame.
+        if (_htState === "p6pause") {
+            if (!_ht) { _htState = "sel"; return; }
+            if (++_htWaits < 24) return;                                               // ~0.7s: let the pause take
+            _p6F0 = _ht.testFrames; _p6Wall0 = _ht.testWallMs;
+            var lo = _ht.testTlStartMs + 2000, hi = _ht.testTlEndMs - 2000;
+            var d = (8000 + Math.random() * 12000) * (Math.random() < 0.5 ? -1 : 1);
+            var tgt = _p6Wall0 + d;
+            if (tgt < lo || tgt > hi) tgt = _p6Wall0 - d;
+            _ht.testSeekPausedWall(Math.max(lo, Math.min(hi, tgt)));
+            _htState = "p6wait"; _htWaits = 0; return;
+        }
+        if (_htState === "p6wait") {
+            if (!_ht) { _htState = "sel"; return; }
+            if (++_htWaits < 40) return;                                               // ~1.2s after the paused click
+            var f1 = _ht.testFrames;
+            var stale = (f1 === _p6F0);
+            console.log("[P6] ev=" + selId + " f0=" + _p6F0 + " f1=" + f1
+                        + " wall0=" + Math.round(_p6Wall0) + " wall1=" + Math.round(_ht.testWallMs)
+                        + " paused=" + _ht.testPaused + " loading=" + _ht.testLoading + " stale=" + stale);
+            if (stale) _ht.testShotVideo("scratchpad/soak-mac/shots/p6-" + selId + "-stale.png");
+            _ht.testResume();
+            _htState = "sel"; _htWaits = 0; return;
+        }
     }
     function _htSelect() {
         if (_htOpenonly) {                                  // leak bisect: just open a fresh event (≠ current), no seeks
@@ -114,11 +182,50 @@ Item {
             if (es.length) tri.select(es[Math.floor(Math.random() * es.length)].id);
             return;
         }
+        _htSeekCapThis = 15 + Math.floor(Math.random() * 16);   // iteration two: random 15–30 per clip
+        _htSelCount++;
+        if (!_p3Done && EventsStore.events.length > 0) { _p3Scan(); _p3Done = true; }
+        // P5: every ~15th selection, deliberately take a seconds-old event if one exists —
+        // expect "Recording in progress…" with bounded retries, never an instant "No footage".
+        if (typeof wtMarkerTest !== "undefined" && wtMarkerTest && _htSelCount % 15 === 0) {
+            var fresh = EventsStore.events.filter(function (e) {
+                return e.cam && e.cam.id && e.ts && (Date.now() - e.ts.getTime()) < 120000; });
+            if (fresh.length) {
+                fresh.sort(function (a, b) { return b.ts.getTime() - a.ts.getTime(); });
+                _p5Ev = fresh[0].id; _p5T0 = Date.now();
+                console.log("[P5] pick ev=" + _p5Ev + " ageS="
+                            + Math.round((Date.now() - fresh[0].ts.getTime()) / 1000));
+                tri.select(_p5Ev);
+                return;
+            }
+            console.log("[P5] none-available t=" + Date.now());
+        }
         var need = _htSteps.filter(function (s) { return (_htCount[s] || 0) < 100; });
         var want = need.length ? need[Math.floor(Math.random() * need.length)] : _htSteps[Math.floor(Math.random() * _htSteps.length)];
         var evs = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && (e.durationSec * 1000) >= (want + 4000); });
         if (!evs.length) evs = EventsStore.events.filter(function (e) { return e.cam && e.cam.id && e.durationSec >= 2; });
         if (evs.length) tri.select(evs[Math.floor(Math.random() * evs.length)].id);
+    }
+    // P3 (recording_id resilience): one queue-integrity scan per app run — zero-duration
+    // rows, recordingId-less rows, and same-camera rows closer than 1.5 s (duplicate
+    // started/ended rows would betray a proximity-pairing regression, v1.1.125).
+    function _p3Scan() {
+        var evs = EventsStore.events;
+        var dur0 = 0, noRec = 0, byCam = {};
+        for (var i = 0; i < evs.length; i++) {
+            var e = evs[i];
+            if (!(e.durationSec > 0)) dur0++;
+            if (!e.recordingId) noRec++;
+            var c = e.cam && e.cam.id ? e.cam.id : "?";
+            if (!byCam[c]) byCam[c] = [];
+            byCam[c].push(e.ts ? e.ts.getTime() : 0);
+        }
+        var dup = 0;
+        for (var c2 in byCam) {
+            var ts = byCam[c2]; ts.sort(function (a, b) { return a - b; });
+            for (var j = 1; j < ts.length; j++) if (ts[j] - ts[j - 1] < 1500) dup++;
+        }
+        console.log("[P3] rows=" + evs.length + " dur0=" + dur0 + " noRec=" + noRec + " dupPairs=" + dup);
     }
     function _htPickStep() {
         var dur = _ht ? _ht.testDurMs : 0;

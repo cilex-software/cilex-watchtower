@@ -23,7 +23,12 @@ RC=packaging/windows/watchtower.rc
 NSI=packaging/windows/installer.nsi
 MANIFEST=packaging/windows/app.manifest
 
-cur() { sed -n 's/^ *VERSION \([0-9]\+\.[0-9]\+\.[0-9]\+\) *$/\1/p' "$CMAKE" | head -1; }
+# POSIX BRE only ([0-9][0-9]*, never \+) and a sed -i shim: BSD sed (macOS) needs
+# -i '' where GNU sed wants a bare -i — found 2026-08-20, first commit from the Mac
+# checkout (the hook had never run on a BSD userland before).
+sedi() { if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi; }
+
+cur() { sed -n 's/^ *VERSION \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\) *$/\1/p' "$CMAKE" | head -1; }
 
 CURRENT="$(cur)"
 [[ -n "$CURRENT" ]] || { echo "bump-version: no 'VERSION x.y.z' in $CMAKE" >&2; exit 1; }
@@ -42,18 +47,18 @@ IFS=. read -r MA MI PA <<<"$NEW"
 
 # CMake — the source of truth. Anchored to the 3-component form so the unrelated
 # 'VERSION 1.0' further down (the QML module version) is never touched.
-sed -i "s/^\( *VERSION \)[0-9]\+\.[0-9]\+\.[0-9]\+ *$/\1$NEW/" "$CMAKE"
+sedi "s/^\( *VERSION \)[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* *$/\1$NEW/" "$CMAKE"
 
 # Windows resource block: comma form for the binary fields, dotted 4-part for the
 # human-readable strings. Both must agree or the file properties dialog disagrees
 # with the installer.
 if [[ -f "$RC" ]]; then
-    sed -i -e "s/^\( *FILEVERSION *\)[0-9]\+,[0-9]\+,[0-9]\+,[0-9]\+/\1$MA,$MI,$PA,0/" \
-           -e "s/^\( *PRODUCTVERSION *\)[0-9]\+,[0-9]\+,[0-9]\+,[0-9]\+/\1$MA,$MI,$PA,0/" \
-           -e "s/\(VALUE \"FileVersion\", *\)\"[0-9.]\+\"/\1\"$NEW.0\"/" \
-           -e "s/\(VALUE \"ProductVersion\", *\)\"[0-9.]\+\"/\1\"$NEW.0\"/" "$RC"
+    sedi -e "s/^\( *FILEVERSION *\)[0-9][0-9]*,[0-9][0-9]*,[0-9][0-9]*,[0-9][0-9]*/\1$MA,$MI,$PA,0/" \
+         -e "s/^\( *PRODUCTVERSION *\)[0-9][0-9]*,[0-9][0-9]*,[0-9][0-9]*,[0-9][0-9]*/\1$MA,$MI,$PA,0/" \
+         -e "s/\(VALUE \"FileVersion\", *\)\"[0-9.][0-9.]*\"/\1\"$NEW.0\"/" \
+         -e "s/\(VALUE \"ProductVersion\", *\)\"[0-9.][0-9.]*\"/\1\"$NEW.0\"/" "$RC"
 fi
-[[ -f "$NSI" ]]      && sed -i "s/\(!define VERSION *\)\"[0-9.]\+\"/\1\"$NEW\"/" "$NSI"
-[[ -f "$MANIFEST" ]] && sed -i "s/\(version=\)\"[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\"/\1\"$NEW.0\"/" "$MANIFEST"
+[[ -f "$NSI" ]]      && sedi "s/\(!define VERSION *\)\"[0-9.][0-9.]*\"/\1\"$NEW\"/" "$NSI"
+[[ -f "$MANIFEST" ]] && sedi "s/\(version=\)\"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"/\1\"$NEW.0\"/" "$MANIFEST"
 
 echo "$NEW"

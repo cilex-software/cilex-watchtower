@@ -102,6 +102,7 @@ Item {
             hp.mkMeasuredMs = wall;
             console.log("[MSCAN] span start MEASURED wall=" + Math.round(wall)
                         + " detectorDeltaMs=" + Math.round(wall - hp.mkStartMs));
+            if (hp._p1AEv !== "") p1ShotB.restart();        // P1: pair shot after the snap applies
         }
     }
     // Displayed pre/post-roll around the movement (operator ask 2026-08-06):
@@ -169,6 +170,58 @@ Item {
         else
             seekToWall(_playheadWallMs + deltaMs);                              // the REAL seek path (near direct / far re-open)
     }
+    // ---- soak iteration-two probe hooks (2026-08-20, mac). All inert without WT_HERO_TEST. ----
+    function testPause()  { player.pause() }
+    function testResume() { player.play() }
+    // P6 (paused-seek staleness): the USER's path — a scrubber click while paused goes through
+    // seekToWall with NO play(); testSeek() deliberately force-plays, which is exactly what
+    // would mask the stale-frame suspect this probe hunts. So this hook stays paused.
+    function testSeekPausedWall(wallMs) { seekToWall(Math.max(tlStartMs, Math.min(tlEndMs, wallMs))) }
+    readonly property bool   testLoading: _loading
+    readonly property string testError: _error
+    readonly property double testWallMs: _playheadWallMs
+    readonly property double testTlStartMs: tlStartMs
+    readonly property double testTlEndMs: tlEndMs
+    readonly property bool   testPaused: player.playbackState === MediaPlayer.PausedState
+    function testShotVideo(path) { _probeGrab(vout, path) }
+    function _probeGrab(item, path) {
+        if (!_htOn || !item || !item.visible) return;
+        try {
+            item.grabToImage(function (r) {
+                console.log("[SHOT] " + (r.saveToFile(path) ? "saved " : "FAILED ") + path);
+            });
+        } catch (e) { console.log("[SHOT] grab threw: " + e); }
+    }
+    // P1 (measured-snap application): the yellow must VISIBLY move once measurement exists.
+    // Shot A = scrubber drawn from the camera stamp (taken when the clip lights, measurement
+    // still −1); shot B = right after [MSCAN] span start MEASURED applies. Paired PNGs +
+    // a numeric [P1] line (normalized draw positions + px offset) — quota 12 pairs per run.
+    property int _p1Pairs: 0
+    property string _p1AEv: ""
+    Timer {
+        id: p1ShotA; interval: 400; repeat: false
+        onTriggered: {
+            if (!hp._lit || hp.mkMeasuredMs > 0 || !hp.ev) return;
+            hp._p1AEv = hp.ev.id;
+            hp._probeGrab(scrub, "scratchpad/soak-mac/shots/p1-" + hp.ev.id + "-A.png");
+        }
+    }
+    Timer {
+        id: p1ShotB; interval: 400; repeat: false
+        onTriggered: {
+            if (!hp.ev || hp.ev.id !== hp._p1AEv || hp.mkMeasuredMs <= 0) return;
+            var span = hp.tlEndMs - hp.tlStartMs;
+            if (span <= 0) return;
+            var stampN = (hp.mkStartMs - hp.tlStartMs) / span;
+            var measN  = (hp.mkMeasuredMs - hp.tlStartMs) / span;
+            console.log("[P1] pair ev=" + hp.ev.id + " stampN=" + stampN.toFixed(4)
+                        + " measN=" + measN.toFixed(4) + " dxPx=" + (scrub._w * (measN - stampN)).toFixed(1));
+            hp._probeGrab(scrub, "scratchpad/soak-mac/shots/p1-" + hp.ev.id + "-B.png");
+            hp._p1Pairs++; hp._p1AEv = "";
+        }
+    }
+    on_LitChanged: if (_htOn && _lit && typeof wtMarkerTest !== "undefined" && wtMarkerTest
+                       && mkMeasuredMs < 0 && _p1Pairs < 12) p1ShotA.restart()
     // Mid-play stall rescue: review-session segments are cut LAZILY server-side, and the FFmpeg
     // demuxer can abandon a VOD playlist after 404s on a not-yet-ready segment (measured
     // 2026-08-17, CV logs: the Mac's sessions fetched seg 0-1, retried seg 2 four times in
@@ -645,6 +698,7 @@ Item {
                 // poster (and its "● LIVE" fallback chip) covering a playing recording forever.
                 visible: hp._loading || hp._error !== "" || !hp._lit
                 ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false; fitMode: true
+                probeTag: hp._htOn ? "hero" : ""            // P4 poster-honesty telemetry (soak only)
             }
             // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)
             MouseArea {
@@ -765,6 +819,7 @@ Item {
                         color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                 }
                 Item {                                      // scrubber — spans the whole EPISODE timeline (tl*), not the loaded window
+                    id: scrub
                     Layout.fillWidth: true; Layout.fillHeight: true
                     readonly property real _pad: 11
                     readonly property real _w: width - 2 * _pad
