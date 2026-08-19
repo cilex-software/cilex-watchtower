@@ -39,7 +39,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.2.0"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16)
+WARDEN_VERSION = "1.3.0"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct on the beat
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -433,6 +433,69 @@ def iso(ts):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts)) if ts else None
 
 
+# Whole-machine load for the beat (mobile Health tile ask, letter 2026-08-20).
+# Additive fields, and None (JSON null) whenever unmeasured — absent is NEVER zero on
+# this surface. Whole MACHINE, not the app process: a wedged GUI on a busy box must not
+# read as calm. CPU is a delta across consecutive beats (first beat → null); memory is
+# instantaneous. Stdlib only — the booth's frozen exe gains no dependencies.
+HOSTLOAD = {"cpu_prev": None}
+
+
+def host_load():
+    cpu = mem = None
+    try:
+        if os.name == "nt":
+            import ctypes
+            import ctypes.wintypes as wt
+
+            class MEMSTATEX(ctypes.Structure):
+                _fields_ = [("dwLength", wt.DWORD), ("dwMemoryLoad", wt.DWORD),
+                            ("ullTotalPhys", ctypes.c_uint64), ("ullAvailPhys", ctypes.c_uint64),
+                            ("ullTotalPageFile", ctypes.c_uint64), ("ullAvailPageFile", ctypes.c_uint64),
+                            ("ullTotalVirtual", ctypes.c_uint64), ("ullAvailVirtual", ctypes.c_uint64),
+                            ("ullAvailExtendedVirtual", ctypes.c_uint64)]
+
+            ms = MEMSTATEX()
+            ms.dwLength = ctypes.sizeof(MEMSTATEX)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(ms)):
+                mem = float(ms.dwMemoryLoad)            # OS-computed whole-machine percent
+            idle, kern, user = wt.FILETIME(), wt.FILETIME(), wt.FILETIME()
+            if ctypes.windll.kernel32.GetSystemTimes(ctypes.byref(idle), ctypes.byref(kern), ctypes.byref(user)):
+                def ft(x):
+                    return (x.dwHighDateTime << 32) | x.dwLowDateTime
+                i, t = ft(idle), ft(kern) + ft(user)     # kernel time INCLUDES idle on Windows
+                prev = HOSTLOAD["cpu_prev"]
+                HOSTLOAD["cpu_prev"] = (i, t)
+                if prev and t > prev[1]:
+                    di, dt = i - prev[0], t - prev[1]
+                    cpu = round(max(0.0, min(100.0, 100.0 * (dt - di) / dt)), 1)
+        else:
+            with open("/proc/stat") as f:
+                vals = [int(x) for x in f.readline().split()[1:8]]
+            idle_all = vals[3] + vals[4]                 # idle + iowait
+            total = sum(vals)
+            prev = HOSTLOAD["cpu_prev"]
+            HOSTLOAD["cpu_prev"] = (idle_all, total)
+            if prev and total > prev[1]:
+                di, dt = idle_all - prev[0], total - prev[1]
+                cpu = round(max(0.0, min(100.0, 100.0 * (dt - di) / dt)), 1)
+            tot = avail = None
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        tot = int(line.split()[1])
+                    elif line.startswith("MemAvailable:"):
+                        avail = int(line.split()[1])
+                    if tot is not None and avail is not None:
+                        break
+            if tot and avail is not None:
+                mem = round(100.0 * (tot - avail) / tot, 1)
+    except Exception:
+        cpu = cpu if isinstance(cpu, float) else None    # any failure → unmeasured, never zero
+        mem = mem if isinstance(mem, float) else None
+    return cpu, mem
+
+
 class Heartbeat(threading.Thread):
     """CW-19 client half (contract: 2026-07-27-warden-dead-man-heartbeat.md §3).
     Rules encoded from that letter: NEVER spooled, never counted against upload
@@ -474,6 +537,7 @@ class Heartbeat(threading.Thread):
             "last_successful_contact_at": iso(CONTACT["last_ok"]),
             "backend_unreachable_since": iso(CONTACT["unreachable_since"]),
         }
+        p["cpu_pct"], p["mem_pct"] = host_load()   # whole-machine; null when unmeasured
         try:
             p["flightrec_age_s"] = int(now - (FLTREC / "watchtower.log").stat().st_mtime)
         except OSError:
