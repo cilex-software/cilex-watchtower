@@ -162,8 +162,41 @@ QtObject {
             else                      { eMs = g.ended.ts; sMs = g.ended.ts - (g.ended.durationMs || 0); }  // started not loaded
             out.push(store._mkEvent(base, camLookup, sMs, Math.max(0, eMs - sMs)));
         }
-        for (var j = 0; j < singles.length; j++)
-            out.push(store._mkEvent(singles[j], camLookup, singles[j].ts, singles[j].durationMs || 0));
+        // Proximity fallback (2026-08-20): CV rows stopped carrying recording_id (their
+        // storage-agent incident, letter filed), which broke the primary join above — every
+        // started became a 0-length row and every ended its duplicate, doubling the queue and
+        // starving the still gate. When the KEY is missing, pair started↔ended by the next
+        // ended on the SAME camera within 10 min — the lifecycle guarantees that ordering.
+        // Rows WITH a recording_id never enter this path, so the honest join stays primary.
+        var endedByCam = ({});
+        for (var j3 = 0; j3 < singles.length; j3++) {
+            var r3 = singles[j3];
+            if (r3.type === "motion_ended") {
+                if (!endedByCam[r3.camId]) endedByCam[r3.camId] = [];
+                endedByCam[r3.camId].push(j3);
+            }
+        }
+        var used = ({});
+        for (var j = 0; j < singles.length; j++) {
+            if (used[j]) continue;
+            var sr = singles[j];
+            if (sr.type === "motion_started") {
+                var best = -1, bestDt = 600001;
+                var cands = endedByCam[sr.camId] || [];
+                for (var c = 0; c < cands.length; c++) {
+                    var ei = cands[c];
+                    if (used[ei]) continue;
+                    var dt = singles[ei].ts - sr.ts;
+                    if (dt >= 500 && dt < bestDt) { bestDt = dt; best = ei; }
+                }
+                if (best >= 0) {
+                    used[best] = true;
+                    out.push(store._mkEvent(sr, camLookup, sr.ts, bestDt));
+                    continue;
+                }
+            }
+            out.push(store._mkEvent(sr, camLookup, sr.ts, sr.durationMs || 0));
+        }
         out.sort(function (a, b) { return b.ts.getTime() - a.ts.getTime(); });   // newest episode (by start) first
         realMode = true;
         events = out;

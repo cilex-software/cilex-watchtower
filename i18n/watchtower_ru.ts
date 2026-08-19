@@ -581,27 +581,27 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="145"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="203"/>
         <source>Playback stalled — the recording backend stopped serving this window. Tap play to retry.</source>
         <translation>Воспроизведение остановилось — сервер записи перестал отдавать этот участок. Нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="405"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="466"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation>Сервер записи не ответил за 25 с — нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="500"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="561"/>
         <source>Recording in progress — waiting for the first footage…</source>
         <translation>Идёт запись — ждём первые кадры…</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="503"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="564"/>
         <source>No footage recorded around this moment.</source>
         <translation>Нет записи в этот момент.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="603"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="664"/>
         <source>Loading recording…</source>
         <translation>Загрузка записи…</translation>
     </message>
@@ -709,24 +709,29 @@
 <context>
     <name>EvSnapshot</name>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="142"/>
+        <location filename="../qml/EvSnapshot.qml" line="151"/>
         <source>NO FRAME AT EVENT TIME</source>
         <translation>НЕТ КАДРА НА МОМЕНТ СОБЫТИЯ</translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="221"/>
+        <location filename="../qml/EvSnapshot.qml" line="230"/>
         <source>OBJECT</source>
         <translation>ОБЪЕКТ</translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="234"/>
+        <location filename="../qml/EvSnapshot.qml" line="243"/>
         <source>VIEW OBSTRUCTED</source>
         <translation>ОБЗОР ПЕРЕКРЫТ</translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="242"/>
+        <location filename="../qml/EvSnapshot.qml" line="251"/>
         <source>SIGNAL LOST</source>
         <translation>СИГНАЛ ПОТЕРЯН</translation>
+    </message>
+    <message>
+        <location filename="../qml/EvSnapshot.qml" line="276"/>
+        <source>● LIVE now — event frame unavailable</source>
+        <translation>● СЕЙЧАС — кадр события недоступен</translation>
     </message>
 </context>
 <context>
@@ -770,26 +775,26 @@
 <context>
     <name>EvTriage</name>
     <message>
-        <location filename="../qml/EvTriage.qml" line="252"/>
-        <location filename="../qml/EvTriage.qml" line="348"/>
-        <location filename="../qml/EvTriage.qml" line="451"/>
+        <location filename="../qml/EvTriage.qml" line="282"/>
+        <location filename="../qml/EvTriage.qml" line="378"/>
+        <location filename="../qml/EvTriage.qml" line="481"/>
         <source>Open queue</source>
         <translation>Открытые</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="253"/>
-        <location filename="../qml/EvTriage.qml" line="452"/>
+        <location filename="../qml/EvTriage.qml" line="283"/>
+        <location filename="../qml/EvTriage.qml" line="482"/>
         <source>Critical</source>
         <translation>Критические</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="253"/>
-        <location filename="../qml/EvTriage.qml" line="453"/>
+        <location filename="../qml/EvTriage.qml" line="283"/>
+        <location filename="../qml/EvTriage.qml" line="483"/>
         <source>All</source>
         <translation>Все</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/EvTriage.qml" line="432"/>
+        <location filename="../qml/EvTriage.qml" line="462"/>
         <source>%n event(s)</source>
         <translation>
             <numerusform>%n событие</numerusform>
@@ -798,112 +803,112 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="433"/>
+        <location filename="../qml/EvTriage.qml" line="463"/>
         <source>soloed</source>
         <translation>соло</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="493"/>
+        <location filename="../qml/EvTriage.qml" line="523"/>
         <source>of</source>
         <translation>из</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="541"/>
+        <location filename="../qml/EvTriage.qml" line="571"/>
         <source>No events on %1 in %2.</source>
         <translation>Нет событий: %1, %2.</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="633"/>
+        <location filename="../qml/EvTriage.qml" line="663"/>
         <source>jump</source>
         <translation>переход</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="650"/>
+        <location filename="../qml/EvTriage.qml" line="680"/>
         <source>NO EVENTS IN TAB</source>
         <translation>НЕТ СОБЫТИЙ ВО ВКЛАДКЕ</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="687"/>
+        <location filename="../qml/EvTriage.qml" line="717"/>
         <source>Queue clear — no open events.</source>
         <translation>Очередь пуста — открытых событий нет.</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="700"/>
+        <location filename="../qml/EvTriage.qml" line="730"/>
         <source>ASSIGN TO</source>
         <translation>НАЗНАЧИТЬ</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="722"/>
+        <location filename="../qml/EvTriage.qml" line="752"/>
         <source>Unassign</source>
         <translation>Снять назначение</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="728"/>
+        <location filename="../qml/EvTriage.qml" line="758"/>
         <source>No operators available</source>
         <translation>Нет доступных операторов</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="814"/>
+        <location filename="../qml/EvTriage.qml" line="844"/>
         <source>RESTRICTED ZONE</source>
         <translation>ЗАПРЕТНАЯ ЗОНА</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="838"/>
+        <location filename="../qml/EvTriage.qml" line="868"/>
         <source>Camera</source>
         <translation>Камера</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="839"/>
+        <location filename="../qml/EvTriage.qml" line="869"/>
         <source>Device</source>
         <translation>Устройство</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="840"/>
+        <location filename="../qml/EvTriage.qml" line="870"/>
         <source>Zone</source>
         <translation>Зона</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="841"/>
+        <location filename="../qml/EvTriage.qml" line="871"/>
         <source>Time</source>
         <translation>Время</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="842"/>
+        <location filename="../qml/EvTriage.qml" line="872"/>
         <source>Clip length</source>
         <translation>Длина клипа</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="843"/>
+        <location filename="../qml/EvTriage.qml" line="873"/>
         <source>AI confidence</source>
         <translation>Уверенность ИИ</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="866"/>
+        <location filename="../qml/EvTriage.qml" line="896"/>
         <source>RESPONSE PROCEDURE</source>
         <translation>ПРОЦЕДУРА РЕАГИРОВАНИЯ</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="913"/>
+        <location filename="../qml/EvTriage.qml" line="943"/>
         <source>Add disposition note (what happened, who responded)…</source>
         <translation>Заметка по итогам (что случилось, кто отреагировал)…</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="928"/>
+        <location filename="../qml/EvTriage.qml" line="958"/>
         <source>Authorized</source>
         <translation>Разрешено</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="930"/>
+        <location filename="../qml/EvTriage.qml" line="960"/>
         <source>False alarm</source>
         <translation>Ложная тревога</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="932"/>
+        <location filename="../qml/EvTriage.qml" line="962"/>
         <source>Dispatch guard</source>
         <translation>Направить охранника</translation>
     </message>
     <message>
-        <location filename="../qml/EvTriage.qml" line="937"/>
+        <location filename="../qml/EvTriage.qml" line="967"/>
         <source>Acknowledge</source>
         <translation>Подтвердить</translation>
     </message>
@@ -1050,48 +1055,48 @@
 <context>
     <name>EventsArea</name>
     <message>
-        <location filename="../qml/EventsArea.qml" line="214"/>
+        <location filename="../qml/EventsArea.qml" line="226"/>
         <source>Triage Queue</source>
         <translation>Разбор</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="216"/>
+        <location filename="../qml/EventsArea.qml" line="228"/>
         <source>Verify</source>
         <translation>Проверка</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="218"/>
+        <location filename="../qml/EventsArea.qml" line="230"/>
         <source>Activity Timeline</source>
         <translation>Хронология</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="220"/>
+        <location filename="../qml/EventsArea.qml" line="232"/>
         <source>Situation Map</source>
         <translation>Карта</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="306"/>
+        <location filename="../qml/EventsArea.qml" line="318"/>
         <source>Ungrouped</source>
         <translation>Без группы</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="317"/>
-        <location filename="../qml/EventsArea.qml" line="363"/>
+        <location filename="../qml/EventsArea.qml" line="329"/>
+        <location filename="../qml/EventsArea.qml" line="375"/>
         <source>All groups</source>
         <translation>Все группы</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="380"/>
+        <location filename="../qml/EventsArea.qml" line="392"/>
         <source>OPEN</source>
         <translation>ОТКРЫТО</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="381"/>
+        <location filename="../qml/EventsArea.qml" line="393"/>
         <source>CRITICAL</source>
         <translation>КРИТИЧЕСКИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/EventsArea.qml" line="382"/>
+        <location filename="../qml/EventsArea.qml" line="394"/>
         <source>CLEARED</source>
         <translation>ЗАКРЫТО</translation>
     </message>
@@ -1311,7 +1316,7 @@
         <translation>Окружающая среда</translation>
     </message>
     <message>
-        <location filename="../qml/EventsStore.qml" line="83"/>
+        <location filename="../qml/EventsStore.qml" line="84"/>
         <source>EV-</source>
         <translation>EV-</translation>
     </message>

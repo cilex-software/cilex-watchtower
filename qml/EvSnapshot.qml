@@ -66,7 +66,13 @@ Item {
     // Most were the motion-without-recording P1; events born inside that outage window have
     // no footage that could ever be extracted, so they 404 forever and this skip is
     // permanent for them, not a transient optimisation.
+    // Gate relaxed 2026-08-20: CV rows stopped carrying recording_id (all three motion row
+    // types, evening 08-19 onward — flagged to CV; correlates with their storage_agent
+    // incident) while the STILL endpoint kept serving (probed: 200 for a recording_id-less
+    // event). So "no episode" now means "neither a recording link NOR a finished span" —
+    // a finished episode asks for its still regardless; the fallback remains for real 404s.
     readonly property bool _noEpisode: root._real && !!root.ev && !root.ev.recordingId
+                                       && !(root.ev.durationSec > 0)
 
     // "The still is not coming." Skipping the request leaves evImg at status Null, NOT Error
     // — so every consumer below must test THIS, not `evImg.status === Image.Error`, or the
@@ -267,7 +273,7 @@ Item {
             color: Qt.rgba(0,0,0,0.5); radius: 2
             width: tsOsd.implicitWidth + 12; height: tsOsd.implicitHeight + 6
             Text { id: tsOsd; anchors.centerIn: parent
-                text: root._showingLive ? "● LIVE"
+                text: root._showingLive ? (root.mini ? "● LIVE" : qsTr("● LIVE now — event frame unavailable"))
                     : (ev ? (Qt.formatDate(ev.ts, "dd MMM").toUpperCase() + "  " + EventsStore.hhmmss(ev.ts)) : "")
                 color: root._showingLive ? Theme.rec : Qt.rgba(1,1,1,0.92)
                 font.family: Theme.fontMono; font.pixelSize: root.mini ? 9 : 14; font.weight: Font.Medium }
