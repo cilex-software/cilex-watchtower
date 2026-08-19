@@ -1721,7 +1721,7 @@
         <location filename="../qml/HealthScreen.qml" line="226"/>
         <location filename="../qml/HealthScreen.qml" line="231"/>
         <source>Unreachable</source>
-        <translation>Недоступно</translation>
+        <translation>Запись остановлена</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="73"/>
@@ -1755,7 +1755,7 @@
     <message>
         <location filename="../qml/HealthScreen.qml" line="263"/>
         <source>last ok %1 ago</source>
-        <translation>последний успех %1 назад</translation>
+        <translation>последняя запись произведена %1 назад</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="286"/>
@@ -1787,7 +1787,7 @@
         <location filename="../qml/HealthScreen.qml" line="85"/>
         <location filename="../qml/HealthScreen.qml" line="348"/>
         <source>Not recording</source>
-        <translation>Нет записи</translation>
+        <translation>Запись не идет</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="349"/>
@@ -1830,7 +1830,7 @@
     <message>
         <location filename="../qml/HealthScreen.qml" line="82"/>
         <source>Stalled</source>
-        <translation>Застопорилось</translation>
+        <translation>Остановлена</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="83"/>
@@ -1860,7 +1860,7 @@
     <message>
         <location filename="../qml/HealthScreen.qml" line="100"/>
         <source>Recording stalled</source>
-        <translation>Запись застопорилась</translation>
+        <translation>Запись остановлена</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="101"/>
@@ -1890,7 +1890,7 @@
     <message>
         <location filename="../qml/HealthScreen.qml" line="131"/>
         <source>&lt;b&gt;Recording stalled.&lt;/b&gt; The recorder stopped producing footage for this camera; it&apos;s being restarted automatically.</source>
-        <translation>&lt;b&gt;Запись застопорилась.&lt;/b&gt; Рекордер перестал писать эту камеру; выполняется автоматический перезапуск.</translation>
+        <translation>&lt;b&gt;Запись остановлена.&lt;/b&gt; Рекордер перестал писать эту камеру; выполняется автоматический перезапуск.</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="133"/>
