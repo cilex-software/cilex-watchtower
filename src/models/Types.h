@@ -71,7 +71,8 @@ struct EventData {
     QString ackTime;
     qint64 tsMs = 0;     // start_time as epoch ms — for chronological Time sort (0 = unknown/mock)
     qint64 durationMs = 0;  // duration_ms from /events (0 = instantaneous / unknown)
-    QString recordingId;    // metadata.recording_id — pairs motion_started/_ended episodes
+    QString recordingId;    // metadata.recording_id — clip/still semantics (mode-dependent: continuous cameras are honestly null)
+    QString rawMotionEventId; // metadata.raw_motion_event_id — the episode JOIN key, all camera modes (CV bf49af6)
 
     // Events redesign contract (cilex-vision 2026-06-18; see docs/letters/).
     QString severity;           // critical|high|medium|low (server-computed)

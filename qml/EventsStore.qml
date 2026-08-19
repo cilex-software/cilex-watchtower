@@ -142,12 +142,30 @@ QtObject {
         // ended row, and the wide-window player then overlapped the neighbouring episode's footage. We pair
         // started↔ended by recording_id (eventModel.all() spans every loaded page) and emit ONE row keyed
         // off the exact START with the true span [start, end].
+        // Primary join key: raw_motion_event_id (CV bf49af6 — all cameras, all modes).
+        // recording_id remains a LEGACY secondary (motion-enrolled cameras' history carries
+        // it on all three rows; continuous cameras are honestly null there by design — the
+        // "regression" we reported was a misread, owned in the 08-20 reply). Proximity
+        // pairing below now runs ONLY for rows with NEITHER key — pre-bf49af6 continuous
+        // history — and therefore self-clears as that history ages out.
+        // FEED-SHAPE TRUTH (established 2026-08-20, the hard way): EventModel excludes
+        // motion_started AND motion_ended at the wire (kExcludeTypes) — the feed is
+        // motion_detected-only, one summary row per episode with duration + keys. The
+        // started/ended grouping below therefore idles on this path and exists for any
+        // future consumer that fetches the full lifecycle; the [EVGRP] counters make the
+        // active join source visible under WT_TRACE. Yesterday's "doubled queue" claim
+        // (v1.1.125 commit message) was inferred from a wrong model and is retracted in
+        // docs/letters/2026-08-20 — the real defect fixed that day was the still gate.
         var groups = ({}); var order = []; var singles = [];
+        var nKeyed = 0, nLegacy = 0;
         for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
-            if (r.recordingId && (r.type === "motion_started" || r.type === "motion_ended")) {
-                if (!groups[r.recordingId]) { groups[r.recordingId] = { started: null, ended: null }; order.push(r.recordingId); }
-                if (r.type === "motion_started") groups[r.recordingId].started = r; else groups[r.recordingId].ended = r;
+            var jk = r.rawMotionEventId ? ("k:" + r.rawMotionEventId)
+                   : (r.recordingId ? ("r:" + r.recordingId) : "");
+            if (jk !== "" && (r.type === "motion_started" || r.type === "motion_ended")) {
+                if (!groups[jk]) { groups[jk] = { started: null, ended: null }; order.push(jk); }
+                if (r.type === "motion_started") groups[jk].started = r; else groups[jk].ended = r;
+                if (r.rawMotionEventId) nKeyed++; else nLegacy++;
             } else {
                 singles.push(r);
             }
@@ -177,6 +195,7 @@ QtObject {
             }
         }
         var used = ({});
+        var nProx = 0;
         for (var j = 0; j < singles.length; j++) {
             if (used[j]) continue;
             var sr = singles[j];
@@ -190,13 +209,16 @@ QtObject {
                     if (dt >= 500 && dt < bestDt) { bestDt = dt; best = ei; }
                 }
                 if (best >= 0) {
-                    used[best] = true;
+                    used[best] = true; nProx++;
                     out.push(store._mkEvent(sr, camLookup, sr.ts, bestDt));
                     continue;
                 }
             }
             out.push(store._mkEvent(sr, camLookup, sr.ts, sr.durationMs || 0));
         }
+        if (typeof wtTrace !== "undefined" && wtTrace)
+            console.log("[EVGRP] keyed=" + nKeyed + " legacyRec=" + nLegacy + " proximity=" + nProx
+                        + " singles=" + (singles.length - nProx * 2));
         out.sort(function (a, b) { return b.ts.getTime() - a.ts.getTime(); });   // newest episode (by start) first
         realMode = true;
         events = out;

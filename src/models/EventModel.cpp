@@ -235,6 +235,10 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
     e.durationMs = o.value("duration_ms").toVariant().toLongLong();
     e.recordingId = o.value("metadata").toObject().value("recording_id").toString();
+    // The episode JOIN key (CV bf49af6, letter 2026-08-20): present on started+ended for
+    // ALL camera modes — recording_id is mode-dependent (continuous cameras honestly null)
+    // and stays reserved for clip/still semantics, never grouping.
+    e.rawMotionEventId = o.value("metadata").toObject().value("raw_motion_event_id").toString();
     e.desc = descForType(e.type, e.durationMs);
     // redesign contract
     e.severity = o.value("severity").toString();
@@ -481,6 +485,7 @@ QVariantMap EventModel::toMap(const wt::EventData &e) const
     m["ts"] = static_cast<qlonglong>(e.tsMs);
     m["durationMs"] = static_cast<qlonglong>(e.durationMs);
     m["recordingId"] = e.recordingId;
+    m["rawMotionEventId"] = e.rawMotionEventId;
     // redesign contract
     m["severity"] = e.severity;
     m["zoneRestricted"] = e.zoneRestricted;
