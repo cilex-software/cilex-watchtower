@@ -45,8 +45,10 @@ and station tokens.
    The port's largest single risk is closed.
 2. Does ATS interfere with plain-HTTP stills? (Expected no — Qt sockets, not
    NSURLSession. Info.plist.in carries the note.)
-3. `CLOCK_MONOTONIC` across lid-close sleep — the hang watchdog's clock. If it
-   counts sleep, the fix is `CLOCK_UPTIME_RAW`, one line, same shape as the
-   Windows `QueryUnbiasedInterruptTime` fix (PR #2).
+3. ~~`CLOCK_MONOTONIC` across lid-close sleep~~ **ANSWERED 2026-08-20, in
+   production the hard way**: Apple's `CLOCK_MONOTONIC` DOES count sleep — the
+   operator's M1 napped ~72 s and the hang watchdog aborted a healthy app on
+   wake ("[WT-HANG] GUI thread unresponsive for 72s"). Fixed exactly as
+   predicted here: `CLOCK_UPTIME_RAW`, one line (main.cpp watchdog clock).
 4. GStreamer bundling into the .app (the W4 problem, Darwin edition). Until
    solved, the DMG requires `brew install gstreamer` on the target and says so.

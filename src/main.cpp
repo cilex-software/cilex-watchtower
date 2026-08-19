@@ -340,8 +340,17 @@ int main(int argc, char *argv[])
             ULONGLONG unbiased100ns = 0;
             QueryUnbiasedInterruptTime(&unbiased100ns);   // excludes time spent asleep
             return (long long)(unbiased100ns / 10000);    // 100 ns units -> ms
+#elif defined(Q_OS_MACOS)
+            // Apple's CLOCK_MONOTONIC COUNTS time spent asleep (manpage; unlike Linux),
+            // so a lid-nap of N seconds read as an N-second GUI hang and aborted a healthy
+            // app on wake — operator's M1, 2026-08-20: 72 s nap → "[WT-HANG] 72s" → abort.
+            // CLOCK_UPTIME_RAW stops during sleep: the pre-planned fix from
+            // packaging/macos/README.md open question #3, same shape as the Windows
+            // QueryUnbiasedInterruptTime fix above (the 2026-08-07 booth S3 incident).
+            struct timespec ts; clock_gettime(CLOCK_UPTIME_RAW, &ts);
+            return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 #else
-            struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+            struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);   // Linux: stops during suspend
             return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 #endif
         };
