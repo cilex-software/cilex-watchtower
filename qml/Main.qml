@@ -478,7 +478,18 @@ Window {
         if (groupFilter === "__selected__") { groupFilter = ""; groupLabel = qsTr("All cameras"); }
     }
     function setStatusFilter(f) { statusFilter = f; gridPage = 1 }
-    function toggleStatusChip(which) { setStatusFilter(statusFilter === which ? "" : which) }
+    // Topbar status chips are SITE-level numbers, so engaging one widens the wall to the
+    // whole site (operator, 2026-08-20: "Offline 7" over a group-scoped wall showed the
+    // group's 2 offliners — the honest intersection, but you clicked a 7 and must see 7).
+    // Clearing the chip leaves whatever scope the user has since chosen untouched.
+    function toggleStatusChip(which) {
+        var engaging = statusFilter !== which;
+        if (engaging) {
+            groupFilter = ""; groupLabel = qsTr("All cameras");
+            if (section !== "live") goToSection("live");
+        }
+        setStatusFilter(engaging ? which : "");
+    }
     // Open the Save-current-view modal, capturing the current Live Monitor state.
     function openSaveView() {
         saveViewModal.layout = win.gridLayout;
