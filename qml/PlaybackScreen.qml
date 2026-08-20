@@ -1971,6 +1971,134 @@ Item {
         _openWindow(selectedDay, frags.length > 0 ? playheadMs : (_dayMs(selectedDay) + 43200000));
     }
 
+    // ---- WT_PB_SOAK: whole-surface playback exercise (operator order 2026-08-21) ----
+    // Drives the navigator the way a guard does, through the SAME public entry points the
+    // UI calls — selectDay / setSpan / seekFar — so the harness cannot pass on a path the
+    // operator never touches: pick a camera, pick a day that has footage, pick a scale,
+    // jump to a random time, let it PLAY, jump again, repeat a random number of times,
+    // then move to another camera. Inert unless WT_PB_SOAK=1.
+    //
+    // One [PBSOAK] verdict per jump. "played" is the load-bearing column: it is decided by
+    // the playhead ADVANCING over the dwell, not by the absence of an error — a frozen
+    // picture and a healthy session look identical to every other signal we log.
+    readonly property bool _psRun: (typeof wtPbSoak !== "undefined" && wtPbSoak === true)
+    readonly property var _psSpans: [15, 60, 360, 720, 1440]
+    property string _psState: "init"
+    property int _psWaits: 0
+    property int _psRounds: 0
+    property int _psCamN: 0
+    property int _psSeekN: 0
+    property int _psDwell: 0
+    property double _psTarget: -1
+    property double _psTtffBefore: -1
+    property double _psPosBefore: -1
+    property double _psSeekT0: 0
+    Timer { interval: 250; repeat: true; running: root._psRun; onTriggered: root._psTick() }
+    function _psPick(a) { return a[Math.floor(Math.random() * a.length)] }
+    function _psRand(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)) }
+    function _psSay(msg) { console.log("[PBSOAK] " + msg + " t=" + Date.now()); }
+
+    function _psTick() {
+        if (_psState === "init") {
+            if (!cameraModel || cameraModel.total <= 0) return;
+            _psSay("BEGIN cameras=" + cameraModel.total);
+            _psState = "cam"; return;
+        }
+        if (_psState === "cam") {
+            var n = cameraModel ? cameraModel.total : 0;
+            if (n <= 0) return;
+            var cam = cameraModel.get(_psRand(0, n - 1));
+            if (!cam || !cam.camId) return;
+            _psCamN++; _psRounds = _psRand(3, 8);
+            _psSay("CAMERA #" + _psCamN + " id=" + cam.camId + " jumps=" + _psRounds);
+            _autoLanded = true;                 // never let the auto-lander fight the harness
+            openFor(cam, _psPick(_psSpans));
+            _psWaits = 0; _psState = "wait-cov"; return;
+        }
+        if (_psState === "wait-cov") {
+            // Coverage decides which days actually hold footage; jumping before it lands
+            // would measure the empty state instead of playback.
+            var has = false;
+            for (var i = 0; i < ribbonDays.length; i++) if (ribbonDays[i].has) { has = true; break; }
+            if (!coveragePending && has) { _psWaits = 0; _psState = "day"; return; }
+            if (++_psWaits > 120) {             // 30 s
+                _psSay("NO-COVERAGE cam=" + root.camId + " -> next camera");
+                _psState = "cam"; _psWaits = 0;
+            }
+            return;
+        }
+        if (_psState === "day") {
+            var days = [];
+            for (var j = 0; j < ribbonDays.length; j++) if (ribbonDays[j].has) days.push(ribbonDays[j].key);
+            if (days.length === 0) { _psState = "cam"; return; }
+            var key = _psPick(days);
+            _psSay("DAY cam=" + root.camId + " day=" + key + " of=" + days.length + " days_with_footage");
+            selectDay(key);
+            _psWaits = 0; _psState = "wait-day"; return;
+        }
+        if (_psState === "wait-day") {
+            if (!loading) { _psWaits = 0; _psState = "span"; return; }
+            if (++_psWaits > 160) { _psSay("DAY-TIMEOUT day=" + selectedDay); _psState = "cam"; _psWaits = 0; }
+            return;
+        }
+        if (_psState === "span") {
+            var m = _psPick(_psSpans);
+            _psSay("SPAN cam=" + root.camId + " day=" + selectedDay + " span=" + m + "m");
+            setSpan(m);
+            _psWaits = 0; _psState = "wait-span"; return;
+        }
+        if (_psState === "wait-span") {
+            if (!loading) { _psWaits = 0; _psState = "seek"; return; }
+            if (++_psWaits > 160) { _psSay("SPAN-TIMEOUT span=" + zoomMin + "m"); _psState = "cam"; _psWaits = 0; }
+            return;
+        }
+        if (_psState === "seek") {
+            if (_psRounds <= 0) { _psState = "cam"; return; }
+            if (selectedDay === "") { _psState = "day"; return; }
+            var d0 = _dayMs(selectedDay);
+            var d1 = Math.min(d0 + 86400000, Date.now());
+            if (d1 - d0 < 120000) { _psState = "day"; return; }
+            _psTarget = d0 + Math.floor(Math.random() * (d1 - d0 - 60000));
+            _psTtffBefore = lastTtffMs;
+            _psSeekT0 = Date.now();
+            _psSeekN++; _psRounds--;
+            seekFar(_psTarget);
+            _psWaits = 0; _psState = "wait-seek"; return;
+        }
+        if (_psState === "wait-seek") {
+            // Ready = the open settled AND a frame arrived for THIS jump (ttff moved).
+            if (!loading && (lastTtffMs !== _psTtffBefore || frags.length > 0)) {
+                _psPosBefore = player.position;
+                _psDwell = _psRand(24, 56);          // 6-14 s of real playback
+                _psWaits = 0; _psState = "dwell"; return;
+            }
+            if (++_psWaits > 160) {                  // 40 s
+                _psSay("VERDICT cam=" + root.camId + " day=" + selectedDay + " span=" + zoomMin
+                       + "m target=" + Qt.formatDateTime(new Date(_psTarget), "HH:mm:ss")
+                       + " ttffMs=timeout frags=" + frags.length + " played=no"
+                       + " err=" + (errorText === "" ? "none" : "\"" + errorText + "\""));
+                _psWaits = 0; _psState = "seek";
+            }
+            return;
+        }
+        if (_psState === "dwell") {
+            if (--_psDwell > 0) return;
+            var adv = Math.round(player.position - _psPosBefore);
+            var ttff = (lastTtffMs !== _psTtffBefore && lastTtffMs >= 0) ? Math.round(lastTtffMs)
+                                                                        : Math.round(Date.now() - _psSeekT0);
+            _psSay("VERDICT cam=" + root.camId + " day=" + selectedDay + " span=" + zoomMin
+                   + "m target=" + Qt.formatDateTime(new Date(_psTarget), "HH:mm:ss")
+                   + " ttffMs=" + ttff + " frags=" + frags.length
+                   + " played=" + (adv > 500 ? "yes" : "no") + " advancedMs=" + adv
+                   + " err=" + (errorText === "" ? "none" : "\"" + errorText + "\""));
+            // Re-scale mid-camera about a third of the time, so every span is exercised
+            // against a window that is already playing rather than only on a fresh day.
+            _psState = (_psRounds > 0 && Math.random() < 0.34) ? "span"
+                     : (_psRounds > 0 ? "seek" : "cam");
+            return;
+        }
+    }
+
     // First paint opens on the newest footage in retention, because "what
     // happened most recently" is the commonest arrival. Only when the rolling
     // window the caller asked for holds nothing at all — never overriding an
