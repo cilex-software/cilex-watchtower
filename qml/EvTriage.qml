@@ -57,6 +57,7 @@ Item {
     property int _p6Clip: 0                // P6: paused-seek staleness battery, every ~12th clip
     property int _p6F0: 0
     property double _p6Wall0: 0
+    property double _p6Pos0: 0
     property int _p8Clip: 0                // P8: export-window announce, every ~10th clip
     Timer {
         interval: 30; repeat: true; running: tri._htRun
@@ -90,7 +91,10 @@ Item {
                 ++_htWaits;
                 if (_p5Ev !== "" && selId === _p5Ev && _ht && _ht.testError !== "" && _htWaits % 100 === 0)
                     console.log("[P5] state ev=" + _p5Ev + " tMs=" + (Date.now() - _p5T0) + " err=\"" + _ht.testError + "\"");
-                if (_htWaits > 500) {                      // 15s
+                // P5 picks get 60 s — the probe's datum IS time-to-first-frame on an
+                // in-progress recording; 15 s only proves the driver's impatience.
+                var lim = (_p5Ev !== "" && selId === _p5Ev) ? 2000 : 500;
+                if (_htWaits > lim) {                      // 15s (60s for P5)
                     if (_p5Ev !== "" && selId === _p5Ev) { // P5: never lit within the driver's patience
                         console.log("[P5] timeout ev=" + _p5Ev + " ms=" + (Date.now() - _p5T0)
                                     + " err=\"" + (_ht ? _ht.testError : "?") + "\"");
@@ -155,7 +159,7 @@ Item {
         if (_htState === "p6pause") {
             if (!_ht) { _htState = "sel"; return; }
             if (++_htWaits < 24) return;                                               // ~0.7s: let the pause take
-            _p6F0 = _ht.testFrames; _p6Wall0 = _ht.testWallMs;
+            _p6F0 = _ht.testFrames; _p6Wall0 = _ht.testWallMs; _p6Pos0 = _ht.testPosMs;
             var lo = _ht.testTlStartMs + 2000, hi = _ht.testTlEndMs - 2000;
             var d = (8000 + Math.random() * 12000) * (Math.random() < 0.5 ? -1 : 1);
             var tgt = _p6Wall0 + d;
@@ -168,10 +172,17 @@ Item {
             if (++_htWaits < 40) return;                                               // ~1.2s after the paused click
             var f1 = _ht.testFrames;
             var stale = (f1 === _p6F0);
+            var wallMoved = Math.abs(_ht.testWallMs - _p6Wall0) > 1000;
+            var posMoved = Math.abs(_ht.testPosMs - _p6Pos0) > 1000;
             console.log("[P6] ev=" + selId + " f0=" + _p6F0 + " f1=" + f1
                         + " wall0=" + Math.round(_p6Wall0) + " wall1=" + Math.round(_ht.testWallMs)
-                        + " paused=" + _ht.testPaused + " loading=" + _ht.testLoading + " stale=" + stale);
-            if (stale) _ht.testShotVideo("scratchpad/soak-mac/shots/p6-" + selId + "-stale.png");
+                        + " pos0=" + Math.round(_p6Pos0) + " pos1=" + Math.round(_ht.testPosMs)
+                        + " paused=" + _ht.testPaused + " loading=" + _ht.testLoading
+                        + " stale=" + stale + " wallMoved=" + wallMoved + " posMoved=" + posMoved);
+            // evidence shot whenever ANY leg is suspicious: no new frame, or the media
+            // position / displayed playhead failed to move after a landed paused click
+            if (stale || !wallMoved || !posMoved)
+                _ht.testShotVideo("scratchpad/soak-mac/shots/p6-" + selId + "-suspect.png");
             _ht.testResume();
             _htState = "sel"; _htWaits = 0; return;
         }
