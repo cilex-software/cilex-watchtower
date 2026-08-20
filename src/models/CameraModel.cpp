@@ -401,6 +401,17 @@ void CameraModel::fetchCameras()
             // change beyond this parse.
             c.recording = effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), c.live);
             c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
+            // last_seen_at: when the camera last answered at ALL — the first question a guard
+            // asks at a NO SIGNAL tile. Backend carries it to the second (probed 2026-08-20:
+            // all seven 4.1-house cameras cut at the same second); the client showed a dash.
+            {
+                const QString seenIso = o.value("last_seen_at").toString();
+                if (!seenIso.isEmpty()) {
+                    const QDateTime seenDt = QDateTime::fromString(seenIso, Qt::ISODateWithMs).toLocalTime();
+                    if (seenDt.isValid())
+                        c.lastSeen = QLocale().toString(seenDt, QStringLiteral("d MMM HH:mm"));
+                }
+            }
             parseAudio(o, c.ip, c.hasAudio, c.audioRecording);
             if (o.contains(QStringLiteral("motion"))) {
                 const QJsonObject mo = o.value(QStringLiteral("motion")).toObject();
