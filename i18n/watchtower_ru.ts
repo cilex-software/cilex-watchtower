@@ -1726,7 +1726,7 @@
         <location filename="../qml/HealthScreen.qml" line="226"/>
         <location filename="../qml/HealthScreen.qml" line="231"/>
         <source>Unreachable</source>
-        <translation>Запись остановлена</translation>
+        <translation>Управление хранилищем недоступно</translation>
     </message>
     <message>
         <location filename="../qml/HealthScreen.qml" line="73"/>
