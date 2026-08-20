@@ -183,6 +183,8 @@ Item {
     readonly property double testTlStartMs: tlStartMs
     readonly property double testTlEndMs: tlEndMs
     readonly property bool   testPaused: player.playbackState === MediaPlayer.PausedState
+    readonly property double testPosMs: player.position     // raw media position — P6 needs it to tell
+                                                             // "seek ignored" from "seek landed, OSD stale"
     function testShotVideo(path) { _probeGrab(vout, path) }
     function _probeGrab(item, path) {
         if (!_htOn || !item || !item.visible) return;
