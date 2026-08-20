@@ -45,6 +45,9 @@
 #    include <malloc.h>         // mallopt/malloc_trim — glibc arena control, Linux-only
 #  endif                        // (macOS has no malloc.h; its malloc lives in stdlib.h
                                 //  and has no arena pathology to tune — M1 defect #2)
+#  if defined(Q_OS_MACOS)
+#    include <mach/mach.h>       // task_info RSS for the fatal/hang handlers (M-fix 2026-08-21)
+#  endif
 #  include <unistd.h>           // read/write/close/sysconf
 #  include <fcntl.h>            // open, O_RDONLY
 #  include <execinfo.h>         // backtrace — async-signal-safe crash trace
@@ -79,6 +82,17 @@ long readRssMb()
     PROCESS_MEMORY_COUNTERS pmc;
     if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
         return long(pmc.WorkingSetSize / (1024 * 1024));
+    return -1;
+#elif defined(Q_OS_MACOS)
+    // Both Mac crash pastes printed "RSS=-1 MB" — this reader was /proc-only and Darwin
+    // has no /proc (measured 2026-08-20/21). task_info is a mach trap, not strictly
+    // async-signal-safe, but this runs on the way to abort with the process already
+    // condemned — same pragmatics as the Windows PSAPI branch above.
+    mach_task_basic_info mi;
+    mach_msg_type_number_t cnt = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO,
+                  reinterpret_cast<task_info_t>(&mi), &cnt) == KERN_SUCCESS)
+        return long(mi.resident_size / (1024 * 1024));
     return -1;
 #else
     int fd = ::open("/proc/self/statm", O_RDONLY);

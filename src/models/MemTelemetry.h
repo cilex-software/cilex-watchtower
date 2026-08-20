@@ -20,6 +20,7 @@ public:
 
     Q_INVOKABLE void setPlaying(int id, bool playing);   // a player entered/left PlayingState
     Q_INVOKABLE void noteOpen();                         // a recording source-change
+    Q_INVOKABLE void trimNow();                          // teardown malloc_trim experiment (Linux; no-op elsewhere)
 
     // Safety valve: true when process RSS crosses WT_RSS_SHED_MB (a runaway — the live-wall pipeline leak
     // under go2rtc instability is the known one). The live wall binds maxLiveDecodes to this and sheds live

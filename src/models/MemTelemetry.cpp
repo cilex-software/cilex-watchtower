@@ -1,5 +1,8 @@
 #include "MemTelemetry.h"
-#include "RtspVideoSource.h"   // live-wall pipeline/frame counters (the live decode path MEMTEL must also watch)
+#include "RtspVideoSource.h"
+#if defined(Q_OS_LINUX)
+#  include <malloc.h>            // mallinfo2/malloc_trim — glibc heap split + teardown trim
+#endif   // live-wall pipeline/frame counters (the live decode path MEMTEL must also watch)
 
 #include <QTimer>
 #include <QDebug>
@@ -25,6 +28,32 @@
 #  include <QByteArrayList>
 #  include <unistd.h>
 #endif
+
+// Component split for the MEMTEL line (operator order 2026-08-21: "which parts use
+// memory" as first-party telemetry, not a soak-only external sampler). Values in MB;
+// -1 = unmeasured on this platform/moment — absent is never zero. Linux reads
+// /proc/self/status (RssAnon/RssFile/RssShmem) + mallinfo2 (glibc heap in-use vs
+// retained-free); other platforms carry what their kernel offers.
+struct MemParts { long anon = -1, file = -1, shmem = -1, heapUsed = -1, heapFree = -1; };
+static MemParts memParts()
+{
+    MemParts mp;
+#if defined(Q_OS_LINUX)
+    QFile f(QStringLiteral("/proc/self/status"));   // RssAnon/RssFile/RssShmem live HERE (kB)
+    if (f.open(QIODevice::ReadOnly)) {
+        const QList<QByteArray> lines = f.readAll().split('\n');
+        for (const QByteArray &l : lines) {
+            if (l.startsWith("RssAnon:"))       mp.anon  = l.simplified().split(' ').value(1).toLong() / 1024;
+            else if (l.startsWith("RssFile:"))  mp.file  = l.simplified().split(' ').value(1).toLong() / 1024;
+            else if (l.startsWith("RssShmem:")) mp.shmem = l.simplified().split(' ').value(1).toLong() / 1024;
+        }
+    }
+    struct mallinfo2 mi = mallinfo2();
+    mp.heapUsed = long(mi.uordblks / (1024 * 1024));
+    mp.heapFree = long(mi.fordblks / (1024 * 1024));   // freed but RETAINED by glibc arenas
+#endif
+    return mp;
+}
 
 static long rssMb()
 {
@@ -149,14 +178,38 @@ void MemTelemetry::tick()
     // "26 live" hid 5 pipelines with no decoder for a week. swd= is backstop
     // rebuilds (nonzero on a healthy wall means the QML recovery layers failed);
     // recon=ran/refused makes a requested-but-refused rebuild a number.
+    const MemParts mpParts = memParts();
     qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d "
           "frames=%lld framesIn=%lld coalesced=%lld drop=%.1f%% "
-          "dec=%d lit=%d err=%d swd=%lld recon=%lld/%lld",
+          "dec=%d lit=%d err=%d swd=%lld recon=%lld/%lld "
+          "anon=%ldM file=%ldM shm=%ldM heapU=%ldM heapF=%ldM",
           static_cast<long long>(m_uptime.elapsed() / 1000), rssMb(),
           static_cast<long long>(playMs / 1000), static_cast<long long>(m_opens),
           static_cast<int>(m_playing.size()), RtspVideoSource::livePipelineCount(),
           fdel, fin, fco, fin > 0 ? (100.0 * double(fco) / double(fin)) : 0.0,
           RtspVideoSource::decoderBoundCount(), RtspVideoSource::litCount(),
           RtspVideoSource::erroredCount(), RtspVideoSource::watchdogRebuilds(),
-          RtspVideoSource::reconnectRuns(), RtspVideoSource::reconnectNoops());
+          RtspVideoSource::reconnectRuns(), RtspVideoSource::reconnectNoops(),
+          mpParts.anon, mpParts.file, mpParts.shmem, mpParts.heapUsed, mpParts.heapFree);
+}
+
+
+// Teardown-trim experiment (2026-08-21 soak): glibc retains freed decode arenas
+// (heapF in the MEMTEL line makes the retention visible); malloc_trim returns them to
+// the OS. Called from the hero player after session teardown unless WT_NO_TRIM=1.
+// Logs only when something moved, so quiet teardowns stay quiet.
+void MemTelemetry::trimNow()
+{
+#if defined(Q_OS_LINUX)
+    static const bool off = qEnvironmentVariableIsSet("WT_NO_TRIM");
+    if (off)
+        return;
+    struct mallinfo2 before = mallinfo2();
+    malloc_trim(0);
+    struct mallinfo2 after = mallinfo2();
+    const long relMb = long((before.fordblks - after.fordblks) / (1024 * 1024));
+    if (relMb > 4)
+        qInfo("[MEMTRIM] released=%ldMB retained_before=%ldMB", relMb,
+              long(before.fordblks / (1024 * 1024)));
+#endif
 }

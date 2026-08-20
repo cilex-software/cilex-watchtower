@@ -332,7 +332,8 @@ Item {
     function _reset() {
         heroStepper.invalidate();   // cached frames belong to the torn-down clip
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false; _lit = false;
-        mkMeasuredMs = -1; MotionScan.reset();
+        mkMeasuredMs = -1; mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();
+        if (typeof MemTel !== "undefined") MemTel.trimNow();   // return retained decode arenas at teardown
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
         seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
     }
