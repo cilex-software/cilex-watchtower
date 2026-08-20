@@ -1,9 +1,17 @@
 # packaging/macos — how the Mac version lives on GitHub
 
-**Status 2026-08-16: scaffold.** Written on the Linux box the night the mac
-port was green-lit; **nothing here has ever executed on a Mac**. M0/M1 of
-`docs/plans/mac-port/2026-08-16-mac-port-plan.md` are the first runs, and this
-README's claims become measured facts (or corrections) there.
+**Status 2026-08-20: `build-local.sh` is REAL and verified on the Mac.** It
+produces a **thin zip** (`CilexWatchtower-<ver>-macos-arm64.zip`, ~5.6 MB):
+`watchtower.app` + a self-checking `run-macos.sh` + README.txt. Verified
+end-to-end as a recipient would use it — unzipped to a fresh directory with a
+quarantine attribute applied, `./run-macos.sh` healed the quarantine, checked
+prerequisites, and started a fully working wall. **Operator decision
+2026-08-20: prerequisites on the target are acceptable; size beats
+self-containment.** The target needs an Apple-Silicon Mac with
+`brew install qt qt-multimedia gstreamer` — the launcher prints exactly that
+when something is missing. A fully-bundled dmg (macdeployqt + the GStreamer
+plugin tree — the W4 problem, Darwin edition) remains an M4 option nobody
+currently needs.
 
 ## The storage model — identical to Windows
 
