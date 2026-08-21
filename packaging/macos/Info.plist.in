@@ -19,6 +19,15 @@
     <key>LSMinimumSystemVersion</key>         <string>12.0</string>
     <key>NSHighResolutionCapable</key>        <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key> <true/>
+    <!-- cilex:// deep links (shareable event links, 2026-08-21): macOS routes
+         the scheme to the app as an open-URL Apple Event -> QFileOpenEvent. -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>    <string>Cilex Watchtower link</string>
+            <key>CFBundleURLSchemes</key> <array><string>cilex</string></array>
+        </dict>
+    </array>
     <!-- The app talks plain HTTP/RTSP to the pilot over LAN/tailnet. Qt and
          GStreamer use their own sockets (not NSURLSession), so ATS should not
          apply — VERIFY AT M1; if stills/API calls fail only on macOS, add the

@@ -54,6 +54,7 @@
 #endif
 
 #include "AuthController.h"
+#include "models/DeepLink.h"
 #include "models/CvImageProvider.h"
 #include "models/FlightRecorder.h"
 #include "models/RtspVideoSource.h"
@@ -521,6 +522,15 @@ int main(int argc, char *argv[])
     // Exposed to QML as a context property (not a module type) so it does not
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
+
+    // Shareable event links (cilex:// scheme, operator order 2026-08-21).
+    // macOS delivers opens via QFileOpenEvent (DeepLink's event filter); a URL
+    // in argv covers cold launches routed by the OS on every platform.
+    auto *deepLink = new DeepLink(auth, &app);
+    engine.rootContext()->setContextProperty("DeepLink", deepLink);
+    for (const QString &a : QCoreApplication::arguments())
+        if (a.startsWith(QStringLiteral("cilex:"), Qt::CaseInsensitive))
+            deepLink->submit(a);
 
     // UI language (EN/RU). Default follows the OS language; the operator's choice in
     // Preferences overrides + persists. Install the initial translator BEFORE load so

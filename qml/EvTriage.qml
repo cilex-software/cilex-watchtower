@@ -14,6 +14,7 @@ Item {
     property bool active: false                   // Events screen visible → keyboard shortcuts live
     signal select(string id)
     signal exportClip(string camId, double startMs, double endMs, string purpose)   // bubbles to Main's export flow
+    signal notify(string message)                                  // toast requests, bubbled to Main's toastHost
 
     // move the selection up/down the sorted queue (keyboard ↑/↓)
     function _moveSel(d) {
@@ -1115,6 +1116,15 @@ Item {
             toolCells: true
             bookmarkOn: tri._cur ? tri._cur.bookmarked === true : false
             onExportRequested: if (EventsStore.realMode) tri._doExport()
+            // Copy this event's shareable link (cilex:// scheme). The link only
+            // IDENTIFIES — the recipient must sign in to this installation and
+            // pass its permissions before anything plays (DeepLink.h).
+            onLinkRequested: {
+                var link = DeepLink.eventLink(tri.selId);
+                if (link === "") { tri.notify(qsTr("Could not build a link (no server session)")); return; }
+                DeepLink.copyText(link);
+                tri.notify(qsTr("Event link copied — recipients need their own sign-in to this installation"));
+            }
             onAssignRequested: assignPop.opened ? assignPop.close() : assignPop.open()
             onBookmarkRequested: if (tri._cur && !EventsStore.actionsPending) EventsStore.bookmark(tri._cur.id)
         }

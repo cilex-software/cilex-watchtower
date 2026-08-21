@@ -482,6 +482,76 @@ Window {
     // whole site (operator, 2026-08-20: "Offline 7" over a group-scoped wall showed the
     // group's 2 offliners — the honest intersection, but you clicked a 7 and must see 7).
     // Clearing the chip leaves whatever scope the user has since chosen untouched.
+    // ---- shareable event links (cilex:// scheme, operator order 2026-08-21) ----
+    // The link IDENTIFIES, never authorizes: nothing resolves before sign-in, a
+    // foreign installation's link is surfaced honestly (never silently retargeted),
+    // and every fetch behind the reveal rides the server's normal auth.
+    property string _queuedLink: ""
+    function handleDeepLink(u) {
+        DeepLink.clearPending();
+        var r = DeepLink.parse(u);
+        if (!r.ok) {
+            toastHost.show(qsTr("Link"), qsTr("Not a Cilex Watchtower link"), "bad", "", "");
+            return;
+        }
+        if (!AuthController.authenticated) { _queuedLink = u; return; }   // resolved right after sign-in
+        if (!_vsDone) { _queuedLink = u; return; }         // view-state restore would override the nav (measured)
+        if (!r.sameSite) {
+            toastHost.show(qsTr("Link"),
+                qsTr("This link belongs to another Cilex installation (%1) — this Watchtower is signed in to %2").arg(r.site).arg(r.currentSite),
+                "accent", "", "");
+            return;
+        }
+        goToSection("events");
+        // The feed ingests asynchronously after the section opens — wait for it
+        // (bounded) instead of false-negating a perfectly shareable event.
+        _linkWaitEvent = r.event; _linkWaitTicks = 0;
+        linkWait.restart();
+    }
+    property string _linkWaitEvent: ""
+    property int _linkWaitTicks: 0
+    Timer {
+        id: linkWait
+        interval: 500; repeat: true
+        onTriggered: {
+            if (win._linkWaitEvent === "") { stop(); return; }
+            var evs = EventsStore.events;
+            for (var i = 0; i < evs.length; i++)
+                if (evs[i].id === win._linkWaitEvent) {
+                    console.log("[LINK] resolved event=" + win._linkWaitEvent + " cam="
+                                + (evs[i].cam ? evs[i].cam.id : "?") + " after " + win._linkWaitTicks + " ticks");
+                    eventsArea.openInTriage(win._linkWaitEvent, "");
+                    win._linkWaitEvent = ""; stop(); return;
+                }
+            if (++win._linkWaitTicks > 20) {                 // ~10 s of ingest patience
+                console.log("[LINK] NOT in loaded queue event=" + win._linkWaitEvent
+                            + " (store rows=" + evs.length + ")");
+                // Honest v1 boundary: only events in the loaded queue can be revealed;
+                // by-id history resolve is the pending CV contract (share-links letter §3).
+                toastHost.show(qsTr("Link"),
+                    qsTr("This event is not in the loaded queue — resolving older events by link needs the pending server contract"),
+                    "accent", "", "");
+                win._linkWaitEvent = ""; stop();
+            }
+        }
+    }
+    Connections {
+        target: DeepLink
+        function onLinkReceived(u) { win.handleDeepLink(u) }
+    }
+    Connections {
+        target: AuthController
+        function onAuthenticatedChanged() {
+            if (AuthController.authenticated && win._queuedLink !== "") {
+                var u = win._queuedLink; win._queuedLink = "";
+                win.handleDeepLink(u);
+            }
+        }
+    }
+    on_VsDoneChanged: if (_vsDone && _queuedLink !== "") {
+        var u = _queuedLink; _queuedLink = "";
+        handleDeepLink(u);
+    }
     function toggleStatusChip(which) {
         var engaging = statusFilter !== which;
         if (engaging) {
@@ -544,6 +614,10 @@ Window {
         cameraModel.setCameraScope(AuthController.cameraScope);
         if (typeof wtSection === "undefined" || wtSection === "") applyDefaultLanding();
         else if (win.section === "preferences") { win.section = "live"; win.openPreferences(); }
+        // A cold-launch deep link navigates LAST — before the landing logic it
+        // would be silently overridden back to the default section (measured:
+        // first build of this feature landed on Live with the link swallowed).
+        if (DeepLink.pendingUrl !== "") handleDeepLink(DeepLink.pendingUrl);
     }
 
     CameraModel { id: cameraModel }
@@ -1942,6 +2016,7 @@ Window {
                     onOpenWall: (ids) => win.enterWallWithCameras(ids)
                     // Situation-Map multi-select → live grid scoped to only those cameras.
                     onOpenLive: (ids) => win.enterLiveWithCameras(ids)
+                    onNotify: (m) => toastHost.show(qsTr("Events"), m, "accent", "", "")
                 }
 
                 // Legacy table-style Events screen — fallback behind WT_EVENTS_LEGACY.

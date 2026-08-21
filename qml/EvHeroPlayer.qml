@@ -25,6 +25,7 @@ Item {
     property int maxStageH: 372          // only used when fillStage is false
     property bool bookmarkOn: false
     signal exportRequested()
+    signal linkRequested()
     signal assignRequested()
     signal bookmarkRequested()
 
@@ -847,6 +848,7 @@ Item {
                         onReleased: (m) => parent._seekX(m.x) }
                 }
                 CtlCell { txt: hp._speed + "\u00d7"; onTapped: hp._speed = (hp._speed === 1 ? 2 : hp._speed === 2 ? 4 : 1) }
+                CtlCell { visible: hp.toolCells; ic: "link";     onTapped: hp.linkRequested() }
                 CtlCell { visible: hp.toolCells; ic: "export";   onTapped: hp.exportRequested() }
                 CtlCell { visible: hp.toolCells; ic: "assign";   onTapped: hp.assignRequested() }
                 CtlCell { visible: hp.toolCells; ic: hp.bookmarkOn ? "bookmarkF" : "bookmark"; accented: hp.bookmarkOn
