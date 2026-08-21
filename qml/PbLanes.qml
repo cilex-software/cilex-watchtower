@@ -70,6 +70,26 @@ Item {
     readonly property bool dragging: _dragMs >= 0 && !_marking
     readonly property double atMs: dragging ? _dragMs : ph
 
+    // Hover preview (operator ask 2026-08-21) — the standard player affordance:
+    // a hairline under the pointer and the exact time a click would seek to.
+    // hoverMs uses msOf(x), the SAME formula onReleased seeks with, so the
+    // promise and the click share one mapping. Hidden while a press is in
+    // flight (the release-to-seek chip owns that state) and while a MOTION bar
+    // is hovered — there a click picks the episode, not a time, and a time
+    // chip would promise a seek that will not happen.
+    property real _hoverX: -1
+    readonly property double hoverMs: _hoverX >= 0 ? msOf(_hoverX) : -1
+    readonly property bool _hoverLive: _hoverX >= 0 && _dragMs < 0 && hoverId === ""
+    // Dev/verification hook: --pb-hover-test=<trackX> forces the preview on at
+    // that x (a WT_SCREENSHOT run cannot move the real pointer without an
+    // Accessibility grant). Inert without the argument.
+    Component.onCompleted: {
+        var args = Qt.application.arguments;
+        for (var i = 0; i < args.length; i++)
+            if (args[i].indexOf("--pb-hover-test=") === 0)
+                _hoverX = parseInt(args[i].substring(16), 10);
+    }
+
     // ---- label block ------------------------------------------------------
     Item {
         id: lbl
@@ -233,6 +253,33 @@ Item {
                     c.fillStyle = Theme.ink;
                     c.beginPath(); c.moveTo(0, 0); c.lineTo(9, 0); c.lineTo(4.5, 7); c.closePath(); c.fill();
                 }
+            }
+        }
+        // Hover preview line + time chip. A HoverHandler (not hoverEnabled on the
+        // seek MouseArea) so the MOTION bars' own hover highlight keeps receiving
+        // events — handlers observe hover without consuming it.
+        HoverHandler {
+            onHoveredChanged: if (!hovered) lanes._hoverX = -1
+            onPointChanged: lanes._hoverX = hovered ? point.position.x : -1
+        }
+        Item {
+            visible: lanes._hoverLive
+            x: lanes._hoverX
+            anchors { top: ruler.bottom; bottom: parent.bottom }
+            z: 7
+            Rectangle { width: 1; anchors { top: parent.top; bottom: parent.bottom } color: Theme.ink2 }
+        }
+        Rectangle {
+            visible: lanes._hoverLive
+            z: 8
+            x: Math.max(0, Math.min(track.width - width, lanes._hoverX - width / 2))
+            y: ruler.height - height - 1
+            width: hovT.implicitWidth + 12; height: 16
+            color: Theme.ink
+            Text {
+                id: hovT; anchors.centerIn: parent
+                text: PbFmt.hms(lanes.hoverMs)
+                color: Theme.bg; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold
             }
         }
         // "release to seek" — the second half is not decoration: it tells the
