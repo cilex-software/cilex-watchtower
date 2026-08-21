@@ -225,3 +225,14 @@ What this corrects:
    correction). The RSS peaks table in §7 reads unchanged — cycle-3's 590 MB
    peak was wall-driven, which is now the labeled cause rather than an
    unexplained decoder surge.
+
+## Second same-day note (22:0x): the §8 six-day ceiling is resolved — it is the retention policy
+
+CV's reply12 to mobile (CC'd to this repo the same evening) prints the live
+pilot row: `retention_days: 5.5`. A 5.5-day policy touches at most 6 calendar
+days — the ceiling both machines measured is the policy operating, not footage
+going missing. Source is CV's letter, not a measurement of mine. Whether 5.5
+is the intended pilot value or a disk-pressure clamp is asked in
+`docs/letters/2026-08-21-six-day-ceiling-is-your-55-day-policy.md`; CLAUDE.md's
+"35-day retention" parenthetical is stale either way and will be corrected on
+CV's answer.
