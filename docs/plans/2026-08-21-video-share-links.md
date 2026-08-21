@@ -51,12 +51,23 @@ shareable contexts.
 
 ## What is deliberately NOT client-side
 
-- **Authorization** — the server's, always. Today the pilot's auth is
-  coarse (one admin login); per-user / per-camera ACLs are CV's half and the
-  operator's requirement explicitly depends on them (letter §1).
-- **By-id history resolve** — `GET /events/{id}` (or equivalent) so a link
-  older than the loaded queue window can open with its own permission check
-  (letter §3).
+- **Authorization** — the server's, always. ~~Today the pilot's auth is
+  coarse (one admin login)~~ **CORRECTED same day by CV's reply: per-user
+  camera scope is LIVE, enforced in thirteen routers, and the pilot already
+  has scoped users** (`petya` = 4 cameras) — the operator's requirement is
+  met by running code; what remains is account provisioning, an operator
+  action. My premise was wrong, in our favour; owned here.
+- **By-id history resolve** — EXISTS (`events.py:873`, camera-filtered).
+  Two contract rules adopted from CV's reply, binding on ALL clients:
+  (1) **404 is deliberately indistinguishable for absent vs forbidden** —
+  a 403 would make every link an existence probe (enumeration oracle);
+  clients must render ONE state and never imply which it was.
+  (2) An episode is THREE rows (started/detected/ended, distinct PKs, tied
+  by raw_motion_event_id); the server will accept **any of the three ids**
+  and resolve to the canonical episode row, so already-shared links never
+  break. Client keeps minting its canonical store id. Consumption of this
+  endpoint as the link-open fallback is queued behind CV landing
+  any-of-three + installation_id together.
 - **Installation UUID** (letter §2).
 - **HTTPS wrapper links** — WhatsApp and most chat apps do not autolink
   custom schemes; real-world sharing wants an https URL that redirects to
