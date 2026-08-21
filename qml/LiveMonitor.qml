@@ -182,26 +182,40 @@ Item {
         for (var k = 0; k < n; k++) set[ranked[k].id] = true;
         return set;
     }
-    // Responsive controls row: when it's too narrow to fit the right-hand action buttons
-    // (Go-back / Save / Arrange), they collapse into the overflow "»" menu (MS-Office style).
-    // LOOP-FREE: every term is a STABLE implicitWidth — a hidden button keeps its implicit size,
-    // and toolbarSpacer.x stays at the (fixed) left-content width — so collapsing never changes
-    // the decision that triggered it. Sort + full-screen stay inline (compact, always reachable).
-    // Whether the right-hand actions WANT to collapse — recomputed live, including mid-resize.
-    readonly property bool _tbWantCollapse: headerRow.width > 0
-        && (toolbarSpacer.x + goBackBtn.implicitWidth + saveBtn.implicitWidth + arrangeBtn.implicitWidth
-            + sortControl.implicitWidth + fullBtn.implicitWidth + 5 * headerRow.spacing + 8) > headerRow.width
-    // The APPLIED collapse state that drives the buttons' `visible`. It is updated on a DEFERRED
+    // Responsive controls row, iteration 2 (operator, 2026-08-21: "as many buttons as can
+    // fit" — the old all-or-nothing collapse hid every action at once and left a dead gap
+    // before the "»" button). GRADUATED: the right-hand controls drop into the "»" menu ONE
+    // AT A TIME from the least-used end (Arrange → Save → Go-back → Sort+full-screen); with
+    // everything fitting there is no "»" at all. LOOP-FREE for the same reason as before:
+    // every term is a STABLE implicitWidth — a hidden button keeps its implicit size — and
+    // toolbarSpacer.x is the (fixed) left-content width, so the applied state changes
+    // nothing the decision reads.
+    readonly property int _tbWantHidden: {
+        if (headerRow.width <= 0) return 0;
+        var sp = headerRow.spacing;
+        var W  = headerRow.width - 8;
+        var fixed = toolbarSpacer.x + sortControl.implicitWidth + fullBtn.implicitWidth + 2 * sp;
+        var gb = goBackBtn.implicitWidth + sp, sv = saveBtn.implicitWidth + sp, ar = arrangeBtn.implicitWidth + sp;
+        var rst = (arrangeMode && hasArrangement) ? resetBtn.implicitWidth + sp : 0;
+        var ov = 38 + sp;                                   // the "»" button, present iff anything hides
+        if (fixed + gb + sv + ar + rst <= W) return 0;      // everything fits — no "»" at all
+        if (fixed + gb + sv + ov <= W) return 1;            // Arrange (+Reset) into the menu
+        if (fixed + gb + ov <= W) return 2;                 // …and Save
+        if (fixed + ov <= W) return 3;                      // …and Go-back
+        if (toolbarSpacer.x + fullBtn.implicitWidth + sp + ov <= W) return 4;   // …and Sort (full stays)
+        return 5;                                           // …and full-screen: only "»" inline
+    }
+    // The APPLIED overflow level that drives the buttons' `visible`. It is updated on a DEFERRED
     // tick (the timer below), never synchronously from the binding above: toggling a RowLayout
     // child's visibility *during the layout's own resize rearrange* re-enters QGridLayoutEngine and
     // crashes on a dangling attached Layout property (SIGSEGV in QQuickGridLayoutBase::rearrange —
     // reproduced by maximize/minimize). Deferring moves the toggle to the next tick, after the
     // resize pass unwinds, so the layout is never mutated re-entrantly.
-    property bool _tbCollapsed: false
+    property int _tbHidden: 0
     Timer {
         interval: 0; repeat: false
-        running: root._tbWantCollapse !== root._tbCollapsed
-        onTriggered: root._tbCollapsed = root._tbWantCollapse
+        running: root._tbWantHidden !== root._tbHidden
+        onTriggered: root._tbHidden = root._tbWantHidden
     }
     property string pickerSearch: ""
     property string pickerGroup: ""      // picker group filter ("" = all groups)
@@ -1009,7 +1023,7 @@ Item {
                 // go back in time (enter synchronized wall playback)
                 Rectangle {
                     id: goBackBtn
-                    visible: !root._tbCollapsed
+                    visible: root._tbHidden < 3
                     Layout.preferredHeight: 34
                     implicitWidth: gbtRow.implicitWidth + 24
                     color: gbtMa.containsMouse ? Theme.panel : "transparent"
@@ -1033,7 +1047,7 @@ Item {
                 // save current view (ghost)
                 Rectangle {
                     id: saveBtn
-                    visible: !root._tbCollapsed
+                    visible: root._tbHidden < 2
                     Layout.preferredHeight: 34
                     implicitWidth: saveTxt.implicitWidth + 28
                     color: saveMa.containsMouse ? Theme.panel : "transparent"
@@ -1060,7 +1074,7 @@ Item {
                 // arrange cells — tap a cell to choose its camera (e.g. the Center tile)
                 Rectangle {
                     id: arrangeBtn
-                    visible: !root._tbCollapsed
+                    visible: root._tbHidden < 1
                     Layout.preferredHeight: 34
                     implicitWidth: arrTxt.implicitWidth + 28
                     color: root.arrangeMode ? Theme.accent : (arrMa.containsMouse ? Theme.panel : "transparent")
@@ -1080,7 +1094,7 @@ Item {
                 // reset this group's arrangement (only while arranging + a custom order exists)
                 Rectangle {
                     id: resetBtn
-                    visible: root.arrangeMode && root.hasArrangement && !root._tbCollapsed
+                    visible: root.arrangeMode && root.hasArrangement && root._tbHidden < 1
                     Layout.preferredHeight: 34
                     implicitWidth: resetTxt.implicitWidth + 24
                     color: resetMa.containsMouse ? Theme.panel : "transparent"
@@ -1092,7 +1106,7 @@ Item {
                 // sort dropdown
                 Rectangle {
                     id: sortControl
-                    visible: !root._tbCollapsed
+                    visible: root._tbHidden < 4
                     Layout.preferredHeight: 38
                     implicitWidth: sortRow.implicitWidth + 24
                     color: Theme.panel
@@ -1162,7 +1176,7 @@ Item {
                 // full-screen
                 IconButton {
                     id: fullBtn
-                    visible: !root._tbCollapsed
+                    visible: root._tbHidden < 5
                     name: "full"
                     iconColor: Theme.ink2
                     borderColor: Theme.line2
@@ -1180,7 +1194,7 @@ Item {
                 // overflow. Opens a menu with the same commands. Shown only while collapsed.
                 Rectangle {
                     id: overflowBtn
-                    visible: root._tbCollapsed
+                    visible: root._tbHidden > 0
                     Layout.preferredHeight: 38; Layout.preferredWidth: 38
                     color: (ovMa.containsMouse || ovPopup.visible) ? Theme.panel : "transparent"
                     border.width: 1
@@ -1221,31 +1235,41 @@ Item {
                                 MouseArea { id: orMa; anchors.fill: parent; hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor; onClicked: { parent.triggered(); ovPopup.close() } }
                             }
-                            OvRow { label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
-                            OvRow { label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
-                            OvRow { label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"
+                            // Only the commands actually hidden at the current overflow level —
+                            // a menu duplicating inline buttons would be two names for one fact.
+                            // (Sort + full-screen never collapse, so they no longer appear here.)
+                            OvRow { visible: root._tbHidden >= 3
+                                label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
+                            OvRow { visible: root._tbHidden >= 2
+                                label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
+                            OvRow { visible: root._tbHidden >= 1
+                                label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"
                                 onTriggered: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1 } }
-                            OvRow { visible: root.arrangeMode && root.hasArrangement
+                            OvRow { visible: root._tbHidden >= 1 && root.arrangeMode && root.hasArrangement
                                 label: qsTr("Reset arrangement"); icon: "back"; onTriggered: root.resetArrangement() }
-                            OvRow { label: qsTr("Full-screen"); icon: "full"; onTriggered: root.fullscreenToggled() }
-                            Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
-                            Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
-                                text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
-                                font.pixelSize: 9; font.letterSpacing: 1 }
-                            Repeater {
-                                model: [ { id: "live", lbl: "Live first" }, { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
-                                         { id: "status", lbl: "Status first" }, { id: "alpha", lbl: "Alphabetical" } ]
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    width: 202; height: 30
-                                    color: soMa.containsMouse ? Theme.panel2 : "transparent"
-                                    Text { anchors { left: parent.left; leftMargin: 34; verticalCenter: parent.verticalCenter }
-                                        text: modelData.lbl
-                                        color: root.sortMode === modelData.id ? Theme.accent : Theme.ink
-                                        font.family: Theme.fontSans; font.pixelSize: 12 }
-                                    MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
+                            OvRow { visible: root._tbHidden >= 5
+                                label: qsTr("Full-screen"); icon: "full"; onTriggered: root.fullscreenToggled() }
+                            Column {
+                                visible: root._tbHidden >= 4
+                                Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
+                                Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
+                                    text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
+                                    font.pixelSize: 9; font.letterSpacing: 1 }
+                                Repeater {
+                                    model: [ { id: "live", lbl: "Live first" }, { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
+                                             { id: "status", lbl: "Status first" }, { id: "alpha", lbl: "Alphabetical" } ]
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        width: 202; height: 30
+                                        color: soMa.containsMouse ? Theme.panel2 : "transparent"
+                                        Text { anchors { left: parent.left; leftMargin: 34; verticalCenter: parent.verticalCenter }
+                                            text: modelData.lbl
+                                            color: root.sortMode === modelData.id ? Theme.accent : Theme.ink
+                                            font.family: Theme.fontSans; font.pixelSize: 12 }
+                                        MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
+                                    }
                                 }
                             }
                         }
