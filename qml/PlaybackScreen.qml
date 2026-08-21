@@ -1811,11 +1811,24 @@ Item {
         for (var j = 0; j < pts.length && out.length < 1800; j++) {
             var p = pts[j];
             if (p.ms < s || p.ms > e || typeHidden(p.type)) continue;
+            // Operator rule (2026-08-21): a confirmed detection inside a motion span is
+            // the SAME fact to a guard — one movement, one row. The span row carries it;
+            // the detection only stands alone when no displayed span contains it (span
+            // outside the fetched window, or the Motion chip hiding spans — hiding spans
+            // must surface incidents again, never silently drop them).
+            if (p.type === "motion_detected" && !typeHidden("motion")
+                    && _insideEpisode(p.ms)) continue;
             out.push({ id: "p" + p.ms + "_" + p.type, ms: p.ms, len: 0, type: p.type,
                        label: EventStyle.label(p.type), color: EventStyle.color(p.type) });
         }
         out.sort(function (a, b) { return a.ms - b.ms; });
         return out;
+    }
+    function _insideEpisode(ms) {
+        var eps = motionEpisodes;   // ±2s pad: detected stamps ride the span edge
+        for (var i = 0; i < eps.length; i++)
+            if (ms >= eps[i].startMs - 2000 && ms <= eps[i].endMs + 2000) return true;
+        return false;
     }
     readonly property var winItemsNewest: {
         var a = winItems.slice(); a.reverse(); return a;
@@ -1829,8 +1842,14 @@ Item {
             var ep = motionEpisodes[i];
             if (ep.endMs >= s && ep.startMs <= e) n++;
         }
-        for (var j = 0; j < pointEvents.length; j++)
-            if (pointEvents[j].ms >= s && pointEvents[j].ms <= e) n++;
+        for (var j = 0; j < pointEvents.length; j++) {
+            var p = pointEvents[j];
+            if (p.ms < s || p.ms > e) continue;
+            // mirror winItems' span-absorption, else the empty state promises more
+            // rows than un-hiding the chips would actually reveal
+            if (p.type === "motion_detected" && _insideEpisode(p.ms)) continue;
+            n++;
+        }
         return n;
     }
     readonly property var typeChips: {
