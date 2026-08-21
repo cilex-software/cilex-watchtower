@@ -18,10 +18,11 @@ currently needs.
 - **One repo, one `main`.** Shared code (`src/`, `qml/`, `i18n/`) carries mac
   behaviour behind `Q_OS_MACOS`, exactly as `Q_OS_WIN` does today. No fork, no
   long-lived `mac` branch.
-- **This directory is Mac-owned** (once the Mac station + agent exist): like
-  `packaging/windows/**`, it may go straight to `main` after a rebase. Shared
-  code from the Mac goes through `mac/<topic>` branches + PRs, because that
-  box cannot verify the Linux build.
+- **This directory is Mac-owned**: like `packaging/windows/**`, it may go
+  straight to `main` after a rebase. Shared code from the Mac ALSO goes
+  straight to `main` since 2026-08-21 (operator decision, recorded in
+  CLAUDE.md — supersedes the earlier `mac/<topic>` PR rule; branches only
+  when explicitly asked).
 - **Binaries never enter the tree.** Distribution is the rolling
   **`macos-latest`** GitHub prerelease, published from a LOCAL build via
   `./build-local.sh -Publish` (CI is off for budget; macOS CI never existed —

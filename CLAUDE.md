@@ -27,17 +27,16 @@ Two Claude Code sessions now work this codebase:
 |---|---|---|
 | **Linux dev agent** | `cilex-vision` dev box (Ubuntu) | the product: `src/`, `qml/`, `i18n/`, `docs/`, letters, releases |
 | **Windows station agent** | `wt-sm-vnutri-01` (guard booth, Win 11) | Windows reality: `packaging/windows/`, `warden/install-windows.ps1`, `.github/workflows/windows.yml`, Windows perf/bring-up notes |
-| **macOS agent** *(machine named 2026-08-16; M0 pending first session)* | operator's MacBook Pro 16" 2021, Apple M1 Pro, 32 GB, macOS 26 (Tahoe) — a PERSONAL LAPTOP, not a 24/7 station: it sleeps, it roams networks | macOS reality: `packaging/macos/`, `warden/install-macos.sh` (M3), mac perf notes. Shared code via `mac/<topic>` PRs, same rule as `win/*` |
+| **macOS agent** | operator's MacBook Pro 16" 2021, Apple M1 Pro, 32 GB, macOS 26 (Tahoe) — a PERSONAL LAPTOP, not a 24/7 station: it sleeps, it roams networks | macOS reality: `packaging/macos/`, `warden/install-macos.sh` (M3), mac perf notes. **Shared code straight to `main` after rebase — operator decision 2026-08-21, supersedes the earlier `mac/<topic>` PR rule; branches/PRs only when explicitly asked.** The Mac build is screenshot-verified there; the Linux build is not — a Linux-side break lands on the Linux agent to flag |
 
 Rules that keep them out of each other's way:
 
 1. **`git pull --rebase` before every push. Always, both agents.**
-2. **Only ONE agent pushes straight to `main` for shared code.** The Linux
-   agent does (it can build and screenshot-verify the Linux app, which is
-   the reference platform). The Windows agent puts any change touching
-   `src/`, `qml/`, `i18n/`, `CMakeLists.txt` on a branch `win/<topic>` and
-   opens a PR — those files affect BOTH platforms and the Windows box cannot
-   verify the Linux build.
+2. **Straight-to-`main` for shared code: the Linux agent (reference
+   platform) and, since 2026-08-21 by operator decision, the macOS agent.**
+   The Windows agent puts any change touching `src/`, `qml/`, `i18n/`,
+   `CMakeLists.txt` on a branch `win/<topic>` and opens a PR — those files
+   affect BOTH platforms and the Windows box cannot verify the Linux build.
 3. **Windows-only paths may go straight to `main`** from the Windows agent
    after a rebase: `packaging/windows/**`, `warden/install-windows.ps1`,
    `.github/workflows/windows.yml`, `docs/perf/*win*`. Nobody else touches
