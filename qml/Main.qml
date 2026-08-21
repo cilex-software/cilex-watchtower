@@ -1105,9 +1105,14 @@ Window {
         interval: 500; repeat: true
         running: typeof wtPlaybackIp !== "undefined" && wtPlaybackIp !== ""
         onTriggered: {
-            var all = cameraModel.page("", "", "default", 1, 50);
+            // Scan the FULL roster, not a page: page-1-of-50 silently never matched
+            // when roster order left the camera beyond row 50, so the hook looped
+            // forever and the app stayed on the live wall (caught 2026-08-21: soak
+            // cycle 3 ran with 16 wall pipelines decoding under the harness).
+            var all = [];
+            for (var r = 0; r < cameraModel.total; r++) all.push(cameraModel.get(r));
             for (var i = 0; i < all.length; i++)
-                if (all[i].ip === wtPlaybackIp) {
+                if (all[i] && all[i].ip === wtPlaybackIp) {
                     playbackBootHook.running = false;
                     win.focusedCamera = all[i];
                     win.playbackCamera = all[i];

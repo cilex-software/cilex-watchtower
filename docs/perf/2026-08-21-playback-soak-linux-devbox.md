@@ -185,3 +185,43 @@ response-encoding (gzip or not) not measured; first_frame lines cover 521 of
 
 Data: `scratchpad/soak5/` (pbsoak.log 742 lines, pbtime.log 8,737, rss.csv 207,
 link.csv 11, control.log, cycle-{1..3}.log, supervisor.log).
+
+---
+
+## Correction, same day (15:40): cycle 3 ran with the live wall decoding 16 streams — and it changes the conclusion only by strengthening it
+
+While verifying the §9 reply for the booth, I checked what the app was actually
+showing during each cycle. `WT_PLAYBACK_IP`'s boot hook (`qml/Main.qml`,
+`playbackBootHook`) scanned only the first 50 roster rows for the camera IP;
+when roster ordering left `192.168.1.148` beyond row 50 at cycle-3 boot, the
+hook looped forever and the app stayed on the live wall while the soak driver
+worked the playback machinery underneath. Measured per cycle
+(`live_pipelines=` in [WT-MEM] lines):
+
+| cycle | wall state | verdicts | played | session_http p50 |
+|---|---|---|---|---|
+| control | off (115 samples at 0) | 12 | 12 | 346 ms |
+| 1 | off (0 of 1,252 samples at 16) | 156 | 152 | 390 ms |
+| 2 | off | 171 | 171 | 299 ms |
+| **3** | **16 pipelines, 502 of 503 samples** | **63** | **63** | **302 ms** |
+
+Literal: `2026-08-21 10:43:11.415 [WT-MEM] rss=341MB live_pipelines=16 frames=272`
+
+What this corrects:
+
+1. My morning status line said the app "boots straight into Playback" — that
+   was inferred from the code comment, and it held for control + cycles 1–2
+   only. Cycle 3 (63 of 390 verdicts, 16 %) ran under 16-stream live-wall
+   decode contention.
+2. It does not weaken the verdict — it strengthens it: under the very
+   contention class the booth flagged in their §7, this box still played
+   63 of 63 jumps at p50 302 ms. (Not a like-for-like of the booth's 49
+   streams on a UHD 730; stated as measured, 16 streams on this box's VA-API.)
+3. Cycle 3 also owns the run's worst single open (19,848 ms for a 2.16 MB
+   body at 10:43:58) — consistent with boot-barrage + wall spin-up pressure,
+   still answered and played.
+4. The hook bug is fixed: the boot hook now scans the full roster
+   (`qml/Main.qml` playbackBootHook; commit pending in the same push as this
+   correction). The RSS peaks table in §7 reads unchanged — cycle-3's 590 MB
+   peak was wall-driven, which is now the labeled cause rather than an
+   unexplained decoder surge.
