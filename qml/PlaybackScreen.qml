@@ -2316,7 +2316,14 @@ Item {
 
                 LoadingState {
                     anchors.centerIn: parent
-                    visible: (root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia))
+                    // Honest gap-cover (booth playback soak, letter §6 2026-08-21): fragments
+                    // in hand but not one frame of THIS open rendered yet must read as
+                    // loading — never as a still the guard could write up as what the camera
+                    // saw. _ttffPending arms on every source set and clears on the first
+                    // rendered frame, so the veil now holds across the whole no-picture gap
+                    // (session settled → first frame), not just session fetch + preroll.
+                    visible: (root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia)
+                              || (root._ttffPending && root.frags.length > 0))
                              && root.errorText === "" && !root.blocked
                     label: qsTr("Loading recording…")
                 }
