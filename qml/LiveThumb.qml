@@ -63,7 +63,25 @@ Rectangle {
     // ~10 warn/s into the flight recorder (~4 MB/h of noise) for an EXPECTED
     // state. After 3 straight failures the poll drops to 15 s until one succeeds.
     property int _errStreak: 0
-    readonly property int _effectiveMs: _errStreak >= 3 ? 15000 : refreshMs
+    // Graduated (2026-08-21, operator report: paired "QML QQuickImage: HTTP 404"
+    // lines every few seconds): Qt logs ONE warning per failed attempt and that
+    // cannot be suppressed from QML, so the only honest way to quiet a
+    // permanently-404 camera is to ask less often. 3 fails → 15 s (the CW-15
+    // value), 8 → 60 s, 12 → 5 min steady state. Self-heal paths: any success
+    // resets the streak; a camera swap resets (_reset); and a LIVE-STATE CHANGE
+    // resets (below) so a camera coming back is re-probed within one tick, not
+    // in five minutes.
+    readonly property int _effectiveMs: _errStreak >= 12 ? 300000
+                                      : _errStreak >= 8  ? 60000
+                                      : _errStreak >= 3  ? 15000 : refreshMs
+    // One attributed line per streak — the raw Qt warning names the QML file but
+    // not the camera, which made tonight's report undiagnosable from the log.
+    function _noteError() {
+        _errStreak++;
+        if (_errStreak === 3)
+            console.log("[THUMB] snapshot failing cam=" + (cam && cam.ip ? cam.ip : "?")
+                        + " live=" + (cam ? cam.live : -1) + " — backoff 15s→60s→5min");
+    }
     function _refresh() {
         if (_base === "") return;
         _tick++;
@@ -96,7 +114,15 @@ Rectangle {
     // snapshot URL restores that: a genuine camera swap (delegate recycling)
     // still clears, so one camera's still can never be shown under another's name.
     property string _loadedBase: ""
+    property int _lastLive: -1
     function _ensureFor() {
+        // A live-state transition is new information: a backed-off thumb re-probes
+        // on the next tick instead of waiting out its 15s/60s/5min interval.
+        var lv = (cam && cam.live !== undefined) ? cam.live : -1;
+        if (lv !== _lastLive) {
+            _lastLive = lv;
+            if (_errStreak >= 3) _errStreak = 0;
+        }
         if (_base === _loadedBase)
             return;                       // same camera — keep what is on screen
         _loadedBase = _base;
@@ -121,7 +147,7 @@ Rectangle {
         opacity: thumb._showA ? 1 : 0
         onStatusChanged: {
             if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = true; thumb._errStreak = 0; }
-            else if (status === Image.Error) thumb._errStreak++;
+            else if (status === Image.Error) thumb._noteError();
         }
     }
     Image {
@@ -131,7 +157,7 @@ Rectangle {
         opacity: thumb._showA ? 0 : 1
         onStatusChanged: {
             if (status === Image.Ready) { thumb._everLoaded = true; thumb._showA = false; thumb._errStreak = 0; }
-            else if (status === Image.Error) thumb._errStreak++;
+            else if (status === Image.Error) thumb._noteError();
         }
     }
     Icon {   // placeholder until the first frame loads (offline / loading)
