@@ -207,9 +207,12 @@ void MemTelemetry::trimNow()
     struct mallinfo2 before = mallinfo2();
     malloc_trim(0);
     struct mallinfo2 after = mallinfo2();
-    const long relMb = long((before.fordblks - after.fordblks) / (1024 * 1024));
+    // Signed math: fordblks is size_t and trim can leave it HIGHER (arena consolidation),
+    // so unsigned subtraction wrapped to 2^44 "MB" in the first soak night — instrument
+    // bug, owned in the 08-21 report; only positive releases are worth a line.
+    const long long relMb = (static_cast<long long>(before.fordblks) - static_cast<long long>(after.fordblks)) / (1024 * 1024);
     if (relMb > 4)
-        qInfo("[MEMTRIM] released=%ldMB retained_before=%ldMB", relMb,
+        qInfo("[MEMTRIM] released=%lldMB retained_before=%ldMB", relMb,
               long(before.fordblks / (1024 * 1024)));
 #endif
 }
