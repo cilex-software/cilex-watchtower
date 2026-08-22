@@ -93,9 +93,13 @@ What this corrects in this report:
    sda1 essentially nonstop 00:29-09:58) at 2-10 GB/min. Ten hours of volume
    rewriting, not waves.
 3. **The follow-up every future storage soak inherits:** a readability probe
-   belongs in the sampler — N random OLD segments GET-verified per hour,
-   not just session-opens. Space, catalogue, and bytes are three different
-   claims; this run measured two of them.
+   belongs in the sampler — and mobile's refinement (2026-08-22, theirs)
+   makes it catch THIS failure class specifically: probe a fixed segment set
+   BEFORE compaction and re-probe the SAME segments after, rather than only
+   random hourly sampling (which can miss a stale-index window for hours).
+   Both carry mobile's caveat: a 200 proves those bytes read at that moment,
+   not that the volume is sound. Space, catalogue, and bytes are three
+   different claims; this run measured two of them.
 
 Timeline + verification details handed to CV on their P0 thread (msg
 f52fd961, 17:2x local). The catalogue-half of this report (safety audit,
