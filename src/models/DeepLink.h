@@ -52,6 +52,12 @@ public:
     // opts out. Warden independently VERIFIES and reports `deeplink_ok`.
     static void ensureSchemeRegistered();
 
+    // Opaque wire codec (operator order 2026-08-22): innerQuery is the pinned
+    // v=1&… parameter string; the token hides it from forwarded-link readers.
+    // Obfuscation-grade by declared intent — see the codec comment in the .cpp.
+    static QString encodeToken(const QByteArray &innerQuery, const QByteArray &nonce);
+    static QByteArray decodeToken(const QString &token);
+
 signals:
     void pendingUrlChanged();
     void linkReceived(const QString &url);

@@ -558,6 +558,22 @@ int main(int argc, char *argv[])
     // macOS delivers opens via QFileOpenEvent (DeepLink's event filter); a URL
     // in argv covers cold launches routed by the OS on every platform.
     DeepLink::ensureSchemeRegistered();   // idempotent per-OS cilex:// claim, every start
+    // Dev: WT_LINK_VECTORS=1 prints deterministic opaque-token test vectors at boot —
+    // the cross-product codec contract (mobile/CV implementations must match these
+    // byte-for-byte; letter 2026-08-23-share-link-opaque-wire-form).
+    if (qEnvironmentVariableIsSet("WT_LINK_VECTORS")) {
+        const struct { const char *nonce; const char *inner; } vec[] = {
+            {"\x00\x01\x02\x03", "v=1&site=100.107.51.72:8000&event=f9742fe0-1405-4aec-9537-949253b7220b"},
+            {"\xde\xad\xbe\xef", "v=1&site=192.168.1.79:8000&camera=hiwatch-083bc1df39aa&at=2026-08-21T10:00:00%2B03:00&dur=300"},
+        };
+        for (const auto &v : vec) {
+            const QByteArray nonce(v.nonce, 4);
+            const QString tok = DeepLink::encodeToken(QByteArray(v.inner), nonce);
+            const bool rt = DeepLink::decodeToken(tok) == QByteArray(v.inner);
+            qInfo("[LINKVEC] nonce=%s inner=\"%s\"", qPrintable(QString::fromLatin1(nonce.toHex())), v.inner);
+            qInfo("[LINKVEC] token=cilex://%s roundtrip=%s", qPrintable(tok), rt ? "OK" : "FAIL");
+        }
+    }
     auto *deepLink = new DeepLink(auth, &app);
     engine.rootContext()->setContextProperty("DeepLink", deepLink);
     for (const QString &a : QCoreApplication::arguments())
