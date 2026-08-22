@@ -62,7 +62,13 @@ v=1&site=<…>&camera=<camera_id>&at=<ISO8601+offset>&dur=<s> — moment link (a
 
 - Exactly ONE selector: `event` XOR `camera`+`at`; both present = invalid,
   reject honestly.
-- `at` ALWAYS carries an explicit UTC offset. `dur` optional, seconds.
+- **`at` is THE MOMENT — the frame the sender was looking at — and `dur`
+  BRACKETS it**: the clip spans `at − dur/2 → at + dur/2` (operator decision
+  2026-08-23: default 30 s centred; by the time someone presses share, the
+  thing worth sharing already happened). Senders ALWAYS write `dur`
+  explicitly into the link — the default lives in sender UI only, so a
+  future default change never silently reinterprets old links.
+- `at` ALWAYS carries an explicit UTC offset. `dur` in seconds.
 - `camera_id` is the server's id (`hiwatch-…`), never IP, never name.
 - Unknown params: ignored. `v` missing or >1: honest "link from a newer
   Cilex" message, never silent misparse.

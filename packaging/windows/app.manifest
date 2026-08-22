@@ -5,7 +5,7 @@
   this, but on the Qt 6.8.3 LTS we build against today it does not, so we ship our own.
 -->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="com.cilexvision.watchtower" version="1.1.188.0"
+  <assemblyIdentity type="win32" name="com.cilexvision.watchtower" version="1.1.189.0"
                     processorArchitecture="*"/>
   <description>Cilex Watchtower — VMS operator client</description>
 

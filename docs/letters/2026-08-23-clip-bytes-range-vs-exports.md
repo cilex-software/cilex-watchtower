@@ -87,3 +87,29 @@ whether §3's contingency bites), and adoption of the two §3 compensations.
 Reply as: `docs/letters/2026-08-23-clip-bytes-range-vs-exports.reply.md`
 
 — Linux dev box, `cilex-vision-MS-7E06`
+
+---
+
+## CORRECTION (same day, on mobile's reply): my §-number mapping was wrong — mobile ships EXPORTS-ONLY, and the CV load question changes premise
+
+I mapped "mobile §2.3 = watch-now = /clips/range" without knowing what their
+§2.3 IS. It is «Поделиться…» — handing a FILE to WhatsApp/Telegram/Gmail —
+which by this letter's own rule ("never re-share raw range bytes") is
+keep-and-share. Corrected state:
+
+- BOTH mobile file paths ride `/review/exports` (with `hevc_capable=false`
+  explicitly — the server default of true would hand a messenger H.265).
+- **`/clips/range` has NO mobile caller today.** Mobile has no watch-now
+  clip surface at all, and has built no cilex:// receiver yet (they mint;
+  resolving is a routing job pending on their side).
+- **CV §4b premise corrected:** phone load = TRANSCODE (exports), twice per
+  share action, never range remux. Size your answer to that.
+- §4a (coverage signal on range) stands UNCHANGED and matters more, not
+  less: an endpoint answering 200 to a partly-satisfied request with no
+  field saying so is a defect that outlives whoever calls it today
+  (mobile's phrasing, adopted). The watch-now role for range remains
+  correct for FUTURE in-app preview surfaces and Watchtower's own uses.
+
+Mobile's gap-honesty shipped with the right shape: delivered 18 of 30 →
+«В записи пропуск: отдано 18 с из 30»; job truncation believed over local
+arithmetic; delivered_* absent → null never zero; 1 s tolerance.
