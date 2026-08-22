@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtMultimedia
 import Watchtower
@@ -775,9 +776,13 @@ Item {
                 id: cc
                 property string txt: ""
                 property string ic: ""
+                property string tip: ""
                 property bool en: true
                 property bool accented: false
                 signal tapped()
+                ToolTip.text: cc.tip
+                ToolTip.visible: cc.tip !== "" && ccMa.containsMouse
+                ToolTip.delay: 400
                 Layout.fillHeight: true
                 Layout.preferredWidth: Math.max(34, ccRow.implicitWidth + 16)
                 color: ccMa.containsMouse && cc.en ? Theme.panel2 : "transparent"
@@ -798,7 +803,7 @@ Item {
 
             RowLayout {
                 anchors.fill: parent; spacing: 0
-                CtlCell { ic: "stepBack"; en: hp._started && !heroStepper.busy
+                CtlCell { ic: "stepBack"; tip: qsTr("Previous frame"); en: hp._started && !heroStepper.busy
                     onTapped: heroStepper.stepBackward() }
                 Rectangle {                                // play / pause
                     Layout.fillHeight: true; Layout.preferredWidth: 38
@@ -809,11 +814,14 @@ Item {
                     EvIcon { anchors.centerIn: parent; visible: player.playbackState !== MediaPlayer.PlayingState; name: "play"; size: 14; color: Theme.ink }
                     MouseArea { id: ppMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: hp.toggle() }
+                    ToolTip.text: player.playbackState === MediaPlayer.PlayingState ? qsTr("Pause") : qsTr("Play")
+                    ToolTip.visible: ppMa.containsMouse
+                    ToolTip.delay: 400
                 }
-                CtlCell { ic: "stepFwd"; en: hp._started && !heroStepper.busy
+                CtlCell { ic: "stepFwd"; tip: qsTr("Next frame"); en: hp._started && !heroStepper.busy
                     onTapped: heroStepper.stepForward() }
-                CtlCell { txt: "\u221210"; onTapped: hp.seekToWall(hp._playheadWallMs - 10000) }
-                CtlCell { txt: "+10"; onTapped: hp.seekToWall(hp._playheadWallMs + 10000) }
+                CtlCell { txt: "\u221210"; tip: qsTr("Back 10 seconds"); onTapped: hp.seekToWall(hp._playheadWallMs - 10000) }
+                CtlCell { txt: "+10"; tip: qsTr("Forward 10 seconds"); onTapped: hp.seekToWall(hp._playheadWallMs + 10000) }
                 Rectangle {
                     Layout.fillHeight: true; Layout.preferredWidth: ctimeT.implicitWidth + 20
                     color: "transparent"
@@ -847,12 +855,12 @@ Item {
                         onPressed: (m) => parent._seekX(m.x)
                         onReleased: (m) => parent._seekX(m.x) }
                 }
-                CtlCell { txt: hp._speed + "\u00d7"; onTapped: hp._speed = (hp._speed === 1 ? 2 : hp._speed === 2 ? 4 : 1) }
-                CtlCell { visible: hp.toolCells; ic: "link";     onTapped: hp.linkRequested() }
-                CtlCell { visible: hp.toolCells; ic: "export";   onTapped: hp.exportRequested() }
-                CtlCell { visible: hp.toolCells; ic: "assign";   onTapped: hp.assignRequested() }
+                CtlCell { txt: hp._speed + "\u00d7"; tip: qsTr("Playback speed"); onTapped: hp._speed = (hp._speed === 1 ? 2 : hp._speed === 2 ? 4 : 1) }
+                CtlCell { visible: hp.toolCells; ic: "link";     tip: qsTr("Copy share link"); onTapped: hp.linkRequested() }
+                CtlCell { visible: hp.toolCells; ic: "export";   tip: qsTr("Export clip"); onTapped: hp.exportRequested() }
+                CtlCell { visible: hp.toolCells; ic: "assign";   tip: qsTr("Assign to operator"); onTapped: hp.assignRequested() }
                 CtlCell { visible: hp.toolCells; ic: hp.bookmarkOn ? "bookmarkF" : "bookmark"; accented: hp.bookmarkOn
-                    onTapped: hp.bookmarkRequested() }
+                    tip: hp.bookmarkOn ? qsTr("Remove bookmark") : qsTr("Bookmark"); onTapped: hp.bookmarkRequested() }
             }
         }
     }

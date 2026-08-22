@@ -581,6 +581,54 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
+        <source>Previous frame</source>
+        <translation>Предыдущий кадр</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>Следующий кадр</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Воспроизвести</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <source>Back 10 seconds</source>
+        <translation>Назад на 10 секунд</translation>
+    </message>
+    <message>
+        <source>Forward 10 seconds</source>
+        <translation>Вперёд на 10 секунд</translation>
+    </message>
+    <message>
+        <source>Playback speed</source>
+        <translation>Скорость воспроизведения</translation>
+    </message>
+    <message>
+        <source>Copy share link</source>
+        <translation>Скопировать ссылку на событие</translation>
+    </message>
+    <message>
+        <source>Export clip</source>
+        <translation>Экспортировать клип</translation>
+    </message>
+    <message>
+        <source>Assign to operator</source>
+        <translation>Назначить оператору</translation>
+    </message>
+    <message>
+        <source>Bookmark</source>
+        <translation>В закладки</translation>
+    </message>
+    <message>
+        <source>Remove bookmark</source>
+        <translation>Убрать закладку</translation>
+    </message>
+    <message>
         <location filename="../qml/EvHeroPlayer.qml" line="259"/>
         <source>Playback stalled — the recording backend stopped serving this window. Tap play to retry.</source>
         <translation>Воспроизведение остановилось — сервер записи перестал отдавать этот участок. Нажмите воспроизведение, чтобы повторить.</translation>
