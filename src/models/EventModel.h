@@ -57,6 +57,11 @@ public:
     // Re-fetch live events from cilex-vision (no-op under WT_DEMO). Re-runs the
     // current server-side query (camera/time) from page 0.
     Q_INVOKABLE void refresh();
+    // GET /events/{id} — the by-id resolve behind share links. The row is parsed,
+    // swapped-or-appended into the model (so ack/dispose/bookmark find it), and
+    // returned via oneFetched. 404 covers BOTH absent and forbidden by server
+    // design (enumeration-oracle conflation) — no caller may word them apart.
+    Q_INVOKABLE void fetchOne(const QString &eventId);
     // Server-side query against /events. Empty cameraId/start/end omit that filter.
     // Resets to page 0. start/end are ISO 8601 instants. (Motion is a client-side
     // pill now — see EventsScreen; the feed already drops redundant motion_detected
@@ -124,6 +129,8 @@ public:
 
 signals:
     void changed();
+    void oneFetched(const QVariantMap &row);
+    void oneFetchFailed(const QString &eventId, int httpCode);
     void operatorsChanged();
     void motionRevChanged();
     void liveFeedChanged();

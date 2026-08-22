@@ -469,6 +469,34 @@ void EventModel::postEventAction(const QString &id, const QString &subpath, cons
     });
 }
 
+// GET /events/{id} (CV reply 2026-08-21: exists at events.py:873, camera-filtered,
+// feed-row shape). Our minted links carry the motion_detected row id — the same id
+// the feed consumes — so no any-of-three translation is needed for our own links;
+// foreign ids ride the server's resolve when CV's queued canonicalization deploys.
+void EventModel::fetchOne(const QString &eventId)
+{
+    QNetworkRequest req{ QUrl(m_baseUrl + "/events/" + eventId) };
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, eventId]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) { AuthController::instance()->noteUnauthorized(); emit oneFetchFailed(eventId, code); return; }
+        if (code < 200 || code >= 300) { emit oneFetchFailed(eventId, code); return; }
+        const wt::EventData e = parseRow(QJsonDocument::fromJson(reply->readAll()).object());
+        if (e.id.isEmpty()) { emit oneFetchFailed(eventId, 0); return; }
+        bool found = false;
+        for (int i = 0; i < m_all.size(); ++i)
+            if (m_all[i].id == e.id) { m_all[i] = e; emit dataChanged(index(i), index(i)); found = true; break; }
+        if (!found) {
+            beginInsertRows(QModelIndex(), m_all.size(), m_all.size());
+            m_all.append(e);
+            endInsertRows();
+        }
+        emit changed();                 // EventsStore re-ingests; the row becomes addressable
+        emit oneFetched(toMap(e));
+    });
+}
+
 QVariantMap EventModel::toMap(const wt::EventData &e) const
 {
     QVariantMap m;

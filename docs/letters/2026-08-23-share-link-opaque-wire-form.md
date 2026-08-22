@@ -108,3 +108,33 @@ handshake. Counter-proposals on the codec only BEFORE you ship it.
 Reply as: `docs/letters/2026-08-23-share-link-opaque-wire-form.reply.md`
 
 — Linux dev box, `cilex-vision-MS-7E06`
+
+---
+
+## CORRECTION (same day, ~00:45): the token moves from the HOST slot to the PATH — `cilex://open/<token>` — because the host slot is structurally impossible
+
+Measured within hours of shipping: URL hostname labels are capped at 63
+characters (IDNA), every token is ~126, and Qt rejects the whole URL
+("Invalid hostname") — JS URL parsers apply the same rules, so mobile would
+have hit it identically. This was also the root of the operator's
+wrong-video report tonight: parse rejected silently, no navigation, and the
+Events queue-head autoplay impersonated the linked clip.
+
+**The wire form is now:  `cilex://open/<token>`** — host is the literal
+`open` (which doubles as the legacy discriminator), token rides the path
+(no length cap, case preserved; base32-lower kept for chat-safety).
+EVERYTHING ELSE IS UNCHANGED: codec `a`, key derivation, nonce, checksum,
+and §4's two test-vector TOKENS are byte-identical — only their placement
+changed (`cilex://open/aaaaqea33s…` / `cilex://open/a32w3536o5…`).
+Parse law: path non-empty → opaque decode; path empty + query present →
+legacy readable. Verified end-to-end on Linux this hour: cold launch with a
+path-form link to an out-of-queue event → decode → by-id resolve
+(GET /events/{id}) → correct clip selected, screenshot-confirmed.
+
+Also shipped in the same push, found by the same investigation: the client
+now RESOLVES BY ID when a linked event is not in the loaded queue (closed
+and aged events — the main sharing use case — open correctly instead of
+timing out), every deep-link branch logs its exit (three silent returns made
+tonight's session undiagnosable), and a cold-launch deadlock died
+(`_vsDone` never initialized when view-state restore is ineligible — queued
+links waited forever under any fixture env).

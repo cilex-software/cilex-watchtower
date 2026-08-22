@@ -173,7 +173,11 @@ Window {
         && wtWallDay === "" && !wtGuardSoak && !wtFsoak && !wtNightSoak && !wtCalStress
         && !wtResizeTest && wtChurnTest === 0
     property bool _vsArmed: false    // saves allowed (post-restore)
-    property bool _vsDone: false     // restore attempt resolved
+    // Restore attempt resolved. Starts TRUE when restore is ineligible (fixture
+    // envs, dev shortcuts): nothing will ever run _vsFinish then, and anything
+    // gated on _vsDone — cold-launch deep links, measured 2026-08-23 — would
+    // wait forever on a flag with no setter.
+    property bool _vsDone: !restoreEligible
 
     function _vsCapture() {
         var t = [];
@@ -488,20 +492,25 @@ Window {
     // and every fetch behind the reveal rides the server's normal auth.
     property string _queuedLink: ""
     function handleDeepLink(u) {
+        // Every exit logs — the 2026-08-23 wrong-video session was undiagnosable
+        // because three of these branches returned in silence.
         DeepLink.clearPending();
         var r = DeepLink.parse(u);
         if (!r.ok) {
+            console.log("[LINK] parse REJECTED (bad token/checksum/scheme)");
             toastHost.show(qsTr("Link"), qsTr("Not a Cilex Watchtower link"), "bad", "", "");
             return;
         }
-        if (!AuthController.authenticated) { _queuedLink = u; return; }   // resolved right after sign-in
-        if (!_vsDone) { _queuedLink = u; return; }         // view-state restore would override the nav (measured)
+        if (!AuthController.authenticated) { console.log("[LINK] queued until sign-in"); _queuedLink = u; return; }
+        if (!_vsDone) { console.log("[LINK] queued until view-state restore"); _queuedLink = u; return; }
         if (!r.sameSite) {
+            console.log("[LINK] foreign site=" + r.site + " current=" + r.currentSite);
             toastHost.show(qsTr("Link"),
                 qsTr("This link belongs to another Cilex installation (%1) — this Watchtower is signed in to %2").arg(r.site).arg(r.currentSite),
                 "accent", "", "");
             return;
         }
+        console.log("[LINK] accepted event=" + r.event + " -> events section");
         goToSection("events");
         // The feed ingests asynchronously after the section opens — wait for it
         // (bounded) instead of false-negating a perfectly shareable event.
@@ -510,6 +519,7 @@ Window {
     }
     property string _linkWaitEvent: ""
     property int _linkWaitTicks: 0
+    property bool _linkResolving: false
     Timer {
         id: linkWait
         interval: 500; repeat: true
@@ -523,21 +533,50 @@ Window {
                     eventsArea.openInTriage(win._linkWaitEvent, "");
                     win._linkWaitEvent = ""; stop(); return;
                 }
-            if (++win._linkWaitTicks > 20) {                 // ~10 s of ingest patience
-                console.log("[LINK] NOT in loaded queue event=" + win._linkWaitEvent
-                            + " (store rows=" + evs.length + ")");
-                // Honest v1 boundary: only events in the loaded queue can be revealed;
-                // by-id history resolve is the pending CV contract (share-links letter §3).
+            if (win._linkWaitTicks === 20 && !win._linkResolving) {   // ~10 s: not in the loaded queue
+                // Closed/aged events are NOT in the open queue — resolve by id
+                // (GET /events/{id}; live server-side since CV's reply, events.py:873).
+                // The 2026-08-23 wrong-video illusion: this path used to give up here
+                // and the queue head autoplayed AS IF it were the linked clip.
+                win._linkResolving = EventsStore.resolveById(win._linkWaitEvent);
+                console.log("[LINK] not in queue, by-id resolve "
+                            + (win._linkResolving ? "dispatched" : "unavailable")
+                            + " event=" + win._linkWaitEvent);
+            }
+            if (++win._linkWaitTicks > 60) {                 // +20 s for the resolve round-trip
+                console.log("[LINK] resolve TIMEOUT event=" + win._linkWaitEvent);
                 toastHost.show(qsTr("Link"),
-                    qsTr("This event is not in the loaded queue — resolving older events by link needs the pending server contract"),
-                    "accent", "", "");
-                win._linkWaitEvent = ""; stop();
+                    qsTr("The linked event is not available — it may not exist, or your sign-in cannot see it"),
+                    "bad", "", "");
+                win._linkWaitEvent = ""; win._linkResolving = false; stop();
             }
         }
     }
     Connections {
         target: DeepLink
         function onLinkReceived(u) { win.handleDeepLink(u) }
+    }
+    Connections {
+        target: EventsStore
+        // Share-link by-id resolve outcomes (EventsStore relays EventModel signals).
+        function onLinkResolved(row) {
+            if (win._linkWaitEvent === "" || row.eventId !== win._linkWaitEvent) return;
+            var ts = row.triageState;
+            var tab = (ts === "resolved" || ts === "dismissed") ? "all" : "";
+            console.log("[LINK] resolved by id event=" + row.eventId + " state=" + ts
+                        + (tab !== "" ? " tab=all" : ""));
+            eventsArea.openInTriage(row.eventId, "", tab);
+            win._linkWaitEvent = ""; win._linkResolving = false; linkWait.stop();
+        }
+        function onLinkResolveFailed(eventId, code) {
+            if (win._linkWaitEvent === "" || eventId !== win._linkWaitEvent) return;
+            // 404 covers absent AND forbidden by server design (the enumeration-
+            // oracle conflation) — this wording must never distinguish them.
+            toastHost.show(qsTr("Link"),
+                qsTr("The linked event is not available — it may not exist, or your sign-in cannot see it"),
+                "bad", "", "");
+            win._linkWaitEvent = ""; win._linkResolving = false; linkWait.stop();
+        }
     }
     Connections {
         target: AuthController

@@ -75,6 +75,13 @@ QtObject {
     property var realBookmark: null                       // function(id, value)     → EventModel.setBookmark
     property var realAssign: null                         // function(id, assignee)  → EventModel.assignEvent
     property var realCameraScope: null                    // function(camIdOrEmpty)   → EventModel.search (server-side lane scope)
+    property var realFetchOne: null                       // function(id)            → EventModel.fetchOne (share-link by-id resolve)
+    signal linkResolved(var row)                          // relayed from EventModel.oneFetched by EventsArea
+    signal linkResolveFailed(string eventId, int code)
+    function resolveById(id) {                            // true = a fetch is in flight, wait for the signals
+        if (realMode && realFetchOne) { realFetchOne(id); return true; }
+        return false;
+    }
     property var operators: []                            // assignable roster (GET /operators), set by EventsArea
 
     function _ev(o, uid) {

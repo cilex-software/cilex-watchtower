@@ -149,7 +149,11 @@ QString DeepLink::eventLink(const QString &eventId) const
     q.addQueryItem(QStringLiteral("event"), eventId);
     QByteArray nonce(4, Qt::Uninitialized);
     for (int i = 0; i < 4; ++i) nonce[i] = char(QRandomGenerator::global()->bounded(256));
-    return QStringLiteral("cilex://") + encodeToken(q.toString(QUrl::FullyEncoded).toUtf8(), nonce);
+    // Token rides the PATH, host stays the literal "open": a hostname label is
+    // capped at 63 chars (IDNA) and every token is ~2x that — QUrl (and JS URL
+    // parsers) reject host-slot tokens outright (measured 2026-08-23: "Invalid
+    // hostname", the wrong-video illusion's root). Paths have no such cap.
+    return QStringLiteral("cilex://open/") + encodeToken(q.toString(QUrl::FullyEncoded).toUtf8(), nonce);
 }
 
 QVariantMap DeepLink::parse(const QString &url) const
@@ -158,16 +162,26 @@ QVariantMap DeepLink::parse(const QString &url) const
     out[QStringLiteral("ok")] = false;
     out[QStringLiteral("currentSite")] = currentSite();
     const QUrl u(url.trimmed());
-    if (!u.isValid() || u.scheme().compare(QStringLiteral("cilex"), Qt::CaseInsensitive) != 0)
+    if (!u.isValid() || u.scheme().compare(QStringLiteral("cilex"), Qt::CaseInsensitive) != 0) {
+        qInfo("[LINK] QUrl stage: valid=%d scheme=%s err=\"%s\" (len=%d)",
+              int(u.isValid()), qPrintable(u.scheme()),
+              qPrintable(u.errorString()), int(url.trimmed().size()));
         return out;
-    // Two accepted wire forms: opaque token in the host slot (minted since
-    // 2026-08-23), and the legacy readable form cilex://open?… (the pilot's
-    // first two days of links — parse-accept forever, mint never).
+    }
+    // Two accepted wire forms, one host: cilex://open/<token> (opaque, minted
+    // since 2026-08-23 — token in the PATH; host labels cap at 63 chars and
+    // tokens are ~126, so the host slot is structurally unusable) and the
+    // legacy readable cilex://open?v=1&… (the pilot's first two days of links —
+    // parse-accept forever, mint never).
     QUrlQuery q(u);
-    if (u.host() != QLatin1String("open")) {
-        const QByteArray inner = decodeToken(u.host());
-        if (inner.isEmpty())
-            return out;   // foreign/corrupt token — honest refusal upstream
+    const QString tokenPath = u.path().mid(1);   // strip the leading '/'
+    if (!tokenPath.isEmpty()) {
+        const QByteArray inner = decodeToken(tokenPath);
+        if (inner.isEmpty()) {
+            qInfo("[LINK] opaque token refused (len=%d) — corrupt, foreign, or unknown codec prefix",
+                  int(tokenPath.size()));
+            return out;   // honest refusal upstream, never garbage-parse
+        }
         q = QUrlQuery(QString::fromUtf8(inner));
     }
     const QString site = q.queryItemValue(QStringLiteral("site"));

@@ -37,9 +37,10 @@ Item {
     // with the event selected AND its camera's lane soloed (variant B: the lane
     // is the filter, and it survives even if the exact event has aged out of
     // the loaded feed — honest fallback instead of a silent no-op selection).
-    function openInTriage(evId, camId) {
+    function openInTriage(evId, camId, tab) {
         if (camId && !EventsStore.cams[camId]) groupFilter = "";   // out of group scope -> widen honestly
         mode = "triage";
+        if (tab) triageTab = tab;   // a linked CLOSED event lives only in "all" — select the tab that holds it
         selId = evId;
         if (camId && EventsStore.cams[camId]) triage.jumpTo(camId);
     }
@@ -147,6 +148,7 @@ Item {
             EventsStore.realBookmark = function (id, value) { if (area.eventModel) area.eventModel.setBookmark(id, value); };
             EventsStore.realAssign = function (id, who) { if (area.eventModel) area.eventModel.assignEvent(id, who); };
             EventsStore.realCameraScope = function (camId) { if (area.eventModel) area.eventModel.search(camId, "", ""); };
+            EventsStore.realFetchOne = function (id) { if (area.eventModel) area.eventModel.fetchOne(id); };
             area.eventModel.fetchOperators();
             EventsStore.operators = area.eventModel.operators();
             area._ingestReal();
@@ -159,6 +161,8 @@ Item {
     Connections {
         target: area.eventModel
         enabled: !area.demo && area.eventModel !== null
+        function onOneFetched(row) { EventsStore.linkResolved(row); }
+        function onOneFetchFailed(eventId, httpCode) { EventsStore.linkResolveFailed(eventId, httpCode); }
         function onChanged() {
             area._ingestReal();
             if (!area._devScoped) {
