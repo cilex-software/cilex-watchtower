@@ -35,7 +35,7 @@ The decisive 07:00–10:00 ramp premise (arrivals roughly double) did not occur:
 
 ## S3 delete failures: transient, zero stuck keys
 
-4,984 distinct keys failed a delete at least once tonight; **max failures for any single key = 1** — no key failed twice, the permanent-orphan class is empty this run. The 07-15 orphan question stays answered by the tombstone reconciliation above. Filer-level batch failures ran 14.5% cumulative (1,330/9,169; hourly 23%→1%, ceasing after 02h) — consistent with CV's ~10% steady / 20–35% burst figures, and their hypothesis that this is the same phenomenon one layer down (retention paying ~1.3–1.5× per pass) goes to them with tonight's series.
+4,984 distinct keys failed a delete at least once tonight; **max failures for any single key = 1** — no key failed twice, the permanent-orphan class is empty this run. The 07-15 orphan question stays answered by the tombstone reconciliation above. Filer-level batch failures ran 14.5% cumulative (1,330/9,169; hourly 23%→1%, ceasing after 02h) — consistent with CV's ~10% steady / 20–35% burst figures. CV's 1.3–1.5×-work-per-pass hypothesis was WITHDRAWN by them same-morning on this series — the retry overhead was a burst that ceased after 02h, not a structural tax; the hourly numbers above are the correction, not support. Their permanent-orphan worry and their restarts-explain-the-teeth suggestion were likewise withdrawn against this run's census and correlation (their words, 2026-08-22 morning).
 
 ## The chronic pair, counted honestly
 
