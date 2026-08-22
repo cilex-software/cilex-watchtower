@@ -107,3 +107,39 @@ tombstones, backlog) is unaffected — mobile's caveat that "archive depth is
 computed from the catalogue, not from readable bytes" applies to the depth
 CLAIM, and this report's §"Safety audit" already measured only the catalogue
 and said so.
+
+## Correction 3 (same day, evening): the compaction hypothesis is REFUTED — the read-path failure is positional, the vacuum unwind is exonerated, and no footage is lost
+
+CV killed the stale-index-after-compaction hypothesis with bytes, not argument:
+
+- The "offset 35.4 GB in a 1.07 GB file" delta is EXACTLY 2^35, on four
+  independent volumes — a constant, where compaction staleness produces
+  scattered deltas. 2^35 = (0xFFFFFFFF+1)×8, marker arithmetic — a real
+  SeaweedFS bug, but not the cause of the 500s. volumeSizeLimitMB=1024:
+  those volumes were never 35 GB.
+- ACTUAL CAUSE (CV, measured): the volume server on disk 4fa8f6a7 holds
+  4,538 volumes, loads them at 5.3/s (14.3 min to finish), and is OOM-killed
+  at ~2,008 MB against a 2 GiB cap every ~11 min — it NEVER finishes.
+  Volumes past the kill point never register; the S3 "not found" is
+  truthful. The other disk (2,859 volumes) finishes and serves. My
+  200/200/500 was POSITIONAL — which disk each segment landed on — not
+  temporal. The observation stands; the mechanism I attached to it is dead.
+- NOTHING IS LOST: CV read the bytes — all fourteen affected volumes present
+  at full size; the index's last offset lands on a needle header carrying
+  the key the index names. Unreachable-until-registered, not gone.
+
+Consequences inside this report:
+
+1. Correction 2's "traded CPU for correctness" framing is WITHDRAWN — the
+   vacuum unwind did not cause the read failures. Claim 3's PASS loses the
+   guilt-asterisk and keeps only the honest scope note: this run measured
+   space and catalogue, not readability.
+2. The probe design pinned an hour ago (same segments before/after
+   compaction) is the WRONG instrument for this failure class — compaction
+   was never the variable, and random sampling would read a stable
+   positional failure as flakiness. The design that separates the cases:
+   readability sampling STRATIFIED BY DISK (mobile's correction, CV's data).
+3. Chain of custody for the record: I labeled the hypothesis as such in
+   every message and in Correction 2; it propagated anyway (mobile committed
+   it as established once, corrected same-day). Labels travel worse than
+   claims — the lesson all three agents filed today.
