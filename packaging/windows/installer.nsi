@@ -7,7 +7,7 @@
 
 !define APPNAME  "Cilex Watchtower"
 !define COMPANY  "Cilex Vision"
-!define VERSION  "1.1.162"                  ; keep in sync with project(VERSION) / watchtower.rc
+!define VERSION  "1.1.163"                  ; keep in sync with project(VERSION) / watchtower.rc
 !define EXE      "watchtower.exe"
 !define DIST_DIR "..\..\build-windows\dist"
 !define REGKEY   "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"

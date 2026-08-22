@@ -106,3 +106,30 @@ the DB (§2 Q4), S3 stuck-key analysis, PSI/load. Raw client data:
 `scratchpad/ret-soak/` on the MacBook (storage.csv, landing.csv, fleet.csv,
 session.csv, hourly /streams+/metrics snapshots, run.log with flag
 dispositions).
+
+## ADDENDUM (09:26) — ramp tail to the operator's 09:30 deadline
+
+Sampling was restarted 08:59–09:26 after the 08:56 close (3-minute gap,
+recorded in run.log) to carry the decisive-window coverage as far as the
+operator's hard end time allowed. Ramp-tail series (08:59–09:24): landing
+breadth n=5 valid samples, median **61**, max **73** — the run's highest
+breadth, still no sample below the night floor; fleet sweep at 09:19:
+frontier **unmoved** at `2026-08-17T00:00:02Z` (125/133 answering, expired 0
+by construction); session probe at 09:19: create 472 ms, playlist 413 ms —
+still inside the night band. Ramp verdict unchanged by the tail: recording
+breadth rose through 07:00–09:26 with zero degradation client-side.
+
+**Closing statement on the four-claim condition.** The order's pass gate —
+all four claims unrefuted at T+11h, claims 2 and 4 clean — is only
+half-signable from this session, and that is a fact about access, not
+effort: SSH to the box is denied for both known users, nothing beyond
+query-api :8000 is exposed (probed and recorded at T0), and claims 2–3 plus
+the authoritative claim-1 backlog exist only on the Ubuntu box. Claim 4 is
+**clean in every client-visible dimension** (breadth, frontier, playback
+proof); claim 1 is **holding within coverage visibility**; claims 2–3 are
+**not measured** here and cannot be. The box-side order and extraction
+queries are committed (`docs/plans/2026-08-22-retention-soak-order.md`,
+letter §2) — the Ubuntu session signs or refutes the remaining half; its
+Prometheus recorded tonight regardless. Per the operator's explicit
+instruction the session ends at 09:30; the condition's satisfiable
+remainder is exhausted.
