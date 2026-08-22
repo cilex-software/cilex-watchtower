@@ -21,6 +21,9 @@
 #include <chrono>
 #include <ctime>
 #include <thread>               // GUI-thread hang watchdog (Warden CW-08)
+#if !defined(Q_OS_WIN)
+#  include <unistd.h>           // getppid — the watchdog's supervised-or-orphaned check
+#endif
 // Platform split: the RSS reader, the crash handler, the fd-limit raise, the glibc arena
 // tuning and the Yama ptrace opt-in are all OS-specific. Qt is included above, so Q_OS_WIN /
 // Q_OS_LINUX (from <QtGlobal>) are already defined here. Everything outside these blocks is
@@ -377,12 +380,40 @@ int main(int argc, char *argv[])
                 QMetaObject::invokeMethod(qApp, [mono]() { s_lastAckMs.store(mono()); },
                                           Qt::QueuedConnection);
                 const long long age = mono() - s_lastAckMs.load();
+                // Abort is only a CURE when a supervisor restarts us into the restored
+                // view. Unsupervised (operator's Mac, dev shells), abort turns a
+                // recoverable freeze into a dead app: measured on the M1 2026-08-22 —
+                // backend stopped, GUI blocked 63 s (a TCP-timeout-shaped wait), watchdog
+                // aborted moments before natural recovery. Supervised = Warden armed the
+                // env AND is still our parent (reparented-to-init means it died; nobody
+                // would restart us).
+                static bool s_inHang = false;
+                static long long s_hangT0 = 0, s_lastHangLog = 0;
+                const bool supervised = qEnvironmentVariableIsSet("WT_UNDER_WARDEN")
+#if !defined(Q_OS_WIN)
+                                        && getppid() != 1
+#endif
+                                        ;
                 if (age > (long long)hangS * 1000) {
-                    std::fprintf(stderr, "\n[WT-HANG] GUI thread unresponsive for %llds "
-                                         "(watchdog %ds) — aborting for Warden to restart.\n",
-                                 age / 1000, hangS);
-                    std::fflush(stderr);
-                    std::abort();
+                    if (supervised) {
+                        std::fprintf(stderr, "\n[WT-HANG] GUI thread unresponsive for %llds "
+                                             "(watchdog %ds) — aborting for Warden to restart.\n",
+                                     age / 1000, hangS);
+                        std::fflush(stderr);
+                        std::abort();
+                    }
+                    if (!s_inHang) { s_inHang = true; s_hangT0 = mono() - age; s_lastHangLog = 0; }
+                    if (mono() - s_lastHangLog >= (long long)hangS * 1000) {
+                        s_lastHangLog = mono();
+                        qWarning("[WT-HANG] GUI thread unresponsive for %llds (watchdog %ds) — "
+                                 "UNSUPERVISED: not aborting (no Warden to restart us); waiting and "
+                                 "will log recovery.", age / 1000, hangS);
+                    }
+                } else if (s_inHang) {
+                    s_inHang = false;
+                    qWarning("[WT-HANG-RECOVERED] GUI thread answered after %llds — the freeze "
+                             "was recoverable; capture what it was doing if this repeats.",
+                             (mono() - s_hangT0) / 1000);
                 }
             }
         }).detach();
