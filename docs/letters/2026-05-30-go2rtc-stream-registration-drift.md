@@ -1,5 +1,10 @@
 # Cilex Vision — go2rtc stream registrations have drifted from `/streams`
 
+> **[REDACTED 2026-08-22, operator order]** Credential strings removed at HEAD
+> (`<REDACTED-CRED>` markers). Original bytes remain in git history pending
+> history surgery + rotation (operator decisions).
+
+
 **From:** Watchtower (operator client)
 **Date:** 2026-05-30
 **Priority:** HIGH — wall is empty; every tile 404s on its RTSP URL
@@ -36,16 +41,16 @@ OPEN
 ```text
 $ curl -s http://192.168.1.79:1984/api/streams
 {
-  "cam-1":      { "producers": [{"url":"rtsp://admin:Qwerty12@192.168.1.67:554/Streaming/Channels/101"},
+  "cam-1":      { "producers": <REDACTED-CRED>
                                 {"url":"ffmpeg:cam-1#video=h264#width=1280#hardware=vaapi"}] },
-  "cam-1-sub":  { "producers": [{"url":"rtsp://admin:Qwerty12@192.168.1.67:554/Streaming/Channels/102"}] },
-  "cam-2":      { "producers": [{"url":"rtsp://admin:Qwerty12@192.168.1.64:554/Streaming/Channels/101"},
+  "cam-1-sub":  { "producers": <REDACTED-CRED> },
+  "cam-2":      { "producers": <REDACTED-CRED>
                                 {"url":"ffmpeg:cam-2#video=h264#width=1280#hardware=vaapi"}] },
-  "cam-2-sub":  { "producers": [{"url":"rtsp://admin:Qwerty12@192.168.1.64:554/Streaming/Channels/102"}] }
+  "cam-2-sub":  { "producers": <REDACTED-CRED> }
 }
 ```
 
-That's a 2-camera test fixture (`192.168.1.67`, `192.168.1.64`, `admin:Qwerty12`). No `hiwatch-*` registrations at all.
+That's a 2-camera test fixture (`192.168.1.67`, `192.168.1.64`, <REDACTED-CRED> No `hiwatch-*` registrations at all.
 
 ### 3. `/streams` from cilex-vision is correctly returning 16 production cameras
 
@@ -67,7 +72,7 @@ Both main and sub paths 404. Not a transcode or HW-encoder issue — go2rtc just
 
 ## The likely story (confirm/deny on your side)
 
-Today's reply to the D6 brief flagged a go2rtc memory-pressure incident: 20 main streams trying to VA-API-transcode to H.264 concurrently, hitting the 512 MB cgroup cap, repeated `[exec] timeout` + HEVC decode errors, recorder stalled. A short-term recovery from that almost certainly involved restarting go2rtc with a minimal config (or rolling back to a baked-in dev config — the `cam-1`/`cam-2`/`admin:Qwerty12` shape looks like a fixture). The production registrations never got replayed.
+Today's reply to the D6 brief flagged a go2rtc memory-pressure incident: 20 main streams trying to VA-API-transcode to H.264 concurrently, hitting the 512 MB cgroup cap, repeated `[exec] timeout` + HEVC decode errors, recorder stalled. A short-term recovery from that almost certainly involved restarting go2rtc with a minimal config (or rolling back to a baked-in dev config — the <REDACTED-CRED> shape looks like a fixture). The production registrations never got replayed.
 
 So the drift is: `/streams` is still the source of truth for the camera fleet (good — D5 scoping works, D1 URL shape works), but go2rtc is running an emergency-minimal config that doesn't know any of the real cameras.
 
@@ -111,7 +116,7 @@ Both are Watchtower-only changes; we'll do them on request — they're not block
 
 - The underlying §D3 HD-passthrough fast-follow (dual-source `[raw rtsp, ffmpeg:…#hardware=vaapi]`). Separate, longer-running ask. This brief is purely about restoring registration parity between `/streams` and go2rtc as it stands today.
 - The `recording` field (D6) — it's already shipped (`"recording" | "unknown"`); once go2rtc + the recorder come back, `"recording"` will start showing up naturally.
-- The 2-camera `admin:Qwerty12` test fixture — if those creds are real and live in production config, please rotate; they look like dev creds. (If it's a sealed dev fixture, ignore.)
+- The 2-camera <REDACTED-CRED> test fixture — if those creds are real and live in production config, please rotate; they look like dev creds. (If it's a sealed dev fixture, ignore.)
 
 ---
 

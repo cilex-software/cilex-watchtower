@@ -1,5 +1,10 @@
 # Cilex Watchtower — Project Status
 
+> **[REDACTED 2026-08-22, operator order]** Credential strings removed at HEAD
+> (`<REDACTED-CRED>` markers). Original bytes remain in git history pending
+> history surgery + rotation (operator decisions).
+
+
 <!-- 2026-08-17 pointer -->
 > **2026-08-17 — the booth slow-wall is FIXED and the wall PASSES the
 > operator's bar.** Measured: **15 minutes, zero stalls, 8/8 tiles lit, worst
@@ -941,7 +946,7 @@ Two operator-reported shell gaps, both closed:
 - **🟢 RESOLVED 07-08 ~14:03 UTC — the 7-day recording outage is OVER; both cameras recording**
   (`.67` H.264 1080p continuous, `.201` HEVC 1440p via fail-safe). Four stacked faults, all identified
   (letter UPDATE 2+3: [`docs/letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md`](letters/2026-07-08-recording-outage-fleetwide-since-jul-1.md)):
-  (1) `.67` registry password was wrong → operator factory-reset + re-activated with `Qwerty12!`;
+  (1) `.67` registry password was wrong → operator factory-reset + re-activated with <REDACTED-CRED>
   (2) recorder's continuous engine only reconciles at STARTUP → `docker restart recorder-service`
   engaged `.67`; (3) `.201` motion control vetoed by `camera_clock_drift` (~3 s, camera-side; server
   NTP-true) — silent except a 3/sec log flood; (4) the fail-safe-continuous path excluded `.201`

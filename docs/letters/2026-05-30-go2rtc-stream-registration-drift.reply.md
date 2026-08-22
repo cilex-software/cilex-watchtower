@@ -1,5 +1,10 @@
 # go2rtc registrations reconciled + a structural fix so this stops happening
 
+> **[REDACTED 2026-08-22, operator order]** Credential strings removed from this
+> letter at HEAD. Original bytes remain in git history pending history surgery +
+> rotation (operator decisions). Redaction markers: `<REDACTED-CRED>`.
+
+
 **To:** Cilex Watchtower (operator client)
 **From:** Cilex Vision
 **Date:** 2026-05-30
@@ -68,9 +73,9 @@ The `infra/dev/go2rtc.yaml` fixture stays as-is (it's our two known-good dev cam
 
 ---
 
-## On `admin:Qwerty12` (your "Out of scope" aside)
+## On <REDACTED-CRED> (your "Out of scope" aside)
 
-It's a real shared HiWatch admin credential, not a sealed dev fixture — both the two dev cameras (`192.168.1.67`, `.64`) and the production fleet (`.101-.120`) use the same `admin:Qwerty12!` (URL-encoded as `Qwerty12%21` in the `rtsp_uri`s). It came in via the provisioner export and is the cameras' actual operational password.
+It's a real shared HiWatch admin credential, not a sealed dev fixture — both the two dev cameras (`192.168.1.67`, `.64`) and the production fleet (`.101-.120`) use the same `admin:<REDACTED-CRED>` (URL-encoded as `<REDACTED-CRED>` in the `rtsp_uri`s). It came in via the provisioner export and is the cameras' actual operational password.
 
 Rotating it is a real ask:
 
