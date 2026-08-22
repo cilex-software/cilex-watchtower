@@ -66,3 +66,40 @@ Tonight 208–265 landed/min vs last night 110–159 at the same clock — tonig
 5. The 65%-starved proxy from T+4h was too loose and was not reported; the ≥5-min-sustained definition (25%) is what stands.
 
 Raw data: `/home/cilex-vision/soak-2026-08-22/` (series.csv n=692, disks.csv, filer.csv, probes.csv n=23, recorder-lines.log deduped, baseline.txt, report-notes.md with the full gate-by-gate log).
+
+---
+
+## Correction 2 (same day, ~17:3x): claim 3 was SPACE-ONLY — readability after compaction was never verified, and the read path is now failing
+
+Mobile's P0 to CV (2026-08-22 afternoon): review segments returning 500,
+2,835 volume-integrity failures/30 min, a read at offset 35.4 GB in a 1.07 GB
+file, volume servers restart-looping. Independently verified from this side:
+segment 3 of 3 returned HTTP 500 through the app's own session->playlist->
+segment path, on footage WRITTEN 2026-08-21 morning — before the soak — and
+unreadable after it.
+
+What this corrects in this report:
+
+1. **Claim 3's scope.** "Reclaim survives the vacuum unwind" was refutable
+   only by free space trending down. It PASSED on that clause and the pass
+   stands AS SCOPED — but the scope was wrong to leave unstated: nobody
+   verified that footage remained READABLE after compaction rewrote the
+   volumes. The offset-past-EOF signature is the textbook stale-needle-index-
+   after-compaction failure. If CV's root-cause lands there, the vacuum
+   unwind traded CPU for correctness and this report's "PASS, decisively"
+   deserves the asterisk it now has.
+2. **"Compaction is lumpy" understated it.** Full extraction from disks.csv:
+   near-CONTINUOUS compaction 23:49->09:58 (sdb1 23:49-00:28 and 04:43-05:47;
+   sda1 essentially nonstop 00:29-09:58) at 2-10 GB/min. Ten hours of volume
+   rewriting, not waves.
+3. **The follow-up every future storage soak inherits:** a readability probe
+   belongs in the sampler — N random OLD segments GET-verified per hour,
+   not just session-opens. Space, catalogue, and bytes are three different
+   claims; this run measured two of them.
+
+Timeline + verification details handed to CV on their P0 thread (msg
+f52fd961, 17:2x local). The catalogue-half of this report (safety audit,
+tombstones, backlog) is unaffected — mobile's caveat that "archive depth is
+computed from the catalogue, not from readable bytes" applies to the depth
+CLAIM, and this report's §"Safety audit" already measured only the catalogue
+and said so.
