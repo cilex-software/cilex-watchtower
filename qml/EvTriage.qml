@@ -398,6 +398,32 @@ Item {
         tri.fold = tri.fold.filter(function (x) { return x !== key; });
         lanesView.contentY = 0;
     }
+    // Link-open reveal (operator ask 2026-08-23): scroll the queue to the linked
+    // event's row and pulse it subtly — selection alone is invisible when the row
+    // sits below the fold. Retries briefly: the row may still be materializing
+    // (by-id resolve inserts it, the lane list rebuilds a beat later).
+    property string pulseId: ""
+    property string _revealPending: ""
+    property int _revealTries: 0
+    function revealEvent(evId) {
+        _revealPending = evId; _revealTries = 0;
+        revealTimer.restart(); _tryReveal();
+    }
+    function _tryReveal() {
+        if (_revealPending === "") return;
+        var items = tri._L.items;
+        for (var i = 0; i < items.length; i++)
+            if (items[i].t === "e" && items[i].ev && items[i].ev.id === _revealPending) {
+                lanesView.positionViewAtIndex(i, ListView.Center);
+                tri.pulseId = _revealPending;
+                pulseClear.restart();
+                _revealPending = ""; revealTimer.stop();
+                return;
+            }
+        if (++_revealTries > 10) { _revealPending = ""; revealTimer.stop(); }  // row never appeared; selection stands
+    }
+    Timer { id: revealTimer; interval: 250; repeat: true; onTriggered: tri._tryReveal() }
+    Timer { id: pulseClear; interval: 2600; onTriggered: tri.pulseId = "" }
     function clearSolo() { tri.solo = []; tri.buf = ""; }
     function _tabLabel() {
         return tri.filter === "open" ? qsTr("Open queue")
@@ -706,6 +732,19 @@ Item {
                             color: _on ? Theme.panel2 : (erMa.containsMouse ? Theme.panel : "transparent")
                             opacity: (e && e.status !== "new") ? 0.45 : 1
                             Rectangle { visible: erow._on; anchors.left: parent.left; width: 3; height: parent.height; color: Theme.accent }
+                            Rectangle {
+                                // link-reveal pulse: three soft breaths of accent glaze, then gone
+                                anchors.fill: parent
+                                visible: erow.e && tri.pulseId === erow.e.id
+                                color: Theme.accent
+                                opacity: 0
+                                SequentialAnimation on opacity {
+                                    running: erow.e && tri.pulseId === erow.e.id
+                                    loops: 3
+                                    NumberAnimation { from: 0; to: 0.22; duration: 320; easing.type: Easing.InOutQuad }
+                                    NumberAnimation { from: 0.22; to: 0; duration: 480; easing.type: Easing.InOutQuad }
+                                }
+                            }
                             Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
                             RowLayout {
                                 anchors.fill: parent

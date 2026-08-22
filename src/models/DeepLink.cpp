@@ -10,6 +10,7 @@
 #include <QGuiApplication>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
+#include <QRegularExpression>
 #include <QUrl>
 #include <QUrlQuery>
 #include <cstring>              // strchr — base32 alphabet lookup
@@ -161,28 +162,49 @@ QVariantMap DeepLink::parse(const QString &url) const
     QVariantMap out;
     out[QStringLiteral("ok")] = false;
     out[QStringLiteral("currentSite")] = currentSite();
-    const QUrl u(url.trimmed());
-    if (!u.isValid() || u.scheme().compare(QStringLiteral("cilex"), Qt::CaseInsensitive) != 0) {
-        qInfo("[LINK] QUrl stage: valid=%d scheme=%s err=\"%s\" (len=%d)",
-              int(u.isValid()), qPrintable(u.scheme()),
-              qPrintable(u.errorString()), int(url.trimmed().size()));
-        return out;
-    }
-    // Two accepted wire forms, one host: cilex://open/<token> (opaque, minted
-    // since 2026-08-23 — token in the PATH; host labels cap at 63 chars and
-    // tokens are ~126, so the host slot is structurally unusable) and the
-    // legacy readable cilex://open?v=1&… (the pilot's first two days of links —
-    // parse-accept forever, mint never).
-    QUrlQuery q(u);
-    const QString tokenPath = u.path().mid(1);   // strip the leading '/'
-    if (!tokenPath.isEmpty()) {
-        const QByteArray inner = decodeToken(tokenPath);
+    const QString trimmed = url.trimmed();
+    // Three accepted wire forms, one minted:
+    //   cilex://open/<token>   opaque, THE minted form (2026-08-23-)
+    //   cilex://<token>        the 08-22 dead-era mints + human link reuse. A >63-char
+    //                          host label is illegal (IDNA), so QUrl REJECTS the whole
+    //                          URL — the token is lifted by string surgery BEFORE URL
+    //                          parsing. Measured twice on the operator's Mac: the first
+    //                          failure shipped the path form; the second (them reusing
+    //                          the old link, as every guard eventually will) shipped this.
+    //   cilex://open?v=1&…     legacy readable (first two pilot days) — accept, never mint.
+    QUrlQuery q;
+    static const QRegularExpression kHostForm(
+        QStringLiteral("^cilex://([a-z2-7]{16,})/?$"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch hf = kHostForm.match(trimmed);
+    if (hf.hasMatch()) {
+        const QByteArray inner = decodeToken(hf.captured(1).toLower());
         if (inner.isEmpty()) {
-            qInfo("[LINK] opaque token refused (len=%d) — corrupt, foreign, or unknown codec prefix",
-                  int(tokenPath.size()));
-            return out;   // honest refusal upstream, never garbage-parse
+            qInfo("[LINK] host-form token refused (len=%d) — corrupt, foreign, or unknown codec",
+                  int(hf.captured(1).size()));
+            return out;
         }
         q = QUrlQuery(QString::fromUtf8(inner));
+    } else {
+        const QUrl u(trimmed);
+        if (!u.isValid() || u.scheme().compare(QStringLiteral("cilex"), Qt::CaseInsensitive) != 0) {
+            qInfo("[LINK] QUrl stage: valid=%d scheme=%s err=\"%s\" (len=%d)",
+                  int(u.isValid()), qPrintable(u.scheme()),
+                  qPrintable(u.errorString()), int(trimmed.size()));
+            return out;
+        }
+        const QString tokenPath = u.path().mid(1);   // strip the leading '/'
+        if (!tokenPath.isEmpty()) {
+            const QByteArray inner = decodeToken(tokenPath);
+            if (inner.isEmpty()) {
+                qInfo("[LINK] opaque token refused (len=%d) — corrupt, foreign, or unknown codec prefix",
+                      int(tokenPath.size()));
+                return out;   // honest refusal upstream, never garbage-parse
+            }
+            q = QUrlQuery(QString::fromUtf8(inner));
+        } else {
+            q = QUrlQuery(u);
+        }
     }
     const QString site = q.queryItemValue(QStringLiteral("site"));
     const QString event = q.queryItemValue(QStringLiteral("event"));

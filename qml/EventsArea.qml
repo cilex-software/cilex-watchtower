@@ -43,6 +43,7 @@ Item {
         if (tab) triageTab = tab;   // a linked CLOSED event lives only in "all" — select the tab that holds it
         selId = evId;
         if (camId && EventsStore.cams[camId]) triage.jumpTo(camId);
+        triage.revealEvent(evId);   // scroll-to + subtle pulse (operator ask 2026-08-23)
     }
 
     function _recountGroups() {
