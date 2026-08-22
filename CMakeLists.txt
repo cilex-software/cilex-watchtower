@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.180
+    VERSION 1.1.181
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -281,6 +281,11 @@ target_link_libraries(watchtower PRIVATE
     Qt6::Multimedia
     PkgConfig::GST
 )
+
+if(APPLE)
+    # LSRegisterURL (DeepLink::ensureSchemeRegistered — the cilex:// self-claim on boot)
+    target_link_libraries(watchtower PRIVATE "-framework CoreServices")
+endif()
 
 # ---------------------------------------------------------------------------
 # Windows packaging (scaffold). Inert on Linux/macOS — only configures when WIN32,

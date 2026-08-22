@@ -44,6 +44,14 @@ public:
     void submit(const QString &url);
     Q_INVOKABLE void clearPending();
 
+    // Claim the cilex:// scheme for THIS binary/bundle with the OS, idempotently,
+    // on every start. Registration is per-OS state that installs, moves and
+    // direct-binary dev launches all silently miss (measured: run-macos.sh execs
+    // the inner binary, LaunchServices never saw the bundle, `open cilex://…` →
+    // kLSApplicationNotFoundErr, operator's M1 2026-08-22). WT_NO_SCHEME_REG=1
+    // opts out. Warden independently VERIFIES and reports `deeplink_ok`.
+    static void ensureSchemeRegistered();
+
 signals:
     void pendingUrlChanged();
     void linkReceived(const QString &url);

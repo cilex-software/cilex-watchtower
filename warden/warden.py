@@ -39,7 +39,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.3.0"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct on the beat
+WARDEN_VERSION = "1.3.1"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -508,6 +508,47 @@ class Heartbeat(threading.Thread):
         super().__init__(name="heartbeat")
         self.stale_after = 180.0
 
+
+_DEEPLINK_OK = {"checked": False, "ok": None}
+
+def deeplink_ok():
+    """Is a cilex:// handler registered for this user? Tri-state: True / False /
+    None (unmeasured — tool missing, timeout, or platform quirk; absent != false).
+    Checked once per warden lifetime (the app re-claims on every start anyway;
+    this is the independent witness, not the fixer)."""
+    if _DEEPLINK_OK["checked"]:
+        return _DEEPLINK_OK["ok"]
+    _DEEPLINK_OK["checked"] = True
+    ok = None
+    try:
+        if WIN:
+            import winreg
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                    r"Software\Classes\cilex\shell\open\command"):
+                    ok = True
+            except FileNotFoundError:
+                ok = False
+        elif sys.platform == "darwin":
+            ls = ("/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+                  "LaunchServices.framework/Support/lsregister")
+            if os.path.exists(ls):
+                out = subprocess.run([ls, "-dump", "URLSchemeBinding"],
+                                     capture_output=True, text=True, timeout=30)
+                ok = ("cilex:" in out.stdout) if out.returncode == 0 else None
+        else:
+            out = subprocess.run(["xdg-mime", "query", "default",
+                                  "x-scheme-handler/cilex"],
+                                 capture_output=True, text=True, timeout=10)
+            ok = bool(out.stdout.strip()) if out.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired):
+        ok = None
+    _DEEPLINK_OK["ok"] = ok
+    if ok is False:
+        log("WARN deeplink_ok=false — cilex:// links will not open on this station "
+            "(the app registers on start; a false here after an app start is a defect)")
+    return ok
+
     def payload(self):
         now = time.time()
         HB["deaths_1h"] = [t for t in HB["deaths_1h"] if now - t < 3600]
@@ -538,6 +579,7 @@ class Heartbeat(threading.Thread):
             "backend_unreachable_since": iso(CONTACT["unreachable_since"]),
         }
         p["cpu_pct"], p["mem_pct"] = host_load()   # whole-machine; null when unmeasured
+        p["deeplink_ok"] = deeplink_ok()            # tri-state; None = unmeasured
         try:
             p["flightrec_age_s"] = int(now - (FLTREC / "watchtower.log").stat().st_mtime)
         except OSError:

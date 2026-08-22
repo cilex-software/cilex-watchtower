@@ -557,6 +557,7 @@ int main(int argc, char *argv[])
     // Shareable event links (cilex:// scheme, operator order 2026-08-21).
     // macOS delivers opens via QFileOpenEvent (DeepLink's event filter); a URL
     // in argv covers cold launches routed by the OS on every platform.
+    DeepLink::ensureSchemeRegistered();   // idempotent per-OS cilex:// claim, every start
     auto *deepLink = new DeepLink(auth, &app);
     engine.rootContext()->setContextProperty("DeepLink", deepLink);
     for (const QString &a : QCoreApplication::arguments())
