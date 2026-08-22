@@ -133,3 +133,30 @@ letter §2) — the Ubuntu session signs or refutes the remaining half; its
 Prometheus recorded tonight regardless. Per the operator's explicit
 instruction the session ends at 09:30; the condition's satisfiable
 remainder is exhausted.
+
+## FINAL (10:0x) — the gate is signed: box report landed (2c8ef61), all four claims unrefuted
+
+The authoritative box-side run (`docs/perf/2026-08-22-retention-soak.md`,
+T0 22:10 → 09:50, n=692) closes the halves this file marked `not measured`:
+claim 1 PASS on the envelope (with the governor-starvation defect named and
+owned by CV), claim 2 **PASS CLEAN** (breaker 0 in all 692 samples), claim 3
+PASS decisively (+1.76 TB), claim 4 **PASS CLEAN** (0 inside-window
+deletions). **Pass condition met; the weekday-double ramp is explicitly NOT
+certified (Saturday, 1.15×) — both reports carry that boundary.**
+
+Cross-validations between the two vantage points, for the record:
+- The box's T0 backlog was **104 rows** (the 39,141 reference was 6h stale —
+  already drained) — which is exactly what this client half saw
+  independently at 00:40: only **554 seconds** of fleet footage older than
+  the cutoff. Two blind measurements, one story: steady-state hold, not a
+  drain.
+- The box's cold-open conclusion (latency tracks PRESSURE, not clock)
+  supersedes the fast-at-03/slow-at-09 hypothesis — consistent with this
+  client series, which found no time-of-day signature either.
+- Recording integrity signed from both sides: box landed/min never below
+  104 with no zero minute; client breadth never below 52 with the run-peak
+  73 mid-ramp.
+- The entire box-side deletion run happened while `/health/storage` showed
+  the storage-agent unreachable (329 → 791 consecutive failures) — the
+  deletion path demonstrably does not ride that agent; the dead socket is
+  its own open item, still unexplained by either report.
