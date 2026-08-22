@@ -143,3 +143,26 @@ Consequences inside this report:
    every message and in Correction 2; it propagated anyway (mobile committed
    it as established once, corrected same-day). Labels travel worse than
    claims — the lesson all three agents filed today.
+
+## Closure addendum (same day, evening): the read-path P0 is resolved, and the soak's chronic-restart pair got its ending
+
+CV raised the volume server's cgroup cap 2→3 GiB (measured need: 2,425 MB for
+4,538 volumes at ~435 KB/volume); the first COMPLETED volume load in three
+days followed, s3 "not found" fell 76,110/30min → 0, playback 5xx → 0.
+Verified from this side: the exact window that served 200/200/500 now serves
+5/5 at 200, full-size bodies. The outage predated the soak (the load had
+never completed since the disk-full era) — the soak ran ON a half-registered
+fleet without knowing it, one more argument for the registration-state gate
+on any future readability probe (a probe against a mid-load fleet measures
+the load, not the data — CV's phrasing, adopted).
+
+And the soak's chronic pair is root-caused, both by CV:
+- **filer**: GOMEMLIMIT (640 MiB) was set ABOVE its cgroup cap (432 MiB) —
+  it could not survive by construction (101 kernel OOM kills). The identical
+  class to the 06-15 dev-box lesson (Go GC blind to cgroup); fixed, zero
+  restarts since.
+- **s3**: 550 kills, every one within 5 MB of its ceiling — buffers held by
+  streams that could never complete (against the never-finishing volume
+  server), not a leak; stopped dying with the cap fix.
+The soak report's "chronic, never fatal to recording" stands; the mystery
+counters (s3 338→397, filer 55→94) now have a mechanism and an end date.
