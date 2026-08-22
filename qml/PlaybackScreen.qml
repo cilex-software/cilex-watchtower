@@ -1094,8 +1094,22 @@ Item {
     // pause streams when hidden; tidy player on hide
     focus: true
     onVisibleChanged: {
-        if (visible) { forceActiveFocus(); FrameClock.attach(vout.videoSink); }  // warm the PTS ring for frame steps
-        else { player.stop(); scanTimer.stop() }
+        if (visible) {
+            forceActiveFocus();
+            // Restore the sink dropped on hide (macOS branch below) BEFORE warming
+            // the PTS ring — attach order matters for frame stepping.
+            if (player.videoOutput !== vout) player.videoOutput = vout;
+            FrameClock.attach(vout.videoSink);  // warm the PTS ring for frame steps
+        } else {
+            // macOS: the scene graph releases the hidden VideoOutput's Metal texture
+            // cache while stop() drains the decode pipeline asynchronously — every
+            // in-flight frame then logs "cannot create texture, Metal texture cache
+            // was released?" (2 planes x ~25fps for seconds, operator log 2026-08-22).
+            // Detaching the sink FIRST stops frames reaching the dead cache; stop()
+            // then drains silently. Linux/Windows keep the plain stop() path.
+            if (Qt.platform.os === "osx") player.videoOutput = null;
+            player.stop(); scanTimer.stop()
+        }
     }
     // ---- keyboard (spec §3) ----------------------------------------------
     // Bindings must survive a Russian layout. Qt exposes no portable physical

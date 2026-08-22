@@ -109,8 +109,18 @@ void writeLineLocked(const QByteArray &line)
         rotateLocked();
 }
 
+// Consecutive-duplicate collapse (2026-08-22, the Mac Metal-texture flood: the same
+// "cannot create texture" line twice per frame for seconds — ~400 lines carrying one
+// fact, eating the flightrec budget and burying everything else). Byte-identical
+// consecutive messages are counted, not re-written; the count flushes as one summary
+// line when a different message arrives, and every 500th repeat leaves a heartbeat so
+// an infinite storm is still visible while it runs. Guarded by s_mutex.
+static QByteArray s_dupBody;
+static int s_dupCount = 0;
+
 void handler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
 {
+    bool suppressConsole = false;
     if (!t_inHandler && s_file) {
         t_inHandler = true;
         // Fixed file format, independent of QT_MESSAGE_PATTERN (which styles the
@@ -141,11 +151,33 @@ void handler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
         line += '\n';
         {
             QMutexLocker lock(s_mutex);
-            writeLineLocked(line);
+            if (body == s_dupBody) {
+                ++s_dupCount;
+                suppressConsole = true;
+                if (s_dupCount % 500 == 0) {
+                    QByteArray hb = QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toUtf8();
+                    hb += " I (previous message still repeating, x";
+                    hb += QByteArray::number(s_dupCount);
+                    hb += " so far)\n";
+                    writeLineLocked(hb);
+                }
+            } else {
+                if (s_dupCount > 0) {
+                    QByteArray fl = QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toUtf8();
+                    fl += " I (previous message repeated x";
+                    fl += QByteArray::number(s_dupCount);
+                    fl += " more)\n";
+                    writeLineLocked(fl);
+                    std::fprintf(stderr, "(previous message repeated x%d more)\n", s_dupCount);
+                }
+                s_dupCount = 0;
+                s_dupBody = body;
+                writeLineLocked(line);
+            }
         }
         t_inHandler = false;
     }
-    if (s_prev)
+    if (s_prev && !suppressConsole)
         s_prev(type, ctx, msg);          // console/journald exactly as before
 }
 

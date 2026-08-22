@@ -21,6 +21,8 @@
 #  include <psapi.h>
 #elif defined(Q_OS_MACOS)
 #  include <mach/mach.h>         // task_info(MACH_TASK_BASIC_INFO) — the /proc/self/statm equivalent
+#  include <malloc/malloc.h>     // malloc_get_all_zones/zone_statistics/pressure_relief — the
+                                 //  libmalloc counterpart of mallinfo2/malloc_trim
 #  include <unistd.h>            // getppid — the warden-eye parent watch (M1 defect #3:
                                  //  my mach branch took over this arm and dropped it)
 #else
@@ -51,6 +53,34 @@ static MemParts memParts()
     struct mallinfo2 mi = mallinfo2();
     mp.heapUsed = long(mi.uordblks / (1024 * 1024));
     mp.heapFree = long(mi.fordblks / (1024 * 1024));   // freed but RETAINED by glibc arenas
+#elif defined(Q_OS_MACOS)
+    // WRITTEN ON LINUX, NEVER COMPILED ON A MAC (same status as the mach branch in
+    // readRssMb; the operator's next mac build verifies). Was all -1 before 2026-08-22 —
+    // honest, but five dead fields on every MEMTEL line. phys_footprint decomposition:
+    // internal = anonymous resident (the decoder-arena signal the soaks watch),
+    // external = file-backed. No per-task shm field on mach — shmem stays -1.
+    task_vm_info_data_t vi;
+    mach_msg_type_number_t vcnt = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO,
+                  reinterpret_cast<task_info_t>(&vi), &vcnt) == KERN_SUCCESS) {
+        mp.anon = long(vi.internal / (1024 * 1024));
+        mp.file = long(vi.external / (1024 * 1024));
+    }
+    // libmalloc zone census: size_in_use = live blocks (heapU); size_allocated minus
+    // in-use = zone-retained free pages (heapF — what pressure_relief can return).
+    vm_address_t *zones = nullptr;
+    unsigned zcount = 0;
+    if (malloc_get_all_zones(mach_task_self(), nullptr, &zones, &zcount) == KERN_SUCCESS) {
+        size_t used = 0, alloc = 0;
+        for (unsigned i = 0; i < zcount; ++i) {
+            malloc_statistics_t st {};
+            malloc_zone_statistics(reinterpret_cast<malloc_zone_t *>(zones[i]), &st);
+            used  += st.size_in_use;
+            alloc += st.size_allocated;
+        }
+        mp.heapUsed = long(used / (1024 * 1024));
+        mp.heapFree = long((alloc > used ? alloc - used : 0) / (1024 * 1024));
+    }
 #endif
     return mp;
 }
@@ -214,5 +244,16 @@ void MemTelemetry::trimNow()
     if (relMb > 4)
         qInfo("[MEMTRIM] released=%lldMB retained_before=%ldMB", relMb,
               long(before.fordblks / (1024 * 1024)));
+#elif defined(Q_OS_MACOS)
+    // libmalloc's counterpart of malloc_trim: push zone-retained free pages back to
+    // the OS. NULL zone = all zones. WRITTEN ON LINUX, NEVER COMPILED ON A MAC (the
+    // operator's next mac build verifies). Same WT_NO_TRIM kill switch.
+    static const bool off = qEnvironmentVariableIsSet("WT_NO_TRIM");
+    if (off)
+        return;
+    const size_t rel = malloc_zone_pressure_relief(nullptr, 0);
+    if (rel > 4u * 1024 * 1024)
+        qInfo("[MEMTRIM] released=%lldMB (zone pressure relief)",
+              static_cast<long long>(rel) / (1024 * 1024));
 #endif
 }
