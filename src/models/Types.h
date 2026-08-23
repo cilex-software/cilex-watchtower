@@ -50,6 +50,10 @@ struct CameraData {
     QString recProfileMode;    // "motion" | "continuous" | "" = unknown
     int recPreRollMs = -1;     // -1 = unknown
     int recPostRollMs = -1;
+    // Tri-state per-camera "Standard rendition exists" (CV d690e52, observed-not-
+    // declared): -1 = server did not say (old server / degraded probe — behave as
+    // before), 0 = sub never recorded (motion cameras: High only), 1 = sub present.
+    int hasSubRecording = -1;
     QString ip;
     QString mac;
     QString model;

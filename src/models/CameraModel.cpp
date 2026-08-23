@@ -421,6 +421,10 @@ void CameraModel::fetchCameras()
                 c.motionStatus = mo.value(QStringLiteral("status")).toString();
                 c.motionLastVmdAt = mo.value(QStringLiteral("last_vmd_at")).toString();
             }
+            {   // absent != false on the wire too: only a real bool sets the tri-state
+                const QJsonValue hsr = o.value(QStringLiteral("has_sub_recording"));
+                if (hsr.isBool()) c.hasSubRecording = hsr.toBool() ? 1 : 0;
+            }
             if (o.contains(QStringLiteral("recording_profile"))) {
                 const QJsonObject rp = o.value(QStringLiteral("recording_profile")).toObject();
                 c.recProfileMode = rp.value(QStringLiteral("mode")).toString();
@@ -756,6 +760,7 @@ QVariantMap CameraModel::get(int row) const
     m["motionStatus"] = c.motionStatus;
     m["motionLastVmdAt"] = c.motionLastVmdAt;
     m["recProfileMode"] = c.recProfileMode;
+    m["hasSubRecording"] = c.hasSubRecording;
     m["recPreRollMs"] = c.recPreRollMs;
     m["recPostRollMs"] = c.recPostRollMs;
     m["audioRecording"] = c.audioRecording;

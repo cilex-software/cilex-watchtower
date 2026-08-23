@@ -171,8 +171,17 @@ Item {
     readonly property string highUnavailReason: highMixed
         ? "Part of this selection has aged into standard-quality storage (720p), so the high-quality original can't cover the whole clip."
         : "The high-quality original (1440p) is kept for a limited time, and this footage has aged into standard-quality storage (720p)."
+    // Standard existence is now a per-camera FACT on the roster (has_sub_recording,
+    // observed-not-declared; CV d690e52). Tri-state: -1 old-server/unknown (behave as
+    // before), 0 = this camera never records the sub (motion cameras) — Standard is
+    // not offered rather than offered-then-failed, 1 = sub present.
+    readonly property int camSub: (camera && camera.hasSubRecording !== undefined) ? camera.hasSubRecording : -1
+    readonly property bool standardKnownAbsent: camSub === 0
     // The quality actually used: the pick, unless high was chosen but isn't available.
-    readonly property string effectiveQuality: (quality === "high" && highAvailable) ? "high" : "standard"
+    // A camera with no Standard rendition always exports High (its main IS the
+    // full-retention copy for motion cameras, so highAvailable holds in practice).
+    readonly property string effectiveQuality: standardKnownAbsent ? "high"
+        : (quality === "high" && highAvailable) ? "high" : "standard"
     // Source rendition height (confirmed against real exports): High = the 1440p main
     // original; Standard = the 720p sub, now delivered natively at 720p (CV shipped the
     // h264-main-720p rendition — no more 1080p upscale; the job's resolution reports 1280×720).
@@ -503,22 +512,29 @@ Item {
                             }
                         }
                     }
-                    // Standard quality (H.264 720p sub) — kept the full retention, so always available.
+                    // Standard quality (H.264 720p sub) — full retention WHERE RECORDED.
+                    // Motion cameras never record it (has_sub_recording=false): the
+                    // option renders disabled with the truth, instead of the old
+                    // offer -> 422 -> apologize flow (operator report 2026-08-22).
                     Rectangle {
                         id: sqBtn
                         Layout.fillWidth: true; implicitHeight: 46
                         readonly property bool on: root.effectiveQuality === "standard"
-                        color: on ? Theme.accentSoft : (sqMa.containsMouse ? Theme.panel2 : Theme.bg)
+                        readonly property bool absent: root.standardKnownAbsent
+                        opacity: absent ? 0.45 : 1
+                        color: on ? Theme.accentSoft : (sqMa.containsMouse && !absent ? Theme.panel2 : Theme.bg)
                         border.width: 1; border.color: on ? Theme.accent : Theme.line2
                         Column {
                             anchors.centerIn: parent; spacing: 1
                             Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("Standard quality")
                                 color: sqBtn.on ? Theme.accent : Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: qsTr("720p · smaller file")
-                                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter
+                                text: sqBtn.absent ? qsTr("not recorded on this camera") : qsTr("720p · smaller file")
+                                color: sqBtn.absent ? Theme.warn : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 9 }
                         }
-                        MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: root.quality = "standard" }
+                        MouseArea { id: sqMa; anchors.fill: parent; hoverEnabled: true
+                            cursorShape: sqBtn.absent ? Qt.ArrowCursor : Qt.PointingHandCursor
+                            onClicked: if (!sqBtn.absent) root.quality = "standard" }
                     }
                 }
                 Text {

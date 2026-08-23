@@ -1382,6 +1382,10 @@
 <context>
     <name>ExportDrawer</name>
     <message>
+        <source>not recorded on this camera</source>
+        <translation>не записывается этой камерой</translation>
+    </message>
+    <message>
         <location filename="../qml/ExportDrawer.qml" line="195"/>
         <source>UTC</source>
         <translation>UTC</translation>
