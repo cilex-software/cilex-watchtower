@@ -42,6 +42,13 @@ Item {
     property bool _armed: false
     property int _speed: 1
     property real _smoothMs: 0                          // interpolated playhead (smooth)
+    // Clip hard-stop latch (2026-08-25): segment-range sessions can SERVE more
+    // media than the playlist DECLARES (measured: 6.3s declared / 31.9s served,
+    // 5x worst case — CV letter of today). FFmpeg stops at the declared
+    // timeline; AVFoundation plays the bytes — the operator's Mac clip ran 20s+
+    // past its own scrubber and the bar wrapped. The clip must end where it
+    // says it ends, on every backend.
+    property bool _winStopped: false
     // The EPISODE timeline the scrubber shows — [start, end] from EventsStore.episodeWindow, set on a fresh
     // open and KEPT across far-seek re-opens (so a far seek doesn't shrink/jump the scrubber to the loaded
     // sub-window). The player session (_frags) is a window inside it. Mirrors PlaybackScreen's tl*/win*.
@@ -72,12 +79,19 @@ Item {
             // Tail covered = scanned to the window end, OR the media genuinely ended earlier
             // (recordings often stop short of the padded window; EndOfMedia is honest coverage).
             var ended = player.mediaStatus === MediaPlayer.EndOfMedia
+                        || hp._winStopped
                         || (player.duration > 0 && player.position >= player.duration - 800);
             if (tailWall < hp.tlEndMs - 1500 && !ended) return;
             if (hp._posToWall(MotionScan.earliestPtsMs) > hp.tlStartMs + 2500) return;   // head never covered
             hp._mktDone = true;
             var mEnd = MotionScan.lastMotionPtsMs >= 0 ? hp._posToWall(MotionScan.lastMotionPtsMs) : -1;
-            if (mEnd > hp.tlStartMs && mEnd <= hp.tlEndMs && hp.mkMeasuredMs > 0 && mEnd > hp.mkMeasuredMs)
+            // Motion outliving the window used to REFUSE the end-snap (mEnd > tlEndMs
+            // fell through), leaving the camera's early stamp on screen — the
+            // operator's 08-25 case: stamp said 20s, movement ran past the clip.
+            // Cap to the window end instead: yellow reaching the clip's edge is the
+            // honest statement "movement continues past this clip".
+            if (mEnd > hp.tlEndMs) mEnd = hp.tlEndMs;
+            if (mEnd > hp.tlStartMs && hp.mkMeasuredMs > 0 && mEnd > hp.mkMeasuredMs)
                 hp.mkMeasuredEndMs = mEnd;
             // One verdict line per fully-scanned clip — the marker-soak datum.
             var ds = hp.mkMeasuredMs > 0 ? Math.round(hp.mkMeasuredMs - hp.mkStartMs) : "nolock";
@@ -302,8 +316,24 @@ Item {
 
     Connections {
         target: player
-        function onPositionChanged() { if (Math.abs(player.position - hp._smoothMs) > 500) hp._smoothMs = player.position; }
-        function onPlaybackStateChanged() { if (player.playbackState !== MediaPlayer.PlayingState) hp._smoothMs = player.position; }
+        function onPositionChanged() {
+            var d = player.duration;
+            var p = player.position;
+            if (d > 0 && p > d) p = d;               // never track media beyond the declared clip
+            if (Math.abs(p - hp._smoothMs) > 500) hp._smoothMs = p;
+            if (d > 0 && player.position >= d - 120 && !hp._winStopped
+                    && player.playbackState === MediaPlayer.PlayingState) {
+                hp._winStopped = true;               // cleared by seeks / replay / reopen
+                player.pause();
+                hp._smoothMs = d;
+                if (typeof wtTrace !== "undefined" && wtTrace)
+                    console.log("[HERO] window hard-stop at declared end (" + Math.round(d) + "ms)");
+            }
+        }
+        function onPlaybackStateChanged() {
+            if (player.playbackState !== MediaPlayer.PlayingState)
+                hp._smoothMs = Math.min(player.position, player.duration > 0 ? player.duration : player.position);
+        }
     }
 
     // On-demand: a new event shows its snapshot poster; the recording loads only on a play-tap.
@@ -401,7 +431,7 @@ Item {
         if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
         _gen++;
         openDeadline.restart();
-        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1;
+        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1; _winStopped = false;
         _lit = false;                                    // fresh session: poster holds until ITS first frame
         mkMeasuredMs = -1; mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();   // fresh window: fresh scan
         player.stop(); player.source = ""; player.playbackRate = 1;
@@ -450,6 +480,7 @@ Item {
             return;
         }
         heroStepper.invalidate();   // a real seek supersedes any cache-step state / in-flight step
+        _winStopped = false;        // a scrub away from the end re-arms the hard-stop latch
         wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
         if (_continuous) {
             if (_armed && _frags.length > 0 && _crossesBoundary(_playheadWallMs, wall)) { _seekFar(wall); return; }
@@ -531,6 +562,9 @@ Item {
         if (player.playbackState === MediaPlayer.PlayingState) {
             player.pause();
         } else {
+            // Play at the hard-stopped end = replay: restart the clip, don't resume
+            // into the undeclared tail bytes the server over-served.
+            if (hp._winStopped) { hp._winStopped = false; player.position = 0; hp._smoothMs = 0; }
             heroStepper.resumeForPlay();   // if a cache-stepped frame is shown, play from IT
             player.play();
         }
