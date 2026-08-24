@@ -166,3 +166,43 @@ And the soak's chronic pair is root-caused, both by CV:
   server), not a leak; stopped dying with the cap fix.
 The soak report's "chronic, never fatal to recording" stands; the mystery
 counters (s3 338→397, filer 55→94) now have a mechanism and an end date.
+
+---
+
+## Weekday follow-up (Monday 2026-08-24, 07:00–10:04, sampler-only): zero starvation — certification GRANTED, BOUNDED by what the morning actually delivered
+
+Machine deltas vs soak night, stated first: filer cgroup 432→576 MiB, volume
+server 2→3 GiB (the 08-22/23 P0 fixes), Prometheus/Alertmanager REMOVED by
+CV on Sunday — so the `breaker` column reads NM (the gauge no longer
+exists); the recorder log harvest is the breaker witness instead. Governor
+code UNCHANGED.
+
+Measured (185 samples):
+
+- **Arrivals**: 263/min mean (258/264/264 by hour; min 144, max 412) —
+  **1.23× the Saturday trough**, vs the plan's ~2× weekday premise. The
+  weekday morning is not materially busier than Saturday's was (+7% over
+  Saturday's own ramp). If a 2× regime exists on this site, it is not
+  07:00–10:00.
+- **Starvation: ZERO episodes** (≥5 min sustained rise ≥100/min). Worst
+  backlog peak **1,169** vs Saturday's ramp teeth of 7,560–7,623. Band
+  66–1,169, closing at 413. Envelope trivially held.
+- **Breaker**: zero "breaker"/throttle lines in the recorder harvest — the
+  budget window never exhausted at all this morning. Direct metric
+  unmeasured (channel removed); stated, not papered over.
+
+**Why the teeth vanished with the governor unchanged** (interpretation,
+bounded): Saturday's starvation fuel was hot-expiry consuming 85% of the
+shared window plus a high cutoff-crossing rate (the 5.5-days-ago clock
+pointed at a busy weekend evening). This morning neither engaged — no
+window exhaustion, so the sawtooth mechanism never armed. The defect is
+LATENT, not gone.
+
+**Verdict:** the weekday certification the Saturday report withheld is
+**granted for the regime measured** — weekday-morning arrivals at ~1.2×
+trough with quiescent hot-expiry: clean. It is explicitly NOT a
+certification of: a 2× arrival regime (never observed on this site),
+post-drain catch-up days, or any window where hot-expiry competes — those
+remain governed by Saturday's mechanism, and the per-reason-envelope fix
+(CV-6) keeps its justification from that measurement. Probes: n=7, all
+sub-second (box quiet).
