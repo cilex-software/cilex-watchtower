@@ -50,6 +50,7 @@ Item {
     // says it ends, on every backend.
     property bool _winStopped: false
     property bool _blindSaid: false                     // one blind-scanner log line per session
+    property real _extInPlaceMs: 0                      // window growth not yet baked into a session's _compactDur
     // Motion-follows extension (operator goal 2026-08-25): when the scan says motion
     // is still active at the window tail, the clip GROWS (+15s per step, max +60s)
     // instead of ending on the camera's early stamp — the reopen happens from the
@@ -95,6 +96,13 @@ Item {
                     && hp._posToWall(MotionScan.earliestPtsMs) > hp.tlStartMs + 2500) return;   // head never covered (waived on extensions: head was covered pre-extension)
             hp._mktDone = true;
             var mEnd = MotionScan.lastMotionPtsMs >= 0 ? hp._posToWall(MotionScan.lastMotionPtsMs) : -1;
+            // Tail never actually scanned (verdict forced by the stop latch) while motion was
+            // still running at the last SCANNED frame: the unscanned tail cannot testify that
+            // movement stopped — the honest band reaches the clip's edge.
+            if (mEnd > 0 && tailWall < hp.tlEndMs - 1500
+                    && player.mediaStatus !== MediaPlayer.EndOfMedia
+                    && tailWall - mEnd <= 2500)
+                mEnd = hp.tlEndMs;
             // Motion outliving the window used to REFUSE the end-snap (mEnd > tlEndMs
             // fell through), leaving the camera's early stamp on screen — the
             // operator's 08-25 case: stamp said 20s, movement ran past the clip.
@@ -114,7 +122,11 @@ Item {
     Connections {
         target: MotionScan
         // No-PTS backends (macOS darwin): feed the player position as the frame time source.
-        function onFrameScanned() { MotionScan.notePosition(player.position) }
+        function onFrameScanned() {
+            // LIVE sessions only: during teardown/loading the player still holds the OLD
+            // clip's clock, and one stale note mislabels the next frame (Mac 08-25).
+            if (hp._armed && !hp._loading) MotionScan.notePosition(player.position)
+        }
         function onFirstMotionChanged() {
             var pts = MotionScan.firstMotionPtsMs;
             if (pts < 0 || !hp._armed || hp._frags.length === 0) return;
@@ -125,6 +137,17 @@ Item {
                                                           // playhead (operator: band shrank as
                                                           // the clip played, 08-25)
             if (hp._extGen === 0 && hp._posToWall(MotionScan.earliestPtsMs) > hp.tlStartMs + 2500) return;
+            if (hp._mktDone) return;                      // verdict rendered — the band is frozen
+            // COVERAGE-HOLE gate: the claimed head→lock stretch must actually have been
+            // scanned. A scanner that woke mid-clip (Mac 08-25: readback dead for the first
+            // seconds) can pass the earliest-guard yet have scanned only a sliver — its
+            // lock is the playhead masquerading as the head. The stamp is honest; that isn't.
+            if (MotionScan.scannedSpanMs + 1500 < (pts - MotionScan.earliestPtsMs)) {
+                console.log("[MKT] start-lock REJECTED: coverage hole (scanned="
+                            + Math.round(MotionScan.scannedSpanMs) + "ms of claimed "
+                            + Math.round(pts - MotionScan.earliestPtsMs) + "ms)");
+                return;
+            }
             var wall = hp._posToWall(pts);
             // Head dead-zone is tiny on purpose: "already moving at window start" is a REAL
             // verdict (fixture C: stamp trails entry by 20 s — the span belongs at the head).
@@ -178,7 +201,7 @@ Item {
         running: player.playbackState === MediaPlayer.PlayingState && hp._lit
         onTriggered: {
             var cap = player.duration > 0 ? player.duration : hp._smoothMs + 33 * player.playbackRate;
-            if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000);   // AVFoundation grows duration past the declared clip
+            if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000 + hp._extInPlaceMs);   // AVFoundation grows duration past the declared clip
             hp._smoothMs = Math.min(cap, hp._smoothMs + 33 * player.playbackRate);
         }
     }
@@ -335,8 +358,8 @@ Item {
         target: player
         function onPositionChanged() {
             var d = player.duration;
-            if (hp._compactDur > 0 && d > hp._compactDur * 1000)
-                d = hp._compactDur * 1000;           // AVFoundation grows duration as it discovers over-served bytes
+            if (hp._compactDur > 0 && d > hp._compactDur * 1000 + hp._extInPlaceMs)
+                d = hp._compactDur * 1000 + hp._extInPlaceMs;   // AVFoundation grows duration as it discovers over-served bytes
             var p = player.position;
             if (d > 0 && p > d) p = d;               // never track media beyond the declared clip
             if (Math.abs(p - hp._smoothMs) > 500) hp._smoothMs = p;
@@ -344,7 +367,7 @@ Item {
             // never player.duration: AVFoundation GROWS duration as it discovers the
             // over-served bytes, so a duration-relative latch chases a moving target
             // and never fires (operator's Mac, 08-25).
-            var endMs = hp._compactDur > 0 ? hp._compactDur * 1000 : d;
+            var endMs = hp._compactDur > 0 ? hp._compactDur * 1000 + hp._extInPlaceMs : d;
             if (endMs > 0 && player.position >= endMs - 120 && !hp._winStopped
                     && player.playbackState === MediaPlayer.PlayingState) {
                 if (MotionScan.framesScanned === 0) {
@@ -366,11 +389,21 @@ Item {
                 if (tailMotion && hp._extGen < 4) {
                     hp._extGen++;
                     hp._extMs += 15000;
-                    hp._extResumeWall = hp.tlEndMs;
-                    console.log("[HERO] motion continues at clip end — extending window (+15s, step "
-                                + hp._extGen + "/4)");
-                    hp._extending = true;
-                    hp._open();
+                    if (player.duration >= endMs + 14000) {
+                        // The +15s of footage is ALREADY decoded: the server serves whole
+                        // source segments past the declared slice (08-25 letter), and
+                        // player.duration just proved the bytes are here. Extend IN PLACE —
+                        // no session reopen, no AVFoundation reload risk, no picture gap.
+                        console.log("[HERO] motion continues at clip end — extending IN PLACE (+15s, step "
+                                    + hp._extGen + "/4, media holds " + Math.round(player.duration / 1000) + "s)");
+                        hp._extendInPlace(15000);
+                    } else {
+                        hp._extResumeWall = hp.tlEndMs;
+                        console.log("[HERO] motion continues at clip end — extending window (+15s, step "
+                                    + hp._extGen + "/4)");
+                        hp._extending = true;
+                        hp._open();
+                    }
                 } else if (typeof wtTrace !== "undefined" && wtTrace) {
                     console.log("[HERO] window hard-stop at declared end (" + Math.round(endMs) + "ms)");
                 }
@@ -379,7 +412,7 @@ Item {
         function onPlaybackStateChanged() {
             if (player.playbackState !== MediaPlayer.PlayingState) {
                 var cap = player.duration > 0 ? player.duration : player.position;
-                if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000);
+                if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000 + hp._extInPlaceMs);
                 hp._smoothMs = Math.min(player.position, cap);
             }
         }
@@ -444,7 +477,7 @@ Item {
         if (nid !== "" && nid === hp._evId) return;      // same episode, rebuilt object — keep the session
         hp._evId = nid;
         hp._zeroFragRetries = 0; zeroFragRetry.stop();
-        hp._extGen = 0; hp._extMs = 0; hp._extResumeWall = -1; hp._extending = false;
+        hp._extGen = 0; hp._extMs = 0; hp._extInPlaceMs = 0; hp._extResumeWall = -1; hp._extending = false;
         hp._reset(); hp._pre = null; hp._preTag = "";
         // The timeline is knowable from event data alone — set it NOW so the scrubber has real
         // geometry and the transport shows the true duration before the first play-tap (it read
@@ -485,8 +518,10 @@ Item {
         _lit = false;                                    // fresh session: poster holds until ITS first frame
         // Extension reopen keeps the measured START (wall-anchored, session-independent);
         // the end re-measures against the wider window. A fresh event wipes everything.
-        if (!_extending) { mkMeasuredMs = -1; _extGen = 0; _extMs = 0; _extResumeWall = -1; }
-        mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();
+        if (!_extending) { mkMeasuredMs = -1; _extGen = 0; _extMs = 0; _extInPlaceMs = 0; _extResumeWall = -1; }
+        mkMeasuredEndMs = -1; _mktDone = false;
+        MotionScan.attach(vout.videoSink);               // re-claim on every open (parity with _seekFar)
+        MotionScan.reset();
         player.stop(); player.source = ""; player.playbackRate = 1;
         // Open EXACTLY the episode [start, end] (+15s margins) so a clip never spills into a neighbouring
         // episode's footage. EventsStore joins the motion lifecycle and normalises ev.ts to the episode
@@ -600,9 +635,25 @@ Item {
         if (sec > _frags[_frags.length - 1].ce) return _frags[_frags.length - 1].we;
         return _frags[0].ws;
     }
+    // Motion-follows growth WITHOUT a reopen: the over-served tail is already decoded, so
+    // the window, the fragment map and the transport just widen around it. The end
+    // re-measures against the wider window (MKT re-runs); the measured START is untouched.
+    function _extendInPlace(ms) {
+        _extInPlaceMs += ms;
+        tlEndMs += ms;
+        if (_frags.length > 0) {
+            var last = _frags[_frags.length - 1];
+            last.ce += ms / 1000; last.we += ms;
+            _frags = _frags.slice();                     // reassign so bindings see the wider map
+        }
+        mkMeasuredEndMs = -1; _mktDone = false;
+        _winStopped = false;
+        player.play();
+    }
     function _seekWall(ms) {
         var pos = _wallToPos(ms);
-        if (_compactDur > 3) pos = Math.min(pos, _compactDur - 3);
+        var cd = _compactDur + _extInPlaceMs / 1000;     // in-place growth is seekable media
+        if (cd > 3) pos = Math.min(pos, cd - 3);
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
@@ -665,7 +716,7 @@ Item {
     // handler below and by prefetch ADOPTION in _open() (never duplicated:
     // the seek-path lesson).
     function _applySession(sid, dur, fragments, meta) {
-        hp._sid = sid; hp._compactDur = dur;
+        hp._sid = sid; hp._compactDur = dur; hp._extInPlaceMs = 0;   // a fresh session declares its WHOLE window
         hp.__applyRest(fragments, meta);
     }
     Connections {

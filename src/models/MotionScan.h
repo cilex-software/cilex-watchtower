@@ -26,6 +26,10 @@ class MotionScan : public QObject
     // Liveness: sampled frames THIS session. 0 at the clip's end = the scanner is blind
     // on this pipeline (map+readback both failed) — UI must not act on absent evidence.
     Q_PROPERTY(int framesScanned READ framesScanned NOTIFY frameScanned)
+    // Sum of CONTIGUOUSLY-scanned time this session. The head-coverage proof: a scanner
+    // that woke mid-clip claims earliest≈0 yet has scanned only a fraction of head→lock —
+    // the QML side rejects a first-motion lock whose claimed stretch exceeds this span.
+    Q_PROPERTY(double scannedSpanMs READ scannedSpanMs NOTIFY frameScanned)
 public:
     explicit MotionScan(QObject *parent = nullptr);
 
@@ -35,13 +39,15 @@ public:
     // player feeds its position here on every scanned frame; it becomes the frame's time
     // source, with wall-clock gaps as the contiguity gate. WT_MSCAN_NOPTS=1 forces this
     // path on any platform so the fallback is verifiable against the PTS path on Linux.
-    Q_INVOKABLE void notePosition(double posMs) { m_notedPosMs = posMs; }
+    Q_INVOKABLE void notePosition(double posMs);   // stamps arrival wall time: a STALE note
+                                                   // must never label a frame (Mac 08-25)
 
     double firstMotionPtsMs() const { return m_firstMotionPtsMs; }
     double lastMotionPtsMs() const { return m_lastMotionPtsMs; }
     double latestPtsMs() const { return m_latestPtsMs; }
     double earliestPtsMs() const { return m_earliestPtsMs; }
     int framesScanned() const { return m_framesScanned; }
+    double scannedSpanMs() const { return m_scannedSpanMs; }
 
 signals:
     void firstMotionChanged();
@@ -64,7 +70,14 @@ private:
     // and a mid-distance walker (~1.5-3%); a close walker is 3%+. Intersection scoring was
     // tried and reverted: it catches small coherent movers (the background car) — measured.
     static constexpr double kCellFrac = 0.025;     // fraction of changed cells = movement
-    static constexpr int kConsecNeed = 2;          // sustained = this many contiguous frames
+    static constexpr int kConsecNeed = 2;          // sustained = this many CHAINED crossings
+    // Crossings chain if ≤ this far apart on the wall clock. At 15 fps mapped scanning two
+    // adjacent frames sit 66 ms apart (old behaviour kept); at the 10 Hz toImage readback a
+    // distant walker crosses the gate only sporadically — one sub-gate sample between two
+    // crossings must not reset the count (measured 08-25: post-hole buckets max 0.055-0.066
+    // yet zero sustained locks). A GOP I-frame pulse is a SINGLE crossing with quiet ~4 s
+    // around it — it can never chain, so the pulse-killer property is preserved.
+    static constexpr double kChainMs = 450.0;
     static constexpr double kMaxGapMs = 500.0;     // PTS gap above this = not contiguous
 
     QVideoSink *m_sink = nullptr;
@@ -75,6 +88,14 @@ private:
     qint64 m_prevWallMs = -1;                      // arrival wall clock (contiguity when no PTS)
     bool m_forceNoPts = false;
     bool m_saidNoPts = false;
+    bool m_saidPtsDiverge = false;
+    qint64 m_noteWallMs = -1;                      // when notePosition() last fired (staleness gate)
+    double m_scannedSpanMs = 0;                    // Σ contiguous scanned time this session
+    qint64 m_resetWallMs = -1;
+    qint64 m_firstSampleWallMs = -1;               // when the first frame was actually sampled
+    qint64 m_lastMoveWallMs = -1;                  // last gate-crossing frame (chain clock)
+    qint64 m_rideWallMs = -1;                      // last crossing for the post-lock tail ride
+    int m_blindMs = 0;                             // WT_MSCAN_BLINDMS (test): drop sampling in [2s, 2s+N] after the FIRST SAMPLE
     double m_earliestPtsMs = -1;
     double m_firstMotionPtsMs = -1;
     double m_lastMotionPtsMs = -1;                 // last sustained-motion frame seen this scan

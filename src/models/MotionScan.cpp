@@ -16,6 +16,7 @@ MotionScan::MotionScan(QObject *parent)
     m_trace = qEnvironmentVariableIsSet("WT_TRACE");
     m_forceNoPts = qEnvironmentVariableIsSet("WT_MSCAN_NOPTS");
     m_forceImg = qEnvironmentVariableIsSet("WT_MSCAN_FORCEIMG");
+    m_blindMs = qEnvironmentVariableIntValue("WT_MSCAN_BLINDMS");
     m_prev.resize(kGW * kGH);
     m_cur.resize(kGW * kGH);
     m_chPrev.resize(kGW * kGH);
@@ -37,9 +38,18 @@ void MotionScan::attach(QObject *videoSink)
     }
 }
 
+void MotionScan::notePosition(double posMs)
+{
+    m_notedPosMs = posMs;
+    m_noteWallMs = QDateTime::currentMSecsSinceEpoch();
+}
+
 void MotionScan::reset()
 {
     m_prevPtsMs = -1;
+    m_noteWallMs = -1;
+    m_scannedSpanMs = 0;
+    m_resetWallMs = QDateTime::currentMSecsSinceEpoch();
     m_prevWallMs = -1;
     m_notedPosMs = -1;
     m_lastMotionPtsMs = -1;
@@ -51,6 +61,9 @@ void MotionScan::reset()
     m_consec = 0;
     m_framesScanned = 0;
     m_lastImgMs = 0;
+    m_firstSampleWallMs = -1;
+    m_lastMoveWallMs = -1;
+    m_rideWallMs = -1;
     if (m_trace)
         qInfo("[MSCAN] reset");
     emit firstMotionChanged();
@@ -65,16 +78,47 @@ void MotionScan::onFrame(const QVideoFrame &frame)
               int(frame.pixelFormat()), frame.width(), frame.height());
     if (!frame.isValid())
         return;
+    const qint64 wallNow = QDateTime::currentMSecsSinceEpoch();
+    // TEST ONLY (WT_MSCAN_BLINDMS=N): simulate a sampling-dead stretch during [2s, 2s+N]
+    // after the FIRST SAMPLED frame — the Mac 08-25 shape (readback alive at the head, a
+    // hole, alive again) — with the position feed kept running, so the coverage-hole gate
+    // is exercisable on Linux. Anchoring to the first sample (not reset) keeps the alive
+    // head inside the media, which is what makes the earliest-guard pass and the span
+    // gate the deciding one.
+    if (m_blindMs > 0 && m_firstSampleWallMs >= 0) {
+        const qint64 age = wallNow - m_firstSampleWallMs;
+        if (age >= 2000 && age < 2000 + m_blindMs) { emit frameScanned(); return; }
+    }
     const qint64 stUs = m_forceNoPts ? -1 : frame.startTime();
-    const bool havePts = stUs >= 0;
+    double ptsMs;
+    bool timeFromPts;                              // which clock labels THIS frame
+    if (stUs >= 0) { ptsMs = double(stUs) / 1000.0; timeFromPts = true; }
+    else           { ptsMs = m_notedPosMs;          timeFromPts = false; }
+    const bool noteFresh = m_noteWallMs >= 0 && (wallNow - m_noteWallMs) <= 400 && m_notedPosMs >= 0;
+    // A backend stamping PTS on a DIFFERENT clock than the player position (absolute
+    // stream time, per-segment resets) would poison the compact mapping every downstream
+    // consumer assumes — when they disagree wildly, the position is the safer clock.
+    if (timeFromPts && noteFresh && std::abs(ptsMs - m_notedPosMs) > 5000.0) {
+        if (!m_saidPtsDiverge) {
+            m_saidPtsDiverge = true;
+            qInfo("[MSCAN] backend PTS diverges from player position (pts=%.0f pos=%.0f) — using position",
+                  ptsMs, m_notedPosMs);
+        }
+        ptsMs = m_notedPosMs;
+        timeFromPts = false;
+    }
     // No-PTS fallback: the player's noted position stands in for the frame time, and the
     // ARRIVAL wall clock provides contiguity (steady ~66ms cadence during 1x playback;
     // seeks/stalls open a gap and rebaseline). macOS's darwin backend stamps nothing.
-    const double ptsMs = havePts ? double(stUs) / 1000.0 : m_notedPosMs;
-    const qint64 wallNow = QDateTime::currentMSecsSinceEpoch();
-    if (!havePts && !m_saidNoPts && ptsMs >= 0) {
-        m_saidNoPts = true;
-        qInfo("[MSCAN] no PTS from backend — timing via player position");
+    if (!timeFromPts) {
+        if (!m_saidNoPts && ptsMs >= 0) {
+            m_saidNoPts = true;
+            qInfo("[MSCAN] no PTS from backend — timing via player position");
+        }
+        // The note IS this frame's clock — a stale one mislabels the frame with an old
+        // value (the Mac band locked mid-clip off exactly that, 08-25). Unlabelable
+        // frames are skipped, but the emit keeps the QML feed refreshing for the next.
+        if (!noteFresh) { emit frameScanned(); return; }
     }
 
     // Map on THIS thread, downsample, unmap — nothing frame-shaped leaves the handler.
@@ -107,14 +151,15 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         // the 500 ms wall-clock contiguity gate tolerates the skipped frames between.
         if (++m_mapFails == 1)
             qInfo("[MSCAN] frame map failed (hw surface) — switching to toImage readback");
-        if (wallNow - m_lastImgMs < 100)
-            return;
+        if (wallNow - m_lastImgMs < 66)
+            { emit frameScanned(); return; }       // throttled, not scanned — keep the feed alive
         const QImage img = frame.toImage();
         if (img.isNull() || img.width() < kGW || img.height() < kGH) {
             if (!m_saidImgFail) {
                 m_saidImgFail = true;
                 qInfo("[MSCAN] toImage readback failed too — scanner blind on this pipeline");
             }
+            emit frameScanned();
             return;
         }
         m_lastImgMs = wallNow;
@@ -129,6 +174,8 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         sampled = true;
     }
     ++m_framesScanned;
+    if (m_firstSampleWallMs < 0)
+        m_firstSampleWallMs = wallNow;
 
     if (ptsMs >= 0 && (m_earliestPtsMs < 0 || ptsMs < m_earliestPtsMs))
         m_earliestPtsMs = ptsMs;
@@ -138,11 +185,13 @@ void MotionScan::onFrame(const QVideoFrame &frame)
     // Contiguity gate: only score against the immediately-preceding played frame.
     // PTS when the backend stamps frames; arrival wall-clock cadence when it doesn't
     // (position alone is too coarse over HLS to gate on).
-    const bool contiguous = havePts
+    const bool contiguous = timeFromPts
         ? (m_prevPtsMs >= 0 && ptsMs >= 0
            && ptsMs > m_prevPtsMs && (ptsMs - m_prevPtsMs) <= kMaxGapMs)
         : (m_prevWallMs > 0 && ptsMs >= 0
            && (wallNow - m_prevWallMs) > 0 && double(wallNow - m_prevWallMs) <= kMaxGapMs);
+    if (contiguous)
+        m_scannedSpanMs += timeFromPts ? (ptsMs - m_prevPtsMs) : double(wallNow - m_prevWallMs);
     m_prevWallMs = wallNow;
     if (contiguous) {
         int changed = 0;
@@ -164,16 +213,20 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         // (adaptive path needs a real floor history and a nontrivial absolute minimum).
         const bool moving = (score >= kCellFrac)
                             || (m_recentN >= 8 && floorv > 0.0001 && score >= 6.0 * floorv && score >= 0.008);
-        if (m_trace) {                                  // score telemetry: max per ~2s bucket
+        // Score telemetry, ALWAYS ON since 08-25: one line per ~2s of playback. The Mac
+        // rounds burned on guessing what the scanner saw end with this — the rolling
+        // run log now carries the actual score stream of every clip played.
+        {
             if (score > m_bucketMax) m_bucketMax = score;
             if (ptsMs - m_bucketT0 >= 2000) {
-                qInfo("[MSCAN] scores pts=%.0f..%.0f max=%.4f", m_bucketT0, ptsMs, m_bucketMax);
+                qInfo("[MSCAN] scores pts=%.0f..%.0f max=%.4f floor=%.4f", m_bucketT0, ptsMs, m_bucketMax, floorv);
                 m_bucketT0 = ptsMs; m_bucketMax = 0;
             }
         }
         if (moving) {
-            if (m_consec == 0)
-                m_candPtsMs = m_prevPtsMs;         // motion began between prev and this frame
+            const bool chained = m_lastMoveWallMs > 0 && double(wallNow - m_lastMoveWallMs) <= kChainMs;
+            if (!chained) { m_consec = 0; m_candPtsMs = m_prevPtsMs; }   // new chain starts here
+            m_lastMoveWallMs = wallNow;
             if (++m_consec >= kConsecNeed) {
                 if (m_firstMotionPtsMs < 0) {
                     m_firstMotionPtsMs = m_candPtsMs;
@@ -183,13 +236,26 @@ void MotionScan::onFrame(const QVideoFrame &frame)
                 if (ptsMs > m_lastMotionPtsMs)
                     m_lastMotionPtsMs = ptsMs;     // rolls forward with every sustained-motion frame
             }
-        } else {
-            m_consec = 0;
+        } else if (m_lastMoveWallMs > 0 && double(wallNow - m_lastMoveWallMs) > kChainMs) {
+            m_consec = 0;                          // chain expired quietly — not one skipped sample
             m_candPtsMs = -1;
+            m_lastMoveWallMs = -1;
+        }
+        // Post-lock tail ride: a distant mover at readback cadence crosses the gate only
+        // sporadically, so the tight sustain chain misses the tail and the end-of-clip
+        // extension starves (measured 08-25: tail buckets max 0.014-0.061, zero sustained).
+        // PAIRS of crossings within 2 s ride lastMotion forward instead. A GOP I-frame
+        // pulse is one crossing every ~4 s — it can never pair — and a clip that never
+        // produced a sustained LOCK can't ride at all: false extensions stay impossible.
+        if (moving && m_firstMotionPtsMs >= 0) {
+            if (m_rideWallMs > 0 && double(wallNow - m_rideWallMs) <= 2000.0 && ptsMs > m_lastMotionPtsMs)
+                m_lastMotionPtsMs = ptsMs;
+            m_rideWallMs = wallNow;
         }
     } else if (!contiguous) {
         m_consec = 0;
         m_candPtsMs = -1;
+        m_lastMoveWallMs = -1;
         m_chPrev.fill(0);
     }
 

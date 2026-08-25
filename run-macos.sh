@@ -13,4 +13,9 @@ BIN="build-macos/watchtower.app/Contents/MacOS/watchtower"
 # this one also covers builds too old to carry it. Idempotent, ~100 ms.
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 [ -x "$LSREG" ] && "$LSREG" -f "$PWD/build-macos/watchtower.app" 2>/dev/null
-exec "$BIN" "$@"
+# Every run tees to a rolling log so a bug report needs zero setup — just paste:
+#   grep -E "MSCAN|MKT|HERO" "$HOME/Library/Logs/CilexWatchtower/run-last.log"
+LOGDIR="$HOME/Library/Logs/CilexWatchtower"
+mkdir -p "$LOGDIR"
+[ -f "$LOGDIR/run-last.log" ] && mv -f "$LOGDIR/run-last.log" "$LOGDIR/run-prev.log"
+exec "$BIN" "$@" > >(tee "$LOGDIR/run-last.log") 2>&1
