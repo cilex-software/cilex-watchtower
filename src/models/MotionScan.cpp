@@ -2,6 +2,7 @@
 
 #include <QVideoSink>
 #include <QVideoFrame>
+#include <QImage>
 #include <QDebug>
 
 #include <cmath>
@@ -14,6 +15,7 @@ MotionScan::MotionScan(QObject *parent)
 {
     m_trace = qEnvironmentVariableIsSet("WT_TRACE");
     m_forceNoPts = qEnvironmentVariableIsSet("WT_MSCAN_NOPTS");
+    m_forceImg = qEnvironmentVariableIsSet("WT_MSCAN_FORCEIMG");
     m_prev.resize(kGW * kGH);
     m_cur.resize(kGW * kGH);
     m_chPrev.resize(kGW * kGH);
@@ -47,6 +49,8 @@ void MotionScan::reset()
     m_firstMotionPtsMs = -1;
     m_candPtsMs = -1;
     m_consec = 0;
+    m_framesScanned = 0;
+    m_lastImgMs = 0;
     if (m_trace)
         qInfo("[MSCAN] reset");
     emit firstMotionChanged();
@@ -74,27 +78,57 @@ void MotionScan::onFrame(const QVideoFrame &frame)
     }
 
     // Map on THIS thread, downsample, unmap — nothing frame-shaped leaves the handler.
+    bool sampled = false;
     QVideoFrame f(frame);                          // shallow copy so we can map const input
-    if (!f.map(QVideoFrame::ReadOnly)) {
-        if (++m_mapFails == 1)
-            qInfo("[MSCAN] frame map failed (hw surface?) — scanner inert on this pipeline");
-        return;
-    }
-    const int W = f.width(), H = f.height();
-    const uchar *bits = f.bits(0);
-    const int stride = f.bytesPerLine(0);
-    if (!bits || W < kGW || H < kGH) { f.unmap(); return; }
-    // Plane 0 is luma for every YUV format our decoders emit; for packed RGB it is the
-    // interleaved pixel bytes — still a stable per-cell brightness proxy for DIFFING.
-    for (int gy = 0; gy < kGH; ++gy) {
-        const int y = (gy * H) / kGH + H / (2 * kGH);
-        const uchar *row = bits + qint64(y) * stride;
-        for (int gx = 0; gx < kGW; ++gx) {
-            const int x = (gx * W) / kGW + W / (2 * kGW);
-            m_cur[gy * kGW + gx] = row[x];
+    if (!m_forceImg && f.map(QVideoFrame::ReadOnly)) {
+        const int W = f.width(), H = f.height();
+        const uchar *bits = f.bits(0);
+        const int stride = f.bytesPerLine(0);
+        // Plane 0 is luma for every YUV format our decoders emit; for packed RGB it is the
+        // interleaved pixel bytes — still a stable per-cell brightness proxy for DIFFING.
+        if (bits && W >= kGW && H >= kGH) {
+            for (int gy = 0; gy < kGH; ++gy) {
+                const int y = (gy * H) / kGH + H / (2 * kGH);
+                const uchar *row = bits + qint64(y) * stride;
+                for (int gx = 0; gx < kGW; ++gx) {
+                    const int x = (gx * W) / kGW + W / (2 * kGW);
+                    m_cur[gy * kGW + gx] = row[x];
+                }
+            }
+            sampled = true;
         }
+        f.unmap();
     }
-    f.unmap();
+    if (!sampled) {
+        // GPU-backed frames (macOS AVFoundation / IOSurface) can refuse CPU map(). The
+        // scanner used to go INERT here — so on the operator's Mac the yellow band stayed
+        // at the camera's stamp and the end-of-clip extension never had evidence (08-25).
+        // toImage() reads the texture back instead; costlier, so throttle near 10 Hz —
+        // the 500 ms wall-clock contiguity gate tolerates the skipped frames between.
+        if (++m_mapFails == 1)
+            qInfo("[MSCAN] frame map failed (hw surface) — switching to toImage readback");
+        if (wallNow - m_lastImgMs < 100)
+            return;
+        const QImage img = frame.toImage();
+        if (img.isNull() || img.width() < kGW || img.height() < kGH) {
+            if (!m_saidImgFail) {
+                m_saidImgFail = true;
+                qInfo("[MSCAN] toImage readback failed too — scanner blind on this pipeline");
+            }
+            return;
+        }
+        m_lastImgMs = wallNow;
+        const int W = img.width(), H = img.height();
+        for (int gy = 0; gy < kGH; ++gy) {
+            const int y = (gy * H) / kGH + H / (2 * kGH);
+            for (int gx = 0; gx < kGW; ++gx) {
+                const int x = (gx * W) / kGW + W / (2 * kGW);
+                m_cur[gy * kGW + gx] = quint8(qGray(img.pixel(x, y)));
+            }
+        }
+        sampled = true;
+    }
+    ++m_framesScanned;
 
     if (ptsMs >= 0 && (m_earliestPtsMs < 0 || ptsMs < m_earliestPtsMs))
         m_earliestPtsMs = ptsMs;

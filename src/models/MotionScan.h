@@ -23,6 +23,9 @@ class MotionScan : public QObject
     Q_PROPERTY(double lastMotionPtsMs READ lastMotionPtsMs NOTIFY frameScanned)
     Q_PROPERTY(double latestPtsMs READ latestPtsMs NOTIFY frameScanned)
     Q_PROPERTY(double earliestPtsMs READ earliestPtsMs NOTIFY frameScanned)
+    // Liveness: sampled frames THIS session. 0 at the clip's end = the scanner is blind
+    // on this pipeline (map+readback both failed) — UI must not act on absent evidence.
+    Q_PROPERTY(int framesScanned READ framesScanned NOTIFY frameScanned)
 public:
     explicit MotionScan(QObject *parent = nullptr);
 
@@ -38,6 +41,7 @@ public:
     double lastMotionPtsMs() const { return m_lastMotionPtsMs; }
     double latestPtsMs() const { return m_latestPtsMs; }
     double earliestPtsMs() const { return m_earliestPtsMs; }
+    int framesScanned() const { return m_framesScanned; }
 
 signals:
     void firstMotionChanged();
@@ -83,6 +87,10 @@ private:
     double m_candPtsMs = -1;
     int m_consec = 0;
     int m_mapFails = 0;
+    int m_framesScanned = 0;                       // per-session sampled-frame count (liveness)
+    qint64 m_lastImgMs = 0;                        // toImage-readback throttle (~10 Hz)
+    bool m_forceImg = false;                       // WT_MSCAN_FORCEIMG=1: exercise the readback path on Linux
+    bool m_saidImgFail = false;
     double m_bucketT0 = 0, m_bucketMax = 0;
     bool m_trace = false;
 };

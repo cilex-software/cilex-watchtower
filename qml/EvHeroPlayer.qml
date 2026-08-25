@@ -49,6 +49,7 @@ Item {
     // past its own scrubber and the bar wrapped. The clip must end where it
     // says it ends, on every backend.
     property bool _winStopped: false
+    property bool _blindSaid: false                     // one blind-scanner log line per session
     // Motion-follows extension (operator goal 2026-08-25): when the scan says motion
     // is still active at the window tail, the clip GROWS (+15s per step, max +60s)
     // instead of ending on the camera's early stamp — the reopen happens from the
@@ -175,8 +176,11 @@ Item {
         // frame snapped it back to ~0 — read by the operator as "plays 2-3s then resets".
         // No frames rendered yet = no time to glide over.
         running: player.playbackState === MediaPlayer.PlayingState && hp._lit
-        onTriggered: hp._smoothMs = Math.min(player.duration > 0 ? player.duration : hp._smoothMs,
-                                             hp._smoothMs + 33 * player.playbackRate)
+        onTriggered: {
+            var cap = player.duration > 0 ? player.duration : hp._smoothMs + 33 * player.playbackRate;
+            if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000);   // AVFoundation grows duration past the declared clip
+            hp._smoothMs = Math.min(cap, hp._smoothMs + 33 * player.playbackRate);
+        }
     }
     // ---- WT_HERO_TEST instrumentation (inert unless wtHeroTest set) ------------------------------------
     // Precise latency from the seek/open COMMAND to the first ACTUALLY-RENDERED frame, via the video sink's
@@ -331,6 +335,8 @@ Item {
         target: player
         function onPositionChanged() {
             var d = player.duration;
+            if (hp._compactDur > 0 && d > hp._compactDur * 1000)
+                d = hp._compactDur * 1000;           // AVFoundation grows duration as it discovers over-served bytes
             var p = player.position;
             if (d > 0 && p > d) p = d;               // never track media beyond the declared clip
             if (Math.abs(p - hp._smoothMs) > 500) hp._smoothMs = p;
@@ -341,6 +347,17 @@ Item {
             var endMs = hp._compactDur > 0 ? hp._compactDur * 1000 : d;
             if (endMs > 0 && player.position >= endMs - 120 && !hp._winStopped
                     && player.playbackState === MediaPlayer.PlayingState) {
+                if (MotionScan.framesScanned === 0) {
+                    // Scanner blind (map+readback both dead): no evidence whether movement
+                    // continues, so never strand a possibly-live subject behind a hard stop —
+                    // play the over-served tail out; counter/scrubber stay pinned at the
+                    // declared end by the caps above. One line so the next log names it.
+                    if (!hp._blindSaid) {
+                        hp._blindSaid = true;
+                        console.log("[HERO] declared end reached but the motion scanner saw 0 frames — playing through, extension unavailable (see [MSCAN])");
+                    }
+                    return;
+                }
                 hp._winStopped = true;               // cleared by seeks / replay / reopen
                 player.pause();
                 hp._smoothMs = Math.min(endMs, d > 0 ? d : endMs);
@@ -360,8 +377,11 @@ Item {
             }
         }
         function onPlaybackStateChanged() {
-            if (player.playbackState !== MediaPlayer.PlayingState)
-                hp._smoothMs = Math.min(player.position, player.duration > 0 ? player.duration : player.position);
+            if (player.playbackState !== MediaPlayer.PlayingState) {
+                var cap = player.duration > 0 ? player.duration : player.position;
+                if (hp._compactDur > 0) cap = Math.min(cap, hp._compactDur * 1000);
+                hp._smoothMs = Math.min(player.position, cap);
+            }
         }
     }
 
@@ -461,7 +481,7 @@ Item {
         if (_htOn) { _htOpenT0 = Date.now(); _htOpenPending = false; _htSeekPending = false; }   // armed in onSessionReady
         _gen++;
         openDeadline.restart();
-        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1; _winStopped = false;
+        _loading = true; _error = ""; _sid = ""; _frags = []; _armed = false; _speed = 1; _smoothMs = 0; _seekingToWall = -1; _winStopped = false; _blindSaid = false;
         _lit = false;                                    // fresh session: poster holds until ITS first frame
         // Extension reopen keeps the measured START (wall-anchored, session-independent);
         // the end re-measures against the wider window. A fresh event wipes everything.
@@ -545,6 +565,7 @@ Item {
         openDeadline.restart();
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall; _seekingToWall = wall;
         _lit = false;                                    // re-open: poster holds until the landed frame renders
+        MotionScan.attach(vout.videoSink);               // re-claim every open: an attach lost to sink churn = blind scanner
         MotionScan.reset();                              // new compact timeline: old PTS mapping is void
         player.stop(); player.source = "";
         playbackClient.ensureReady();
