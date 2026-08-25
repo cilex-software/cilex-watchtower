@@ -98,6 +98,17 @@ private:
     qint64 m_firstSampleWallMs = -1;               // when the first frame was actually sampled
     qint64 m_lastMoveWallMs = -1;                  // last gate-crossing frame (chain clock)
     qint64 m_rideWallMs = -1;                      // last crossing for the post-lock tail ride
+    // Small-mover state (operator 08-26): at 640x360 a distant walker flips 1-3 cells —
+    // under every area gate. Its surviving signature: a COMPACT active-cell cluster that
+    // PERSISTS (per-cell hit streaks — a single-frame GOP pulse can't) and DRIFTS (net
+    // centroid displacement — foliage wind oscillates in place). Post-lock, ride-only.
+    quint8 m_hits[kGW * kGH] = {0};                // per-cell recent-change streak (0..5)
+    struct CentSample { qint64 w = 0; double x = 0, y = 0; };
+    CentSample m_cent[24];                         // ring of compact-cluster centroids
+    int m_centN = 0, m_centI = 0;
+    bool m_saidSmall = false;
+    int m_bucketCellsMax = 0;                      // telemetry maxima per ~2s bucket
+    double m_bucketDriftMax = 0;
     int m_blindMs = 0;                             // WT_MSCAN_BLINDMS (test): drop sampling in [2s, 2s+N] after the FIRST SAMPLE
     double m_earliestPtsMs = -1;
     double m_firstMotionPtsMs = -1;

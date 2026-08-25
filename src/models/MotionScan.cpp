@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <algorithm>
 #include <QDateTime>
 
@@ -64,6 +65,10 @@ void MotionScan::reset()
     m_firstSampleWallMs = -1;
     m_lastMoveWallMs = -1;
     m_rideWallMs = -1;
+    memset(m_hits, 0, sizeof(m_hits));
+    m_centN = 0; m_centI = 0;
+    m_saidSmall = false;
+    m_bucketCellsMax = 0; m_bucketDriftMax = 0;
     if (m_trace)
         qInfo("[MSCAN] reset");
     emit firstMotionChanged();
@@ -216,9 +221,40 @@ void MotionScan::onFrame(const QVideoFrame &frame)
     m_prevWallMs = wallNow;
     if (contiguous) {
         int changed = 0;
-        for (int i = 0; i < kGW * kGH; ++i)
-            if (std::abs(int(m_cur[i]) - int(m_prev[i])) > kDiffThresh)
-                ++changed;
+        int nAct = 0; long sx = 0, sy = 0; int minx = 99, maxx = -1, miny = 99, maxy = -1;
+        for (int i = 0; i < kGW * kGH; ++i) {
+            const bool ch = std::abs(int(m_cur[i]) - int(m_prev[i])) > kDiffThresh;
+            if (ch) ++changed;
+            quint8 &h = m_hits[i];
+            h = ch ? quint8(h < 5 ? h + 1 : 5) : quint8(h ? h - 1 : 0);
+            if (h >= 3) {
+                ++nAct;
+                const int gx = i % kGW, gy = i / kGW;
+                sx += gx; sy += gy;
+                if (gx < minx) minx = gx; if (gx > maxx) maxx = gx;
+                if (gy < miny) miny = gy; if (gy > maxy) maxy = gy;
+            }
+        }
+        // Compact persistent cluster? Track its centroid; NET drift over ~1.5-2.5s is the
+        // walker/wind separator (a gusting bush oscillates around its anchor: net ~0).
+        bool smallMoving = false;
+        double drift = 0;
+        if (nAct >= 1 && nAct <= 8 && (maxx - minx) <= 3 && (maxy - miny) <= 3) {
+            const double cx = double(sx) / nAct, cy = double(sy) / nAct;
+            for (int k = 0; k < m_centN; ++k) {
+                const qint64 age = wallNow - m_cent[k].w;
+                if (age >= 1500 && age <= 2500) {
+                    const double dx = cx - m_cent[k].x, dy = cy - m_cent[k].y;
+                    const double d = std::sqrt(dx * dx + dy * dy);
+                    if (d > drift) drift = d;
+                }
+            }
+            m_cent[m_centI] = { wallNow, cx, cy };
+            m_centI = (m_centI + 1) % 24; if (m_centN < 24) ++m_centN;
+            smallMoving = drift >= 1.2;
+        }
+        if (nAct > m_bucketCellsMax) m_bucketCellsMax = nAct;
+        if (drift > m_bucketDriftMax) m_bucketDriftMax = drift;
         const double score = double(changed) / double(kGW * kGH);
         // Scene noise floor: median of the trailing ring (single-frame GOP spikes can't move a median).
         double floorv = 0;
@@ -240,8 +276,10 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         {
             if (score > m_bucketMax) m_bucketMax = score;
             if (ptsMs - m_bucketT0 >= 2000) {
-                qInfo("[MSCAN] scores pts=%.0f..%.0f max=%.4f floor=%.4f", m_bucketT0, ptsMs, m_bucketMax, floorv);
+                qInfo("[MSCAN] scores pts=%.0f..%.0f max=%.4f floor=%.4f cells=%d drift=%.1f",
+                      m_bucketT0, ptsMs, m_bucketMax, floorv, m_bucketCellsMax, m_bucketDriftMax);
                 m_bucketT0 = ptsMs; m_bucketMax = 0;
+                m_bucketCellsMax = 0; m_bucketDriftMax = 0;
             }
         }
         if (moving) {
@@ -268,15 +306,35 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         // PAIRS of crossings within 2 s ride lastMotion forward instead. A GOP I-frame
         // pulse is one crossing every ~4 s — it can never pair — and a clip that never
         // produced a sustained LOCK can't ride at all: false extensions stay impossible.
+        // Post-lock ride: paired above-gate crossings within 2s advance lastMotion. This
+        // is what carries every real extension on the CRF-18 encode (measured 02:05: with
+        // it removed, the operator's clip went final at 16.9s and the walker was cut at
+        // 25s again — the sustained chain alone cannot hold even the NEAR person on the
+        // softened diffs). KNOWN ISSUE, deliberate trade: on 1440p road-facing scenes,
+        // distant traffic crosses the gate as flashes all night and can walk the chain to
+        // the 85s cap (bounded by the cap + the finality rule when the scene quiets); the
+        // operator's Mac (360p served) never sees the road and behaves correctly —
+        // verified in their 00:41 run. Daylight fix on file: a speed-bounded cluster gate
+        // designed against the cells/drift telemetry every log now carries. GOP pulses
+        // still cannot pair (one frame per ~2.5-4s).
         if (moving && m_firstMotionPtsMs >= 0) {
             if (m_rideWallMs > 0 && double(wallNow - m_rideWallMs) <= 2000.0 && ptsMs > m_lastMotionPtsMs)
                 m_lastMotionPtsMs = ptsMs;
             m_rideWallMs = wallNow;
         }
+        // Small-mover cluster (compact + persistent + drifting): TELEMETRY ONLY — as a
+        // ride source it tracked road traffic to the cap (drift 14.6 sweeps, 1.4 cruise;
+        // 08-26 01:59). The bucket lines carry cells/drift for the daylight gate design.
+        if (smallMoving && m_firstMotionPtsMs >= 0 && !m_saidSmall) {
+            m_saidSmall = true;
+            qInfo("[MSCAN] small-mover candidate (cells=%d drift=%.1f) — telemetry only", nAct, drift);
+        }
     } else if (!contiguous) {
         m_consec = 0;
         m_candPtsMs = -1;
         m_lastMoveWallMs = -1;
+        memset(m_hits, 0, sizeof(m_hits));         // streaks are pairwise state: void across a gap
+        m_centN = 0; m_centI = 0;
         m_chPrev.fill(0);
     }
 

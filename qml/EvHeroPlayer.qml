@@ -52,6 +52,12 @@ Item {
     property bool _blindSaid: false                     // one blind-scanner log line per session
     property real _extInPlaceMs: 0                      // window growth not yet baked into a session's _compactDur
     property bool _endFinal: false                      // measured end landed INSIDE the window: band frozen, no more extensions
+    // LEARNED WINDOWS (operator, 08-26: "when starts playing is still showing 0:25
+    // whereas it should probably be 0:35"): once a clip's true extent is measured —
+    // extensions followed the movement, or the end verdict landed — REPLAYS of that
+    // event open with the full window instead of re-discovering it. Per-run memory,
+    // keyed by event id; endWall is the learned window end (wall ms).
+    property var _learnedWin: ({})
     // Motion-follows extension (operator goal 2026-08-25): when the scan says motion
     // is still active at the window tail, the clip GROWS (+15s per step, max +60s)
     // instead of ending on the camera's early stamp — the reopen happens from the
@@ -124,8 +130,12 @@ Item {
             // wind on foliage scores above the floor at the 360p rendition (operator's Mac:
             // 0.128 at 49-51s with nobody in frame) and used to walk the band to 68s and
             // the clip to 70s after the subject left at 30s.
-            if (mEnd > 0 && mEnd < hp.tlEndMs - 2500)
+            if (mEnd > 0 && mEnd < hp.tlEndMs - 2500) {
                 hp._endFinal = true;
+                if (hp.ev && hp.ev.id)
+                    hp._learnedWin[String(hp.ev.id)] =
+                        { endWall: Math.max(hp.mkEndMs + hp.padPostMs, mEnd + hp.padPostMs) };
+            }
             // One verdict line per fully-scanned clip — the marker-soak datum.
             var ds = hp.mkMeasuredMs > 0 ? Math.round(hp.mkMeasuredMs - hp.mkStartMs) : "nolock";
             var de = mEnd > 0 ? Math.round(mEnd - hp.mkEndMs) : "nolock";
@@ -420,6 +430,7 @@ Item {
                                     + hp._extGen + "/4)");
                         hp._extending = true;
                         hp._open();
+                        if (hp.ev && hp.ev.id) hp._learnedWin[String(hp.ev.id)] = { endWall: hp.tlEndMs };
                     }
                 } else if (typeof wtTrace !== "undefined" && wtTrace) {
                     console.log("[HERO] window hard-stop at declared end (" + Math.round(endMs) + "ms)");
@@ -503,6 +514,9 @@ Item {
             var w0 = EventsStore.episodeWindow(ev);
             hp.mkStartMs = w0.startMs; hp.mkEndMs = (w0.endMs > w0.startMs ? w0.endMs : w0.startMs + 1000);
             hp.tlStartMs = hp.mkStartMs - hp.padPreMs; hp.tlEndMs = hp.mkEndMs + hp.padPostMs;
+            var lw0 = hp._learnedWin[nid];
+            if (lw0 && lw0.endWall > hp.tlEndMs)
+                hp.tlEndMs = Math.min(lw0.endWall, hp.mkStartMs + 120000);
         }
         hp._prefetch();
         if (typeof wtHeroAutoplay !== "undefined" && wtHeroAutoplay) {
@@ -551,6 +565,11 @@ Item {
         // pre-roll to 00:00 reads as "not playing" while the picture visibly runs
         // (operator screenshots, 2026-08-06: OSD ticking with the counter frozen).
         tlStartMs = mkStartMs - padPreMs; tlEndMs = mkEndMs + padPostMs + _extMs;   // _extMs: motion-follows growth
+        var lw = (ev && ev.id) ? _learnedWin[String(ev.id)] : null;
+        if (lw && lw.endWall > tlEndMs) {
+            tlEndMs = Math.min(lw.endWall, mkStartMs + 120000);
+            console.log("[HERO] learned window applied: total " + Math.round((tlEndMs - tlStartMs) / 1000) + "s");
+        }
         // Extension: resume just before the previous end for continuity; fresh open lands at the head.
         _pendingSeekMs = (_extending && _extResumeWall > 0)
                          ? Math.max(tlStartMs, _extResumeWall - 1500) : tlStartMs;
@@ -665,12 +684,15 @@ Item {
         }
         mkMeasuredEndMs = -1; _mktDone = false;
         _winStopped = false;
+        if (ev && ev.id) _learnedWin[String(ev.id)] = { endWall: tlEndMs };
         player.play();
     }
     function _seekWall(ms) {
         var pos = _wallToPos(ms);
         var cd = _compactDur + _extInPlaceMs / 1000;     // in-place growth is seekable media
-        if (cd > 3) pos = Math.min(pos, cd - 3);
+        // Dead zone at the end is 1s, not 3: the old -3 made the scrubber refuse
+        // everything past 0:37 of an extended 40s window (operator, 08-26).
+        if (cd > 1) pos = Math.min(pos, cd - 1);
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
