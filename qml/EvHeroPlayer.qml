@@ -51,6 +51,7 @@ Item {
     property bool _winStopped: false
     property bool _blindSaid: false                     // one blind-scanner log line per session
     property real _extInPlaceMs: 0                      // window growth not yet baked into a session's _compactDur
+    property bool _endFinal: false                      // measured end landed INSIDE the window: band frozen, no more extensions
     // Motion-follows extension (operator goal 2026-08-25): when the scan says motion
     // is still active at the window tail, the clip GROWS (+15s per step, max +60s)
     // instead of ending on the camera's early stamp — the reopen happens from the
@@ -112,9 +113,19 @@ Item {
             // The END measures INDEPENDENTLY of the start (operator, 08-25: "i don't mind
             // where it starts" — the end is what the guard needs). A rejected/absent start
             // measurement must not doom the end to the camera's early stamp.
+            // MONOTONIC: re-verdicts (after window extensions) may only move the end RIGHT —
+            // the band the guard is staring at never shrinks (operator, 08-26: it "shrank
+            // and expanded without any apparent logic" as re-measures landed).
             var bandStart = hp.mkMeasuredMs > 0 ? hp.mkMeasuredMs : hp.mkStartMs;
-            if (mEnd > hp.tlStartMs && mEnd > bandStart + 500)
+            if (mEnd > hp.tlStartMs && mEnd > bandStart + 500 && mEnd > hp.mkMeasuredEndMs)
                 hp.mkMeasuredEndMs = mEnd;
+            // FINAL once the measured end sits clearly INSIDE the window: motion ended in
+            // view, the verdict is complete — no re-measure, no further extensions. Night
+            // wind on foliage scores above the floor at the 360p rendition (operator's Mac:
+            // 0.128 at 49-51s with nobody in frame) and used to walk the band to 68s and
+            // the clip to 70s after the subject left at 30s.
+            if (mEnd > 0 && mEnd < hp.tlEndMs - 2500)
+                hp._endFinal = true;
             // One verdict line per fully-scanned clip — the marker-soak datum.
             var ds = hp.mkMeasuredMs > 0 ? Math.round(hp.mkMeasuredMs - hp.mkStartMs) : "nolock";
             var de = mEnd > 0 ? Math.round(mEnd - hp.mkEndMs) : "nolock";
@@ -191,7 +202,7 @@ Item {
     property double _seekWatchWall: 0                    // that seek's target, for the watchdog's fallback re-open
     // wall-clock time of the frame currently on screen (compact playhead → wall, via the ready fragments)
     readonly property double _playheadWallMs: _seekingToWall >= 0 ? _seekingToWall
-                                            : (_frags.length ? _posToWall(_smoothMs) : tlStartMs)
+                                            : (_frags.length ? Math.min(tlEndMs, _posToWall(_smoothMs)) : tlStartMs)
 
     // Advance the playhead continuously at 30fps; the raw MediaPlayer.position
     // updates coarsely/jitterily over HLS, so we interpolate and only snap on a
@@ -367,11 +378,13 @@ Item {
             var p = player.position;
             if (d > 0 && p > d) p = d;               // never track media beyond the declared clip
             if (Math.abs(p - hp._smoothMs) > 500) hp._smoothMs = p;
-            // Authority = the DECLARED clip length (_compactDur, from the session),
-            // never player.duration: AVFoundation GROWS duration as it discovers the
-            // over-served bytes, so a duration-relative latch chases a moving target
-            // and never fires (operator's Mac, 08-25).
-            var endMs = hp._compactDur > 0 ? hp._compactDur * 1000 + hp._extInPlaceMs : d;
+            // Authority = the CLIP WINDOW (tl*), not the session and not player.duration:
+            // AVFoundation grows duration over the over-served bytes, and a far-seek
+            // session is deliberately WIDER than the window (±15s margins) — a latch
+            // anchored to either sails past the clip into black tail bytes (operator's
+            // Mac 08-26: counter 01:25 of a 01:10 window, stopped on a black frame).
+            var endMs = hp._frags.length > 0 ? hp._wallToPos(hp.tlEndMs) * 1000
+                        : (hp._compactDur > 0 ? hp._compactDur * 1000 + hp._extInPlaceMs : d);
             if (endMs > 0 && player.position >= endMs - 120 && !hp._winStopped
                     && player.playbackState === MediaPlayer.PlayingState) {
                 if (MotionScan.framesScanned === 0) {
@@ -390,10 +403,10 @@ Item {
                 hp._smoothMs = Math.min(endMs, d > 0 ? d : endMs);
                 var tailMotion = MotionScan.lastMotionPtsMs >= 0
                                  && hp._posToWall(MotionScan.lastMotionPtsMs) >= hp.tlEndMs - 2500;
-                if (tailMotion && hp._extGen < 4) {
+                if (tailMotion && !hp._endFinal && hp._extGen < 4) {
                     hp._extGen++;
                     hp._extMs += 15000;
-                    if (player.duration >= endMs + 14000) {
+                    if (player.duration >= endMs + 14000 || hp._compactDur * 1000 >= endMs + 14000) {
                         // The +15s of footage is ALREADY decoded: the server serves whole
                         // source segments past the declared slice (08-25 letter), and
                         // player.duration just proved the bytes are here. Extend IN PLACE —
@@ -481,7 +494,7 @@ Item {
         if (nid !== "" && nid === hp._evId) return;      // same episode, rebuilt object — keep the session
         hp._evId = nid;
         hp._zeroFragRetries = 0; zeroFragRetry.stop();
-        hp._extGen = 0; hp._extMs = 0; hp._extInPlaceMs = 0; hp._extResumeWall = -1; hp._extending = false;
+        hp._extGen = 0; hp._extMs = 0; hp._extInPlaceMs = 0; hp._extResumeWall = -1; hp._extending = false; hp._endFinal = false;
         hp._reset(); hp._pre = null; hp._preTag = "";
         // The timeline is knowable from event data alone — set it NOW so the scrubber has real
         // geometry and the transport shows the true duration before the first play-tap (it read
@@ -522,7 +535,7 @@ Item {
         _lit = false;                                    // fresh session: poster holds until ITS first frame
         // Extension reopen keeps the measured START (wall-anchored, session-independent);
         // the end re-measures against the wider window. A fresh event wipes everything.
-        if (!_extending) { mkMeasuredMs = -1; _extGen = 0; _extMs = 0; _extInPlaceMs = 0; _extResumeWall = -1; }
+        if (!_extending) { mkMeasuredMs = -1; _extGen = 0; _extMs = 0; _extInPlaceMs = 0; _extResumeWall = -1; _endFinal = false; }
         mkMeasuredEndMs = -1; _mktDone = false;
         MotionScan.attach(vout.videoSink);               // re-claim on every open (parity with _seekFar)
         MotionScan.reset();
