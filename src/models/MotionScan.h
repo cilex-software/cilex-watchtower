@@ -89,6 +89,9 @@ private:
     bool m_forceNoPts = false;
     bool m_saidNoPts = false;
     bool m_saidPtsDiverge = false;
+    bool m_ptsUntrusted = false;                   // latched on first divergence: a backend that
+                                                   // lied once gets position-timing for the session
+    int m_jumpNotes = 0;                           // rebaseline log throttle
     qint64 m_noteWallMs = -1;                      // when notePosition() last fired (staleness gate)
     double m_scannedSpanMs = 0;                    // Σ contiguous scanned time this session
     qint64 m_resetWallMs = -1;

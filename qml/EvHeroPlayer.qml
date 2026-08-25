@@ -109,7 +109,11 @@ Item {
             // Cap to the window end instead: yellow reaching the clip's edge is the
             // honest statement "movement continues past this clip".
             if (mEnd > hp.tlEndMs) mEnd = hp.tlEndMs;
-            if (mEnd > hp.tlStartMs && hp.mkMeasuredMs > 0 && mEnd > hp.mkMeasuredMs)
+            // The END measures INDEPENDENTLY of the start (operator, 08-25: "i don't mind
+            // where it starts" — the end is what the guard needs). A rejected/absent start
+            // measurement must not doom the end to the camera's early stamp.
+            var bandStart = hp.mkMeasuredMs > 0 ? hp.mkMeasuredMs : hp.mkStartMs;
+            if (mEnd > hp.tlStartMs && mEnd > bandStart + 500)
                 hp.mkMeasuredEndMs = mEnd;
             // One verdict line per fully-scanned clip — the marker-soak datum.
             var ds = hp.mkMeasuredMs > 0 ? Math.round(hp.mkMeasuredMs - hp.mkStartMs) : "nolock";

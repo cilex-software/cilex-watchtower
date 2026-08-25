@@ -89,7 +89,7 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         const qint64 age = wallNow - m_firstSampleWallMs;
         if (age >= 2000 && age < 2000 + m_blindMs) { emit frameScanned(); return; }
     }
-    const qint64 stUs = m_forceNoPts ? -1 : frame.startTime();
+    const qint64 stUs = (m_forceNoPts || m_ptsUntrusted) ? -1 : frame.startTime();
     double ptsMs;
     bool timeFromPts;                              // which clock labels THIS frame
     if (stUs >= 0) { ptsMs = double(stUs) / 1000.0; timeFromPts = true; }
@@ -101,9 +101,13 @@ void MotionScan::onFrame(const QVideoFrame &frame)
     if (timeFromPts && noteFresh && std::abs(ptsMs - m_notedPosMs) > 5000.0) {
         if (!m_saidPtsDiverge) {
             m_saidPtsDiverge = true;
-            qInfo("[MSCAN] backend PTS diverges from player position (pts=%.0f pos=%.0f) — using position",
+            qInfo("[MSCAN] backend PTS diverges from player position (pts=%.0f pos=%.0f) — position-timing from here on",
                   ptsMs, m_notedPosMs);
         }
+        m_ptsUntrusted = true;                     // once caught lying, never trusted again —
+                                                   // a stale-note frame must not sneak a poisoned
+                                                   // PTS past the clamp (operator's Mac: one leak
+                                                   // inflated coverage and froze the band's end)
         ptsMs = m_notedPosMs;
         timeFromPts = false;
     }
@@ -119,6 +123,20 @@ void MotionScan::onFrame(const QVideoFrame &frame)
         // value (the Mac band locked mid-clip off exactly that, 08-25). Unlabelable
         // frames are skipped, but the emit keeps the QML feed refreshing for the next.
         if (!noteFresh) { emit frameScanned(); return; }
+    }
+    // Label-jump rebaseline: >3s of label movement between adjacent frames without an
+    // app-side reset is a clock glitch, not playback (AVFoundation re-bases currentTime
+    // while settling an over-served playlist — operator's Mac: 4.6s → 21.9s mid-play; TS
+    // discontinuities jump raw PTS the same way). The frame must not advance coverage,
+    // pair for scoring, or feed the noise ring — the next frame continues from this base.
+    if (m_prevPtsMs >= 0 && ptsMs >= 0 && std::abs(ptsMs - m_prevPtsMs) > 3000.0) {
+        if (++m_jumpNotes <= 3)
+            qInfo("[MSCAN] time label jumped %.0f -> %.0f — rebaselined", m_prevPtsMs, ptsMs);
+        m_prevPtsMs = ptsMs;
+        m_prevWallMs = wallNow;
+        m_consec = 0; m_candPtsMs = -1; m_lastMoveWallMs = -1;
+        emit frameScanned();
+        return;
     }
 
     // Map on THIS thread, downsample, unmap — nothing frame-shaped leaves the handler.
@@ -177,10 +195,6 @@ void MotionScan::onFrame(const QVideoFrame &frame)
     if (m_firstSampleWallMs < 0)
         m_firstSampleWallMs = wallNow;
 
-    if (ptsMs >= 0 && (m_earliestPtsMs < 0 || ptsMs < m_earliestPtsMs))
-        m_earliestPtsMs = ptsMs;
-    if (ptsMs > m_latestPtsMs)
-        m_latestPtsMs = ptsMs;
 
     // Contiguity gate: only score against the immediately-preceding played frame.
     // PTS when the backend stamps frames; arrival wall-clock cadence when it doesn't
@@ -190,6 +204,13 @@ void MotionScan::onFrame(const QVideoFrame &frame)
            && ptsMs > m_prevPtsMs && (ptsMs - m_prevPtsMs) <= kMaxGapMs)
         : (m_prevWallMs > 0 && ptsMs >= 0
            && (wallNow - m_prevWallMs) > 0 && double(wallNow - m_prevWallMs) <= kMaxGapMs);
+    // Coverage (earliest/latest) advances only with the seed frame or CONTIGUOUS frames —
+    // an unconditional update let one glitch-labeled frame claim the whole tail as scanned
+    // (operator's Mac 08-25: premature verdict froze the band's end at the camera stamp).
+    if (ptsMs >= 0 && (m_latestPtsMs < 0 || contiguous)) {
+        if (m_earliestPtsMs < 0 || ptsMs < m_earliestPtsMs) m_earliestPtsMs = ptsMs;
+        if (ptsMs > m_latestPtsMs) m_latestPtsMs = ptsMs;
+    }
     if (contiguous)
         m_scannedSpanMs += timeFromPts ? (ptsMs - m_prevPtsMs) : double(wallNow - m_prevWallMs);
     m_prevWallMs = wallNow;
