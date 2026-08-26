@@ -98,7 +98,7 @@ GitHub releases themselves cost nothing; only Actions minutes did.
 - **Conventional Commits**, with the trailers this repo uses.
 - **One version per commit.** Run `git config core.hooksPath tools/git-hooks`
   once per clone — **including the Windows checkout**. A `pre-commit` hook then
-  bumps the PATCH component (1.1.1, 1.1.2, …) and restages the five files that
+  bumps the PATCH component (1.1.1, 1.1.2, …) and restages the four files that
   carry it. Only patch moves; major/minor change only when the operator says so.
   Amending needs `WT_NO_BUMP=1 git commit --amend`. See `docs/DEVELOPMENT.md`.
 - **15 fps is set ON THE CAMERAS and nowhere else.** The fleet broadcasts at 15;

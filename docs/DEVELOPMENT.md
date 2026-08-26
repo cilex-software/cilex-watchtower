@@ -85,7 +85,7 @@ git config core.hooksPath tools/git-hooks
 Do that in the Windows checkout too, or commits from that box will reuse a
 version number. Verify with `tools/bump-version.sh --print`.
 
-- `tools/bump-version.sh` — bump patch, rewrite all five files, print the new version
+- `tools/bump-version.sh` — bump patch, rewrite all four files, print the new version
 - `tools/bump-version.sh --set 1.2.0` — explicit major/minor change
 - `WT_NO_BUMP=1 git commit --amend` — **required when amending.** Amend re-runs
   the hook and would otherwise bump twice for one logical change.
