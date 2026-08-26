@@ -5,6 +5,69 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-08-26 pointer -->
+> **2026-08-25/26 — the yellow-line / clip-length saga (events hero, operator's
+> Mac): six fix rounds shipped overnight, verified by the operator's own runs;
+> ONE item still open.** Canonical test: event `feafb3e4-8e90-43f8-ad1c-ee2debb13b72`
+> (cam `hiwatch-083bc14efff9`, «1 Улица 3», night street, person exits at
+> clip-0:30, camera stamped 15s; the operator's `cilex://open/ai6v…` and the
+> Linux re-mint `cilex://open/aa4iu…` decode to the SAME event — site addressed
+> via Tailscale vs LAN).
+>
+> **Shipped (v1.1.208, `d19ba00`; chain 58b7d6e→a187319→09b14c5→c106611→2f5f515→d19ba00):**
+> declared/window-authoritative stop latch (never the session length, never
+> AVFoundation's growing `player.duration`; scrub sessions are ±15s WIDER than
+> the clip window); playhead display clamped to the window; MotionScan
+> toImage-readback fallback for unmappable GPU frames (WT_MSCAN_FORCEIMG forces
+> it on Linux); stale-note gate + PTS-divergence clamp + one-lie-latches-
+> position-timing + >3s label-jump rebaseline (AVF stamps a jumping clock:
+> measured pts=21882 at pos=4648, and pts=0 flushes at session boundaries);
+> coverage (earliest/latest) advances only on seed/contiguous frames;
+> coverage-hole REJECT of first-motion locks (`scanned=9725ms of claimed
+> 22931ms` — the mid-clip band-lock killer); band end measures INDEPENDENTLY of
+> the start, MONOTONIC (right only) and FINAL once a verdict lands >2.5s inside
+> the window — after final, no re-measure and no more extensions (wind can't
+> steer); motion-follows extension +15s×4 max, IN PLACE when the media already
+> holds the bytes (server over-serve; no reopen on the Mac) else reopen;
+> per-event LEARNED WINDOWS (replays open at the discovered true length —
+> in-memory per run); seek end dead-zone 3s→1s (the 0:37 scrubber wall);
+> `run-macos.sh` auto-tees every run to
+> `~/Library/Logs/CilexWatchtower/run-last.log` (+run-prev.log); score buckets
+> ALWAYS ON (one line/~2s: `max= floor= cells= drift=`).
+>
+> **Operator-verified on the Mac:** extend 25→40s in place ("media holds 60s"),
+> band static once shown, counter never exceeds total, stop at window edge.
+>
+> **OPEN (the one residual):** the band's END freezes at ~23.5s while the person
+> truly exits at ~0:30 — the Mac is served **640×360** (AVFoundation takes the
+> master playlist's FIRST variant; Linux/FFmpeg picks 2560×1440 of the same
+> session) and the walker's far phase drops under every detector gate at that
+> scale. Two staged fixes: (1) CV letter
+> `docs/letters/2026-08-26-review-playlist-variant-order.md` (single-rendition
+> or highest-first review playlists — CV reply pending) — at 1440p the detector
+> already follows the walker far past 23.5s; (2) a speed-bounded small-mover
+> cluster gate: the compact/persistent/drifting-cluster detector is BUILT but
+> ships TELEMETRY-ONLY (`cells=/drift=` in every bucket + a one-shot candidate
+> line) because unbounded it rode distant road traffic to the 85s cap on 1440p
+> (drift 14.6 sweeps vs a walker's ~1.2–3.5 cells/2s — the .110 lesson, tail
+> edition; measured 08-26 01:59). Design the bound from the Mac's own telemetry
+> in the next operator log. **Known issue, deliberate:** on 1440p road-facing
+> scenes the paired-singles ride can over-extend toward the 85s cap (bounded;
+> documented in `MotionScan.cpp`) — it is what carries every REAL extension on
+> the new encode, and removing it cut the walker at 25s again (measured 02:05:
+> sustained-only went final at 16.9s).
+>
+> **Also measured 08-25:** the served stream's score statistics dropped 4–5× on
+> the same event between morning and evening (both samplers agree) — CV's
+> decode-forward CRF-18 edge re-encode suspected; deploy-confirm letter
+> `…hls-segments-serve-more-than-they-declare.reply3.md` pending. Detector
+> thresholds were re-verified against the NEW encode.
+>
+> Test hooks: `WT_MSCAN_FORCEIMG=1` (readback path), `WT_MSCAN_NOPTS=1`
+> (position clock), `WT_MSCAN_BLINDMS=N` (blind [2s,2s+N] after first sample),
+> `WT_HERO_AUTOPLAY=1`. Diagnostic ask to the operator is always ONE paste:
+> `grep -E "MSCAN|MKT|HERO" ~/Library/Logs/CilexWatchtower/run-last.log`.
+
 <!-- 2026-08-17 pointer -->
 > **2026-08-17 — the booth slow-wall is FIXED and the wall PASSES the
 > operator's bar.** Measured: **15 minutes, zero stalls, 8/8 tiles lit, worst
