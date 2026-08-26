@@ -107,6 +107,10 @@ private:
     CentSample m_cent[24];                         // ring of compact-cluster centroids
     int m_centN = 0, m_centI = 0;
     bool m_saidSmall = false;
+    bool m_saidFlowing = false;                    // per-SESSION geometry line (was a process-wide
+                                                   // static — see onFrame(); it reported a stale size)
+    int m_dimW = -1, m_dimH = -1;                  // last decoded frame geometry; a change mid-session
+                                                   // means the rendition switched under the scan
     int m_bucketCellsMax = 0;                      // telemetry maxima per ~2s bucket
     double m_bucketDriftMax = 0;
     int m_blindMs = 0;                             // WT_MSCAN_BLINDMS (test): drop sampling in [2s, 2s+N] after the FIRST SAMPLE

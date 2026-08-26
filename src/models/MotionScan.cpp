@@ -68,6 +68,8 @@ void MotionScan::reset()
     memset(m_hits, 0, sizeof(m_hits));
     m_centN = 0; m_centI = 0;
     m_saidSmall = false;
+    m_saidFlowing = false;
+    m_dimW = -1; m_dimH = -1;
     m_bucketCellsMax = 0; m_bucketDriftMax = 0;
     if (m_trace)
         qInfo("[MSCAN] reset");
@@ -77,12 +79,40 @@ void MotionScan::reset()
 
 void MotionScan::onFrame(const QVideoFrame &frame)
 {
-    static int s_seen = 0;
-    if (++s_seen == 1)
+    // Per-SESSION geometry log. This was once-per-PROCESS (a function-local static that
+    // reset() never touched), which made it useless as evidence: it reported the first frame
+    // the process ever decoded, and every later open — attach()+reset(), EvHeroPlayer.qml:554
+    // and :639 — silently reused that stale line. It cost us a wrong premise in
+    // docs/letters/2026-08-26-review-playlist-variant-order.md, where a latched 2560x1440 was
+    // read as proof that Linux was served 1440p while the Mac got 640x360; CV's session rows
+    // showed the run in question had ZERO 1440p fragments. An instrument that reports once per
+    // process cannot answer a question asked per session.
+    if (!m_saidFlowing) {
+        m_saidFlowing = true;
         qInfo("[MSCAN] frames flowing: valid=%d fmt=%d %dx%d", int(frame.isValid()),
               int(frame.pixelFormat()), frame.width(), frame.height());
+    }
     if (!frame.isValid())
         return;
+    // A review session is stitched PER FRAGMENT and can mix renditions inside one clip (CV,
+    // 2026-08-26: one session on this camera measured 1440p x2 + 640x360 x1, because the
+    // main-stream retention edge fell mid-window). A rendition change rescales every luma-grid
+    // score, so scores either side of it are not comparable and a band measured across it is
+    // measuring two different cameras. Say so when it happens instead of averaging through it.
+    if (frame.width() != m_dimW || frame.height() != m_dimH) {
+        if (m_dimW > 0)
+            qInfo("[MSCAN] frame size CHANGED mid-session: %dx%d -> %dx%d (fmt=%d) — scores across this boundary are not comparable",
+                  m_dimW, m_dimH, frame.width(), frame.height(), int(frame.pixelFormat()));
+        else
+            // Always on the first VALID frame, never folded into the line above: that one fires
+            // on the first frame of ANY validity (liveness), and a session whose opening frames
+            // are invalid would otherwise report "-1x-1" and never say what it actually decoded
+            // — measured on the +15s extension open, 2026-08-26 09:10:09.
+            qInfo("[MSCAN] frame geometry: %dx%d fmt=%d", frame.width(), frame.height(),
+                  int(frame.pixelFormat()));
+        m_dimW = frame.width();
+        m_dimH = frame.height();
+    }
     const qint64 wallNow = QDateTime::currentMSecsSinceEpoch();
     // TEST ONLY (WT_MSCAN_BLINDMS=N): simulate a sampling-dead stretch during [2s, 2s+N]
     // after the FIRST SAMPLED frame — the Mac 08-25 shape (readback alive at the head, a

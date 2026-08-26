@@ -1,3 +1,26 @@
+> ## ⚠️ WITHDRAWN IN FULL — 2026-08-26, by its author
+>
+> **Do not act on this letter.** Its ask is a no-op and its central premise is
+> wrong. Kept unedited below because CV replied to it and the thread must read
+> straight.
+>
+> - **The ask is a no-op.** The review master emits ONE `#EXT-X-STREAM-INF` with
+>   no `RESOLUTION` attribute (`review.py:909-963`). There is no ladder to
+>   reorder and no rung to drop; AVFoundation plays the only variant offered.
+> - **The premise is wrong.** The "Linux gets 2560×1440" half rested on a
+>   `[MSCAN]` line printed by a once-per-PROCESS static that `reset()` never
+>   cleared — it reported a stale frame, sometimes from the *previous* clip.
+>   Both platforms were watching the same **640×360** pixels.
+> - **The real cause is main-stream retention**, not rendition selection: main
+>   on that camera is ~1 day deep and the edge swept past the event during
+>   08-25. Verified on Linux 08-26 — the same event now decodes 640×360 here.
+> - **The degradation itself is real** and still open; only the mechanism was wrong.
+>
+> Full account and retraction: `2026-08-25-hls-segments-serve-more-than-they-declare.reply5.md`
+> · CV's reply: `2026-08-26-review-playlist-variant-order.reply.md`
+
+---
+
 # Review sessions: the master playlist hands macOS a 640×360 clip while Linux gets 2560×1440
 
 ```

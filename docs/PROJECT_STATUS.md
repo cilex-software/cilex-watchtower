@@ -39,13 +39,25 @@
 > band static once shown, counter never exceeds total, stop at window edge.
 >
 > **OPEN (the one residual):** the band's END freezes at ~23.5s while the person
-> truly exits at ~0:30 — the Mac is served **640×360** (AVFoundation takes the
-> master playlist's FIRST variant; Linux/FFmpeg picks 2560×1440 of the same
-> session) and the walker's far phase drops under every detector gate at that
-> scale. Two staged fixes: (1) CV letter
-> `docs/letters/2026-08-26-review-playlist-variant-order.md` (single-rendition
-> or highest-first review playlists — CV reply pending) — at 1440p the detector
-> already follows the walker far past 23.5s; (2) a speed-bounded small-mover
+> truly exits at ~0:30 — the clip is served at **640×360** and the walker's far
+> phase drops under every detector gate at that scale. **CORRECTED 2026-08-26:
+> this is NOT a platform split and NOT a playlist-ladder choice.** Both earlier
+> claims are withdrawn — see `…hls…reply5.md`. (i) The review master emits ONE
+> `#EXT-X-STREAM-INF` with no `RESOLUTION` attribute (CV, `review.py:909-963`):
+> there is no ladder to reorder, so `2026-08-26-review-playlist-variant-order.md`
+> is **withdrawn in full**. (ii) The "Linux gets 1440p" half rested on
+> `[MSCAN] … 2560x1440`, which was printed by a **once-per-PROCESS static** that
+> `reset()` never cleared — and whose frame can even belong to the PREVIOUS clip
+> (measured 08-26 09:09:44: a feafb3e4 session reported 2560×1440, then 640×360
+> 181 ms later). Fixed: the geometry line is now per-session and reports
+> mid-session rendition changes. (iii) The real cause is **main-stream retention**:
+> main on that camera is ~1 day deep, sub 5.5, and the edge swept past the event
+> during 08-25. Measured on Linux 08-26, twice: feafb3e4 decodes **640×360**,
+> lock at **pts=16487ms**, bucket maxima 0.0017–0.0608 — CV's account reproduced
+> exactly. A recent event on the same camera still decodes 2560×1440.
+> **36 fleet cameras have main shallower than sub by >12h; 10 have no main at
+> all** — for windows older than main depth, 360p is the only footage that
+> exists, on every platform. Remaining fix: (2) a speed-bounded small-mover
 > cluster gate: the compact/persistent/drifting-cluster detector is BUILT but
 > ships TELEMETRY-ONLY (`cells=/drift=` in every bucket + a one-shot candidate
 > line) because unbounded it rode distant road traffic to the 85s cap on 1440p
@@ -57,11 +69,19 @@
 > the new encode, and removing it cut the walker at 25s again (measured 02:05:
 > sustained-only went final at 16.9s).
 >
-> **Also measured 08-25:** the served stream's score statistics dropped 4–5× on
-> the same event between morning and evening (both samplers agree) — CV's
-> decode-forward CRF-18 edge re-encode suspected; deploy-confirm letter
-> `…hls-segments-serve-more-than-they-declare.reply3.md` pending. Detector
-> thresholds were re-verified against the NEW encode.
+> **Also measured 08-25 — cause CORRECTED 2026-08-26:** the served stream's score
+> statistics dropped 4–5× on the same event between morning and evening (both
+> samplers agree). **The CRF-18 edge-re-encode hypothesis is WITHDRAWN.** CV
+> disproved it from the RUNNING container (`…hls…reply4.md`): CRF is still 23 at
+> both head-piece sites, zero trim symbols in the image, and
+> `infra-playback-service:latest` was built 08-23 23:17 MSK and never rebuilt —
+> it predates both measurements. The mid-day 08-25 container restart was a host
+> reboot, not a deploy. The drop is the **retention edge** crossing the event:
+> 2560×1440 → 640×360 is a 16× pixel drop, which through a 32×18 luma grid is
+> exactly the observed 0.20 → 0.043–0.061 and the lock sliding 7843 → 16487 ms.
+> The hypothesis was self-inconsistent before either side checked — CRF 23→18
+> moves quality UP. Detector thresholds re-verified 08-25 remain valid; they were
+> re-tuned against a lower-resolution SOURCE, not a new encode.
 >
 > Test hooks: `WT_MSCAN_FORCEIMG=1` (readback path), `WT_MSCAN_NOPTS=1`
 > (position clock), `WT_MSCAN_BLINDMS=N` (blind [2s,2s+N] after first sample),
