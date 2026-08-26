@@ -39,7 +39,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.3.1"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok
+WARDEN_VERSION = "1.3.2"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -496,19 +496,6 @@ def host_load():
     return cpu, mem
 
 
-class Heartbeat(threading.Thread):
-    """CW-19 client half (contract: 2026-07-27-warden-dead-man-heartbeat.md §3).
-    Rules encoded from that letter: NEVER spooled, never counted against upload
-    pacing, fire-and-forget with a short timeout, and sent whether or not the
-    app is running — a beat saying 'stopped on purpose' is what keeps the
-    server quiet; silence is what alarms."""
-    daemon = True
-
-    def __init__(self):
-        super().__init__(name="heartbeat")
-        self.stale_after = 180.0
-
-
 _DEEPLINK_OK = {"checked": False, "ok": None}
 
 def deeplink_ok():
@@ -548,6 +535,19 @@ def deeplink_ok():
         log("WARN deeplink_ok=false — cilex:// links will not open on this station "
             "(the app registers on start; a false here after an app start is a defect)")
     return ok
+
+
+class Heartbeat(threading.Thread):
+    """CW-19 client half (contract: 2026-07-27-warden-dead-man-heartbeat.md §3).
+    Rules encoded from that letter: NEVER spooled, never counted against upload
+    pacing, fire-and-forget with a short timeout, and sent whether or not the
+    app is running — a beat saying 'stopped on purpose' is what keeps the
+    server quiet; silence is what alarms."""
+    daemon = True
+
+    def __init__(self):
+        super().__init__(name="heartbeat")
+        self.stale_after = 180.0
 
     def payload(self):
         now = time.time()
