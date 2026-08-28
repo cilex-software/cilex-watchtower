@@ -518,6 +518,11 @@ Window {
         linkWait.restart();
     }
     property string _linkWaitEvent: ""
+    // Mirrored onto EventsStore so the queue can show the search. Deliberately a CHANGE
+    // HANDLER and not five assignments: this state is cleared on four different exit
+    // paths (found, resolved-by-id, resolve-failed, timeout) and a fifth added later
+    // would otherwise leave the indicator spinning over a search that already ended.
+    on_LinkWaitEventChanged: EventsStore.linkSearchId = _linkWaitEvent
     property int _linkWaitTicks: 0
     property bool _linkResolving: false
     Timer {
@@ -530,6 +535,7 @@ Window {
                 if (evs[i].id === win._linkWaitEvent) {
                     console.log("[LINK] resolved event=" + win._linkWaitEvent + " cam="
                                 + (evs[i].cam ? evs[i].cam.id : "?") + " after " + win._linkWaitTicks + " ticks");
+                    win.holdLinkedEvent(win._linkWaitEvent);
                     eventsArea.openInTriage(win._linkWaitEvent, "");
                     win._linkWaitEvent = ""; stop(); return;
                 }
@@ -552,6 +558,27 @@ Window {
             }
         }
     }
+    // Retention hold (operator rule 2026-08-28): "if somebody had searched for the clip
+    // [it is] important enough to not be deleted". A clip reached by share link is
+    // evidence someone is working — it must not vanish under the rolling retention sweep.
+    //
+    // HONEST BOUNDARY, and it is the whole of the caveat: Watchtower does not own the
+    // footage and cannot stop a deletion. Cameras have no storage; retention is
+    // cilex-vision's sweep over ITS archive, and the API exposes no hold/preserve verb —
+    // grep-verified across the contract 2026-08-28, only read-only retentionDays on
+    // /coverage. So this records the INTENT durably and locally, which is the half we
+    // own, and the ask is filed as docs/letters/2026-08-28-retention-hold-for-linked-clips.md.
+    // When that endpoint lands, this function is the one place that gains the PUT — and
+    // Settings.heldEventIds is the backlog to replay. It is deliberately NOT surfaced as
+    // "protected" anywhere in the UI: claiming a clip is safe when the server can still
+    // delete it is exactly the green-by-default failure the house rules forbid.
+    function holdLinkedEvent(evId) {
+        if (!evId) return;
+        if (Settings.isEventHeld(evId)) { console.log("[HOLD] already held event=" + evId); return; }
+        Settings.holdEvent(evId);
+        console.log("[HOLD] linked event marked for non-deletion event=" + evId
+                    + " (local intent; server-side hold PENDING — no API yet)");
+    }
     Connections {
         target: DeepLink
         function onLinkReceived(u) { win.handleDeepLink(u) }
@@ -565,6 +592,7 @@ Window {
             var tab = (ts === "resolved" || ts === "dismissed") ? "all" : "";
             console.log("[LINK] resolved by id event=" + row.eventId + " state=" + ts
                         + (tab !== "" ? " tab=all" : ""));
+            win.holdLinkedEvent(row.eventId);
             eventsArea.openInTriage(row.eventId, "", tab);
             win._linkWaitEvent = ""; win._linkResolving = false; linkWait.stop();
         }

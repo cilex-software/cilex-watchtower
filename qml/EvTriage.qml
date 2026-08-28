@@ -398,10 +398,21 @@ Item {
         tri.fold = tri.fold.filter(function (x) { return x !== key; });
         lanesView.contentY = 0;
     }
-    // Link-open reveal (operator ask 2026-08-23): scroll the queue to the linked
-    // event's row and pulse it subtly — selection alone is invisible when the row
-    // sits below the fold. Retries briefly: the row may still be materializing
-    // (by-id resolve inserts it, the lane list rebuilds a beat later).
+    // Link-open reveal: pulse the linked event's row subtly so the open is visible.
+    //
+    // It used to ALSO scroll the queue to that row (positionViewAtIndex, operator ask
+    // 2026-08-23). That scroll is REMOVED by operator decision 2026-08-28, which
+    // supersedes it: the queue is the guard's own place in their work, and yanking it
+    // out from under them to show a row they can already see playing costs more than the
+    // reveal was worth. The list now holds still — the clip opens in the hero, the row
+    // pulses if it happens to be in view, and nothing moves.
+    //
+    // The pulse is therefore best-effort by design: a linked row below the fold pulses
+    // unseen, and that is the accepted trade, not an oversight. The visible confirmation
+    // is the clip itself opening plus the search indicator clearing.
+    //
+    // Retries briefly either way: the row may still be materializing (by-id resolve
+    // inserts it, the lane list rebuilds a beat later).
     property string pulseId: ""
     property string _revealPending: ""
     property int _revealTries: 0
@@ -414,8 +425,7 @@ Item {
         var items = tri._L.items;
         for (var i = 0; i < items.length; i++)
             if (items[i].t === "e" && items[i].ev && items[i].ev.id === _revealPending) {
-                lanesView.positionViewAtIndex(i, ListView.Center);
-                tri.pulseId = _revealPending;
+                tri.pulseId = _revealPending;          // pulse only — the list must NOT move (08-28)
                 pulseClear.restart();
                 _revealPending = ""; revealTimer.stop();
                 return;
@@ -690,6 +700,61 @@ Item {
                 Item {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true
+                    // Share-link search sweep (operator ask 2026-08-28): `open cilex://…`
+                    // used to raise the window onto a motionless queue and say nothing for
+                    // up to ~30 s while the feed ingested and a by-id resolve ran, which
+                    // reads as a dead link. Indeterminate BY DESIGN — the wait is a poll
+                    // against an async feed with no measurable fraction, so it sweeps
+                    // honestly instead of inventing a percentage. Same 3px/30%/1100ms
+                    // language as the wall's composite bar (WallPlayback.qml), so a guard
+                    // who has seen one recognises the other. z, not sibling order, keeps
+                    // it above the list without disturbing the layout.
+                    Rectangle {
+                        id: linkSearchBar
+                        anchors { left: parent.left; right: parent.right; top: parent.top }
+                        height: 3
+                        z: 6
+                        visible: EventsStore.linkSearching
+                        color: "#141a22"                 // dim track (matches CameraTile.loadBar)
+                        clip: true
+                        Rectangle {
+                            height: parent.height
+                            width: parent.width * 0.30
+                            color: Theme.accent
+                            SequentialAnimation on x {
+                                running: linkSearchBar.visible
+                                loops: Animation.Infinite
+                                NumberAnimation { from: -linkSearchBar.width * 0.30; to: linkSearchBar.width
+                                    duration: 1100; easing.type: Easing.InOutSine }
+                            }
+                        }
+                    }
+                    // The caption says WHAT is sweeping — a bare moving line does not
+                    // distinguish "opening your shared clip" from "the feed is refreshing".
+                    // Pinned to the bar and right-aligned INSIDE the viewport, never in the
+                    // header row: the queue header is a fixed-width RowLayout whose scope
+                    // readout is right-anchored, and a caption there overflowed left into
+                    // the tab strip and printed "AllOpening shared clip..." over the tabs
+                    // (measured on this box, 2026-08-28). Backdrop so it stays legible on a
+                    // populated queue; it clears the moment the search ends.
+                    Rectangle {
+                        anchors { top: linkSearchBar.bottom; right: parent.right; rightMargin: 10; topMargin: 6 }
+                        z: 6
+                        visible: EventsStore.linkSearching
+                        width: linkSearchLbl.implicitWidth + 14
+                        height: linkSearchLbl.implicitHeight + 8
+                        radius: 3
+                        color: Theme.panel2
+                        border.width: 1
+                        border.color: Theme.line
+                        Text {
+                            id: linkSearchLbl
+                            anchors.centerIn: parent
+                            text: qsTr("Opening shared clip\u2026")
+                            color: Theme.accent
+                            font.family: Theme.fontMono; font.pixelSize: 10
+                        }
+                    }
                     ListView {
                         id: lanesView
                         anchors.fill: parent

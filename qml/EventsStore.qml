@@ -78,6 +78,15 @@ QtObject {
     property var realFetchOne: null                       // function(id)            → EventModel.fetchOne (share-link by-id resolve)
     signal linkResolved(var row)                          // relayed from EventModel.oneFetched by EventsArea
     signal linkResolveFailed(string eventId, int code)
+    // Share-link OPEN progress (operator ask 2026-08-28). Opening a linked clip can take
+    // up to ~30 s — the feed ingests asynchronously, and a CLOSED or aged event is not in
+    // the loaded queue at all and needs a by-id round-trip (Main.qml linkWait). Until this
+    // ask the entire wait was SILENT: `open cilex://…` raised the window onto a static
+    // queue with nothing to say the clip was being looked for, which reads as "the link
+    // did nothing". Lives on the store rather than on Main so every view can show it
+    // without threading a property through EventsArea.
+    property string linkSearchId: ""                      // "" = idle; else the event being opened
+    readonly property bool linkSearching: linkSearchId !== ""
     function resolveById(id) {                            // true = a fetch is in flight, wait for the signals
         if (realMode && realFetchOne) { realFetchOne(id); return true; }
         return false;

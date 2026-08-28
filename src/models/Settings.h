@@ -61,6 +61,13 @@ class Settings : public QObject
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
+    // Retention hold for share-link-opened clips (operator rule 2026-08-28: "if somebody
+    // had searched for the clip [it is] important enough to not be deleted"). Read-only
+    // from QML — mutated through holdEvent()/releaseEvent() so the cap is enforced in ONE
+    // place. This is the CLIENT half of a hold: cilex-vision owns the footage and its
+    // retention sweep, and its API has no hold verb yet (letter 2026-08-28), so this is
+    // durable INTENT and a replay backlog, never a guarantee the clip survives.
+    Q_PROPERTY(QStringList heldEventIds READ heldEventIds NOTIFY heldEventIdsChanged)
 
 public:
     explicit Settings(QObject *parent = nullptr);
@@ -114,6 +121,10 @@ public:
     void setEventsOnScrubber(bool v);
 
     QStringList hiddenScrubberEventTypes() const { return m_hiddenScrubberEventTypes; }
+    QStringList heldEventIds() const { return m_heldEventIds; }
+    Q_INVOKABLE bool isEventHeld(const QString &eventId) const { return m_heldEventIds.contains(eventId); }
+    Q_INVOKABLE void holdEvent(const QString &eventId);
+    Q_INVOKABLE void releaseEvent(const QString &eventId);
     void setHiddenScrubberEventTypes(const QStringList &v);
 
     // Format an epoch-ms timestamp for display, honoring time24h. The QML clock
@@ -179,6 +190,7 @@ signals:
     void pbPanelWChanged();
     void pbEventsPanelChanged();
     void hiddenScrubberEventTypesChanged();
+    void heldEventIdsChanged();
 
 private:
     QSettings m_settings;
@@ -202,4 +214,9 @@ private:
     int m_pbPanelW = 296;
     bool m_pbEventsPanel = true;
     QStringList m_hiddenScrubberEventTypes;
+    QStringList m_heldEventIds;
+    // A guard who works links all day must not grow this without bound; oldest-out at the
+    // cap. 2000 is far above any plausible shift and small enough that QSettings stays
+    // cheap to write. The cap is a storage guard, NOT a retention decision.
+    static constexpr int kMaxHeldEvents = 2000;
 };

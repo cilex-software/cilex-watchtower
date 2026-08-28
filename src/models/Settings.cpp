@@ -35,6 +35,30 @@ Settings::Settings(QObject *parent)
     m_pbEventsPanel = m_settings.value(QStringLiteral("playback/eventsPanel"), true).toBool();
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
+    m_heldEventIds = m_settings.value(QStringLiteral("events/heldEventIds")).toStringList();
+}
+
+// Retention hold, client half. Append-and-cap, oldest-out. Order is meaningful: the tail
+// is the most recently held, so trimming from the FRONT drops the coldest intent first.
+void Settings::holdEvent(const QString &eventId)
+{
+    if (eventId.isEmpty() || m_heldEventIds.contains(eventId))
+        return;                                    // idempotent: re-opening a link is not a new hold
+    m_heldEventIds.append(eventId);
+    while (m_heldEventIds.size() > kMaxHeldEvents)
+        m_heldEventIds.removeFirst();
+    m_settings.setValue(QStringLiteral("events/heldEventIds"), m_heldEventIds);
+    m_settings.sync();                             // a hold that dies with an unclean exit is not a hold
+    emit heldEventIdsChanged();
+}
+
+void Settings::releaseEvent(const QString &eventId)
+{
+    if (!m_heldEventIds.removeOne(eventId))
+        return;
+    m_settings.setValue(QStringLiteral("events/heldEventIds"), m_heldEventIds);
+    m_settings.sync();
+    emit heldEventIdsChanged();
 }
 
 void Settings::setDefaultStreamHd(bool v)
