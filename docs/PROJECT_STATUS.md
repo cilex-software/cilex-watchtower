@@ -5,6 +5,76 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-08-29 pointer -->
+> **2026-08-29 — the booth's direct LAN came up and the wall was STILL solid
+> orange МЕДЛ on all 35 tiles. Cause: the WAN-era workaround was still in force.
+> `-wall` is now RETIRED at the booth and the wall measures 15.03 fps/stream —
+> the rate the cameras actually broadcast.**
+>
+> The link is real: `ping 192.168.1.79` → 4/4, 0 % loss, <1 ms, TTL=64. The wall
+> did not improve because `WT_WALL_STREAM_SUFFIX=wall` was still set in the
+> booth's `warden.conf` (untouched since 18 Aug). Every tile was pulling
+> `{camera_id}-wall` — the 320×180 ffmpeg transcode
+> (`src/models/CameraModel.cpp:451-452`) whose ONLY stated purpose (`:453-454`)
+> is squeezing a wall through a 1.5–2 Mbit/s WAN. With the LAN up that purpose
+> is gone, and its cost — 34 concurrent server-side transcodes — had become the
+> binding constraint.
+>
+> **Measured, booth `[MEMTEL]`, same 33 streams, 30 s samples:**
+>
+> | | fps/stream | rss | badges |
+> |---|---|---|---|
+> | `-wall`, 34 consumers | **8.00** | 2602 MB | 35/35 МЕДЛ |
+> | `-sub` (passthrough) | **15.03** | 787 MB | 35/35 ЭФИР |
+>
+> 15.03 is the configured fleet rate, so this is the 15-fps invariant being MET,
+> not a speed-up. Sustained across 9 consecutive samples. GUI coalescing rose
+> 0.03 % → ~5.5 % (there are now frames to coalesce — 495 fps arriving vs 264),
+> so DISPLAYED rate is ~14.2/stream, still ~2× the `-wall` figure.
+>
+> Change is booth-local, NOT in-repo (the file carries a station token):
+> `warden.conf` `APP_ENV` drops `,WT_WALL_STREAM_SUFFIX=wall`. Verified after an
+> ordered restart: `[WT-URL] suffix='' … sub_after='…-sub'`, parentage
+> watchdog→warden→app, `heartbeat: first beat accepted`, geometry APPLIED
+> 1881x1009+28+19, `cilex://` unchanged. **This is the step `-wall` retirement
+> predicted below** — `-wall` stays correct for any station still on a WAN.
+>
+> **Observed at the same moment, NOT proven causal:** fleet `НЕ В СЕТИ` 7 → 0,
+> `ОНЛАЙН` 123 → 130, and CV had been returning 503 on snapshots (150 of 2 809
+> fetches in the prior run). Dropping 34 transcodes off CV's box is the obvious
+> mechanism; the booth cannot measure CV's CPU and did not.
+>
+> **METRIC TRAP — `drop%` is not a health signal.** It is CUMULATIVE
+> (`coalesced/framesIn` over process life, `src/models/MemTelemetry.cpp:219`),
+> so it reads LOW when nothing is flowing: a 24 Aug run sat at `dec=0/lit=0` for
+> 18+ h reporting a comfortable `drop=0.2 %`. Use `dec`/`lit` and per-sample
+> deltas. The "instance drifted to drop=19.6 %, swd=100 over 24.6 h" reading was
+> wrong for the same reason — that instance reported `coal=0 drop=0.0 %
+> dec=0/lit=0 swd=0` until 00:21 and produced those numbers only in its final
+> ~10 minutes. No drift happened; nothing about 1.1.214 is credited or blamed.
+>
+> **ALL SEVEN `win/*` BRANCHES AUDITED AND DELETED 2026-08-29 — every one was
+> already on main or superseded; merging any would have moved main BACKWARDS.**
+> Recorded here so the tips stay recoverable:
+>
+> | branch | tip | verdict |
+> |---|---|---|
+> | `win/rtsp-diagnostics` | `b596539` | ancestor of main |
+> | `win/wan-bandwidth-budget` | `0d259a1` | ancestor of main (PR #5) |
+> | `win/watchdog-unbiased-clock` | `63136f9` | `git cherry -` = already upstream; merge would DELETE the macOS `CLOCK_UPTIME_RAW` fix and the `timeapi.h` include |
+> | `win/warden-heartbeat-dead` | `3d28376` | would set `WARDEN_VERSION` **1.3.2 → 1.3.1** — the version whose heartbeat was dead (`8d83078` is the real fix) |
+> | `win/marker-end-snap` | `4d6cd15` | its `refStart` fix is on main as `bandStart`, plus the tail-honesty rule, `tlEndMs` cap, MONOTONIC and `_endFinal`; merge would revert all of that |
+> | `win/pb-soak` | `aa8fbef` | `WT_PB_SOAK` already on main |
+> | `win/i18n-sort-severity` | `91d874f` | would DELETE 4 938 lines of `watchtower_ru.ts` including live translations (`Оповещения`, `Все камеры`, `ГРУППЫ КАМЕР`) — a stale `lupdate` from 60 commits back |
+>
+> **Salvaged from them before deletion** (the only content main lacked): the
+> `qsTr()` translatability of `qml/LiveMonitor.qml`'s five sort labels and
+> `qml/Sev.qml`'s severity levels, and the `[MSCAN] span end MEASURED` verdict
+> log in `qml/EvHeroPlayer.qml`. **Follow-up for the Linux agent: these add NEW
+> source strings with no `.ts` entries, so they render English until `lupdate`
+> is re-run on current main.** The `.ts` regeneration was deliberately NOT taken
+> from the branch — that was the poison.
+
 <!-- 2026-08-26 pointer -->
 > **2026-08-25/26 — the yellow-line / clip-length saga (events hero, operator's
 > Mac): six fix rounds shipped overnight, verified by the operator's own runs;
