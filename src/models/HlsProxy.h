@@ -46,7 +46,10 @@ private slots:
 
 private:
     void serveRequest(QTcpSocket *sock, const QString &path);
-    void forward(QTcpSocket *sock, const QString &path, int attempt);
+    // spentMs accumulates the 503-retry delays already burned on THIS request, so
+    // the chain can honour the server's Retry-After without overrunning
+    // kRetryBudgetMs (souphttpsrc's ~15 s abort). Callers start at 0.
+    void forward(QTcpSocket *sock, const QString &path, int attempt, int spentMs = 0);
     static QByteArray rewritePlaylist(const QByteArray &in);
     void writeResponse(QTcpSocket *sock, int code, const QByteArray &contentType,
                        const QByteArray &body);

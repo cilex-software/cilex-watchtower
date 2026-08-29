@@ -21,6 +21,11 @@ namespace {
 // WT_HLS_LOG=1 — per-request upstream timing on stderr ("WTHLS …"), for
 // diagnosing playback/seek latency (segment fetch time, 503 remux retries).
 const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
+// Total 503-retry budget for ONE upstream request. souphttpsrc aborts its HTTP
+// request at ~15 s, so the whole retry chain must answer before that; 13 s leaves
+// headroom for the in-flight fetch itself. This replaces a per-delay 2000 ms clamp
+// that could not express the invariant it was standing in for — see forward().
+const int kRetryBudgetMs = 13000;
 // X-Request-Id — CV echoes ours back unchanged and forwards it to
 // playback-service (their letter 2026-08-29, §4). Sent on EVERY upstream request,
 // not just when logging, so their side can always join; it costs one header.
@@ -254,7 +259,7 @@ void HlsProxy::startPrefetch(const QString &path)
     });
 }
 
-void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
+void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int spentMs)
 {
     QNetworkRequest req{QUrl(m_upstream + path)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -271,7 +276,8 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     // retry timer fires 400ms later — sock may already be freed, so a raw
     // pointer here is a use-after-free. QPointer nulls out on destruction.
     QPointer<QTcpSocket> guardedSock(sock);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt, fetchTimer, rid]() {
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -282,11 +288,18 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
             // With it: our ms= minus their serve= is transport, and their own terms name
             // which server phase was slow — no extra server-side logging required.
             const QByteArray st = reply->rawHeader("Server-Timing");
-            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 rid=%4 %5 st=[%6]")
+            // X-Cilex-Mosaic-State names WHICH 503 this is — rendering (work already
+            // running) vs saturated (queue full). Appended only when present, so
+            // single-camera lines stay clean; without it our own logs cannot tell the
+            // two apart, which is how 549 saturated responses went unnoticed here.
+            const QByteArray mst = reply->rawHeader("X-Cilex-Mosaic-State");
+            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 rid=%4 %5 st=[%6]%7")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
                 .arg(QString::fromLatin1(rid))
                 .arg(path.section(QLatin1Char('/'), -3))
-                .arg(QString::fromUtf8(st));
+                .arg(QString::fromUtf8(st))
+                .arg(mst.isEmpty() ? QString()
+                                   : QStringLiteral(" mstate=") + QString::fromLatin1(mst));
         }
         if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
             return;
@@ -301,20 +314,39 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
         // under it; the player then gets a clean 503 and its outer fragment-retry
         // loop (patient, playlist refetch + re-request) paces the long render.
         // Holding longer was measured WORSE (souphttpsrc timeout + socket churn).
+        // TWO 503 STATES, and until 2026-08-29 we only ever handled one. The comment
+        // above names `rendering` because that is the only value we anticipated;
+        // CV's X-Cilex-Mosaic-State actually carries two (their letter, reply2 §3):
+        //   rendering  — a cold composite is BUILDING       Retry-After 1
+        //   saturated  — the render backlog is AT ITS CAP   Retry-After 3
+        // Retrying `rendering` waits on work already running. Retrying `saturated`
+        // re-queues against a queue that is FULL — and the old
+        // `qBound(400, ra * 1000, 2000)` silently clamped their 3 s down to 2 s, so
+        // we re-asked FASTER than we were told to, exactly when the renderer had no
+        // room. 136 soak cycles produced 6,924 responses (~51/cycle), 549+ saturated.
+        //
+        // Worse, the ceiling could not express the invariant it stood in for: at
+        // 12 x 2000 ms the chain ran 24 s and blew straight through souphttpsrc's
+        // ~15 s abort, earning a player re-request on top of our own retries. So
+        // honour Retry-After up to 8 s and bound the TOTAL instead. At Retry-After:1
+        // that is 12 retries ≈ 13 s — today's behaviour, unchanged. At Retry-After:3
+        // it is ~4 retries ≈ 12 s, three times fewer arrivals and inside the abort.
         if (code == 503 && attempt < 12) {
-            // Honor the server's Retry-After (seconds). The mosaic cold path sends
-            // 503 + Retry-After: 1 + X-Cilex-Mosaic-State: rendering while it
-            // composites, then 200 on retry. Default 400ms (single-camera remux is
-            // sub-second); clamp so one header can't stall us.
-            int delayMs = 400;
+            int delayMs = 400;                       // single-camera remux is sub-second
             bool ok = false;
             const int ra = reply->rawHeader("Retry-After").toInt(&ok);
-            if (ok && ra > 0) delayMs = qBound(400, ra * 1000, 2000);
-            QTimer::singleShot(delayMs, this, [this, guardedSock, path, attempt]() {
-                if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
-                    forward(guardedSock, path, attempt + 1);
-            });
-            return;
+            if (ok && ra > 0) delayMs = qBound(400, ra * 1000, 8000);
+            if (spentMs + delayMs <= kRetryBudgetMs) {
+                QTimer::singleShot(delayMs, this,
+                                   [this, guardedSock, path, attempt, spentMs, delayMs]() {
+                    if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
+                        forward(guardedSock, path, attempt + 1, spentMs + delayMs);
+                });
+                return;
+            }
+            // Budget spent: fall through and hand the player a CLEAN 503 so its own
+            // patient outer loop (playlist refetch + re-request) paces the render —
+            // which is what the block above always intended to happen at attempt 12.
         }
         if (reply->error() != QNetworkReply::NoError && code == 0) {
             writeResponse(sock, 502, "text/plain", reply->errorString().toUtf8());
