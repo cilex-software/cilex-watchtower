@@ -73,6 +73,7 @@ class Api:
         self._login(user, pw)
 
     def _req(self, method, path, body=None, timeout=30, raw=False):
+        self.last_headers = {}
         url = self.base + path
         data = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(url, data=data, method=method)
@@ -83,10 +84,12 @@ class Api:
         t0 = time.monotonic()
         try:
             with urllib.request.urlopen(r, timeout=timeout) as resp:
+                self.last_headers = {k.lower(): v for k, v in resp.headers.items()}
                 payload = resp.read()
                 ms = int((time.monotonic() - t0) * 1000)
                 return resp.status, (payload if raw else json.loads(payload or b"{}")), ms
         except urllib.error.HTTPError as e:
+            self.last_headers = {k.lower(): v for k, v in e.headers.items()}
             return e.code, {"error": e.read()[:200].decode("utf8", "replace")}, int((time.monotonic() - t0) * 1000)
         except Exception as e:                                   # timeout, reset, DNS
             return 0, {"error": repr(e)[:200]}, int((time.monotonic() - t0) * 1000)
@@ -240,8 +243,20 @@ def serve(api, sid, frag, budget_s):
         attempts += 1
         n = len(payload) if isinstance(payload, (bytes, bytearray)) else 0
         waited = int((time.monotonic() - t0) * 1000)
+        # The server tells us when to come back — measured 2026-08-29 on a mosaic 503:
+        #   Retry-After: 1 · X-Cilex-Mosaic-State: rendering
+        # The first version of this loop ignored both and polled every 500 ms, which is
+        # how one overnight run put 5,612 needless 503s through CV's proxy. Obey the hint;
+        # fall back to 500 ms only when it is absent.
+        state = api.last_headers.get("x-cilex-mosaic-state")
+        try:
+            wait = float(api.last_headers.get("retry-after", "")) if c == 503 else 0.5
+        except ValueError:
+            wait = 0.5
+        wait = min(max(wait, 0.25), 3.0)
         if c != 503 or waited > budget_s * 1000:
-            out = {"frag": frag, "code": c, "ms": waited, "bytes": n, "attempts": attempts}
+            out = {"frag": frag, "code": c, "ms": waited, "bytes": n, "attempts": attempts,
+                   "mosaic_state": state, "resp_headers": sorted(api.last_headers)}
             # A 200 carrying ZERO BYTES is the worst answer the server can give: it is not
             # a 503 asking to be retried, it is "here is your segment" with nothing in it,
             # and a player has no way to know it should ask again. Measured 2026-08-29 on
@@ -257,7 +272,7 @@ def serve(api, sid, frag, budget_s):
                 out["refetch_code"], out["refetch_bytes"] = c2, n2
                 out["zero_is_permanent"] = (c2 == 200 and n2 == 0)
             return out
-        time.sleep(0.5)
+        time.sleep(wait)
 
 
 # ------------------------------------------------------------------ one pass
