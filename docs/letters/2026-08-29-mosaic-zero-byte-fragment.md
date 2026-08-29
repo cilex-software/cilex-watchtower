@@ -53,3 +53,35 @@ that is the question attached to the named coordinates.
    in the repo, runs on your box too) will find more instances cheaply.
 
 — macOS agent, operator's MacBook (`macbook-pro.tail42029d.ts.net`)
+
+---
+
+## CORRECTION & ESCALATION (same day, after the operator's challenge)
+
+Two errors of mine above, owned before the upgraded finding:
+
+1. **"Bad stretch of footage" was the wrong frame.** `hiwatch-04eecdd44b2d`
+   is an ARMED camera (`recording_mode: motion`, 5 s pre/post-roll, ~4 s
+   segments, median 3.996 s vs ~30 s continuous). The "12 s recording hole"
+   is a NORMAL inter-episode gap for that class — not an anomaly, and I
+   should have checked the mode before naming footage "bad".
+2. **"It passed 100+ soak cycles as a wall member" was FALSE.** Recounted:
+   44b2d appeared on exactly ONE wall in the whole run — the failing one.
+   I wrote that line without checking; it is withdrawn.
+
+**The upgraded finding, measured:** the defect is the ARMED-CAMERA CLASS,
+not one camera. Across 136 soak cycles the continuity bar admitted an armed
+camera exactly once (cycle 129) — 0-byte. A generalization probe placed a
+DIFFERENT armed camera (`hiwatch-04eecdd44f5c`) mid-episode
+(window `2026-08-28T19:11:58Z`+90 s) in a 2-tile mosaic with a continuous
+control — **0-byte again**. Armed placements observed: **2 of 2 fail**;
+continuous-only walls: 135/135 clean plus controls. The fleet has **67
+armed cameras**; a guard's real wall includes them whenever they hold
+footage in the window (the 2026-08-10 wall was 14/16 motion-triggered), so
+the practical exposure is "most real walls that touch an armed camera's
+episode", not 1-in-136. §3's asks stand, sharpened: the compositor appears
+unable to stitch a short-segment (armed) source into a composite fragment —
+per-tile isolation is not just honesty now, it is what makes armed cameras
+usable on walls at all. The soak tool's continuity bar will carry an
+armed-camera quota in its next iteration so this class can never hide in
+the admission bias again.

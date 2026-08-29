@@ -25,7 +25,16 @@ create/prewarm/delete only. One session in flight; every session disposed.
 | backend-unavailable events | **0** (no 0/502/504, no restart artifacts) |
 | leaked sessions | **0** (136 disposes OK + all investigation sessions) |
 
-## The defect that matters: one poisoned tile blanks the whole wall, served as 200/"ready"
+## The defect that matters — CORRECTED same day: the ARMED-CAMERA class blanks walls, not one camera
+
+> **Correction (operator's challenge, same morning):** 44b2d is an ARMED
+> camera; its "12 s hole" is a normal inter-episode gap, and my claim that it
+> "passed 100+ cycles" was false — it was placed exactly once, and failed.
+> Generalization probe: a second armed camera, different window, also 0-byte.
+> Armed placements 2/2 fail; continuous-only walls 135/135 clean. The soak's
+> continuity bar admits armed cameras so rarely that a CLASS defect looked
+> like a 1-in-136 fluke; 67 armed cameras are in the fleet. Details + the
+> withdrawn lines: the letter's CORRECTION & ESCALATION section.
 
 Cycle 129 (window `04:31:55Z`+90 s) served fragment 0 as **HTTP 200 with a
 0-byte body** after an honored prewarm; fragment 1 of the same session was a
