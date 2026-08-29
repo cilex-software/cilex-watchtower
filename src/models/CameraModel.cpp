@@ -856,6 +856,50 @@ static int liveRank(const wt::CameraData &c)
     return 2;                                          // unknown/unresolved — after live, before offline
 }
 
+// Human "alphabetical": runs of digits compare NUMERICALLY, everything else
+// locale-aware. Fleet camera names are "<house> Улица <n>" — "10 Улица 2",
+// "5 Улица 7", "3.1 Улица 1" — so a plain string compare yields 1, 10, 11 … 16,
+// 2, 3, which a guard reads as broken sorting (operator report 2026-08-29).
+// Returns <0 / 0 / >0 like localeAwareCompare. This is a strict weak ordering:
+// every branch returns a consistent sign and equal inputs fall through to 0, so
+// std::stable_sort's contract holds.
+static int natCompare(const QString &a, const QString &b)
+{
+    int i = 0, j = 0;
+    const int na = a.size(), nb = b.size();
+    while (i < na && j < nb) {
+        const bool da = a.at(i).isDigit();
+        const bool db = b.at(j).isDigit();
+        if (da && db) {
+            const int si = i, sj = j;
+            while (i < na && a.at(i).isDigit()) ++i;
+            while (j < nb && b.at(j).isDigit()) ++j;
+            QStringView ra = QStringView(a).mid(si, i - si);
+            QStringView rb = QStringView(b).mid(sj, j - sj);
+            while (ra.size() > 1 && ra.front() == QLatin1Char('0')) ra = ra.mid(1);
+            while (rb.size() > 1 && rb.front() == QLatin1Char('0')) rb = rb.mid(1);
+            if (ra.size() != rb.size())            // more digits = larger number
+                return ra.size() < rb.size() ? -1 : 1;
+            const int c = ra.compare(rb);          // equal length -> lexical == numeric
+            if (c != 0)
+                return c < 0 ? -1 : 1;
+        } else if (da != db) {
+            return da ? -1 : 1;                    // numbers before words
+        } else {
+            const int si = i, sj = j;
+            while (i < na && !a.at(i).isDigit()) ++i;
+            while (j < nb && !b.at(j).isDigit()) ++j;
+            const int c = QString::localeAwareCompare(QStringView(a).mid(si, i - si),
+                                                      QStringView(b).mid(sj, j - sj));
+            if (c != 0)
+                return c < 0 ? -1 : 1;
+        }
+    }
+    if (i < na) return 1;                          // a has trailing content -> longer
+    if (j < nb) return -1;
+    return 0;
+}
+
 QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &f,
                                          const QString &sortMode) const
 {
@@ -877,11 +921,11 @@ QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &
             const quint32 kb = ipSortKey(m_all.at(b).ip);
             if (ka != kb)
                 return ka < kb;
-            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+            return natCompare(m_all.at(a).name, m_all.at(b).name) < 0;
         });
     } else if (sortMode == QLatin1String("alpha")) {
         std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
-            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+            return natCompare(m_all.at(a).name, m_all.at(b).name) < 0;
         });
     } else if (sortMode == QLatin1String("status")) {
         std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
@@ -889,7 +933,7 @@ QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &
             const int rb = statusRank(m_all.at(b));
             if (ra != rb)
                 return ra < rb;
-            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+            return natCompare(m_all.at(a).name, m_all.at(b).name) < 0;
         });
     } else if (sortMode == QLatin1String("ip")) {
         std::stable_sort(idx.begin(), idx.end(), [this](int a, int b) {
@@ -897,7 +941,7 @@ QVector<int> CameraModel::filteredSorted(const QString &groupId, const QString &
             const quint32 kb = ipSortKey(m_all.at(b).ip);
             if (ka != kb)
                 return ka < kb;
-            return m_all.at(a).name.localeAwareCompare(m_all.at(b).name) < 0;
+            return natCompare(m_all.at(a).name, m_all.at(b).name) < 0;
         });
     }
     return idx;

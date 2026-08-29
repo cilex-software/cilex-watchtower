@@ -227,12 +227,29 @@ Item {
     // Full filtered roster reordered by the saved per-group arrangement: saved
     // ids first (in saved order), then any remaining cameras in default sort
     // (so newly-added cameras still appear). Paging slices this.
+    //
+    // AN EXPLICIT SORT MUST ACTUALLY SORT (operator report 2026-08-29, booth: the
+    // menu read «Сортировка: Alphabetical» over a wall in no alphabetical order,
+    // and "none of the sorting orders were working"). The arrangement used to be
+    // applied UNCONDITIONALLY here, so any group with a saved layout turned every
+    // entry in the sort menu into a silent no-op — the booth's «Улица» group had
+    // 35 saved ids for 35 cameras, so the sorted list was built and then discarded
+    // on every evaluation. A control that shows a mode it does not apply is the
+    // silent-no-op the house rules forbid.
+    //
+    // The arrangement is the MANUAL base order, so it still wins where "manual" is
+    // what the mode means: "live" (the default — liveness tiers are layered over
+    // the arrangement by _liveFirst below, preserving it within each tier) and
+    // while arranging (dragging must reorder the thing being dragged). Picking
+    // IP / Stream order / Status first / Alphabetical asks for a different order
+    // and now gets one; picking "Live first" again restores the arrangement, which
+    // is never deleted — only bypassed.
     readonly property var arrangedFull: {
         arrangeRev;                       // refresh dep
         if (!cameraModel) return [];
         cameraModel.total;                // refresh dep
         var all = cameraModel.page(groupId, _effFilter, sortMode, 1, Math.max(1, total));
-        var saved = Settings.liveLayout(groupId);
+        var saved = (sortMode === "live" || arrangeMode) ? Settings.liveLayout(groupId) : [];
         if (!saved || saved.length === 0) return _liveFirst(all);
         var byId = ({});
         for (var i = 0; i < all.length; i++) byId[all[i].camId] = all[i];
