@@ -659,7 +659,13 @@ Item {
         return qsTr("%1–%2 of %3").arg(start).arg(end).arg(total);
     }
 
-    readonly property var sortLabels: ({ "live": "Live first", "ip": "IP address", "default": "Stream order", "status": "Status first", "alpha": "Alphabetical" })
+    // qsTr on every arm: these five are the ONLY user-visible strings on the wall that
+    // shipped untranslated (booth report 2026-08-21 — the «Сортировка:» label was Russian
+    // while its value and the whole menu stayed English). Kept as a binding, not a
+    // constant, so LanguageController's live retranslate re-evaluates it.
+    readonly property var sortLabels: ({ "live": qsTr("Live first"), "ip": qsTr("IP address"),
+                                         "default": qsTr("Stream order"), "status": qsTr("Status first"),
+                                         "alpha": qsTr("Alphabetical") })
 
     ColumnLayout {
         anchors.fill: parent
@@ -1142,11 +1148,11 @@ Item {
                         contentItem: Column {
                             Repeater {
                                 model: [
-                                    { id: "live",    lbl: "Live first" },
-                                    { id: "ip",      lbl: "IP address" },
-                                    { id: "default", lbl: "Stream order" },
-                                    { id: "status",  lbl: "Status first" },
-                                    { id: "alpha",   lbl: "Alphabetical" }
+                                    { id: "live",    lbl: qsTr("Live first") },
+                                    { id: "ip",      lbl: qsTr("IP address") },
+                                    { id: "default", lbl: qsTr("Stream order") },
+                                    { id: "status",  lbl: qsTr("Status first") },
+                                    { id: "alpha",   lbl: qsTr("Alphabetical") }
                                 ]
                                 delegate: Rectangle {
                                     required property var modelData
@@ -1256,8 +1262,8 @@ Item {
                                     text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
                                     font.pixelSize: 9; font.letterSpacing: 1 }
                                 Repeater {
-                                    model: [ { id: "live", lbl: "Live first" }, { id: "ip", lbl: "IP address" }, { id: "default", lbl: "Stream order" },
-                                             { id: "status", lbl: "Status first" }, { id: "alpha", lbl: "Alphabetical" } ]
+                                    model: [ { id: "live", lbl: qsTr("Live first") }, { id: "ip", lbl: qsTr("IP address") }, { id: "default", lbl: qsTr("Stream order") },
+                                             { id: "status", lbl: qsTr("Status first") }, { id: "alpha", lbl: qsTr("Alphabetical") } ]
                                     delegate: Rectangle {
                                         required property var modelData
                                         width: 202; height: 30

@@ -123,8 +123,13 @@ Item {
             // the band the guard is staring at never shrinks (operator, 08-26: it "shrank
             // and expanded without any apparent logic" as re-measures landed).
             var bandStart = hp.mkMeasuredMs > 0 ? hp.mkMeasuredMs : hp.mkStartMs;
-            if (mEnd > hp.tlStartMs && mEnd > bandStart + 500 && mEnd > hp.mkMeasuredEndMs)
+            if (mEnd > hp.tlStartMs && mEnd > bandStart + 500 && mEnd > hp.mkMeasuredEndMs) {
                 hp.mkMeasuredEndMs = mEnd;
+                // The start has logged its application since 2026-08-19; the end never did, so
+                // "did the yellow's tail actually move?" was unmeasurable from a log alone.
+                console.log("[MSCAN] span end MEASURED wall=" + Math.round(mEnd)
+                            + " detectorDeltaMs=" + Math.round(mEnd - hp.mkEndMs));
+            }
             // FINAL once the measured end sits clearly INSIDE the window: motion ended in
             // view, the verdict is complete — no re-measure, no further extensions. Night
             // wind on foliage scores above the floor at the 360p rendition (operator's Mac:
