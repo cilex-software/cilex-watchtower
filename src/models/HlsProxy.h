@@ -53,6 +53,12 @@ private:
     static QByteArray rewritePlaylist(const QByteArray &in);
     void writeResponse(QTcpSocket *sock, int code, const QByteArray &contentType,
                        const QByteArray &body);
+    // THE ONLY place a forwarded response reaches a socket. Serves the leader (if its
+    // socket is still up) and every socket parked behind it, then drops the m_joiners
+    // entry. Routing every terminal path through one function is what keeps a parked
+    // socket from being forgotten — see m_joiners.
+    void deliver(const QString &path, QPointer<QTcpSocket> leader, int code,
+                 const QByteArray &contentType, const QByteArray &body);
 
     // Segment read-ahead cache. A backward seek makes hlsdemux2 fetch the target
     // segment and the next one or two SERIALLY from backend storage; each cold
@@ -77,6 +83,12 @@ private:
     QStringList m_segOrder;                  // LRU order (front = oldest)
     qint64 m_segBytes = 0;
     QSet<QString> m_inflight;                // prefetches in progress (dedupe)
+    // SINGLE-FLIGHT for forward(). The player asks for the SAME segment down two
+    // sockets, so before 2026-08-29 we ran two concurrent upstream GETs for it —
+    // measured 10/10 probe runs, 7.57 MB pulled to deliver a 3.79 MB segment, each
+    // copy at half the link. Presence of a key means "a fetch for this path is in
+    // flight"; the vector holds the sockets waiting on it. Emptied ONLY by deliver().
+    QHash<QString, QVector<QPointer<QTcpSocket>>> m_joiners;
     static constexpr qint64 kCacheBudget = 160 * 1024 * 1024;  // ~10-14 HEVC segs
     static constexpr int kReadAhead = 2;     // segments to prefetch ahead
 };

@@ -27,6 +27,11 @@ const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
 // headroom for the in-flight fetch itself. This replaces a per-delay 2000 ms clamp
 // that could not express the invariant it was standing in for — see forward().
 const int kRetryBudgetMs = 13000;
+// WT_HLS_NO_SINGLEFLIGHT=1 — restore the pre-2026-08-29 behaviour where two
+// concurrent requests for the same path each ran their own upstream GET. Exists so
+// the fix can be A/B'd against the same 10-run harness on one binary, and as an
+// escape hatch if joining ever misbehaves in the field.
+const bool s_noSingleFlight = qEnvironmentVariableIsSet("WT_HLS_NO_SINGLEFLIGHT");
 // X-Request-Id — CV echoes ours back unchanged and forwards it to
 // playback-service (their letter 2026-08-29, §4). Sent on EVERY upstream request,
 // not just when logging, so their side can always join; it costs one header.
@@ -260,8 +265,52 @@ void HlsProxy::startPrefetch(const QString &path)
     });
 }
 
+// Serve the leader and everyone parked behind it, then forget the path. take()
+// removes the entry as it reads it, so the bookkeeping cannot be left half-done and
+// a second call for the same path is a harmless no-op.
+void HlsProxy::deliver(const QString &path, QPointer<QTcpSocket> leader, int code,
+                       const QByteArray &contentType, const QByteArray &body)
+{
+    if (leader && leader->state() == QAbstractSocket::ConnectedState)
+        writeResponse(leader, code, contentType, body);
+    const QVector<QPointer<QTcpSocket>> parked = m_joiners.take(path);
+    if (s_hlsLog && !parked.isEmpty())
+        qInfo().noquote() << QStringLiteral("WTHLS served=%1 joiners %2")
+                                 .arg(parked.size()).arg(path.section(QLatin1Char('/'), -1));
+    for (const QPointer<QTcpSocket> &j : parked) {
+        if (j && j->state() == QAbstractSocket::ConnectedState)
+            writeResponse(j, code, contentType, body);
+    }
+}
+
 void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int spentMs)
 {
+    // SINGLE-FLIGHT. Measured 2026-08-29 across 10/10 probe runs: the player requests
+    // the SAME segment down two sockets, so we issued two concurrent upstream GETs and
+    // pulled 7.57 MB to deliver a 3.79 MB segment — each copy then running at roughly
+    // half the link (12.6-18 Mbit/s, against 32-36 whenever a segment happened to be
+    // fetched only once). A later caller now parks on the leader's fetch.
+    //
+    // THE HAZARD, named because this file has already paid it once
+    // (docs/perf/2026-07-10-windows-fsoak-proxy-wedge.md): a parked socket that never
+    // receives a response wedges the demuxer permanently. So every terminal path in
+    // the handler below routes through deliver() — including the one where the
+    // LEADER's own socket died, where the parked sockets must still be answered. The
+    // single path that deliberately does NOT release is the 503 retry, because there
+    // the leader is still working on everyone's behalf.
+    //
+    // Only attempt 0 registers: a retry is the same leader continuing, not a new one.
+    if (attempt == 0 && !s_noSingleFlight) {
+        auto it = m_joiners.find(path);
+        if (it != m_joiners.end()) {
+            it->append(QPointer<QTcpSocket>(sock));
+            if (s_hlsLog)
+                qInfo().noquote() << QStringLiteral("WTHLS join=1 %1")
+                                         .arg(path.section(QLatin1Char('/'), -1));
+            return;
+        }
+        m_joiners.insert(path, {});          // we are the leader for this path
+    }
     QNetworkRequest req{QUrl(m_upstream + path)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -327,9 +376,11 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
                 line += QStringLiteral(" mstate=") + QString::fromLatin1(mst);
             qInfo().noquote() << line;
         }
-        if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
-            return;
-        QTcpSocket *sock = guardedSock;
+        // Deliberately NO early return when the leader's socket has gone. Sockets may
+        // be parked behind this fetch and still need an answer — deliver() copes with
+        // a dead leader. Reading the body regardless also warms the cache for a
+        // re-seek even when the original requester walked away, which the old
+        // early-return threw away.
         const int code = reply->attribute(
             QNetworkRequest::HttpStatusCodeAttribute).toInt();
         // Cold fragment remux / cold mosaic render. A cold 16-cell mosaic takes the
@@ -365,8 +416,15 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             if (spentMs + delayMs <= kRetryBudgetMs) {
                 QTimer::singleShot(delayMs, this,
                                    [this, guardedSock, path, attempt, spentMs, delayMs]() {
-                    if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
+                    if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState) {
                         forward(guardedSock, path, attempt + 1, spentMs + delayMs);
+                    } else {
+                        // Leader abandoned mid-retry. Anyone parked behind it would
+                        // otherwise wait forever — this is the wedge. A clean 503 hands
+                        // them to the player's own patient re-ask loop.
+                        deliver(path, nullptr, 503, QByteArrayLiteral("text/plain"),
+                                QByteArrayLiteral("upstream retry abandoned"));
+                    }
                 });
                 return;
             }
@@ -374,20 +432,25 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             // patient outer loop (playlist refetch + re-request) paces the render —
             // which is what the block above always intended to happen at attempt 12.
         }
+        // Build the response ONCE, then hand it to exactly one delivery point below.
+        int outCode = 200;
+        QByteArray outCt, body;
         if (reply->error() != QNetworkReply::NoError && code == 0) {
-            writeResponse(sock, 502, "text/plain", reply->errorString().toUtf8());
-            return;
+            outCode = 502;
+            outCt = QByteArrayLiteral("text/plain");
+            body = reply->errorString().toUtf8();
+        } else {
+            body = reply->readAll();
+            outCt = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+            if (path.endsWith(QLatin1String(".m3u8")) || outCt.contains("mpegurl")) {
+                body = rewritePlaylist(body);
+                if (outCt.isEmpty()) outCt = QByteArrayLiteral("application/vnd.apple.mpegurl");
+            } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
+                cachePut(path, body, outCt);   // warm the cache for re-seeks to this region
+            }
+            outCode = code ? code : 200;
+            if (outCt.isEmpty()) outCt = QByteArrayLiteral("application/octet-stream");
         }
-        QByteArray body = reply->readAll();
-        QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
-        if (path.endsWith(QLatin1String(".m3u8")) || ct.contains("mpegurl")) {
-            body = rewritePlaylist(body);
-            if (ct.isEmpty()) ct = "application/vnd.apple.mpegurl";
-        } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
-            cachePut(path, body, ct);   // warm the cache for re-seeks to this region
-        }
-        const int outCode = code ? code : 200;
-        const QByteArray outCt = ct.isEmpty() ? QByteArrayLiteral("application/octet-stream") : ct;
         // TEST hook: hold a segment response s_slowMs before delivering, to emulate a
         // slow backend so the player's read blocks (as it does on a degraded backend).
         // Deferred on THIS (proxy) thread; the socket may be closed meanwhile (player
@@ -395,14 +458,14 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         if (s_slowMs > 0 && isSegmentPath(path)) {
             static int s_nthSeg = 0;   // WT_HLS_SLOW_EVERY: hold only every Nth segment
             if (++s_nthSeg % s_slowEvery == 0) {
-                QPointer<QTcpSocket> gs(sock);
-                QTimer::singleShot(s_slowMs, this, [this, gs, outCode, outCt, body]() {
-                    if (gs) writeResponse(gs, outCode, outCt, body);
+                QTimer::singleShot(s_slowMs, this,
+                                   [this, path, guardedSock, outCode, outCt, body]() {
+                    deliver(path, guardedSock, outCode, outCt, body);   // still the one exit
                 });
                 return;
             }
         }
-        writeResponse(sock, outCode, outCt, body);
+        deliver(path, guardedSock, outCode, outCt, body);
     });
 }
 
