@@ -422,9 +422,15 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             // the whole body. Logging the size matters: a "383,896 bytes" figure carried
             // over from a DIFFERENT session sent one analysis down the wrong road, when
             // the segment actually measured here is 3.79 MB. Never infer a size again.
+            // On the STREAMED path readyRead has already drained the reply into `acc`,
+            // so bytesAvailable() is only the tail — reporting it alone printed
+            // bytes=0 for every segment, which would have re-created exactly the
+            // size-blindness this field was added to prevent.
+            const qint64 nbytes = *streaming ? (acc->size() + reply->bytesAvailable())
+                                             : reply->bytesAvailable();
             QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 bytes=%6 rid=%7 ")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
-                .arg(*hdrMs).arg(*fbMs).arg(reply->bytesAvailable())
+                .arg(*hdrMs).arg(*fbMs).arg(nbytes)
                 .arg(QString::fromLatin1(rid));
             line += path.section(QLatin1Char('/'), -3);
             line += QStringLiteral(" st=[") + QString::fromUtf8(st) + QLatin1Char(']');
