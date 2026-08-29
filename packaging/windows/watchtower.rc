@@ -19,8 +19,8 @@ IDI_ICON1 ICON "watchtower.ico"
 
 // Version information (Explorer → Properties → Details). Keep in sync with project(VERSION ...).
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION    1,1,224,0
- PRODUCTVERSION 1,1,224,0
+ FILEVERSION    1,1,225,0
+ PRODUCTVERSION 1,1,225,0
  FILEFLAGSMASK  0x3fL
  FILEFLAGS      0x0L
  FILEOS         VOS_NT_WINDOWS32
@@ -33,11 +33,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Cilex Vision"
             VALUE "FileDescription",  "Cilex Watchtower \x2014 VMS operator client"
-            VALUE "FileVersion",      "1.1.224.0"
+            VALUE "FileVersion",      "1.1.225.0"
             VALUE "InternalName",     "watchtower"
             VALUE "OriginalFilename", "watchtower.exe"
             VALUE "ProductName",      "Cilex Watchtower"
-            VALUE "ProductVersion",   "1.1.224.0"
+            VALUE "ProductVersion",   "1.1.225.0"
             VALUE "LegalCopyright",   "\xA9 Cilex Vision"
         END
     END

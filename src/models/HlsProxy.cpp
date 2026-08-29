@@ -1,5 +1,7 @@
 #include "HlsProxy.h"
 
+#include <QAtomicInteger>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QElapsedTimer>
 #include <QFile>
@@ -19,6 +21,18 @@ namespace {
 // WT_HLS_LOG=1 — per-request upstream timing on stderr ("WTHLS …"), for
 // diagnosing playback/seek latency (segment fetch time, 503 remux retries).
 const bool s_hlsLog = qEnvironmentVariableIsSet("WT_HLS_LOG");
+// X-Request-Id — CV echoes ours back unchanged and forwards it to
+// playback-service (their letter 2026-08-29, §4). Sent on EVERY upstream request,
+// not just when logging, so their side can always join; it costs one header.
+// This is what makes the join exact across a retry, which reuses the path and is
+// precisely when pairing by path stops working.
+QByteArray nextRequestId()
+{
+    static QAtomicInteger<quint64> seq(0);
+    static const QByteArray prefix = QByteArrayLiteral("wt-booth-")
+        + QByteArray::number(QCoreApplication::applicationPid()) + '-';
+    return prefix + QByteArray::number(seq.fetchAndAddRelaxed(1));
+}
 // WT_HLS_SLOW_MS=<ms> — TEST ONLY: emulate a DEGRADED backend by holding every
 // segment response this long before delivering it (and bypassing the read-ahead
 // cache so the delay always bites). Reproduces the "cameras unplugged → backend
@@ -246,6 +260,8 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
+    const QByteArray rid = nextRequestId();
+    req.setRawHeader("X-Request-Id", rid);
     QNetworkReply *reply = m_nam->get(req);          // cookie auto-attached by shared jar
     QElapsedTimer fetchTimer;
     fetchTimer.start();
@@ -255,13 +271,22 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt)
     // retry timer fires 400ms later — sock may already be freed, so a raw
     // pointer here is a use-after-free. QPointer nulls out on destruction.
     QPointer<QTcpSocket> guardedSock(sock);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt, fetchTimer]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, guardedSock, path, attempt, fetchTimer, rid]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 %4")
+            // Server-Timing carries CV's OWN decomposition — serve, queue, index,
+            // storage, serialize, frags, storageops, and cache;desc="hit|miss" — and
+            // has shipped on EVERY response since 2026-07-11 (CV letter 2026-08-29 §3).
+            // We were throwing it away for seven weeks and then asked them to build it.
+            // With it: our ms= minus their serve= is transport, and their own terms name
+            // which server phase was slow — no extra server-side logging required.
+            const QByteArray st = reply->rawHeader("Server-Timing");
+            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 rid=%4 %5 st=[%6]")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
-                .arg(path.section(QLatin1Char('/'), -3));
+                .arg(QString::fromLatin1(rid))
+                .arg(path.section(QLatin1Char('/'), -3))
+                .arg(QString::fromUtf8(st));
         }
         if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
             return;
