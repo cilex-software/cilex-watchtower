@@ -32,6 +32,13 @@ const int kRetryBudgetMs = 13000;
 // the fix can be A/B'd against the same 10-run harness on one binary, and as an
 // escape hatch if joining ever misbehaves in the field.
 const bool s_noSingleFlight = qEnvironmentVariableIsSet("WT_HLS_NO_SINGLEFLIGHT");
+// WT_HLS_NO_STREAM=1 — go back to store-and-forward, where a segment is fully
+// downloaded before the player receives its first byte. Measured 2026-08-30: CV's
+// first byte lands at ~200 ms and the last at ~3,000 ms, and the player used to be
+// handed NOTHING until the end — so it idled ~2.8 s over data already in our buffer,
+// then decoded in 67 ms. Streaming is why YouTube starts on a slow line and we did
+// not. Kept as an escape hatch and as the A/B control on one binary.
+const bool s_noStream = qEnvironmentVariableIsSet("WT_HLS_NO_STREAM");
 // X-Request-Id — CV echoes ours back unchanged and forwards it to
 // playback-service (their letter 2026-08-29, §4). Sent on EVERY upstream request,
 // not just when logging, so their side can always join; it costs one header.
@@ -329,24 +336,73 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     //   ms  = finished                  -> ms-fb is the body read
     // QElapsedTimer is a value type carrying its start tick, so these copies all
     // measure from the same origin.
-    auto hdrMs = QSharedPointer<qint64>::create(-1);
-    auto fbMs  = QSharedPointer<qint64>::create(-1);
-    if (s_hlsLog) {
-        connect(reply, &QNetworkReply::metaDataChanged, reply, [fetchTimer, hdrMs]() {
-            if (*hdrMs < 0) *hdrMs = fetchTimer.elapsed();
-        });
-        connect(reply, &QNetworkReply::readyRead, reply, [fetchTimer, fbMs]() {
-            if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
-        });
-    }
     // Guard the socket with QPointer: the player (GStreamer hlsdemux) aborts and
     // closes in-flight segment requests aggressively while scrubbing, which
     // deleteLater()s the socket. By the time this reply finishes — or the 503
     // retry timer fires 400ms later — sock may already be freed, so a raw
     // pointer here is a use-after-free. QPointer nulls out on destruction.
+    // Declared HERE (not just before the finished handler) because the streaming
+    // lambdas below write to it as chunks arrive.
     QPointer<QTcpSocket> guardedSock(sock);
+    auto hdrMs = QSharedPointer<qint64>::create(-1);
+    auto fbMs  = QSharedPointer<qint64>::create(-1);
+    // STREAM SEGMENTS THROUGH INSTEAD OF BUFFERING THEM.
+    //
+    // Until 2026-08-30 this proxy was store-and-forward: it downloaded a whole
+    // segment, then handed the complete body to the player. Measured on the booth,
+    // CV's FIRST byte arrives at ~200 ms and the LAST at ~3,000 ms — so the player
+    // was given nothing for ~2.8 s while the bytes it needed sat in our buffer, and
+    // then decoded in 67 ms. That is the entire reason time-to-first-frame tracked
+    // segment SIZE (0.27 MB -> 1.08 s, 20 MB -> 5.09 s) rather than link speed, and
+    // why a phone on a slow line starts a video faster than this station did.
+    //
+    // `streaming` flips once headers are committed to the player's socket; from then
+    // on chunks go straight through. `acc` keeps a copy, because the segment cache
+    // still needs the whole body and a single-flight joiner cannot be handed bytes
+    // that have already left the building — it gets the copy at the end.
+    auto streaming = QSharedPointer<bool>::create(false);
+    auto acc = QSharedPointer<QByteArray>::create();
+
+    connect(reply, &QNetworkReply::metaDataChanged, reply,
+            [this, reply, guardedSock, path, fetchTimer, hdrMs, streaming]() {
+        if (*hdrMs < 0) *hdrMs = fetchTimer.elapsed();
+        if (*streaming || s_noStream)
+            return;
+        // Playlists are REWRITTEN (rewritePlaylist: EXT-X-GAP removal, discontinuity
+        // normalisation), so they cannot be answered until complete.
+        if (!isSegmentPath(path))
+            return;
+        if (s_slowMs > 0)
+            return;                       // the slow-backend test hook needs buffering
+        // Commit only on a definite 200: a 503 must stay on the retry path and a
+        // transport error must still be able to become a 502. Neither is possible
+        // once we have put headers on the wire.
+        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200)
+            return;
+        if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
+            return;
+        QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+        if (ct.isEmpty()) ct = QByteArrayLiteral("video/mp2t");
+        const QVariant clen = reply->header(QNetworkRequest::ContentLengthHeader);
+        writeHead(guardedSock, 200, ct, clen.isValid() ? clen.toLongLong() : -1);
+        *streaming = true;
+    });
+
+    connect(reply, &QNetworkReply::readyRead, reply,
+            [reply, guardedSock, fetchTimer, fbMs, streaming, acc]() {
+        if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
+        if (!*streaming)
+            return;                       // buffered path still reads it all in finished
+        const QByteArray chunk = reply->readAll();
+        if (chunk.isEmpty())
+            return;
+        acc->append(chunk);               // keep a copy for the cache and joiners
+        if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
+            guardedSock->write(chunk);    // ...and give it to the player NOW
+    });
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs]() {
+            [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
+             streaming, acc]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -375,6 +431,29 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             if (!mst.isEmpty())
                 line += QStringLiteral(" mstate=") + QString::fromLatin1(mst);
             qInfo().noquote() << line;
+        }
+        // STREAMED: the leader already has its bytes, so this is only the tail, the
+        // cache, and the joiners. Nothing below applies — the 503 retry and the 502
+        // path are both unreachable once a 200 has been committed to the wire.
+        if (*streaming) {
+            acc->append(reply->readAll());          // whatever arrived after the last readyRead
+            QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+            if (ct.isEmpty()) ct = QByteArrayLiteral("video/mp2t");
+            if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState) {
+                guardedSock->flush();
+                guardedSock->disconnectFromHost();   // Connection: close terminates the body
+            }
+            if (reply->error() == QNetworkReply::NoError) {
+                cachePut(path, *acc, ct);
+                deliver(path, nullptr, 200, ct, *acc);   // nullptr = leader already served
+            } else {
+                // Upstream died mid-body. The leader gets a short read and its own
+                // retry loop handles that; joiners must NOT be handed the truncated
+                // copy, so they get a 502 and re-ask instead.
+                deliver(path, nullptr, 502, QByteArrayLiteral("text/plain"),
+                        QByteArrayLiteral("upstream failed mid-stream"));
+            }
+            return;
         }
         // Deliberately NO early return when the leader's socket has gone. Sockets may
         // be parked behind this fetch and still need an answer — deliver() copes with
@@ -559,6 +638,20 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
         if (t.endsWith(".ts")) needDiscont = true;   // the NEXT segment needs one
     }
     return out.join('\n');
+}
+
+void HlsProxy::writeHead(QTcpSocket *sock, int code, const QByteArray &contentType, qint64 len)
+{
+    if (!sock || sock->state() != QAbstractSocket::ConnectedState)
+        return;
+    QByteArray resp = "HTTP/1.1 " + QByteArray::number(code) + " OK\r\n";
+    resp += "Content-Type: " + contentType + "\r\n";
+    if (len >= 0)
+        resp += "Content-Length: " + QByteArray::number(len) + "\r\n";
+    resp += "Cache-Control: no-store\r\n";
+    resp += "Connection: close\r\n\r\n";
+    sock->write(resp);
+    sock->flush();
 }
 
 void HlsProxy::writeResponse(QTcpSocket *sock, int code, const QByteArray &contentType,

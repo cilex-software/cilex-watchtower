@@ -53,6 +53,10 @@ private:
     static QByteArray rewritePlaylist(const QByteArray &in);
     void writeResponse(QTcpSocket *sock, int code, const QByteArray &contentType,
                        const QByteArray &body);
+    // Headers only, for the STREAMING path: the body then follows as chunks arrive.
+    // len < 0 omits Content-Length, which is legal because we always send
+    // Connection: close — the body then ends at EOF.
+    void writeHead(QTcpSocket *sock, int code, const QByteArray &contentType, qint64 len);
     // THE ONLY place a forwarded response reaches a socket. Serves the leader (if its
     // socket is still up) and every socket parked behind it, then drops the m_joiners
     // entry. Routing every terminal path through one function is what keeps a parked
