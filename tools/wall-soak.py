@@ -241,7 +241,22 @@ def serve(api, sid, frag, budget_s):
         n = len(payload) if isinstance(payload, (bytes, bytearray)) else 0
         waited = int((time.monotonic() - t0) * 1000)
         if c != 503 or waited > budget_s * 1000:
-            return {"frag": frag, "code": c, "ms": waited, "bytes": n, "attempts": attempts}
+            out = {"frag": frag, "code": c, "ms": waited, "bytes": n, "attempts": attempts}
+            # A 200 carrying ZERO BYTES is the worst answer the server can give: it is not
+            # a 503 asking to be retried, it is "here is your segment" with nothing in it,
+            # and a player has no way to know it should ask again. Measured 2026-08-29 on
+            # frag 16 of 20 after 11 attempts, while every other fragment served ~1.3 MB.
+            # Re-fetch ONCE after a pause to separate the two possible faults: a segment
+            # that is permanently empty (render produced nothing) from a 200 returned
+            # before the bytes landed (a premature-success race). CV's fix differs.
+            if c == 200 and n == 0:
+                time.sleep(2.0)
+                c2, p2, _ = api._req("GET", f"/review/mosaic-sessions/{sid}/seg/{frag}.ts",
+                                     raw=True, timeout=90)
+                n2 = len(p2) if isinstance(p2, (bytes, bytearray)) else 0
+                out["refetch_code"], out["refetch_bytes"] = c2, n2
+                out["zero_is_permanent"] = (c2 == 200 and n2 == 0)
+            return out
         time.sleep(0.5)
 
 
