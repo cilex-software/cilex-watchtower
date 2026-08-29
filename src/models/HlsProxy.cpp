@@ -12,6 +12,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QSharedPointer>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -270,6 +271,25 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     QNetworkReply *reply = m_nam->get(req);          // cookie auto-attached by shared jar
     QElapsedTimer fetchTimer;
     fetchTimer.start();
+    // Split the fetch into WAITING vs READING. `ms` alone cannot distinguish "the
+    // server had not answered yet" from "we were dragging the body across the
+    // socket", and that is the whole question for the ~1 s per segment measured on
+    // 2026-08-29 (CV serve 12-132 ms, plain urllib 678 ms for the same 3.79 MB).
+    //   hdr = response headers arrived  -> upstream think time + first RTT
+    //   fb  = first body byte read      -> transfer started
+    //   ms  = finished                  -> ms-fb is the body read
+    // QElapsedTimer is a value type carrying its start tick, so these copies all
+    // measure from the same origin.
+    auto hdrMs = QSharedPointer<qint64>::create(-1);
+    auto fbMs  = QSharedPointer<qint64>::create(-1);
+    if (s_hlsLog) {
+        connect(reply, &QNetworkReply::metaDataChanged, reply, [fetchTimer, hdrMs]() {
+            if (*hdrMs < 0) *hdrMs = fetchTimer.elapsed();
+        });
+        connect(reply, &QNetworkReply::readyRead, reply, [fetchTimer, fbMs]() {
+            if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
+        });
+    }
     // Guard the socket with QPointer: the player (GStreamer hlsdemux) aborts and
     // closes in-flight segment requests aggressively while scrubbing, which
     // deleteLater()s the socket. By the time this reply finishes — or the 503
@@ -277,7 +297,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     // pointer here is a use-after-free. QPointer nulls out on destruction.
     QPointer<QTcpSocket> guardedSock(sock);
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid]() {
+            [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -293,13 +313,19 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             // single-camera lines stay clean; without it our own logs cannot tell the
             // two apart, which is how 549 saturated responses went unnoticed here.
             const QByteArray mst = reply->rawHeader("X-Cilex-Mosaic-State");
-            qInfo().noquote() << QStringLiteral("WTHLS a=%1 code=%2 ms=%3 rid=%4 %5 st=[%6]%7")
+            // bytesAvailable() does NOT consume the buffer — readAll() below still gets
+            // the whole body. Logging the size matters: a "383,896 bytes" figure carried
+            // over from a DIFFERENT session sent one analysis down the wrong road, when
+            // the segment actually measured here is 3.79 MB. Never infer a size again.
+            QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 bytes=%6 rid=%7 ")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
-                .arg(QString::fromLatin1(rid))
-                .arg(path.section(QLatin1Char('/'), -3))
-                .arg(QString::fromUtf8(st))
-                .arg(mst.isEmpty() ? QString()
-                                   : QStringLiteral(" mstate=") + QString::fromLatin1(mst));
+                .arg(*hdrMs).arg(*fbMs).arg(reply->bytesAvailable())
+                .arg(QString::fromLatin1(rid));
+            line += path.section(QLatin1Char('/'), -3);
+            line += QStringLiteral(" st=[") + QString::fromUtf8(st) + QLatin1Char(']');
+            if (!mst.isEmpty())
+                line += QStringLiteral(" mstate=") + QString::fromLatin1(mst);
+            qInfo().noquote() << line;
         }
         if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
             return;
