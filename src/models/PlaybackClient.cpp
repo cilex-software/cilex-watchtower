@@ -282,9 +282,19 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
-        if (pbTime)
-            qInfo("[PBTIME] session_http ms=%lld code=%d bytes=%lld attempt=%d",
-                  (long long)httpTimer.elapsed(), code, (long long)raw.size(), attempt);
+        if (pbTime) {
+            // Server-Timing is CV's OWN decomposition of this request and has shipped
+            // on every response since 2026-07-11 (CV letter 2026-08-29 §3). Session
+            // creation is now the largest single item on the open path — measured
+            // 2026-08-31: 7,785 / 7,714 / 7,481 ms for 2,010 / 48,481 / 2,252,683
+            // byte responses, i.e. payload-independent and therefore not transfer.
+            // Without their serve= term we cannot say whether that is CV's processing
+            // or the link, and would be guessing at the biggest number we have.
+            const QByteArray st = reply->rawHeader("Server-Timing");
+            qInfo("[PBTIME] session_http ms=%lld code=%d bytes=%lld attempt=%d st=[%s]",
+                  (long long)httpTimer.elapsed(), code, (long long)raw.size(), attempt,
+                  st.constData());
+        }
         if (code != 200) {
             // 401 = auth. Silence here is the 2026-08-10 P0: playback died and
             // nothing anywhere said so. Ask AuthController for one refresh and
