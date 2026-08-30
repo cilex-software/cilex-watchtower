@@ -122,6 +122,13 @@ SeaweedFS read behind it), or something in between treating the two differently.
 segment-duration change at all**. At 15 Mbit/s it costs ~4.0 s and nothing on our side
 can rescue it. If you fix one thing from this letter, fix this.
 
+And before you suggest it: **we cannot route around it with concurrency.** Three
+simultaneous fetches moved 20 MB in 14,758 ms — **11.5 Mbit/s aggregate against
+9.7 Mbit/s single-stream, i.e. 19 % for 3x the connections.** The ceiling is shared and
+upstream, so parallel Range requests on our side would buy about a fifth, not the 3-4x
+that would matter. That is why this ask is yours and not ours, and it is the last
+client-side lever I had.
+
 **So the question I actually want answered is §4's, twice over: what happens inside a
 request that `serve` counts but its sub-terms do not?** If that ~1.5 s comes down,
 shorter segments become worth doing and the one-second bar is reachable. While it

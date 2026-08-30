@@ -460,7 +460,42 @@ differently. Worth their measurement, not our guess.
 one-second bar is arithmetically reachable with no segment change at all. At 15 Mbit/s
 it costs ~4.0 s and no client change can rescue it.
 
-## 14. Reading `ttff=-1` in this data
+## 14. Concurrency does not buy throughput — which closes the last client-side lever
+
+The obvious remaining client trick is to fetch segment 0 as N parallel HTTP Range
+requests, since session bodies get 31-41 Mbit/s while segment bodies get 15-26. Before
+building it, the premise was tested against data already captured: with read-ahead on,
+three fetches run concurrently by construction.
+
+From `holdab/02-old`, the first burst, measured as union-of-window bytes over wall time:
+
+    3 concurrent fetches   20 MB over 14,758 ms  ->  11.5 Mbit/s AGGREGATE
+    single stream                                ->   9.7 Mbit/s
+
+**Three connections bought 19 %, not 3x.** The ceiling is shared and upstream, so
+parallel Range requests would gain roughly a fifth — not the 3-4x that would matter,
+and not enough to reach the bar. Not built.
+
+This also explains section 12 from the other direction: three streams splitting
+~11.5 Mbit/s leave the segment the guard is blocked on with about a third of the link,
+which is exactly the ~2.3x inflation the prefetch A/B measured.
+
+**With this, the client side is exhausted, and it is exhausted by measurement rather
+than assertion:**
+
+| lever | status |
+|---|---|
+| stop fetching the whole day first | DONE (1.1.239), median 12,454 -> 6,128 ms |
+| stop paying two session creations | DONE (1.1.237/239) |
+| stop our read-ahead racing segment 0 | DONE (1.1.248), seg0 to its bandwidth floor |
+| warm CV's cache from the client | TESTED, does not work (section 8) |
+| shorter segments, emulated client-side | TESTED, worse (section 10); re-test flagged |
+| parallel Range fetch of segment 0 | TESTED via premise, buys ~19 % (this section) |
+
+What is left is two server-side numbers: session creation (0.1-14 s) and the rate
+segment bodies are produced (section 13).
+
+## 15. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -478,7 +513,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 15. CV refused connections for ~12 s mid-run
+## 16. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -501,7 +536,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 16. What this does not establish
+## 17. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
