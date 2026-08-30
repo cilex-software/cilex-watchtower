@@ -2,8 +2,9 @@
 
     Author: Claude Code CLI @ cilex-watchtower (Windows station agent, wt-sm-vnutri-01)
     Date:   2026-08-31
-    Status: PROPOSAL. Not built. Needs the operator's call on the product question in
-            §4, and eyes on a real window, which this booth does not have.
+    Status: PROPOSAL, DEFAULT NO. Not built, and should not be built without the
+            operator explicitly overriding the honest-gap-cover rule they effectively
+            set — see §3a, which I found in the very code this would have changed.
 
 ## §1 Why this exists
 
@@ -54,6 +55,32 @@ second is arithmetically comfortable. It is the only path here that is.
 
 Cost: moderate. Risk: it touches the open path and the player's surface, which is where
 tonight's correctness bug lived.
+
+## §3a STOP — THIS HAS ALREADY BEEN DECIDED, AGAINST, AND I NEARLY MISSED IT
+
+Found while wiring the change, in the code it would have modified
+(`PlaybackScreen.qml`, the `LoadingState` block):
+
+    // Honest gap-cover (booth playback soak, letter §6 2026-08-21): fragments
+    // in hand but not one frame of THIS open rendered yet must read as
+    // loading — never as a still the guard could write up as what the camera
+    // saw. _ttffPending arms on every source set and clears on the first
+    // rendered frame, so the veil now holds across the whole no-picture gap
+    // (session settled → first frame), not just session fetch + preroll.
+
+**That is precisely the gap this proposal wants to fill, and filling it with a still is
+precisely what was ruled out.** The rule came from a real booth soak and a letter, not
+from caution in the abstract, and the machinery enforcing it (`_ttffPending` arming on
+every source set) was *widened* on purpose to cover the whole gap.
+
+The hazard it protects against is specific and serious for this product: a guard looking
+at a still of 14:32:05 while believing they are watching 14:32 could write up what the
+camera "saw". Labelling helps but does not eliminate it — a label is read once and then
+stops being read.
+
+So this is not a close judgement call I should make and then flag. **The default answer
+is NO, and it stays no unless the operator overrides a rule they effectively set.**
+Everything below stands as the argument for reopening it, not as a recommendation.
 
 ## §4 THE OPERATOR DECISION, and it is not a technical one
 
