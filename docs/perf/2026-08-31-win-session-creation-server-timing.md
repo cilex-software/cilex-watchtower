@@ -452,24 +452,34 @@ bodies move at 15-26.** So this is not the link and not a client-wide cap — it
 rate at which segment bodies are produced upstream. CV's `serve;dur` cannot see it,
 because that timer stops when the response begins, not when it ends.
 
-**ATTRIBUTION IS OPEN — do not read this as "CV's fault", which an earlier draft did.**
-The two paths differ on OUR side as well: session bodies are read straight by
-`PlaybackClient`, while segment bodies pass through the loopback proxy, which appends
-every chunk to a growing 6.7 MB `QByteArray` and writes it to a socket on one thread.
-That is a credible client-side ceiling and it would look identical from here. Section
-14's concurrency result is consistent with **either** an upstream cap or our own
-single-threaded proxy.
+**ATTRIBUTION, DOUBTED THEN MEASURED.** An earlier draft asserted this was CV's send
+rate. That was inference: the two paths differ on OUR side too — session bodies are read
+straight by `PlaybackClient`, while segment bodies pass through the loopback proxy, which
+appends every chunk to a growing 6.7 MB `QByteArray` and writes it to a socket on one
+thread. A single-threaded copy ceiling would look identical from here, and section 14's
+concurrency result is consistent with either.
 
-`WTHLS` now carries a **`work=`** term — microseconds spent inside our own `readyRead`
-handler, summed — so `ms - work` separates "waiting for bytes" from "moving bytes". If
-`work` is ~100 ms of a 4,000 ms fetch, the ceiling is upstream; if it is ~2,000 ms, it
-is ours and fixable here.
+So `WTHLS` gained a **`work=`** term: microseconds spent inside our own `readyRead`
+handler, summed, so `ms - work` separates waiting from moving. Six fetches, prefetch-hold
+in place, 2026-08-31 ~02:20:
 
-**The measurement did not run.** Smart App Control refused four consecutive relinks of
-the instrumented binary (2026-08-31 ~02:10) after roughly ten distinct hashes were built
-in one night — the documented shifting-verdict behaviour, hardened. The code is
-committed and off the critical path; **running it is the first thing the next session
-should do**, before anyone acts on section 13.
+    ms=4270  hdr=135   work=33  bytes=7,386,896  -> body 4,102 ms = 14.4 Mbit/s
+    ms=5411  hdr=332   work=29  bytes=7,386,896  -> body 5,079 ms = 11.6 Mbit/s
+    ms=4365  hdr=178   work=22  bytes=6,100,036  -> body 4,185 ms = 11.7 Mbit/s
+    ms=4399  hdr=568   work=32  bytes=6,100,036  -> body 3,830 ms = 12.7 Mbit/s
+    ms=4270  hdr=1398  work=36  bytes=7,386,896  -> body 2,872 ms = 20.6 Mbit/s
+    ms=6379  hdr=4627  work=22  bytes=6,100,036  -> body 1,751 ms = 27.9 Mbit/s
+
+**Our proxy costs 22-36 ms to move 6-7 MB — ~0.6 % of the fetch. It is not the ceiling.**
+
+Every layer we own is now excluded by measurement: not the link (8 ms RTT, full duplex,
+negligible errors, §11), not our read-ahead (§12, fixed), not our proxy's copy loop
+(above), and not concurrency (§14). CV's own handler reports ~61 ms with
+`cache;desc="hit"`. By elimination the ~12-15 Mbit/s is produced upstream of our socket.
+
+(Getting this measured took four SAC-refused relinks at ~02:10 and a successful one at
+~02:20 — the shifting-verdict behaviour, hardened after ~ten new hashes in one night,
+then relaxing. Worth knowing that waiting works.)
 
 **Why it matters for the bar:** at 94 Mbit/s a 6.7 MB segment costs ~570 ms and the
 one-second bar is arithmetically reachable with no segment change at all. At 15 Mbit/s

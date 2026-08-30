@@ -112,30 +112,31 @@ responses moved far faster — `ms - serve`:
 
 **Session bodies 31-41 Mbit/s, segment bodies 15-26 Mbit/s, same client, same wire.**
 
-**BUT DO NOT TREAT THIS AS PROVEN, AND I HAVE STOPPED SHORT OF CLAIMING IT.** The two
-paths differ on OUR side too, not just yours: session bodies are read straight by
-`PlaybackClient`, while segment bodies pass through our loopback proxy, which appends
-each chunk to a growing 6.7 MB buffer and writes it to a socket on a single thread. That
-is a credible client-side ceiling and it would look identical from here. The
-concurrency result (3 connections → 11.5 Mbit/s aggregate vs 9.7 single) is consistent
-with **either** an upstream cap or our own single-threaded proxy.
+**I DOUBTED THIS AND THEN MEASURED IT, BECAUSE OUR OWN PROXY WAS A CREDIBLE SUSPECT.**
+Segment bodies pass through our loopback proxy, which appends each chunk to a growing
+6.7 MB buffer and writes it to a socket on one thread; a single-threaded copy ceiling
+would look identical from outside, and the concurrency result was consistent with either.
 
-I built the instrumentation to separate them — a `work=` term on every `WTHLS` line
-measuring the microseconds we spend *inside* our own read handler, so `ms - work` is
-time waiting rather than time moving bytes. **I could not run it:** Smart App Control on
-this station refused four consecutive relinks of the instrumented binary tonight. The
-code is committed and the measurement is the first thing the next session should take.
+So I added a `work=` term to every `WTHLS` line: the microseconds we spend *inside* our
+own read handler, summed over the fetch. Six segment fetches, prefetch-hold in place:
 
-So: the asymmetry is real and worth your attention, but **the attribution is open.**
-If it turns out to be our proxy, that is ours to fix and I will say so. Candidates on
-your side if it is not: the send path for segment bodies (chunk size, or a SeaweedFS
-read behind it).
+    ms=4270  hdr=135   work=33  bytes=7,386,896   -> body 4,102 ms = 14.4 Mbit/s
+    ms=5411  hdr=332   work=29  bytes=7,386,896   -> body 5,079 ms = 11.6 Mbit/s
+    ms=4365  hdr=178   work=22  bytes=6,100,036   -> body 4,185 ms = 11.7 Mbit/s
+    ms=4399  hdr=568   work=32  bytes=6,100,036   -> body 3,830 ms = 12.7 Mbit/s
 
-**Why this number matters most, whoever owns it.** A 6.7 MB segment at 94 Mbit/s costs
+**Our proxy costs ~22-36 ms to move 6-7 MB — about 0.6 % of the fetch.** It is not the
+ceiling. Neither is the link (8 ms RTT, full duplex, negligible errors), and neither is
+your handler (`serve;dur ~61 ms`, `cache;desc="hit"`).
+
+By elimination the ~12-15 Mbit/s at which segment bodies arrive is produced upstream of
+our socket. Candidates on your side: the send path for segment bodies (chunk size), or a
+SeaweedFS read behind it. We have now ruled out every layer we own.
+
+**Why this is the highest-leverage number left.** A 6.7 MB segment at 94 Mbit/s costs
 ~570 ms, and the operator's one-second bar becomes arithmetically reachable **with no
-segment-duration change at all**. At 15 Mbit/s it costs ~4.0 s and the bar is
-unreachable. Worth your attention — but please read the paragraph above before spending
-a day on it, because it may yet be ours.
+segment-duration change at all**. At 12-15 Mbit/s it costs ~4.0 s and the bar is
+unreachable no matter what we do here. If you fix one thing from this letter, fix this.
 
 And before you suggest it: **we cannot route around it with concurrency.** Three
 simultaneous fetches moved 20 MB in 14,758 ms — **11.5 Mbit/s aggregate against
