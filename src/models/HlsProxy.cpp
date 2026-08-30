@@ -189,7 +189,32 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
         // Kick read-ahead in parallel with serving this one, so the demuxer's
         // next (serial) request lands in cache instead of a fresh cold fetch.
         // (Bypassed under WT_HLS_SLOW_MS so the emulated backend delay always bites.)
-        prefetchAround(path);
+        //
+        // EXCEPT FOR A SESSION'S FIRST SEGMENT, which is the one a guard is waiting on
+        // for their first frame. kReadAhead=2 means two MORE 6.7 MB fetches start
+        // alongside it on this same QNetworkAccessManager — 13.4 MB racing the 6.7 MB
+        // the player actually needs, over a ~13.5 Mbit/s link.
+        //
+        // Measured 2026-08-31, WT_NO_PREFETCH A/B, 4 interleaved launches:
+        //     prefetch ON    mean hdr 1121 / 796 ms   mean segment fetch 4777 / 4910 ms
+        //     prefetch OFF   mean hdr  440 /  94 ms   mean segment fetch 2258 / 1942 ms
+        // i.e. read-ahead was inflating our own time-to-headers ~3.6x and the whole
+        // fetch ~2.3x. Part of the "1.5 s per request" I had been attributing to CV
+        // was this, queued inside our own NAM before the request ever left the box.
+        //
+        // Only the FIRST segment is skipped, so the mid-session behaviour the
+        // "DO NOT SERIALISE" note above measured (target + successor overlapping on a
+        // cold seek) is untouched — from the second segment on, read-ahead runs exactly
+        // as before. WT_PREFETCH_AT_OPEN=1 restores the old unconditional behaviour.
+        static const bool prefetchAtOpen = qEnvironmentVariableIsSet("WT_PREFETCH_AT_OPEN");
+        const QString sess = sessionKey(path);
+        if (prefetchAtOpen || sess.isEmpty() || m_seededSessions.contains(sess))
+            prefetchAround(path);
+        else if (s_hlsLog)
+            qInfo().noquote() << QStringLiteral("WTHLS prefetch-hold first-seg ")
+                                 + path.section(QLatin1Char('/'), -3);
+        if (!sess.isEmpty())
+            m_seededSessions.insert(sess);
         if (cacheServe(sock, path))
             return;
     }
@@ -199,6 +224,20 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
 bool HlsProxy::isSegmentPath(const QString &path)
 {
     return path.endsWith(QLatin1String(".ts"));
+}
+
+// The session a segment belongs to. Paths look like
+// ".../<session-uuid>/seg/<n>.ts" (and playlists ".../sessions/<uuid>/playlist.m3u8"),
+// so the segment's session is the component two above the file. Empty when the shape
+// is unfamiliar, which callers treat as "cannot tell" and fall back to old behaviour
+// rather than silently changing it.
+QString HlsProxy::sessionKey(const QString &path)
+{
+    const QStringList parts = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    const int segIdx = parts.lastIndexOf(QLatin1String("seg"));
+    if (segIdx > 0)
+        return parts.at(segIdx - 1);
+    return QString();
 }
 
 bool HlsProxy::cacheServe(QTcpSocket *sock, const QString &path)

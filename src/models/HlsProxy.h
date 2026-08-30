@@ -73,6 +73,7 @@ private:
     // and bringing cold seeks under 500ms.
     struct CachedSeg { QByteArray body; QByteArray ct; };
     static bool isSegmentPath(const QString &path);
+    static QString sessionKey(const QString &path);   // ".../<uuid>/seg/N.ts" -> uuid
     void prefetchAround(const QString &path);   // kick read-ahead for path's successors
     void startPrefetch(const QString &path);     // background fetch → cache (no socket)
     bool cacheServe(QTcpSocket *sock, const QString &path);  // serve from cache if present
@@ -87,6 +88,10 @@ private:
     QStringList m_segOrder;                  // LRU order (front = oldest)
     qint64 m_segBytes = 0;
     QSet<QString> m_inflight;                // prefetches in progress (dedupe)
+    // Sessions that have already had a segment served. The FIRST segment of a session
+    // is the one a guard is waiting on for their first frame, and read-ahead must not
+    // race it — see prefetchAround(). Bounded by sessions opened in one app run.
+    QSet<QString> m_seededSessions;
     // SINGLE-FLIGHT for forward(). The player asks for the SAME segment down two
     // sockets, so before 2026-08-29 we ran two concurrent upstream GETs for it —
     // measured 10/10 probe runs, 7.57 MB pulled to deliver a 3.79 MB segment, each

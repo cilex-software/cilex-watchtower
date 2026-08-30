@@ -325,7 +325,104 @@ what the letter now says.
 truncation and byte-range ideas from section 9 are dead for the same reason — they
 multiply requests against a backend charging ~1.5 s each.
 
-## 11. Reading `ttff=-1` in this data
+## 11. The ~1.5 s is NOT the network — baseline round trip to CV is 8 ms
+
+Ten plain HTTP requests to `http://192.168.1.79:8000/review/coverage` from this booth,
+outside our proxy, while the wall was running:
+
+    401 in 109 ms  (first, connection setup)
+    401 in 9, 7, 6, 5, 6, 8, 9, 7, 9 ms
+    median 8 ms
+
+Network round trip **8 ms**. CV's own `serve;dur` on segment cache hits **~61 ms**. An
+unqueued segment fetch should therefore reach headers in ~70 ms. We measure `hdr=`
+between **141 and 3,124 ms**.
+
+**That gap is up to 3 seconds, and it is neither the link nor CV's measured handler.**
+Two candidates remain, on opposite sides of the wire:
+
+1. **Ours.** `fetchTimer.start()` runs immediately *after* `m_nam->get(req)`
+   (`HlsProxy.cpp`), and Qt's QNetworkAccessManager queues internally once the per-host
+   connection limit is reached — so `hdr=` **includes our own queueing**.
+   `prefetchAround()` fires `kReadAhead` independent concurrent fetches on that same
+   manager, each now a 6.7 MB segment rather than the ~204 ms one its
+   "DO NOT SERIALISE" note was measured against on 2026-07-12.
+2. **Theirs, but invisible to them.** Time in the OS accept queue before ASGI sees the
+   request would not appear in `queue;dur`, which is stamped in middleware.
+
+This also narrows the retraction in section 2. `queue;dur` under 4 ms proves **CV** is
+not queueing; it says nothing about whether **we** are, because a request still sitting
+in our own NAM has not reached CV and no timer of theirs is running. Section 12 tests
+candidate 1 directly.
+
+## 12. PART OF THE "1.5 s PER REQUEST" IS OURS — our own read-ahead was racing the segment the guard waits for
+
+Candidate 1 from section 11, tested with the existing `WT_NO_PREFETCH` flag. No code
+change, 4 interleaved launches, 3 opens each, camera .126, day 2026-08-30:
+
+| arm | mean `hdr=` | mean segment fetch | segs |
+|---|---:|---:|---:|
+| prefetch ON | 1,121 / 796 ms | 4,777 / 4,910 ms | 6 / 4 |
+| prefetch OFF | 440 / **94** ms | 2,258 / **1,942** ms | 6 / 6 |
+
+**Read-ahead was inflating our own time-to-response-headers ~3.6x and the whole segment
+fetch ~2.3x.** With a network baseline of 8 ms (section 11), a `hdr=` of 94 ms is about
+what CV's ~61 ms handler predicts — and 1,121 ms is not. The difference is queueing
+**inside our own QNetworkAccessManager**, before the request ever left this box.
+
+The mechanism is plain once measured: `kReadAhead = 2`, so serving a segment starts
+**two more 6.7 MB fetches** on the same manager. That is 13.4 MB racing the 6.7 MB the
+player is actually blocked on, over a ~13.5 Mbit/s link.
+
+**This corrects two earlier conclusions of mine, both reached by reading rather than
+measuring:**
+
+- I recorded that WT-29 ("defer prefetch") "would have made things worse; the
+  DO NOT SERIALISE comment was right". Wrong. That comment was measured on 2026-07-12
+  against a **~204 ms** cold segment, where a concurrent successor genuinely did hide in
+  the target's shadow. At 6.7 MB and ~5 s per segment it no longer hides — it competes.
+- Section 10 attributed the whole ~1.5 s fixed per-request cost to CV. Part of it is
+  ours.
+
+**The change shipped** is narrower than the probe: read-ahead is held only for a
+session's **first** segment — the one a guard's first frame waits on — and resumes from
+the second segment, so the mid-session behaviour the 2026-07-12 note measured is
+untouched. `WT_PREFETCH_AT_OPEN=1` restores the old unconditional read-ahead.
+
+### 12a. Validating the narrow change (not the probe)
+
+4 interleaved launches, `hold` (default) vs `WT_PREFETCH_AT_OPEN=1`. The hold fired
+3 times per launch, as designed. Measured on **segment 0 specifically**, because that is
+the fetch a first frame waits on — a mean across all fetches dilutes it with prefetches:
+
+| arm | seg 0 fetch, median | range | `hdr=` median |
+|---|---:|---|---:|
+| hold | **4,432 ms** | 3,873-5,167 | **405 ms** |
+| old | 4,925 ms | 4,543-7,255 | 783 ms |
+
+Time-to-headers nearly halved and the spread tightened (max 5,167 vs 7,255 ms).
+
+**The gain is modest, and the reason is the useful part: 4,432 ms IS THE BANDWIDTH
+FLOOR.** 6.7 MB at the measured 13.5 Mbit/s is ~4.0 s. The hold removes our
+self-inflicted contention and lands segment 0 on that floor; nothing else client-side
+can go below it. The old arm sat above the floor precisely because our own prefetches
+were taking a share of the link.
+
+**Whole-open TTFF did NOT separate** at this sample size: hold median 7,949 ms vs old
+5,986 ms (n=5 each), swamped by CV session creation ranging 0.1-14 s on the night. The
+change is justified by the mechanism and by `hdr=`/seg-0, **not** by a TTFF win, and it
+would be dishonest to claim one.
+
+### 12b. The shorter-segment test deserves a re-run
+
+Section 10 concluded shorter segments made things worse, partly because each extra
+request carried ~1.5 s of overhead. **Some of that overhead was our own prefetch
+contention, which is now gone.** That test should be repeated with the hold in place
+before the idea is written off — the arithmetic that motivated it (fewer bytes to the
+first frame) is untouched, and only the per-request penalty argued against it. Not done
+here; flagged so the next session starts from it.
+
+## 13. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -343,7 +440,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 11. CV refused connections for ~12 s mid-run
+## 14. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -366,7 +463,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 12. What this does not establish
+## 15. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
