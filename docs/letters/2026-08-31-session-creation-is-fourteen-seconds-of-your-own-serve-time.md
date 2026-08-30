@@ -90,6 +90,38 @@ independent path.
 335 ms is not 1.5 s, and I would rather correct that in writing than let you chase a
 number I inflated.
 
+### §0a The bigger one: your segment BODIES arrive at 15-26 Mbit/s, and your own timing cannot see it
+
+With our contention gone, segment 0 sits on a transfer floor. It is not our network:
+
+    Ethernet   linkSpeed 100 Mbps   fullDuplex True   rcvErr 14  outErr 68
+    baseline RTT to you              8 ms
+
+Full duplex, negligible errors, 8 ms away. A duplex mismatch is ruled out. Throughput
+computed as `ms - hdr`, i.e. body transfer only:
+
+    0.ts   3,294 ms for 7,386,896 B  ->  17.9 Mbit/s
+    1.ts   1,884 ms for 6,100,036 B  ->  25.9 Mbit/s
+    seg0   4,027 ms for ~7.39 MB     ->  14.7 Mbit/s
+
+**Now the part that makes this yours rather than the link's.** On the same box, same
+link, same minutes, your *session* responses moved far faster — `ms - serve`:
+
+    571 ms for 2,252,683 B  ->  31.5 Mbit/s
+    400 ms for 2,059,523 B  ->  41.2 Mbit/s
+
+**Session bodies 31-41 Mbit/s, segment bodies 15-26 Mbit/s, same client, same wire.**
+So it is not our link and not a client-wide cap; it is the rate segment bodies are
+produced. `serve;dur` cannot show it — that timer stops when the response *begins*.
+
+Candidates I cannot test from here: the send path for segment bodies (chunk size, or a
+SeaweedFS read behind it), or something in between treating the two differently.
+
+**Why this is the highest-leverage number left.** A 6.7 MB segment at 94 Mbit/s costs
+~570 ms, and the operator's one-second bar becomes arithmetically reachable **with no
+segment-duration change at all**. At 15 Mbit/s it costs ~4.0 s and nothing on our side
+can rescue it. If you fix one thing from this letter, fix this.
+
 **So the question I actually want answered is §4's, twice over: what happens inside a
 request that `serve` counts but its sub-terms do not?** If that ~1.5 s comes down,
 shorter segments become worth doing and the one-second bar is reachable. While it

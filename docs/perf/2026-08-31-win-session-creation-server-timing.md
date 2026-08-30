@@ -422,7 +422,45 @@ before the idea is written off — the arithmetic that motivated it (fewer bytes
 first frame) is untouched, and only the per-request penalty argued against it. Not done
 here; flagged so the next session starts from it.
 
-## 13. Reading `ttff=-1` in this data
+## 13. The link is healthy; segment bodies still arrive at 15-26 Mbit/s
+
+With our own read-ahead contention removed (section 12), segment 0 sits on a transfer
+floor. That floor is not the booth's network:
+
+    Get-NetAdapter   Ethernet   linkSpeed = 100 Mbps   fullDuplex = True
+    Get-NetAdapterStatistics    rcvErr=14  outErr=68  rcvDisc=14  outDisc=0
+    baseline RTT to CV          8 ms (section 11)
+
+Full duplex, negligible errors, low latency. A duplex mismatch — the classic cause of
+exactly this symptom — is ruled out.
+
+Throughput computed from clean WTHLS lines as `ms - hdr` (body transfer only, excluding
+time-to-headers):
+
+    0.ts   3765 - 471  = 3,294 ms for 7,386,896 B  ->  17.9 Mbit/s
+    1.ts   5008 - 3124 = 1,884 ms for 6,100,036 B  ->  25.9 Mbit/s
+    seg0   4432 - 405  = 4,027 ms for ~7.39 MB     ->  14.7 Mbit/s
+
+**15-26 Mbit/s of a 100 Mbps link.** For contrast, session responses on the same night
+transferred far faster — `ms - serve` on the day manifests:
+
+    3344 - 2772.6 =  571 ms for 2,252,683 B  ->  31.5 Mbit/s
+    3557 - 3156.9 =  400 ms for 2,059,523 B  ->  41.2 Mbit/s
+
+Same box, same link, same minute: **session bodies move at 31-41 Mbit/s while segment
+bodies move at 15-26.** So this is not the link and not a client-wide cap — it is the
+rate at which segment bodies are produced upstream. CV's `serve;dur` cannot see it,
+because that timer stops when the response begins, not when it ends.
+
+Two candidates, neither testable from here: CV's send path for segment bodies (chunk
+size, or a SeaweedFS read behind it), or something between that treats the two
+differently. Worth their measurement, not our guess.
+
+**Why it matters for the bar:** at 94 Mbit/s a 6.7 MB segment costs ~570 ms and the
+one-second bar is arithmetically reachable with no segment change at all. At 15 Mbit/s
+it costs ~4.0 s and no client change can rescue it.
+
+## 14. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -440,7 +478,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 14. CV refused connections for ~12 s mid-run
+## 15. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -463,7 +501,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 15. What this does not establish
+## 16. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
