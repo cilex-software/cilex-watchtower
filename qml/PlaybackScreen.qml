@@ -700,8 +700,8 @@ Item {
     // targetMs (optional): the instant the operator is actually going to. When given,
     // FAST OPEN requests only a ~30 min window around it and defers the day manifest
     // to _fetchDayTimeline() after the first frame. Callers without a target (a plain
-    // calendar day click) keep the day-first behaviour, because the day's first
-    // footage is not known until its manifest lands.
+    // calendar day click) fall back to the day's first footage instant, which
+    // /review/coverage has already given us — see the comment in the body.
     function openForDay(dateStr, targetMs) {
         if (!camera) return;
         _obMark("day:" + dateStr);
@@ -711,6 +711,27 @@ Item {
         _explicitStart = s;
         _explicitEnd = dayEnd;
         _tlOweDay = ""; _tlDayStart = -1; _tlDayEnd = -1;
+        // A PLAIN CALENDAR CLICK has no target — but coverage already told us where
+        // this day's footage starts. GET /review/coverage returns {date, has_footage,
+        // seconds, coverage_ratio, first, last} per day and we already parse `first`
+        // into dayInfo[date].firstMs to draw the calendar dots, so it is on hand
+        // BEFORE the day can be clicked. That is the SAME instant the heavy-day
+        // bootstrap below (line ~1059) derives as out[0].ws — it just pays the whole
+        // day manifest to learn it. Taking it from coverage skips that wait with no
+        // extra request and no server change. (Measured 2026-08-30: the day manifest
+        // cost 5,205-15,621 ms on warm opens.)
+        //
+        // Gated to days heavy enough that the bootstrap would have bounded them
+        // anyway, so LIGHT days keep the proven whole-day session and a far scrub
+        // still needs no re-open. `sec` is recorded seconds; full days measured
+        // 2,876-2,881 fragments (fastopen20 harness, 2026-08-30) ⇒ ~30 s per
+        // fragment. Under-estimating is the safe direction: we simply fall through
+        // to today's behaviour and the bootstrap handles it.
+        if ((targetMs === undefined || !isFinite(targetMs) || targetMs <= 0)
+                && dayInfo && dayInfo[dateStr] && dayInfo[dateStr].firstMs > 0) {
+            var wthr = (typeof wtPbWindowFrags !== "undefined" && wtPbWindowFrags > 0) ? wtPbWindowFrags : 1200;
+            if ((dayInfo[dateStr].sec || 0) / 30 > wthr) targetMs = dayInfo[dateStr].firstMs;
+        }
         if (_fastOpen && targetMs !== undefined && isFinite(targetMs) && targetMs > 0
                 && targetMs >= s && targetMs <= dayEnd) {
             // Window head IS the landing point — same contract as seekFar(), so no
