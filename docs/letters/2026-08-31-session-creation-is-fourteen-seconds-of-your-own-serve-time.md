@@ -17,6 +17,30 @@ down from 12,454 ms after tonight's client work. The rest is in your two numbers
 
 ---
 
+## §0 The one number that decides this, before the detail
+
+**Time-to-first-frame can never be less than the session request** — the player cannot
+ask for a segment until it has a playlist, and it has no playlist until the session
+exists. So your session endpoint is a hard floor under the operator's bar.
+
+The bounded ~30 min window, i.e. the request our FAST OPEN puts on the critical path,
+94 opens tonight:
+
+    min=110   p25=953   MEDIAN=3,771   p75=7,774   max=17,995 ms
+    under 1,000 ms:  25/94 = 26.6 %
+    under   300 ms:   7/94 =  7.4 %
+
+**On 73.4 % of opens your session request alone exceeds one second.** On those opens
+nothing we do to segments, prefetching or buffering can produce a first frame inside the
+bar, because all of it happens strictly after this request returns. We spent tonight
+proving that the hard way (§7).
+
+Our best open of the night was **614 ms**. Its session took **110 ms** — one of those 7.
+The client is already capable of the bar whenever you clear the way.
+
+**The ask in one line: session creation at ≤300 ms, which you deliver on 7 of 94 opens
+today.**
+
 ## §1 ASK ONE: session creation, 0.1-14 s, and it is `index`
 
 Your `Server-Timing` on `POST /review/sessions`, booth, 2026-08-31, uncontended

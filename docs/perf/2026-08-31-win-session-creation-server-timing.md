@@ -520,7 +520,44 @@ than assertion:**
 What is left is two server-side numbers: session creation (0.1-14 s) and the rate
 segment bodies are produced (section 13).
 
-## 15. Reading `ttff=-1` in this data
+## 15. THE PROOF: the one-second bar is arithmetically impossible client-side
+
+Everything above is a list of things tried. This is the argument that closes the
+question, and it needs no new experiment — only the distribution of a request we were
+already logging.
+
+**Time-to-first-frame can never be less than the session request**, because the player
+cannot ask for a segment until it has a playlist, and it has no playlist until the
+session exists. So the session request is a hard floor under TTFF.
+
+Every `session_http` round trip logged tonight (n=375, code=200, all runs):
+
+    min=84   p25=4,015   MEDIAN=8,043   p75=14,452   p90=20,672   max=32,046 ms
+    under 1,000 ms:  34/375 = 9.1 %
+
+That pool mixes the critical-path request with deferred timeline fetches and boot
+windows, so narrowed to the **bounded ~30 min window** — the request FAST OPEN puts on
+the critical path, identifiable by its ~48 KB / 61-62 fragment shape:
+
+    n=94
+    min=110   p25=953   MEDIAN=3,771   p75=7,774   max=17,995 ms
+    under 1,000 ms:  25/94 = 26.6 %
+    under   300 ms:   7/94 =  7.4 %
+
+**On 73.4 % of opens the session request alone exceeds one second.** On those opens no
+client change of any kind — shorter segments, prefetch tuning, byte-range splitting, a
+poster frame — can produce a first frame inside the bar, because all of them act on work
+that happens strictly *after* this request returns.
+
+This is why the client-side search in sections 8-14 terminated rather than merely
+running out of ideas. **The bar requires session creation at ≤300 ms, which the pilot
+delivers on 7 of 94 opens today.** That is the whole ask, and it is CV's.
+
+Corollary worth stating for whoever revisits this: the 614 ms open in section 6 was not
+luck in the ordinary sense — it is one of those 7. Its session took 110 ms. The client
+is already capable of the bar whenever the backend clears the way.
+
+## 16. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -538,7 +575,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 16. CV refused connections for ~12 s mid-run
+## 17. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -561,7 +598,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 17. What this does not establish
+## 18. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
