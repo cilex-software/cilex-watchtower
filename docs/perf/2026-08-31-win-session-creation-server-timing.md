@@ -273,7 +273,59 @@ that. Worth chasing separately, but note that **even at a full 100 Mbit/s a 6.74
 segment still costs ~540 ms** and cannot by itself reach the bar. Segment duration is
 the lever; link speed only widens the margin.
 
-## 10. Reading `ttff=-1` in this data
+## 10. I TESTED THE SHORTER-SEGMENT FIX AND IT MADE THINGS WORSE — the real cost is ~1.5 s of fixed per-request overhead
+
+Section 9 predicted that a 2 s segment would give ~0.34 s of transfer and put first
+frame near 0.5 s. **That prediction is wrong, and the measurement that disproves it is
+mine.** Recorded in full because I had already sent CV an ask built on it.
+
+`WT_HLS_FIRST_SEG_BYTES=<n>` (measurement hook, default off) truncates the body handed
+to the player to n bytes and advertises `Content-Length: n`, which is what a shorter
+`target_duration` looks like from the player's side.
+
+**Attempt 1 — client-side truncation only.** No effect: 7.7-27.9 s truncated vs
+5.1-11.4 s control. The flaw was mine: I truncated what the player saw while still
+pulling the whole 7.4 MB from CV, so the link — the actual bottleneck — was unchanged.
+
+**Attempt 2 — also abort the upstream fetch**, so we genuinely stop paying for the tail.
+The abort works: mean bytes per segment fell from 6,743,466 to 501,126, and a single
+segment fetch fell from ~4,523 ms to as little as 465 ms. And yet:
+
+| arm | segment stage `source_set -> first_frame` | fetches/open | mean bytes | mean ms/fetch |
+|---|---:|---:|---:|---:|
+| trunc (500 KB) | **6,725 ms** median (n=5) | ~5 | 501,126 | 1,353-2,288 |
+| norm (6.7 MB) | **3,677 ms** median (n=4) | ~2 | 6,743,466 | 5,145-5,816 |
+
+**Smaller segments were worse.** The player buffers by DURATION, not by segment count,
+so 2 s segments mean ~5 fetches where 30 s segments mean ~2 — and each fetch carries a
+large fixed cost. Solving the two arms simultaneously:
+
+    6.24 MB / B = 3.7 s        ->  B  ~ 13.5 Mbit/s   (true transfer bandwidth)
+    O = 1.8 s - 0.30 s         ->  O  ~ 1.5 s          (fixed cost per request)
+
+**~1.5 s of fixed overhead per HTTP request to CV.** That is the number that matters,
+and no segment size defeats it, because reaching a first frame requires at least one
+fetch. It also explains why the 6.7 MB segments look "bandwidth bound": at 13.5 Mbit/s
+the transfer is ~4.0 s and the overhead ~1.5 s, and I attributed all 5.5 s to transfer.
+
+**Where the 1.5 s is NOT.** `hdr=` (our time to response headers) ran 141-3,124 ms while
+CV's own `serve;dur` on the same responses was ~61 ms, and `cache;desc="hit"`. So it is
+not remux, not disk, and not CV's measured handler. It is the same unnamed remainder as
+section 2's `serve` minus its own sub-terms — visible now on a second, independent path.
+
+**CONFOUND, and it is a real limit on this experiment.** Aborting a reply destroys the
+TCP connection, so the truncated arm pays a fresh handshake per segment, while genuinely
+short segments from CV would close cleanly and could be served over a reused connection.
+So this does NOT cleanly refute shorter segments — it refutes *emulating* them by
+abort, and it establishes the ~1.5 s per-request floor. The honest statement to CV is
+"here is the overhead; shorter segments only help if that overhead comes down", which is
+what the letter now says.
+
+**What this closes off for us:** there is no client-side segment-size trick. Both the
+truncation and byte-range ideas from section 9 are dead for the same reason — they
+multiply requests against a backend charging ~1.5 s each.
+
+## 11. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:

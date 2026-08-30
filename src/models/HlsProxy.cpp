@@ -57,6 +57,33 @@ QByteArray nextRequestId()
 // slow → historic playback awfully slow / session teardown blocks the GUI thread"
 // conditions, for A/B measuring calendar/playback behaviour. 0 = off (normal).
 const int s_slowMs = qEnvironmentVariableIntValue("WT_HLS_SLOW_MS");
+// WT_HLS_FIRST_SEG_BYTES=<n> — MEASUREMENT ONLY, off by default, never for a guard.
+//
+// Measured 2026-08-31: the player waits for ONE COMPLETE segment and then renders
+// 216 ms later (join 0.ts 00:32:56.422 -> 0.ts done 00:33:00.946 -> buffered +64 ms
+// -> first_frame +216 ms; 1.ts finished AFTER the frame). Review segments are ~30 s
+// of video, 6.74 MB mean, and CV serves them in ~58 ms — so 98.9 % of that stage is
+// us moving bytes. Time-to-first-frame is therefore set by the SIZE of segment 0.
+//
+// This hook truncates the body we hand the player to <n> bytes, advertises
+// Content-Length: <n>, and aborts the upstream so we stop paying for the tail.
+//
+// RESULT, 2026-08-31: THE HYPOTHESIS WAS WRONG AND THIS MADE TTFF WORSE. The emulation
+// works (mean segment 6,743,466 -> 501,126 bytes; one fetch 4,523 ms -> as low as
+// 465 ms) but the segment stage rose to a 6,725 ms median against 3,677 ms for the
+// 6.7 MB control. The player buffers by DURATION, not segment count, so short segments
+// mean ~5 fetches instead of ~2 — and each fetch carries ~1.5 s of FIXED cost
+// (solving the two arms: B ~ 13.5 Mbit/s, O ~ 1.5 s). That overhead, not segment size,
+// is what caps time-to-first-frame; see docs/perf/2026-08-31-*.md section 10.
+//
+// Kept because it is the instrument that produced that finding and will be needed
+// again if CV's per-request overhead ever comes down. Confound to remember: abort
+// destroys the TCP connection, so this arm pays a handshake per segment where real
+// short segments would not — it does not cleanly refute shorter segments, only
+// emulating them this way.
+//
+// NEVER SET ON THE BOOTH: the discarded tail is real footage the guard would lose.
+const int s_firstSegBytes = qEnvironmentVariableIntValue("WT_HLS_FIRST_SEG_BYTES");
 // WT_HLS_SLOW_EVERY=<n> — TEST ONLY: with WT_HLS_SLOW_MS, hold only every Nth
 // segment (default 1 = every). N>1 emulates a backend that mostly serves but
 // intermittently stalls (the real degraded condition): playback still advances,
@@ -362,6 +389,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     // that have already left the building — it gets the copy at the end.
     auto streaming = QSharedPointer<bool>::create(false);
     auto acc = QSharedPointer<QByteArray>::create();
+    auto sent = QSharedPointer<qint64>::create(0);   // bytes handed to the player (truncation hook)
 
     connect(reply, &QNetworkReply::metaDataChanged, reply,
             [this, reply, guardedSock, path, fetchTimer, hdrMs, streaming]() {
@@ -384,12 +412,18 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
         if (ct.isEmpty()) ct = QByteArrayLiteral("video/mp2t");
         const QVariant clen = reply->header(QNetworkRequest::ContentLengthHeader);
-        writeHead(guardedSock, 200, ct, clen.isValid() ? clen.toLongLong() : -1);
+        qint64 advertise = clen.isValid() ? clen.toLongLong() : -1;
+        // Measurement hook (see s_firstSegBytes): advertise the truncated length so the
+        // player treats the short body as a COMPLETE segment, which is what it would
+        // receive if CV emitted a shorter one.
+        if (s_firstSegBytes > 0 && (advertise < 0 || advertise > s_firstSegBytes))
+            advertise = s_firstSegBytes;
+        writeHead(guardedSock, 200, ct, advertise);
         *streaming = true;
     });
 
     connect(reply, &QNetworkReply::readyRead, reply,
-            [reply, guardedSock, fetchTimer, fbMs, streaming, acc]() {
+            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent]() {
         if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
         if (!*streaming)
             return;                       // buffered path still reads it all in finished
@@ -397,8 +431,31 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         if (chunk.isEmpty())
             return;
         acc->append(chunk);               // keep a copy for the cache and joiners
-        if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState)
-            guardedSock->write(chunk);    // ...and give it to the player NOW
+        if (!guardedSock || guardedSock->state() != QAbstractSocket::ConnectedState)
+            return;
+        // Measurement hook: stop at the advertised truncated length. `acc` still gets
+        // the whole body, so the cache and any joiners stay correct and honest — only
+        // the bytes handed to THIS player are cut.
+        if (s_firstSegBytes > 0) {
+            const qint64 room = qint64(s_firstSegBytes) - *sent;
+            if (room <= 0)
+                return;
+            const QByteArray cut = chunk.left(int(qMin<qint64>(room, chunk.size())));
+            guardedSock->write(cut);
+            *sent += cut.size();
+            if (*sent >= s_firstSegBytes) {
+                guardedSock->flush();     // player has a complete segment: let it decode NOW
+                // AND STOP PULLING FROM CV. Truncating only what the player sees, while
+                // still dragging the whole 7.4 MB down the wire, changes nothing: the
+                // link is the bottleneck, so the next segment queues behind the tail we
+                // no longer want. (Measured 2026-08-31: client-side-only truncation gave
+                // 7.7-27.9 s, indistinguishable from the 5.1-11.4 s control.) A genuinely
+                // shorter segment costs less BANDWIDTH, which is the whole point.
+                QMetaObject::invokeMethod(reply, "abort", Qt::QueuedConnection);
+            }
+            return;
+        }
+        guardedSock->write(chunk);        // ...and give it to the player NOW
     });
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
