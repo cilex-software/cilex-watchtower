@@ -171,7 +171,45 @@ It is also the control that shows the gate is not silently firing everywhere.
 belong together: the client work is done and the remaining distance is CV's cold
 path. See section 6 for that open's full decomposition.
 
-## 8. Reading `ttff=-1` in this data
+## 8. Warming does not work, and this closes off the obvious client-side workaround
+
+The natural client response to "cold is slow, warm is fast" is to warm it: prefetch the
+session on hover, or on camera select, so the guard's click lands on hot pages. **That
+does not work here, and it is worth knowing before someone builds it.**
+
+Ten consecutive opens of the SAME heavy day (2026-08-30, camera .126), fast open on, so
+the bounded window request is byte-identical every time (`bytes=49051, frags=62`):
+
+    ms=  7856   serve=  7734.2   index= 7269.7
+    ms=  7924   serve=  6022.3   index= 2605.4
+    ms=  2588   serve=  1659.2   index= 1156.6
+    ms=  8006   serve=  7867.5   index= 5193.9
+    ms=  6006   serve=  5588.8   index= 4003.9
+    ms=  3771   serve=  2789.6   index= 2449.3
+    ms=   970   serve=   845.9   index=  736.3
+    ms=  5242   serve=  3085.7   index= 2351.2
+    ms= 11802   serve= 11653.1   index= 9767.4
+
+**No warming trend. The slowest request is the last one.** TTFF across the ten:
+`-1, 13130, 16362, 10768, 13819, 8105, 6507, 2328, 9137, 17051` — median 10,768 ms,
+min 2,328 ms, **zero sub-second opens**.
+
+This is exactly what CV predicted in `2026-08-21-session-open-is-the-playback-bottleneck.reply.md`
+§3: *"the recorder continuously writes new chunks that evict the old ones ... any
+historical day is cold on first touch, every time."* Their in-process test warmed
+7,138 -> 43.5 ms because nothing evicted between back-to-back calls; on the live box
+something does.
+
+**Consequence for us:** prefetch-on-hover, speculative session creation and any other
+"warm it first" scheme are dead on arrival. A guard does not hover for six seconds, and
+even if they did, the warmth would not survive to the click. Do not build it.
+
+CONFOUND, stated: ten opens in ~5 minutes each also deferred-fetch a 2 MB day manifest,
+so this run put more load on CV than a guard would. That could depress the absolute
+numbers. It does not affect the finding — if warming worked, the trend would fall
+despite the load, and it does not.
+
+## 9. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:

@@ -122,6 +122,43 @@ pending, nothing else asked of you. What has to stop happening is the cold case 
 same `index` on the same camera ranged **42.5 ms to 13,976 ms across one hour tonight**,
 a 329× spread. That variance, not any single number, is the goal.
 
+### §7a I tried to warm it from the client. It cannot be done, and your §3 said so
+
+The obvious workaround on our side is to prefetch: open the session on hover or on
+camera-select so the guard's click lands on hot pages. Before asking you for anything I
+tested it — ten consecutive opens of the **same** heavy day, so the bounded request is
+byte-identical every time (`bytes=49051, frags=62`):
+
+    ms=  7856   serve=  7734.2   index= 7269.7
+    ms=  7924   serve=  6022.3   index= 2605.4
+    ms=  2588   serve=  1659.2   index= 1156.6
+    ms=  8006   serve=  7867.5   index= 5193.9
+    ms=  6006   serve=  5588.8   index= 4003.9
+    ms=  3771   serve=  2789.6   index= 2449.3
+    ms=   970   serve=   845.9   index=  736.3
+    ms=  5242   serve=  3085.7   index= 2351.2
+    ms= 11802   serve= 11653.1   index= 9767.4
+
+**No warming trend whatsoever — the slowest request of the nine is the last one.**
+TTFF across those ten opens: median 10,768 ms, **zero under a second**.
+
+Your §3 predicted this exactly: *"the recorder continuously writes new chunks that
+evict the old ones ... any historical day is cold on first touch, every time."* Your
+in-process 7,138 → 43.5 ms warmed because nothing evicted between back-to-back calls.
+On the live box something does, within seconds.
+
+Two things follow. **For us:** prefetch-on-hover and every other "warm it first" scheme
+is dead, and I have written that into `docs/perf/` so nobody here builds it. **For you:**
+this is a sharper statement of the problem than "cold is slow" — it means the buffer
+cache is not merely undersized for the first touch, it is being evicted continuously
+enough that a repeat of the identical query seconds later gains nothing. That points at
+`shared_buffers` (§6.4) and at whatever is doing the writing, harder than it points at
+query tuning.
+
+Caveat: those ten opens each also deferred-fetched a 2 MB day manifest, so that run put
+more load on you than a guard would, and the absolute numbers may be depressed. The
+finding survives it — if warming worked the trend would fall despite the load.
+
 The full A/B, 8 interleaved launches, 24 opens, same build both arms — so you can see
 what our side did buy and what it did not:
 
