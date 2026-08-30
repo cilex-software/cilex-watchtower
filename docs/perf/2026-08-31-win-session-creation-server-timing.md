@@ -251,6 +251,21 @@ With session creation warm (measured as low as 110 ms) a 2-second first segment 
 first frame around **0.5 s**. That is the whole gap, and it is one server-side setting
 rather than a performance mystery.
 
+**Is there a client-side version of this fix?** Two exist and neither is worth doing
+before CV answers:
+
+- *Serve a shorter playlist so the player buffers one segment instead of two.* Our proxy
+  already rewrites playlists, so presenting fewer entries is cheap. It could roughly
+  halve this stage (~5 s -> ~2.5 s) but cannot approach 1 s, and it risks the scrubber's
+  duration and seek behaviour — the exact things this station cannot verify.
+- *Split one upstream segment into byte-range entries (`EXT-X-BYTERANGE`).* This is the
+  real equivalent of short segments, but it means parsing TS packet and keyframe
+  boundaries in the proxy. Substantial work and substantial risk, to reimplement client-
+  side what one server setting does correctly.
+
+Both are strictly worse than a `target_duration` change. Recorded so the option is
+known, not as a recommendation.
+
 Caveat on the throughput figure: it is per-request (bytes / that request's ms), so it is
 the single-stream rate, not the link's aggregate capacity. The booth NIC is also
 negotiated at 100 Mbps on gigabit hardware, so ~10.5 Mbit/s is about a tenth of even
