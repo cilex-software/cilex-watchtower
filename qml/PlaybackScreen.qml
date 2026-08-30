@@ -410,6 +410,9 @@ Item {
                 root.lastTtffMs = Date.now() - root._obT0;
                 if (root._pbTime) console.log("[PBTIME] first_frame dt=" + Math.round(root.lastTtffMs)
                                               + "ms tag=" + root._obTag);
+                // The guard has picture. NOW widen the scrubber to the full day — off
+                // the critical path, and out of the open's in-flight burst.
+                if (root._tlOweDay !== "") root._fetchDayTimeline();
             }
         }
     }
@@ -569,6 +572,37 @@ Item {
 
     // ---- session open ----------------------------------------------------
     property bool _pendingOpen: false
+    // FAST OPEN (2026-08-30). Opening a moment used to wait for the WHOLE DAY's
+    // manifest first — measured on the booth over 20 guard-style opens: ~2,880
+    // fragments, ~2.25 MB, 10-27 s — and only THEN did the bounded bootstrap below
+    // re-open a ~30 min window to actually play. Time-to-first-frame was 33,562 ms
+    // median, and 28,952 ms of it (80 %) elapsed before any video was requested.
+    //
+    // When the target instant is known at open time (openAt: events, deep links,
+    // WT_PLAYBACK_DAY with a "T") we now open the BOUNDED window immediately so the
+    // picture arrives, and fetch the day manifest AFTER the first frame purely to
+    // widen the scrubber. The day session is still fetched — it IS the timeline —
+    // it is simply no longer standing in front of the video. Deferring it to
+    // first-frame also keeps it out of the open's in-flight burst, which matters:
+    // session latency scales hard with concurrency (measured 0-3 in flight ->
+    // 2.3-6.8 s, 8-10 in flight -> 18.4-20.8 s).
+    // WT_PB_NO_FAST_OPEN=1 restores the old order.
+    readonly property bool _fastOpen: !(typeof wtPbNoFastOpen !== "undefined" && wtPbNoFastOpen)
+    property string _tlOweDay: ""        // day whose timeline we still owe ("" = none)
+    property double _tlDayStart: -1
+    property double _tlDayEnd: -1
+    function _fetchDayTimeline() {
+        if (!client || !camera || _tlOweDay === "" || _tlDayStart < 0) return;
+        var tid = client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "");
+        if (!tid) { _tlOweDay = ""; return; }
+        var s = _tlDayStart, e = _tlDayEnd;
+        _tlOweDay = ""; _tlDayStart = -1; _tlDayEnd = -1;
+        if (_pbTime) console.log("[PBTIME] timeline_fetch tag=" + _obTag);
+        // ":TL:" marks this session TIMELINE-ONLY — onSessionReady routes it to the
+        // scrubber and never lets it reach the player window.
+        client.openSession(tid, new Date(s).toISOString(), new Date(e).toISOString(),
+                           true, _pcUid + ":TL:" + _openGen);
+    }
     // When >= 0, tryOpen() uses this explicit wall window (a calendar day)
     // instead of the rolling "last zoomMin minutes" window.
     property double _explicitStart: -1
@@ -663,13 +697,31 @@ Item {
         tryOpen();
     }
     // Load a single calendar day's full 24h (gaps included), clamped to now.
-    function openForDay(dateStr) {
+    // targetMs (optional): the instant the operator is actually going to. When given,
+    // FAST OPEN requests only a ~30 min window around it and defers the day manifest
+    // to _fetchDayTimeline() after the first frame. Callers without a target (a plain
+    // calendar day click) keep the day-first behaviour, because the day's first
+    // footage is not known until its manifest lands.
+    function openForDay(dateStr, targetMs) {
         if (!camera) return;
         _obMark("day:" + dateStr);
         var startD = new Date(dateStr + "T00:00:00");   // local midnight
         var s = startD.getTime();
+        var dayEnd = Math.min(s + 86400000, Date.now());
         _explicitStart = s;
-        _explicitEnd = Math.min(s + 86400000, Date.now());
+        _explicitEnd = dayEnd;
+        _tlOweDay = ""; _tlDayStart = -1; _tlDayEnd = -1;
+        if (_fastOpen && targetMs !== undefined && isFinite(targetMs) && targetMs > 0
+                && targetMs >= s && targetMs <= dayEnd) {
+            // Window head IS the landing point — same contract as seekFar(), so no
+            // inner seek is needed and the deferred-seek stage is skipped entirely.
+            _explicitStart = Math.max(s, targetMs - 2000);
+            _explicitEnd = Math.min(_explicitStart + 1800000, dayEnd);
+            _tlOweDay = dateStr; _tlDayStart = s; _tlDayEnd = dayEnd;
+            if (_pbTime) console.log("[PBTIME] fast_open win="
+                                     + Math.round((_explicitEnd - _explicitStart) / 60000)
+                                     + "min tgt=" + Qt.formatDateTime(new Date(targetMs), "HH:mm:ss"));
+        }
         selectedDay = dateStr;
         zoomMin = 1440;
         errorText = ""; selStartMs = -1; selEndMs = -1; _pendingSeekMs = -1; _seekReopen = false;
@@ -697,9 +749,15 @@ Item {
     function openAt(cam, atMs) {
         if (!cam || !atMs || atMs <= 0) { openFor(cam, 60); return; }
         camera = cam;
-        openForDay(Qt.formatDate(new Date(atMs), "yyyy-MM-dd"));
-        _pendingSeekMs = atMs - 15000;     // set AFTER openForDay (which clears it); applied on session load
-        _pendingArmed = false;             // disarm until this day's session reports ready
+        var lead = atMs - 15000;           // the operator's context breath before the moment
+        // Hand the target IN so FAST OPEN can request the bounded window instead of
+        // the day. Under fast open the window head IS the landing point, so no
+        // pending inner seek is set (same contract as seekFar).
+        openForDay(Qt.formatDate(new Date(atMs), "yyyy-MM-dd"), lead);
+        if (!_fastOpen || _tlOweDay === "") {
+            _pendingSeekMs = lead;         // set AFTER openForDay (which clears it); applied on session load
+            _pendingArmed = false;         // disarm until this day's session reports ready
+        }
     }
     // Synchronous player teardown before a session switch. On Qt 6.4's GStreamer
     // media backend, unloading a PLAYING HLS pipeline blocks the GUI thread while the
@@ -880,6 +938,27 @@ Item {
         enabled: root.client !== null
         function onSessionReady(sid, dur, fragments, meta, tag) {
             if (tag === undefined || String(tag).indexOf(root._pcUid + ":") !== 0) return;
+            // TIMELINE-ONLY session (fast open): widen the scrubber to the whole day.
+            // It must NEVER touch the player — no sessionId, no source, no seek, no
+            // loading flag. Two sessions are only safe here because everything below
+            // branches on _seekReopen, which this path deliberately does not reach.
+            if (String(tag).indexOf(root._pcUid + ":TL:") === 0) {
+                if (fragments.length === 0) return;      // keep the bounded timeline we already show
+                var tlo = [];
+                for (var k = 0; k < fragments.length; k++) {
+                    var g = fragments[k];
+                    tlo.push({ cs: g[0], ce: g[1], ws: g[2], we: g[3],
+                               codec: g[6], tier: g[7], resolution: g[8],
+                               stream_type: g[9], disc: !!g[4], boundary: g[5] || "" });
+                }
+                root.tlStartMs = Date.parse(meta.wall_start);
+                root.tlEndMs = Date.parse(meta.wall_end);
+                root.tlFrags = tlo;
+                root.loadMotionEvents();
+                root.loadTimeline();
+                if (root._pbTime) console.log("[PBTIME] timeline_ready frags=" + tlo.length);
+                return;
+            }
             var _tReady = Date.now();
             if (root._pbTime) console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
                                           + "ms frags=" + fragments.length + " tag=" + root._obTag);

@@ -841,6 +841,12 @@ int main(int argc, char *argv[])
     // EndOfMedia rolls forward) instead of the full playlist. 0/unset → default 1200.
     // Test: 1 forces bounded for every open; a huge value disables it.
     engine.rootContext()->setContextProperty("wtPbWindowFrags", qEnvironmentVariableIntValue("WT_PB_WINDOW_FRAGS"));
+    // WT_PB_NO_FAST_OPEN=1: restore the pre-2026-08-30 open order, where a guard
+    // opening a moment waited for the WHOLE DAY's manifest (~2,880 frags, ~2.25 MB,
+    // 10-27 s measured) before the bounded window that actually plays was requested.
+    // Fast open flips that: bounded window first, day manifest after the first frame,
+    // purely to widen the scrubber. Kept as the A/B control and the field escape hatch.
+    engine.rootContext()->setContextProperty("wtPbNoFastOpen", qEnvironmentVariableIsSet("WT_PB_NO_FAST_OPEN"));
     // WT_SEEK_SPAM=1: chaotic scrubber click-spam driver — bursts of rapid random
     // seekToWall calls with NO waiting (the operator gesture reported 2026-07-03:
     // "click fast and chaotically → lots of freezes"). Deterministic targets, logs
