@@ -97,14 +97,42 @@ to us because we ignore that case, but it will mislead whoever reads these next.
 
 ## §7 The number we need, and what we have already done for it
 
-The operator's bar is **first frame in under one second.** For that, session creation
-has to land at **≤ 300 ms**. You have already served it in 11 ms, and at 379 ms for the
-same shape that cost 9,608 ms minutes earlier — so the fast path exists; it is the cold
-case that has to stop happening.
+The operator's bar is **first frame in under one second.** We hit it — once, and it is
+worth being precise about what it took, because it is entirely a statement about you:
 
-We are not asking you to absorb the whole budget. The other half of the open is our
-player's own fetch to first buffered frame, ~6 s, and that half is ours — undecomposed
-so far, and the next thing I measure.
+    [PBTIME] fast_open win=30min tgt=00:00:13
+    session_http ms=110  bytes=49051  st=[serve;dur=58.3, queue;dur=2.1, index;dur=42.5, frags;desc="62", ...]
+    session_ready dt=112ms      source_set dt=171ms
+    mediaStatus=2 (buffered) dt=525ms
+    first_frame dt=614ms
+
+**614 ms, on the real day-click path, camera .126, 2026-08-30.** `index;dur` was
+**42.5 ms** on that request. Nothing in our client differed from the 5,494 ms open
+fifteen minutes earlier or the 20,651 ms one before that.
+
+I also owe you a correction I nearly sent instead. I had written that the second half
+of the open — `source_set → buffered`, ~5 s — was "ours, and ours to fix". It is not:
+the player fetches segments **through our proxy from you**, so that half carries your
+cold/warm state too. Measured across the same two opens it was **354 ms warm against
+4,982 ms cold — 14×**, moving in lockstep with `index` (42.5 ms vs 241 ms). We have no
+evidence that our player or proxy is a bottleneck on this path.
+
+So: **when you are warm, the whole thing already works.** 614 ms, no client change
+pending, nothing else asked of you. What has to stop happening is the cold case — the
+same `index` on the same camera ranged **42.5 ms to 13,976 ms across one hour tonight**,
+a 329× spread. That variance, not any single number, is the goal.
+
+The full A/B, 8 interleaved launches, 24 opens, same build both arms — so you can see
+what our side did buy and what it did not:
+
+| heavy days, day-click open | n | median | min | max |
+|---|---:|---:|---:|---:|
+| with FAST OPEN | 7 | **6,128 ms** | **614** | 8,614 |
+| without (today's shipped order) | 8 | 12,454 ms | 7,126 | 23,817 |
+
+**We halved the median and we are still ten times off the bar.** Removing the second
+session creation was worth 2×; the remaining 6.1 s is one session plus its segments,
+and both are `serve`.
 
 What we removed from our side, so you do not optimise where we already did:
 
@@ -131,7 +159,25 @@ the warm tier holds 35 days. That belief and the config have still not met. It a
 a practical consequence we hit tonight: most days a guard can open are *light*, which is
 why our day-click optimisation is gated to heavy days.
 
-## §9 What this does not establish
+## §9 Separately: you refused connections for ~12 s at 00:41
+
+Not a latency observation — a different thing, and you should have it:
+
+    [PBTIME] session_http ms=4092 code=0 bytes=0 attempt=0 st=[]
+    [PBTIME] session_http ms=4156 code=0 bytes=0 attempt=1 st=[]
+    [PBTIME] session_http ms=4093 code=0 bytes=0 attempt=2 st=[]
+    err=Couldn't reach the recording backend (Отказано в соединении)
+
+`code=0`, no body, no `Server-Timing` — connection **refused**, three times, about 4 s
+apart, immediately after a normal open on the previous day. It recovered on its own.
+
+From here I cannot tell a restart from a crash from a deploy, so I am reporting it
+rather than naming it. Two reasons it matters: the guards' console depends on that
+service, and if it was a restart it would also explain part of the night's cold/warm
+swing — a fresh process starts with an empty buffer cache, which is exactly the
+condition your §3 describes.
+
+## §10 What this does not establish
 
 One camera, one night, roughly twenty requests. The distribution across the fleet and
 across the working day is unmeasured, and `index` varied 3× between two identical
