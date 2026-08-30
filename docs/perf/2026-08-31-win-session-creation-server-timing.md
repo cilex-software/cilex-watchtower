@@ -94,7 +94,7 @@ still not met**, and this measurement is one more instance of the gap.
 The practical consequence for this work: most days a guard can open are LIGHT, which
 is why the day-click fast open is gated to heavy days.
 
-## 6. Once the day manifest is off the critical path, the bottleneck is OURS
+## 6. Once the day manifest is off the critical path (SUPERSEDED IN PART BY SECTION 9)
 
 The cleanest open captured, camera .126, day 2026-08-29, fast open engaged
 (`fast_open win=30min tgt=00:00:19`), CV warm:
@@ -129,10 +129,15 @@ Same code, same camera, same gesture. `source_set → buffered` was **354 ms her
 4,982 ms there — 14×** — and it moved in lockstep with `index` (42.5 ms vs 241 ms) and
 with everything else CV served that minute.
 
-So the honest reading is: **both halves of the open track CV's state.** There is no
-evidence here that our player or proxy is a bottleneck. A `WT_HLS_LOG=1` run reading
-per-segment `ms=`/`bytes=` would confirm the mechanism, and is still worth doing — but
-it is no longer the leading hypothesis.
+I then read that as "both halves of the open track CV's state". **Section 9 disproves
+it.** The `WT_HLS_LOG` run I called for shows CV serving each segment in ~58 ms while we
+spend ~5,100 ms transferring 6.7 MB — CV is 1.1 % of that half. The correlation with
+`index` was real but coincidental: both got slower when the box was busy.
+
+What survives from this section: session creation genuinely was 112 ms here, the
+deferred day manifest genuinely is off the critical path, and 614 ms genuinely happened.
+What does not survive: the attribution of the `source_set -> buffered` stage. Read
+section 9 for it.
 
 ## 7. The A/B: does day-click FAST OPEN actually pay?
 
@@ -209,7 +214,51 @@ so this run put more load on CV than a guard would. That could depress the absol
 numbers. It does not affect the finding — if warming worked, the trend would fall
 despite the load, and it does not.
 
-## 9. Reading `ttff=-1` in this data
+## 9. THE SECOND HALF IS SEGMENT SIZE, NOT CV's SERVE — and this is the road to sub-second
+
+Section 6 concluded that `source_set -> buffered` "carries CV's cold/warm state" because
+it correlated with `index`. **That was inference from correlation and it is wrong.** The
+`WT_HLS_LOG` data settles it. 20 segment fetches from the ten-open run:
+
+| | value |
+|---|---|
+| mean segment size | **6.74 MB** (min 6.10, max 7.39) |
+| our mean round trip | **5,117 ms** (min 3,765, max 7,165) |
+| CV's mean `serve;dur` | **58 ms** (min 9.1, max 306.5) |
+| **CV's share of our time** | **1.1 %** |
+| single-stream throughput | **10.5 Mbit/s** |
+
+Two representative lines, both `cache;desc="hit"` so no remux was involved:
+
+    0.ts  ms=3765  hdr=471   bytes=7,386,896  st=[serve;dur=61.4, cache;desc="hit"]
+    1.ts  ms=5008  hdr=3124  bytes=6,100,036  st=[serve;dur=63.6, cache;desc="hit"]
+
+CV served each in ~60 ms. Everything else was us pulling 6-7 MB down a link giving
+~10.5 Mbit/s single-stream.
+
+**Why this is the answer to "why does YouTube start instantly".** The bounded 30 min
+window holds ~62 fragments, i.e. roughly **30 seconds of video per segment, ~6.7 MB**.
+The player must have a whole segment (in practice two, before it reports BufferedMedia)
+before it can show frame one. YouTube starts fast because its initial segments are
+seconds, not half a minute — it needs a few hundred KB, not thirteen megabytes.
+
+**The arithmetic for the operator's bar.** At the measured 10.5 Mbit/s:
+
+    6.74 MB segment  ->  ~5.1 s   (today)
+    0.45 MB segment  ->  ~0.34 s  (2 s of video at the same bitrate)
+
+With session creation warm (measured as low as 110 ms) a 2-second first segment puts
+first frame around **0.5 s**. That is the whole gap, and it is one server-side setting
+rather than a performance mystery.
+
+Caveat on the throughput figure: it is per-request (bytes / that request's ms), so it is
+the single-stream rate, not the link's aggregate capacity. The booth NIC is also
+negotiated at 100 Mbps on gigabit hardware, so ~10.5 Mbit/s is about a tenth of even
+that. Worth chasing separately, but note that **even at a full 100 Mbit/s a 6.74 MB
+segment still costs ~540 ms** and cannot by itself reach the bar. Segment duration is
+the lever; link speed only widens the margin.
+
+## 10. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -227,7 +276,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 9. CV refused connections for ~12 s mid-run
+## 11. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -250,7 +299,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 10. What this does not establish
+## 12. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
