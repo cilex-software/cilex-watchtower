@@ -959,6 +959,24 @@ Item {
         enabled: root.client !== null
         function onSessionReady(sid, dur, fragments, meta, tag) {
             if (tag === undefined || String(tag).indexOf(root._pcUid + ":") !== 0) return;
+            // OWNERSHIP IS uid AND GENERATION. The tag has carried _openGen since
+            // tagged opens were introduced (line ~842), but this handler only ever
+            // checked the uid — so a session requested by a PREVIOUS open was adopted
+            // by the current one. Observed 2026-08-31 twice in the offscreen harness:
+            // the boot span60 window (119 fragments = last hour at 30 s each) landed
+            // under a calendar day open and was adopted as that day's content —
+            // session_http ms=15804 against session_ready dt=5430ms, i.e. the request
+            // predated the open it was credited to by ~10.4 s. That is one day's
+            // footage under another day's label, the same correctness boundary as one
+            // camera's frame under another camera's name.
+            // _openGen bumps ONLY on a fresh openFor/openForDay/reset and always
+            // before dispatch; seekFar and the empty-manifest retries deliberately
+            // keep the generation, so their responses still match.
+            var _tg = String(tag);
+            if (parseInt(_tg.substring(_tg.lastIndexOf(":") + 1), 10) !== root._openGen) {
+                if (root._pbTime) console.log("[PBTIME] session_stale tag=" + _tg + " gen=" + root._openGen);
+                return;
+            }
             // TIMELINE-ONLY session (fast open): widen the scrubber to the whole day.
             // It must NEVER touch the player — no sessionId, no source, no seek, no
             // loading flag. Two sessions are only safe here because everything below
