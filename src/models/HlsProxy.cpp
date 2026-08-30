@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QHostAddress>
 #include <QNetworkAccessManager>
+#include <QScopeGuard>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
 #include <QNetworkReply>
@@ -429,6 +430,14 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     auto streaming = QSharedPointer<bool>::create(false);
     auto acc = QSharedPointer<QByteArray>::create();
     auto sent = QSharedPointer<qint64>::create(0);   // bytes handed to the player (truncation hook)
+    // How long we spend INSIDE our own readyRead handler (append to acc + socket write),
+    // summed over the fetch. Separates "the bytes were slow to arrive" from "we were
+    // slow to move them": a 6.7 MB segment is appended to a growing QByteArray and
+    // written to a loopback socket on this one thread, so our own cost is a real
+    // candidate for the measured ~11-15 Mbit/s ceiling. Without this, that ceiling is
+    // attributable to CV only by assumption -- and a letter has already been sent
+    // saying so.
+    auto work = QSharedPointer<qint64>::create(0);
 
     connect(reply, &QNetworkReply::metaDataChanged, reply,
             [this, reply, guardedSock, path, fetchTimer, hdrMs, streaming]() {
@@ -462,7 +471,9 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     });
 
     connect(reply, &QNetworkReply::readyRead, reply,
-            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent]() {
+            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent, work]() {
+        QElapsedTimer wt; wt.start();
+        const auto addWork = qScopeGuard([&wt, work]() { *work += wt.nsecsElapsed() / 1000; });
         if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
         if (!*streaming)
             return;                       // buffered path still reads it all in finished
@@ -498,7 +509,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     });
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
-             streaming, acc]() {
+             streaming, acc, work]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -524,9 +535,11 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             // size-blindness this field was added to prevent.
             const qint64 nbytes = *streaming ? (acc->size() + reply->bytesAvailable())
                                              : reply->bytesAvailable();
-            QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 bytes=%6 rid=%7 ")
+            // work= is OUR own microseconds inside readyRead (append + socket write),
+            // summed. ms - work is time we spent waiting rather than moving bytes.
+            QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 work=%6 bytes=%7 rid=%8 ")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
-                .arg(*hdrMs).arg(*fbMs).arg(nbytes)
+                .arg(*hdrMs).arg(*fbMs).arg(*work / 1000).arg(nbytes)
                 .arg(QString::fromLatin1(rid));
             line += path.section(QLatin1Char('/'), -3);
             line += QStringLiteral(" st=[") + QString::fromUtf8(st) + QLatin1Char(']');

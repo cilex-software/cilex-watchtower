@@ -104,23 +104,38 @@ computed as `ms - hdr`, i.e. body transfer only:
     1.ts   1,884 ms for 6,100,036 B  ->  25.9 Mbit/s
     seg0   4,027 ms for ~7.39 MB     ->  14.7 Mbit/s
 
-**Now the part that makes this yours rather than the link's.** On the same box, same
-link, same minutes, your *session* responses moved far faster — `ms - serve`:
+**The suggestive part.** On the same box, same link, same minutes, your *session*
+responses moved far faster — `ms - serve`:
 
     571 ms for 2,252,683 B  ->  31.5 Mbit/s
     400 ms for 2,059,523 B  ->  41.2 Mbit/s
 
 **Session bodies 31-41 Mbit/s, segment bodies 15-26 Mbit/s, same client, same wire.**
-So it is not our link and not a client-wide cap; it is the rate segment bodies are
-produced. `serve;dur` cannot show it — that timer stops when the response *begins*.
 
-Candidates I cannot test from here: the send path for segment bodies (chunk size, or a
-SeaweedFS read behind it), or something in between treating the two differently.
+**BUT DO NOT TREAT THIS AS PROVEN, AND I HAVE STOPPED SHORT OF CLAIMING IT.** The two
+paths differ on OUR side too, not just yours: session bodies are read straight by
+`PlaybackClient`, while segment bodies pass through our loopback proxy, which appends
+each chunk to a growing 6.7 MB buffer and writes it to a socket on a single thread. That
+is a credible client-side ceiling and it would look identical from here. The
+concurrency result (3 connections → 11.5 Mbit/s aggregate vs 9.7 single) is consistent
+with **either** an upstream cap or our own single-threaded proxy.
 
-**Why this is the highest-leverage number left.** A 6.7 MB segment at 94 Mbit/s costs
+I built the instrumentation to separate them — a `work=` term on every `WTHLS` line
+measuring the microseconds we spend *inside* our own read handler, so `ms - work` is
+time waiting rather than time moving bytes. **I could not run it:** Smart App Control on
+this station refused four consecutive relinks of the instrumented binary tonight. The
+code is committed and the measurement is the first thing the next session should take.
+
+So: the asymmetry is real and worth your attention, but **the attribution is open.**
+If it turns out to be our proxy, that is ours to fix and I will say so. Candidates on
+your side if it is not: the send path for segment bodies (chunk size, or a SeaweedFS
+read behind it).
+
+**Why this number matters most, whoever owns it.** A 6.7 MB segment at 94 Mbit/s costs
 ~570 ms, and the operator's one-second bar becomes arithmetically reachable **with no
-segment-duration change at all**. At 15 Mbit/s it costs ~4.0 s and nothing on our side
-can rescue it. If you fix one thing from this letter, fix this.
+segment-duration change at all**. At 15 Mbit/s it costs ~4.0 s and the bar is
+unreachable. Worth your attention — but please read the paragraph above before spending
+a day on it, because it may yet be ours.
 
 And before you suggest it: **we cannot route around it with concurrency.** Three
 simultaneous fetches moved 20 MB in 14,758 ms — **11.5 Mbit/s aggregate against

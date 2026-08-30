@@ -452,9 +452,24 @@ bodies move at 15-26.** So this is not the link and not a client-wide cap — it
 rate at which segment bodies are produced upstream. CV's `serve;dur` cannot see it,
 because that timer stops when the response begins, not when it ends.
 
-Two candidates, neither testable from here: CV's send path for segment bodies (chunk
-size, or a SeaweedFS read behind it), or something between that treats the two
-differently. Worth their measurement, not our guess.
+**ATTRIBUTION IS OPEN — do not read this as "CV's fault", which an earlier draft did.**
+The two paths differ on OUR side as well: session bodies are read straight by
+`PlaybackClient`, while segment bodies pass through the loopback proxy, which appends
+every chunk to a growing 6.7 MB `QByteArray` and writes it to a socket on one thread.
+That is a credible client-side ceiling and it would look identical from here. Section
+14's concurrency result is consistent with **either** an upstream cap or our own
+single-threaded proxy.
+
+`WTHLS` now carries a **`work=`** term — microseconds spent inside our own `readyRead`
+handler, summed — so `ms - work` separates "waiting for bytes" from "moving bytes". If
+`work` is ~100 ms of a 4,000 ms fetch, the ceiling is upstream; if it is ~2,000 ms, it
+is ours and fixable here.
+
+**The measurement did not run.** Smart App Control refused four consecutive relinks of
+the instrumented binary (2026-08-31 ~02:10) after roughly ten distinct hashes were built
+in one night — the documented shifting-verdict behaviour, hardened. The code is
+committed and off the critical path; **running it is the first thing the next session
+should do**, before anyone acts on section 13.
 
 **Why it matters for the bar:** at 94 Mbit/s a 6.7 MB segment costs ~570 ms and the
 one-second bar is arithmetically reachable with no segment change at all. At 15 Mbit/s
