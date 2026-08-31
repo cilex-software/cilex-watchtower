@@ -72,6 +72,38 @@ concurrency hypothesis was right in substance and I could not see its mechanism.
   (`warmapp`) opens several days inside ONE running app to separate the two, and is the
   measurement that decides whether this is CV's pool sizing or our burst.
 
+## 4a. THE ATTRIBUTION, ANSWERED: it is OUR burst, not CV's pool
+
+The companion run: 3 launches, 6 day-opens inside each ONE running app, so only the
+first open of a launch pays the startup burst. Session creation, all 16:
+
+    110  180  211  219  464  480  503  528  559  590  661  749  815  965  1197  1396 ms
+    MEDIAN ~515 ms       min 110       max 1,396       none above 1.4 s
+
+    index: 7.1  20.9  98.2  160.7  264.8  356.4  356.5  361.0  368.6  449.2
+           462.0  472.5  560.2  877.1  999.0  1109.5      MEDIAN ~365 ms
+
+Against **10,489 ms** median when every open got its own fresh app (§1).
+
+**`acquire` collapses once our startup burst subsides. The contention is ours.** CV's
+pool is not undersized for one settled client; it is overwhelmed by the 9-11 requests we
+fire while the app is starting — coverage, events, thumbnails, health and the station
+registry all at once.
+
+**This also invalidates §1 as a measure of what a guard experiences**, and I would rather
+say that than let the 10,489 ms number travel. A guard's app is already running when they
+click; the fresh-app case only occurs right after a restart. **The honest current number
+for session creation is ~515 ms median, and CV's `shared_buffers` change is working.**
+
+TTFF over the same 18 opens:
+
+    999  2,327  2,402  5,001  5,476  5,519  6,318  6,383  6,731  6,918
+    7,241  7,288  7,818  7,962  8,981  14,716  16,337  27,157 ms
+    MEDIAN ~6,550 ms      BEST 999 ms
+
+Median TTFF ~6,550 minus median session ~515 leaves **~6 s in segment 0** — which is the
+head_split build (§5), now the single dominant remaining cost.
+
 ## 5. head_split under the same conditions
 
 `frag0s=1.200` engaged on 9 of 12 opens. Segment 0, with the build split out by `hdr=`:
