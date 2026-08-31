@@ -264,6 +264,71 @@ def os_facts():
     return facts
 
 
+# ------------------------------------------------------------------- uplink
+
+# WHICH PATH THIS STATION TOOK TO THE BACKEND. cilex-pro-mobile asked for this
+# (letter 2026-09-01 §1) and the server genuinely cannot supply it: every station
+# arrives peered as 10.0.0.1 behind their docker bridge, so only we know.
+#
+# `via` is the field that matters, not the address. This fleet reaches CV over
+# either the LAN or the tailnet and they perform very differently — the booth
+# measured 53.7-56.0 Mbit/s over the LAN — yet nothing on any screen says which
+# one a booth took. A slow station and a station on the wrong path look identical
+# without it.
+#
+# Computed ONCE at first heartbeat and cached: mobile said "once at connect and
+# again on change is plenty", and a per-beat DNS lookup on a supervisor is waste.
+# Everything here is stdlib — warden.py must keep running on the stock
+# interpreter, which is the whole reason the script route works under SAC.
+UPLINK = {"cached": None}
+
+
+def uplink_facts():
+    """{local_addr, iface, vision_url, resolved_ip, via} — best effort, and
+    HONESTLY NULL where it cannot be determined rather than guessed."""
+    if UPLINK["cached"]:
+        return UPLINK["cached"]
+    url = CFG.get("BACKEND_URL", "")
+    host, resolved, local, via = "", None, None, "unknown"
+    try:
+        rest = url.split("://", 1)[1] if "://" in url else url
+        host = rest.split("/", 1)[0].split(":", 1)[0]
+    except (IndexError, AttributeError):
+        host = ""
+    if host:
+        try:
+            resolved = socket.gethostbyname(host)
+        except OSError:
+            resolved = None
+    # Source address the OS would pick for this destination. A UDP connect()
+    # assigns a local endpoint without putting a packet on the wire, so this is
+    # free and does not disturb the link we are trying to describe.
+    if resolved:
+        s = None
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0.5)
+            s.connect((resolved, 9))
+            local = s.getsockname()[0]
+        except OSError:
+            local = None
+        finally:
+            if s:
+                s.close()
+    # 100.64/10 is the CGNAT range Tailscale allocates from; anything else that
+    # resolves is treated as the local network. "unknown" when we could not tell,
+    # never a guess — a wrong path label is worse than an absent one.
+    if resolved:
+        try:
+            first, second = (int(x) for x in resolved.split(".")[:2])
+            via = "tailscale" if first == 100 and 64 <= second <= 127 else "lan"
+        except (ValueError, IndexError):
+            via = "unknown"
+    UPLINK["cached"] = {"local_addr": local, "iface": None,
+                        "vision_url": url, "resolved_ip": resolved, "via": via}
+    return UPLINK["cached"]
+
+
 # ---------------------------------------------------------------- collection
 
 SCRUB = re.compile(rb"access_token=[^\s;\"']+")
@@ -574,6 +639,7 @@ class Heartbeat(threading.Thread):
             # over the same window, just filtered out of the longer-lived list.
             "restarts_1h": sum(1 for t in HB["deaths"] if now - t < 3600),
             "restarts_24h": len(HB["deaths"]),
+            "uplink": uplink_facts(),
             "backoff_s": HB["backoff_s"],
             "loop_open": HB["loop_open"],
             "flightrec_age_s": None,
