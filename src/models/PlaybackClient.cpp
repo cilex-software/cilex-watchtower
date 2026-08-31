@@ -546,6 +546,19 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
                 Qt::SingleShotConnection);
         return;
     }
+    // SINGLE-FLIGHT. Three QML callers fire within microseconds of camerasResolved —
+    // onCamIdChanged (PlaybackScreen.qml:67), openFor (:721) and onCamerasResolved
+    // (:1223) — so every screen entry issued TWO identical requests ~2 ms apart
+    // (measured 2026-09-01: two coverage_http responses per launch, every launch).
+    // The duplicate is not just waste: Qt caps us at 6 connections per host and we
+    // already run inflight_shared=6 at that moment, so the second copy competes with
+    // the first for the slot that the first open is waiting on. The once-a-minute
+    // refresh timer (:695) can overlap a slow one for the same reason.
+    if (m_coverageInflight.contains(cameraId)) {
+        if (pbTime)
+            qInfo("[PBTIME] coverage_dedup cam=%s (already in flight)", qUtf8Printable(cameraId));
+        return;
+    }
     QUrl url(m_baseUrl + "/review/coverage");
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("camera_id"), cameraId);
@@ -553,11 +566,19 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     url.setQuery(q);
     if (pbTime)
         qInfo("[PBTIME] coverage_dispatch cam=%s", qUtf8Printable(cameraId));
+    QNetworkRequest req{url};
+    // This 1,051-byte response gates FAST OPEN on the first day-open; everything
+    // else in the startup burst (snapshots, events) gates only pixels that can
+    // arrive late. Measured 9,847 ms under the burst against 1,030 ms idle, and in
+    // one launch it lost the race to the guard's click by 228 ms.
+    req.setPriority(QNetworkRequest::HighPriority);
     QElapsedTimer covTimer;
     covTimer.start();
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
+    m_coverageInflight.insert(cameraId);
+    QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, covTimer]() {
         reply->deleteLater();
+        m_coverageInflight.remove(cameraId);
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (pbTime) {
             const QByteArray st = reply->rawHeader("Server-Timing");

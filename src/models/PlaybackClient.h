@@ -4,6 +4,7 @@
 
 #include <QObject>
 #include <QHash>
+#include <QSet>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -188,6 +189,10 @@ private:
     HlsProxy *m_proxy = nullptr;
     QThread *m_proxyThread = nullptr;        // the proxy runs here, off the GUI thread
     QString m_baseUrl;
+    // Coverage requests in flight, by camera id. Three QML callers fire within
+    // microseconds of camerasResolved, so this endpoint was requested twice on every
+    // screen entry — see the single-flight note in fetchCoverage().
+    QSet<QString> m_coverageInflight;
     bool m_loggedIn = false;      // ready: signed in AND /streams resolved
     QString m_sessionTag;
     // Playback-subsystem health. Set when a session open is refused for an

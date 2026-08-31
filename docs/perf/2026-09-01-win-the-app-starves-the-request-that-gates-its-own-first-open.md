@@ -67,6 +67,44 @@ Client-side, in priority order:
 3. Only then reconsider waiting, and only with a bound derived from the measured
    latency rather than a guessed 2,500 ms.
 
+## Result of the first fix (single-flight + HighPriority), build 1.1.302
+
+Two changes: drop a coverage request when one for the same camera is already in
+flight, and mark it `HighPriority` so it leads our own queue.
+
+**The duplicate is gone** — `coverage_dedup` in 4/4 launches, one `coverage_http`
+per screen entry where there were always two.
+
+**FAST OPEN on the first open: 2 of 4, against 0 of 4 before.**
+
+    launch   coverage arrives   first open
+    L1       +28,296 ms         SKIP  -> failed      (dispatch itself was +14,588)
+    L2       +12,683 ms         SKIP  -> 10,069 ms   (lost the click by 238 ms)
+    L3        +7,430 ms         FAST  ->  4,579 ms
+    L4        +2,436 ms         FAST  ->  6,273 ms
+
+    first-open TTFF, valid samples   17,076 ms -> 6,273 ms median   (2.7x)
+    coverage latency                 13,765 ms -> 8,091 ms median
+
+**This is progress, not a fix.** n=4 per arm with a very wide spread, and the
+first open still misses FAST OPEN half the time.
+
+### The second delay, now separated
+
+`fetchCoverage` cannot dispatch until `camerasResolved`. That wait alone measured
+**952 / 1,539 / 2,977 / 14,588 ms**. In L1 coverage was *dispatched* two seconds
+AFTER the guard's click — no request priority can rescue that, because the request
+had not been made yet.
+
+So the remaining work is in two parts, and they are different problems:
+
+1. **Dispatch latency** — why does `camerasResolved` take up to 14.6 s? That is the
+   `/streams` resolve, also inside the startup burst. Coverage inherits its worst
+   case.
+2. **Request latency** — still 896–13,708 ms for 1,051 bytes. Whether that is our
+   remaining queueing or CV's serve time cannot be split until `/review/coverage`
+   carries `Server-Timing` (asked 2026-09-01).
+
 ## Method note
 
 Every number here comes from `[PBTIME]` marks with offsets from the process start
