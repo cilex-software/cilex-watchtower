@@ -742,6 +742,26 @@ Item {
             if (_pbTime) console.log("[PBTIME] fast_open win="
                                      + Math.round((_explicitEnd - _explicitStart) / 60000)
                                      + "min tgt=" + Qt.formatDateTime(new Date(targetMs), "HH:mm:ss"));
+        } else if (_pbTime) {
+            // WHY the skip, because the cost of skipping is the whole day manifest.
+            // Measured 2026-09-01 (discab2, 4/4 launches): every launch took fast_open
+            // on 5 of 6 day-opens and skipped it on the FIRST — and that first open
+            // ran 16,667 / 17,741 / 23,202 ms against 0.6-7 s for the rest. The skip
+            // is the ~20x, so the reason for it must be observable and not inferred.
+            //
+            // The comment above claims coverage "is on hand BEFORE the day can be
+            // clicked". If that is true, a real guard never sees this and the harness
+            // is simply clicking faster than a human can. If it is false, the first
+            // open of every session pays a whole-day manifest to learn an instant
+            // coverage already knew. This line is what tells the two apart.
+            var _why = !_fastOpen ? "disabled"
+                     : !(dayInfo && dayInfo[dateStr]) ? "no-dayinfo"
+                     : !(dayInfo[dateStr].firstMs > 0) ? "no-firstMs"
+                     : (targetMs === undefined || !isFinite(targetMs) || targetMs <= 0) ? "light-day"
+                     : "target-out-of-range";
+            console.log("[PBTIME] fast_open_skip why=" + _why
+                        + " dayKeys=" + (dayInfo ? Object.keys(dayInfo).length : -1)
+                        + " day=" + dateStr);
         }
         selectedDay = dateStr;
         zoomMin = 1440;
