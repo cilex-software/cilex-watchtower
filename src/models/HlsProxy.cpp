@@ -85,6 +85,20 @@ const int s_slowMs = qEnvironmentVariableIntValue("WT_HLS_SLOW_MS");
 //
 // NEVER SET ON THE BOOTH: the discarded tail is real footage the guard would lose.
 const int s_firstSegBytes = qEnvironmentVariableIntValue("WT_HLS_FIRST_SEG_BYTES");
+// WT_HLS_BUFFERED=1 — append "?buffered=1" to upstream SEGMENT fetches.
+//
+// CV built that parameter on 2026-08-31 specifically so this station can settle one
+// question: our segment bodies arrive at 12-15 Mbit/s while their session bodies arrive
+// at 31-41 on the same wire in the same minutes. The ONLY structural difference between
+// the two responses is that segments are chunked Transfer-Encoding and sessions are a
+// Content-Length Response. `?buffered=1` returns identical bytes with a Content-Length,
+// so a paired fetch isolates the framing and nothing else — same route, same auth, same
+// upstream, same object.
+//
+// It has to be measured over a real link: on CV's loopback the two are
+// indistinguishable warm (0.031 vs 0.041 s), which is why they asked us rather than
+// answering it themselves.
+const bool s_buffered = qEnvironmentVariableIsSet("WT_HLS_BUFFERED");
 // WT_HLS_SLOW_EVERY=<n> — TEST ONLY: with WT_HLS_SLOW_MS, hold only every Nth
 // segment (default 1 = every). N>1 emulates a backend that mostly serves but
 // intermittently stalls (the real degraded condition): playback still advances,
@@ -385,7 +399,14 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         }
         m_joiners.insert(path, {});          // we are the leader for this path
     }
-    QNetworkRequest req{QUrl(m_upstream + path)};
+    // CV's buffered-vs-chunked probe (see s_buffered). Segments only: playlists are
+    // small and rewritten, so framing cannot matter there and adding the parameter
+    // would only muddy the pairing.
+    QString upath = path;
+    if (s_buffered && isSegmentPath(path))
+        upath += (path.contains(QLatin1Char('?')) ? QLatin1String("&buffered=1")
+                                                  : QLatin1String("?buffered=1"));
+    QNetworkRequest req{QUrl(m_upstream + upath)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);

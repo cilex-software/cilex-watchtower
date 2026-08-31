@@ -557,7 +557,34 @@ Corollary worth stating for whoever revisits this: the 614 ms open in section 6 
 luck in the ordinary sense — it is one of those 7. Its session took 110 ms. The client
 is already capable of the bar whenever the backend clears the way.
 
-## 16. Reading `ttff=-1` in this data
+## 16. CV's buffered-vs-chunked pair, run on the real link: FRAMING IS NOT THE CAUSE
+
+CV built `?buffered=1` on the segment route so this station could isolate one variable:
+their session bodies (Content-Length) arrive at 31-41 Mbit/s while their segment bodies
+(chunked Transfer-Encoding) arrive at 12-15. Identical bytes either way — the Linux dev
+box verified that first (`sha256 1bba63ae68c0b68d`, 3,465,216 B both ways), and correctly
+declined to run the timing because that box **is** the pilot backend, so every fetch
+there is loopback. Only the booth has a real wire.
+
+Run here, interleaved, `WT_HLS_BUFFERED` toggling the parameter on upstream segment
+fetches. Throughput as `ms - hdr` (body only):
+
+    ?buffered=1   14.2  12.4  14.8  13.8  11.6  13.2      mean ~13.3 Mbit/s
+    chunked       12.3  11.8  13.5  12.5  15.7  12.2  13.4  13.6   mean ~13.1 Mbit/s
+
+**Indistinguishable.** The difference is far inside the run-to-run spread, on a null this
+clean no further sampling flips it, and the two arms overlap completely.
+
+**So the framing hypothesis is dead.** Segment bodies are not slow because they are
+chunked. That closes CV's §4 candidate the same way their own event-loop candidate
+closed — by measurement, on the one machine that could take it.
+
+What survives: the asymmetry itself is still real and still unexplained. Session bodies
+genuinely do move faster than segment bodies from the same host over the same wire, and
+neither framing (this section), our proxy (§13), our read-ahead (§12), our link (§11) nor
+concurrency (§14) accounts for it.
+
+## 17. Reading `ttff=-1` in this data
 
 `ttff=-1` means **no frame arrived within the harness's fixed 30 s dwell**, not a
 product failure. The one control-arm instance (08-28, launch 02) shows why:
@@ -575,7 +602,7 @@ would understate the cost. It is a censored observation and is reported as such.
 It also brackets the night's spread: `index;dur` ranged from **241 ms to 13,976 ms** —
 58× — on the same endpoint and the same camera within about an hour.
 
-## 17. CV refused connections for ~12 s mid-run
+## 18. CV refused connections for ~12 s mid-run
 
 Launch 05, ~00:41, immediately after a normal open on the previous day:
 
@@ -598,7 +625,7 @@ cold/warm swing, since a fresh process starts with an empty PostgreSQL buffer ca
 The client behaved correctly throughout: three attempts, then an honest error naming
 the backend, no invented state.
 
-## 18. What this does not establish
+## 19. What this does not establish
 
 One camera, one night, ~20 requests. The distribution across the fleet and across the
 working day is unmeasured. `index` varied 3x within seconds, so its spread is real and
