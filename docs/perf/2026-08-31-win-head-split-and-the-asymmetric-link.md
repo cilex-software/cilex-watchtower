@@ -129,6 +129,31 @@ stream. What is established is that **the 30.6-vs-93 gap is real, directional, a
 outside both codebases.** Raised with the operator as an infrastructure item — a switch
 port, a cable, or a duplex mismatch upstream of this NIC.
 
+## 2a. Current-state run, 8 opens — and head_split is a WASH at this hour
+
+Eight instant opens with everything tonight in place (FAST OPEN, read-ahead hold, CV's
+Q1 bound, head_split default-on), 04:40-05:10:
+
+    session   12,664  15,194   5,235  11,728      -  11,333  11,126   9,899   median ~11,300 ms
+    TTFF      21,556  20,270  22,191  14,460  22,104  25,336  17,830  20,398   median ~20,900 ms
+
+**CV is far colder now than it was at 03:30**, when the same code produced sessions of
+900-1,700 ms and one open at 828 ms. This run measures their current state, not ours.
+
+head_split segment 0, engaged opens (`frag0s=1.200`):
+
+    491   1,409   4,802   6,431   6,472 ms      median 4,802 ms
+
+against a control of ~5,000 ms for a full ~7.4 MB segment. **At this hour head_split is a
+wash** — the build cost (§1c) has swallowed the transfer saving, and two samples (6,431,
+6,472) are worse than a plain full-segment fetch.
+
+Left ON because the cold case is roughly parity and the warm case is a large win
+(491 ms), and because the fix for the build is a packaging change on CV's side rather
+than anything we can tune. But **"~4 seconds off the open" was wrong twice** — first from
+a lucky warm pair, and it is not recoverable by re-measuring until the head piece is
+precomputed. Anyone quoting a head_split number should quote the range, not a point.
+
 ## 3. What is left
 
     session creation   2,387 - 12,664 ms   CV — the largest remaining item
