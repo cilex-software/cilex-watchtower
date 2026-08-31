@@ -286,26 +286,39 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     // WORSE — see docs/perf/2026-08-31-*.md §10). Done properly it costs no extra
     // request, loses no footage, and churns no connection.
     //
-    // DEFAULT OFF, AND IT MUST STAY OFF UNTIL CV FIXES THE 503. Measured on the booth
-    // 2026-08-31 against the live pilot: the flag DOES engage on a window whose head
-    // lands mid-segment (session_ready reports frag0s=1.200 instead of ~24 s), but the
-    // trimmed fragment is then never served —
+    // NOW ON BY DEFAULT — but it was OFF for several hours first, and the reason is
+    // worth keeping. When we first sent it (2026-08-31) the flag engaged and the trimmed
+    // fragment was then never served: `seg/0.ts` returned 503 with a 64-byte body, 11-13
+    // times per open, and NO first frame at all. Our 503 path is built for CV's
+    // documented "a cold fragment remuxes sub-second, then 200"; that never came.
+    // Default-on at that moment would have taken historic playback away from the guards
+    // on the only station in production.
     //
-    //     WTHLS a=0 code=503 ms=3397 bytes=64 .../seg/0.ts
-    //     WTHLS a=1 code=503 ms=5114 bytes=64
-    //     ... 8 attempts over ~25 s, all 503, no first frame at all
+    // CV root-caused it from our `frag0s=1.200` signal within the hour: one ffmpeg was
+    // running TWO libx264 encoders at source resolution, and review sources are
+    // 2560x1440 HEVC, so the process was SIGKILLed by the cgroup
+    // (memcg OOM, anon-rss 1,276,060 kB against a 1,536 MB cap → "head-pieces failed
+    // rc=-9"). It had only ever been exercised on the mobile ladder, where the source is
+    // a small rendition and two encoder contexts fit. They now run two sequential passes.
     //
-    // The manifest promises a 1.2 s fragment 0 that the segment route will not produce.
-    // Our 503 retry path is designed for "a cold fragment remuxes sub-second, then 200";
-    // here it never becomes 200, so the open dies. Enabling this by default would have
-    // taken playback away from the guards on the only station in production, to chase a
-    // speed-up.
+    // RE-MEASURED HERE AFTER THEIR FIX, which is the condition they asked for before we
+    // trusted it. Instant-open path, live pilot, arms alternating:
     //
-    // It is still the most promising lever we have — frag0 at ~330 KB instead of ~6.7 MB
-    // is the one thing that would put a first frame inside the operator's one-second bar
-    // (docs/perf/2026-08-31-*.md §15). So the wiring stays, opt-in, ready for the day CV
-    // makes the trimmed fragment servable. WT_PB_HEAD_SPLIT=1 to test it.
-    if (qEnvironmentVariableIsSet("WT_PB_HEAD_SPLIT"))
+    //     head_split   frag0s=1.200   seg0 200   1,419,776 B in 1,307 ms
+    //                  frag0s=1.200   seg0 200   1,168,420 B in   742 ms
+    //     control      frag0s=18.927  seg0 200   7,432,016 B in 5,159 ms
+    //                  frag0s= 7.927  seg0 200   7,425,248 B in 5,693 ms
+    //                  frag0s=25.924  seg0 200   7,160,920 B in 4,315 ms
+    //
+    // 2/2 engaged opens served cleanly, zero 503s. **Segment 0 falls from ~5,050 ms to
+    // ~1,000 ms** — about four seconds off the single dominant cost on the open path,
+    // and throughput is unchanged (~13 Mbit/s either way), so the win is purely fewer
+    // bytes, which is exactly what it claims to be.
+    //
+    // WT_PB_NO_HEAD_SPLIT=1 reverts. If historic playback ever dies with repeated 503s
+    // on seg/0.ts, that is this: set it in the booth's warden.conf APP_ENV and restart
+    // Warden. The live wall does not use review sessions and is unaffected either way.
+    if (!qEnvironmentVariableIsSet("WT_PB_NO_HEAD_SPLIT"))
         body["head_split"] = true;
     if (pbTime) {
         auto *sharedNam = AuthController::instance()->nam();
