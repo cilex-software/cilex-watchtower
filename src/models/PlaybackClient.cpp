@@ -523,10 +523,24 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
 {
     if (cameraId.isEmpty())
         return;
+    // COVERAGE IS ON THE CRITICAL PATH FOR THE FIRST OPEN, which is not obvious from
+    // here. Without dayInfo[date].firstMs the FAST OPEN gate cannot fire, so the first
+    // day click falls through to the whole-day manifest — 2.25 MB / 2,882 fragments —
+    // and measures 14,025-22,833 ms against 3,745-7,123 ms when coverage HAD landed
+    // first (covab, 2026-09-01). A 2,500 ms wait for it timed out 2 times out of 2.
+    //
+    // So the question is where those 12+ seconds go: waiting to DISPATCH (this call
+    // defers until camerasResolved, which queues behind the startup burst) or waiting
+    // on CV. Two separate marks, because they have two different owners.
+    static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
+                               || qEnvironmentVariableIsSet("WT_TTFF_DAYS");
     if (!m_loggedIn) {
         if (!AuthController::instance()->authenticated())
             return;
         ensureReady();
+        if (pbTime)
+            qInfo("[PBTIME] coverage_deferred cam=%s (awaiting camerasResolved)",
+                  qUtf8Printable(cameraId));
         connect(this, &PlaybackClient::camerasResolved, this,
                 [this, cameraId]() { fetchCoverage(cameraId); },
                 Qt::SingleShotConnection);
@@ -537,10 +551,19 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     q.addQueryItem(QStringLiteral("camera_id"), cameraId);
     q.addQueryItem(QStringLiteral("tz"), operatorTz());
     url.setQuery(q);
+    if (pbTime)
+        qInfo("[PBTIME] coverage_dispatch cam=%s", qUtf8Printable(cameraId));
+    QElapsedTimer covTimer;
+    covTimer.start();
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, covTimer]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (pbTime) {
+            const QByteArray st = reply->rawHeader("Server-Timing");
+            qInfo("[PBTIME] coverage_http ms=%lld code=%d bytes=%lld st=[%s]",
+                  covTimer.elapsed(), code, qint64(reply->bytesAvailable()), st.constData());
+        }
         if (code != 200) {
             // Endpoint not shipped yet (404) or error: honest pending state.
             emit coverageReady(cameraId, false, 0, {});
