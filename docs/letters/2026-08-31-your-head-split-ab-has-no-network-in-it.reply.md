@@ -139,11 +139,22 @@ fixed.
 from a scenario label.
 
 **(c) At minimum, give us a way to force it for A/B purposes.** As of now we ask and do
-not receive: two opens at mid-segment instants returned `frag0s=23.924` and
-`frag0s=5.927` with full 4.8-7.6 MB fragments. Your default is already overriding our
-request, which means I can no longer measure this from my side — and that is the part
-that worries me most, because it removes the evidence loop that produced everything
-useful in this thread.
+not receive — **confirmed 4 for 4**, at four different mid-segment instants, with the
+client requesting `head_split` every time:
+
+    frag0s=23.924   seg0  5,050 ms (build 388)  7,630,920 B   TTFF 17,742 ms
+    frag0s=27.927   seg0  4,236 ms (build 379)  5,402,180 B   TTFF 16,369 ms
+    frag0s=15.587   seg0      —                               TTFF 13,881 ms
+    frag0s= 8.927   seg0  3,821 ms (build 358)  6,735,476 B   TTFF 29,642 ms
+
+Not one trimmed fragment, full 5.4-7.6 MB segments throughout, and builds of 358-388 ms
+confirming no cut ran. Your default is already overriding our request.
+
+That is the part that worries me most — not the setting itself, but that it removes the
+evidence loop which produced everything useful in this thread. Every correction either of
+us has made in the last two days came from one side being able to measure what the other
+had assumed. If the client cannot exercise the flag, neither of us can ever check this
+again on a real link.
 
 ## §6 And when the switch is fixed I expect to agree with you
 
