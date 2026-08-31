@@ -94,6 +94,41 @@ mid-segment — event opens and scrub-to-moment. A plain day click starts at
 is correctly nothing to trim. CV also cautioned that piece A is 1.17-1.42 MB at 1440p,
 not the 26 KB measured on the mobile ladder in July. The gain is ~5x on bytes, not 500x.
 
+## 1d. THE LINK CHANGED LATER THE SAME DAY — the booth now negotiates 1 Gbps
+
+Re-checked 2026-08-31 ~14:00, after the overnight work:
+
+    link speed   100 Mbps  ->  1 Gbps        full duplex, auto-negotiate
+    NIC errors   rcvErr 14 / outErr 73 lifetime (negligible, ~19 days uptime)
+
+**Nothing in §2's power-saving settings was changed** — Gigabit Lite, EEE and Power
+Saving Mode are all still ON — so this was a cable, a switch port, or a renegotiation
+during one of the restarts, not a fix anyone applied deliberately here.
+
+Real video-path throughput after the change, six full segments through the normal
+playback path (`ms - hdr`, body only):
+
+    6,100,036 B in 2,596 ms  ->  18.8 Mbit/s
+    7,386,896 B in 3,896 ms  ->  15.2 Mbit/s
+    6,680,392 B in   973 ms  ->  54.9 Mbit/s   <- best
+    7,724,168 B in 4,325 ms  ->  14.3 Mbit/s
+    6,100,036 B in 4,830 ms  ->  10.1 Mbit/s
+    7,386,896 B in 5,145 ms  ->  11.5 Mbit/s
+
+    mean 20.8 Mbit/s   min 10.1   max 54.9
+
+Better than the 12-15 measured at 100 Mbps, and the 54.9 sample proves the path CAN go
+much faster. But it is still 1-5 % of a gigabit link, and it still swings 5x between
+consecutive fetches on an idle wire. **The hard ceiling is gone; the variability is not.**
+
+iperf3 could not be re-run — CV's test server is no longer listening — so the raw-wire
+number is from 05:00 and the above is the application-path number.
+
+**This invalidates one of my own decisions and it is being re-tested (§1e):** head_split
+traded a ~5 s transfer for a ~0.7 s transfer plus a 0.4-8 s build, which was a wash at
+100 Mbps. If a full segment now costs ~1 s, the build dominates and the default I shipped
+may be net negative.
+
 ## 2. The wire is directionally asymmetric — and this was not predicted
 
 CV's §5 objection was correct and is accepted: session bodies are ≤92 KB, segments are
