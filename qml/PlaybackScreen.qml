@@ -990,12 +990,31 @@ Item {
                                codec: g[6], tier: g[7], resolution: g[8],
                                stream_type: g[9], disc: !!g[4], boundary: g[5] || "" });
                 }
+                // THE VISIBLE SPAN MUST FOLLOW THE TIMELINE, or the widening is invisible.
+                // The ruler is drawn from viewStartMs/viewEndMs, not from tlStartMs/tlEndMs,
+                // and the fresh-open path calls resetView() right after assigning tl* for
+                // exactly this reason. This branch assigned tl* and did not — so the day
+                // data arrived, the ARCHIVE header showed "20h 51m · 2596 clips", and the
+                // ruler kept showing the bounded 30 minutes. Caught on screenshots by the
+                // Linux dev box (letter 2026-08-31), which is precisely the check this
+                // booth cannot run: no playhead jump, no footage flicker, and no widening.
+                //
+                // Only re-fit if the operator has not zoomed or panned in the ~1 s since
+                // the first frame — their view wins over ours. Comparing against the OLD
+                // tl* (still current at this point) is what distinguishes "untouched" from
+                // "deliberately zoomed".
+                var _wasFitted = (root.viewStartMs === root.tlStartMs
+                                  && root.viewEndMs === root.tlEndMs)
+                                 || root.viewEndMs <= root.viewStartMs;
                 root.tlStartMs = Date.parse(meta.wall_start);
                 root.tlEndMs = Date.parse(meta.wall_end);
                 root.tlFrags = tlo;
+                if (_wasFitted) root.resetView();
                 root.loadMotionEvents();
                 root.loadTimeline();
-                if (root._pbTime) console.log("[PBTIME] timeline_ready frags=" + tlo.length);
+                if (root._pbTime) console.log("[PBTIME] timeline_ready frags=" + tlo.length
+                                              + " refit=" + _wasFitted
+                                              + " span_h=" + ((root.viewEndMs - root.viewStartMs) / 3600000).toFixed(1));
                 return;
             }
             var _tReady = Date.now();
