@@ -411,7 +411,12 @@ def find_core(death_ts, pid):
 # read by the heartbeat thread; CONTACT is touched by both HTTP paths.
 HB = {"app_state": "stopped_expected", "app_state_reason": "warden_stopping",
       "app_pid": None, "app_spawned": None, "backoff_s": 1, "loop_open": False,
-      "deaths_1h": [], "warden_started": time.time()}
+      # Death timestamps, kept for 24 h so BOTH restarts_1h and restarts_24h can be
+      # derived from one list (cilex-pro-mobile letter 2026-09-01, asked four times).
+      # In memory only: a Warden restart resets it, so restarts_24h reads low until
+      # 24 h of uptime. Mobile renders around that using warden_started_at, which we
+      # already send — they explicitly did not ask for persistence.
+      "deaths": [], "warden_started": time.time()}
 CONTACT = {"last_ok": None, "unreachable_since": None}
 
 
@@ -551,7 +556,7 @@ class Heartbeat(threading.Thread):
 
     def payload(self):
         now = time.time()
-        HB["deaths_1h"] = [t for t in HB["deaths_1h"] if now - t < 3600]
+        HB["deaths"] = [t for t in HB["deaths"] if now - t < 86400]
         pend = list(PENDING.iterdir()) if PENDING.exists() else []
         oldest = min((p.stat().st_mtime for p in pend), default=None)
         facts = os_facts()
@@ -564,7 +569,11 @@ class Heartbeat(threading.Thread):
             "app_state_reason": HB["app_state_reason"],
             "app_pid": HB["app_pid"],
             "app_uptime_s": int(now - HB["app_spawned"]) if HB["app_spawned"] else None,
-            "restarts_1h": len(HB["deaths_1h"]),
+            # restarts_1h keeps its EXACT former meaning — CV gates its storm verdict
+            # on it at RESTART_STORM_1H = 12, so this is deliberately the same count
+            # over the same window, just filtered out of the longer-lived list.
+            "restarts_1h": sum(1 for t in HB["deaths"] if now - t < 3600),
+            "restarts_24h": len(HB["deaths"]),
             "backoff_s": HB["backoff_s"],
             "loop_open": HB["loop_open"],
             "flightrec_age_s": None,
@@ -1048,7 +1057,7 @@ class Supervisor:
             death_ts = time.time()
             trigger, head, marker = self.death_facts(proc, spawn_ts, why == "hung")
             alive_s = death_ts - spawn_ts
-            HB["deaths_1h"].append(death_ts)
+            HB["deaths"].append(death_ts)
             operator_quit = trigger == "exit-0" and self.consume_quit_marker(spawn_ts)
             if trigger == "exit-0":
                 # Heartbeat intent (§4): exit 0 reads as deliberate — with the
