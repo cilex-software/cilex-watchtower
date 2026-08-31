@@ -725,7 +725,6 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
         kept.append(line);
     }
 
-#ifdef Q_OS_MACOS
     // macOS diet (2026-08-17): trust the UPSTREAM discontinuity structure — dedupe and
     // drop leading tags, but never inject. The injector below marks EVERY segment
     // boundary as a discontinuity (the legacy-session crutch); FFmpeg tolerates that,
@@ -734,7 +733,22 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
     // operator's v1.1.101 symptom (first frame renders, then a still). Measured upstream
     // tonight: a continuous session's playlist carries NO mid-window discontinuities;
     // the injected ones were pure fabrication for this player.
-    {
+    //
+    // RUNTIME-SELECTABLE SINCE 2026-09-01, because "FFmpeg tolerates it" was never
+    // measured — only observed not to break. Counted on the booth from one playback
+    // session's demuxer log: 1,488 `Skip ('#EXT-X-DISCONTINUITY')` against 1,502
+    // `Skip ('#EXT-X-PROGRAM-DATE-TIME')`, a 0.99:1 ratio — i.e. essentially every
+    // segment handed to hlsdemux is flagged as a timeline break, on a session whose
+    // upstream carries none. Whether that costs startup time is the open question;
+    // WT_HLS_TRUST_DISC=1 is the A/B lever. DEFAULT IS UNCHANGED on Windows/Linux:
+    // macOS keeps trusting upstream, everyone else keeps injecting until measured.
+    static const bool trustUpstreamDisc =
+#ifdef Q_OS_MACOS
+        true;
+#else
+        qEnvironmentVariableIsSet("WT_HLS_TRUST_DISC");
+#endif
+    if (trustUpstreamDisc) {
         QList<QByteArray> mout;
         mout.reserve(kept.size());
         bool sawSeg = false, pendingDisc = false;
@@ -750,7 +764,6 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
         }
         return mout.join('\n');
     }
-#endif
 
     // Pass 2 — ensure each real segment is preceded by exactly one discontinuity
     // (inject before its metadata block; dedupe consecutive; drop leading ones —
