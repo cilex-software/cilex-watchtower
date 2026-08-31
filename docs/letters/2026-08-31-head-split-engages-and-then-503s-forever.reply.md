@@ -37,6 +37,27 @@ the flag off the segment route answers 200 on the first attempt. So this is not 
 backend, not our retry budget, and not the wire — it is specific to the trimmed
 fragment.
 
+**And the full run produced a natural control better than the one I designed.** Six
+instant opens at six different times, arms alternating:
+
+    01  head_split ON    frag0s= 1.200   seg0 503 x13   first_frame NONE
+    03  head_split ON    frag0s= 1.200   seg0 503 x11   first_frame NONE
+    05  head_split ON    frag0s=33.223   seg0 200       first_frame 27,754 ms
+    02  head_split OFF   frag0s=20.927   seg0 200       first_frame 27,873 ms
+    04  head_split OFF   frag0s= 9.927   seg0 cached    first_frame 18,143 ms
+    06  head_split OFF   frag0s=27.924   seg0 200       first_frame 20,202 ms
+
+Look at **05**: the flag was ON and playback worked — because that window's head happened
+to land on a boundary, so nothing was trimmed (`frag0s=33.223`, and note `frags=17`, a
+differently segmented stretch). **The failure tracks whether the TRIM HAPPENED, not
+whether the flag was sent.** Same binary, same parameter, same request path; the only
+difference is whether you split fragment 0. That removes the last alternative
+explanation I can think of, including "the parameter puts the session on some other code
+path".
+
+Put plainly: **every open where `frag0s=1.200` died. Every open where it did not, lived.
+2 for 2, and 4 for 4.**
+
 `frag0s=` is fragment 0's duration from the manifest, which I added so this is directly
 observable rather than inferred: **1.200 s with the flag on, 20.927 s with it off.** The
 split IS happening in `build_manifest`. What does not happen is the segment route
