@@ -662,6 +662,31 @@ Item {
     property int retentionDays: 35         // longest tier retention = calendar span
     property var footageDays: []           // dates with recorded footage
     property bool coveragePending: true    // coverage API not yet answered/available
+    // FAST OPEN needs coverage; a click that beats it pays the whole-day manifest.
+    // See openForDay(). Off unless WT_PB_WAIT_COVERAGE=1.
+    readonly property bool _covWait: (typeof wtPbWaitCoverage !== "undefined" && wtPbWaitCoverage === true)
+    property string _covWaitDay: ""        // day click held until coverage answers
+    property bool _covWaitDone: false      // at most one wait per screen entry
+    Timer {
+        id: covWaitTimer
+        interval: 2500                     // coverage is small; this is the give-up bound
+        onTriggered: {
+            var d = root._covWaitDay;
+            if (d === "") return;
+            root._covWaitDay = "";
+            if (root._pbTime) console.log("[PBTIME] cov_wait_timeout day=" + d);
+            root.openForDay(d);            // _covWaitDone is set, so this proceeds
+        }
+    }
+    function _covWaitResume() {
+        if (_covWaitDay === "") return;
+        var d = _covWaitDay;
+        _covWaitDay = "";
+        covWaitTimer.stop();
+        if (_pbTime) console.log("[PBTIME] cov_wait_resume day=" + d
+                                 + " dayKeys=" + (dayInfo ? Object.keys(dayInfo).length : -1));
+        openForDay(d);
+    }
     // Coverage is fetched at open, but footage keeps accruing while the operator
     // reviews (e.g. a camera recovering mid-shift) — refresh quietly once a minute
     // so today's dot appears without re-opening the screen. (2026-07-08: .201
@@ -682,6 +707,7 @@ Item {
         _emptyRetried = false; emptyRetry.stop();
         coveragePending = true; footageDays = [];   // reset for the (possibly new) camera
         dayInfo = ({}); _autoLanded = false;
+        covWaitTimer.stop(); _covWaitDay = ""; _covWaitDone = false;   // see openForDay()
         hoverId = ""; selId = ""; ladderOpen = false;
         errorText = ""; selStartMs = -1; selEndMs = -1;
         // Fresh screen entry: no frame-mode leftovers, no stale timeline. (Operator-
@@ -704,6 +730,23 @@ Item {
     // /review/coverage has already given us — see the comment in the body.
     function openForDay(dateStr, targetMs) {
         if (!camera) return;
+        // A day clicked before coverage has answered has no dayInfo[date].firstMs, so
+        // the FAST OPEN gate below cannot fire and the click falls through to the
+        // whole-day manifest — 2.25 MB / 2,882 fragments to learn an instant coverage
+        // already carries. Measured 2026-09-01: first open of a process 22,316 ms
+        // median against 2,840 ms for the second, with skip reason `no-dayinfo
+        // dayKeys=0` on 4 runs of 4. Waiting for the SMALL response beats paying for
+        // the big one. Bounded by covWaitTimer, and at most once per screen entry so
+        // a coverage failure can never trap the open.
+        if (_covWait && !_covWaitDone && coveragePending
+                && (targetMs === undefined || !isFinite(targetMs) || targetMs <= 0)) {
+            _covWaitDone = true;
+            _covWaitDay = dateStr;
+            loading = true;
+            covWaitTimer.restart();
+            if (_pbTime) console.log("[PBTIME] cov_wait day=" + dateStr);
+            return;
+        }
         _obMark("day:" + dateStr);
         var startD = new Date(dateStr + "T00:00:00");   // local midnight
         var s = startD.getTime();
@@ -1199,6 +1242,11 @@ Item {
             root.footageDays = out;
             root.dayInfo = info;
             root._maybeLandOnNewestFootage();
+            // A day click that arrived before this response is parked in _covWaitDay.
+            // Safe to resume here: the wait set loading=true, and
+            // _maybeLandOnNewestFootage() returns early while loading, so the two
+            // cannot both open a day.
+            root._covWaitResume();
         }
         // Motion episode spans (or density buckets) from /events/timeline — the
         // backend pairs motion_started↔motion_ended server-side, so no client paging.

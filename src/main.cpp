@@ -847,6 +847,23 @@ int main(int argc, char *argv[])
     // Fast open flips that: bounded window first, day manifest after the first frame,
     // purely to widen the scrubber. Kept as the A/B control and the field escape hatch.
     engine.rootContext()->setContextProperty("wtPbNoFastOpen", qEnvironmentVariableIsSet("WT_PB_NO_FAST_OPEN"));
+    // WT_PB_WAIT_COVERAGE=1: a day clicked BEFORE /review/coverage has answered
+    // cannot take FAST OPEN — there is no dayInfo[date].firstMs yet — so it falls
+    // through to the whole-day manifest that fast open exists to avoid.
+    //
+    // Measured on the booth 2026-09-01, five fresh processes against a day CV had
+    // already served eight times (so server cache is NOT the variable):
+    //     first open of a process   median 22,316 ms
+    //     second open, same process median  2,840 ms
+    // and the skip reason on the first open was `no-dayinfo dayKeys=0`, 4 runs of 4 —
+    // coverage had not populated a SINGLE day 12.6 s after launch, because it queues
+    // behind the startup burst (CV reports acquire;dur=6274.1 on that request).
+    //
+    // With this set, such a click WAITS for the small coverage response (bounded by
+    // covWaitTimer) instead of pulling 2.25 MB / 2,882 fragments to learn an instant
+    // coverage already carries. Default OFF until the wait is measured against the
+    // manifest it replaces.
+    engine.rootContext()->setContextProperty("wtPbWaitCoverage", qEnvironmentVariableIsSet("WT_PB_WAIT_COVERAGE"));
     // WT_SEEK_SPAM=1: chaotic scrubber click-spam driver — bursts of rapid random
     // seekToWall calls with NO waiting (the operator gesture reported 2026-07-03:
     // "click fast and chaotically → lots of freezes"). Deterministic targets, logs
