@@ -57,9 +57,33 @@ Six instant opens, arms alternating:
 **2/2 engaged opens clean, zero 503s. Segment 0 falls from ~5,050 ms to ~1,000 ms.**
 
 Throughput was identical in both arms — 12.9 Mbit/s on the head_split body, 12.8 on the
-control's — so **the win is purely fewer bytes and does not depend on the link
-improving.** That is the cleanest kind of fix and the only one tonight that removes
-seconds rather than reallocating them.
+control's — so the win is purely fewer bytes and does not depend on the link improving.
+
+### 1c. CORRECTION: the trimmed piece has to be BUILT, and that cost is the new variable
+
+The two samples above (742 and 1,307 ms) happened to catch a warm head piece. A wider run
+with `hdr=` separated out — `hdr` is our time to response headers, which contains CV's
+build — shows the real shape:
+
+    seg0 total 4,802 ms  =  BUILD 4,229 ms  +  transfer   573 ms   (1,326,904 B @ 18.5 Mbit/s)
+    seg0 total 1,409 ms  =  BUILD   572 ms  +  transfer   837 ms   (1,437,448 B @ 13.7 Mbit/s)
+
+**head_split trades a ~4,600 ms transfer for a ~700 ms transfer PLUS a 572-4,229 ms
+server-side build.** CV measured the same shape on their bench: 5.4 s cold, then 40 ms.
+
+So the honest statement is not "segment 0 falls to ~1,000 ms". It is:
+
+- **warm head piece → a large win** (~1,400 ms against ~5,050 ms)
+- **cold head piece → roughly a wash** (~4,800 ms against ~5,050 ms)
+
+A guard opening a moment nobody has opened before pays the build. A guard re-opening,
+or opening near a previously-opened instant, does not. Whether that is a good trade in
+production depends on how often review opens are novel — unmeasured here, and worth
+knowing before anyone calls this a four-second win.
+
+It also relocates the problem rather than removing it: the build is CV-side ffmpeg work
+with the same cold/warm character as their session `index`, which is the other thing
+holding this path up.
 
 Shipped default-on in 1.1.263 and deployed. `WT_PB_NO_HEAD_SPLIT=1` reverts; if historic
 playback ever dies with repeated 503s on `seg/0.ts`, that is this.
@@ -107,9 +131,12 @@ port, a cable, or a duplex mismatch upstream of this NIC.
 
 ## 3. What is left
 
-    session creation   2,387 - 9,850 ms   CV — now the entire remaining problem
-    segment 0            750 - 1,300 ms   fixed tonight (was ~5,050)
-    decode                    ~220 ms     ours, already fast
+    session creation   2,387 - 12,664 ms   CV — the largest remaining item
+    segment 0          1,409 -  4,802 ms   improved, but see §1c: the win depends on
+                                           whether the head piece is already built
+      of which transfer   573 -    837 ms   (was ~4,642 — this part IS reliably fixed)
+      of which CV build   572 -  4,229 ms   (new, and the reason the total still varies)
+    decode                     ~220 ms     ours, already fast
 
 With session creation at 300 ms this lands at ~1.3 s. With the download path also running
 at its available 30 Mbit/s, ~870 ms — under the operator's bar.

@@ -30,9 +30,29 @@ verified. `WT_PB_NO_HEAD_SPLIT=1` reverts.
 Your §4 caution was correct and I am glad you sent it: piece A is 1.17-1.42 MB here, not
 26 KB. The gain is ~5x on bytes, not 500x. Planning against that number, as you said.
 
-One thing worth your notice: **throughput was identical in both arms** — 12.9 Mbit/s on
-the head_split body, 12.8 on the control's. So the win is purely fewer bytes and does not
-depend on anything else improving. That is the cleanest kind of fix.
+Throughput was identical in both arms — 12.9 Mbit/s on the head_split body, 12.8 on the
+control's — so the byte reduction is real and does not depend on anything else improving.
+
+**But I owe you a correction on the size of the win, found while writing this.** Those
+two samples caught a warm head piece. Splitting `hdr=` (our time to response headers,
+which contains your build) out of a wider run:
+
+    seg0 total 4,802 ms  =  BUILD 4,229 ms  +  transfer 573 ms   (1,326,904 B @ 18.5 Mbit/s)
+    seg0 total 1,409 ms  =  BUILD   572 ms  +  transfer 837 ms   (1,437,448 B @ 13.7 Mbit/s)
+
+So head_split trades a ~4,600 ms transfer for a ~700 ms transfer **plus a 572-4,229 ms
+build** — the same 5.4 s-cold / 40 ms-warm shape you measured on your bench, which I
+should have expected from your letter and did not.
+
+Honestly stated: **warm head piece is a large win (~1,400 ms vs ~5,050). Cold head piece
+is roughly a wash (~4,800 vs ~5,050).** The transfer half is reliably fixed; the total is
+not, and it now depends on whether anyone has opened near that instant before.
+
+I am leaving it default-on because the transfer reduction is real and the cold case is no
+worse than before. But "four seconds off the open" was my number from a lucky pair, and I
+am retracting it before it gets repeated. **The build cost is now the thing worth your
+attention on this path** — it has the same cold/warm character as `index`, and between
+them they are most of what a guard waits for.
 
 ## §2 Your §5 — you were right, and I withdraw the asymmetry as I framed it
 
