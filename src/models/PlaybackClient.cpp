@@ -269,6 +269,44 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     QString seekMode = qEnvironmentVariable("WT_SEEK_MODE");
     if (seekMode.isEmpty()) seekMode = QStringLiteral("continuous");
     body["seek_mode"] = seekMode;
+    // HEAD SPLIT. An opt-in boolean CV shipped 2026-07-18 for Cilex Pro Mobile
+    // (review.py:47-52): a window whose head lands mid-segment serves fragment 0 as a
+    // trimmed ~1.2 s piece followed by the trimmed remainder. "Watchtower's default
+    // sessions are untouched" — and we had never sent it; a grep of src/ and qml/ found
+    // zero occurrences until now (Linux dev box, letter 2026-08-30).
+    //
+    // It targets the one thing measured to gate the first frame. The player waits for
+    // ONE COMPLETE segment and renders ~220 ms later, and ours is ~6.7 MB, which at the
+    // booth's measured ~13.5 Mbit/s is ~4.0 s of pure transfer. On the pilot,
+    // head_split takes frag0 from 2,587,820 B to 330,316 B — 7.8x. Note their code
+    // comment says 10-40 KB; that was mobile's ladder, ours is 1440p, so 330 KB.
+    //
+    // This is the server-side version of the split I tried and failed to emulate
+    // client-side on 2026-08-31 (truncating the body and aborting upstream made TTFF
+    // WORSE — see docs/perf/2026-08-31-*.md §10). Done properly it costs no extra
+    // request, loses no footage, and churns no connection.
+    //
+    // DEFAULT OFF, AND IT MUST STAY OFF UNTIL CV FIXES THE 503. Measured on the booth
+    // 2026-08-31 against the live pilot: the flag DOES engage on a window whose head
+    // lands mid-segment (session_ready reports frag0s=1.200 instead of ~24 s), but the
+    // trimmed fragment is then never served —
+    //
+    //     WTHLS a=0 code=503 ms=3397 bytes=64 .../seg/0.ts
+    //     WTHLS a=1 code=503 ms=5114 bytes=64
+    //     ... 8 attempts over ~25 s, all 503, no first frame at all
+    //
+    // The manifest promises a 1.2 s fragment 0 that the segment route will not produce.
+    // Our 503 retry path is designed for "a cold fragment remuxes sub-second, then 200";
+    // here it never becomes 200, so the open dies. Enabling this by default would have
+    // taken playback away from the guards on the only station in production, to chase a
+    // speed-up.
+    //
+    // It is still the most promising lever we have — frag0 at ~330 KB instead of ~6.7 MB
+    // is the one thing that would put a first frame inside the operator's one-second bar
+    // (docs/perf/2026-08-31-*.md §15). So the wiring stays, opt-in, ready for the day CV
+    // makes the trimmed fragment servable. WT_PB_HEAD_SPLIT=1 to test it.
+    if (qEnvironmentVariableIsSet("WT_PB_HEAD_SPLIT"))
+        body["head_split"] = true;
     if (pbTime) {
         auto *sharedNam = AuthController::instance()->nam();
         const QString host = QUrl(m_baseUrl).host();

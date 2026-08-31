@@ -999,8 +999,17 @@ Item {
                 return;
             }
             var _tReady = Date.now();
-            if (root._pbTime) console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
-                                          + "ms frags=" + fragments.length + " tag=" + root._obTag);
+            // frag0's DURATION is how we can see head_split from the client. CV serves a
+            // trimmed ~1.2 s fragment 0 only when the window head lands MID-SEGMENT; on a
+            // window that starts before the first footage there is nothing to trim and the
+            // boolean is correctly a no-op. Without this the two cases are
+            // indistinguishable from here and we would keep re-measuring a null.
+            if (root._pbTime)
+                console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
+                            + "ms frags=" + fragments.length
+                            + " frag0s=" + (fragments.length > 0
+                                            ? (fragments[0][1] - fragments[0][0]).toFixed(3) : "-")
+                            + " tag=" + root._obTag);
             root.loading = false;
             root._farInFlight = false;     // this open landed — the far-click coalescing window is over
             var farNext = root._farLatestMs; root._farLatestMs = -1;
