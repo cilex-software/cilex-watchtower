@@ -670,6 +670,21 @@ Window {
                 }
         }
     }
+    // Deferred day open for WT_PLAYBACK_DAY — fires once coverage has answered, so the
+    // hook reproduces a real calendar click (fast-open included) rather than racing it.
+    Timer {
+        id: dayBootHook
+        property string day: ""
+        interval: 250; repeat: true
+        onTriggered: {
+            if (playbackScreen.coveragePending) return;   // still waiting on /review/coverage
+            stop();
+            if (day.indexOf("T") > 0)
+                playbackScreen.openAt(playbackScreen.camera, new Date(day).getTime());
+            else
+                playbackScreen.openForDay(day);
+        }
+    }
     // Leaving the Live section drops wall-playback back to live (and stops its player via visibility).
     onSectionChanged: if (section !== "live") wallMode = "live"
 
@@ -1259,10 +1274,19 @@ Window {
                     win.playbackCamera = all[i];
                     if (typeof wtPlaybackDay !== "undefined" && wtPlaybackDay !== "") {
                         playbackScreen.camera = all[i];                 // set camera, then open just the day
-                        if (wtPlaybackDay.indexOf("T") > 0)             // dev: a full local instant — open the
-                            playbackScreen.openAt(all[i], new Date(wtPlaybackDay).getTime());  // day + seek there (−15s)
-                        else
-                            playbackScreen.openForDay(wtPlaybackDay);   // dev: a specific day (warm/hot/mixed footage)
+                        // WAIT FOR COVERAGE before opening. openForDay()'s fast-open path is
+                        // gated on dayInfo[date].firstMs, which arrives with /review/coverage —
+                        // and the real user path cannot click a day until the calendar has
+                        // drawn its dots, so coverage is always in hand there. This hook used
+                        // to fire the instant the camera appeared in the roster, i.e. BEFORE
+                        // coverage, so fast-open could never engage and the hook silently
+                        // exercised the pre-2026-08-30 whole-day path instead. Measured
+                        // 2026-08-31 on .126/2026-08-30: no [PBTIME] fast_open line, and a
+                        // 2,702-fragment 2.06 MB day manifest fetched before first frame.
+                        // An A/B of WT_PB_NO_FAST_OPEN through this hook would have compared
+                        // the old path against itself.
+                        dayBootHook.day = wtPlaybackDay;
+                        dayBootHook.restart();
                     } else {
                         // Seek-latency test (WT_SEEK_TEST) needs the widest session the backend serves
                         // (24h = 1440min) so the larger jump steps have footage to land on.
