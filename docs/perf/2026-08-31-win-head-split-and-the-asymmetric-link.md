@@ -129,6 +129,31 @@ traded a ~5 s transfer for a ~0.7 s transfer plus a 0.4-8 s build, which was a w
 100 Mbps. If a full segment now costs ~1 s, the build dominates and the default I shipped
 may be net negative.
 
+## 1e. RE-TESTED ON THE GIGABIT LINK: head_split stays ON. My reversal hypothesis is refuted
+
+§1d predicted that a faster link might make head_split net-negative — cheap transfer,
+expensive build. Tested, 8 instant opens, arms interleaved, after the link reached 1 Gbps:
+
+| arm | seg 0 | build | transfer | bytes |
+|---|---:|---:|---:|---:|
+| head_split | **1,715 ms** | 1,246 | 469 | 1,368,828 |
+| head_split | **2,684 ms** | 694 | 1,990 | 1,174,436 |
+| full segment | 4,295 ms | 115 | 4,180 | 5,835,708 |
+| full segment | 5,152 ms | 339 | 4,813 | 6,451,032 |
+| full segment | **20,219 ms** | 1,922 | 18,297 | 7,911,980 |
+
+**head_split remains clearly better: ~2,200 ms against 4,300-20,200 ms.** The hypothesis
+was wrong, and the reason is worth keeping: even at 56 Mbit/s a 6-8 MB segment is still
+the larger cost, so trading it for ~1.2 MB plus a build still wins. The 20,219 ms sample
+— 7.9 MB at 3.5 Mbit/s — shows how badly a full segment goes when the lossy inbound path
+has a bad minute, which is exactly the tail head_split removes.
+
+**Default stays ON.** Recorded because I proposed flipping it and the measurement said no;
+the earlier "it is a wash" reading (§2a) was taken at 100 Mbps and no longer holds.
+
+Build costs this run were 694-1,246 ms on engaged opens, against 404-8,066 ms earlier —
+so the precompute ask (§1c) is still right, but the build is not always catastrophic.
+
 ## 2. The wire is directionally asymmetric — and this was not predicted
 
 CV's §5 objection was correct and is accepted: session bodies are ≤92 KB, segments are
