@@ -73,6 +73,37 @@ see first, and it belongs to the operator, not to this agent.**
 The whole-day manifest is gone from the first open. What remains in front of the
 guard is latency we are inflicting on ourselves.
 
+## Tested and FAILED: narrowing the snapshot pools
+
+`WT_QUIET_START_MS` holds the snapshot gates to one slot during startup. Measured
+counterbalanced, default off:
+
+    quiet ON    first open   5,757 / 14,248 /  6,335 ms
+    quiet off   first open   failed / 11,230 / 18,215 ms
+
+Direction favours it, but n=3 with a wide spread and **the best first open was
+5,757 ms** — nowhere near the 561–1,205 ms predicted from warm quiet opens.
+
+**The mechanism did not do what it was built to do:** `shared` stayed at 2–6 in the
+ON arm. It gates `CvImageProvider`'s PRIVATE nam while `inflight_shared` counts the
+SHARED `AuthController` nam. **Gate the shared nam, not the snapshot pools.**
+
+## What is on the shared nam, with numbers
+
+Per launch, measured 2026-09-01:
+
+- **8 `/events` requests**, of which **15 % are superseded** (7 of 47 across six
+  launches). `EventModel::fetchPage` tags each with `++m_gen` and drops the result
+  on arrival (`EventModel.cpp:292`) — but the request still ran to completion and
+  held a connection the whole time. Aborting the previous reply when a new
+  generation starts is free: the newest result wins either way, and the data shown
+  is identical. **A real fix, but small — it recovers 1–2 connections, not six.**
+- `/streams`, `/review/coverage`, `POST /review/sessions` — the guard's critical
+  path, now single-flighted and HighPriority.
+
+The remaining 6–7 legitimate `/events` requests per launch are the honest target,
+and reducing them IS a product question: fewer pages, later, or narrower.
+
 ## For whoever picks this up
 
 Do not re-measure CV's endpoints without recording `inflight` alongside. Every
