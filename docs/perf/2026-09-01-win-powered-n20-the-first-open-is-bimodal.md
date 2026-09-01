@@ -130,6 +130,30 @@ which the size reflects only incidentally.
 `WT_PB_HEAD_OFFSET_MS` stays in the tree at default 0 (= `−2000`, today's
 behaviour). **It is a measured dead end, not an unexplored option.**
 
+## The decisive constraint: identical inputs, two outcomes
+
+Every one of the 20 baseline launches used **the same camera, the same day, the same
+build, the same config and the same target instant**. 8 landed fast, 12 slow.
+
+That rules out every *parameter* explanation, including the keyframe-alignment idea
+above: the fragment is the same fragment on every launch. It cannot be where we aim,
+which fragment we get, how big it is, or whether it starts on a keyframe — all of
+those are constant across the 20.
+
+**So the mode is not a property of the request. It is a race in the client's open
+path.** The strongest candidate, from the traces: whether `HlsProxy`'s streaming
+path (`metaDataChanged` → `writeHead` → `streaming = true`, `HlsProxy.cpp:463-492`)
+delivers enough early bytes for the decoder to produce a frame, versus the player
+waiting for a complete fragment. In the fast mode **no fetch completes before
+`first_frame`**; in the slow mode first frame lands ~150 ms after a 6–7 MB fetch
+finishes.
+
+**For whoever continues: look for a race, not a parameter.** Four parameter
+hypotheses have now been tested with power and none survived — network (ruled out by
+the LAN/tunnel pair), CV's API (`serve` spans the same range in both modes),
+fragment size (trimming it made things strictly worse), and our own concurrency
+(`inflight_shared=6` in all 40 launches, no variation).
+
 ## Method note
 
 n=20, single configuration, no A/B. Splitting 20 samples into arms would give n=10
