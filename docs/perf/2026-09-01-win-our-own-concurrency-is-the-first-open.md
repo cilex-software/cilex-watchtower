@@ -104,6 +104,47 @@ Per launch, measured 2026-09-01:
 The remaining 6–7 legitimate `/events` requests per launch are the honest target,
 and reducing them IS a product question: fewer pages, later, or narrower.
 
+## The settled case: one segment fetch, and head_split is the last mile
+
+Once startup traffic drains, opens settle — but not equally. Same run, same build,
+same days:
+
+    camera 126   settled TTFF   651 / 748 / 1,071 / 1,188 ms
+    camera 118   settled TTFF 1,301 / 1,946 / 4,892 / 7,235 / 7,900 ms
+
+**It is not session creation.** Both settle fast: cam 118 at 158–1,147 ms, cam 126
+at 66–397 ms, both ~62 fragments.
+
+**It is not segment size.** Cam 126's segments are BIGGER — 7,147,832 B average
+against 6,025,776 B — and it is the faster camera.
+
+**It is segment COUNT.** Across six opens per launch:
+
+    camera 126   13 segments fetched   avg 5,002 ms each
+    camera 118   26-30 segments        avg 4,427 ms each
+
+Roughly twice as many per open. At ~4.5 s per fetch, **one extra segment is +4.5 s**
+— which is the whole gap between the two cameras.
+
+So in the settled state, time-to-first-frame is essentially *(segments needed before
+first frame) × (~4.5 s per 6–7 MB fetch)*. Sub-second therefore requires the FIRST
+fetch to be small, not the session to be faster.
+
+**That is exactly what `head_split` does** — it cuts fragment 0 to ~1.2 s / 1.37 MB.
+Measured on this station 2026-08-31, same feature, over the real link:
+
+    head_split ON    1,715 ms (1.37 MB)   2,684 ms (1.17 MB)
+    head_split OFF   3,159 ms (4.77 MB)   4,295 ms (5.84 MB)
+                     5,152 ms (6.45 MB)  20,219 ms (7.91 MB)
+
+CV's "Guard wall (LAN, full quality)" default forces it OFF, confirmed overriding
+our explicit request 4 times out of 4 (`docs/letters/2026-08-31-your-head-split-ab-has-no-network-in-it.reply.md`).
+
+**The night ends where it began.** Every client-side path was found and fixed; the
+whole-day manifest is gone; and the remaining ~4.5 s in front of the guard is one
+oversized first fragment that we asked to have trimmed and were refused by default.
+That ask should be re-made with this measurement attached.
+
 ## For whoever picks this up
 
 Do not re-measure CV's endpoints without recording `inflight` alongside. Every
