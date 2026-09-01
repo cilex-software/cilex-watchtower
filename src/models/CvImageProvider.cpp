@@ -1,9 +1,10 @@
-#include "CvImageProvider.h"
+﻿#include "CvImageProvider.h"
 #include "AuthController.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QDateTime>
 #include <QPointer>
 #include <QQueue>
 #include <QThread>
@@ -41,6 +42,30 @@ struct SnapPool {
     const int cap;
     int inFlight = 0;
     QQueue<QPointer<CvImageResponse>> queue;
+
+    // WT_QUIET_START_MS: hold this gate to ONE slot for the first N ms after the
+    // gate is FIRST consulted — i.e. from the first snapshot request, not from
+    // process start — then return to `cap`. Default 0 = today's behaviour exactly.
+    //
+    // WHY, measured 2026-09-01: CV's serve;dur tracks OUR concurrency and almost
+    // nothing else. The same 62-fragment playback session took 19,839 ms with six
+    // of our requests in flight and 35 ms with one. Snapshots ride a PRIVATE NAM
+    // so they never starve the control plane CLIENT-side (see CvImageProvider.h),
+    // but both pools point at ONE backend whose database is the contended
+    // resource — so a thumbnail burst still lands on the guard's first open, just
+    // by a different route than the one this class was built to avoid.
+    //
+    // This is a TRADE and it is why it defaults off: width 6 exists because a
+    // 39-camera grid settled at p90 2.3-3.9 s at width 2. Narrowing buys the
+    // first open and costs how fast the grid fills.
+    int effectiveCap() const
+    {
+        static const int quietMs = qEnvironmentVariableIntValue("WT_QUIET_START_MS");
+        if (quietMs <= 0)
+            return cap;
+        static const qint64 t0 = QDateTime::currentMSecsSinceEpoch();
+        return (QDateTime::currentMSecsSinceEpoch() - t0) < quietMs ? 1 : cap;
+    }
 };
 static SnapPool s_poolExtract{"extract", 2};
 // 6 = the private NAM's per-host pool. Wider than the server's 4-wide SUB fill
@@ -127,7 +152,7 @@ void CvImageResponse::releaseSnapshotSlot()
     // 6 tiles empty for the remaining 128 s). Pumping from EVERY terminating
     // path means a dying wake always passes the baton; over-waking is safe
     // because start() re-checks capacity and politely re-enqueues.
-    while (m_pool->inFlight < m_pool->cap && !m_pool->queue.isEmpty()) {
+    while (m_pool->inFlight < m_pool->effectiveCap() && !m_pool->queue.isEmpty()) {
         QPointer<CvImageResponse> next = m_pool->queue.dequeue();
         if (next && !next->m_cancelled) {
             next->m_queued = false;
@@ -146,7 +171,7 @@ void CvImageResponse::start()
         if (!m_pool)
             m_pool = m_path.contains(QLatin1String("streams/cameras/"))
                      ? &s_poolCached : &s_poolExtract;
-        if (m_pool->inFlight >= m_pool->cap) {
+        if (m_pool->inFlight >= m_pool->effectiveCap()) {
             if (!m_queued) { m_queued = true; m_pool->queue.enqueue(this); }
             return;                     // resumed by releaseSnapshotSlot()
         }
