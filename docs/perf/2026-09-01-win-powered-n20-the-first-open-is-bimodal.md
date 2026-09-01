@@ -84,13 +84,51 @@ The two traces side by side:
 consumes an entire 6–7 MB fragment first**, and first frame follows within ~150 ms
 of that fetch completing.
 
-So the lever is fragment-0 SIZE, which is what `head_split` controls. This is the
-same conclusion the earlier n=3 work reached by a worse route — but it now rests on
-20 samples and a per-launch trace rather than four opens and an average.
+So the lever LOOKED like fragment-0 SIZE. **A powered test says otherwise — see the
+next section. Do not act on this paragraph.**
 
 **What is still unexplained:** L19 and L20 were slow (5,147 / 5,303 ms) with NO
 segment completing first, and L05/L08 were fast (1,201 / 837 ms) despite consuming
 one. Whatever accounts for those four is a second, smaller effect.
+
+## REFUTED at n=20: trimming fragment 0 makes it WORSE
+
+`WT_PB_HEAD_OFFSET_MS=15000` aims the window head ~15 s into the footage so it lands
+mid-segment and the fragment gets trimmed. Twenty launches, same conditions, against
+the twenty-launch baseline above:
+
+    metric                    baseline      head-offset ON
+    sub-second first opens       5/20             0/20
+    under 2,000 ms               8/20             4/20
+    min                        672 ms          1,511 ms
+    p50                      4,929 ms          4,510 ms
+
+**It eliminated every sub-second open.**
+
+And the trim itself worked — `seg/0` came back at ~1.0–1.6 MB across the ON arm
+against the baseline's mix of ~1 MB and 7.4 MB. So fragment 0 was genuinely smaller
+and first-frame time still got worse.
+
+### Why, most likely
+
+**The day's first footage instant is a keyframe** — the recording starts there. The
+shipped default (`first − 2 s`, clamped to day start) therefore lands the window on
+a clean decode start. Aiming +15 s in lands mid-GOP, and waiting for the next
+keyframe costs more than the smaller fragment saves.
+
+**The shipped default is correct**, and the reasoning that motivated the offset —
+"the head lands on a boundary, so `head_split` has nothing to cut" — had it exactly
+backwards: landing on that boundary is the *good* case.
+
+### What this means for the bimodality
+
+Fragment-0 size correlates with the mode but does not cause it. The correlation in
+the section above is real (10/12 and 6/8) and the causal reading of it was wrong.
+The likely true variable is **whether the first fragment begins on a keyframe**,
+which the size reflects only incidentally.
+
+`WT_PB_HEAD_OFFSET_MS` stays in the tree at default 0 (= `−2000`, today's
+behaviour). **It is a measured dead end, not an unexplored option.**
 
 ## Method note
 
