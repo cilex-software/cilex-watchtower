@@ -160,10 +160,32 @@ void PlaybackClient::ensureReady()
 
 void PlaybackClient::fetchStreams()
 {
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    // /streams IS THE HEAD OF THE FIRST-OPEN CHAIN, which is not obvious from here:
+    //   /streams -> camerasResolved -> camId -> fetchCoverage -> dayInfo[].firstMs
+    //   -> FAST OPEN. Miss any link and the first day click falls through to the
+    //   whole-day manifest (2.25 MB, 2,882 frags).
+    // Measured 2026-09-01: camerasResolved landed at 952 / 1,539 / 2,977 / 14,588 ms
+    // after start. In the 14,588 ms case coverage was DISPATCHED two seconds after the
+    // guard had already clicked — no downstream priority can rescue that, because the
+    // request did not exist yet. Same HighPriority treatment as coverage, for the same
+    // reason: everything else in the startup burst (snapshots, events) gates pixels
+    // that can arrive late; this gates whether playback opens in 3 s or 22 s.
+    static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
+                               || qEnvironmentVariableIsSet("WT_TTFF_DAYS");
+    QNetworkRequest sreq{QUrl(m_baseUrl + "/streams")};
+    sreq.setPriority(QNetworkRequest::HighPriority);
+    if (pbTime)
+        qInfo("[PBTIME] streams_dispatch");
+    QElapsedTimer strTimer;
+    strTimer.start();
+    QNetworkReply *reply = m_nam->get(sreq);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, strTimer]() {
         reply->deleteLater();
         m_loggingIn = false;
+        if (pbTime)
+            qInfo("[PBTIME] streams_http ms=%lld code=%d bytes=%lld", strTimer.elapsed(),
+                  reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
+                  qint64(reply->bytesAvailable()));
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401) {
             AuthController::instance()->noteUnauthorized();
