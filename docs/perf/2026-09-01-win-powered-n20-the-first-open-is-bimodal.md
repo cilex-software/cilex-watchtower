@@ -57,6 +57,41 @@ A plausible mechanism, consistent with the earlier camera-118 finding: the slow 
 needs an extra segment before the first frame (~4.5 s at this link's ~15 Mbit/s
 effective segment throughput), and the fast mode does not. Unproven.
 
+## What selects the mode: waiting for a full-size fragment
+
+Traced per launch — segments that COMPLETED before `first_frame` of the first open:
+
+| segments completed before first frame | fast (<1.4 s) | slow (>4.3 s) |
+|---|---|---|
+| **0** | 6 — L01, L02, L03, L06, L07, L16 | 2 — L19, L20 |
+| **≥1, full-size (4–7 MB)** | 2 — L05, L08 | 10 |
+
+**10 of 12** launches that consumed a full fragment before first frame were slow;
+**6 of 8** that consumed none were fast. Four exceptions, so this is the dominant
+cause and not the only one.
+
+The two traces side by side:
+
+    L02  (672 ms)              L13  (8,806 ms)
+      +137 session_ready         +2,531 session_ready
+      +204 playlist 4,873 B      +2,624 playlist 4,873 B
+      +672 FIRST FRAME           +8,659 seg/0  7,386,896 B in 6,033 ms
+           (no fetch completed)  +8,663 seg/1  6,100,036 B in 5,918 ms
+                                 +8,806 FIRST FRAME  (147 ms after seg/0 landed)
+
+**The fast mode never waits for a fetch to finish** — the proxy's streaming path
+(added 2026-08-30) hands the decoder early bytes and it renders. **The slow mode
+consumes an entire 6–7 MB fragment first**, and first frame follows within ~150 ms
+of that fetch completing.
+
+So the lever is fragment-0 SIZE, which is what `head_split` controls. This is the
+same conclusion the earlier n=3 work reached by a worse route — but it now rests on
+20 samples and a per-launch trace rather than four opens and an average.
+
+**What is still unexplained:** L19 and L20 were slow (5,147 / 5,303 ms) with NO
+segment completing first, and L05/L08 were fast (1,201 / 837 ms) despite consuming
+one. Whatever accounts for those four is a second, smaller effect.
+
 ## Method note
 
 n=20, single configuration, no A/B. Splitting 20 samples into arms would give n=10
