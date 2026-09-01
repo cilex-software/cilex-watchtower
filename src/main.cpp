@@ -864,6 +864,20 @@ int main(int argc, char *argv[])
     // coverage already carries. Default OFF until the wait is measured against the
     // manifest it replaces.
     engine.rootContext()->setContextProperty("wtPbWaitCoverage", qEnvironmentVariableIsSet("WT_PB_WAIT_COVERAGE"));
+    // WT_PB_WINDOW_MS: length of the FAST OPEN window, in ms. 0/unset -> 1,800,000
+    // (30 min), which is what has shipped since fast open landed.
+    //
+    // Why this is now a lever rather than a constant: with the whole-day manifest
+    // finally off the first-open path, the bounded request IS the wait. CV's own
+    // Server-Timing, measured 2026-09-01:
+    //     49,226 bytes / 62 fragments   serve  4,813 - 17,238 ms
+    //      4,316 bytes                  serve     20.6 - 3,550 ms
+    // A 4 KB manifest came back in 20.6 ms. Their serve time tracks the work, so a
+    // shorter window is a genuinely smaller request — and the player already rolls
+    // forward at EndOfMedia (see wtPbWindowFrags above), so a short window costs a
+    // roll, not a re-open. The trade is: shorter = faster first frame, but more
+    // rolls during a long sit-and-watch.
+    engine.rootContext()->setContextProperty("wtPbWindowMs", qEnvironmentVariableIntValue("WT_PB_WINDOW_MS"));
     // WT_SEEK_SPAM=1: chaotic scrubber click-spam driver — bursts of rapid random
     // seekToWall calls with NO waiting (the operator gesture reported 2026-07-03:
     // "click fast and chaotically → lots of freezes"). Deterministic targets, logs

@@ -826,7 +826,13 @@ Item {
             // Window head IS the landing point — same contract as seekFar(), so no
             // inner seek is needed and the deferred-seek stage is skipped entirely.
             _explicitStart = Math.max(s, targetMs - 2000);
-            _explicitEnd = Math.min(_explicitStart + 1800000, dayEnd);
+            // Window length is a lever (WT_PB_WINDOW_MS), because with the whole-day
+            // manifest gone this request IS the guard's wait: CV serves 49 KB / 62
+            // frags in 4,813-17,238 ms but 4 KB in as little as 20.6 ms. The player
+            // rolls forward at EndOfMedia, so a shorter window costs a roll, not a
+            // re-open. Default unchanged at 30 min.
+            var _winMs = (typeof wtPbWindowMs !== "undefined" && wtPbWindowMs > 0) ? wtPbWindowMs : 1800000;
+            _explicitEnd = Math.min(_explicitStart + _winMs, dayEnd);
             _tlOweDay = dateStr; _tlDayStart = s; _tlDayEnd = dayEnd;
             if (_pbTime) console.log("[PBTIME] fast_open win="
                                      + Math.round((_explicitEnd - _explicitStart) / 60000)
