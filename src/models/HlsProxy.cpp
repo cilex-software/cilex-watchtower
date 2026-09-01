@@ -558,10 +558,25 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
                                              : reply->bytesAvailable();
             // work= is OUR own microseconds inside readyRead (append + socket write),
             // summed. ms - work is time we spent waiting rather than moving bytes.
-            QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 work=%6 bytes=%7 rid=%8 ")
+            // stream=1 means we committed headers to the player and fed it bytes as
+            // they arrived; stream=0 means this request fell to the BUFFERED path and
+            // the player got nothing until the whole fragment had landed.
+            //
+            // WHY THIS FIELD EXISTS (2026-09-01, 40 powered launches): the first open
+            // is bimodal — 8/20 at 672-1,368 ms and 12/20 at 4,374-8,806 ms with an
+            // empty gap — on IDENTICAL inputs. Same camera, day, build, config, target
+            // instant. That rules out every parameter (aim, fragment, size, keyframe,
+            // concurrency) and leaves a race. In the fast mode NO fetch completes
+            // before first_frame; in the slow mode first frame lands ~150 ms after a
+            // 6-7 MB fetch finishes — which is exactly what the buffered path looks
+            // like. Streaming is committed only if, at metaDataChanged, the status is
+            // 200 AND the player's socket is still connected (see :477-480); nothing
+            // recorded whether that check passed. Now it does.
+            QString line = QStringLiteral("WTHLS a=%1 code=%2 ms=%3 hdr=%4 fb=%5 work=%6 bytes=%7 stream=%9 rid=%8 ")
                 .arg(attempt).arg(logCode).arg(fetchTimer.elapsed())
                 .arg(*hdrMs).arg(*fbMs).arg(*work / 1000).arg(nbytes)
-                .arg(QString::fromLatin1(rid));
+                .arg(QString::fromLatin1(rid))
+                .arg(*streaming ? 1 : 0);
             line += path.section(QLatin1Char('/'), -3);
             line += QStringLiteral(" st=[") + QString::fromUtf8(st) + QLatin1Char(']');
             if (!mst.isEmpty())
