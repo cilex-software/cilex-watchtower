@@ -64,7 +64,42 @@ Item {
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
     // Coverage feeds the archive ribbon; if the first request ran before camId
     // resolved (the same boot race), re-issue it the moment the id lands.
-    onCamIdChanged: if (camId !== "" && client) client.fetchCoverage(camId)
+    onCamIdChanged: if (camId !== "" && client) { _loadCachedCoverage(); client.fetchCoverage(camId) }
+
+    // Last known coverage from disk, for the FAST OPEN target ONLY. CV's coverage
+    // query costs db;dur 5,956-24,329 ms (their Server-Timing, 2026-09-01) and it sits
+    // on the critical path of the guard's first open: without a day's firstMs the
+    // click falls back to the whole-day manifest. A day that has ENDED cannot change
+    // its first-footage instant, so this is a recorded fact, not a guess.
+    //
+    // It deliberately does NOT feed dayInfo — the ribbon, the dots and the "No footage
+    // recorded on this day" short-circuit all keep waiting for the live answer. Being
+    // wrong about the open target is self-correcting (an empty session re-opens);
+    // being wrong about "no footage" is a lie told to a guard.
+    property var dayInfoCached: ({})
+    function _loadCachedCoverage() {
+        dayInfoCached = ({});
+        if (!client) return;
+        // camId needs /streams (1,260-12,352 ms measured). The cache does not need the
+        // network at all, so resolve the id from the persisted ip map when the live one
+        // is not up yet — otherwise a disk read waits on a request it does not use, and
+        // in one launch that cost the click by 278 ms.
+        var cid = camId;
+        if (cid === "" && camera && camera.ip)
+            cid = client.cachedCameraIdForIp(camera.ip);
+        if (cid === "" || !cid) return;
+        var rows = client.cachedCoverageDays(cid, retentionDays);
+        var info = {};
+        for (var i = 0; i < rows.length; i++) {
+            var d = rows[i];
+            if (!d || !d.date) continue;
+            info[d.date] = { sec: d.seconds !== undefined ? d.seconds : 0,
+                             ratio: d.coverage_ratio !== undefined ? d.coverage_ratio : 0,
+                             firstMs: d.first ? Date.parse(d.first) : -1 };
+        }
+        dayInfoCached = info;
+        if (_pbTime) console.log("[PBTIME] coverage_cache_loaded days=" + rows.length);
+    }
 
     // ---- events on the scrubber: motion episodes + point events ----------
     // Motion = amber spans; other event types = point ticks. Sources below:
@@ -718,6 +753,7 @@ Item {
         frags = []; tlFrags = [];
         if (!client) return;
         client.ensureReady();
+        _loadCachedCoverage();          // disk only; must not wait on /streams
         if (root.camId !== "") client.fetchCoverage(root.camId);
         _pendingOpen = true;
         tryOpen();
@@ -770,10 +806,20 @@ Item {
         // 2,876-2,881 fragments (fastopen20 harness, 2026-08-30) ⇒ ~30 s per
         // fragment. Under-estimating is the safe direction: we simply fall through
         // to today's behaviour and the bootstrap handles it.
+        // Live coverage first; fall back to the on-disk copy when the live request is
+        // still inside CV's database. Measured 2026-09-01: it lost the race to the
+        // guard's click in 3 of 5 launches, and each loss cost the whole-day manifest.
+        var _di = (dayInfo && dayInfo[dateStr]) ? dayInfo[dateStr]
+                                                : (dayInfoCached ? dayInfoCached[dateStr] : undefined);
+        var _diLive = !!(dayInfo && dayInfo[dateStr]);
         if ((targetMs === undefined || !isFinite(targetMs) || targetMs <= 0)
-                && dayInfo && dayInfo[dateStr] && dayInfo[dateStr].firstMs > 0) {
+                && _di && _di.firstMs > 0) {
             var wthr = (typeof wtPbWindowFrags !== "undefined" && wtPbWindowFrags > 0) ? wtPbWindowFrags : 1200;
-            if ((dayInfo[dateStr].sec || 0) / 30 > wthr) targetMs = dayInfo[dateStr].firstMs;
+            if ((_di.sec || 0) / 30 > wthr) {
+                targetMs = _di.firstMs;
+                if (_pbTime && !_diLive)
+                    console.log("[PBTIME] fast_open_from_cache day=" + dateStr);
+            }
         }
         if (_fastOpen && targetMs !== undefined && isFinite(targetMs) && targetMs > 0
                 && targetMs >= s && targetMs <= dayEnd) {

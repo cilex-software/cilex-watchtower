@@ -22,6 +22,7 @@
 #include <QUrlQuery>
 #include <QFile>
 #include <QDateTime>
+#include <QSettings>
 #include <QTimeZone>
 
 // The operator's IANA timezone (e.g. "Europe/Moscow"). The coverage calendar
@@ -172,6 +173,15 @@ void PlaybackClient::fetchStreams()
     // that can arrive late; this gates whether playback opens in 3 s or 22 s.
     static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
                                || qEnvironmentVariableIsSet("WT_TTFF_DAYS");
+    // SINGLE-FLIGHT, same finding as coverage: measured 2026-09-01, /streams was
+    // fetched TWICE per launch (L1 at +10,487 and +34,699 ms), 220 KB each, competing
+    // for the same six connections as the request it gates.
+    if (m_streamsInflight) {
+        if (pbTime)
+            qInfo("[PBTIME] streams_dedup (already in flight)");
+        return;
+    }
+    m_streamsInflight = true;
     QNetworkRequest sreq{QUrl(m_baseUrl + "/streams")};
     sreq.setPriority(QNetworkRequest::HighPriority);
     if (pbTime)
@@ -182,6 +192,7 @@ void PlaybackClient::fetchStreams()
     connect(reply, &QNetworkReply::finished, this, [this, reply, strTimer]() {
         reply->deleteLater();
         m_loggingIn = false;
+        m_streamsInflight = false;
         if (pbTime)
             qInfo("[PBTIME] streams_http ms=%lld code=%d bytes=%lld", strTimer.elapsed(),
                   reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
@@ -204,6 +215,20 @@ void PlaybackClient::fetchStreams()
             const int dash = id.lastIndexOf('-');
             if (dash > 0)
                 m_macToCamId.insert(id.mid(dash + 1), id);
+        }
+        // Persist the ip -> camera_id map. It is what the coverage cache is keyed by,
+        // and without it that cache cannot be read until /streams answers — measured
+        // 2026-09-01 at 1,260-12,352 ms, which made a DISK READ wait on the network and
+        // lost the guard's click by 278 ms in one launch. The mapping is stable; when
+        // it is stale the live response above overwrites it, and the only consequence
+        // is a FAST OPEN window aimed at the wrong camera's instant, which the empty
+        // session retry already handles.
+        {
+            QVariantMap m;
+            for (auto it = m_ipToCamId.cbegin(); it != m_ipToCamId.cend(); ++it)
+                m.insert(it.key(), it.value());
+            QSettings s;
+            s.setValue(QStringLiteral("ipToCamId"), m);
         }
         m_loggedIn = true;                   // signed in + streams resolved = ready
         emit loggedInChanged();
@@ -617,8 +642,69 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
         QVariantList days;
         for (const auto &dv : obj.value("days").toArray())
             days.append(dv.toObject().toVariantMap());
+        // PERSIST, because a PAST day's coverage is immutable and this query is
+        // expensive. CV's own Server-Timing reports db;dur 5,956-24,329 ms to produce
+        // ~1 KB for cameras=1 days=5 (measured 2026-09-01), and that wait sits on the
+        // critical path of the guard's FIRST open: without dayInfo[date].firstMs the
+        // day click falls back to the whole-day manifest. A day that has ENDED cannot
+        // change its first-footage instant, so re-deriving it from the database on
+        // every app start is paying 24 s for a fact this station already learned.
+        // Read back by cachedCoverageDays(); see the honesty note there.
+        {
+            QSettings s;
+            s.beginGroup(QStringLiteral("coverageCache"));
+            s.setValue(cameraId, QJsonDocument(obj).toJson(QJsonDocument::Compact));
+            s.endGroup();
+        }
         emit coverageReady(cameraId, true, retentionDays, days);
     });
+}
+
+// Last known coverage for this camera, from disk. Used ONLY to give the FAST OPEN
+// gate a target instant on the first day click, while the live request is still in
+// CV's database (5,956-24,329 ms of db;dur, measured 2026-09-01).
+//
+// THE HONESTY BOUNDARY, and it is deliberate: this NEVER feeds the calendar ribbon,
+// the coverage dots, or the "No footage recorded on this day" short-circuit. Those
+// keep waiting for the live answer, because a cached day could have rolled out of
+// retention or gained footage since, and claiming either from disk would be
+// inventing a state. Being wrong about the OPEN TARGET is self-correcting — the
+// session simply comes back empty and the existing retry re-opens — while being
+// wrong about "this day has no footage" is a lie told to a guard.
+//
+// Entries older than the retention window are dropped on read: past that horizon
+// the recording is genuinely gone, so a stale `first` would aim the window at
+// footage that no longer exists.
+// The camera id we last saw for this IP, from disk. Lets the coverage cache be read
+// with NO network at all, instead of waiting on /streams to resolve the same mapping.
+QString PlaybackClient::cachedCameraIdForIp(const QString &ip) const
+{
+    if (ip.isEmpty())
+        return {};
+    QSettings s;
+    return s.value(QStringLiteral("ipToCamId")).toMap().value(ip).toString();
+}
+
+QVariantList PlaybackClient::cachedCoverageDays(const QString &cameraId, int retentionDays) const
+{
+    if (cameraId.isEmpty())
+        return {};
+    QSettings s;
+    s.beginGroup(QStringLiteral("coverageCache"));
+    const QByteArray raw = s.value(cameraId).toByteArray();
+    s.endGroup();
+    if (raw.isEmpty())
+        return {};
+    const QDate horizon = QDate::currentDate().addDays(-qMax(1, retentionDays));
+    QVariantList out;
+    for (const auto &dv : QJsonDocument::fromJson(raw).object().value("days").toArray()) {
+        const auto o = dv.toObject();
+        const QDate d = QDate::fromString(o.value("date").toString(), Qt::ISODate);
+        if (!d.isValid() || d < horizon)
+            continue;
+        out.append(o.toVariantMap());
+    }
+    return out;
 }
 
 void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QString &wallStartIso,

@@ -107,6 +107,14 @@ public:
     // endpoint yet (404) or on error, so the calendar shows an honest "pending"
     // state instead of fabricating coverage. See docs/letters/ for the API ask.
     Q_INVOKABLE void fetchCoverage(const QString &cameraId);
+    // Last known coverage from disk, for the FAST OPEN target ONLY while the live
+    // request is still in CV's database. Never for the ribbon or the empty-day
+    // claim — see the honesty note at the definition.
+    Q_INVOKABLE QVariantList cachedCoverageDays(const QString &cameraId,
+                                                int retentionDays = 35) const;
+    // Last known ip -> camera_id, from disk, so the coverage cache can be read before
+    // /streams answers. Stale entries are overwritten by the live /streams response.
+    Q_INVOKABLE QString cachedCameraIdForIp(const QString &ip) const;
 
     // Motion timeline for the playback scrubber (S06 / 2026-06-15 letter): GET
     // /events/timeline → server-joined motion episode SPANS (episodes mode), or
@@ -193,6 +201,10 @@ private:
     // microseconds of camerasResolved, so this endpoint was requested twice on every
     // screen entry — see the single-flight note in fetchCoverage().
     QSet<QString> m_coverageInflight;
+    // /streams was likewise issued twice per launch — see the single-flight note in
+    // fetchStreams(). It gates camerasResolved, so a duplicate competes with the very
+    // request chain it unblocks.
+    bool m_streamsInflight = false;
     bool m_loggedIn = false;      // ready: signed in AND /streams resolved
     QString m_sessionTag;
     // Playback-subsystem health. Set when a session open is refused for an
