@@ -878,6 +878,16 @@ int main(int argc, char *argv[])
     // roll, not a re-open. The trade is: shorter = faster first frame, but more
     // rolls during a long sit-and-watch.
     engine.rootContext()->setContextProperty("wtPbWindowMs", qEnvironmentVariableIntValue("WT_PB_WINDOW_MS"));
+    // WT_PB_HEAD_OFFSET_MS: where the FAST OPEN window head sits relative to the
+    // target instant. 0/unset -> -2000 (today: 2 s of lead-in).
+    //
+    // The first segment fetch is the entire remaining wait on this station, and its
+    // size is bimodal — 0.86-1.87 MB fetched in 493-1,322 ms, or 6.5-7.4 MB in
+    // 4,599-5,372 ms. CV trims fragment 0 only when the window head lands MID-segment.
+    // A plain day click targets the day's FIRST footage instant, so the head sits on
+    // a segment boundary and there is nothing to trim. A positive offset (~15,000 for
+    // 30 s segments) should land mid-segment and earn the cut.
+    engine.rootContext()->setContextProperty("wtPbHeadOffsetMs", qEnvironmentVariableIntValue("WT_PB_HEAD_OFFSET_MS"));
     // WT_SEEK_SPAM=1: chaotic scrubber click-spam driver — bursts of rapid random
     // seekToWall calls with NO waiting (the operator gesture reported 2026-07-03:
     // "click fast and chaotically → lots of freezes"). Deterministic targets, logs

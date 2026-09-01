@@ -825,7 +825,24 @@ Item {
                 && targetMs >= s && targetMs <= dayEnd) {
             // Window head IS the landing point — same contract as seekFar(), so no
             // inner seek is needed and the deferred-seek stage is skipped entirely.
-            _explicitStart = Math.max(s, targetMs - 2000);
+            // WT_PB_HEAD_OFFSET_MS: where the window head sits relative to the
+            // target. Default -2000 = today's behaviour (2 s of lead-in).
+            //
+            // WHY IT IS A LEVER, measured 2026-09-01: the first segment fetch is the
+            // whole remaining wait, and its size varies enormously —
+            //     857,092 B ->   493 ms      6,533,376 B -> 4,599 ms
+            //     959,928 B ->   731 ms      7,386,896 B -> 5,372 ms
+            // CV cuts fragment 0 (head_split) only when the window head lands
+            // MID-segment. On a plain day click our target IS the day's first
+            // footage instant, so head = first - 2 s sits BEFORE the first fragment
+            // — a boundary, where there is nothing to cut and we get the whole ~30 s
+            // segment. Aiming into the footage instead should land mid-segment.
+            //
+            // The cost is honest and visible: playback starts N ms later than the
+            // day's true first frame. Default 0 offset keeps today's behaviour.
+            var _headOff = (typeof wtPbHeadOffsetMs !== "undefined" && wtPbHeadOffsetMs !== 0)
+                           ? wtPbHeadOffsetMs : -2000;
+            _explicitStart = Math.max(s, targetMs + _headOff);
             // Window length is a lever (WT_PB_WINDOW_MS), because with the whole-day
             // manifest gone this request IS the guard's wait: CV serves 49 KB / 62
             // frags in 4,813-17,238 ms but 4 KB in as little as 20.6 ms. The player
