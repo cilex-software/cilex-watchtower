@@ -1,4 +1,4 @@
-﻿#include "SavedViewModel.h"
+#include "SavedViewModel.h"
 
 #include "MockData.h"
 
