@@ -147,17 +147,59 @@ Item {
                             Item {
                                 id: net
                                 anchors.fill: parent; anchors.margins: 4
-                                readonly property var lp: LayoutSpec.params(modelData.layout)
-                                readonly property int cellCount: LayoutSpec.count(modelData.layout)
+                                // MERGED CELLS WIN over the layout's canonical net. A view
+                                // saved with big tiles used to draw here as a plain grid,
+                                // because the card only ever knew the layout id — which is
+                                // how the operator discovered (2026-09-02) that merges were
+                                // not part of a view at all. `spans` is captured at save
+                                // time; absent or unparseable falls back to the plain net.
+                                readonly property var sp: {
+                                    if (!modelData.spans || modelData.spans.length === 0) return null;
+                                    try {
+                                        var s = JSON.parse(modelData.spans);
+                                        return (s && s.cols > 0 && s.rows > 0
+                                                && s.regions && s.regions.length > 0) ? s : null;
+                                    } catch (e) { return null; }
+                                }
+                                // Same row-major enumeration LiveMonitor uses (_spanCells):
+                                // a merged region is emitted once, at its anchor cell, and
+                                // the cells it covers are skipped — so the card is the same
+                                // picture the wall draws, not an approximation of it.
+                                readonly property var spCells: {
+                                    if (!net.sp) return null;
+                                    var covered = ({}), at = ({}), i, c, r;
+                                    for (i = 0; i < net.sp.regions.length; i++) {
+                                        var g = net.sp.regions[i];
+                                        at[g.c + "," + g.r] = g;
+                                        for (c = g.c; c < g.c + g.cw; c++)
+                                            for (r = g.r; r < g.r + g.ch; r++) covered[c + "," + r] = true;
+                                    }
+                                    var out = [];
+                                    for (r = 0; r < net.sp.rows; r++)
+                                        for (c = 0; c < net.sp.cols; c++) {
+                                            var reg = at[c + "," + r];
+                                            if (reg) out.push({ c: reg.c, r: reg.r, cw: reg.cw, ch: reg.ch });
+                                            else if (!covered[c + "," + r]) out.push({ c: c, r: r, cw: 1, ch: 1 });
+                                        }
+                                    return out;
+                                }
+                                readonly property var lp: net.sp ? { cols: net.sp.cols, rows: net.sp.rows, big: false }
+                                                                 : LayoutSpec.params(modelData.layout)
+                                readonly property int cellCount: net.spCells ? net.spCells.length
+                                                                             : LayoutSpec.count(modelData.layout)
                                 readonly property real gap: 2
                                 readonly property real uw: (width - net.gap * (net.lp.cols - 1)) / net.lp.cols
                                 readonly property real uh: (height - net.gap * (net.lp.rows - 1)) / net.lp.rows
                                 Repeater {
-                                    model: LayoutSpec.cells(modelData.layout)
+                                    model: net.spCells ? net.spCells : LayoutSpec.cells(modelData.layout)
                                     Rectangle {
                                         required property int index
                                         required property var modelData   // cell { c, r, cw, ch }
-                                        readonly property bool isBig: net.lp.big && index === 0
+                                        // With merges, "big" means any region larger than one
+                                        // cell — that is what the operator merged and what
+                                        // should read as emphasised at a glance.
+                                        readonly property bool isBig: net.sp ? (modelData.cw > 1 || modelData.ch > 1)
+                                                                             : (net.lp.big && index === 0)
                                         readonly property bool isIssue: index < Math.min(card.parent.issues, net.cellCount)
                                         x: modelData.c * (net.uw + net.gap)
                                         y: modelData.r * (net.uh + net.gap)

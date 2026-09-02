@@ -30,6 +30,7 @@ public:
         GroupIdRole,
         GroupLabelRole,
         LastUsedIsoRole,
+        SpansRole,          // merged cells captured at save time — see SavedViewData::spans
     };
 
     explicit SavedViewModel(QObject *parent = nullptr);
@@ -43,9 +44,14 @@ public:
     // All views as maps (for the screen, which filters in QML).
     Q_INVOKABLE QVariantList list() const;
     // Capture the current Live Monitor state as a new view (prepended).
+    // `spans` is the merged-cell JSON as LiveMonitor holds it ({cols, rows,
+    // regions:[...]}), or "" when nothing is merged. Captured INTO the view rather
+    // than left in the global Settings key, which could not tell two views over the
+    // same group+layout apart — see SavedViewData::spans.
     Q_INVOKABLE void saveCurrent(const QString &name, bool shared, const QString &layout,
                                  const QString &statusFilter, const QString &sortMode,
-                                 const QString &groupId, const QString &groupLabel);
+                                 const QString &groupId, const QString &groupLabel,
+                                 const QString &spans = QString());
     Q_INVOKABLE void remove(const QString &id);
     Q_INVOKABLE void touch(const QString &id);          // mark just-opened
     Q_INVOKABLE void toggleFavorite(const QString &id);

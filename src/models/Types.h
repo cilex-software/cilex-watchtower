@@ -108,6 +108,17 @@ struct SavedViewData {
     QString groupId;                              // "" = all cameras
     QString groupLabel = QStringLiteral("All cameras");
     QString lastUsedIso;
+    // Merged cells, captured AT SAVE TIME: {cols, rows, regions:[{c,r,cw,ch}]},
+    // the same shape LiveMonitor keeps in Settings::liveSpans. Empty = no merges.
+    //
+    // These used to live ONLY in Settings under (groupId, layout), on the theory
+    // that a view restoring group+layout would pick them up for free. It does not
+    // work: that key is GLOBAL, so two views over the same group and layout cannot
+    // hold different merges — saving a merged view then merging differently
+    // silently rewrites the first one — and the Saved Views card had nothing to
+    // draw, so a merged view rendered as a plain grid. A view that cannot hold its
+    // own layout is not a view. Reported by the operator 2026-09-02.
+    QString spans;
 };
 
 } // namespace wt

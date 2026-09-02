@@ -646,6 +646,18 @@ Window {
         return { id: "", label: qsTr("All cameras") };
     }
 
+    // Restore a saved view's merged cells. The spans live in Settings under
+    // (group, layout) because that is what LiveMonitor reads, but the AUTHORITY is
+    // now the view itself — so opening a view WITHOUT merges must CLEAR the key,
+    // not leave whatever was merged last. Otherwise a plain view silently inherits
+    // the previous view's big tiles, which is the same class of bug as the one the
+    // operator reported on 2026-09-02, just in the other direction.
+    function applyViewSpans(groupId, layout, spans) {
+        if (spans && spans.length > 0) Settings.setLiveSpans(groupId, layout, spans);
+        else                           Settings.clearLiveSpans(groupId, layout);
+        liveMonitor.spansRev++;        // spanState is cached against this counter
+    }
+
     // Apply the user's default landing screen on launch (Live / a saved view / a
     // group). A dev WT_SECTION override wins. Models are ready by onCompleted.
     function applyDefaultLanding() {
@@ -2152,6 +2164,7 @@ Window {
                         win.groupLabel = vg.label;
                         win.gridPage = 1;
                         win.section = "live";
+                        win.applyViewSpans(vg.id, view.layout, view.spans);
                         savedViewModel.touch(view.viewId);
                     }
                 }
@@ -2348,8 +2361,15 @@ Window {
     SaveViewModal {
         id: saveViewModal
         onSaved: (name, shared) => {
+            // Capture the merged cells INTO the view. They used to be left in the
+            // global Settings key under (group, layout), which meant two views over
+            // the same group and layout shared one set of merges — save a merged
+            // view, merge differently, and the first view silently changed under
+            // the operator. Reported 2026-09-02: a view saved with merged cells
+            // came back as a plain grid.
             savedViewModel.saveCurrent(name, shared, win.gridLayout, win.statusFilter,
-                                       win.sortMode, win.groupFilter, win.groupLabel);
+                                       win.sortMode, win.groupFilter, win.groupLabel,
+                                       Settings.liveSpans(win.groupFilter, win.gridLayout));
             toastHost.show("View saved", name + " · " + (shared ? qsTr("Shared") : qsTr("Mine")), "good", "", "");
         }
     }
@@ -2371,6 +2391,7 @@ Window {
             win.gridLayout = view.layout; win.statusFilter = view.statusFilter; win.sortMode = view.sortMode;
             win.groupFilter = cg.id; win.groupLabel = cg.label; win.gridPage = 1;
             win.goToSection("live");
+            win.applyViewSpans(cg.id, view.layout, view.spans);
             savedViewModel.touch(view.viewId);
         }
         onOpenEvents: win.goToSection("events")

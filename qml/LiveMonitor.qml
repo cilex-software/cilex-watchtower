@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic as C
 import Watchtower
@@ -198,10 +198,16 @@ Item {
         var gb = goBackBtn.implicitWidth + sp, sv = saveBtn.implicitWidth + sp, ar = arrangeBtn.implicitWidth + sp;
         var rst = (arrangeMode && hasArrangement) ? resetBtn.implicitWidth + sp : 0;
         var ov = 38 + sp;                                   // the "»" button, present iff anything hides
+        // COLLAPSE ORDER: Arrange → Go-back → Save. Save now outranks Go-back
+        // (they were the other way round until 2026-09-02): saving the current view
+        // is the only way to keep a wall arrangement, and it has no other entry
+        // point, whereas Go back in time is reachable from the Playback section.
+        // The operator reported not being able to find a save button at all on a
+        // 1881-wide wall with the filter row populated — it was inside "»".
         if (fixed + gb + sv + ar + rst <= W) return 0;      // everything fits — no "»" at all
         if (fixed + gb + sv + ov <= W) return 1;            // Arrange (+Reset) into the menu
-        if (fixed + gb + ov <= W) return 2;                 // …and Save
-        if (fixed + ov <= W) return 3;                      // …and Go-back
+        if (fixed + sv + ov <= W) return 2;                 // …and Go-back
+        if (fixed + ov <= W) return 3;                      // …and Save
         if (toolbarSpacer.x + fullBtn.implicitWidth + sp + ov <= W) return 4;   // …and Sort (full stays)
         return 5;                                           // …and full-screen: only "»" inline
     }
@@ -1046,7 +1052,7 @@ Item {
                 // go back in time (enter synchronized wall playback)
                 Rectangle {
                     id: goBackBtn
-                    visible: root._tbHidden < 3
+                    visible: root._tbHidden < 2
                     Layout.preferredHeight: 34
                     implicitWidth: gbtRow.implicitWidth + 24
                     color: gbtMa.containsMouse ? Theme.panel : "transparent"
@@ -1070,7 +1076,7 @@ Item {
                 // save current view (ghost)
                 Rectangle {
                     id: saveBtn
-                    visible: root._tbHidden < 2
+                    visible: root._tbHidden < 3      // outranks Go-back — see _tbWantHidden
                     Layout.preferredHeight: 34
                     implicitWidth: saveTxt.implicitWidth + 28
                     color: saveMa.containsMouse ? Theme.panel : "transparent"
@@ -1261,9 +1267,9 @@ Item {
                             // Only the commands actually hidden at the current overflow level —
                             // a menu duplicating inline buttons would be two names for one fact.
                             // (Sort + full-screen never collapse, so they no longer appear here.)
-                            OvRow { visible: root._tbHidden >= 3
-                                label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
                             OvRow { visible: root._tbHidden >= 2
+                                label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
+                            OvRow { visible: root._tbHidden >= 3
                                 label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
                             OvRow { visible: root._tbHidden >= 1
                                 label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"

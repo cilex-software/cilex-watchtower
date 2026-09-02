@@ -1,4 +1,4 @@
-#include "SavedViewModel.h"
+﻿#include "SavedViewModel.h"
 
 #include "MockData.h"
 
@@ -38,6 +38,9 @@ void SavedViewModel::load()
         d.groupLabel = o.value("groupLabel").toString();
         if (d.groupLabel.isEmpty()) d.groupLabel = QStringLiteral("All cameras");
         d.lastUsedIso = o.value("lastUsedIso").toString();
+        // Absent on views saved before 2026-09-02 — they simply have no merges,
+        // which is what they always effectively were.
+        d.spans = o.value("spans").toString();
         m_all.push_back(d);
     }
     // Dev-only: seed the mock set when there are no real views (and only WT_DEMO).
@@ -63,6 +66,8 @@ void SavedViewModel::persist() const
         o["groupId"] = d.groupId;
         o["groupLabel"] = d.groupLabel;
         o["lastUsedIso"] = d.lastUsedIso;
+        if (!d.spans.isEmpty())
+            o["spans"] = d.spans;     // omitted entirely when the view has no merges
         arr.append(o);
     }
     QSettings s;
@@ -100,6 +105,7 @@ QVariant SavedViewModel::data(const QModelIndex &index, int role) const
     case GroupIdRole:      return v.groupId;
     case GroupLabelRole:   return v.groupLabel;
     case LastUsedIsoRole:  return v.lastUsedIso;
+    case SpansRole:       return v.spans;
     default:               return {};
     }
 }
@@ -117,6 +123,7 @@ QHash<int, QByteArray> SavedViewModel::roleNames() const
         { GroupIdRole,      "groupId" },
         { GroupLabelRole,   "groupLabel" },
         { LastUsedIsoRole,  "lastUsedIso" },
+        { SpansRole,        "spans" },
     };
 }
 
@@ -133,6 +140,7 @@ QVariantMap SavedViewModel::toMap(const wt::SavedViewData &v) const
     m["groupId"] = v.groupId;
     m["groupLabel"] = v.groupLabel;
     m["lastUsedIso"] = v.lastUsedIso;
+    m["spans"] = v.spans;
     return m;
 }
 
@@ -147,7 +155,8 @@ QVariantList SavedViewModel::list() const
 
 void SavedViewModel::saveCurrent(const QString &name, bool shared, const QString &layout,
                                  const QString &statusFilter, const QString &sortMode,
-                                 const QString &groupId, const QString &groupLabel)
+                                 const QString &groupId, const QString &groupLabel,
+                                 const QString &spans)
 {
     wt::SavedViewData d;
     d.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -160,6 +169,7 @@ void SavedViewModel::saveCurrent(const QString &name, bool shared, const QString
     d.groupId = groupId;
     d.groupLabel = groupLabel.isEmpty() ? QStringLiteral("All cameras") : groupLabel;
     d.lastUsedIso = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    d.spans = spans;      // "" when nothing is merged; see SavedViewData::spans
     beginInsertRows({}, 0, 0);
     m_all.prepend(d);
     endInsertRows();
