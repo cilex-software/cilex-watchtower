@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QSaveFile>
+#include <QSslSocket>
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QThread>
@@ -404,6 +405,30 @@ void install(const char *buildSha)
           WT_VERSION, QCoreApplication::applicationPid(), buildSha, qVersion(),
           qPrintable(QSysInfo::prettyProductName()), qPrintable(dir),
           s_maxBytes / 1024, s_keep);
+}
+
+// WHICH TLS BACKEND DID THIS BUILD ACTUALLY GET, and can it speak https at all?
+// Asked by CV 2026-09-03 for all three platforms; no single agent has all three
+// boxes, so every build states it and the question is closed by measurement
+// instead of by letter.
+//
+// It decides whether an https:// base URL can work AT ALL, and how a certificate
+// is validated: SChannel checks the WINDOWS store, OpenSSL the system CA bundle.
+// backend=<empty> means https cannot be opened under any configuration.
+//
+// MUST BE CALLED AFTER THE QGuiApplication EXISTS. Qt cannot scan plugin paths
+// until then, so calling it from install() — which runs before the app object —
+// reported supportsSsl=0 available=[] on a box whose tls\qschannelbackend.dll is
+// present and byte-identical to the SDK's. That was a false negative produced by
+// the probe, not a property of the build, and it was one edit away from being
+// reported to CV as fact.
+void logTlsBackend()
+{
+    qInfo("[TLS] supportsSsl=%d backend=%s available=[%s] lib=%s",
+          int(QSslSocket::supportsSsl()),
+          qPrintable(QSslSocket::activeBackend()),
+          qPrintable(QSslSocket::availableBackends().join(QLatin1Char(','))),
+          qPrintable(QSslSocket::sslLibraryVersionString()));
 }
 
 QString directory()

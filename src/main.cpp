@@ -333,6 +333,7 @@ int main(int argc, char *argv[])
     // setDesktopFileName above is fine pre-construction; it only stores a string.
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/images/cilex-logo.png")));
     FlightRecorder::startPeriodic(&app);   // CW-02: modules/BuildID snapshots (30 s, on change)
+    FlightRecorder::logTlsBackend();       // must be AFTER the app object — see its note
 
     // GUI-thread hang watchdog (Warden CW-08, app half). A frozen wall that keeps
     // painting its last frame is worse than a crash — the guard trusts a lie. A

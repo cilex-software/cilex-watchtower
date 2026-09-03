@@ -37,6 +37,12 @@ void install(const char *buildSha);
 // (the 2026-07-25 P0 was symbolized by hand for want of exactly this file).
 void startPeriodic(QObject *parent);
 
+// Log which TLS backend this build resolved ([TLS] supportsSsl/backend/available).
+// MUST be called AFTER the QGuiApplication exists — Qt cannot scan plugin paths
+// before that, and calling it earlier reports "no backend" on a build that has
+// one. See the note at the definition.
+void logTlsBackend();
+
 // Where the recorder is writing ("" when disabled) — Warden's collector reads
 // this dir; also logged at install so the location is discoverable post-mortem.
 QString directory();
