@@ -257,6 +257,102 @@ void AuthController::persist()
     QSettings s;
     s.setValue("auth/token", m_token);
     s.setValue("auth/baseUrl", m_baseUrl);
+    // persist() runs exactly when the server has ACCEPTED a session (login or
+    // refresh) — the one honest moment to record the URL in the history.
+    rememberServer(m_baseUrl);
+}
+
+// --- Saved-servers history ---------------------------------------------------
+// One JSON array under servers/history: [{"url":"https://…","nick":"Booth"}],
+// most recent first. JSON-as-string (not a QSettings array) so the value is
+// portable across the three platforms' native settings formats and trivially
+// inspectable. Capped: this is a recall aid, not an inventory.
+namespace {
+constexpr int kServerHistoryMax = 10;
+const QLatin1String kServerHistoryKey("servers/history");
+
+QJsonArray loadServerHistory()
+{
+    return QJsonDocument::fromJson(QSettings().value(kServerHistoryKey).toByteArray()).array();
+}
+
+void saveServerHistory(const QJsonArray &a)
+{
+    QSettings().setValue(kServerHistoryKey,
+                         QJsonDocument(a).toJson(QJsonDocument::Compact));
+}
+} // namespace
+
+QVariantList AuthController::serverHistory() const
+{
+    QVariantList out;
+    const QJsonArray a = loadServerHistory();
+    for (const auto &v : a) {
+        const QJsonObject o = v.toObject();
+        const QString url = o.value(QLatin1String("url")).toString();
+        if (url.isEmpty())
+            continue;
+        out.append(QVariantMap{{QStringLiteral("url"), url},
+                               {QStringLiteral("nick"), o.value(QLatin1String("nick")).toString()}});
+    }
+    return out;
+}
+
+void AuthController::rememberServer(const QString &url)
+{
+    if (url.isEmpty())
+        return;
+    QJsonArray a = loadServerHistory();
+    // Already freshest? Then this is a token refresh re-persisting — no churn.
+    if (!a.isEmpty() && a.first().toObject().value(QLatin1String("url")).toString() == url)
+        return;
+    QString nick;   // an upsert keeps the operator's nickname
+    for (int i = a.size() - 1; i >= 0; --i) {
+        if (a.at(i).toObject().value(QLatin1String("url")).toString() == url) {
+            nick = a.at(i).toObject().value(QLatin1String("nick")).toString();
+            a.removeAt(i);
+        }
+    }
+    a.prepend(QJsonObject{{QLatin1String("url"), url}, {QLatin1String("nick"), nick}});
+    while (a.size() > kServerHistoryMax)
+        a.removeAt(a.size() - 1);
+    saveServerHistory(a);
+    emit serverHistoryChanged();
+}
+
+void AuthController::setServerNickname(const QString &url, const QString &nickname)
+{
+    QJsonArray a = loadServerHistory();
+    bool changed = false;
+    for (int i = 0; i < a.size(); ++i) {
+        QJsonObject o = a.at(i).toObject();
+        if (o.value(QLatin1String("url")).toString() == url
+                && o.value(QLatin1String("nick")).toString() != nickname) {
+            o.insert(QLatin1String("nick"), nickname);
+            a.replace(i, o);
+            changed = true;
+        }
+    }
+    if (!changed)
+        return;
+    saveServerHistory(a);
+    emit serverHistoryChanged();
+}
+
+void AuthController::forgetServer(const QString &url)
+{
+    QJsonArray a = loadServerHistory();
+    bool changed = false;
+    for (int i = a.size() - 1; i >= 0; --i) {
+        if (a.at(i).toObject().value(QLatin1String("url")).toString() == url) {
+            a.removeAt(i);
+            changed = true;
+        }
+    }
+    if (!changed)
+        return;
+    saveServerHistory(a);
+    emit serverHistoryChanged();
 }
 
 void AuthController::clearSession()

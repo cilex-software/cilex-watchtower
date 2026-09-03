@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic as C
 import Watchtower
 
 // Login gate. Two tabs: Password (username+password -> /auth/login) and Token
@@ -26,10 +27,15 @@ Item {
 
     // Single-line labelled input (server / username / password).
     component Field: ColumnLayout {
+        id: fieldRoot
         property alias label: lbl.text
         property alias text: input.text
         property alias echoMode: input.echoMode
         property alias placeholder: ph.text
+        // Optional trailing chevron (saved-servers dropdown). Hidden unless the
+        // page enables it — an empty history gets no dead control.
+        property bool showHistory: false
+        signal historyRequested()
         function takeFocus() { input.forceActiveFocus() }
         Layout.fillWidth: true
         spacing: 6
@@ -47,7 +53,7 @@ Item {
             border.color: input.activeFocus ? Theme.accent : Theme.line2
             TextInput {
                 id: input
-                anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                anchors { fill: parent; leftMargin: 12; rightMargin: fieldRoot.showHistory ? 38 : 12 }
                 verticalAlignment: TextInput.AlignVCenter
                 color: Theme.ink
                 font.family: Theme.fontSans; font.pixelSize: Theme.fsBody
@@ -64,6 +70,14 @@ Item {
                     color: Theme.ink3; font: input.font
                     visible: input.text === ""
                 }
+            }
+            IconButton {
+                anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 4 }
+                visible: fieldRoot.showHistory
+                name: "chev"
+                iconSize: 14
+                tip: qsTr("Saved servers")
+                onClicked: fieldRoot.historyRequested()
             }
         }
     }
@@ -163,6 +177,125 @@ Item {
                 label: qsTr("Server")
                 placeholder: "http://host:8000"
                 Component.onCompleted: text = AuthController.baseUrl
+                showHistory: AuthController.serverHistory.length > 0
+                onHistoryRequested: serverMenu.open()
+
+                // Saved-servers dropdown: every server that has accepted a login,
+                // most recent first, with an operator-assigned nickname (pencil to
+                // edit, ✕ to forget). Picking a row fills the field — nothing else.
+                C.Popup {
+                    id: serverMenu
+                    y: serverField.height + 4
+                    width: serverField.width
+                    padding: 0
+                    modal: false
+                    background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+                    // The last row can be forgotten while open — an empty menu is
+                    // a dead control, so it closes itself.
+                    property int n: AuthController.serverHistory.length
+                    onNChanged: if (n === 0) close()
+
+                    contentItem: Column {
+                        Repeater {
+                            model: AuthController.serverHistory
+                            delegate: Item {
+                                id: row
+                                required property var modelData
+                                property bool editing: false
+                                width: serverMenu.width
+                                height: 44
+
+                                function commitNick() {
+                                    AuthController.setServerNickname(row.modelData.url, nickEdit.text.trim());
+                                    row.editing = false;
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: rowMa.containsMouse && !row.editing ? Theme.bg : "transparent"
+                                }
+                                MouseArea {
+                                    id: rowMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    visible: !row.editing
+                                    onClicked: { serverField.text = row.modelData.url; serverMenu.close() }
+                                }
+
+                                // normal state: nickname (or the url itself), url subline when nicknamed
+                                Column {
+                                    anchors { left: parent.left; right: btns.left; verticalCenter: parent.verticalCenter; leftMargin: 12 }
+                                    spacing: 1
+                                    visible: !row.editing
+                                    Text {
+                                        width: parent.width; elide: Text.ElideRight
+                                        text: row.modelData.nick !== "" ? row.modelData.nick : row.modelData.url
+                                        color: Theme.ink
+                                        font.family: row.modelData.nick !== "" ? Theme.fontSans : Theme.fontMono
+                                        font.pixelSize: Theme.fsSmall
+                                    }
+                                    Text {
+                                        width: parent.width; elide: Text.ElideMiddle
+                                        visible: row.modelData.nick !== ""
+                                        text: row.modelData.url
+                                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: Theme.fsLabel
+                                    }
+                                }
+
+                                // edit state: nickname input in place of the labels
+                                Rectangle {
+                                    visible: row.editing
+                                    anchors { left: parent.left; right: btns.left; verticalCenter: parent.verticalCenter; leftMargin: 8 }
+                                    height: 28
+                                    color: Theme.bg
+                                    border.width: 1; border.color: Theme.accent
+                                    TextInput {
+                                        id: nickEdit
+                                        anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: Theme.fsSmall
+                                        selectionColor: Theme.accent; selectByMouse: true; clip: true
+                                        onAccepted: row.commitNick()
+                                        Keys.onEscapePressed: row.editing = false
+                                        Text {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: nickEdit.text === ""
+                                            text: qsTr("Nickname")
+                                            color: Theme.ink3; font: nickEdit.font
+                                        }
+                                    }
+                                }
+
+                                Row {
+                                    id: btns
+                                    anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 4 }
+                                    IconButton {
+                                        name: row.editing ? "check" : "pencil"
+                                        iconSize: 13
+                                        tip: row.editing ? qsTr("Save nickname") : qsTr("Set a nickname")
+                                        onClicked: {
+                                            if (row.editing) {
+                                                row.commitNick();
+                                            } else {
+                                                nickEdit.text = row.modelData.nick;
+                                                row.editing = true;
+                                                nickEdit.forceActiveFocus();
+                                            }
+                                        }
+                                    }
+                                    IconButton {
+                                        name: "x"
+                                        iconSize: 12
+                                        tip: qsTr("Forget this server")
+                                        visible: !row.editing
+                                        onClicked: AuthController.forgetServer(row.modelData.url)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // password tab

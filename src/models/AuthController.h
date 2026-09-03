@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 
 class QNetworkAccessManager;
 
@@ -26,6 +27,10 @@ class AuthController : public QObject
     Q_PROPERTY(QStringList cameraScope READ cameraScope NOTIFY identityChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString errorString READ errorString NOTIFY errorChanged)
+    // Servers that have ACCEPTED a login (most recent first), each with an
+    // operator-assigned nickname — the login screen's saved-servers dropdown.
+    // Only successful logins are recorded: a typo never becomes a suggestion.
+    Q_PROPERTY(QVariantList serverHistory READ serverHistory NOTIFY serverHistoryChanged)
 
 public:
     explicit AuthController(QObject *parent = nullptr);
@@ -69,6 +74,11 @@ public:
     Q_INVOKABLE void logout();
     Q_INVOKABLE void clearError() { setError(QString()); }
 
+    // Saved-servers list: [{url, nick}], most recent first, capped.
+    QVariantList serverHistory() const;
+    Q_INVOKABLE void setServerNickname(const QString &url, const QString &nickname);
+    Q_INVOKABLE void forgetServer(const QString &url);
+
 signals:
     void authenticatedChanged();
     void baseUrlChanged();
@@ -76,6 +86,7 @@ signals:
     void busyChanged();
     void errorChanged();
     void loginFailed(const QString &reason);
+    void serverHistoryChanged();
     void sessionExpired();
     // The access token was REPLACED in place (silent /auth/refresh). Components
     // that cache the cookie in their own NAM — PlaybackClient, HlsProxy — must
@@ -91,6 +102,7 @@ private:
     void applyToken(const QString &token);   // store + set cookie + decode claims
     void setAuthenticated(bool a);
     void persist();
+    void rememberServer(const QString &url);   // upsert to front of serverHistory
     void clearSession();
     // Login attempts retry on transient network/server-not-ready failures
     // (e.g. the backend still coming up at boot) before surfacing an error.
