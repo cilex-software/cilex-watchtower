@@ -183,7 +183,7 @@ Item {
     readonly property string streamUrl: (useMainStream && rtspUrl !== "")
         ? rtspUrl
         : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
-    readonly property bool hasStream: streamUrl !== "" && videoActive && !isOffline
+    readonly property bool hasStream: streamUrl !== "" && videoActive && (!isOffline || streamPlaying)
     readonly property bool streamPlaying: videoLoader.item ? videoLoader.item.playing : false
     readonly property bool streamErrored: videoLoader.item ? videoLoader.item.errored : false
     // Frames arriving, but too slowly to be video. NOT a substate of "not playing" —
@@ -340,7 +340,18 @@ Item {
         Loader {
             id: videoLoader
             anchors.fill: parent
-            active: !base._recycling && root.streamUrl !== "" && !root.isOffline && root.liveViewEnabled && root.liveDecodeAllowed
+            // A /streams status flip must never UNLOAD a pipeline that is delivering
+            // frames. `status` is a report ABOUT the camera (ISAPI probe + recorder view),
+            // and CV states it lags a flowing go2rtc stream by tens of seconds in either
+            // direction — so gating a live pipeline on it tears the wall down on a
+            // stale poll, exactly the every-poll blanking 888c5da removed for snapshots
+            // but left in place for video. Rule (operator, 2026-08-17): keep the view
+            // once attached; clear only on a REAL identity change. So: status may veto
+            // STARTING a pipeline, but once frames flow, only the URL, the decode cap, or
+            // recycling may stop it. A camera that truly died stops producing frames and
+            // the errored/stale paths below take over honestly.
+            active: !base._recycling && root.streamUrl !== "" && root.liveViewEnabled && root.liveDecodeAllowed
+                    && (!root.isOffline || root.streamPlaying)
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
                 url: root.streamUrl
