@@ -6,7 +6,8 @@
 BACKEND_URL=http://192.168.1.79:8000
 
 # Station ingest token (X-Cilex-Station-Token). Pilot value for dev/chaos:
-#   watchtower-warden-2026-a
+#   (no example value — the pilot literal that used to sit here was the LIVE token
+#    on this station, verified by hash 2026-09-03. Mint per station, never copy.)
 # The SHIPPING secret is minted at installer-cut and delivered out-of-band —
 # it must never appear in a repo (letters 2026-07-26-client-crash-report-ingest*).
 STATION_TOKEN=

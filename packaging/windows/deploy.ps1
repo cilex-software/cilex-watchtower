@@ -22,7 +22,12 @@ param(
     # BtbN's LGPL shared FFmpeg build (genuinely LGPL — no x264/GPL). ClipTranscoder runs
     # `ffmpeg` via QProcess and Windows resolves the app dir first, so ffmpeg.exe beside the
     # exe is picked up. Best-effort in W1 (export is a W2 runtime gate); W4 formalises licences.
-    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip"
+    # PINNED to an immutable dated release, not "latest" (audit 2026-09-03, Medium 12):
+    # "latest" is a moving tag, so the shipped ffmpeg.exe + DLLs changed under every
+    # build with no record of what went out. The hash was computed from the archive
+    # itself on 2026-09-06 (sha256sum, 70,835,256 bytes), not copied from a release page.
+    [string]$FfmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-05-13-10/ffmpeg-n8.1.2-50-g1a748fe2cd-win64-lgpl-shared-8.1.zip",
+    [string]$FfmpegSha256 = "8702705c110c706f32522f3b451368df677510a094fbc56d370cd35d24822edf"
 )
 $ErrorActionPreference = "Stop"
 
@@ -93,6 +98,13 @@ Write-Host "== ffmpeg.exe (LGPL) =="
 try {
     $tmp = Join-Path $env:TEMP "ffmpeg-lgpl.zip"
     Invoke-WebRequest -Uri $FfmpegUrl -OutFile $tmp
+    # Verify before extracting. A mismatch is a hard stop, not a warning: a tampered
+    # or substituted archive must never reach the guard-station installer.
+    $got = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($got -ne $FfmpegSha256.ToLowerInvariant()) {
+        throw "ffmpeg archive SHA-256 mismatch: expected $FfmpegSha256, got $got — refusing to bundle"
+    }
+    Write-Host "  ffmpeg archive SHA-256 verified"
     $ex = Join-Path $env:TEMP "ffmpeg-lgpl"
     if (Test-Path $ex) { Remove-Item -Recurse -Force $ex }
     Expand-Archive -Path $tmp -DestinationPath $ex -Force

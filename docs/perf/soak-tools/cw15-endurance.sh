@@ -43,7 +43,10 @@ XDG_CONFIG_HOME="$BASE/config" XDG_DATA_HOME="$BASE/data" WT_CV_AUTOLOGIN=1 \
 grep -q "SEEDED" "$BASE/seed.log" || { say "FATAL: seed failed"; exit 3; }
 
 # ---- 2. warden up (detached from this driver's fate) ----
-export WT_WARDEN_STATION_TOKEN="${WT_WARDEN_STATION_TOKEN:-watchtower-warden-2026-a}"
+# No default: the pilot token used to be baked in here and was the live station
+# secret (audit 2026-09-03, High 07). Supply it from the environment.
+: "${WT_WARDEN_STATION_TOKEN:?set WT_WARDEN_STATION_TOKEN — never a literal in this file}"
+export WT_WARDEN_STATION_TOKEN
 export WT_WARDEN_APP_CMD="$REPO/run.sh"
 export WT_WARDEN_APP_ENV="WT_CV_AUTOLOGIN=1,CW15_SOAK=1,XDG_CONFIG_HOME=$BASE/config,XDG_DATA_HOME=$BASE/data"
 export WT_WARDEN_DATA_DIR="$BASE/data/Cilex Vision/Watchtower"
