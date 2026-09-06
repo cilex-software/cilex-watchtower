@@ -1,4 +1,5 @@
 #include "ClipTranscoder.h"
+#include <QTemporaryFile>
 
 #include <QFile>
 #include <QFileInfo>
@@ -97,10 +98,13 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
 
     // Caption goes to a temp file so arbitrary camera names need no filter escaping.
     if (burnName && !label.isEmpty()) {
-        m_nameFile = QDir::temp().filePath(QStringLiteral("wt_cap_%1.txt")
-                         .arg(QFileInfo(dst).completeBaseName()));
-        QFile f(m_nameFile);
-        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) { f.write(label.toUtf8()); f.close(); }
+        // Unpredictable name, created 0600 by QTemporaryFile — a fixed wt_cap_<name>
+        // path in shared /tmp is a symlink-follow target on a multi-user box (audit
+        // 2026-09-03, Low). autoRemove stays off: ffmpeg reads it after we close it,
+        // and the existing completion path deletes m_nameFile.
+        QTemporaryFile tf(QDir::temp().filePath(QStringLiteral("wt_cap_XXXXXX.txt")));
+        tf.setAutoRemove(false);
+        if (tf.open()) { tf.write(label.toUtf8()); m_nameFile = tf.fileName(); tf.close(); }
         else m_nameFile.clear();
     }
 

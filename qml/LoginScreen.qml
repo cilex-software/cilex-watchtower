@@ -304,7 +304,16 @@ Item {
                 spacing: Theme.s16
                 visible: root.tab === "password"
                 Field { id: userField; label: qsTr("Username"); placeholder: qsTr("operator") }
-                Field { id: passField; label: qsTr("Password"); echoMode: TextInput.Password }
+                Field { id: passField; label: qsTr("Password"); echoMode: TextInput.Password
+                    // The login screen is hidden, not destroyed, after sign-in, so the
+                    // plaintext password would otherwise sit in the QML heap for the
+                    // whole session (audit 2026-09-03, Info). Clear it on acceptance;
+                    // the C++ side already clears its own copy.
+                    Connections {
+                        target: AuthController
+                        function onAuthenticatedChanged() { if (AuthController.authenticated) passField.text = "" }
+                    }
+                }
             }
 
             // token tab
