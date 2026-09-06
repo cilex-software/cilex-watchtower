@@ -39,8 +39,11 @@ def utc():
 
 
 def run(cmd):
+    """cmd is an argv LIST. shell=True was removed (audit 2026-09-03): the CV host
+    and APPNAME were interpolated into a shell string, so a hostile value in the
+    config would have executed. Pipes are done in Python, not the shell."""
     try:
-        return subprocess.run(cmd, shell=True, capture_output=True, text=True,
+        return subprocess.run(cmd, shell=False, capture_output=True, text=True,
                               timeout=25).stdout
     except Exception:
         return ""
@@ -64,7 +67,7 @@ def app():
         # columns on wt-sm-vnutri-01: that locale renders memory as "688 856 K"
         # (space-separated thousands), the combined regex missed, and est_cv /
         # syn_sent / time_wait / close_wait / rss_mb all cascaded to NA.
-        out = run('tasklist /FI "IMAGENAME eq %s.exe" /FO CSV /NH' % APPNAME)
+        out = run(["tasklist", "/FI", "IMAGENAME eq %s.exe" % APPNAME, "/FO", "CSV", "/NH"])
         mp = re.search(r'^"[^"]*","(\d+)"', out, re.M)
         if not mp:
             return None
@@ -75,7 +78,7 @@ def app():
             if digits:
                 rss = int(digits) // 1024
         return {"pid": int(mp.group(1)), "uptime_s": NA, "rss_mb": rss}
-    out = run("pgrep -x %s | head -1" % APPNAME).strip()
+    out = run(["pgrep", "-x", APPNAME]).strip().split("\n")[0]
     if not out:
         return None
     pid = int(out)
@@ -105,7 +108,7 @@ def sockets(pid):
         except Exception:
             return res
     if WIN:
-        out = run("netstat -ano -p TCP")
+        out = run(["netstat", "-ano", "-p", "TCP"])
         est = syn = tw = cw = 0
         for line in out.splitlines():
             f = line.split()
@@ -121,7 +124,7 @@ def sockets(pid):
             elif state == "TIME_WAIT" and to_cv: tw += 1
         return {"est_cv": est, "syn_sent": syn, "time_wait": tw, "close_wait": cw}
     tag = "pid=%d," % pid
-    g = lambda st, dst="": run("ss -tnp state %s %s 2>/dev/null" % (st, dst))
+    g = lambda st, dst="": run(["ss", "-tnp", "state", st] + ([dst] if dst else []))
     return {"est_cv": g("established", "dst %s" % CV).count(tag),
             "syn_sent": g("syn-sent").count(tag),
             "time_wait": max(0, len(g("time-wait", "dst %s" % CV).splitlines()) - 1),
@@ -138,7 +141,7 @@ def nic():
             return None, None
     if not WIN:
         try:
-            ifn = re.search(r"dev (\S+)", run("ip route get %s" % CV)).group(1)
+            ifn = re.search(r"dev (\S+)", run(["ip", "route", "get", CV])).group(1)
             base = "/sys/class/net/%s/statistics/" % ifn
             return int(open(base + "rx_bytes").read()), int(open(base + "tx_bytes").read())
         except Exception:
@@ -154,18 +157,18 @@ def nic():
           ".InterfaceAlias;$s=Get-NetAdapterStatistics -Name $i;"
           "'{0} {1}' -f $s.ReceivedBytes,$s.SentBytes" % CV)
     m = re.search(r"(\d+)\s+(\d+)",
-                  run('powershell -NoProfile -NonInteractive -Command "%s"' % ps))
+                  run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps]))
     if m:
         return int(m.group(1)), int(m.group(2))
     # Fallback keeps the per-column split correct even if the above is blocked.
-    m = re.search(r"Bytes\s+(\d+)\s+(\d+)", run("netstat -e"))
+    m = re.search(r"Bytes\s+(\d+)\s+(\d+)", run(["netstat", "-e"]))
     return (int(m.group(1)), int(m.group(2))) if m else (None, None)
 
 
 def tcp_counters():
     """(TcpRetransSegs, TcpOutSegs). The real data-plane loss signal — NOT ICMP."""
     if WIN:
-        out = run("netstat -s -p tcp")
+        out = run(["netstat", "-s", "-p", "tcp"])
         rt = re.search(r"Segments Retransmitted\s*=\s*(\d+)", out, re.I)
         os_ = re.search(r"Segments Sent\s*=\s*(\d+)", out, re.I)
         return (int(rt.group(1)) if rt else None, int(os_.group(1)) if os_ else None)

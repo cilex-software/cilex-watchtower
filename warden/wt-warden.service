@@ -8,6 +8,11 @@
 Description=Watchtower Warden (supervisor + crash collector + uploader)
 After=graphical-session.target
 PartOf=graphical-session.target
+# Never give up — a crash-looping Warden is Warden's own restart-loop policy's
+# problem, not systemd's. This key belongs in [Unit]; in [Service] systemd logged
+# "Unknown key name ... ignoring" and default rate-limiting silently applied
+# (audit 2026-09-03, Medium 07).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -17,9 +22,22 @@ RestartSec=2
 # The app inherits this: core dumps land in the crash dir (setup-root.sh sets
 # kernel.core_pattern; without it collection still works, just core-less).
 LimitCORE=infinity
-# Never give up — a crash-looping Warden is Warden's own restart-loop policy's
-# problem, not systemd's.
-StartLimitIntervalSec=0
+# Sandboxing (audit 2026-09-03, Medium 07). Deliberately NOT ProtectHome: Warden,
+# its spool, the app binary and the app's own data all live under ~, and the app
+# needs the compositor socket in $XDG_RUNTIME_DIR. What is here cannot break a
+# GUI child: no privilege escalation, no writes to the OS image, private /tmp,
+# no raw sockets / packet sockets, no kernel tunables. NOT ProtectKernelModules:
+# it needs CAP_SYS_MODULE to drop, which a USER unit cannot — measured 2026-09-06,
+# "Failed to drop capabilities: Operation not permitted", crash loop.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=%h
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=yes
+LockPersonality=yes
 
 [Install]
 WantedBy=graphical-session.target
