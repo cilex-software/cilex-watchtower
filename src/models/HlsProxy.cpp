@@ -200,6 +200,24 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
         writeResponse(sock, 404, "text/plain", "not found");
         return;
     }
+    // The path is concatenated straight onto the upstream URL and carries the
+    // operator's session cookie, so a local process could ride it as a confused
+    // deputy: "/review/../admin/..." passes the prefix check above. Reject any
+    // dot-segment, and anything the upstream parser could reinterpret
+    // (encoded slashes/dots, a second scheme). Both audits flagged this
+    // 2026-09-03; the proxy only ever needs plain /review/<uuid>/<file> paths.
+    {
+        const QString lower = path.toLower();
+        const bool bad = path.contains(QLatin1String("/../")) || path.endsWith(QLatin1String("/.."))
+                      || path.contains(QLatin1String("/./"))  || lower.contains(QLatin1String("%2e"))
+                      || lower.contains(QLatin1String("%2f")) || path.contains(QLatin1String("//"), Qt::CaseSensitive)
+                      || path.contains(QLatin1String("://"))  || path.contains(QLatin1Char('\\'));
+        if (bad) {
+            qWarning("[WT-HLS] rejected suspicious proxy path (%d chars)", int(path.size()));
+            writeResponse(sock, 400, "text/plain", "bad path");
+            return;
+        }
+    }
     if (isSegmentPath(path) && s_slowMs == 0) {
         // Kick read-ahead in parallel with serving this one, so the demuxer's
         // next (serial) request lands in cache instead of a fresh cold fetch.

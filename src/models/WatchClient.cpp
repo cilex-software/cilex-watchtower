@@ -49,6 +49,16 @@ void WatchClient::resolveStation()
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code == 401) {
+            // A dead session is not a transient — retrying it with backoff just
+            // hides the chip for longer (measured after CV's 2026-09-03 key
+            // rotation: The Watch went quiet with no 401 path at all). Hand it
+            // to the auth controller, which re-logs-in once and fires
+            // authenticatedChanged, on which start() re-runs.
+            qInfo("[WATCH] 401 on station registry — requesting re-auth");
+            AuthController::instance()->noteUnauthorized();
+            return;
+        }
         if (code != 200) {
             // Boot saturates the shared NAM's 6-per-host pool and the transfer
             // timeout counts queue time — transient, so retry with backoff

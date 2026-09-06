@@ -1,5 +1,16 @@
 #include "CameraModel.h"
 
+// Camera/group names are operator-authored server strings rendered by QML Text
+// (AutoText -> StyledText parses <img src>). Neutralise markup at ingest — see the
+// same helper in EventModel.cpp (audit 2026-09-03, Medium 11).
+static QString plainName(const QString &s)
+{
+    QString out = s;
+    out.replace(QLatin1Char('<'), QStringLiteral("&lt;"));
+    out.replace(QLatin1Char('>'), QStringLiteral("&gt;"));
+    return out;
+}
+
 #include "CameraStatus.h"
 #include "MockData.h"
 #include "AuthController.h"
@@ -331,7 +342,7 @@ void CameraModel::fetchGroups()
             const auto o = v.toObject();
             wt::GroupData g;
             g.id = o.value("group_id").toString();
-            g.name = o.value("name").toString();
+            g.name = plainName(o.value("name").toString());
             g.count = o.value("camera_count").toInt();
             m_groups.push_back(g);
         }
@@ -377,7 +388,7 @@ void CameraModel::fetchCameras()
             c.id = camId;                           // identity = backend camera_id
             c.ip = o.value("ip").toString();
             c.groupId = o.value("group_id").toString();
-            c.groupName = o.value("group_name").toString();
+            c.groupName = plainName(o.value("group_name").toString());
 
             const QString st = o.value("status").toString();
             {   // authoritative state onsets (additive fields; recording_since is null ≤30s post-flip)
@@ -466,9 +477,15 @@ void CameraModel::fetchCameras()
                 static bool logged = false;
                 if (!logged) {
                     logged = true;
+                    // Under the direct-rtsp transport these URLs carry camera credentials,
+                    // and this log is teed to disk and shipped in crash bundles. Strip the
+                    // userinfo before it ever reaches a log line (audit 2026-09-03, Medium 13).
+                    const auto safe = [](const QString &u) {
+                        return QUrl(u).toString(QUrl::RemoveUserInfo);
+                    };
                     qInfo("[WT-URL] suffix='%s' main='%s' sub_before='%s' sub_after='%s'",
-                          suffix.constData(), qUtf8Printable(c.rtspUrl),
-                          qUtf8Printable(before), qUtf8Printable(c.rtspSubUrl));
+                          suffix.constData(), qUtf8Printable(safe(c.rtspUrl)),
+                          qUtf8Printable(safe(before)), qUtf8Printable(safe(c.rtspSubUrl)));
                 }
             }
             // Backend-owned still-frame URL for thumbnails (go2rtc frame.jpeg) —
@@ -484,7 +501,7 @@ void CameraModel::fetchCameras()
             // Name: operator override (prefs) layered over the backend name.
             const auto pit = m_prefs.constFind(camId);
             const QString nameOverride = (pit != m_prefs.constEnd()) ? pit->first : QString();
-            c.name = !nameOverride.isEmpty() ? nameOverride : o.value("name").toString();
+            c.name = plainName(!nameOverride.isEmpty() ? nameOverride : o.value("name").toString());
             // Favorite: prefs if set, else the legacy local seed already on `c`.
             if (pit != m_prefs.constEnd())
                 c.favorite = pit->second;

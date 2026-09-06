@@ -10,6 +10,8 @@
 #include <QJsonArray>
 #include <QProcessEnvironment>
 #include <QSettings>
+#include <QFile>
+#include <QFileDevice>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QUrl>
@@ -44,7 +46,10 @@ AuthController::AuthController(QObject *parent)
 {
     s_instance = this;
     const auto env = QProcessEnvironment::systemEnvironment();
-    m_baseUrl = env.value("WT_CV_URL", "http://192.168.1.79:8000");
+    // No baked-in server. The old default pointed at a dead address over plain
+    // http (audit 2026-09-03, finding INFO); the URL comes from WT_CV_URL, the
+    // persisted setting, or the sign-in screen — never from a stale literal.
+    m_baseUrl = env.value("WT_CV_URL");
     // Background re-login failures (renewNow / noteUnauthorized): keep the wall
     // up while the token is still valid, retry shortly, and only after repeated
     // failures fall back to the sign-in screen — a dead-quiet wall is the worst
@@ -257,6 +262,12 @@ void AuthController::persist()
     QSettings s;
     s.setValue("auth/token", m_token);
     s.setValue("auth/baseUrl", m_baseUrl);
+    // The settings file carries a live bearer token. Qt creates it with the
+    // process umask (0664 measured, audit 2026-09-03 finding High 05), so any
+    // account on the box could lift an operator session. Owner-only, explicitly,
+    // every time we write it — never rely on the umask for a secret.
+    s.sync();
+    QFile::setPermissions(s.fileName(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     // persist() runs exactly when the server has ACCEPTED a session (login or
     // refresh) — the one honest moment to record the URL in the history.
     rememberServer(m_baseUrl);

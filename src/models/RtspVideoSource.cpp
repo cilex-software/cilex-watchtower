@@ -6,6 +6,7 @@
 #include <QMetaObject>
 #include <QPointer>
 #include <QDebug>
+#include <QUrl>
 #include <cstring>
 #include <thread>
 #include <mutex>
@@ -728,7 +729,10 @@ gboolean RtspVideoSource::onBus(GstBus *, GstMessage *msg, gpointer self)
         gst_message_parse_error(msg, &e, &dbg);
         me->setPlaying(false);
         me->setErrored(true, e ? QString::fromUtf8(e->message) : QStringLiteral("stream error"));
-        qWarning() << "RtspVideoSource:" << me->m_url << "-" << (e ? e->message : "error");
+        // Bus errors fire repeatedly and this line lands in the flight recorder; the
+        // URL may carry camera credentials under the direct transport. Redact.
+        qWarning() << "RtspVideoSource:" << QUrl(me->m_url).toString(QUrl::RemoveUserInfo)
+                   << "-" << (e ? e->message : "error");
         if (e) g_error_free(e);
         g_free(dbg);
         break;

@@ -1,5 +1,20 @@
 #include "EventModel.h"
 
+// Server- and operator-authored strings render through QML Text, whose default
+// AutoText promotes anything that looks like markup to StyledText — which parses
+// <img src>. A camera name or a disposition note could then spoof the guard UI or
+// make the station fetch an attacker URL (audit 2026-09-03, Medium 11). 643 Text
+// blocks make per-element textFormat impractical, so markup is neutralised HERE,
+// where the strings enter the model. Angle brackets become their entities: the
+// text still reads correctly, it just can never be parsed as tags.
+static QString plain(const QString &s)
+{
+    QString out = s;
+    out.replace(QLatin1Char('<'), QStringLiteral("&lt;"));
+    out.replace(QLatin1Char('>'), QStringLiteral("&gt;"));
+    return out;
+}
+
 #include "MockData.h"
 #include "AuthController.h"
 
@@ -227,9 +242,9 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     e.id = o.value("event_id").toString();
     e.type = o.value("event_type").toString().toLower();
     e.camId = o.value("camera_id").toString();
-    e.camName = o.value("camera_name").toString();
+    e.camName = plain(o.value("camera_name").toString());
     if (e.camName.isEmpty()) e.camName = e.camId;
-    e.group = o.value("zone").toString();             // zone = camera group name
+    e.group = plain(o.value("zone").toString());             // zone = camera group name
     const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
     e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : o.value("start_time").toString();
     e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
@@ -245,8 +260,8 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     e.zoneRestricted = o.value("zone_restricted").toBool();
     e.triageState = o.value("triage_state").toString();
     e.disposition = o.value("disposition").toString();
-    e.dispositionNote = o.value("disposition_note").toString();
-    e.assignedTo = o.value("assigned_to").toString();
+    e.dispositionNote = plain(o.value("disposition_note").toString());
+    e.assignedTo = plain(o.value("assigned_to").toString());
     e.assignedAt = o.value("assigned_at").toString();
     e.bookmarked = o.value("bookmarked").toBool();
     e.clipUrl = o.value("clip_url").toString();
@@ -475,6 +490,17 @@ void EventModel::postEventAction(const QString &id, const QString &subpath, cons
 // foreign ids ride the server's resolve when CV's queued canonicalization deploys.
 void EventModel::fetchOne(const QString &eventId)
 {
+    // The id arrives from a cilex:// link — attacker-shaped input. It is spliced
+    // into a request path carrying the operator session, so it must be exactly a
+    // UUID and nothing else (audit 2026-09-03, Low). Refuse honestly, never
+    // garbage-request.
+    static const QRegularExpression kUuid(
+        QStringLiteral("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"));
+    if (!kUuid.match(eventId).hasMatch()) {
+        qWarning("[LINK] refused non-UUID event id (%d chars)", int(eventId.size()));
+        emit oneFetchFailed(eventId, 400);
+        return;
+    }
     QNetworkRequest req{ QUrl(m_baseUrl + "/events/" + eventId) };
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, eventId]() {
@@ -638,7 +664,7 @@ void EventModel::fetchLiveFeed()
             m.insert("type", o.value("event_type").toString().toLower());
             // Camera line, IP-first: the provisioner bakes "(ip)" into the name —
             // split it out so the IP renders un-clipped and isn't printed twice.
-            QString name = o.value("camera_name").toString();
+            QString name = plain(o.value("camera_name").toString());
             QString ip;
             const auto match = ipRe.match(name);
             if (match.hasMatch()) {

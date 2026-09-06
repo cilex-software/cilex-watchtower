@@ -494,7 +494,7 @@ int openCrashMarker(int sig, long rssMb)
     if (!s_markerPath[0])
         return -1;
     // Async-signal-safe: open/write/snprintf on preformatted statics only.
-    const int fd = ::open(s_markerPath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    const int fd = ::open(s_markerPath, O_CREAT | O_WRONLY | O_TRUNC, 0600);   // owner-only: it carries a /proc/self/maps layout (audit 2026-09-03)
     if (fd < 0)
         return -1;
     char line[640];

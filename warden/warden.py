@@ -35,6 +35,12 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+
+# Everything Warden writes — spool, reports, consoles, cores — is private to the
+# station account. 0775/0664 was measured on the spool (audit 2026-09-03); a crash
+# bundle can hold a session token or a camera URL, so no other account gets to read
+# it. Set once, here, so every mkdir/open below inherits it.
+os.umask(0o077)
 from pathlib import Path
 
 WIN = sys.platform == "win32"
@@ -331,14 +337,25 @@ def uplink_facts():
 
 # ---------------------------------------------------------------- collection
 
-SCRUB = re.compile(rb"access_token=[^\s;\"']+")
+# Crash bundles ship logs to the backend. Scrub every credential shape that can
+# appear in them, not only the cookie form (audit 2026-09-03, Low): bearer headers,
+# bare JWTs, and rtsp://user:pass@ URLs under the direct transport.
+SCRUB = re.compile(
+    rb"(access_token=)[^\s;\"']+"
+    rb"|(Bearer\s+)[A-Za-z0-9._~+/=-]+"
+    rb"|(rtsp://)[^/\s@]+@"
+    rb"|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"
+)
 
 
 def scrubbed(path: Path, cap: int) -> bytes:
     data = path.read_bytes()
     if len(data) > cap:
         data = data[-cap:]                      # tails matter: the crash is at the end
-    return SCRUB.sub(b"access_token=REDACTED", data)
+    def _red(m):
+        g = m.group(1) or m.group(2) or m.group(3)
+        return (g + b"REDACTED" + (b"@" if m.group(3) else b"")) if g else b"REDACTED"
+    return SCRUB.sub(_red, data)
 
 
 def parse_marker(path: Path):
