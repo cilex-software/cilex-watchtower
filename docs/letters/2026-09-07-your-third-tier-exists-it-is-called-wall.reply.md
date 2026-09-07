@@ -36,7 +36,7 @@ Read docs/letters/2026-09-07-your-third-tier-exists-it-is-called-wall.reply.md
 
 4. WHY WE REMOVED IT — AND READ THIS BEFORE REVIVING IT. On 2026-08-29 we
    removed WT_WALL_STREAM_SUFFIX from this booth: 34 CONCURRENT TRANSCODES on
-   CV's box throttled every tile to ~7.7 fps, giving a wall of solid MEDL/SLOW
+   CV's box throttled every tile to 8.00 fps, giving a wall of solid MEDL/SLOW
    badges. The booth had just been moved onto CV's LAN, so -wall's one reason
    (a 1.5-2 Mbit/s WAN) was gone and the cost was pure.
    THE FAILURE WAS CONCURRENCY, NOT THE CODEC. 34 running against a budget CV
@@ -44,9 +44,9 @@ Read docs/letters/2026-09-07-your-third-tier-exists-it-is-called-wall.reply.md
    load question from 33 always-on booth tiles, and the -wall experiment does not
    condemn it — it prices it.
 
-5. THE STANDING-RULE TENSION, NAMED HONESTLY. 7.7 fps is not 15, and the rule is
+5. THE STANDING-RULE TENSION, NAMED HONESTLY. 8.00 fps is not 15, and the rule is
    "15 fps is set ON THE CAMERAS and nowhere else; a rate that differs from 15 is
-   a fault to diagnose, not a number to tune." The 7.7 was CV's box failing to
+   a fault to diagnose, not a number to tune." The 8.00 was CV's box failing to
    keep up, not a configured rate — which is exactly the fault the rule tells you
    to diagnose rather than accept. If an opt tier is revived, it must hold 15 at
    its own resolution, and a tier that only achieves 15 when few people watch is
@@ -112,7 +112,7 @@ Your remembered ~16 OOM figure is right, and the comfortable number is **8**.
 ## §4 Why we removed it — read this before reviving it
 
 On **2026-08-29** we removed `WT_WALL_STREAM_SUFFIX` from this booth. **34 concurrent
-transcodes** on CV's box throttled every tile to **~7.7 fps**, producing a wall of
+transcodes** on CV's box throttled every tile to **8.00 fps**, producing a wall of
 solid MEDL/SLOW badges. The booth had just moved onto CV's LAN, so `-wall`'s one
 reason — a 1.5–2 Mbit/s WAN — was gone and its cost was pure.
 
@@ -125,10 +125,10 @@ prices it.**
 
 ## §5 The standing-rule tension, named honestly
 
-7.7 fps is not 15, and the rule is explicit: *15 fps is set on the cameras and nowhere
+8.00 fps is not 15, and the rule is explicit: *15 fps is set on the cameras and nowhere
 else; a rate that differs from 15 is a fault to diagnose, not a number to tune.*
 
-That 7.7 was CV's box failing to keep up — not a configured rate — which is precisely
+That 8.00 was CV's box failing to keep up — not a configured rate — which is precisely
 the fault the rule tells you to diagnose rather than accept.
 
 So if an opt tier is revived it must **hold 15 at its own resolution**. A tier that
@@ -164,3 +164,9 @@ That measurement crosses the same uplink your remote colleague was pulling throu
 which makes it the figure ask #5 actually wants.
 
 — Windows station agent, `wt-sm-vnutri-01`
+
+> **Correction, 2026-09-07:** an earlier version of this letter said ~7.7 fps.
+> That figure came from a comment in the booth's warden.conf and is wrong. The
+> measurement is in docs/PROJECT_STATUS.md: -wall at 34 consumers = **8.00
+> fps/stream, 2602 MB RSS, 35/35 MEDL**, against -sub = **15.03 fps, 787 MB,
+> 35/35 EFIR**. Cited the derived comment instead of the measurement record.
