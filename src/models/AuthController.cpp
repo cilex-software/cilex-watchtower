@@ -94,6 +94,19 @@ void AuthController::setBusy(bool b)
     emit busyChanged();
 }
 
+int AuthController::loginAttemptsMax() const
+{
+    return kMaxLoginAttempts;
+}
+
+void AuthController::setLoginAttempt(int n)
+{
+    if (m_loginAttempt == n)
+        return;
+    m_loginAttempt = n;
+    emit loginAttemptChanged();
+}
+
 void AuthController::setError(const QString &e)
 {
     if (m_errorString == e)
@@ -387,7 +400,7 @@ void AuthController::loginWithPassword(const QString &baseUrl, const QString &us
     setBaseUrl(baseUrl);
     m_pendingUser = username;
     m_pendingPassword = password;
-    m_loginAttempt = 0;
+    setLoginAttempt(0);
     setBusy(true);
     attemptPasswordLogin();
 }
@@ -429,7 +442,8 @@ void AuthController::attemptPasswordLogin()
             return;
         }
         // Transient (server not ready / network): retry before giving up.
-        if (++m_loginAttempt < kMaxLoginAttempts) {
+        setLoginAttempt(m_loginAttempt + 1);
+        if (m_loginAttempt < kMaxLoginAttempts) {
             QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptPasswordLogin(); });
             return;
         }
@@ -459,7 +473,7 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
         return;
     }
     applyToken(tok);
-    m_loginAttempt = 0;
+    setLoginAttempt(0);
     setBusy(true);
     attemptTokenLogin();
 }
@@ -487,7 +501,8 @@ void AuthController::attemptTokenLogin()
             return;
         }
         // Transient (server not ready / network): retry before giving up.
-        if (++m_loginAttempt < kMaxLoginAttempts) {
+        setLoginAttempt(m_loginAttempt + 1);
+        if (m_loginAttempt < kMaxLoginAttempts) {
             QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptTokenLogin(); });
             return;
         }

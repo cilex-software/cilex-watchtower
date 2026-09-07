@@ -357,6 +357,40 @@ Item {
                 }
             }
 
+            // busy: the button's "Signing in…" proved too subtle across the
+            // ~38 s retry ladder (operator, 2026-09-07) — spell the state out,
+            // with the attempt counter once the first try has already timed out.
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: AuthController.busy
+                Image {
+                    id: busyLogo
+                    source: "qrc:/images/cilex-logo.png"
+                    sourceSize: Qt.size(32, 32)
+                    Layout.preferredWidth: 16
+                    Layout.preferredHeight: 16
+                    smooth: true
+                    RotationAnimator on rotation {
+                        from: 0; to: 360
+                        duration: 2400
+                        loops: Animation.Infinite
+                        running: AuthController.busy
+                    }
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: AuthController.loginAttempt > 1
+                          ? qsTr("Trying to reach server… attempt %1 of %2")
+                                .arg(AuthController.loginAttempt)
+                                .arg(AuthController.loginAttemptsMax)
+                          : qsTr("Connecting to server…")
+                    color: Theme.ink2
+                    font.family: Theme.fontSans; font.pixelSize: Theme.fsSmall
+                    elide: Text.ElideRight
+                }
+            }
+
             // error
             Text {
                 Layout.fillWidth: true

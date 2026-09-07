@@ -26,6 +26,11 @@ class AuthController : public QObject
     Q_PROPERTY(QString initials READ initials NOTIFY identityChanged)
     Q_PROPERTY(QStringList cameraScope READ cameraScope NOTIFY identityChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    // 1-based position on the login retry ladder while busy ("attempt 2 of 4").
+    // Moves past 1 only when an attempt has already timed out — the login
+    // screen uses that to say "trying to reach server" instead of guessing.
+    Q_PROPERTY(int loginAttempt READ loginAttempt NOTIFY loginAttemptChanged)
+    Q_PROPERTY(int loginAttemptsMax READ loginAttemptsMax CONSTANT)
     Q_PROPERTY(QString errorString READ errorString NOTIFY errorChanged)
     // Servers that have ACCEPTED a login (most recent first), each with an
     // operator-assigned nickname — the login screen's saved-servers dropdown.
@@ -45,6 +50,8 @@ public:
     QString initials() const;
     QStringList cameraScope() const { return m_cameraScope; }
     bool busy() const { return m_busy; }
+    int loginAttempt() const { return m_loginAttempt + 1; }
+    int loginAttemptsMax() const;
     QString errorString() const { return m_errorString; }
 
     // Shared, session-authenticated network manager used by all models.
@@ -84,6 +91,7 @@ signals:
     void baseUrlChanged();
     void identityChanged();
     void busyChanged();
+    void loginAttemptChanged();
     void errorChanged();
     void loginFailed(const QString &reason);
     void serverHistoryChanged();
@@ -97,6 +105,7 @@ signals:
 
 private:
     void setBusy(bool b);
+    void setLoginAttempt(int n);
     void setError(const QString &e);
     void setBaseUrl(const QString &url);
     void applyToken(const QString &token);   // store + set cookie + decode claims
