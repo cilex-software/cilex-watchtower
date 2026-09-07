@@ -182,11 +182,24 @@ Item {
             // is wired in Main's Escape handler instead — see Main.qml.
 
 
-            // connecting / offline / unavailable
+            // connecting / offline / unavailable. After 12 s the spinner stops
+            // pretending: a remote colleague watched a bare "Connecting…" for 13 s
+            // (2026-09-07) on a network where the live port is unreachable — the
+            // escalation says so instead of spinning silently forever.
+            property bool _longWait: false
+            Timer {
+                interval: 12000; repeat: false
+                running: vsurf.active && !vsurf.playing && !vsurf.errored
+                onRunningChanged: if (running) playerArea._longWait = false
+                onTriggered: playerArea._longWait = true
+            }
             LoadingState {
                 anchors.centerIn: parent
                 visible: vsurf.active && !vsurf.playing && !vsurf.errored
                 label: qsTr("Connecting…")
+                sublabel: playerArea._longWait
+                          ? qsTr("Still trying — the live stream may be unreachable or too slow from this network")
+                          : ""
             }
             Column {
                 anchors.centerIn: parent

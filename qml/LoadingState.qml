@@ -8,6 +8,9 @@ Item {
     id: root
 
     property string label: qsTr("Loading…")
+    // Optional second line for a state that has outlived the label's optimism
+    // (e.g. a connect that is clearly not about to succeed). Empty = absent.
+    property string sublabel: ""
     property int ringSize: 20
     property color ringColor: Theme.accent
 
@@ -54,6 +57,17 @@ Item {
             font.family: Theme.fontMono
             font.pixelSize: Theme.fsMono
             font.letterSpacing: 0.4
+        }
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: root.sublabel !== ""
+            text: root.sublabel
+            width: Math.min(implicitWidth, 340)
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            color: Theme.ink3
+            font.family: Theme.fontSans
+            font.pixelSize: Theme.fsSmall
         }
     }
 }
