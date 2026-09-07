@@ -1,8 +1,10 @@
 # Adaptive live quality (auto tier step-down) + remote live
 
-**Status: DESIGN — blocked on CV** (letter
-`2026-09-07-remote-live-is-dark-8554-is-closed-and-the-tier-ask.md`: remote
-transport decision + the third "opt" tier). Phase 1 shipped from the Mac.
+**Status: TRANSPORT UNBLOCKED 2026-09-07 evening** (CV reply
+`2026-09-07-remote-live-exists-behind-the-api-port-and-the-numbers-you-asked-for.reply.md`):
+remote live already exists — authenticated HLS/fMP4 through the API port,
+the path Cilex Pro Mobile already uses. The `-opt` tier is measured feasible
+and **waits on one word from the operator**. Phase 1 shipped from the Mac.
 Owner for phases 2-3: Linux agent (video path, reference platform) unless the
 operator directs otherwise.
 
@@ -71,3 +73,46 @@ Per-`VideoSurface` consumer (tile + single view), a small tier controller:
   reconnect coordinator, cold-connect 8 s), `qml/CameraTile.qml` (snapshot
   backdrop + amber connecting bar), `qml/SingleCameraDetail.qml`
   (`hdOverride` tri-state, SD/HD chip).
+
+## Update 2026-09-07 evening — the three answers, and corrections owned
+
+Sources: CV's reply (above), the Linux agent's
+`2026-09-07-uplink-measured-80-mbit-and-a-port-forward-nobody-announced.md`,
+the booth's `2026-09-07-your-third-tier-exists-it-is-called-wall.reply.md`.
+
+**Corrections (macOS agent, owning them):**
+- My "16 sub tiles ≈ 16–32 Mbit/s" assumed 1–2 Mbit/s per sub tile. Measured:
+  184 kbit/s (CV, one camera, today) / 223 kbit/s (fleet mean, August) →
+  a 16-tile remote sub wall is ~3.0–3.6 Mbit/s. Uplink is 42 Mbit/s (CV,
+  measured) or ~80 (Linux agent, measured; the agents' numbers differ — either
+  way ≥10× headroom). The opt tier is for the VIEWER's downlink, not the site's
+  uplink.
+- "Ask CV to build a third tier" was half-blind: `{id}-wall` already existed
+  (192×108, 8 fps, 50 kbit/s QVBR) — the booth ran it for weeks and removed it
+  on 2026-08-29 (34 concurrent transcodes throttled the fleet to 8 fps:
+  concurrency, not codec). `-opt` (640w @ 15 fps, ~393 kbit/s, CV-measured) is
+  still the right NEW tier for remote viewers; `-wall` is thumbnail-grade and
+  currently takes 11–21 s to first byte (CV's to fix).
+
+**Transport for phase 3 (now concrete):**
+- `GET /streams/live/stream.mp4?src=<id>-sub` (fMP4, one long GET, first bytes
+  ~3.1 s) or `stream.m3u8` (HLS) — authenticated by the same `access_token`
+  COOKIE the HlsProxy already carries (Authorization header NOT accepted).
+  Reachable on :8443 (Let's Encrypt on the DDNS name — public cert, no CA
+  bundling needed on that path) and :8000 (plaintext; the Linux agent has asked
+  for :8000/:3000 to be closed at the router once mobile confirms).
+- `/streams` already returns `hls_sub_url`, `hls_wall_url`, `webrtc_wall_url`,
+  `rtsp_wall_url`, `rtsp_sub_url`; CameraModel parses only the rtsp pair today.
+
+**New ladder constraints (from measurement):**
+- Per-tier/per-transport CONNECT BUDGETS must exceed measured time-to-first-
+  byte: fMP4 `-sub` ~3.1 s, `-opt` ~4.8 s, `-wall` 11–21 s — our current
+  8 s cold-connect rebuild would strangle `-wall` by construction, and the
+  step-down controller must never rebuild faster than the tier can deliver.
+- A tier must hold 15 fps at its own resolution under the committed
+  concurrency (booth §5; CV commits 32 concurrent `-opt` fleet-wide, failure
+  past the cap is go2rtc OOM = every stream drops). 8 fps under load is a
+  fault to diagnose, not a tier.
+- Client plumbing seed already exists: `WT_WALL_STREAM_SUFFIX`
+  (CameraModel.cpp:461-476) rewrites the wall's sub-URL suffix client-side —
+  the tier switch needs a producer and a policy, not new plumbing (booth §2).
