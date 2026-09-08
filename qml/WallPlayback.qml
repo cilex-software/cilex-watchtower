@@ -380,6 +380,11 @@ Item {
             root._smoothMs = player.position;
             root._settling = false;
             settleGuard.stop();
+            if (root._wallT0 > 0) {
+                console.log("[WALLTIME] first_frame dt=" + (Date.now() - root._wallT0) + "ms cells="
+                            + (root.cells ? root.cells.length : -1));
+                root._wallT0 = -1;
+            }
         }
     }
 
@@ -585,7 +590,14 @@ Item {
         loadedSpanMin = 1440; _pendingDay = "";
         _open(s, Math.min(s + 86400000, Date.now()));
     }
+    // [WALLTIME] open -> FIRST REAL FRAME on the 16-cell wall. Stamped at the start
+    // of every _open() and reported once the first video frame lands (the same
+    // onVideoFrameChanged that ends the settle freeze), so the number is what a
+    // guard waits, not what the session took. Operator target 2026-09-08: 2 s.
+    property double _wallT0: -1
     function _open(startMs, endMs) {
+        _wallT0 = Date.now();
+        console.log("[WALLTIME] open t=" + _wallT0 + " start=" + new Date(startMs).toISOString());
         if (!client || cameras.length === 0) return;
         console.log("WALLOPEN," + new Date(startMs).toISOString() + "," + new Date(endMs).toISOString()
             + ",span=" + Math.round((endMs - startMs) / 60000) + "min");   // audit re-composites

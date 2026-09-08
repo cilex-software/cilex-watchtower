@@ -133,7 +133,20 @@ Item {
             color: "#000000"
             clip: true
 
+            // [LIVETIME] the moment this detail view is shown for a camera -> the
+            // moment its surface has a recent frame. Operator target 2026-09-08: 500 ms.
+            // Stamped on camera change (the "open" gesture from the wall), reported once.
             VideoSurface {
+                property double _liveT0: -1
+                Connections {
+                    target: root
+                    function onCameraChanged() { vsurf._liveT0 = Date.now();
+                        console.log("[LIVETIME] open t=" + vsurf._liveT0 + " cam=" + (root.camera ? root.camera.ip : "?")); }
+                }
+                onPlayingChanged: if (playing && _liveT0 > 0) {
+                    console.log("[LIVETIME] playing dt=" + (Date.now() - _liveT0) + "ms cam=" + (root.camera ? root.camera.ip : "?"));
+                    _liveT0 = -1;
+                }
                 id: vsurf
                 anchors.fill: parent
                 url: root.streamUrl
