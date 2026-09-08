@@ -5,6 +5,33 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-08 pointer -->
+> **2026-09-08 — live open from a lit wall: 128–212 ms (n=5 first opens, median
+> 164 ms), operator target 500 ms MET; re-opens inside the grace 14–377 ms (n=20).
+> Was 1.8–2.5 s. Fix is client-side: `RtspVideoSource` PARKS a lit pipeline for
+> adoption instead of destroying it (`ParkingLot`). The two HISTORICAL targets
+> (single-camera playback ≤1 s, 16-wall ≤2 s) still have ZERO measurements — the
+> station credential is 403 on review/mosaic by design; an operator credential
+> (`~/.config/watchtower-warden/ttff-soak.cred`, 0600, operator role) is the ask.**
+>
+> Cause, traced stage by stage (`docs/perf/2026-09-08-live-ttff/README.md`): a new
+> RTSP consumer joins go2rtc's running producer mid-GOP; the cameras' keyframe
+> period is 3.3 s on `-sub`, 4.0 s on main; the VA decoder emits empty surfaces
+> until the keyframe and the sink rightly drops them. Opening from the wall tore
+> the tile's pipeline down and built a fresh one — the slow path on every open.
+> The morning probe's warm numbers (65–183 ms) are WITHDRAWN: `avdec_h264` counts
+> corrupt pre-keyframe frames (+137 ms vs the parser's first keyframe at +1267 ms).
+>
+> Still slow, and why: HD promotion on a first open 4.5–4.7 s (fresh main-stream
+> join, 4 s GOP, HEVC parameter sets in-band) with SD on screen from ~160 ms;
+> tiles beyond `maxLiveDecodes` (default 64 — not a 16-wall case); cold opens of
+> armed cameras (morning letter). Evening letter to CV: the keyframe period bounds
+> every fresh join, three ways to shorten it, their call.
+>
+> Knobs: `WT_PARK_MS` (2500; 0 = old behaviour), `WT_PARK_MAX` (4),
+> `WT_STATION_TOKEN`/`WT_CV_URL` (headless station mode), `WT_FOCUS_DELAY_MS`,
+> `WT_FOCUS_CLOSE_MS`. All in `docs/DEVELOPMENT.md`.
+
 <!-- 2026-08-29 pointer -->
 > **2026-08-29 — the booth's direct LAN came up and the wall was STILL solid
 > orange МЕДЛ on all 35 tiles. Cause: the WAN-era workaround was still in force.
