@@ -35,7 +35,8 @@ code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: ap
 dispose_mosaic(){
   # The token from the login BODY as an explicit Cookie header: curl's jar replay of the HttpOnly
   # cookie answered 401 here (measured 2026-09-08 18:5x), the header answers 204.
-  local tok; tok=$(printf '{"username":"%s","password":"%s"}' "$WT_CV_USER" "$WT_CV_PASS" | curl -s -H 'Content-Type: application/json' -d @- "$WT_CV_URL/auth/login" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null)
+  local tok; tok=$(printf '{"username":"%s","password":"%s"}' "$WT_CV_USER" "$WT_CV_PASS" | curl -s --max-time 20 -H 'Content-Type: application/json' -d @- "$WT_CV_URL/auth/login" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+  [ -n "$tok" ] || { echo "disposed mosaic $1 -> no token (backend busy?)"; return 0; }
   echo "disposed mosaic $1 -> $(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: access_token=$tok" -X DELETE "$WT_CV_URL/review/mosaic-sessions/$1")"
 }
 log(){ printf '{"ts":"%s","cycle":%d,"surface":"%s","dt_ms":%s,"note":"%s"}\n' "$(date -u +%FT%TZ)" "$1" "$2" "$3" "$4" >> "$OUT"; }
@@ -51,7 +52,9 @@ for ((c=1;c<=CYCLES;c++)); do
   L=$(mktemp); WT_WALL_DAY=live timeout "$WALL_TIMEOUT" ./run.sh >"$L" 2>&1 || true
   v=$(grep -oE '\[WALLTIME\] first_frame dt=[0-9]+' "$L" | head -1 | grep -oE '[0-9]+$' || echo -1)
   cells=$(grep -oE 'cells=[-0-9]+' "$L" | head -1 | cut -d= -f2 || echo "?"); log $c wall "$v" "cells=$cells build=$BUILD"
-  sid=$(grep -oE '\[WALL\] session=[0-9a-f-]{36}' "$L" | head -1 | sed 's/.*session=//'); keep "$L" "$v" 2000 wall
+  # `|| true`: under set -e/pipefail a wall run with NO session line (grep exit 1) must not end the
+  # whole soak — it did, silently, after 9 cycles on 2026-09-08 (unit ttff-overnight-0908-1853).
+  sid=$(grep -oE '\[WALL\] session=[0-9a-f-]{36}' "$L" | head -1 | sed 's/.*session=//' || true); keep "$L" "$v" 2000 wall
   [ -n "$sid" ] && dispose_mosaic "$sid"
   # 3) live open from the wall: WT_FOCUS_IP shows the detail view for one camera; [LIVETIME] playing dt=…
   # WT_FOCUS_DELAY_MS: click only once the wall is lit — a guard's open, not a cold one the instant /streams lands

@@ -143,8 +143,24 @@ on single-camera 1440p HEVC playback; the product default is decided from that d
 
 ## Overnight
 
-`overnight.jsonl` + `overnight-logs/` (misses only), launched from
-`launch-overnight.sh` (scratch) as a `systemd --user` unit with the warden stopped and
-restarted at the end: `WT_PB_SW_DECODE=1 WT_TTFF_CAM=192.168.1.105 WT_SOAK_WALL_TIMEOUT=150
-tools/ttff-soak.sh --cycles 180 --pause 30`. One caveat on every row: the pilot's
-database load, not this client, decides most of the playback and wall numbers.
+Three units, one binary (14:59 → `d0220af`), all with `WT_PB_SW_DECODE=1`, the warden
+stopped for the duration and restarted by the last unit at its end:
+
+| unit | rows | cycles | cadence | why it ended |
+|---|---|---|---|---|
+| `ttff-overnight-0908-1518` | `overnight.jsonl` | 41 (12:19–15:21 UTC) | wall 150 s, pause 30 s | stopped by me: the soak was feeding the evening saturation — a wall stage killed at its timeout left its 6 h chase running through the next playback measurement |
+| `ttff-overnight-0908-1824` | `overnight2.jsonl` | 4 (15:25–15:48) | wall 90 s, pause 240 s, per-cycle disposal | stopped by me: the driver's disposal answered 401 (cookie-jar replay of the HttpOnly cookie) |
+| `ttff-overnight-0908-1853` | `overnight3.jsonl` | 9 (15:53–16:51) | wall 90 s, pause 240 s, disposal via the login-body token (204 ×8, verified in-soak) | died silently: a wall stage with no session line made the driver's `sid=$(grep …)` pipeline fail under `set -euo pipefail` |
+| `ttff-overnight-0908-1954` | `overnight4.jsonl` | up to 100 (from 16:54) | as above, both new pipelines `\|\| true`-guarded | the night's run |
+
+Also in the timeline: query-api was recreated at 14:19:24 UTC (restart count 0, exit 0 —
+a deploy on CV's side, not a crash); the driver's login probe answered `000` at 15:22 (a
+10 s timeout against the saturated backend), so the launcher now retries the probe every
+two minutes instead of giving up. Miss logs sit in `overnight*-logs/`. One caveat on every
+row: the pilot's database load, not this client, decides most playback and wall numbers —
+`docker stats`/`pg_stat_activity` samples in the sections above are the evidence.
+
+Morning job: per-target distribution over all three files (`replay.py`'s sibling
+`soak-progress.py` in the session scratchpad prints it), crash count (expected 0 with
+software decode), the software-decode cost on single-camera playback against the
+afternoon's hardware-decode rows, and the `WT_PB_SW_DECODE` default decision.
