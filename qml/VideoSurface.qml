@@ -17,6 +17,7 @@ Item {
 
     property string url: ""
     property bool active: true   // play when true (e.g. tile visible / on current page)
+    property bool warmOnly: false // hold the RTSP session open with no decoder (see RtspVideoSource.h)
     readonly property bool lowLatency: (typeof wtLowLatency !== "undefined" && wtLowLatency)
 
     // ---- source ladder (adaptive quality + transport) --------------------------------
@@ -369,6 +370,7 @@ Item {
             readonly property string errorText: rtsp.errorText
 
             RtspVideoSource {
+                warmOnly: root.warmOnly
                 id: rtsp
                 url: root.url
                 active: root.active

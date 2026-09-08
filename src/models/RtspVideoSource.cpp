@@ -228,6 +228,14 @@ void RtspVideoSource::setLatencyMs(int ms)
     rebuild();   // latency is set at pipeline build time
 }
 
+void RtspVideoSource::setWarmOnly(bool v)
+{
+    if (m_warmOnly == v) return;
+    m_warmOnly = v;
+    emit warmOnlyChanged();
+    if (m_active && !m_url.isEmpty()) rebuild();   // mode change = different pipeline
+}
+
 void RtspVideoSource::reconnect()
 {
     // A silent stall (no EOS, no error, just no buffers arriving) leaves the pipeline
@@ -520,6 +528,13 @@ void RtspVideoSource::startPipelineNow()
     QByteArray pipeStr =
         "rtspsrc name=src drop-on-latency=true " + rtspQ + "! decodebin name=dec ! videoconvert "
         "! video/x-raw,format=NV12 ! appsink name=sink sync=false max-buffers=2 drop=true";
+    if (m_warmOnly) {
+        // Consumer only: depayload and discard. No decodebin, no appsink, no frames — the
+        // sole purpose is to be "a consumer" so go2rtc keeps the producer dialled.
+        pipeStr = "rtspsrc name=src drop-on-latency=true ! rtph264depay ! fakesink sync=false";
+        qInfo("[WT-WARM] warm-keep consumer (no decode) for %s",
+              qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo)));
+    }
     const QList<QByteArray> wh = qgetenv("WT_DECODE_SCALE").split('x');
     if (wh.size() == 2 && !wh[0].trimmed().isEmpty() && !wh[1].trimmed().isEmpty()) {
         pipeStr = QByteArray(

@@ -31,6 +31,13 @@ class RtspVideoSource : public QObject
     Q_PROPERTY(QString errorText READ errorText NOTIFY erroredChanged)
     // Jitter buffer in ms (rtspsrc latency). Low for a LAN; the whole point.
     Q_PROPERTY(int latencyMs READ latencyMs WRITE setLatencyMs NOTIFY latencyMsChanged)
+    // WARM-KEEP (2026-09-08): hold the RTSP session open with NO decoder, so go2rtc keeps
+    // the camera producer alive. Measured: an armed camera opens cold in 424-1003 ms
+    // because go2rtc drops its producer the instant the last consumer leaves; with a
+    // consumer attached the same camera opens in 72-116 ms. Cost: depay-only, ~0.4% of
+    // a core and ~4 MiB per stream. Used by snapshot-badged tiles (over the decode cap),
+    // which otherwise hold nothing and are the cold case a guard meets.
+    Q_PROPERTY(bool warmOnly READ warmOnly WRITE setWarmOnly NOTIFY warmOnlyChanged)
 
 public:
     explicit RtspVideoSource(QObject *parent = nullptr);
@@ -53,6 +60,8 @@ public:
     // limiting and backoff are the caller's job (VideoSurface + the QML
     // ReconnectCoordinator); this just rebuilds now, if we're meant to be streaming.
     Q_INVOKABLE void reconnect();
+    bool warmOnly() const { return m_warmOnly; }
+    void setWarmOnly(bool v);
 
     // Internal: the actual GStreamer pipeline build, invoked (staggered, one at a time)
     // by the global build pump in the .cpp. Don't call directly — go through rebuild(),
@@ -89,6 +98,7 @@ public:
     void noteDecoderBound() { m_decoderBound.store(true); }
 
 signals:
+    void warmOnlyChanged();
     void urlChanged();
     void activeChanged();
     void videoSinkChanged();
@@ -117,6 +127,7 @@ private:
 
     bool m_playing = false;
     bool m_errored = false;
+    bool m_warmOnly = false;
     QString m_errorText;
 
     // Single-slot "latest frame" mailbox. onNewSample (streaming thread) drops the newest

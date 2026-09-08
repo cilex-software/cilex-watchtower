@@ -387,6 +387,17 @@ Item {
                 active: root.videoActive
             }
         }
+        // Warm-keep for SNAPSHOT-BADGED tiles (over the decode cap). Such a tile holds no
+        // RTSP session, so opening it dials the camera cold: measured 424-1003 ms on every
+        // armed camera (2026-09-08), 2x the 500 ms target, because go2rtc drops the
+        // producer the instant its last consumer leaves. A depay-only consumer keeps the
+        // producer alive so the open joins a warm stream (measured 72-116 ms). It never
+        // decodes or draws (~0.4% core, ~4 MiB per stream) and is torn down the moment the
+        // tile gets a real decode slot or leaves the page.
+        Loader {
+            active: !base._recycling && root.snapshotMode && root.videoActive
+            sourceComponent: VideoSurface { url: root.streamUrl; active: true; warmOnly: true; visible: false }
+        }
 
         // Decode-capped tile: a periodic go2rtc snapshot instead of a live VA-API pipeline,
         // so every camera stays visible while only `maxLiveDecodes` actually decode.
