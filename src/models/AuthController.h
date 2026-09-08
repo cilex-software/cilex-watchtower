@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QNetworkRequest>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
@@ -19,6 +20,13 @@ class AuthController : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool authenticated READ authenticated NOTIFY authenticatedChanged)
+    // STATION LIVE MODE (2026-09-08). The app authenticates with the station's own
+    // credential via CV's display-session contract (POST /client/stations/display-session,
+    // header X-Cilex-Display-Session), scope station:live. It lights the LIVE wall —
+    // /streams and snapshots — and nothing else: review, mosaic, events, groups are
+    // out of scope by DESIGN ("the PAST is an act by a person") and stay 401/403.
+    // Activated by WT_STATION_TOKEN at boot; an operator sign-in always supersedes it.
+    Q_PROPERTY(bool stationLive READ stationLive NOTIFY stationLiveChanged)
     Q_PROPERTY(QString baseUrl READ baseUrl NOTIFY baseUrlChanged)
     Q_PROPERTY(QString username READ username NOTIFY identityChanged)
     Q_PROPERTY(QString role READ role NOTIFY identityChanged)
@@ -59,6 +67,11 @@ public:
     // The raw session token (the `access_token` cookie value) — for off-GUI-thread
     // consumers that run their own QNetworkAccessManager (e.g. the HLS proxy thread).
     QString token() const { return m_token; }
+    bool stationLive() const { return m_stationLive; }
+    QString displaySession() const { return m_displaySession; }
+    // Attach the station display header when in station mode (no-op otherwise).
+    void decorate(QNetworkRequest &req) const;
+    Q_INVOKABLE void loginWithStationToken(const QString &baseUrl, const QString &stationToken);
 
     // Restore a persisted token at startup (optimistic: trusts the local exp,
     // then revalidates against /auth/me in the background). Call from main().
@@ -87,6 +100,7 @@ public:
     Q_INVOKABLE void forgetServer(const QString &url);
 
 signals:
+    void stationLiveChanged();
     void authenticatedChanged();
     void baseUrlChanged();
     void identityChanged();
@@ -133,6 +147,8 @@ private:
     QNetworkAccessManager *m_nam = nullptr;
     QString m_baseUrl;
     QString m_token;
+    bool m_stationLive = false;
+    QString m_displaySession;
     QString m_username;
     QString m_role;
     QStringList m_cameraScope;

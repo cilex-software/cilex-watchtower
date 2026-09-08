@@ -221,6 +221,7 @@ void CvImageResponse::start()
     // this jar never sees it — attach the session cookie per request (always the
     // current token, survives relogin with no signal plumbing).
     req.setRawHeader("Cookie", "access_token=" + m_auth->token().toUtf8());
+    m_auth->decorate(req);   // station display header when in station mode
     m_reply = m_nam->get(req);
     connect(m_reply, &QNetworkReply::finished, this, [this]() {
         QNetworkReply *r = m_reply;

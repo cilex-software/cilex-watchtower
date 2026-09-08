@@ -355,7 +355,9 @@ void CameraModel::fetchCameras()
     if (!m_nam)
         return;
     setLoading(true);
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
+    QNetworkRequest streamsReq{QUrl(m_baseUrl + "/streams")};
+    AuthController::instance()->decorate(streamsReq);   // station display header when in station mode
+    QNetworkReply *reply = m_nam->get(streamsReq);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         setLoading(false);
@@ -561,7 +563,9 @@ void CameraModel::pollStatuses()
     // falls back to a full fetchCameras() (rare; worth the one-off reset).
     if (!m_nam)
         return;
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/streams")});
+    QNetworkRequest streamsReq{QUrl(m_baseUrl + "/streams")};
+    AuthController::instance()->decorate(streamsReq);   // station display header when in station mode
+    QNetworkReply *reply = m_nam->get(streamsReq);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();

@@ -531,6 +531,13 @@ int main(int argc, char *argv[])
     // Opt-in dev convenience: WT_CV_AUTOLOGIN skips the login screen using the
     // WT_CV_USER/WT_CV_PASS service creds (previous always-on behaviour).
     if (qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN") && !auth->authenticated()) {
+    // Station live mode: the station's own credential lights the LIVE wall through CV's
+    // display-session contract. No operator password on the box; review/events stay
+    // out of scope by design. An operator sign-in from the login screen supersedes it.
+    if (qEnvironmentVariableIsSet("WT_STATION_TOKEN") && !auth->authenticated()) {
+        const auto env = QProcessEnvironment::systemEnvironment();
+        auth->loginWithStationToken(env.value("WT_CV_URL", auth->baseUrl()), env.value("WT_STATION_TOKEN"));
+    }
         const auto env = QProcessEnvironment::systemEnvironment();
         // Fall back to the base URL restoreSession() already resolved (saved settings, or the built-in
         // default) when WT_CV_URL is unset — otherwise loginWithPassword() overwrites it with "" and

@@ -513,6 +513,44 @@ void AuthController::attemptTokenLogin()
     });
 }
 
+void AuthController::decorate(QNetworkRequest &req) const
+{
+    if (m_stationLive && !m_displaySession.isEmpty())
+        req.setRawHeader("X-Cilex-Display-Session", m_displaySession.toUtf8());
+}
+
+void AuthController::loginWithStationToken(const QString &baseUrl, const QString &stationToken)
+{
+    setError(QString());
+    setBaseUrl(baseUrl);
+    QNetworkRequest req{QUrl(m_baseUrl + "/client/stations/display-session")};
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    req.setRawHeader("X-Cilex-Station-Token", stationToken.toUtf8());
+    req.setTransferTimeout(kLoginTimeoutMs);
+    QNetworkReply *reply = m_nam->post(req, QByteArrayLiteral("{}"));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QJsonObject o = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString tok = o.value("token").toString();
+        if (code != 200 || tok.isEmpty()) {
+            qWarning("[AUTH] station display-session refused: HTTP %d %s", code,
+                     qUtf8Printable(o.value("detail").toString().left(80)));
+            setError(QStringLiteral("Station credential rejected"));
+            emit loginFailed(m_errorString);
+            return;
+        }
+        m_displaySession = tok;
+        m_stationLive = true;
+        m_username = QStringLiteral("station");
+        m_role = QStringLiteral("station");
+        qInfo("[AUTH] station display session accepted scope=%s expires=%s",
+              qUtf8Printable(o.value("scope").toString()), qUtf8Printable(o.value("expires_at").toString()));
+        emit stationLiveChanged();
+        setAuthenticated(true);
+    });
+}
+
 void AuthController::restoreSession()
 {
     QSettings s;
@@ -547,6 +585,14 @@ void AuthController::restoreSession()
 
 void AuthController::noteUnauthorized()
 {
+    // Station live mode: only /streams and snapshots are in scope; events, groups,
+    // The Watch, review all answer 401/403 BY DESIGN. Those are not a dead session
+    // and must not drop the wall to sign-in (measured 2026-09-08: the wall lit,
+    // then three out-of-scope 401s tore it down within 20 ms).
+    if (m_stationLive) {
+        qInfo("[AUTH] 401 in station live mode — out-of-scope surface, session kept");
+        return;
+    }
     if (!m_authenticated)
         return;
     // A 401 mid-session: the token died before (or despite) renewal, or a
