@@ -57,6 +57,7 @@
 #endif
 
 #include "AuthController.h"
+#include "LiveProxy.h"
 #include "models/DeepLink.h"
 #include "models/CvImageProvider.h"
 #include "models/FlightRecorder.h"
@@ -554,6 +555,9 @@ int main(int argc, char *argv[])
     // Exposed to QML as a context property (not a module type) so it does not
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
+    // Live-over-HTTP loopback proxy (remote-live transport) — app-lifetime, so
+    // live surfaces can fall back to it whenever RTSP cannot deliver.
+    engine.rootContext()->setContextProperty("LiveHttp", new LiveProxy(&app));
 
     // Shareable event links (cilex:// scheme, operator order 2026-08-21).
     // macOS delivers opens via QFileOpenEvent (DeepLink's event filter); a URL

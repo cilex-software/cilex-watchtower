@@ -1,5 +1,7 @@
 #include "HlsProxy.h"
 
+#include <QRegularExpression>
+
 #include <QAtomicInteger>
 #include <QCoreApplication>
 #include <QDebug>
@@ -195,6 +197,20 @@ void HlsProxy::onNewConnection()
 
 void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
 {
+    // Live fMP4 passthrough: /live/stream.mp4?src=<name> maps to the
+    // authenticated upstream /streams/live/stream.mp4?src=<name>. Strict by
+    // construction — one filename, one query parameter, tight charset — this
+    // path rides the operator's session cookie, so it gets the same
+    // confused-deputy caution as /review/ below.
+    {
+        static const QRegularExpression liveRe(
+            QStringLiteral(R"(^/live/stream\.mp4\?src=([A-Za-z0-9_.\-]{1,128})$)"));
+        const auto lm = liveRe.match(path);
+        if (lm.hasMatch()) {
+            forwardLive(sock, QStringLiteral("/streams/live/stream.mp4?src=") + lm.captured(1));
+            return;
+        }
+    }
     // Only GET is needed for HLS; reject anything that escapes /review/.
     if (!path.startsWith(QLatin1String("/review/"))) {
         writeResponse(sock, 404, "text/plain", "not found");
@@ -820,6 +836,47 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
         if (t.endsWith(".ts")) needDiscont = true;   // the NEXT segment needs one
     }
     return out.join('\n');
+}
+
+void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
+{
+    QNetworkRequest req{QUrl(m_upstream + upath)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setRawHeader("X-Request-Id", nextRequestId());
+    QNetworkReply *reply = m_nam->get(req);
+    QPointer<QTcpSocket> guarded(sock);
+    auto headered = QSharedPointer<bool>::create(false);
+    connect(reply, &QNetworkReply::metaDataChanged, reply, [this, reply, guarded, headered]() {
+        if (*headered)
+            return;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code <= 0)
+            return;
+        *headered = true;
+        if (!guarded) { reply->abort(); return; }
+        const QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+        writeHead(guarded, code, ct.isEmpty() ? QByteArrayLiteral("video/mp4") : ct, -1);
+    });
+    connect(reply, &QNetworkReply::readyRead, reply, [reply, guarded]() {
+        if (!guarded) { reply->abort(); return; }
+        // Loopback player slower than the stream for this long = it is gone in
+        // all but name; cap the kernel-buffer pileup instead of growing forever.
+        if (guarded->bytesToWrite() > 8 * 1024 * 1024) { reply->abort(); return; }
+        guarded->write(reply->readAll());
+    });
+    connect(reply, &QNetworkReply::finished, reply, [this, reply, guarded, headered]() {
+        reply->deleteLater();
+        if (!guarded)
+            return;
+        if (!*headered) {          // upstream failed before headers: say so honestly
+            writeResponse(guarded, 502, "text/plain", "upstream failed");
+            return;
+        }
+        guarded->disconnectFromHost();
+    });
+    // The player hanging up (teardown, a ladder move) must stop the upstream pull.
+    connect(sock, &QTcpSocket::disconnected, reply, &QNetworkReply::abort);
 }
 
 void HlsProxy::writeHead(QTcpSocket *sock, int code, const QByteArray &contentType, qint64 len)

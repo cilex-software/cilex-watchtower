@@ -46,6 +46,14 @@ private slots:
 
 private:
     void serveRequest(QTcpSocket *sock, const QString &path);
+    // Live fMP4 passthrough (the remote-live transport, CV letter 2026-09-07).
+    // Deliberately NONE of the segment machinery applies: no cache (endless
+    // body), no single-flight join (a joiner would park forever behind a GET
+    // that never finishes — each viewer gets its own upstream pull), no 503
+    // retry loop (the surface's source ladder owns recovery), no transfer
+    // timeout (long-lived by design; a silent stall is the player's frame-flow
+    // watchdog's to catch, and a hung-up player aborts the upstream pull).
+    void forwardLive(QTcpSocket *sock, const QString &upath);
     // spentMs accumulates the 503-retry delays already burned on THIS request, so
     // the chain can honour the server's Retry-After without overrunning
     // kRetryBudgetMs (souphttpsrc's ~15 s abort). Callers start at 0.

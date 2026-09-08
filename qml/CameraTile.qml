@@ -183,6 +183,22 @@ Item {
     readonly property string streamUrl: (useMainStream && rtspUrl !== "")
         ? rtspUrl
         : (rtspSubUrl !== "" ? rtspSubUrl : rtspUrl)
+    // Source ladder: the tile's chosen quality over RTSP, then the same quality
+    // over the authenticated HTTP fMP4 transport (the remote path, for when
+    // go2rtc's RTSP port is unreachable from where this client runs). Built from
+    // the stable streamUrl, never from status. `-opt` slots below when CV ships it.
+    readonly property var streamTiers: {
+        if (streamUrl === "") return [];
+        var q = useMainStream ? "HD" : "SD";
+        var http = (typeof LiveHttp !== "undefined") ? LiveHttp.liveUrlFor(streamUrl) : "";
+        var t = [{ url: streamUrl, badge: q }];
+        if (http) t.push({ url: http, badge: q + "·NET" });
+        return t;
+    }
+    // The rung the surface actually settled on, and whether it had to step down —
+    // drives the small NET/AUTO chip so a wall operator SEES a downgraded tile.
+    readonly property string streamTierBadge: videoLoader.item ? videoLoader.item.tierBadge : ""
+    readonly property bool streamAutoStepped: videoLoader.item ? videoLoader.item.autoStepped : false
     readonly property bool hasStream: streamUrl !== "" && videoActive && (!isOffline || streamPlaying)
     readonly property bool streamPlaying: videoLoader.item ? videoLoader.item.playing : false
     readonly property bool streamErrored: videoLoader.item ? videoLoader.item.errored : false
@@ -321,6 +337,19 @@ Item {
                      && root.liveViewEnabled && root.liveDecodeAllowed
             onTriggered: {
                 if (!root.streamErrored) return;
+                // Prefer the source ladder over a hard recycle: if this stream has a
+                // lighter rung (a lower quality, or the HTTP transport for when RTSP
+                // is unreachable), STEP DOWN instead of destroying the surface — a
+                // rebuild resets the ladder to the top rung and would loop on an
+                // unreachable transport forever. Only when no lighter rung remains do
+                // we fall back to the original destroy-and-rebuild recycle.
+                var it = videoLoader.item;
+                if (it && it.hasLowerTier) {
+                    console.warn("[WT-TILE] stepping tier down (errored) ip=" + root.ip);
+                    it.stepDownTier("recycle");
+                    base._recycleTry = 0;        // fresh rung: prompt attempts, not a stale backoff
+                    return;
+                }
                 // Logged unconditionally: a stuck tile healing itself must still be
                 // COUNTABLE, or "the wall is flaky" stays an anecdote. There were zero
                 // VideoSurface: warnings in the flight recorder across the whole
@@ -354,7 +383,7 @@ Item {
                     && (!root.isOffline || root.streamPlaying)
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
-                url: root.streamUrl
+                tiers: root.streamTiers
                 active: root.videoActive
             }
         }
@@ -617,6 +646,16 @@ Item {
                     fps: root.streamFps
                     sinceMs: root.streamDegraded ? -1 : root.liveSinceMs
                     tier: root.chromeTier
+                }
+                // Adaptive-tier chip: shown ONLY when the ladder stepped this tile down
+                // to a lighter rung (e.g. the HTTP transport fallback). No chip at the
+                // tile's normal rung — the wall stays uncluttered when all is well.
+                StatusBadge {
+                    visible: root.streamAutoStepped && root.streamTierBadge !== ""
+                    label: root.streamTierBadge
+                    tier: root.chromeTier
+                    fg: Theme.warn; bgColor: Theme.warnDim
+                    dotColor: Theme.warn; dotHollow: true
                 }
                 RecordingStatusBadge {
                     tier: root.chromeTier

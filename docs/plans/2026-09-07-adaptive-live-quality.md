@@ -1,6 +1,7 @@
 # Adaptive live quality (auto tier step-down) + remote live
 
-**Status: TRANSPORT UNBLOCKED 2026-09-07 evening** (CV reply
+**Status: TRANSPORT RUNG + HD→SD LADDER SHIPPED 2026-09-08 (mac).**
+(prior:) **TRANSPORT UNBLOCKED 2026-09-07 evening** (CV reply
 `2026-09-07-remote-live-exists-behind-the-api-port-and-the-numbers-you-asked-for.reply.md`):
 remote live already exists — authenticated HLS/fMP4 through the API port,
 the path Cilex Pro Mobile already uses. The `-opt` tier is measured feasible
@@ -116,3 +117,49 @@ the booth's `2026-09-07-your-third-tier-exists-it-is-called-wall.reply.md`.
 - Client plumbing seed already exists: `WT_WALL_STREAM_SUFFIX`
   (CameraModel.cpp:461-476) rewrites the wall's sub-URL suffix client-side —
   the tier switch needs a producer and a policy, not new plumbing (booth §2).
+
+
+## Update 2026-09-08 — Transport rung + HD→SD ladder SHIPPED (mac)
+
+Implemented and pushed from the Mac (shared code, straight to main per CLAUDE.md).
+
+**What shipped**
+- **Transport rung (C++).** `LiveProxy` — an app-lifetime loopback proxy (its own
+  thread, mirrors `AuthController` baseUrl/token like PlaybackClient's) exposing
+  `LiveHttp.liveUrlFor(rtspUrl)`. `HlsProxy` gained a strict `/live/stream.mp4?src=<name>`
+  route → authenticated upstream `/streams/live/stream.mp4?src=<name>` (`forwardLive`:
+  progressive passthrough, no cache/single-flight/retry, honest 502, aborts upstream
+  when the player hangs up). `src/models/LiveProxy.{h,cpp}`, `HlsProxy.{h,cpp}`,
+  `main.cpp`, `CMakeLists.txt`.
+- **Source ladder (QML).** `VideoSurface` gained `tiers: [{url,badge}]` (best first).
+  When non-empty it owns `url`, and steps DOWN on measured failure: a cold connect
+  that will not complete (2×~8 s), or sustained `degraded` (8 s). Backend is chosen by
+  URL scheme so the http fMP4 rung uses QtMultimedia, not the rtsp-only pipeline.
+  Legacy single-`url` callers (VideoTest) unchanged.
+- **Consumers.** `SingleCameraDetail` builds HD→SD→SD·NET (preference is the ceiling;
+  a forced tier collapses to that tier + its NET fallback) and the SD/HD chip now shows
+  the EFFECTIVE tier, amber + `AUTO` when the ladder chose it. `CameraTile` builds
+  [quality-rtsp, quality-NET] and shows a small amber tier chip only when stepped down.
+- **Recycler reconciled.** The tile's stuck-pipeline recycler (`errRecycle`) now
+  ADVANCES the ladder when a lighter rung exists instead of destroying+rebuilding the
+  surface (which reset the ladder and looped on an unreachable transport). Only at the
+  lowest rung does it fall back to the original destroy-and-rebuild.
+
+**Verified (offscreen, mac, against a one-camera CV mock: dead RTSP port + a real
+fragmented-MP4 on the fMP4 route)**
+- Isolated proxy: `/live/stream.mp4?src=` → 200, first byte ~1 ms, PROGRESSIVE; path
+  traversal / wrong-file / percent-encoded dots all rejected; upstream failure → 502.
+- Ladder: RTSP cold-fail → `[TIER] step down → SD·NET (cold-connect)`; error-driven →
+  `[WT-TILE] stepping tier down (errored)` → `[TIER] step down → SD·NET (recycle)`.
+- The client then issues the AUTHENTICATED `GET /streams/live/stream.mp4?src=cam1-sub`
+  — the transport is consumed end to end.
+- The `SD·NET` amber tier chip renders on the wall tile (screenshot).
+
+**NOT yet verified — needs a real display or the live backend**
+- Actual fMP4 PIXELS rendering. Offscreen QtMultimedia probes ~128 KB then waits with
+  no VideoOutput sink pulling (the documented offscreen no-render caveat in
+  DEVELOPMENT.md), so the last mile — frames on screen from the fMP4 rung — must be
+  confirmed on a real display or against the pilot from a network where RTSP is blocked.
+- Auto step-UP (single view, after long stability): deliberately NOT built yet
+  (stability beats flicker); manual step-up via the SD/HD chip works.
+- `-opt` rung: waits on CV (operator's "build -opt"). Slots below SD when it ships.

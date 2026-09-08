@@ -19,6 +19,53 @@ Item {
     property bool active: true   // play when true (e.g. tile visible / on current page)
     readonly property bool lowLatency: (typeof wtLowLatency !== "undefined" && wtLowLatency)
 
+    // ---- source ladder (adaptive quality + transport) --------------------------------
+    // Ordered candidates, best first, each {url, tier, net, badge}. When non-empty this
+    // surface OWNS `url` (drives it from the current rung) and steps DOWN a rung on a
+    // measured failure: a cold connect that will not complete, or frames that arrive too
+    // slowly to be video. Empty = legacy single-`url` mode (VideoTest, direct callers) —
+    // nothing below changes their behaviour. Rungs mix quality (HD→SD) and transport
+    // (rtsp→http fMP4, the remote path for when go2rtc's RTSP port is unreachable).
+    // The list must be built from STABLE inputs (camera identity + override), never from
+    // status polls, or a poll would reset the rung and undo a step-down.
+    property var tiers: []
+    property int _tierIndex: 0
+    // Step down only after this many cold-connect failures on the current rung (~2×8 s),
+    // so a rung that is merely slow to negotiate is not abandoned prematurely.
+    property int _coldFailLimit: 2
+    property int _coldFailsThisTier: 0
+    readonly property var currentTier: (tiers.length > 0)
+        ? tiers[Math.max(0, Math.min(_tierIndex, tiers.length - 1))] : null
+    readonly property bool _hasLowerTier: tiers.length > 0 && _tierIndex < tiers.length - 1
+    // What the SD/HD chip shows, and whether the ladder chose it (AUTO) vs the top rung.
+    readonly property string tierBadge: currentTier ? (currentTier.badge || "") : ""
+    readonly property bool autoStepped: _tierIndex > 0
+    // Public: whether a lighter rung exists, and a request to move to it. The wall
+    // tile's stuck-pipeline recycler uses these to ADVANCE the ladder instead of
+    // destroying-and-rebuilding the surface (which would reset it to the top rung
+    // and loop forever on an unreachable transport).
+    readonly property bool hasLowerTier: _hasLowerTier
+    function stepDownTier(reason) { _stepDownTier(reason && reason.length ? reason : "external") }
+    signal tierStepped(string reason, string badge)
+
+    function _applyTier() {
+        if (tiers.length === 0)
+            return;
+        var i = Math.max(0, Math.min(_tierIndex, tiers.length - 1));
+        var u = tiers[i] ? (tiers[i].url || "") : "";
+        if (url !== u)
+            url = u;                     // → onUrlChanged resets frame/backoff state
+    }
+    function _stepDownTier(reason) {
+        if (!_hasLowerTier)
+            return;
+        _tierIndex = _tierIndex + 1;     // → on_TierIndexChanged → _applyTier
+        console.info("[TIER] step down →", (currentTier ? currentTier.badge : "?"), "(" + reason + ")");
+        tierStepped(reason, currentTier ? currentTier.badge : "");
+    }
+    onTiersChanged: { _tierIndex = 0; _coldFailsThisTier = 0; _applyTier(); }
+    on_TierIndexChanged: _applyTier()
+
     // `playing` = FRAMES ARE ACTUALLY FLOWING, not merely "the pipeline reports itself up".
     // A live RTSP pipeline can sit decoding nothing — a stalled substream, or the initial
     // all-zero NV12 buffer that renders bright green — while still claiming to play, which is
@@ -118,6 +165,19 @@ Item {
         onTriggered: root._requestReconnect()
     }
 
+    // A rung that connected but delivers video too slowly (VideoSurface.degraded:
+    // sustained sub-10 fps, or a stall) never flips `playing` false on the low-fps
+    // path, so the reconnect ladder above cannot see it. This does: 8 s of continuous
+    // degraded on a rung that has a lighter option → step down. Re-armed by the
+    // running binding, so a recovery (degraded→false) cancels the pending step.
+    Timer {
+        id: tierDegradeTimer
+        interval: 8000
+        repeat: false
+        running: root._hasLowerTier && root._everPlayed && root.degraded
+        onTriggered: root._stepDownTier("degraded")
+    }
+
     // Schedule the next reconnect attempt (idempotent: leaves a running countdown alone).
     function _armReconnect() {
         if (!root.active || root.url === "" || root.playing) { reconnectTimer.stop(); return; }
@@ -146,6 +206,15 @@ Item {
     function _doReconnect() {
         root._reconnectPending = false;
         if (!root.active || root.url === "" || root.playing) return;
+        // Ladder: a rung that has never delivered a frame and keeps failing to
+        // connect gets abandoned for a lighter one, rather than hammered forever.
+        if (!root._everPlayed && root._hasLowerTier) {
+            root._coldFailsThisTier++;
+            if (root._coldFailsThisTier >= root._coldFailLimit) {
+                root._stepDownTier("cold-connect");
+                return;
+            }
+        }
         if (backend.item && backend.item.reconnect) backend.item.reconnect();
         root._reconnectAttempt = Math.min(root._reconnectAttempt + 1, root._backoffMs.length - 1);
         root._armReconnect();
@@ -205,6 +274,7 @@ Item {
             root._hasRecentFrame = false; root._everPlayed = false; stallTimer.stop();
             root.fps = -1; root._fpsValid = false; root._frameTicks = 0;
             reconnectTimer.stop(); root._reconnectAttempt = 0;
+            root._coldFailsThisTier = 0;
             root._armReconnect();
         }
         function onPlayingChanged() {
@@ -213,11 +283,15 @@ Item {
         }
     }
 
-    // Picks exactly one backend at construction. Bindings inside reference
-    // `root.url` / `root.active` / `videoOut` from the outer scope.
+    // Picks a backend by URL SCHEME, not just the global flag: the low-latency
+    // custom pipeline is rtsp-only, so an http fMP4 rung (the remote transport)
+    // MUST go through QtMultimedia, which speaks http/HLS/fMP4. Reselects when the
+    // ladder crosses rtsp↔http; staying within rtsp rungs (HD↔SD) keeps the same
+    // backend and only swaps its url.
     Loader {
         id: backend
-        sourceComponent: root.lowLatency ? lowLatencyComp : qtmmComp
+        sourceComponent: (root.lowLatency && root.url.indexOf("rtsp") === 0)
+                         ? lowLatencyComp : qtmmComp
     }
 
     // Default (QtMultimedia) backend.

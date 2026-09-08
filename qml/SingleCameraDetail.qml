@@ -50,6 +50,32 @@ Item {
     readonly property string streamUrl: !camera ? ""
         : (useMain ? (camera.rtspUrl || camera.rtspSubUrl || "")
                    : (camera.rtspSubUrl || camera.rtspUrl || ""))
+    // The remote-live HTTP rung for an rtsp URL (authenticated fMP4 through the
+    // loopback LiveProxy), or "" when unavailable — the ladder's transport fallback.
+    function _httpRung(rtsp) {
+        return (typeof LiveHttp !== "undefined" && rtsp) ? LiveHttp.liveUrlFor(rtsp) : "";
+    }
+    // Ordered source ladder handed to VideoSurface. Built only from camera identity
+    // and the HD/SD override (both stable) — never from status — so a step-down is
+    // not undone by a poll. Auto mode uses the operator's default quality as the
+    // CEILING and steps down from there; a forced tier collapses to that tier plus
+    // its HTTP transport fallback. `-opt` (CV, pending) slots in below SD when it ships.
+    readonly property var streamTiers: {
+        if (!camera) return [];
+        var main = camera.rtspUrl || "", sub = camera.rtspSubUrl || "";
+        var t = [];
+        function add(url, badge) { if (url) t.push({ url: url, badge: badge }); }
+        if (hdOverride === 1) {                       // forced HD
+            add(main, "HD"); add(_httpRung(main), "HD·NET");
+        } else if (hdOverride === 0) {                // forced SD
+            add(sub, "SD"); add(_httpRung(sub), "SD·NET");
+        } else {                                      // auto: preference is the ceiling
+            if (Settings.defaultStreamHd) add(main, "HD");
+            add(sub || main, "SD");
+            add(_httpRung(sub || main), "SD·NET");
+        }
+        return t;
+    }
     readonly property var siblings: (cameraModel && camera)
         ? cameraModel.page(camera.groupId, "", "alpha", 1, 24) : []
     // Same-group cameras minus the one we're already viewing — drives the thumbnail grid.
@@ -149,8 +175,10 @@ Item {
                 }
                 id: vsurf
                 anchors.fill: parent
-                url: root.streamUrl
-                active: root.visible && !root.liveOff && root.streamUrl !== "" && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
+                tiers: root.streamTiers
+                // The single view may recover upward manually (the SD/HD chip); auto
+                // step-UP is intentionally not done here yet (stability beats flicker).
+                active: root.visible && !root.liveOff && root.streamTiers.length > 0 && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
             }
 
             // Triple-click on the picture → one-touch autofocus (operator ask,
@@ -379,11 +407,17 @@ Item {
 
                     // SD/HD toggle
                     Rectangle {
+                        id: hdBtn
                         visible: root.streamUrl !== ""
-                        implicitWidth: 36; implicitHeight: 30
+                        implicitWidth: hdText.implicitWidth + 18; implicitHeight: 30
                         color: hdMa.containsMouse ? Theme.accent : Qt.rgba(0, 0, 0, 0.55)
                         border.width: 1; border.color: hdMa.containsMouse ? Theme.accent : Theme.line2
-                        Text { anchors.centerIn: parent; text: root.useMain ? qsTr("HD") : qsTr("SD"); color: hdMa.containsMouse ? Theme.bg : (root.useMain ? Theme.accent : "#ffffff"); font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
+                        // Effective tier from the ladder (falls back to the intended
+                        // tier before the surface reports one). A ·NET or stepped-down
+                        // rung shows amber + AUTO so the operator SEES the downgrade.
+                        readonly property string _eff: vsurf.tierBadge !== "" ? vsurf.tierBadge : (root.useMain ? "HD" : "SD")
+                        readonly property bool _fallback: vsurf.autoStepped || hdBtn._eff.indexOf("NET") >= 0
+                        Text { id: hdText; anchors.centerIn: parent; text: (hdBtn._fallback && root.hdOverride < 0 ? qsTr("AUTO ") : "") + hdBtn._eff; color: hdMa.containsMouse ? Theme.bg : (hdBtn._fallback ? Theme.warn : (root.useMain ? Theme.accent : "#ffffff")); font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold }
                         MouseArea { id: hdMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.hdOverride = root.useMain ? 0 : 1 }
                     }
 
