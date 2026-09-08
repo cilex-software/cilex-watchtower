@@ -89,8 +89,15 @@ Window {
     // Open a camera in the CURRENT tab — a tile's "Open", the command palette,
     // Health/Groups hand-offs, a sibling thumbnail. Navigates in place: the main
     // tab remembers it, a camera tab re-points at the new camera.
+    // [LIVETIME] the user gesture: "open this camera". Stamped HERE, not on the detail
+    // view's cameraChanged — the boot path sets that ~7 s before the roster exists and the
+    // measured number then includes app start (measured 2026-09-08: decoder chosen at
+    // "-7 s" relative to a stamp that fired first). A guard's click is this function.
+    property double liveOpenT0: -1
     function openCameraHere(cam) {
         if (!cam) return;
+        liveOpenT0 = Date.now();
+        console.log("[LIVETIME] open t=" + liveOpenT0 + " cam=" + (cam.ip || "?"));
         if (activeTab > 0 && activeTab < tabs.length) {
             var t = tabs.slice();
             t[activeTab] = { "kind": "camera", "camId": cam.camId, "cam": cam };
@@ -740,11 +747,41 @@ Window {
     // response lands a few seconds after login), then stops once focused.
     Timer {
         interval: 500; repeat: true
+        // WT_FOCUS_DELAY_MS (test): wait this long after the roster lands before focusing, so
+        // the wall's tiles (and their warm-keeps) exist first — otherwise the hook measures a
+        // COLD open the instant /streams returns, which is not what a guard clicking a tile
+        // on a lit wall experiences (measured 2026-09-08: 3 runs, no warm-keep had fired).
+        property int _focusDelay: (typeof wtFocusDelayMs !== "undefined" && wtFocusDelayMs > 0) ? wtFocusDelayMs : 0
+        property double _rosterAt: 0
         running: typeof wtFocusIp !== "undefined" && wtFocusIp !== "" && win.focusedCamera === null
         onTriggered: {
-            var all = cameraModel.page("", "", "default", 1, 50);
+            // FULL roster, not page 1-of-50: a camera beyond row 50 was silently never
+            // matched (the same bug playbackBootHook fixed 2026-08-21; re-found 2026-09-08
+            // when .103, camera ~60 of 133, never opened across ten runs).
+            var all = [];
+            for (var r = 0; r < cameraModel.total; r++) all.push(cameraModel.get(r));
             for (var i = 0; i < all.length; i++)
-                if (all[i].ip === wtFocusIp) { win.openCameraHere(all[i]); break; }
+                if (all[i] && all[i].ip === wtFocusIp) {
+                    // Delay gate: the roster is here; keep ticking (the Timer repeats while
+                    // focusedCamera is null) until the delay has elapsed, THEN open once.
+                    if (_focusDelay > 0) {
+                        if (_rosterAt === 0) _rosterAt = Date.now();
+                        if (Date.now() - _rosterAt < _focusDelay) break;
+                    }
+                    win.openCameraHere(all[i]); break;
+                }
+        }
+    }
+    // Dev hook: WT_FOCUS_CLOSE_MS closes the focused camera that long after it opened, so one
+    // run also measures the RETURN path — the wall tile re-adopting the detail view's pipeline
+    // (see RtspVideoSource ParkingLot) instead of rebuilding into a mid-GOP keyframe wait.
+    Timer {
+        interval: (typeof wtFocusCloseMs !== "undefined" && wtFocusCloseMs > 0) ? wtFocusCloseMs : 1
+        repeat: false
+        running: typeof wtFocusCloseMs !== "undefined" && wtFocusCloseMs > 0 && win.focusedCamera !== null
+        onTriggered: {
+            console.log("[LIVETIME] close t=" + Date.now() + " cam=" + (win.focusedCamera ? win.focusedCamera.ip : "?"));
+            win.closeCameraHere();
         }
     }
     // Dev hook: WT_TABS=<ip>[,<ip>…] opens those cameras as view tabs once the

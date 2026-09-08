@@ -70,7 +70,24 @@ Item {
         } else if (hdOverride === 0) {                // forced SD
             add(sub, "SD"); add(_httpRung(sub), "SD·NET");
         } else {                                      // auto: preference is the ceiling
-            if (Settings.defaultStreamHd) add(main, "HD");
+            // SD FIRST, ALWAYS — even when HD is the preference. The wall tile already holds
+            // the -sub producer warm, so opening on -sub shows a picture in ~50-100 ms; opening
+            // on the 1440p HEVC main instead discards that warm stream and cold-dials a new
+            // producer: measured 2026-09-08, vah265dec chosen at a flat +2.0 s and first frame
+            // at 2.5-4.4 s on every open, 5-9x the 500 ms target. So the ladder is SD, then
+            // HD promoted IN PLACE once SD is playing (see _promoteToHd) — the guard sees a
+            // picture at once and it sharpens, instead of staring at black for the HD dial.
+            // NOTE (2026-09-08): an SD-first ladder was tried and REVERTED — VideoSurface's
+            // ladder is fallback-only (stepDownTier), so listing HD after SD silently removed
+            // HD. The cold HD dial (~2.0 s to vah265dec on a 1440p main) is real and measured;
+            // the fix is an upward PROMOTION once SD plays, which does not exist yet.
+            // SD first, ALWAYS (2026-09-08). The wall tile already holds -sub warm, so SD
+            // paints in ~50-100 ms. HD is NOT a rung here: the ladder is fallback-only and
+            // a rung after SD would never be reached. HD is a PROMOTION — hdPromote below
+            // warms the main stream on a hidden surface and swaps it in only once IT is
+            // playing, so the guard sees a picture at once and it sharpens; never a black
+            // frame during the ~2 s HEVC dial (measured: HD-first opened at 4.3 s on every
+            // camera, vah265dec chosen at a flat +2.0 s).
             add(sub || main, "SD");
             add(_httpRung(sub || main), "SD·NET");
         }
@@ -163,22 +180,38 @@ Item {
             // moment its surface has a recent frame. Operator target 2026-09-08: 500 ms.
             // Stamped on camera change (the "open" gesture from the wall), reported once.
             VideoSurface {
-                property double _liveT0: -1
-                Connections {
-                    target: root
-                    function onCameraChanged() { vsurf._liveT0 = Date.now();
-                        console.log("[LIVETIME] open t=" + vsurf._liveT0 + " cam=" + (root.camera ? root.camera.ip : "?")); }
-                }
-                onPlayingChanged: if (playing && _liveT0 > 0) {
-                    console.log("[LIVETIME] playing dt=" + (Date.now() - _liveT0) + "ms cam=" + (root.camera ? root.camera.ip : "?"));
-                    _liveT0 = -1;
+                // Reports against the gesture stamp in Main.openCameraHere (see there).
+                onPlayingChanged: if (playing && typeof win !== "undefined" && win.liveOpenT0 > 0) {
+                    console.log("[LIVETIME] playing dt=" + (Date.now() - win.liveOpenT0) + "ms cam=" + (root.camera ? root.camera.ip : "?"));
+                    win.liveOpenT0 = -1;
                 }
                 id: vsurf
                 anchors.fill: parent
                 tiers: root.streamTiers
+                // SD surface stays on screen until the HD promotion (below) is playing.
+                visible: !hdPromote.playing
                 // The single view may recover upward manually (the SD/HD chip); auto
                 // step-UP is intentionally not done here yet (stability beats flicker).
                 active: root.visible && !root.liveOff && root.streamTiers.length > 0 && (root.camera ? root.camera.live !== CameraStatus.Offline : false)
+            }
+            // HD PROMOTION SURFACE. Starts dialling the main stream the moment SD is playing
+            // (never before — that would compete for the guard's first frame), stays hidden
+            // until it has frames, then covers SD. Only when HD is the preference, in auto mode,
+            // and the camera has a distinct main stream. Stability beats flicker: the swap
+            // happens on a REAL HD frame, and SD is never torn down first.
+            readonly property bool _wantHd: Settings.defaultStreamHd && root.hdOverride === -1
+                                            && root.camera && root.camera.rtspUrl && root.camera.rtspSubUrl
+                                            && root.camera.rtspUrl !== root.camera.rtspSubUrl
+            VideoSurface {
+                id: hdPromote
+                anchors.fill: parent
+                visible: playing
+                url: (playerArea._wantHd && vsurf.playing) ? root.camera.rtspUrl : ""
+                active: url !== "" && root.visible && !root.liveOff
+                Component.onCompleted: console.log("[LIVETIME] hd_promote armed wantHd=" + playerArea._wantHd
+                    + " pref=" + Settings.defaultStreamHd + " override=" + root.hdOverride
+                    + " main=" + (root.camera && root.camera.rtspUrl ? "y" : "n") + " sub=" + (root.camera && root.camera.rtspSubUrl ? "y" : "n"))
+                onPlayingChanged: if (playing) console.log("[LIVETIME] hd_promoted cam=" + (root.camera ? root.camera.ip : "?"))
             }
 
             // Triple-click on the picture → one-touch autofocus (operator ask,

@@ -1,3 +1,4 @@
+#include <QDateTime>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -530,7 +531,6 @@ int main(int argc, char *argv[])
     auth->restoreSession();
     // Opt-in dev convenience: WT_CV_AUTOLOGIN skips the login screen using the
     // WT_CV_USER/WT_CV_PASS service creds (previous always-on behaviour).
-    if (qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN") && !auth->authenticated()) {
     // Station live mode: the station's own credential lights the LIVE wall through CV's
     // display-session contract. No operator password on the box; review/events stay
     // out of scope by design. An operator sign-in from the login screen supersedes it.
@@ -538,6 +538,7 @@ int main(int argc, char *argv[])
         const auto env = QProcessEnvironment::systemEnvironment();
         auth->loginWithStationToken(env.value("WT_CV_URL", auth->baseUrl()), env.value("WT_STATION_TOKEN"));
     }
+    if (qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN") && !auth->authenticated()) {
         const auto env = QProcessEnvironment::systemEnvironment();
         // Fall back to the base URL restoreSession() already resolved (saved settings, or the built-in
         // default) when WT_CV_URL is unset — otherwise loginWithPassword() overwrites it with "" and
@@ -551,6 +552,20 @@ int main(int argc, char *argv[])
     if (const int expS = qEnvironmentVariableIntValue("WT_AUTH_EXPIRE_S"); expS > 0)
         QTimer::singleShot(expS * 1000, auth, &AuthController::corruptTokenForTest);
 
+    // [LIVETIME] GUI-thread stall detector (WT_TRACE only): a 20 ms timer that reports any gap > 150 ms.
+    if (qEnvironmentVariableIsSet("WT_TRACE")) {
+        auto *stallTimer = new QTimer(&app);
+        stallTimer->setTimerType(Qt::PreciseTimer);
+        stallTimer->setInterval(20);
+        auto *lastTick = new qint64(QDateTime::currentMSecsSinceEpoch());
+        QObject::connect(stallTimer, &QTimer::timeout, [lastTick] {
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+            if (now - *lastTick > 150)
+                qInfo("[LIVETIME] gui_stall %lld ms ended t=%lld", (long long)(now - *lastTick), (long long)now);
+            *lastTick = now;
+        });
+        stallTimer->start();
+    }
     QQmlApplicationEngine engine;
     // Authenticated backend images (event-moment snapshots): image://cvframe/<path>.
     engine.addImageProvider(QStringLiteral("cvframe"), new CvImageProvider(auth));
@@ -761,6 +776,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtGroup", qEnvironmentVariable("WT_GROUP"));
     // Optional camera to open focused on boot, by IP (dev: WT_FOCUS_IP=192.168.1.108).
     engine.rootContext()->setContextProperty("wtFocusIp", qEnvironmentVariable("WT_FOCUS_IP"));
+    engine.rootContext()->setContextProperty("wtFocusDelayMs", qEnvironmentVariableIntValue("WT_FOCUS_DELAY_MS"));
+    engine.rootContext()->setContextProperty("wtFocusCloseMs", qEnvironmentVariableIntValue("WT_FOCUS_CLOSE_MS"));
     // Optional cameras to open as VIEW TABS on boot, by IP, comma-separated
     // (dev: WT_TABS=192.168.1.125,192.168.1.67) — deterministic tab-strip runs.
     // WT_TABS_HOME=1 then returns to the main tab, the state that proves the tabs
@@ -967,9 +984,10 @@ int main(int argc, char *argv[])
     if (qEnvironmentVariableIsSet("WT_TRACE")) {
         static QTimer memTimer;
         QObject::connect(&memTimer, &QTimer::timeout, [] {
-            qInfo().noquote() << QStringLiteral("[WT-MEM] rss=%1MB live_pipelines=%2 frames=%3")
+            qInfo().noquote() << QStringLiteral("[WT-MEM] rss=%1MB live_pipelines=%2 parked=%3 frames=%4")
                 .arg(readRssMb())
                 .arg(RtspVideoSource::livePipelineCount())
+                .arg(RtspVideoSource::parkedPipelineCount())
                 .arg(RtspVideoSource::totalFramesDelivered());
         });
         memTimer.start(2000);

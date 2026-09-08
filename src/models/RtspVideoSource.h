@@ -72,6 +72,7 @@ public:
     // decodes), and total frames delivered. Lets the memory logger correlate RSS growth with decode
     // count (stable count + rising RSS = a per-decode VA-API leak, not pipeline accumulation).
     static int livePipelineCount();
+    static int parkedPipelineCount();   // pipelines held for adoption (see ParkingLot)
     static long long totalFramesDelivered();
     // Decode-side totals. totalFramesDelivered() counts frames that reached a sink;
     // these count frames that reached the CLIENT and frames the GUI thread lost.
@@ -128,6 +129,7 @@ private:
     bool m_playing = false;
     bool m_errored = false;
     bool m_warmOnly = false;
+    bool m_sawFirstSample = false;   // [LIVETIME] one-shot per build
     QString m_errorText;
 
     // Single-slot "latest frame" mailbox. onNewSample (streaming thread) drops the newest
@@ -145,6 +147,11 @@ private:
     // Backstop stream watchdog + lifecycle-gauge state (see swdTick()).
     void swdTick();
     std::atomic<bool> m_decoderBound{false};   // written on the streaming thread
+    QVideoFrame m_lastFrame;     // the frame the sink is showing — travels with a parked pipeline
+    char m_urlTag[40] = {};      // POD copy of the URL tail for streaming-thread trace lines
+    bool tryAdoptParked();       // take a parked pipeline for m_url instead of building one
+    bool m_noPark = false;       // set around a rebuild that must NOT park/adopt (reconnect, latency)
+    void armWatchdog();
     qint64 m_lastDeliverMs = 0;                // GUI thread (deliver())
     qint64 m_builtAtMs = 0;
     bool m_deliveredSinceBuild = false;

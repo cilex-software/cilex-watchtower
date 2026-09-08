@@ -4,6 +4,9 @@
 #include <QVideoFrame>
 #include <QVideoFrameFormat>
 #include <QMetaObject>
+#include <limits>
+#include <QHash>
+#include <QCoreApplication>
 #include <QPointer>
 #include <QDebug>
 #include <QUrl>
@@ -117,7 +120,20 @@ public:
     {
         if (std::find(m_queue.begin(), m_queue.end(), src) == m_queue.end())
             m_queue.push_back(src);
-        pump();
+        // One event-loop turn later, never inline: a view switch destroys the old surfaces
+        // in the same event that creates the new one, and a pipeline the old owner PARKS
+        // (see ParkingLot) must be in the lot before the new owner looks for it. Costs one
+        // loop iteration on a lone build; the stagger logic itself is unchanged.
+        m_timer.start(0);
+    }
+    // Is some queued (not yet built) source waiting for this URL? The parking lot keeps
+    // such pipelines ahead of any other when it has to evict.
+    bool wants(const QString &url) const
+    {
+        for (RtspVideoSource *s : m_queue)
+            if (s->url() == url)
+                return true;
+        return false;
     }
     void cancel(RtspVideoSource *src)
     {
@@ -152,6 +168,155 @@ private:
     std::deque<RtspVideoSource *> m_queue;
 };
 }
+
+// ── Pipeline PARKING (2026-09-08, live-TTFF soak) ───────────────────────────────────────────
+// Measured on the pilot fleet: a NEW RTSP consumer joins go2rtc's running producer mid-GOP,
+// the camera's keyframe period is ~3.3 s (-sub) / ~4.0 s (main), and the VA decoder emits
+// empty (green) surfaces until that keyframe — which onNewSample rightly discards. So a fresh
+// pipeline on a warm producer shows its first real picture 0–3.3 s after PLAY (1.8–2.5 s in
+// every measured open), while the wall's cold opens light in ~250 ms because a fresh camera
+// session starts on an IDR. Opening a camera from the wall tears the tile's pipeline down and
+// builds a new one for the detail view — the slow path, every single time.
+//
+// Parking closes that gap. A healthy, already-lit decode pipeline whose owner goes away is
+// held here for a short grace period (WT_PARK_MS, default 2500; 0 disables) instead of being
+// destroyed: callbacks detached, last frame kept, decoder still running. A source that wants
+// the same URL inside the grace period ADOPTS it — same decoder, keyframe already seen, the
+// last frame shown at once and live samples from the next one. Wall→detail, detail→wall and a
+// quick page turn all hit it. Bounded: at most WT_PARK_MAX (default 4) parked, oldest evicted
+// beyond that, so a page turn parks nothing for long and decode-context churn only goes DOWN
+// (an adoption creates no VA context). GUI thread only, like the build pump.
+struct ParkedPipeline {
+    GstElement *pipeline = nullptr;
+    QVideoFrame lastFrame;
+    qint64 parkedAtMs = 0;
+    bool decoderBound = false;
+    int latencyMs = 150;
+};
+static int parkGraceMs()
+{
+    static const int v = qEnvironmentVariableIsSet("WT_PARK_MS")
+                         ? qEnvironmentVariableIntValue("WT_PARK_MS") : 2500;
+    return v;
+}
+static int parkMax()
+{
+    static const int v = qEnvironmentVariableIsSet("WT_PARK_MAX")
+                         ? qEnvironmentVariableIntValue("WT_PARK_MAX") : 4;
+    return v;
+}
+// The one way a pipeline dies (inline in teardown() until parking, 2026-09-08):
+// gst_element_set_state(NULL) blocks while GStreamer tears down RTSP / releases the decoder —
+// under tile-destruction churn (layout switch, page change) this stacked up on the GUI
+// thread. Hand the pipeline to a detached worker so destruction returns immediately. The
+// counting semaphore caps how many pipelines can be in flight at once: the GUI thread briefly
+// waits if the cap is hit, which is the desired back-pressure (each in-flight pipeline holds
+// RTSP sockets + GMainContext pipe-pair fds + a worker thread). Without it, mashing layouts
+// piles up unbounded detached threads and exhausts fds.
+static void destroyPipelineAsync(GstElement *p)
+{
+    {
+        std::unique_lock<std::mutex> lock(teardownMutex());
+        teardownCv().wait(lock, [] { return teardownInflight() < kMaxConcurrentTeardowns; });
+        ++teardownInflight();
+    }
+    std::thread([p] {
+        gst_element_set_state(p, GST_STATE_NULL);
+        gst_object_unref(p);
+        {
+            std::lock_guard<std::mutex> lock(teardownMutex());
+            --teardownInflight();
+        }
+        teardownCv().notify_one();
+    }).detach();
+}
+class ParkingLot
+{
+public:
+    static ParkingLot &instance()
+    {
+        static ParkingLot *lot = new ParkingLot();   // leaked on purpose — same reason as the pump
+        return *lot;
+    }
+    void park(const QString &url, ParkedPipeline e)
+    {
+        static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+        if (parkGraceMs() <= 0 || parkMax() <= 0) {
+            destroyPipelineAsync(e.pipeline);
+            return;
+        }
+        if (m_lot.contains(url))                       // newest pipeline for a URL wins
+            destroyPipelineAsync(m_lot.take(url).pipeline);
+        const auto &pump = PipelineBuildPump::instance();
+        while (m_lot.size() >= parkMax()) {
+            // Evict the oldest pipeline nobody is waiting for; if every held one is wanted,
+            // an unwanted newcomer loses instead, and only then the oldest wanted one.
+            QString victim;
+            qint64 t = std::numeric_limits<qint64>::max();
+            for (auto it = m_lot.cbegin(); it != m_lot.cend(); ++it)
+                if (!pump.wants(it.key()) && it->parkedAtMs < t) { t = it->parkedAtMs; victim = it.key(); }
+            if (victim.isEmpty()) {
+                if (!pump.wants(url)) {
+                    destroyPipelineAsync(e.pipeline);
+                    return;
+                }
+                for (auto it = m_lot.cbegin(); it != m_lot.cend(); ++it)
+                    if (it->parkedAtMs < t) { t = it->parkedAtMs; victim = it.key(); }
+            }
+            destroyPipelineAsync(m_lot.take(victim).pipeline);
+        }
+        if (trace)
+            qInfo("[WT-PARK] parked url=%s frame=%s (%d held)",
+                  qUtf8Printable(QUrl(url).toString(QUrl::RemoveUserInfo)),
+                  e.lastFrame.isValid() ? "yes" : "no", int(m_lot.size()) + 1);
+        m_lot.insert(url, std::move(e));
+        if (!m_reaper.isActive())
+            m_reaper.start();
+    }
+    bool take(const QString &url, ParkedPipeline &out)
+    {
+        auto it = m_lot.find(url);
+        if (it == m_lot.end())
+            return false;
+        out = std::move(*it);
+        m_lot.erase(it);
+        return true;
+    }
+    int count() const { return int(m_lot.size()); }
+private:
+    ParkingLot()
+    {
+        m_reaper.setInterval(250);
+        QObject::connect(&m_reaper, &QTimer::timeout, [this] { reap(); });
+        if (auto *app = QCoreApplication::instance())
+            QObject::connect(app, &QCoreApplication::aboutToQuit, [this] {
+                for (auto &e : m_lot) destroyPipelineAsync(e.pipeline);
+                m_lot.clear();
+            });
+    }
+    void reap()
+    {
+        static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+        const qint64 now = steadyMs();
+        for (auto it = m_lot.begin(); it != m_lot.end();) {
+            if (now - it->parkedAtMs >= parkGraceMs()) {
+                if (trace)
+                    qInfo("[WT-PARK] expired url=%s after %lldms",
+                          qUtf8Printable(QUrl(it.key()).toString(QUrl::RemoveUserInfo)),
+                          (long long)(now - it->parkedAtMs));
+                destroyPipelineAsync(it->pipeline);
+                it = m_lot.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        if (m_lot.isEmpty())
+            m_reaper.stop();
+    }
+    QTimer m_reaper;
+    QHash<QString, ParkedPipeline> m_lot;
+};
+int RtspVideoSource::parkedPipelineCount() { return ParkingLot::instance().count(); }
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
     : QObject(parent)
@@ -225,7 +390,9 @@ void RtspVideoSource::setLatencyMs(int ms)
         return;
     m_latencyMs = ms;
     emit latencyMsChanged();
+    m_noPark = true;    // a parked pipeline carries the OLD latency → build fresh
     rebuild();   // latency is set at pipeline build time
+    m_noPark = false;
 }
 
 void RtspVideoSource::setWarmOnly(bool v)
@@ -248,7 +415,9 @@ void RtspVideoSource::reconnect()
         return;
     }
     ++g_reconRuns;
+    m_noPark = true;    // a stalled/errored pipeline must die, not be parked and re-adopted
     rebuild();
+    m_noPark = false;
 }
 
 // BACKSTOP, not first line of defence. Two QML layers already own recovery:
@@ -384,49 +553,55 @@ void RtspVideoSource::teardown()
         m_bus = nullptr;
     }
     if (m_pipeline) {
-        --g_livePipelines;   // P0 trace: a built pipeline is being torn down
-        // Clear appsink callbacks so the streaming thread won't dereference us
-        // after we return. The thread that owns the pipeline below will still
-        // see this — the appsink is part of the pipeline.
-        if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
+        --g_livePipelines;   // P0 trace: a built pipeline is leaving this source (parked or destroyed)
+        GstElement *p = m_pipeline;
+        m_pipeline = nullptr;
+        // Detach everything that carries `this` — whether the pipeline dies or is parked for
+        // adoption, no callback may reach this object once teardown() returns.
+        if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(p), "sink")) {
             GstAppSinkCallbacks empty = {};
             gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &empty, nullptr, nullptr);
             gst_object_unref(sinkEl);
         }
-        // gst_element_set_state(NULL) blocks while GStreamer tears down RTSP /
-        // releases the decoder — under tile-destruction churn (layout switch,
-        // page change) this stacked up on the GUI thread. Hand the pipeline to a
-        // detached worker so destruction returns immediately. The counting
-        // semaphore caps how many pipelines can be in flight at once: the GUI
-        // thread briefly waits if the cap is hit, which is the desired back-
-        // pressure (each in-flight pipeline holds RTSP sockets + GMainContext
-        // pipe-pair fds + a worker thread). Without it, mashing layouts piles
-        // up unbounded detached threads and exhausts fds.
-        GstElement *p = m_pipeline;
-        m_pipeline = nullptr;
-        {
-            std::unique_lock<std::mutex> lock(teardownMutex());
-            teardownCv().wait(lock, [] { return teardownInflight() < kMaxConcurrentTeardowns; });
-            ++teardownInflight();
+        if (GstElement *dec = gst_bin_get_by_name(GST_BIN(p), "dec")) {
+            g_signal_handlers_disconnect_by_data(dec, this);
+            gst_object_unref(dec);
         }
-        std::thread([p] {
-            gst_element_set_state(p, GST_STATE_NULL);
-            gst_object_unref(p);
-            {
-                std::lock_guard<std::mutex> lock(teardownMutex());
-                --teardownInflight();
-            }
-            teardownCv().notify_one();
-        }).detach();
+        // A healthy, already-lit decode pipeline is parked for adoption (see ParkingLot);
+        // everything else dies as before.
+        const bool parkable = !m_warmOnly && !m_noPark && m_deliveredSinceBuild && !m_errored
+                              && parkGraceMs() > 0 && !m_url.isEmpty();
+        if (parkable) {
+            ParkedPipeline e;
+            e.pipeline = p;
+            e.lastFrame = m_lastFrame;
+            e.parkedAtMs = steadyMs();
+            e.decoderBound = m_decoderBound.load();
+            e.latencyMs = m_latencyMs;
+            ParkingLot::instance().park(m_url, std::move(e));
+        } else {
+            destroyPipelineAsync(p);
+        }
     }
+    // The mailbox may still hold a frame from the pipeline that just left; a deliver() already
+    // queued must not push it under a URL this source is about to change to (identity rule).
+    {
+        std::lock_guard<std::mutex> flock(m_frameMutex);
+        m_pendingFrame = QVideoFrame();
+    }
+    m_lastFrame = QVideoFrame();
     setPlaying(false);
 }
 
 void RtspVideoSource::rebuild()
 {
+    m_sawFirstSample = false;
     teardown();
     setErrored(false);
     if (!m_active || m_url.isEmpty() || !m_sink)
+        return;
+    // A parked pipeline for this URL beats any build: no VA context, no keyframe wait.
+    if (!m_warmOnly && tryAdoptParked())
         return;
     // Don't build inline. Route through the global rate limiter so a burst of tiles
     // becoming active at once (layout change, Arrange exit, page turn, app start) can't
@@ -491,6 +666,9 @@ void RtspVideoSource::startPipelineNow()
     // hold no pipeline — state can change between the request and the drain.
     if (m_pipeline || !m_active || m_url.isEmpty() || !m_sink)
         return;
+    if (!m_warmOnly && tryAdoptParked())   // the old owner may have parked since we queued
+        return;
+    qstrncpy(m_urlTag, QUrl(m_url).toString(QUrl::RemoveUserInfo).right(38).toUtf8().constData(), sizeof m_urlTag);
 
     // decodebin picks VA-API on the Intel iGPU. We pull NV12 (the native decode format, 1.5 B/px) —
     // NOT RGBA (4 B/px) — so each frame buffer is ~2.5× smaller and there is no CPU colour-conversion:
@@ -594,6 +772,10 @@ void RtspVideoSource::startPipelineNow()
     m_decoderBound.store(false);
     m_deliveredSinceBuild = false;
     m_builtAtMs = steadyMs();
+    armWatchdog();
+}
+void RtspVideoSource::armWatchdog()
+{
     if (!m_swd) {
         m_swd = new QTimer(this);
         m_swd->setInterval(5000);
@@ -601,6 +783,63 @@ void RtspVideoSource::startPipelineNow()
     }
     if (!m_swd->isActive())
         m_swd->start();
+}
+bool RtspVideoSource::tryAdoptParked()
+{
+    if (m_noPark)
+        return false;
+    ParkedPipeline e;
+    if (!ParkingLot::instance().take(m_url, e))
+        return false;
+    if (e.latencyMs != m_latencyMs) {           // a different pipeline — not this one
+        destroyPipelineAsync(e.pipeline);
+        return false;
+    }
+    GstBus *bus = gst_element_get_bus(e.pipeline);
+    const guint watch = bus ? gst_bus_add_watch(bus, &RtspVideoSource::onBus, this) : 0;
+    if (!watch) {
+        // Without its bus we cannot own its errors → not safe to adopt; build fresh instead.
+        qWarning("[WT-PARK] adopt refused (no bus watch) url=…%s", qUtf8Printable(m_url.right(24)));
+        if (bus) gst_object_unref(bus);
+        destroyPipelineAsync(e.pipeline);
+        return false;
+    }
+    m_pipeline = e.pipeline;
+    m_bus = bus;
+    m_busWatch = watch;
+    qstrncpy(m_urlTag, QUrl(m_url).toString(QUrl::RemoveUserInfo).right(38).toUtf8().constData(), sizeof m_urlTag);
+    if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
+        GstAppSinkCallbacks cbs = {};
+        cbs.new_sample = &RtspVideoSource::onNewSample;
+        gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &cbs, this, nullptr);
+        gst_object_unref(sinkEl);
+    }
+    if (GstElement *dec = gst_bin_get_by_name(GST_BIN(m_pipeline), "dec")) {
+        g_signal_connect(dec, "deep-element-added", G_CALLBACK(onDeepDecoderAdded), this);
+        gst_object_unref(dec);
+    }
+    ++g_livePipelines;
+    m_decoderBound.store(e.decoderBound);
+    m_deliveredSinceBuild = false;
+    m_sawFirstSample = true;             // the "adopted" line below stands in for first_sample
+    m_builtAtMs = steadyMs();
+    armWatchdog();
+    const qint64 parkedFor = steadyMs() - e.parkedAtMs;
+    if (e.lastFrame.isValid() && m_sink) {
+        // Same URL = same camera. The parked picture is at most parkGraceMs() old and beats a
+        // blank (stability rule) until the next live sample replaces it, one frame later.
+        m_lastFrame = e.lastFrame;
+        m_sink->setVideoFrame(e.lastFrame);
+        setErrored(false);
+        setPlaying(true);
+        ++g_totalFrames;
+        m_lastDeliverMs = steadyMs();
+        m_deliveredSinceBuild = true;
+    }
+    qInfo("[LIVETIME] adopted url=%s parked_for=%lldms frame=%s decoder=%s",
+          qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo)), (long long)parkedFor,
+          e.lastFrame.isValid() ? "yes" : "no", e.decoderBound ? "bound" : "pending");
+    return true;
 }
 
 GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
@@ -665,7 +904,18 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
         gst_video_frame_unmap(&vframe);
     }
     gst_sample_unref(sample);
-
+    // [LIVETIME] first sample at the appsink (streaming thread), green or not — paired with
+    // first_deliver it splits "decoder produced a frame" from "the GUI got a real one".
+    // Behind the alive check, reading only POD fields: `me` may be mid-destruction.
+    {
+        std::lock_guard<std::mutex> lock(aliveMutex());
+        if (aliveSet().count(me) == 0)
+            return GST_FLOW_OK;
+        if (!me->m_sawFirstSample) {
+            me->m_sawFirstSample = true;
+            qInfo("[LIVETIME] first_sample url=%s", me->m_urlTag);
+        }
+    }
     if (frame.isValid()) {
         // Streaming-thread → GUI-thread hop, COALESCED. Posting EVERY decoded frame via a
         // QueuedConnection is unbounded: 16 pipelines × 15 fps = 240 frames/s, each holding a
@@ -714,6 +964,10 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
 
 void RtspVideoSource::deliver()
 {
+    // [LIVETIME] first GUI-thread delivery for this pipeline — paired with first_sample
+    // (GStreamer thread) it splits "decoder produced a frame" from "the GUI got it".
+    if (!m_deliveredSinceBuild)
+        qInfo("[LIVETIME] first_deliver url=%s", qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo).right(40)));
     QVideoFrame frame;
     {
         std::lock_guard<std::mutex> flock(m_frameMutex);
@@ -725,6 +979,7 @@ void RtspVideoSource::deliver()
         return;
     if (m_sink)
         m_sink->setVideoFrame(frame);
+    m_lastFrame = frame;   // shared buffer, no copy — rides along if this pipeline gets parked
     setErrored(false);
     setPlaying(true);
     ++g_totalFrames;   // P0 trace: a frame reached the sink
