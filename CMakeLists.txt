@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.358
+    VERSION 1.1.359
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -202,7 +202,9 @@ qt_add_qml_module(watchtower
         src/models/SavedViewModel.h
         src/models/SavedViewModel.cpp
         src/models/HlsProxy.h
+        src/models/LiveProxy.h
         src/models/HlsProxy.cpp
+        src/models/LiveProxy.cpp
         src/models/PlaybackClient.h
         src/models/PlaybackClient.cpp
         src/models/PtzClient.h
