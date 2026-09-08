@@ -31,6 +31,34 @@
 > Knobs: `WT_PARK_MS` (2500; 0 = old behaviour), `WT_PARK_MAX` (4),
 > `WT_STATION_TOKEN`/`WT_CV_URL` (headless station mode), `WT_FOCUS_DELAY_MS`,
 > `WT_FOCUS_CLOSE_MS`. All in `docs/DEVELOPMENT.md`.
+>
+> **Afternoon, with the operator's new `soak` account (operator role, the first
+> review-scoped login this box has had): PLAYBACK and 16-WALL measured for the
+> first time — `docs/perf/2026-09-08-ttff-soak/README.md`.** PLAYBACK meets 1 s
+> when the pilot's database is idle (284, 690 ms; the request costs the server
+> 155–163 ms) and misses or fails when it is not (1.8 s, 5.7 s, 23 s, two runs with
+> no session answer in 70 s). The 16-WALL cannot meet 2 s from the client: on an
+> idle server the mosaic create plus its on-demand first segment is 2.3–2.6 s
+> before our player has a byte (measured by replay, `prewarm_at: 0` now sent —
+> 2.0 s vs 3.0–4.1 s without), and the WALL CRASHED in 6 of the 7 runs that got a
+> session: every mosaic segment opens with two corrupt packets (`dts 525000 /
+> 532500`), the VA-API decoder fails to sync on them and the process dies of heap
+> corruption (SIGABRT ×3, SIGSEGV ×2 — backtraces kept). `QT_FFMPEG_DROP_CORRUPT_FRAMES`
+> did not help; **software decode did** (`WT_PB_SW_DECODE=1`, new: 150 s, zero VA
+> errors, first frame 8.5 s). Default stays off until the overnight soak has priced
+> it on 1440p HEVC single-camera playback.
+>
+> Why the database: `timescaledb` at 149–161 % CPU, every active backend in IO on
+> three shapes — the coverage day-group scan (13–30 s of `serve;dur`), `SUM(bytes)
+> FROM video_segments`, `COUNT(*)` events join — and a crashed client's 6 h mosaic
+> chase runs on: two orphans took the SAME 61-fragment session from 0.6 s to 28 s
+> for everyone (deleted by id, `204`). Client fixes shipped: mosaic session id
+> persisted (`sync()`) and reaped at the next open; coverage refresh deferred
+> behind the first frame on both surfaces; the proxy relays whole TS packets only;
+> the wall's `[WALLTIME]` stage lines and a first-frame marker that fires on fresh
+> opens (it was gated on `_settling` — every earlier wall `-1` was blind); the
+> driver no longer boot-opens the day cold. Second letter to CV: the IO-bound
+> database, five ranked asks. Overnight soak launched against this build.
 
 <!-- 2026-08-29 pointer -->
 > **2026-08-29 — the booth's direct LAN came up and the wall was STILL solid

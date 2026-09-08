@@ -1,0 +1,18 @@
+{"ts":"2026-09-08T11:33:03Z","cycle":1,"surface":"playback","dt_ms":5690,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:34:43Z","cycle":1,"surface":"wall","dt_ms":-1,"note":"cells=16 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:35:28Z","cycle":1,"surface":"live","dt_ms":141,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:36:32Z","cycle":2,"surface":"playback","dt_ms":-1,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:39:02Z","cycle":2,"surface":"wall","dt_ms":-1,"note":"cells=? build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:39:47Z","cycle":2,"surface":"live","dt_ms":193,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:40:51Z","cycle":3,"surface":"playback","dt_ms":1827,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:43:20Z","cycle":3,"surface":"wall","dt_ms":-1,"note":"cells=16 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:44:05Z","cycle":3,"surface":"live","dt_ms":159,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:45:09Z","cycle":4,"surface":"playback","dt_ms":284,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:46:19Z","cycle":4,"surface":"wall","dt_ms":-1,"note":"cells=16 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:47:04Z","cycle":4,"surface":"live","dt_ms":210,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:48:07Z","cycle":5,"surface":"playback","dt_ms":690,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:49:05Z","cycle":5,"surface":"wall","dt_ms":-1,"note":"cells=16 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:49:50Z","cycle":5,"surface":"live","dt_ms":141,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:50:54Z","cycle":6,"surface":"playback","dt_ms":-1,"note":"day=2026-09-07 cam=192.168.1.105 build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:53:24Z","cycle":6,"surface":"wall","dt_ms":-1,"note":"cells=? build=e9bfda5+bin@05:08"}
+{"ts":"2026-09-08T11:54:09Z","cycle":6,"surface":"live","dt_ms":216,"note":"cam=192.168.1.105 build=e9bfda5+bin@05:08"}
