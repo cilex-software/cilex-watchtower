@@ -37,6 +37,10 @@ Item {
     // ±minutes/hours navigation never re-opens (15m/1h/6h presets are in-stream view-
     // changes). Entry plays from the window start (~3.8 s; a recent-edge seek render-
     // chases the recording frontier to ~9 s). See docs/perf/2026-06-19.
+    // 2026-09-08 soak: the 6 h window is NOT what a slow open costs. The same 16-camera,
+    // 3,595-fragment session was created in 275 ms with the database idle and in 19.8-22.4 s
+    // with two orphaned render chases and IO-bound coverage scans on it (baseline cycles 1-4,
+    // docs/perf/2026-09-08-ttff-soak/). A 15-minute entry window was tried and withdrawn.
     property int loadedSpanMin: 360
     property string selectedDay: ""
     property bool loading: false
@@ -375,7 +379,10 @@ Item {
     // smooth clock. Enabled only while settling, so there is zero per-frame cost in steady play.
     Connections {
         target: vout.videoSink
-        enabled: root._settling
+        // Armed while settling (seek) AND while a fresh open awaits its first frame — before
+        // 2026-09-08 a fresh open never set _settling, so [WALLTIME] first_frame could not
+        // fire and the soak read -1 for a wall that was, in fact, playing.
+        enabled: root._settling || root._wallT0 > 0
         function onVideoFrameChanged() {
             root._smoothMs = player.position;
             root._settling = false;
@@ -623,9 +630,14 @@ Item {
         }
         var d = gridDims(ids.length);
         client.ensureReady();
-        client.fetchCoverageUnion(ids);
+        // coverage union moved to onMosaicSessionReady (2026-09-08): it decorates the timeline,
+        // the session create is the guard's wait, and both hit the same IO-bound table.
+        // prewarm_at=0 (B3): render the ENTRY fragment during create — entry plays from the
+        // window start, so fragment 0 is the one the first frame waits for. Measured 2026-09-08
+        // on an idle server, 6 h window: seg/0 served 2,027 / 2,140 ms after create with it,
+        // 2,977 / 4,125 ms without; the create itself was not slower (285-460 vs 1,410-1,702 ms).
         client.openMosaicSession(ids, new Date(startMs).toISOString(), new Date(endMs).toISOString(),
-                                 d.cols, d.rows, oldSid);   // replaces=oldSid → one wall = one live session
+                                 d.cols, d.rows, oldSid, 0);   // replaces=oldSid → one wall = one live session
     }
     // Zoom presets move the VIEW inside the already-loaded window (in-stream, instant)
     // instead of re-compositing. Only a preset WIDER than the loaded window grows it —
@@ -670,6 +682,7 @@ Item {
             if (root._wallT0 > 0) console.log("[WALLTIME] session_ready dt=" + (Date.now() - root._wallT0) + "ms frags=" + (fragments ? fragments.length : -1));
             root.loading = false; root.pending = false; root.errorText = "";
             root.sessionId = sid; root.grid = g; root.cells = c; root.compactDuration = dur;
+            { var cids = root.camIds(); if (cids.length > 0) root.client.fetchCoverageUnion(cids); }   // after the index, not against it
             root.winStartMs = Date.parse(meta.wall_start);
             root.winEndMs = Date.parse(meta.wall_end);
             root.selStartMs = -1; root.selEndMs = -1;
@@ -858,7 +871,14 @@ Item {
                     id: player
                     videoOutput: vout
                     audioOutput: null
-                    onErrorOccurred: (e, s) => { if (e !== MediaPlayer.NoError) root.errorText = s }
+                    onErrorOccurred: (e, s) => {
+                        if (e !== MediaPlayer.NoError) root.errorText = s
+                        console.log("[WALLTIME] error code=" + e + " " + s + (root._wallT0 > 0 ? " dt=" + (Date.now() - root._wallT0) + "ms" : ""))
+                    }
+                    // [WALLTIME] stage markers between source_set and first_frame — before 2026-09-08
+                    // the wall logged nothing in that gap, so a 60 s wait was unattributable.
+                    onMediaStatusChanged: if (root._wallT0 > 0) console.log("[WALLTIME] mediaStatus=" + mediaStatus + " dt=" + (Date.now() - root._wallT0) + "ms")
+                    onPlaybackStateChanged: if (root._wallT0 > 0) console.log("[WALLTIME] playbackState=" + playbackState + " dt=" + (Date.now() - root._wallT0) + "ms")
                     onPositionChanged: if (player.position > 0) renderGuard.stop()   // frames flowing → not stalled
                     // Apply the deferred playhead restore (camera re-assign). Must
                     // wait for `seekable` — a position set before the pipeline

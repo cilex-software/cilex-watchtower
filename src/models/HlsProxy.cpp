@@ -485,6 +485,13 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     auto streaming = QSharedPointer<bool>::create(false);
     auto acc = QSharedPointer<QByteArray>::create();
     auto sent = QSharedPointer<qint64>::create(0);   // bytes handed to the player (truncation hook)
+    // TS ALIGNMENT (2026-09-08 soak). Segments are MPEG-TS: 188-byte packets. When the upstream
+    // died mid-body (503 budget spent, transfer timeout) the player was handed a body cut inside
+    // a packet — FFmpeg "Stream ends prematurely"/"Packet corrupt" → VA-API surface sync failure →
+    // heap corruption (three of the four baseline wall runs that got a session). The remainder
+    // below the last whole packet is HELD here and only written on a clean finish, as CV sent it.
+    const bool alignTs = isSegmentPath(path) && path.endsWith(QLatin1String(".ts"));
+    auto tail = QSharedPointer<QByteArray>::create();
     // How long we spend INSIDE our own readyRead handler (append to acc + socket write),
     // summed over the fetch. Separates "the bytes were slow to arrive" from "we were
     // slow to move them": a 6.7 MB segment is appended to a growing QByteArray and
@@ -526,7 +533,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     });
 
     connect(reply, &QNetworkReply::readyRead, reply,
-            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent, work]() {
+            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent, work, tail, alignTs]() {
         QElapsedTimer wt; wt.start();
         const auto addWork = qScopeGuard([&wt, work]() { *work += wt.nsecsElapsed() / 1000; });
         if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
@@ -560,11 +567,20 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             }
             return;
         }
+        if (alignTs) {                    // whole packets only; the rest waits for the next chunk
+            tail->append(chunk);
+            const int whole = (tail->size() / 188) * 188;
+            if (whole > 0) {
+                guardedSock->write(tail->left(whole));
+                tail->remove(0, whole);
+            }
+            return;
+        }
         guardedSock->write(chunk);        // ...and give it to the player NOW
     });
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
-             streaming, acc, work]() {
+             streaming, acc, work, tail, alignTs]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -621,10 +637,18 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         // cache, and the joiners. Nothing below applies — the 503 retry and the 502
         // path are both unreachable once a 200 has been committed to the wire.
         if (*streaming) {
-            acc->append(reply->readAll());          // whatever arrived after the last readyRead
+            const QByteArray last = reply->readAll();   // whatever arrived after the last readyRead
+            acc->append(last);
             QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
             if (ct.isEmpty()) ct = QByteArrayLiteral("video/mp2t");
             if (guardedSock && guardedSock->state() == QAbstractSocket::ConnectedState) {
+                // A clean finish hands over the held remainder (and any final bytes) exactly as
+                // CV sent them; a mid-body failure drops them — never a cut packet on the wire.
+                if (reply->error() == QNetworkReply::NoError) {
+                    if (alignTs) { tail->append(last); if (!tail->isEmpty()) guardedSock->write(*tail); }
+                    else if (!last.isEmpty()) guardedSock->write(last);
+                }
+                tail->clear();
                 guardedSock->flush();
                 guardedSock->disconnectFromHost();   // Connection: close terminates the body
             }

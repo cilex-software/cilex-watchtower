@@ -64,7 +64,25 @@ Item {
         ? (client.cameraIdForIp(camera.ip) || client.cameraIdForMac(camera.mac || "")) : ""
     // Coverage feeds the archive ribbon; if the first request ran before camId
     // resolved (the same boot race), re-issue it the moment the id lands.
-    onCamIdChanged: if (camId !== "" && client) { _loadCachedCoverage(); client.fetchCoverage(camId) }
+    // 2026-09-08: the network refresh is DEFERRED when the disk cache already has this
+    // camera. Measured on the pilot: /review/coverage is an IO-bound day-group scan over
+    // video_segments (pg_stat_activity), 13-30 s of serve;dur, and it was dispatched in the
+    // same instant as the session create it then competes with. The cache carries every
+    // past day (immutable) and today's firstMs; the dots can refresh once the picture is up.
+    onCamIdChanged: if (camId !== "" && client) { _loadCachedCoverage(); _coverageRefresh() }
+    property bool _coverageDeferred: false
+    function _coverageRefresh() {
+        if (!client || camId === "") return;
+        if (dayInfo && Object.keys(dayInfo).length > 0) { _coverageDeferred = true; coverageDeferTimer.restart(); return; }
+        client.fetchCoverage(camId);
+    }
+    // Bound on the deferral: if no first frame arrives (empty day, error), refresh anyway.
+    Timer { id: coverageDeferTimer; interval: 4000; onTriggered: root._coverageFlush() }
+    function _coverageFlush() {
+        if (!_coverageDeferred) return;
+        _coverageDeferred = false; coverageDeferTimer.stop();
+        if (client && camId !== "") client.fetchCoverage(camId);
+    }
 
     // Last known coverage from disk, for the FAST OPEN target ONLY. CV's coverage
     // query costs db;dur 5,956-24,329 ms (their Server-Timing, 2026-09-01) and it sits
@@ -443,6 +461,7 @@ Item {
             if (root._ttffPending) {       // first frame of a fresh open — the TTFF endpoint
                 root._ttffPending = false;
                 root.lastTtffMs = Date.now() - root._obT0;
+                root._coverageFlush();   // the picture is up — now the calendar may refresh
                 if (root._pbTime) console.log("[PBTIME] first_frame dt=" + Math.round(root.lastTtffMs)
                                               + "ms tag=" + root._obTag);
                 // The guard has picture. NOW widen the scrubber to the full day — off
@@ -754,7 +773,7 @@ Item {
         if (!client) return;
         client.ensureReady();
         _loadCachedCoverage();          // disk only; must not wait on /streams
-        if (root.camId !== "") client.fetchCoverage(root.camId);
+        _coverageRefresh();             // network refresh deferred behind the first frame when cached
         _pendingOpen = true;
         tryOpen();
     }
@@ -1289,7 +1308,7 @@ Item {
         }
         function onCamerasResolved() {
             root.tryOpen();
-            if (root.camId !== "") root.client.fetchCoverage(root.camId);
+            root._coverageRefresh();   // deferred behind the first frame when the cache has the camera
         }
         function onCoverageReady(cameraId, available, retentionDays, days) {
             if (cameraId !== root.camId) return;

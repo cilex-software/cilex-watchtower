@@ -732,6 +732,20 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonArray ids;
     for (const QString &id : cameraIds) ids.append(id);
+    // 2026-09-08 soak: reap the session a PREVIOUS process left behind. A crash (three of the
+    // four baseline wall runs that got a session died in the FFmpeg VA-API path) cannot
+    // dispose its session, and its 6 h render chase then runs on for everyone: the next
+    // cycle's mosaic create went from 275 ms to 19.8-22.4 s and a bounded single-camera
+    // session from 0.6 s to 28 s (docs/perf/2026-09-08-ttff-soak/). The id is persisted at
+    // create and cleared by disposeMosaicSession(); anything still on disk here is an orphan.
+    {
+        QSettings st;
+        const QString orphan = st.value(QStringLiteral("mosaic/lastSession")).toString();
+        if (!orphan.isEmpty() && orphan != replaces) {
+            qInfo("[WALL] reaping orphaned mosaic session %s left by a previous process", qUtf8Printable(orphan.left(8)));
+            disposeMosaicSession(orphan);
+        }
+    }
     QJsonObject body{{"camera_ids", ids}, {"wall_start", wallStartIso}, {"wall_end", wallEndIso}};
     if (cols > 0 && rows > 0)
         body.insert("layout", QJsonObject{{"cols", cols}, {"rows", rows}});
@@ -758,6 +772,12 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
         }
         const auto obj = QJsonDocument::fromJson(raw).object();
         const QString sid = obj.value("session_id").toString();
+        {
+            QSettings st;                                            // see the orphan note above
+            st.setValue(QStringLiteral("mosaic/lastSession"), sid);
+            st.sync();   // NOW, not at destruction: a crash is exactly when this must already be on disk
+                         // (validation cycle 2: the id from the crashed cycle 1 never reached disk)
+        }
         const auto grid = obj.value("grid").toObject().toVariantMap();
         QVariantList cells;
         for (const auto &cv : obj.value("cells").toArray())
@@ -787,6 +807,11 @@ void PlaybackClient::disposeMosaicSession(const QString &sessionId)
     QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions/" + sessionId)};
     QNetworkReply *reply = m_nam->deleteResource(req);
     connect(reply, &QNetworkReply::finished, reply, &QNetworkReply::deleteLater);   // fire-and-forget
+    {
+        QSettings st;                                                // disposed = no longer an orphan
+        if (st.value(QStringLiteral("mosaic/lastSession")).toString() == sessionId)
+            st.remove(QStringLiteral("mosaic/lastSession"));
+    }
 }
 
 void PlaybackClient::prewarmMosaic(const QString &sessionId, int atFrag, int ahead)

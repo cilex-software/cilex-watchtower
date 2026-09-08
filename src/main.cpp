@@ -295,6 +295,19 @@ int main(int argc, char *argv[])
 
     // Capture the death cause (OOM/earlyoom SIGTERM vs a real code SIGSEGV) before anything else.
     installCrashHandlers();
+    // WT_PB_SW_DECODE=1: software decode for every QMediaPlayer (recorded playback, the 16-cell
+    // wall mosaic, frame mode). Qt's FFmpeg backend reads QT_FFMPEG_DECODING_HW_DEVICE_TYPES ONCE
+    // into a static at the first decoder (qffmpeghwaccel.cpp, HWAccel::decodingDeviceTypes), so
+    // this is process-wide and must be set before the backend loads — here. Why it exists
+    // (2026-09-08 soak): every mosaic segment CV serves opens with two corrupt packets, the VA-API
+    // decoder fails to sync its surface on them and the process dies of heap corruption — 6 of 7
+    // wall runs. With software decode the same segments played with zero VA errors. Live tiles are
+    // GStreamer and unaffected. Default off until the overnight soak has priced software decode on
+    // single-camera 1440p HEVC playback; the server-side fix (segment cutting) is CV's letter.
+    if (qEnvironmentVariableIsSet("WT_PB_SW_DECODE") && !qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES")) {
+        qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", ",");
+        qInfo("[WT-DEC] WT_PB_SW_DECODE: QMediaPlayer decodes in software (QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,)");
+    }
 
     // WT_PTRACE_ANY=1 (dev/soak only): allow ANY same-user process to ptrace-attach.
     // Yama ptrace_scope=1 only lets an ANCESTOR attach, but a soak supervisor's
