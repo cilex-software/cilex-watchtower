@@ -11,8 +11,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 CYCLES=20; OUT=/tmp/ttff-soak.jsonl; PAUSE=45; CAM=${WT_TTFF_CAM:-192.168.1.126}
 while [ $# -gt 0 ]; do case "$1" in --cycles) CYCLES=$2; shift 2;; --out) OUT=$2; shift 2;; --pause) PAUSE=$2; shift 2;; *) shift;; esac; done
-: "${WT_CV_USER:?export WT_CV_USER}"; : "${WT_CV_PASS:?export WT_CV_PASS}"
 export WT_CV_URL=${WT_CV_URL:-http://127.0.0.1:8000} WT_CV_AUTOLOGIN=1 WT_TRACE=1
+# Credential: env, or a 0600 file handed over out of band (two lines: user, then password).
+CRED=${WT_TTFF_CRED:-$HOME/.config/watchtower-warden/ttff-soak.cred}
+if [ -z "${WT_CV_USER:-}" ] && [ -r "$CRED" ]; then
+  [ "$(stat -c %a "$CRED")" = "600" ] || { echo "refusing $CRED: mode must be 600" >&2; exit 2; }
+  WT_CV_USER=$(sed -n 1p "$CRED"); WT_CV_PASS=$(sed -n 2p "$CRED"); export WT_CV_USER WT_CV_PASS
+fi
+: "${WT_CV_USER:?export WT_CV_USER or provide $CRED}"; : "${WT_CV_PASS:?export WT_CV_PASS}"
+case "$WT_CV_USER" in admin) echo "refusing to soak as admin — use an operator/soak account" >&2; exit 2;; esac
+# prove the credential BEFORE a 6-hour run, not 45 s into it
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: application/json'   -d "{\"username\":\"$WT_CV_USER\",\"password\":\"$WT_CV_PASS\"}" "$WT_CV_URL/auth/login" 2>/dev/null || echo 0)
+[ "$code" = "200" ] || { echo "login as $WT_CV_USER -> HTTP $code; not starting" >&2; exit 3; }
 log(){ printf '{"ts":"%s","cycle":%d,"surface":"%s","dt_ms":%s,"note":"%s"}\n' "$(date -u +%FT%TZ)" "$1" "$2" "$3" "$4" >> "$OUT"; }
 DAY=$(date -d yesterday +%F)
 for ((c=1;c<=CYCLES;c++)); do
