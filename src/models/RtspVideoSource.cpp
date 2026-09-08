@@ -568,6 +568,10 @@ void RtspVideoSource::startPipelineNow()
     m_busWatch = gst_bus_add_watch(m_bus, &RtspVideoSource::onBus, this);
 
     gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+    // [LIVETIME] stage marker: the pipeline was asked to PLAY. Paired with the
+    // surface's "playing dt=" line, the gap between the two is RTSP connect +
+    // first-keyframe wait — the part a client cannot shorten, only measure.
+    qInfo("[LIVETIME] pipeline_playing url=%s", qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo)));
     ++g_livePipelines;   // P0 trace: a new pipeline is now live
 
     // Arm the backstop watchdog (never stopped once started: after an

@@ -667,6 +667,7 @@ Item {
         target: root.client
         enabled: root.client !== null
         function onMosaicSessionReady(sid, g, c, dur, fragments, meta) {
+            if (root._wallT0 > 0) console.log("[WALLTIME] session_ready dt=" + (Date.now() - root._wallT0) + "ms frags=" + (fragments ? fragments.length : -1));
             root.loading = false; root.pending = false; root.errorText = "";
             root.sessionId = sid; root.grid = g; root.cells = c; root.compactDuration = dur;
             root.winStartMs = Date.parse(meta.wall_start);
@@ -711,6 +712,7 @@ Item {
             if (out.length === 0) { root.errorText = "No footage recorded in this range."; return; }
             player.source = root.client.mosaicPlaylistUrl(sid);
             player.play();
+            if (root._wallT0 > 0) console.log("[WALLTIME] source_set dt=" + (Date.now() - root._wallT0) + "ms");
             renderGuard.restart();   // honest failure if the composite never produces frames
             if (perf.active) perf._onSessionReady();
         }
