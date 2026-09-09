@@ -59,6 +59,18 @@
 > opens (it was gated on `_settling` — every earlier wall `-1` was blind); the
 > driver no longer boot-opens the day cold. Second letter to CV: the IO-bound
 > database, five ranked asks. Overnight soak launched against this build.
+>
+> **Overnight result (154 cycles to 04:32 UTC 09-09, software decode): LIVE 153/153
+> under 500 ms (median 182); PLAYBACK under 1 s in 19 (all in the 12:00 and 16:00 UTC
+> hours), no answer in 80; WALL never under 2 s, a frame in 46 (5–47 s); 0 crashes in
+> 288 logs.** From 17:00 UTC on, the pilot answered no historical open: the recorder's
+> nighttime motion storm (~2 events/s, 26 cameras, 243–320 % CPU) and nine concurrent
+> event-list scans in disk reads held timescaledb at ~150 % all night. Third letter to
+> CV (nighttime saturation, three asks). Client: software decode is now the DEFAULT
+> (`WT_PB_HW_DECODE=1` opts out — no measured first-frame cost, CPU cost unmeasured),
+> and the four timer-driven `/events` polls are single-flight with proportional
+> backoff. The wall's 2 s target is unreachable from the client on this backend
+> (server floor 2.3–2.6 s idle); the playback target depends on the database's state.
 
 <!-- 2026-08-29 pointer -->
 > **2026-08-29 — the booth's direct LAN came up and the wall was STILL solid

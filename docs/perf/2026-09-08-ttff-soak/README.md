@@ -160,7 +160,35 @@ two minutes instead of giving up. Miss logs sit in `overnight*-logs/`. One cavea
 row: the pilot's database load, not this client, decides most playback and wall numbers —
 `docker stats`/`pg_stat_activity` samples in the sections above are the evidence.
 
-Morning job: per-target distribution over all three files (`replay.py`'s sibling
-`soak-progress.py` in the session scratchpad prints it), crash count (expected 0 with
-software decode), the software-decode cost on single-camera playback against the
-afternoon's hardware-decode rows, and the `WT_PB_SW_DECODE` default decision.
+## Overnight results (154 cycles, 12:19 → 04:32 UTC, software decode)
+
+| target | n | under target | over | no answer | median | p90 | min | max |
+|---|---|---|---|---|---|---|---|---|
+| live ≤ 500 ms | 153 | **153 (100 %)** | 0 | 0 | 182 ms | 234 ms | 124 | 252 |
+| playback ≤ 1 s | 154 | 19 (12 %) | 55 | 80 | 23.3 s | 29.6 s | 234 ms | 31.0 s |
+| 16-wall ≤ 2 s | 154 | 0 | 46 | 108 | 27.5 s | 41.1 s | 5.3 s | 47.2 s |
+
+**Crashes: 0 of 288 kept logs** (hardware decode had died in 6 of 7 wall runs the
+afternoon before). Every playback open under 1 s came in the 12:00 and 16:00 UTC hours
+(9 of 10 and 6 of 9); from 17:00 to past 04:00 UTC not one did, and most got no session
+answer inside 70 s. The wall's first frames (46 of 154) came at 5.3–14 s while the server
+was healthy and at 30–47 s otherwise. Live never moved. The by-hour table and the
+server-side evidence (recorder at 243–320 % on ~2 motion events/s from 26 cameras, nine
+concurrent event-list scans in `DataFileRead`) are in the third letter to CV
+(`docs/letters/2026-09-09-the-pilot-cannot-serve-a-historical-open-at-night.md`).
+
+**Software decode, priced.** The idle-server playback opens with software decode (n=19,
+median 561 ms, 234–974 ms) sit where the afternoon's hardware-decode opens did (284 and
+690 ms): no measured first-frame cost; the CPU cost of 1440p HEVC software decode was
+NOT measured. With 0 crashes against 6 of 7, software decode is the **default from
+`8559902`'s successor** (`WT_PB_HW_DECODE=1` opts back into hardware).
+
+**Our share of the pile, fixed.** Four timer-driven `/events` callers (5, 10, 15, 30 s),
+two without an in-flight guard: under a ~10 s answer one instance kept several event
+queries in flight. `EventModel` now gates each timer-driven kind — single-flight, and
+after a slow answer it waits 3× that latency (cap 120 s) before the next poll; `[EVPOLL]`
+lines under `WT_TRACE`. No change while answers are fast.
+
+Harness notes for the next run: the soak's own load matters — dispose the mosaic after
+every wall stage (done), keep the cadence light, and read every number against the
+server's state at that minute.
