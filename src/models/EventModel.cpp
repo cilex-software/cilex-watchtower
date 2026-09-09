@@ -604,16 +604,48 @@ bool EventModel::motionActive(const QString &cameraId) const
     return QDateTime::currentMSecsSinceEpoch() - started < 10 * 60 * 1000;
 }
 
+bool EventModel::pollBegin(const char *kind)
+{
+    static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+    PollGate &g = m_pollGates[QByteArray(kind)];
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (g.inflight) {
+        if (trace) qInfo("[EVPOLL] %s skipped: previous still in flight (%lld ms so far)", kind, (long long)(now - g.startedMs));
+        return false;
+    }
+    const qint64 hold = qMin<qint64>(3 * g.lastMs, 120000);
+    if (g.lastMs > 0 && now - g.startedMs < hold) {
+        if (trace) qInfo("[EVPOLL] %s skipped: backing off after a %lld ms answer (next in %lld ms)", kind, (long long)g.lastMs, (long long)(hold - (now - g.startedMs)));
+        return false;
+    }
+    g.inflight = true;
+    g.startedMs = now;
+    return true;
+}
+
+void EventModel::pollEnd(const char *kind)
+{
+    PollGate &g = m_pollGates[QByteArray(kind)];
+    g.inflight = false;
+    g.lastMs = QDateTime::currentMSecsSinceEpoch() - g.startedMs;
+    if (g.lastMs > 2000)
+        qInfo("[EVPOLL] %s answered in %lld ms — this client backs off to one poll per %lld ms",
+              kind, (long long)g.lastMs, (long long)qMin<qint64>(3 * g.lastMs, 120000));
+}
+
 void EventModel::pollMotion()
 {
     if (m_baseUrl.isEmpty())
         return;                                        // WT_DEMO / logged out
     QUrl url(m_baseUrl + "/events");
+    if (!pollBegin("motion"))
+        return;
     QUrlQuery q;
     q.addQueryItem("limit", "100");     // deep enough that the motion_not_ready flood can't bury real motion rows
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        pollEnd("motion");
         reply->deleteLater();
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         const auto arr = obj.value("events").toArray();
@@ -639,12 +671,15 @@ void EventModel::fetchLiveFeed()
     if (m_baseUrl.isEmpty())
         return;                                        // WT_DEMO / logged out
     QUrl url(m_baseUrl + "/events");
+    if (!pollBegin("live_feed"))
+        return;
     QUrlQuery q;
     q.addQueryItem("limit", "14");
     q.addQueryItem("exclude_types", QLatin1String(kExcludeTypes));
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        pollEnd("live_feed");
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError)
             return;                                    // transient — keep the last list
@@ -720,12 +755,15 @@ void EventModel::refreshIncremental()
     if (!m_qCameraId.isEmpty() || !m_qStart.isEmpty() || !m_qEnd.isEmpty())
         return;                                        // a scoped search is active — don't fight it
     QUrl url(m_baseUrl + "/events");
+    if (!pollBegin("incremental"))
+        return;
     QUrlQuery q;
     q.addQueryItem("limit", QString::number(m_pageSize));
     q.addQueryItem("exclude_types", QLatin1String(kExcludeTypes));
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        pollEnd("incremental");
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError)
             return;

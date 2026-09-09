@@ -136,6 +136,16 @@ signals:
     void liveFeedChanged();
 
 private:
+    // Poll gate for the timer-driven /events callers (2026-09-09, overnight soak). The pilot's
+    // events table is IO-bound under the recorder's nighttime motion storm; a 5-15 s poll against
+    // a ~10 s answer piled our own queries up (9 concurrent event-list queries at 04:00). One
+    // request of a kind in flight at a time, and after a slow answer wait 3x its latency (cap
+    // 120 s) before the next — no effect while answers are fast.
+    struct PollGate { bool inflight = false; qint64 startedMs = 0; qint64 lastMs = 0; };
+    QHash<QByteArray, PollGate> m_pollGates;
+    bool pollBegin(const char *kind);
+    void pollEnd(const char *kind);
+
     void fetchPage(bool append);
     void applyAcks();
     void persistAck(const QString &id, const QString &by, const QString &time);

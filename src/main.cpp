@@ -304,9 +304,14 @@ int main(int argc, char *argv[])
     // wall runs. With software decode the same segments played with zero VA errors. Live tiles are
     // GStreamer and unaffected. Default off until the overnight soak has priced software decode on
     // single-camera 1440p HEVC playback; the server-side fix (segment cutting) is CV's letter.
-    if (qEnvironmentVariableIsSet("WT_PB_SW_DECODE") && !qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES")) {
+    // DEFAULT ON since 2026-09-09: the overnight soak (149 cycles, software decode) had 0 crashes in
+    // 278 kept logs where hardware decode died in 6 of 7 wall runs, and its idle-server playback
+    // opens (n=19, median 561 ms, 234-974) sit where the hardware-decode ones did (284, 690 ms) —
+    // no measured first-frame cost. CPU cost of software 1440p HEVC was NOT measured. WT_PB_HW_DECODE=1
+    // opts back into hardware; WT_PB_SW_DECODE stays accepted for scripts written against it.
+    if (!qEnvironmentVariableIsSet("WT_PB_HW_DECODE") && !qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES")) {
         qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", ",");
-        qInfo("[WT-DEC] WT_PB_SW_DECODE: QMediaPlayer decodes in software (QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,)");
+        qInfo("[WT-DEC] QMediaPlayer decodes in software (default since 2026-09-09; WT_PB_HW_DECODE=1 restores hardware)");
     }
 
     // WT_PTRACE_ANY=1 (dev/soak only): allow ANY same-user process to ptrace-attach.
