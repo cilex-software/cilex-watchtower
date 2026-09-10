@@ -89,6 +89,7 @@ private:
 
     QTcpServer *m_server = nullptr;            // created in init() ON the proxy thread
     QNetworkAccessManager *m_nam = nullptr;    // the proxy's OWN nam (not the shared GUI-thread one)
+    QString m_token;                           // access_token, for per-live-request managers (see forwardLive)
     std::atomic<int> m_port{0};                // server port, read cross-thread by localBase()/port()
     QString m_upstream;
 
