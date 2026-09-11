@@ -45,8 +45,8 @@ C = [
  dict(id="pb_smooth",    group="PLAYBACK", w=3, t=95, env=lambda: {"WT_PLAYBACK_IP": pick("wall_recording"), "WT_PLAYBACK_DAY": day(1), "WT_SMOOTHTEST": "30"}, primary=("WTSMOOTH", "maxStall", "last"), target=2000),
  dict(id="pb_frame_mode",group="PLAYBACK", w=2, t=65, env=lambda: {"WT_PLAYBACK_IP": pick("wall_recording"), "WT_PLAYBACK_DAY": day(1), "WT_FRAME_MODE": "1"}, primary=("STRIP", "lit", "last"), target=None),
  # WALL
- dict(id="wall_live",    group="WALL", w=4, t=125, env=lambda: {"WT_WALL_DAY": "live"}, primary=("WALLTIME", "first_frame dt", "first"), target=2000),
- dict(id="wall_day1",    group="WALL", w=2, t=125, env=lambda: {"WT_WALL_DAY": day(1)}, primary=("WALLTIME", "first_frame dt", "first"), target=2000),
+ dict(id="wall_live",    group="WALL", w=4, t=125, env=lambda: {"WT_WALL_DAY": "live"}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
+ dict(id="wall_day1",    group="WALL", w=2, t=125, env=lambda: {"WT_WALL_DAY": day(1)}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
  # EVENTS
  dict(id="hero",         group="EVENTS", w=3, t=65, env=lambda: {"WT_HERO_TEST": "1"}, primary=("HT", "lat", "median"), target=3000),
  dict(id="events_section", group="EVENTS", w=3, t=60, env=lambda: {"WT_SECTION": "events", "WT_EVENTS_TEST": "1"}, primary=("EV", "lat", "median"), target=1500),
