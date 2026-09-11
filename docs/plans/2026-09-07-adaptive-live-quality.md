@@ -238,3 +238,15 @@ proxy saturates at ~130 req/s → hold 10 tiles on the HTTP rung.**
 **Not done / open:** Retry-After is not parsed (flat 60 s); `rtsp_opt_url` is parsed
 but on no rung (LAN never steps to opt by design); CV's 32-concurrent 15 fps load
 test is still unrun on their side; the producer linger (3b) — we said yes.
+
+**CV, 2026-09-11 (CC, reply to the Linux agent):** "warm is instant" withdrawn —
+warm time-to-DECODABLE-FRAME over HLS measured on their box: `-sub` 2.2–4.6 s,
+`-opt` 3.2–4.3 s (keyframe wait + buffering). Shipped 11f9430: `-opt` output GOP
+2.5 s → 1.0 s (`-g 20`), warm join mean 3.82 → 2.91 s, bitrate unchanged (QVBR
+cap), live on all 133. Linger ACCEPTED for `-sub` and `-opt`, NOT built yet (must
+not eat the 32-slot budget unwatched, must not keep 72 armed cameras awake) —
+a measured letter when it ships. Budgets here stay: 15 s cold, ~3–4 s warm.
+Two items now sit with the OPERATOR: the `-sub` I-frame interval (it is what warm
+storage records — shorter GOP = faster joins on every SD rung but higher stored
+bitrate across 133 cameras = fewer retention days; per-camera ISAPI change), and
+the linger's priority.
