@@ -68,8 +68,12 @@ Item {
             add(main, "HD"); add(net(main, ""), "HD·NET");
         } else if (hdOverride === 0) {                // forced SD
             add(sub, "SD"); add(net(sub, camera.hlsSubUrl), "SD·NET");
-        } else {                                      // auto: preference is the ceiling
-            if (Settings.defaultStreamHd) add(main, "HD");
+        } else {                                      // auto: SD FIRST, always — HD is not a rung here
+            // When the HD preference is on, hdPromote (below) opens main in the background and
+            // swaps it in once it has a picture. Putting main first in THIS ladder made every
+            // open pay the main stream's mid-GOP wait: measured 2026-09-12 (rock-n-roll soak
+            // n2, 192.168.1.143, defaultStreamHd=true): parked -sub ignored, main built,
+            // vah265dec bound at +2.15 s, first frame at 4,349 ms against a 128-212 ms adoption.
             add(sub || main, "SD");
             add(net(sub || main, camera.hlsSubUrl), "SD·NET");
             add(opt, "OPT·NET");                      // the lower-QUALITY rung (CV -opt)
