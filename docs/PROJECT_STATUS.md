@@ -380,14 +380,27 @@ Mobile › Health today, with station code `subsystem_fault` reserved for v2; an
 `cilex_client_unauthorized_total{surface}` + `ReviewAuthReplaySustained` now
 catch this class server-side.
 
-> **🔴 ACTION FOR WHOEVER PICKS THIS UP — the P0 is only half closed.**
-> **No client sends `subsystems` yet**, so CV's `subsystems_reported` gauge is
-> honestly reading **0 for both stations** and will keep firing until our beat
-> carries the field. The acceptance test is CV's: ship the field, then inject a
-> deliberate fault (force the 25 s renewal again) and expect the operator's
-> phone to page **within ~5 minutes**. Send CV a line when the first beat
-> carries it. Owner: whoever touches `warden/warden.py` next (the beat is built
-> at `:489`).
+> **🟢 SHIPPED 2026-09-11 — Warden 1.4.2 (`af55ed1`), booth station.** The beat
+> now carries `subsystems`, so CV's `subsystems_reported` gauge has a client.
+> It reports **every subsystem the APP declares** through
+> `[WT-DEGRADED] subsystem=<name> … state=FAULT|CLEARED` (newest-wins, read from
+> the recorder tail) — so `playback`, the original P0, reaches CV with no further
+> client work, and a future `storage` rides for free. Contract bounds are enforced
+> client-side rather than discovered: name grammar, the 8-cap, and `"ok"` as the
+> only healthy string.
+>
+> **Still owed to CV: the acceptance test.** Inject a deliberate fault (force the
+> 25 s renewal again) and confirm the operator's phone pages within ~5 minutes.
+> Not run here — it needs an operator credential this booth deliberately does not
+> hold, and it pages a real phone. Whoever has both should run it.
+>
+> Riding along, from the same operator ask: the beat also carries
+> **`app_last_beat_at` / `app_beat_age_s`** — *Watchtower's own* heartbeat,
+> observed rather than vouched for. The app's `[MEMTEL]` tick is written from its
+> GUI thread every 30 s, so a **frozen** wall stops it while `app_pid` and
+> `app_state` still read healthy. That is the fleet page's own stated fear ("a
+> freeze would be shown as a live picture"), and until now nothing on the beat
+> could catch it.
 
 ### 🟢 "One Axis" Playback merged (`79ae858`, `--no-ff`, branch `design/playback-one-axis` preserved)
 
