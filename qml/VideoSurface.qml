@@ -57,7 +57,7 @@ Item {
     // destroying-and-rebuilding the surface (which would reset it to the top rung
     // and loop forever on an unreachable transport).
     readonly property bool hasLowerTier: _hasLowerTier
-    // A rung that failed to deliver after a rung that DID is not retried for 60 s
+    // A rung that failed to deliver after a rung that DID is not retried for 15 s
     // (e.g. CV's -opt budget answering 503): the surface returns to the last rung
     // that played. Recovery, not an upgrade probe — auto step-UP stays off.
     property var _rungBlockedUntil: ({})
@@ -68,9 +68,11 @@ Item {
     function returnToPreviousRung(reason) {
         if (!canReturnToPreviousRung) return false;
         var b = {}; for (var k in _rungBlockedUntil) b[k] = _rungBlockedUntil[k];
-        b[_tierIndex] = Date.now() + 60000; _rungBlockedUntil = b;
+        // 15 s = the Retry-After CV sends with 503 opt_tier_budget_exhausted; a
+        // flat 60 s waited four times longer than asked (CV letter 2026-09-11).
+        b[_tierIndex] = Date.now() + 15000; _rungBlockedUntil = b;
         console.info("[TIER] rung", (currentTier ? currentTier.badge : "?"), "failed (" + reason + ") → back to",
-                     tiers[_tierIndex - 1].badge, "(blocked 60 s)");
+                     tiers[_tierIndex - 1].badge, "(blocked 15 s)");
         _prevRungPlayed = false;
         _tierIndex = _tierIndex - 1;
         return true;
@@ -220,10 +222,14 @@ Item {
         // don't tear down a pipeline that's still negotiating). Use the short backoff only
         // once we've seen frames and then lost them, i.e. a genuine stall.
         // HTTP (HLS) needs longer to a first frame than rtsp: master → media playlist →
-        // first segments, plus a transcode spin-up on the -opt tier (measured ~7 s).
+        // first segments, plus a transcode spin-up on the -opt tier. FIRST attempt on a
+        // rung is cold (CV measured 5.7 s spin-up, ~10 s at our player) → 15 s. Once a
+        // consumer has attached, CV's linger (live 2026-09-11) keeps the producer warm
+        // 60 s, so a SECOND attempt joins warm — measured 1.7–2.2 s on five of six
+        // cameras, one outlier at 5.0 s → 8 s covers it with margin.
         reconnectTimer.interval = root._everPlayed
             ? root._backoffMs[Math.min(root._reconnectAttempt, root._backoffMs.length - 1)]
-            : (root._isHttp(root.url) ? 15000 : 8000);
+            : (root._isHttp(root.url) ? (root._reconnectAttempt === 0 ? 15000 : 8000) : 8000);
         reconnectTimer.start();
     }
     // Ask the global coordinator for a slot (it serializes initiations app-wide).

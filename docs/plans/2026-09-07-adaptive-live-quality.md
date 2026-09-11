@@ -250,3 +250,15 @@ Two items now sit with the OPERATOR: the `-sub` I-frame interval (it is what war
 storage records — shorter GOP = faster joins on every SD rung but higher stored
 bitrate across 133 cameras = fewer retention days; per-camera ISAPI change), and
 the linger's priority.
+
+**CV, 2026-09-11 (evening): the linger is LIVE (1e0040a).** Time to a decodable
+frame through their proxy, 6 cameras: cold mean 5.68 s → warm mean 2.40 s (median
+1.91 s; one unexplained 4.98 s). Holders yield to real consumers (never count toward
+the 32 cap), reaped end to end, off switch `GO2RTC_LINGER_SECONDS=0`. N=12 `-opt`
+load test passed — but at **20.03 fps**, which is not the fleet's 15: flagged back
+as a fault to diagnose (is `-sub` 20 fps on those cameras, or is the transcode
+resampling?). Real ceiling is **their HLS proxy, ~21 concurrent `-opt` streams**
+(query-api one async worker ~3.8 %/stream), below the 32 cap; our 10-tile budget
+(~11 consumers) fits; a second remote client would not. `httpLiveBudget` stays 10.
+Client tuned: HTTP rung first attempt 15 s, later attempts 8 s; failed-rung block
+60 s → 15 s (their Retry-After).
