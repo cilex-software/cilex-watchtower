@@ -199,7 +199,10 @@ instances silently used the operator's real session.
 - HTTP rung cold-connect budget raised to 15 s (HLS master→media→segments; the
   `-opt` transcode measured 6.8–7.3 s to first frame).
 
-**Next: the `-opt` rung.** `stream.mp4?src=<cam>-opt` / HLS `-opt` answers with
-real video fleet-wide (three cameras tested, ~450 kbit/s hard-capped, first frame
-~7 s). It slots below SD as `OPT·NET` with the 15 s budget. `-wall` (192×108) still
-returns 0 bytes for 15 s after headers — CV's known first-byte fault; not a rung.
+**Next: the `-opt` rung.** Over HLS via the proxy on AVFoundation (measured
+2026-09-11): `-opt` first frame 9.6 s, 640×360, ~256 kbit/s at night; `-wall` first
+frame 13.9 s, 192×108, ~8 fps — it WORKS over HLS (the "0 bytes for 15 s" was
+fMP4-specific, corrected). Both fit the 15 s HTTP budget, `-wall` barely. Letter
+`2026-09-11-transcoded-rungs-over-hls-start-in-10-14-s-and-the-request-rate.md`
+asks CV for start-up figures, `-opt` confirmation + cap, and 1–2 s HLS segments
+(0.5 s segments ≈ 5.4 req/s per tile; a 25-tile wall ≈ 135 req/s).
