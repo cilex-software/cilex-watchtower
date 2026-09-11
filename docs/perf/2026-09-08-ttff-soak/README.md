@@ -82,6 +82,20 @@ a different failure mode. The `Stream ends prematurely at N, should be
 18446744073709551615` line I read as truncation this morning is FFmpeg's message for any
 close-delimited body of unknown length ending; it appears on clean segments too.
 
+**Corrected again, 2026-09-11, with the mechanism pinned.** (1) The corrupt packets are the
+LAST two frames of every segment, not the head: a complete mosaic segment is 72 frames /
+6.000 s at 12 fps and dts 525000 / 532500 are its last two. (2) The server never serves a
+partial file (re-fetches identical). (3) FFmpeg's own HLS demuxer, fetching CV's segments
+straight from query-api with no Watchtower proxy, flags the same two packets on every
+segment: each segment is an independent TS (PTS restarts at 0, a discontinuity before each),
+and the demuxer flushes an unterminated video PES at every joint. Single-camera HEVC review
+shows the same (6 of 11 joints) — the July crash trigger. Server-side fix asked: continuous
+segmentation (letter 2026-09-11). (4) And the "Stream ends prematurely … should be
+18446744073709551615" line was NOT benign after all: our proxy sent bodies with no length and
+no chunked framing, which FFmpeg's HTTP reader ends with `Error during demuxing: Input/output
+error` at every segment (reproduced standalone: close-delimited = error, Content-Length or
+chunked = silent). Fixed in `HlsProxy` (chunked framing + terminator); both lines are now zero
+in the app. It was real; it was not the corruption.
 ### Orphaned chases
 
 A crashed client cannot `DELETE` its mosaic session; two were still rendering when found

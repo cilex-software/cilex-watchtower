@@ -42,3 +42,5 @@ aqtinstall.log
 buildasan/
 __pycache__/
 *.pyc
+# fetched media samples for letters (binary, kept on the host only)
+docs/perf/**/segments/

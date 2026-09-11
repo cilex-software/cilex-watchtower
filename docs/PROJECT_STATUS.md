@@ -41,9 +41,14 @@
 > idle server the mosaic create plus its on-demand first segment is 2.3–2.6 s
 > before our player has a byte (measured by replay, `prewarm_at: 0` now sent —
 > 2.0 s vs 3.0–4.1 s without), and the WALL CRASHED in 6 of the 7 runs that got a
-> session: every mosaic segment opens with two corrupt packets (`dts 525000 /
-> 532500`), the VA-API decoder fails to sync on them and the process dies of heap
-> corruption (SIGABRT ×3, SIGSEGV ×2 — backtraces kept). `QT_FFMPEG_DROP_CORRUPT_FRAMES`
+> session: every mosaic segment's LAST two frames arrive flagged corrupt (`dts 525000 /
+> 532500` of a 72-frame, 6 s segment — corrected 09-11: not the head; reproduced with
+> ffmpeg alone, no Watchtower proxy: each segment is an independent TS with a per-segment
+> discontinuity, so the demuxer flushes an unterminated PES at every joint; letter to CV
+> asks for continuous segmentation), the VA-API decoder fails to sync on them and the
+> process dies of heap corruption (SIGABRT ×3, SIGSEGV ×2 — backtraces kept). Our proxy's
+> own framing defect (length-less close-delimited bodies → FFmpeg EIO per segment) found and
+> fixed 09-11; it was real and it was not the corruption. `QT_FFMPEG_DROP_CORRUPT_FRAMES`
 > did not help; **software decode did** (`WT_PB_SW_DECODE=1`, new: 150 s, zero VA
 > errors, first frame 8.5 s). Default stays off until the overnight soak has priced
 > it on 1440p HEVC single-camera playback.

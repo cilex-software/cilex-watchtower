@@ -21,6 +21,9 @@
 #include <QTimer>
 #include <QUrl>
 
+class QTcpSocket;
+static void writeBody(QTcpSocket *sock, const QByteArray &bytes, bool chunked);   // defined with writeHead
+
 namespace {
 // WT_HLS_LOG=1 — per-request upstream timing on stderr ("WTHLS …"), for
 // diagnosing playback/seek latency (segment fetch time, 503 remux retries).
@@ -504,6 +507,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     // below the last whole packet is HELD here and only written on a clean finish, as CV sent it.
     const bool alignTs = isSegmentPath(path) && path.endsWith(QLatin1String(".ts"));
     auto tail = QSharedPointer<QByteArray>::create();
+    auto chunked = QSharedPointer<bool>::create(false);   // body framing: chunked when no length is advertised
     // How long we spend INSIDE our own readyRead handler (append to acc + socket write),
     // summed over the fetch. Separates "the bytes were slow to arrive" from "we were
     // slow to move them": a 6.7 MB segment is appended to a growing QByteArray and
@@ -514,7 +518,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
     auto work = QSharedPointer<qint64>::create(0);
 
     connect(reply, &QNetworkReply::metaDataChanged, reply,
-            [this, reply, guardedSock, path, fetchTimer, hdrMs, streaming]() {
+            [this, reply, guardedSock, path, fetchTimer, hdrMs, streaming, chunked]() {
         if (*hdrMs < 0) *hdrMs = fetchTimer.elapsed();
         if (*streaming || s_noStream)
             return;
@@ -541,11 +545,12 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
         if (s_firstSegBytes > 0 && (advertise < 0 || advertise > s_firstSegBytes))
             advertise = s_firstSegBytes;
         writeHead(guardedSock, 200, ct, advertise);
+        *chunked = (advertise < 0);
         *streaming = true;
     });
 
     connect(reply, &QNetworkReply::readyRead, reply,
-            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent, work, tail, alignTs]() {
+            [reply, guardedSock, fetchTimer, fbMs, streaming, acc, sent, work, tail, alignTs, chunked]() {
         QElapsedTimer wt; wt.start();
         const auto addWork = qScopeGuard([&wt, work]() { *work += wt.nsecsElapsed() / 1000; });
         if (*fbMs < 0) *fbMs = fetchTimer.elapsed();
@@ -565,7 +570,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             if (room <= 0)
                 return;
             const QByteArray cut = chunk.left(int(qMin<qint64>(room, chunk.size())));
-            guardedSock->write(cut);
+            writeBody(guardedSock, cut, *chunked);
             *sent += cut.size();
             if (*sent >= s_firstSegBytes) {
                 guardedSock->flush();     // player has a complete segment: let it decode NOW
@@ -583,16 +588,16 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             tail->append(chunk);
             const int whole = (tail->size() / 188) * 188;
             if (whole > 0) {
-                guardedSock->write(tail->left(whole));
+                writeBody(guardedSock, tail->left(whole), *chunked);
                 tail->remove(0, whole);
             }
             return;
         }
-        guardedSock->write(chunk);        // ...and give it to the player NOW
+        writeBody(guardedSock, chunk, *chunked);   // ...and give it to the player NOW
     });
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
-             streaming, acc, work, tail, alignTs]() {
+             streaming, acc, work, tail, alignTs, chunked]() {
         reply->deleteLater();
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -657,8 +662,10 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
                 // A clean finish hands over the held remainder (and any final bytes) exactly as
                 // CV sent them; a mid-body failure drops them — never a cut packet on the wire.
                 if (reply->error() == QNetworkReply::NoError) {
-                    if (alignTs) { tail->append(last); if (!tail->isEmpty()) guardedSock->write(*tail); }
-                    else if (!last.isEmpty()) guardedSock->write(last);
+                    if (alignTs) { tail->append(last); if (!tail->isEmpty()) writeBody(guardedSock, *tail, *chunked); }
+                    else if (!last.isEmpty()) writeBody(guardedSock, last, *chunked);
+                    if (*chunked)
+                        guardedSock->write("0\r\n\r\n");   // the terminator: FFmpeg sees EOF, not EIO
                 }
                 tail->clear();
                 guardedSock->flush();
@@ -926,6 +933,28 @@ void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
     connect(sock, &QTcpSocket::disconnected, reply, &QNetworkReply::abort);
 }
 
+// Body writer for the streaming path (2026-09-11). A body sent with NO length and ended by a socket
+// close makes FFmpeg's HTTP reader return EIO instead of EOF at the end of EVERY segment —
+// "Stream ends prematurely at N, should be 18446744073709551615" then "Error during demuxing:
+// Input/output error" (reproduced standalone against one of CV's clean 72-frame segments; a
+// Content-Length or proper chunked framing decodes silently). The mpegts demuxer then flags the
+// segment's last two frames corrupt (dts 525000/532500 of a 6 s, 12 fps mosaic segment), and the
+// VA-API decoder died on those slices in 6 of 7 wall runs on 2026-09-08. So: no length known →
+// chunked framing, with the terminator on a clean finish only; a mid-body upstream failure closes
+// without it, which is the one case where "premature" is the truth.
+static void writeBody(QTcpSocket *sock, const QByteArray &bytes, bool chunked)
+{
+    if (!sock || bytes.isEmpty() || sock->state() != QAbstractSocket::ConnectedState)
+        return;
+    if (chunked) {
+        sock->write(QByteArray::number(bytes.size(), 16) + "\r\n");
+        sock->write(bytes);
+        sock->write("\r\n");
+    } else {
+        sock->write(bytes);
+    }
+}
+
 void HlsProxy::writeHead(QTcpSocket *sock, int code, const QByteArray &contentType, qint64 len)
 {
     if (!sock || sock->state() != QAbstractSocket::ConnectedState)
@@ -934,6 +963,8 @@ void HlsProxy::writeHead(QTcpSocket *sock, int code, const QByteArray &contentTy
     resp += "Content-Type: " + contentType + "\r\n";
     if (len >= 0)
         resp += "Content-Length: " + QByteArray::number(len) + "\r\n";
+    else
+        resp += "Transfer-Encoding: chunked\r\n";   // see writeBody: never a length-less close-delimited body
     resp += "Cache-Control: no-store\r\n";
     resp += "Connection: close\r\n\r\n";
     sock->write(resp);
