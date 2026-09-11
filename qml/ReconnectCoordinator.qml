@@ -18,6 +18,20 @@ QtObject {
     // tiles → recovery spread over ~16 × this, one rebuild at a time.
     property int minIntervalMs: 700
 
+    // EVIDENCE that go2rtc's RTSP port is reachable from this client: the wall-clock
+    // time any surface last received a frame over an rtsp:// url. The source ladder
+    // consults this before abandoning RTSP for the HTTP transport — on the site LAN a
+    // transient error on one tile must recycle, not step down (measured 2026-09-11:
+    // LAN tiles pushed to SD·NET by one-off errors while their neighbours played on
+    // RTSP). Decays: silence for 60 s means "unknown", so a laptop that roams off
+    // the VPN mid-session can still fall back.
+    property double rtspLastFrameMs: -1
+    function noteRtspFrame() {
+        var now = Date.now();
+        if (now - rtspLastFrameMs > 2000) rtspLastFrameMs = now;   // throttled write
+    }
+    function rtspReachable() { return rtspLastFrameMs > 0 && (Date.now() - rtspLastFrameMs) < 60000; }
+
     property var _queue: []                 // FIFO of pending reconnect callbacks
     property double _lastReleaseMs: -1.0e12 // far in the past → first request fires at once
 

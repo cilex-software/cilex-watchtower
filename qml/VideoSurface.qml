@@ -38,6 +38,17 @@ Item {
     readonly property var currentTier: (tiers.length > 0)
         ? tiers[Math.max(0, Math.min(_tierIndex, tiers.length - 1))] : null
     readonly property bool _hasLowerTier: tiers.length > 0 && _tierIndex < tiers.length - 1
+    // A step is allowed unless it would abandon RTSP for HTTP while RTSP is
+    // demonstrably reachable (some surface got rtsp frames in the last 60 s).
+    // Quality steps within one transport are always allowed.
+    function _isHttp(u) { return typeof u === "string" && u.indexOf("http") === 0; }
+    readonly property bool canStepDownTier: {
+        if (!_hasLowerTier) return false;
+        var cur = tiers[_tierIndex], nxt = tiers[_tierIndex + 1];
+        if (!cur || !nxt) return false;
+        if (!_isHttp(cur.url) && _isHttp(nxt.url) && ReconnectCoordinator.rtspReachable()) return false;
+        return true;
+    }
     // What the SD/HD chip shows, and whether the ladder chose it (AUTO) vs the top rung.
     readonly property string tierBadge: currentTier ? (currentTier.badge || "") : ""
     readonly property bool autoStepped: _tierIndex > 0
@@ -46,7 +57,7 @@ Item {
     // destroying-and-rebuilding the surface (which would reset it to the top rung
     // and loop forever on an unreachable transport).
     readonly property bool hasLowerTier: _hasLowerTier
-    function stepDownTier(reason) { _stepDownTier(reason && reason.length ? reason : "external") }
+    function stepDownTier(reason) { if (canStepDownTier) _stepDownTier(reason && reason.length ? reason : "external") }
     signal tierStepped(string reason, string badge)
 
     function _applyTier() {
@@ -58,7 +69,7 @@ Item {
             url = u;                     // → onUrlChanged resets frame/backoff state
     }
     function _stepDownTier(reason) {
-        if (!_hasLowerTier)
+        if (!canStepDownTier)
             return;
         _tierIndex = _tierIndex + 1;     // → on_TierIndexChanged → _applyTier
         console.info("[TIER] step down →", (currentTier ? currentTier.badge : "?"), "(" + reason + ")");
@@ -175,7 +186,7 @@ Item {
         id: tierDegradeTimer
         interval: 8000
         repeat: false
-        running: root._hasLowerTier && root._everPlayed && root.degraded
+        running: root.canStepDownTier && root._everPlayed && root.degraded
         onTriggered: root._stepDownTier("degraded")
     }
 
@@ -186,9 +197,11 @@ Item {
         // Be patient on a COLD connect (the first frame can legitimately take a beat —
         // don't tear down a pipeline that's still negotiating). Use the short backoff only
         // once we've seen frames and then lost them, i.e. a genuine stall.
+        // HTTP (HLS) needs longer to a first frame than rtsp: master → media playlist →
+        // first segments, plus a transcode spin-up on the -opt tier (measured ~7 s).
         reconnectTimer.interval = root._everPlayed
             ? root._backoffMs[Math.min(root._reconnectAttempt, root._backoffMs.length - 1)]
-            : 8000;
+            : (root._isHttp(root.url) ? 15000 : 8000);
         reconnectTimer.start();
     }
     // Ask the global coordinator for a slot (it serializes initiations app-wide).
@@ -209,7 +222,7 @@ Item {
         if (!root.active || root.url === "" || root.playing) return;
         // Ladder: a rung that has never delivered a frame and keeps failing to
         // connect gets abandoned for a lighter one, rather than hammered forever.
-        if (!root._everPlayed && root._hasLowerTier) {
+        if (!root._everPlayed && root.canStepDownTier) {
             root._coldFailsThisTier++;
             if (root._coldFailsThisTier >= root._coldFailLimit) {
                 root._stepDownTier("cold-connect");
@@ -256,6 +269,7 @@ Item {
             root._hasRecentFrame = true;
             root._everPlayed = true;
             root._frameTicks++;
+            if (!root._isHttp(root.url)) ReconnectCoordinator.noteRtspFrame();
             stallTimer.restart();
         }
     }

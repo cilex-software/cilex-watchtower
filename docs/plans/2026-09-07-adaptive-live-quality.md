@@ -163,3 +163,43 @@ fragmented-MP4 on the fMP4 route)**
 - Auto step-UP (single view, after long stability): deliberately NOT built yet
   (stability beats flicker); manual step-up via the SD/HD chip works.
 - `-opt` rung: waits on CV (operator's "build -opt"). Slots below SD when it ships.
+
+## Update 2026-09-11 — the HTTP rung was dead on macOS; it is HLS now, and LAN tiles stay on RTSP
+
+**Symptoms (operator, 2026-09-10/11):** remote wall — tiles on `SD·NET` all
+"STREAM UNAVAILABLE", 119 × "Failed to load media"; on the site LAN — some tiles
+pushed to `SD·NET` by one-off errors while neighbours played on RTSP, then dead.
+The operator's downlink measured **108 Mbit/s** — bandwidth was never the cause.
+
+**Root cause, measured:** Homebrew Qt on macOS ships ONLY the AVFoundation
+("darwin") media backend (`qt.multimedia.plugin: Available backends ("darwin")`).
+AVFoundation cannot play a never-ending progressive fMP4: on the real Cocoa run
+loop `QMediaPlayer` fails at 2.3 s with exactly "Failed to load media" (status
+InvalidMedia). The same stream decodes fine with `ffmpeg` (first frame 3.8 s).
+Two harness lessons paid for on the way: (1) `QCoreApplication`/`offscreen` never
+pumps the Cocoa run loop, so the darwin backend silently does nothing — earlier
+"128 KB then stall" mock readings were partly that; (2) fake `$HOME` does not
+isolate QSettings on macOS (`cfprefsd` serves the cached domain), so test
+instances silently used the operator's real session.
+
+**Fix (shipped):**
+- The HTTP rung is **HLS** (`/streams/live/stream.m3u8?src=`): proxy route
+  `/live/stream.m3u8`, `/live/hls/playlist.m3u8?…`, `/live/hls/segment.ts?…`
+  (playlists pass through unmodified; go2rtc's relative refs resolve back under
+  `/live/`), HEAD answered headers-only. `stream.mp4` stays routed for
+  FFmpeg-backend platforms. Verified on AVFoundation via the proxy: first frame
+  2.2 s, ~15 fps, 1280×720; 8 concurrent all play.
+- Live requests round-robin over a **4-manager keep-alive pool** (HLS = many short
+  requests; the 6-per-host cap only starves long-lived GETs, which no longer exist).
+- **RTSP-reachable gate**: `ReconnectCoordinator.noteRtspFrame()` records the last
+  rtsp frame seen by any surface; `VideoSurface.canStepDownTier` refuses an
+  rtsp→http step while that is < 60 s old. Quality steps within a transport are
+  unaffected. The tile recycler consults the same gate. A laptop roaming off the
+  VPN mid-session still falls back after the 60 s decay.
+- HTTP rung cold-connect budget raised to 15 s (HLS master→media→segments; the
+  `-opt` transcode measured 6.8–7.3 s to first frame).
+
+**Next: the `-opt` rung.** `stream.mp4?src=<cam>-opt` / HLS `-opt` answers with
+real video fleet-wide (three cameras tested, ~450 kbit/s hard-capped, first frame
+~7 s). It slots below SD as `OPT·NET` with the 15 s budget. `-wall` (192×108) still
+returns 0 bytes for 15 s after headers — CV's known first-byte fault; not a rung.

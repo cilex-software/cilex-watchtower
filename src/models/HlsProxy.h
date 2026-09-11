@@ -5,6 +5,7 @@
 #include <QString>
 #include <QByteArray>
 #include <QHash>
+#include <QVector>
 #include <QStringList>
 #include <QSet>
 #include <atomic>
@@ -89,7 +90,13 @@ private:
 
     QTcpServer *m_server = nullptr;            // created in init() ON the proxy thread
     QNetworkAccessManager *m_nam = nullptr;    // the proxy's OWN nam (not the shared GUI-thread one)
-    QString m_token;                           // access_token, for per-live-request managers (see forwardLive)
+    // Live (HLS) requests are many and short — playlist polls and 0.5 s segments — so
+    // they round-robin over a small pool of managers: keep-alive connection reuse
+    // (no per-segment TCP+HTTP handshake against a remote RTT) and, with nothing
+    // long-lived any more, no per-host starvation either. Cookie set on all.
+    QVector<QNetworkAccessManager *> m_livePool;
+    int m_liveRr = 0;
+    static constexpr int kLivePool = 4;
     std::atomic<int> m_port{0};                // server port, read cross-thread by localBase()/port()
     QString m_upstream;
 

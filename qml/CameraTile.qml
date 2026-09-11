@@ -344,7 +344,7 @@ Item {
                 // unreachable transport forever. Only when no lighter rung remains do
                 // we fall back to the original destroy-and-rebuild recycle.
                 var it = videoLoader.item;
-                if (it && it.hasLowerTier) {
+                if (it && it.canStepDownTier) {
                     console.warn("[WT-TILE] stepping tier down (errored) ip=" + root.ip);
                     it.stepDownTier("recycle");
                     base._recycleTry = 0;        // fresh rung: prompt attempts, not a stale backoff

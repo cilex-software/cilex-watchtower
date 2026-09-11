@@ -140,6 +140,8 @@ void HlsProxy::init()
     if (m_nam)
         return;                                // already initialised
     m_nam = new QNetworkAccessManager(this);   // the proxy's own, thread-affine manager
+    for (int i = 0; i < kLivePool; ++i)
+        m_livePool.append(new QNetworkAccessManager(this));
     m_server = new QTcpServer(this);
     connect(m_server, &QTcpServer::newConnection, this, &HlsProxy::onNewConnection);
     m_server->listen(QHostAddress::LocalHost, 0);
@@ -160,13 +162,12 @@ void HlsProxy::init()
 
 void HlsProxy::setAuthToken(const QString &token)
 {
-    if (token.isEmpty())
+    if (!m_nam || token.isEmpty())
         return;                                // pushed again on (re)login
-    m_token = token;                           // used by forwardLive's per-request managers
-    if (!m_nam)
-        return;
     QNetworkCookie cookie("access_token", token.toUtf8());
     m_nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
+    for (auto *nam : m_livePool)
+        nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
 }
 
 QString HlsProxy::localBase() const
@@ -192,6 +193,7 @@ void HlsProxy::onNewConnection()
                 return;
             }
             sock->setProperty("served", true);
+            sock->setProperty("head", parts.at(0) == "HEAD");
             serveRequest(sock, QString::fromUtf8(parts.at(1)));
         });
         connect(sock, &QTcpSocket::disconnected, sock, &QObject::deleteLater);
@@ -200,17 +202,24 @@ void HlsProxy::onNewConnection()
 
 void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
 {
-    // Live fMP4 passthrough: /live/stream.mp4?src=<name> maps to the
-    // authenticated upstream /streams/live/stream.mp4?src=<name>. Strict by
-    // construction — one filename, one query parameter, tight charset — this
-    // path rides the operator's session cookie, so it gets the same
-    // confused-deputy caution as /review/ below.
+    // Live passthrough for the remote-live transport (CV letter 2026-09-07):
+    //   /live/stream.m3u8?src=<name>        HLS master   -> /streams/live/stream.m3u8?src=
+    //   /live/hls/playlist.m3u8?<q>         HLS media    -> /streams/live/hls/playlist.m3u8?
+    //   /live/hls/segment.ts?<q>            HLS segment  -> /streams/live/hls/segment.ts?
+    //   /live/stream.mp4?src=<name>         fMP4 (kept for FFmpeg-backend platforms)
+    // HLS is the rung the client actually plays: macOS's Qt uses the AVFoundation
+    // ("darwin") media backend, which cannot play a never-ending progressive fMP4 —
+    // measured 2026-09-11: QMediaPlayer sat in Loading for 25 s without issuing one
+    // HTTP request — but plays HLS natively (it is what playback already uses through
+    // this proxy). Playlists pass through UNMODIFIED: go2rtc writes relative
+    // references, which the player resolves under /live/ and /live/hls/ and which
+    // land back here. Strict charset: this path rides the operator's session cookie,
+    // so it gets the same confused-deputy caution as /review/ below.
     {
-        static const QRegularExpression liveRe(
-            QStringLiteral(R"(^/live/stream\.mp4\?src=([A-Za-z0-9_.\-]{1,128})$)"));
-        const auto lm = liveRe.match(path);
-        if (lm.hasMatch()) {
-            forwardLive(sock, QStringLiteral("/streams/live/stream.mp4?src=") + lm.captured(1));
+        static const QRegularExpression liveRe(QStringLiteral(
+            R"(^/live/(stream\.(?:m3u8|mp4)\?src=[A-Za-z0-9_.\-]{1,128}|hls/(?:playlist\.m3u8|segment\.ts)\?[A-Za-z0-9_.\-=&%]{1,256})$)"));
+        if (liveRe.match(path).hasMatch()) {
+            forwardLive(sock, QStringLiteral("/streams") + path);
             return;
         }
     }
@@ -867,20 +876,13 @@ QByteArray HlsProxy::rewritePlaylist(const QByteArray &in)
 
 void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
 {
-    // Each live fMP4 is a long-lived streaming GET that holds its TCP connection
-    // for the ENTIRE life of the stream. QNetworkAccessManager caps at 6
-    // connections per host, so ONE shared manager lets only 6 wall tiles ever
-    // stream and starves the rest forever — measured 2026-09-10 on a remote
-    // 25-tile wall: 6 tiles live, 19 stuck on "STREAM UNAVAILABLE", and a raw
-    // probe through this proxy showed exactly 6 of 8 concurrent pulls receiving
-    // bytes and 2 receiving zero. So give each live pull its OWN manager (its own
-    // 6-connection budget, of which it uses one); it is torn down with the request.
-    // Parented to the proxy so a thread shutdown reaps any in flight.
-    auto *nam = new QNetworkAccessManager(this);
-    if (!m_token.isEmpty()) {
-        QNetworkCookie cookie("access_token", m_token.toUtf8());
-        nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
-    }
+    // Round-robin over the live pool (see the header). History: a single shared
+    // manager capped a remote wall at 6 tiles when the rung was one endless fMP4
+    // GET per tile (measured 2026-09-10); with HLS every request is short, so a
+    // small keep-alive pool is both faster and kinder to CV than a manager per
+    // request would be.
+    QNetworkAccessManager *nam = m_livePool.isEmpty() ? m_nam
+                                                       : m_livePool.at((m_liveRr++) % m_livePool.size());
     QNetworkRequest req{QUrl(m_upstream + upath)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
@@ -897,7 +899,11 @@ void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
         *headered = true;
         if (!guarded) { reply->abort(); return; }
         const QByteArray ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
-        writeHead(guarded, code, ct.isEmpty() ? QByteArrayLiteral("video/mp4") : ct, -1);
+        writeHead(guarded, code, ct.isEmpty() ? QByteArrayLiteral("application/octet-stream") : ct, -1);
+        if (guarded->property("head").toBool()) {   // HEAD probe: headers only, then done
+            guarded->disconnectFromHost();
+            reply->abort();
+        }
     });
     connect(reply, &QNetworkReply::readyRead, reply, [reply, guarded]() {
         if (!guarded) { reply->abort(); return; }
@@ -906,9 +912,8 @@ void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
         if (guarded->bytesToWrite() > 8 * 1024 * 1024) { reply->abort(); return; }
         guarded->write(reply->readAll());
     });
-    connect(reply, &QNetworkReply::finished, reply, [this, reply, guarded, headered, nam]() {
+    connect(reply, &QNetworkReply::finished, reply, [this, reply, guarded, headered]() {
         reply->deleteLater();
-        nam->deleteLater();        // one manager per live stream — reap it with the request
         if (!guarded)
             return;
         if (!*headered) {          // upstream failed before headers: say so honestly

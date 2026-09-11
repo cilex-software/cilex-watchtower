@@ -46,6 +46,9 @@ QString LiveProxy::liveUrlFor(const QString &rtspUrl) const
     const QString name = QUrl(rtspUrl).path().section(QLatin1Char('/'), -1);
     if (name.isEmpty())
         return QString();
-    return m_proxy->localBase() + QStringLiteral("/live/stream.mp4?src=")
+    // HLS, not fMP4: the only live-over-HTTP format every Qt media backend in the
+    // fleet plays — macOS's AVFoundation backend cannot play a progressive fMP4 at
+    // all (see HlsProxy::serveRequest), and HLS is also what Cilex Pro Mobile uses.
+    return m_proxy->localBase() + QStringLiteral("/live/stream.m3u8?src=")
            + QString::fromUtf8(QUrl::toPercentEncoding(name));
 }
