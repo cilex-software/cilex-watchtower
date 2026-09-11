@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.1"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via}
+WARDEN_VERSION = "1.4.2"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -514,6 +514,12 @@ def contact_ok():
 def contact_failed():
     if CONTACT["unreachable_since"] is None:
         CONTACT["unreachable_since"] = time.time()
+        # Say it on the way DOWN, not only on the way back up. Recovery was the only
+        # thing logged, so a gap that never recovered wrote nothing at all and the
+        # station went quiet server-side with no local trace — the operator saw
+        # "offline" on the fleet page while the log looked clean (2026-09-11).
+        log("heartbeat: backend UNREACHABLE — beats are failing from now "
+            "(next line will be the recovery, with this gap's start)")
 
 
 def iso(ts):
@@ -624,6 +630,122 @@ def deeplink_ok():
     return ok
 
 
+# ------------------------------------------------- Watchtower's own heartbeat
+#
+# Operator ask 2026-09-11: "Warden must not send heartbeats, it's Watchtower's job —
+# but Warden should track IF Watchtower had sent one and WHEN, and report the last."
+#
+# Warden keeps its own station beat (that is the dead-man: silence from a BOX must
+# stay distinguishable from a dead APP — remove it and 'box unplugged' and 'app
+# crashed' become the same event). What it must not do is VOUCH for the app. So:
+# the app's liveness is the app's OWN signal, observed here, never invented.
+#
+# That signal is the flight recorder. The app writes [MEMTEL] from its GUI thread
+# every 30 s, so the file's mtime is Watchtower saying "my event loop is turning".
+# It is the right proxy precisely because a FROZEN wall stops it while the process
+# still exists — which `app_pid`/`app_state` alone can never catch, and which is the
+# fleet page's own stated fear ("a freeze would be shown as a live picture").
+
+APP_BEAT_STALE_S = 90          # 3 missed 30 s ticks; HANG_S (120) stays the harder verdict
+_SUBSYS_NAME = re.compile(r"^[a-z0-9_-]{1,32}$")        # CV's grammar, letter 2026-08-10 reply
+_DEGRADED = re.compile(
+    r"\[WT-DEGRADED\]\s+subsystem=(\S+).*?\bstate=(FAULT|CLEARED)", re.I)
+_DEGRADED_REASON = re.compile(r"\breason=(\S+)")
+_DEGRADED_DETAIL = re.compile(r"\bdetail=(.*)$")
+_LOGLINE_TS = re.compile(r"^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})")
+
+
+def app_beat():
+    """(epoch, age_s) of Watchtower's last self-declared tick, or (None, None)."""
+    try:
+        ts = (FLTREC / "watchtower.log").stat().st_mtime
+        return ts, max(0.0, time.time() - ts)
+    except OSError:
+        return None, None
+
+
+def _line_epoch(line):
+    """Flight-recorder stamps are LOCAL time; the beat speaks UTC."""
+    m = _LOGLINE_TS.match(line)
+    if not m:
+        return None
+    try:
+        return time.mktime(time.strptime(m.group(1) + " " + m.group(2),
+                                         "%Y-%m-%d %H:%M:%S"))
+    except (ValueError, OverflowError):
+        return None
+
+
+def app_declared_subsystems(tail_bytes=262144):
+    """Subsystem verdicts the APP declared, newest-wins, read from the tail of the
+    flight recorder. The app emits
+
+        [WT-DEGRADED] subsystem=playback reason=auth state=FAULT detail=…
+        [WT-DEGRADED] subsystem=playback state=CLEARED
+
+    Lines carrying no `state=` (the refresh-and-retry breadcrumb) are ignored on
+    purpose: they are progress, not a verdict."""
+    out = {}
+    try:
+        p = FLTREC / "watchtower.log"
+        with p.open("rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - tail_bytes))
+            blob = fh.read().decode("utf-8", "replace")
+    except OSError:
+        return out
+    for line in blob.splitlines():
+        m = _DEGRADED.search(line)
+        if not m:
+            continue
+        name = m.group(1).lower()
+        if not _SUBSYS_NAME.match(name):
+            continue                         # never let a client mint label cardinality
+        entry = {"state": "ok" if m.group(2).upper() == "CLEARED" else "fault"}
+        when = _line_epoch(line)
+        if when:
+            entry["since"] = iso(when)
+        if entry["state"] != "ok":
+            r = _DEGRADED_REASON.search(line)
+            if r:
+                entry["reason"] = r.group(1)[:32]
+            d = _DEGRADED_DETAIL.search(line)
+            if d and d.group(1).strip():
+                entry["detail"] = d.group(1).strip()[:160]
+        out[name] = entry                    # later line wins
+    return out
+
+
+def subsystems():
+    """CV contract (letter 2026-08-10 reply): {name: {state, reason?, detail?,
+    since?}}, `ok` is the ONLY healthy string, max 8 names. Never raises — a throw
+    here would propagate out of payload() and kill the heartbeat thread silently,
+    which is exactly how 1.3.1 lost the beat."""
+    try:
+        subs = app_declared_subsystems()
+
+        ts, age = app_beat()
+        state = HB.get("app_state")
+        if state == "running" and age is not None and age <= APP_BEAT_STALE_S:
+            wt = {"state": "ok", "detail": "last tick %ds ago" % int(age)}
+        elif state == "running":
+            wt = {"state": "fault", "reason": "no_beat",
+                  "detail": ("no tick for %ds (process alive — a frozen wall looks "
+                             "exactly like this)" % int(age)) if age is not None
+                            else "no flight recorder yet"}
+        else:
+            wt = {"state": "fault", "reason": str(state or "unknown")[:32],
+                  "detail": str(HB.get("app_state_reason") or "")[:160] or None}
+        if ts:
+            wt["since"] = iso(ts)            # WHEN Watchtower last beat — the operator's ask
+        subs["watchtower"] = {k: v for k, v in wt.items() if v is not None}
+
+        return dict(list(subs.items())[:8])  # contract cap
+    except Exception as e:                   # noqa: BLE001 — must never kill the beat
+        log(f"WARN subsystems() failed, beat continues without it: {e!r}")
+        return {}
+
+
 class Heartbeat(threading.Thread):
     """CW-19 client half (contract: 2026-07-27-warden-dead-man-heartbeat.md §3).
     Rules encoded from that letter: NEVER spooled, never counted against upload
@@ -672,6 +794,14 @@ class Heartbeat(threading.Thread):
         }
         p["cpu_pct"], p["mem_pct"] = host_load()   # whole-machine; null when unmeasured
         p["deeplink_ok"] = deeplink_ok()            # tri-state; None = unmeasured
+        # Watchtower's OWN beat, observed not invented (operator ask 2026-09-11).
+        # Explicit top-level fields as well as the subsystem entry, because "when did
+        # the app last check in" is a question the fleet row should answer directly
+        # rather than by parsing a detail string.
+        _abt, _abage = app_beat()
+        p["app_last_beat_at"] = iso(_abt)
+        p["app_beat_age_s"] = int(_abage) if _abage is not None else None
+        p["subsystems"] = subsystems()              # CV letter 2026-08-10 reply; max 8
         try:
             p["flightrec_age_s"] = int(now - (FLTREC / "watchtower.log").stat().st_mtime)
         except OSError:
@@ -1241,6 +1371,21 @@ def cmd_status():
     print(f"warden {WARDEN_VERSION} spool={W} pending={count(PENDING)} "
           f"sent={count(SENT)} quarantine={count(QUAR)} "
           f"backend={CFG['BACKEND_URL']} token={'set' if CFG['STATION_TOKEN'] else 'MISSING'}")
+    # Watchtower's own last beat — answerable from ANY shell, without waiting for the
+    # fleet page or asking the running supervisor (operator ask 2026-09-11).
+    ts, age = app_beat()
+    if ts is None:
+        print("watchtower: NEVER — no flight recorder at "
+              f"{FLTREC / 'watchtower.log'} (the app has not run, or DATA_DIR is wrong)")
+    else:
+        verdict = "ok" if age <= APP_BEAT_STALE_S else "STALE"
+        print(f"watchtower: last beat {iso(ts)} ({int(age)}s ago) {verdict} "
+              f"— stale above {APP_BEAT_STALE_S}s")
+    for name, s in sorted(subsystems().items()):
+        if name == "watchtower":
+            continue
+        print(f"subsystem {name}: {s.get('state')} {s.get('reason','')} "
+              f"{s.get('since','')}".rstrip())
 
 
 if __name__ == "__main__":
