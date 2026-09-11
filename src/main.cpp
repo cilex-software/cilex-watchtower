@@ -598,6 +598,7 @@ int main(int argc, char *argv[])
     // Live-over-HTTP loopback proxy (remote-live transport) — app-lifetime, so
     // live surfaces can fall back to it whenever RTSP cannot deliver.
     engine.rootContext()->setContextProperty("LiveHttp", new LiveProxy(&app));
+    engine.rootContext()->setContextProperty("LiveHints", new LiveHints(&app));   // parking-lot hint, see RtspVideoSource.h
 
     // Shareable event links (cilex:// scheme, operator order 2026-08-21).
     // macOS delivers opens via QFileOpenEvent (DeepLink's event filter); a URL

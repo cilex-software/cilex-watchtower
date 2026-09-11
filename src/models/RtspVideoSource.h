@@ -159,3 +159,16 @@ private:
     qint64 m_swdNextMs = 0;
     QTimer *m_swd = nullptr;
 };
+
+// QML-facing hint for the parking lot (2026-09-12): the view switch destroys the wall's tiles
+// BEFORE the detail view's source exists, so "keep what a queued source wants" could not see
+// the camera being opened and evicted it under the cap (rock-n-roll soak n32: fresh build,
+// 518 ms, where adoption takes ~200 ms). openCameraHere() calls wantCamera() first; a hinted
+// URL is kept for the grace period regardless of order.
+class LiveHints : public QObject
+{
+    Q_OBJECT
+public:
+    explicit LiveHints(QObject *parent = nullptr) : QObject(parent) {}
+    Q_INVOKABLE void wantCamera(const QString &subUrl, const QString &mainUrl);
+};

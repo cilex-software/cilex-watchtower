@@ -233,6 +233,14 @@ static void destroyPipelineAsync(GstElement *p)
 class ParkingLot
 {
 public:
+    // URLs the app is about to open (LiveHints::wantCamera): kept ahead of anything else.
+    QHash<QString, qint64> m_hints;
+    bool hinted(const QString &url) const
+    {
+        auto it = m_hints.find(url);
+        return it != m_hints.end() && steadyMs() - it.value() < 5000;
+    }
+    void hint(const QString &url) { if (!url.isEmpty()) m_hints.insert(url, steadyMs()); }
     static ParkingLot &instance()
     {
         static ParkingLot *lot = new ParkingLot();   // leaked on purpose — same reason as the pump
@@ -248,21 +256,25 @@ public:
         if (m_lot.contains(url))                       // newest pipeline for a URL wins
             destroyPipelineAsync(m_lot.take(url).pipeline);
         const auto &pump = PipelineBuildPump::instance();
+        auto wanted = [&](const QString &u) { return pump.wants(u) || hinted(u); };
         while (m_lot.size() >= parkMax()) {
             // Evict the oldest pipeline nobody is waiting for; if every held one is wanted,
             // an unwanted newcomer loses instead, and only then the oldest wanted one.
             QString victim;
             qint64 t = std::numeric_limits<qint64>::max();
             for (auto it = m_lot.cbegin(); it != m_lot.cend(); ++it)
-                if (!pump.wants(it.key()) && it->parkedAtMs < t) { t = it->parkedAtMs; victim = it.key(); }
+                if (!wanted(it.key()) && it->parkedAtMs < t) { t = it->parkedAtMs; victim = it.key(); }
             if (victim.isEmpty()) {
-                if (!pump.wants(url)) {
+                if (!wanted(url)) {
                     destroyPipelineAsync(e.pipeline);
                     return;
                 }
                 for (auto it = m_lot.cbegin(); it != m_lot.cend(); ++it)
                     if (it->parkedAtMs < t) { t = it->parkedAtMs; victim = it.key(); }
             }
+            if (trace)
+                qInfo("[WT-PARK] evicted url=%s (for %s)", qUtf8Printable(QUrl(victim).toString(QUrl::RemoveUserInfo).right(40)),
+                      qUtf8Printable(QUrl(url).toString(QUrl::RemoveUserInfo).right(40)));
             destroyPipelineAsync(m_lot.take(victim).pipeline);
         }
         if (trace)
@@ -275,6 +287,7 @@ public:
     }
     bool take(const QString &url, ParkedPipeline &out)
     {
+        m_hints.remove(url);
         auto it = m_lot.find(url);
         if (it == m_lot.end())
             return false;
@@ -317,6 +330,15 @@ private:
     QHash<QString, ParkedPipeline> m_lot;
 };
 int RtspVideoSource::parkedPipelineCount() { return ParkingLot::instance().count(); }
+void LiveHints::wantCamera(const QString &subUrl, const QString &mainUrl)
+{
+    ParkingLot::instance().hint(subUrl);
+    ParkingLot::instance().hint(mainUrl);
+    static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
+    if (trace)
+        qInfo("[WT-PARK] hint sub=%s main=%s", qUtf8Printable(QUrl(subUrl).toString(QUrl::RemoveUserInfo).right(40)),
+              qUtf8Printable(QUrl(mainUrl).toString(QUrl::RemoveUserInfo).right(36)));
+}
 
 RtspVideoSource::RtspVideoSource(QObject *parent)
     : QObject(parent)

@@ -23,14 +23,20 @@ CV = "http://127.0.0.1:8000"
 os.makedirs(f"{OUT}/logs", exist_ok=True)
 
 def day(n): return (datetime.date.today() - datetime.timedelta(days=n)).isoformat()
+ST = json.load(open(os.path.dirname(sys.argv[1]) + "/st-now.json"))["streams"] if len(sys.argv) > 1 else []
+ID2IP = {r["rtsp_sub_url"].rsplit("/", 1)[-1].replace("-sub", "").replace("hiwatch-", ""): r["ip"] for r in ST if r.get("rtsp_sub_url")}
+LIT = set()   # ips whose tile was lit in the most recent run that showed the wall — learned, not assumed
+def pick_lit(kind):
+    base = INV.get(kind) or []; cand = [ip for ip in base if ip in LIT] or [ip for ip in INV.get("wall_recording", []) + INV.get("wall_armed", []) if ip in LIT]
+    return random.choice(cand) if cand else pick(kind)
 def pick(k): v = INV.get(k) or []; return random.choice(v) if v else "192.168.1.105"
 
 # ---------------- catalogue ----------------------------------------------------------------
 # primary = (tag, key, agg) over the generic "[TAG] ... key=value" extraction; agg: first|median|max|min|count|last
 C = [
  # LIVE
- dict(id="live_open_recording", group="LIVE", w=6, t=42, env=lambda: {"WT_FOCUS_IP": pick("wall_recording"), "WT_FOCUS_DELAY_MS": "12000", "WT_FOCUS_CLOSE_MS": "6000"}, primary=("LIVETIME", "playing dt", "first"), target=500),
- dict(id="live_open_armed",     group="LIVE", w=6, t=42, env=lambda: {"WT_FOCUS_IP": pick("wall_armed"), "WT_FOCUS_DELAY_MS": "12000", "WT_FOCUS_CLOSE_MS": "6000"}, primary=("LIVETIME", "playing dt", "first"), target=500),
+ dict(id="live_open_recording", group="LIVE", w=6, t=42, env=lambda: {"WT_FOCUS_IP": "page:recording", "WT_FOCUS_DELAY_MS": "12000", "WT_FOCUS_CLOSE_MS": "6000"}, primary=("LIVETIME", "playing dt", "first"), target=500),
+ dict(id="live_open_armed",     group="LIVE", w=6, t=42, env=lambda: {"WT_FOCUS_IP": "page:armed", "WT_FOCUS_DELAY_MS": "12000", "WT_FOCUS_CLOSE_MS": "6000"}, primary=("LIVETIME", "playing dt", "first"), target=500),
  dict(id="live_open_offpage",   group="LIVE", w=3, t=42, env=lambda: {"WT_FOCUS_IP": random.choice([pick("offpage_recording"), pick("offpage_armed")]), "WT_FOCUS_DELAY_MS": "12000"}, primary=("LIVETIME", "playing dt", "first"), target=3500),
  dict(id="wall_lightup",        group="STARTUP", w=3, t=30, env=lambda: {}, primary=("STARTUP", "tiles16", "first"), target=5000),
  # PLAYBACK
@@ -48,7 +54,7 @@ C = [
  dict(id="wall_live",    group="WALL", w=4, t=125, env=lambda: {"WT_WALL_DAY": "live"}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
  dict(id="wall_day1",    group="WALL", w=2, t=125, env=lambda: {"WT_WALL_DAY": day(1)}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
  # EVENTS
- dict(id="hero",         group="EVENTS", w=3, t=65, env=lambda: {"WT_HERO_TEST": "1"}, primary=("HT", "lat", "median"), target=3000),
+ dict(id="hero",         group="EVENTS", w=3, t=65, env=lambda: {"WT_HERO_TEST": "1", "WT_SECTION": "events"}, primary=("HT", "lat", "median"), target=3000),
  dict(id="events_section", group="EVENTS", w=3, t=60, env=lambda: {"WT_SECTION": "events", "WT_EVENTS_TEST": "1"}, primary=("EV", "lat", "median"), target=1500),
  # UI
  dict(id="tabs",         group="UI", w=2, t=45, env=lambda: {"WT_TABS": ",".join(random.sample((INV.get("wall_recording") or []) + (INV.get("wall_armed") or []), 4)), "WT_TABS_HOME": "1"}, primary=("STARTUP", "tiles16", "first"), target=5000),
@@ -209,18 +215,27 @@ while datetime.datetime.now().astimezone() < DEADLINE:
     t0 = time.time(); run_app(params, c["t"], logpath); dur = int(time.time() - t0)
     text = open(logpath, errors="replace").read(); dispose(text)
     M, counts, crash = extract(text); pv = primary_value(M, c["primary"])
+    open_t = re.search(r"^(\S+ \S+) \[LIVETIME\] open ", text, re.M)
+    lit_ids = set(re.findall(r"first_deliver url=[^\n]*?hiwatch-([0-9a-f]+)-sub", text.split("[LIVETIME] open ")[0] if open_t else text))
+    lit_ips = {ID2IP[i] for i in lit_ids if i in ID2IP}
+    if len(lit_ips) >= 8: LIT.clear(); LIT.update(lit_ips)
+    chosen = re.search(r"\[LIVETIME\] open t=\d+ cam=([0-9.]+)", text)
+    cam = chosen.group(1) if chosen else params.get("WT_FOCUS_IP")
+    target_lit = (cam in lit_ips) if (cam and params.get("WT_FOCUS_IP")) else None
     metrics = {f"{tg}.{k}": (round(statistics.median(v), 1) if len(v) > 1 else v[0]) for (tg, k), v in M.items() if tg in (c["primary"][0], "STARTUP", "WT-MEM", "LIVETIME", "PBTIME", "WALLTIME", "TTFF")}
     metrics.update({f"count.{k}": v for k, v in counts.items() if v})
     reason = None
     h = hist.setdefault(c["id"], [])
+    empty = bool(re.search(r"\[TTFF\][^\n]*err=No footage|day-empty|No footage recorded", text))
     if crash: reason = "crash:" + crash
     elif (c["primary"][0], "fail") in M: reason = "harness_fail"
+    elif pv is None and empty: reason = None          # an honest empty day is not an outlier
     elif pv is None: reason = "no_metric"
     elif c["target"] is not None and ((c["primary"][2] == "count" and pv > c["target"]) or (c["primary"][2] != "count" and pv > c["target"])): reason = f"over_target:{pv}>{c['target']}"
     elif len(h) >= 5 and pv > 2.5 * statistics.median(h) and pv > 200: reason = f"over_2.5x_median:{pv}>{2.5*statistics.median(h):.0f}"
     if pv is not None and not crash: h.append(pv)
-    row = {"ts": datetime.datetime.now().isoformat(timespec="seconds"), "n": n, "group": c["group"], "action": c["id"], "params": params, "dur_s": dur, "primary": pv, "metrics": metrics, "outcome": "outlier" if reason else "ok", "reason": reason, "build": build_stamp(), "forced": bool(forced), "target": c["target"], "primary_spec": "%s.%s.%s" % (c["primary"][0], c["primary"][1] if isinstance(c["primary"][1], str) else "|".join(c["primary"][1]), c["primary"][2])}
-    if reason: row["log"] = os.path.relpath(logpath, OUT)
+    row = {"ts": datetime.datetime.now().isoformat(timespec="seconds"), "n": n, "group": c["group"], "action": c["id"], "params": params, "dur_s": dur, "primary": pv, "metrics": metrics, "outcome": "outlier" if reason else ("empty" if (pv is None and empty) else "ok"), "reason": reason, "build": build_stamp(), "forced": bool(forced), "target": c["target"], "target_lit": target_lit, "cam": cam if params.get("WT_FOCUS_IP") else None, "lit_tiles": len(lit_ips), "primary_spec": "%s.%s.%s" % (c["primary"][0], c["primary"][1] if isinstance(c["primary"][1], str) else "|".join(c["primary"][1]), c["primary"][2])}
+    if reason or forced: row["log"] = os.path.relpath(logpath, OUT)   # reproductions keep their log even on a pass
     else: os.remove(logpath)
     open(f"{OUT}/rows.jsonl", "a").write(json.dumps(row, ensure_ascii=False) + "\n"); digest["runs"] += 1
     if reason:

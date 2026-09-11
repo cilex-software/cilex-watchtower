@@ -98,6 +98,9 @@ Window {
         if (!cam) return;
         liveOpenT0 = Date.now();
         console.log("[LIVETIME] open t=" + liveOpenT0 + " cam=" + (cam.ip || "?"));
+        // Tell the parking lot which camera this is BEFORE the wall is torn down, so its lit
+        // pipeline survives the cap whatever the creation order (see RtspVideoSource.h).
+        if (typeof LiveHints !== "undefined") LiveHints.wantCamera(cam.rtspSubUrl || "", cam.rtspUrl || "");
         if (activeTab > 0 && activeTab < tabs.length) {
             var t = tabs.slice();
             t[activeTab] = { "kind": "camera", "camId": cam.camId, "cam": cam };
@@ -760,8 +763,27 @@ Window {
             // when .103, camera ~60 of 133, never opened across ten runs).
             var all = [];
             for (var r = 0; r < cameraModel.total; r++) all.push(cameraModel.get(r));
+            // WT_FOCUS_IP=page:<armed|recording|any> — pick a camera from the wall's CURRENT page at
+            // click time (rock-n-roll soak 2026-09-12: the page's sixteen change between launches,
+            // so an ip chosen before launch lands off-page and measures the cold path instead of
+            // the adoption the operator's live target is about).
+            var want = String(wtFocusIp);
+            if (want.indexOf("page:") === 0) {
+                var kind = want.substring(5);
+                var pc = (typeof liveMonitor !== "undefined" && liveMonitor.pagedCameras) ? liveMonitor.pagedCameras : [];
+                var pool = [], anyPool = [];
+                for (var k = 0; k < pc.length; k++) {
+                    var pcam = pc[k]; if (!pcam || !pcam.ip) continue;
+                    anyPool.push(pcam);
+                    var armed = (pcam.recording === CameraStatus.Armed);
+                    if ((kind === "armed" && armed) || (kind === "recording" && pcam.recording === CameraStatus.Recording)) pool.push(pcam);
+                }
+                if (kind === "any" || pool.length === 0) pool = anyPool;
+                if (pool.length === 0) return;                       // page not built yet — keep ticking
+                want = pool[Math.floor(Math.random() * pool.length)].ip;
+            }
             for (var i = 0; i < all.length; i++)
-                if (all[i] && all[i].ip === wtFocusIp) {
+                if (all[i] && all[i].ip === want) {
                     // Delay gate: the roster is here; keep ticking (the Timer repeats while
                     // focusedCamera is null) until the delay has elapsed, THEN open once.
                     if (_focusDelay > 0) {
