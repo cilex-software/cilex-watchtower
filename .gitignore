@@ -44,3 +44,5 @@ __pycache__/
 *.pyc
 # fetched media samples for letters (binary, kept on the host only)
 docs/perf/**/segments/
+# raw soak/run logs stay on the dev box (the records extract what matters: crashes.md, *.jsonl)
+docs/perf/**/*-logs/
