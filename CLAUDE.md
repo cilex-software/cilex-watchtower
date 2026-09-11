@@ -108,7 +108,11 @@ GitHub releases themselves cost nothing; only Actions minutes did.
   **That string is bound to the MAIN stream** (`main_transcode`, CV's
   `streams.py:514`). `{camera_id}-sub` — what the Live wall actually consumes —
   is a **raw channel-102 passthrough**: no ffmpeg, no transcode, no width
-  parameter, natively 1280×720 from the camera. Corrected 2026-08-16 by CV
+  parameter, natively 1280×720 from the camera. **The `-opt` and `-wall` transcodes are cut
+  from `-sub`, not from main** (CV, 2026-09-11, `streams.py:881/890/918/931`; only
+  `main_transcode` binds the camera's main stream) — so any keyframe bound on those
+  tiers is `-sub`'s 3.3 s period, and go2rtc's HLS segments are timer-cut at 0.5 s,
+  not keyframe-aligned (corrected 2026-09-11 after this box had claimed both wrong). Corrected 2026-08-16 by CV
   after this booth read the MAIN width as the wall's and recommended changing
   it; the change would have moved wall traffic by zero. `-sub` is also what the
   **warm storage tier records** (35-day retention), so it cannot be cheapened in
