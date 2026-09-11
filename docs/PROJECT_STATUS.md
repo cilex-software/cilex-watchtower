@@ -63,10 +63,14 @@
 > **Overnight result (154 cycles to 04:32 UTC 09-09, software decode): LIVE 153/153
 > under 500 ms (median 182); PLAYBACK under 1 s in 19 (all in the 12:00 and 16:00 UTC
 > hours), no answer in 80; WALL never under 2 s, a frame in 46 (5–47 s); 0 crashes in
-> 288 logs.** From 17:00 UTC on, the pilot answered no historical open: the recorder's
-> nighttime motion storm (~2 events/s, 26 cameras, 243–320 % CPU) and nine concurrent
-> event-list scans in disk reads held timescaledb at ~150 % all night. Third letter to
-> CV (nighttime saturation, three asks). Client: software decode is now the DEFAULT
+> 288 logs.** From 17:00 UTC on, the pilot answered no historical open: nine concurrent
+> event-list scans in disk reads held timescaledb at ~150 % all night. **Attribution
+> corrected 09-11 (CV's 09-09 reply): NOT a nighttime motion storm — night is ~1,000×
+> quieter than the morning peak; it was a feedback loop of unguarded `/events` polls
+> against an unindexed 1.5M-row table that tipped at 17:00 and latched. Fixed at both
+> ends: CV's index + capped count (`/events` 44–204 ms, timescaledb 152 % → 8 %, measured
+> here 09-11: 4.8 %), our single-flight + backoff.** Third letter to CV (saturation,
+> three asks) — answered; `events` has no retention (operator's call, CV's flag). Client: software decode is now the DEFAULT
 > (`WT_PB_HW_DECODE=1` opts out — no measured first-frame cost, CPU cost unmeasured),
 > and the four timer-driven `/events` polls are single-flight with proportional
 > backoff. The wall's 2 s target is unreachable from the client on this backend

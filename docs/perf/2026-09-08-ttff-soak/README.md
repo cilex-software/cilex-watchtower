@@ -177,6 +177,20 @@ server-side evidence (recorder at 243–320 % on ~2 motion events/s from 26 came
 concurrent event-list scans in `DataFileRead`) are in the third letter to CV
 (`docs/letters/2026-09-09-the-pilot-cannot-serve-a-historical-open-at-night.md`).
 
+**Correction (2026-09-11, from CV's reply of 09-09, which sat untracked in this checkout
+until 09-11): there was no nighttime motion storm.** The recorder's own log per hour (UTC):
+23h 7 · 00h 9 · 01h 1,600 · 02h 396 · 03h 3,820 · 04h 29,086 · 05h 21,075 · 06h 23,776 —
+night is ~1,000× quieter than the morning peak. The 588-events-in-five-minutes sample at
+03:57 UTC above caught the first minutes of the dawn ramp and was generalised into a night
+property; the recorder's 243–320 % CPU is its own gating work (~29k notifications/h → ~2k
+rows) and CV's to look at. What was different at night was nothing on the write side: the
+pile was a **feedback loop** — timer-driven `/events` polls with no in-flight guard against
+a ~10 s answer, more overlap, slower answers, never draining — that tipped around 17:00
+UTC and latched, which is also why it never recovered by itself. Both ends are now fixed:
+the index and the capped count on CV's side (`/events` 44–204 ms, timescaledb 152 % → 8 %),
+the single-flight + backoff on ours. The database mechanism in this record stands; the
+"night" in the third letter's title does not.
+
 **Software decode, priced.** The idle-server playback opens with software decode (n=19,
 median 561 ms, 234–974 ms) sit where the afternoon's hardware-decode opens did (284 and
 690 ms): no measured first-frame cost; the CPU cost of 1440p HEVC software decode was
