@@ -380,6 +380,7 @@ void CameraModel::fetchCameras()
         const QString liveTransport = QSettings().value(QStringLiteral("video/liveTransport"),
                                                         QStringLiteral("go2rtc")).toString();
         bool sawDirect = false;
+        int nHlsSub = 0, nHlsOpt = 0;   // field coverage, logged when it changes
         for (const auto &v : arr) {
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
@@ -452,6 +453,13 @@ void CameraModel::fetchCameras()
             const QString go2rtcSubUrl = o.value("rtsp_sub_url").toString();
             const QString directUrl    = o.value("direct_rtsp_url").toString();
             const QString directSubUrl = o.value("direct_rtsp_sub_url").toString();
+            // Remote-live fields, read never derived (CV d94f28d; letter 2026-09-11):
+            // -sub/-opt over authenticated HLS on the API port, and -opt over RTSP.
+            c.rtspOptUrl = o.value(QStringLiteral("rtsp_opt_url")).toString();
+            c.hlsSubUrl  = o.value(QStringLiteral("hls_sub_url")).toString();
+            c.hlsOptUrl  = o.value(QStringLiteral("hls_opt_url")).toString();
+            if (!c.hlsSubUrl.isEmpty()) ++nHlsSub;
+            if (!c.hlsOptUrl.isEmpty()) ++nHlsOpt;
             if (!directUrl.isEmpty()) sawDirect = true;
             if (liveTransport == QLatin1String("rtsp") && !directUrl.isEmpty()) {
                 c.rtspUrl = directUrl;
@@ -509,6 +517,18 @@ void CameraModel::fetchCameras()
                 c.favorite = pit->second;
 
             out.push_back(c);
+        }
+        {   // one line when coverage changes — the ladder's OPT·NET rung depends on it
+            static int lastSub = -1, lastOpt = -1, lastN = -1;
+            if (nHlsSub != lastSub || nHlsOpt != lastOpt || int(out.size()) != lastN) {
+                lastSub = nHlsSub; lastOpt = nHlsOpt; lastN = int(out.size());
+                // One sample (path+query only, no host) so a wrong URL shape is visible
+                // in a log paste instead of surfacing as a silent empty OPT·NET rung.
+                QString sample;
+                for (const auto &cd : out)
+                    if (!cd.hlsOptUrl.isEmpty()) { const QUrl su(cd.hlsOptUrl); sample = su.path() + QLatin1Char('?') + su.query(); break; }
+                qInfo("[STREAMS] cameras=%d hls_sub_url=%d hls_opt_url=%d e.g. %s", lastN, nHlsSub, nHlsOpt, qPrintable(sample));
+            }
         }
 
         beginResetModel();
@@ -719,6 +739,9 @@ QVariant CameraModel::data(const QModelIndex &index, int role) const
     case PatternRole:   return c.pattern;
     case RtspUrlRole:    return c.rtspUrl;
     case RtspSubUrlRole: return c.rtspSubUrl;
+    case RtspOptUrlRole: return c.rtspOptUrl;
+    case HlsSubUrlRole:  return c.hlsSubUrl;
+    case HlsOptUrlRole:  return c.hlsOptUrl;
     case SnapshotUrlRole: return c.snapshotUrl;
     case IpRole:         return c.ip;
     case MacRole:       return c.mac;
@@ -753,6 +776,9 @@ QHash<int, QByteArray> CameraModel::roleNames() const
         { PatternRole,   "pattern" },
         { RtspUrlRole,    "rtspUrl" },
         { RtspSubUrlRole, "rtspSubUrl" },
+        { RtspOptUrlRole, "rtspOptUrl" },
+        { HlsSubUrlRole,  "hlsSubUrl" },
+        { HlsOptUrlRole,  "hlsOptUrl" },
         { SnapshotUrlRole, "snapshotUrl" },
         { IpRole,         "ip" },
         { MacRole,       "mac" },
@@ -792,6 +818,9 @@ QVariantMap CameraModel::get(int row) const
     m["pattern"] = c.pattern;
     m["rtspUrl"] = c.rtspUrl;
     m["rtspSubUrl"] = c.rtspSubUrl;
+    m["rtspOptUrl"] = c.rtspOptUrl;
+    m["hlsSubUrl"] = c.hlsSubUrl;
+    m["hlsOptUrl"] = c.hlsOptUrl;
     m["snapshotUrl"] = c.snapshotUrl;
     m["ip"] = c.ip;
     m["mac"] = c.mac;

@@ -26,9 +26,17 @@ QtObject {
     // RTSP). Decays: silence for 60 s means "unknown", so a laptop that roams off
     // the VPN mid-session can still fall back.
     property double rtspLastFrameMs: -1
+    // REMOTE MODE: some surface had to abandon RTSP for the HTTP (HLS) transport.
+    // CV's live proxy tops out at ~130 requests/s and HLS costs ~5.4 req/s per tile
+    // (0.5 s segments — both measured 2026-09-11), so a remote wall is held to
+    // httpLiveBudget live tiles and the rest show snapshots. Cleared by rtsp frames.
+    property bool remoteMode: false
+    readonly property int httpLiveBudget: 10
+    function noteTransportFallback() { remoteMode = true; }
     function noteRtspFrame() {
         var now = Date.now();
         if (now - rtspLastFrameMs > 2000) rtspLastFrameMs = now;   // throttled write
+        if (remoteMode) remoteMode = false;
     }
     function rtspReachable() { return rtspLastFrameMs > 0 && (Date.now() - rtspLastFrameMs) < 60000; }
 

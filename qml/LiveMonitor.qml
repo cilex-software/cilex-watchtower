@@ -162,9 +162,17 @@ Item {
     // always wins — it is what stops an OOM kill), then the WT_MAX_DECODES dev
     // override, then the operator's Preferences value. Default 32 (was a hardcoded
     // 16) at the operator's direction, 2026-08-11.
-    readonly property int maxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
+    readonly property int _baseMaxLiveDecodes: (typeof MemTel !== "undefined" && MemTel.shedLive) ? 1
         : ((typeof wtMaxDecodes !== "undefined" && wtMaxDecodes > 0) ? wtMaxDecodes
                                                                     : Settings.maxLiveDecodes)
+    // Off-site (RTSP unreachable → HTTP/HLS transport) the wall is held to
+    // ReconnectCoordinator.httpLiveBudget live tiles: CV's live proxy saturates at
+    // ~130 req/s and a 25-tile HLS wall projects 135 (measured 2026-09-11). The
+    // rest fall to snapshot tiles, exactly as beyond the decode cap.
+    readonly property int maxLiveDecodes: ReconnectCoordinator.remoteMode
+        ? (_baseMaxLiveDecodes > 0 ? Math.min(_baseMaxLiveDecodes, ReconnectCoordinator.httpLiveBudget)
+                                   : ReconnectCoordinator.httpLiveBudget)
+        : _baseMaxLiveDecodes
     // Which cameras on the page get the ≤maxLiveDecodes LIVE decode slots — the most IMPORTANT ones, not just
     // the first N by sort position. An ARMED (motion-armed) camera gets a live pipeline ahead of an idle one,
     // so it's real-time, not a snapshot lagging behind. Stable: keyed off the roster/sort (not every status
@@ -1469,6 +1477,8 @@ Item {
                                 pattern: cellWrap.modelData.pattern
                                 rtspUrl: cellWrap.modelData.rtspUrl
                                 rtspSubUrl: cellWrap.modelData.rtspSubUrl
+                                hlsSubUrl: cellWrap.modelData.hlsSubUrl || ""
+                                hlsOptUrl: cellWrap.modelData.hlsOptUrl || ""
                                 // Only play when Live Monitor is the visible section (so other
                                 // screens don't hold open streams / hit cameras) AND not while
                                 // arranging. Keeping the 16 VA-API decodes alive across the

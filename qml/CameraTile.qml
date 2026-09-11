@@ -159,6 +159,8 @@ Item {
     // many simultaneous decodes light; focused views can use the main stream.
     property string rtspUrl: ""       // main stream (on-demand HD only)
     property string rtspSubUrl: ""    // substream — the default for monitoring
+    property string hlsSubUrl: ""     // CV's hls_sub_url — the SD·NET rung (remote transport)
+    property string hlsOptUrl: ""     // CV's hls_opt_url — the OPT·NET rung (640w, bitrate-capped)
     property bool videoActive: false
     // Concurrent-decode cap. Each live VA-API decode holds hundreds of MB on the shared iGPU,
     // so the grid runs only a bounded number at once (set by LiveMonitor, by tile position).
@@ -190,9 +192,13 @@ Item {
     readonly property var streamTiers: {
         if (streamUrl === "") return [];
         var q = useMainStream ? "HD" : "SD";
-        var http = (typeof LiveHttp !== "undefined") ? LiveHttp.liveUrlFor(streamUrl) : "";
+        var lh = (typeof LiveHttp !== "undefined");
+        // CV's field first (source of truth), derivation only as a fallback.
+        var http = lh ? (LiveHttp.liveUrlForUpstream(useMainStream ? "" : hlsSubUrl) || LiveHttp.liveUrlFor(streamUrl)) : "";
+        var opt  = (lh && !useMainStream) ? LiveHttp.liveUrlForUpstream(hlsOptUrl) : "";
         var t = [{ url: streamUrl, badge: q }];
         if (http) t.push({ url: http, badge: q + "·NET" });
+        if (opt)  t.push({ url: opt,  badge: "OPT·NET" });
         return t;
     }
     // The rung the surface actually settled on, and whether it had to step down —
@@ -344,10 +350,16 @@ Item {
                 // unreachable transport forever. Only when no lighter rung remains do
                 // we fall back to the original destroy-and-rebuild recycle.
                 var it = videoLoader.item;
-                if (it && it.canStepDownTier) {
+                if (it && it.stepDownAllowed()) {
                     console.warn("[WT-TILE] stepping tier down (errored) ip=" + root.ip);
                     it.stepDownTier("recycle");
                     base._recycleTry = 0;        // fresh rung: prompt attempts, not a stale backoff
+                    return;
+                }
+                if (it && it.canReturnToPreviousRung) {   // the lower rung is the one that died
+                    console.warn("[WT-TILE] lower rung errored, returning to the last playing rung ip=" + root.ip);
+                    it.returnToPreviousRung("recycle");
+                    base._recycleTry = 0;
                     return;
                 }
                 // Logged unconditionally: a stuck tile healing itself must still be

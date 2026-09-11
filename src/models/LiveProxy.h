@@ -23,6 +23,11 @@ public:
     // when it cannot be derived. This is the source ladder's HTTP rung:
     // VideoSurface plays it when RTSP cannot deliver.
     Q_INVOKABLE QString liveUrlFor(const QString &rtspUrl) const;
+    // Proxy URL for one of CV's own HLS fields (hls_sub_url / hls_opt_url): the
+    // upstream path must be the live HLS master and `src` is taken from THEIR url —
+    // the field is the source of truth (CV 2026-09-11: "stop deriving"). "" when
+    // the url is not that shape; callers then fall back to liveUrlFor().
+    Q_INVOKABLE QString liveUrlForUpstream(const QString &hlsUrl) const;
 
 private:
     HlsProxy *m_proxy = nullptr;

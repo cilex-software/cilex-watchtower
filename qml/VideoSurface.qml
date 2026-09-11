@@ -57,7 +57,25 @@ Item {
     // destroying-and-rebuilding the surface (which would reset it to the top rung
     // and loop forever on an unreachable transport).
     readonly property bool hasLowerTier: _hasLowerTier
-    function stepDownTier(reason) { if (canStepDownTier) _stepDownTier(reason && reason.length ? reason : "external") }
+    // A rung that failed to deliver after a rung that DID is not retried for 60 s
+    // (e.g. CV's -opt budget answering 503): the surface returns to the last rung
+    // that played. Recovery, not an upgrade probe — auto step-UP stays off.
+    property var _rungBlockedUntil: ({})
+    property bool _prevRungPlayed: false
+    function _rungBlocked(i) { var t = _rungBlockedUntil[i]; return t !== undefined && Date.now() < t; }
+    function stepDownAllowed() { return canStepDownTier && !_rungBlocked(_tierIndex + 1); }
+    readonly property bool canReturnToPreviousRung: _tierIndex > 0 && _prevRungPlayed
+    function returnToPreviousRung(reason) {
+        if (!canReturnToPreviousRung) return false;
+        var b = {}; for (var k in _rungBlockedUntil) b[k] = _rungBlockedUntil[k];
+        b[_tierIndex] = Date.now() + 60000; _rungBlockedUntil = b;
+        console.info("[TIER] rung", (currentTier ? currentTier.badge : "?"), "failed (" + reason + ") → back to",
+                     tiers[_tierIndex - 1].badge, "(blocked 60 s)");
+        _prevRungPlayed = false;
+        _tierIndex = _tierIndex - 1;
+        return true;
+    }
+    function stepDownTier(reason) { if (stepDownAllowed()) _stepDownTier(reason && reason.length ? reason : "external") }
     signal tierStepped(string reason, string badge)
 
     function _applyTier() {
@@ -69,13 +87,17 @@ Item {
             url = u;                     // → onUrlChanged resets frame/backoff state
     }
     function _stepDownTier(reason) {
-        if (!canStepDownTier)
+        if (!stepDownAllowed())
             return;
+        var from = tiers[_tierIndex], to = tiers[_tierIndex + 1];
+        _prevRungPlayed = _everPlayed;
+        if (from && to && !_isHttp(from.url) && _isHttp(to.url))
+            ReconnectCoordinator.noteTransportFallback();   // → remote wall budget
         _tierIndex = _tierIndex + 1;     // → on_TierIndexChanged → _applyTier
         console.info("[TIER] step down →", (currentTier ? currentTier.badge : "?"), "(" + reason + ")");
         tierStepped(reason, currentTier ? currentTier.badge : "");
     }
-    onTiersChanged: { _tierIndex = 0; _coldFailsThisTier = 0; _applyTier(); }
+    onTiersChanged: { _tierIndex = 0; _coldFailsThisTier = 0; _prevRungPlayed = false; _rungBlockedUntil = ({}); _applyTier(); }
     on_TierIndexChanged: _applyTier()
 
     // `playing` = FRAMES ARE ACTUALLY FLOWING, not merely "the pipeline reports itself up".
@@ -222,11 +244,13 @@ Item {
         if (!root.active || root.url === "" || root.playing) return;
         // Ladder: a rung that has never delivered a frame and keeps failing to
         // connect gets abandoned for a lighter one, rather than hammered forever.
-        if (!root._everPlayed && root.canStepDownTier) {
-            root._coldFailsThisTier++;
-            if (root._coldFailsThisTier >= root._coldFailLimit) {
-                root._stepDownTier("cold-connect");
-                return;
+        if (!root._everPlayed) {
+            if (root.stepDownAllowed()) {
+                root._coldFailsThisTier++;
+                if (root._coldFailsThisTier >= root._coldFailLimit) { root._stepDownTier("cold-connect"); return; }
+            } else if (root.canReturnToPreviousRung) {
+                root._coldFailsThisTier++;
+                if (root._coldFailsThisTier >= root._coldFailLimit && root.returnToPreviousRung("cold-connect")) return;
             }
         }
         if (backend.item && backend.item.reconnect) backend.item.reconnect();

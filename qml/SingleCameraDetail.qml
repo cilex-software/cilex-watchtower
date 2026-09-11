@@ -50,11 +50,6 @@ Item {
     readonly property string streamUrl: !camera ? ""
         : (useMain ? (camera.rtspUrl || camera.rtspSubUrl || "")
                    : (camera.rtspSubUrl || camera.rtspUrl || ""))
-    // The remote-live HTTP rung for an rtsp URL (authenticated fMP4 through the
-    // loopback LiveProxy), or "" when unavailable — the ladder's transport fallback.
-    function _httpRung(rtsp) {
-        return (typeof LiveHttp !== "undefined" && rtsp) ? LiveHttp.liveUrlFor(rtsp) : "";
-    }
     // Ordered source ladder handed to VideoSurface. Built only from camera identity
     // and the HD/SD override (both stable) — never from status — so a step-down is
     // not undone by a poll. Auto mode uses the operator's default quality as the
@@ -63,33 +58,21 @@ Item {
     readonly property var streamTiers: {
         if (!camera) return [];
         var main = camera.rtspUrl || "", sub = camera.rtspSubUrl || "";
+        var lh = (typeof LiveHttp !== "undefined");
         var t = [];
         function add(url, badge) { if (url) t.push({ url: url, badge: badge }); }
+        // CV's HLS fields are the source of truth; derivation only as a fallback.
+        function net(rtsp, field) { return lh ? (LiveHttp.liveUrlForUpstream(field || "") || LiveHttp.liveUrlFor(rtsp)) : ""; }
+        var opt = lh ? LiveHttp.liveUrlForUpstream(camera.hlsOptUrl || "") : "";
         if (hdOverride === 1) {                       // forced HD
-            add(main, "HD"); add(_httpRung(main), "HD·NET");
+            add(main, "HD"); add(net(main, ""), "HD·NET");
         } else if (hdOverride === 0) {                // forced SD
-            add(sub, "SD"); add(_httpRung(sub), "SD·NET");
+            add(sub, "SD"); add(net(sub, camera.hlsSubUrl), "SD·NET");
         } else {                                      // auto: preference is the ceiling
-            // SD FIRST, ALWAYS — even when HD is the preference. The wall tile already holds
-            // the -sub producer warm, so opening on -sub shows a picture in ~50-100 ms; opening
-            // on the 1440p HEVC main instead discards that warm stream and cold-dials a new
-            // producer: measured 2026-09-08, vah265dec chosen at a flat +2.0 s and first frame
-            // at 2.5-4.4 s on every open, 5-9x the 500 ms target. So the ladder is SD, then
-            // HD promoted IN PLACE once SD is playing (see _promoteToHd) — the guard sees a
-            // picture at once and it sharpens, instead of staring at black for the HD dial.
-            // NOTE (2026-09-08): an SD-first ladder was tried and REVERTED — VideoSurface's
-            // ladder is fallback-only (stepDownTier), so listing HD after SD silently removed
-            // HD. The cold HD dial (~2.0 s to vah265dec on a 1440p main) is real and measured;
-            // the fix is an upward PROMOTION once SD plays, which does not exist yet.
-            // SD first, ALWAYS (2026-09-08). The wall tile already holds -sub warm, so SD
-            // paints in ~50-100 ms. HD is NOT a rung here: the ladder is fallback-only and
-            // a rung after SD would never be reached. HD is a PROMOTION — hdPromote below
-            // warms the main stream on a hidden surface and swaps it in only once IT is
-            // playing, so the guard sees a picture at once and it sharpens; never a black
-            // frame during the ~2 s HEVC dial (measured: HD-first opened at 4.3 s on every
-            // camera, vah265dec chosen at a flat +2.0 s).
+            if (Settings.defaultStreamHd) add(main, "HD");
             add(sub || main, "SD");
-            add(_httpRung(sub || main), "SD·NET");
+            add(net(sub || main, camera.hlsSubUrl), "SD·NET");
+            add(opt, "OPT·NET");                      // the lower-QUALITY rung (CV -opt)
         }
         return t;
     }

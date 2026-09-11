@@ -5,6 +5,8 @@
 
 #include <QThread>
 #include <QUrl>
+#include <QUrlQuery>
+#include <QRegularExpression>
 
 LiveProxy::LiveProxy(QObject *parent)
     : QObject(parent)
@@ -51,4 +53,18 @@ QString LiveProxy::liveUrlFor(const QString &rtspUrl) const
     // all (see HlsProxy::serveRequest), and HLS is also what Cilex Pro Mobile uses.
     return m_proxy->localBase() + QStringLiteral("/live/stream.m3u8?src=")
            + QString::fromUtf8(QUrl::toPercentEncoding(name));
+}
+
+QString LiveProxy::liveUrlForUpstream(const QString &hlsUrl) const
+{
+    if (hlsUrl.isEmpty() || m_proxy->port() == 0)
+        return QString();
+    const QUrl u(hlsUrl);
+    if (!u.path().endsWith(QLatin1String("/streams/live/stream.m3u8")))
+        return QString();
+    const QString src = QUrlQuery(u).queryItemValue(QStringLiteral("src"));
+    static const QRegularExpression ok(QStringLiteral("^[A-Za-z0-9_.-]{1,128}$"));
+    if (!ok.match(src).hasMatch())
+        return QString();
+    return m_proxy->localBase() + QStringLiteral("/live/stream.m3u8?src=") + src;
 }

@@ -206,3 +206,35 @@ fMP4-specific, corrected). Both fit the 15 s HTTP budget, `-wall` barely. Letter
 `2026-09-11-transcoded-rungs-over-hls-start-in-10-14-s-and-the-request-rate.md`
 asks CV for start-up figures, `-opt` confirmation + cap, and 1–2 s HLS segments
 (0.5 s segments ≈ 5.4 req/s per tile; a 25-tile wall ≈ 135 req/s).
+
+## Update 2026-09-11 (evening) — OPT·NET rung shipped, remote wall budget, CV's numbers
+
+CV's reply (`2026-09-11-transcoded-rungs-over-hls-start-in-10-14-s-and-the-request-rate.reply.md`):
+producer spin-up confirmed (cold 4.7–6.3 s at go2rtc, warm 0.00 s; encoder flags
+do nothing); `-opt` official on 133 cameras, cap 32 enforced with
+`503 opt_tier_budget_exhausted` + Retry-After; `hls_opt_url`/`rtsp_opt_url` in
+`/streams` since d94f28d; 0.5 s HLS segments are a go2rtc constant; **their live
+proxy saturates at ~130 req/s → hold 10 tiles on the HTTP rung.**
+
+**Shipped (mac, straight to main):**
+- `/streams` fields read, never derived: `hls_sub_url`, `hls_opt_url`, `rtsp_opt_url`
+  (`CameraModel`, roles + map; `[STREAMS] cameras=133 hls_sub_url=133 hls_opt_url=133`
+  logged when coverage changes, with a sample path).
+  `LiveHttp.liveUrlForUpstream(field)` maps CV's URL to the proxy route; the old
+  derivation remains only as a fallback.
+- **`OPT·NET` rung** below `SD·NET` in auto mode (wall tiles + single view); forced
+  HD/SD stay pinned to their tier + its NET fallback. Badge shows `OPT·NET` /
+  `AUTO OPT·NET`.
+- **Remote wall budget**: `ReconnectCoordinator.remoteMode` (set on the first
+  rtsp→http step, cleared by any rtsp frame) caps the wall's live decodes at
+  `httpLiveBudget = 10`; the rest become snapshot tiles. ≈54 req/s vs CV's 130 cliff.
+- **Failed lower rung returns**: a rung that never plays after a rung that did
+  (e.g. `-opt` answering 503 past the cap) hands the surface back to the last playing
+  rung and is not retried for 60 s. Recovery, not a step-up probe.
+- HTTP rung budget stays 15 s per cold attempt (CV: cold ≈10 s at our player; warm ≈ 2–3 s
+  at the picture — first bytes are instant but the frame waits for the next keyframe, Linux
+  agent's CC note 2026-09-11).
+
+**Not done / open:** Retry-After is not parsed (flat 60 s); `rtsp_opt_url` is parsed
+but on no rung (LAN never steps to opt by design); CV's 32-concurrent 15 fps load
+test is still unrun on their side; the producer linger (3b) — we said yes.
