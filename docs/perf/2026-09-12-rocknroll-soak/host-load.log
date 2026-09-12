@@ -199,3 +199,9 @@
 09:24:09 load=14.38 18.98 21.33 io_some=19.89 io_full=13.51 wa=15 id=55 bi_kBs=102892 bo_kBs=105628
 09:24:40 load=13.96 18.34 21.03 io_some=17.66 io_full=12.25 wa=8 id=56 bi_kBs=59180 bo_kBs=77064
 09:25:11 load=15.15 18.16 20.88 io_some=28.89 io_full=19.76 wa=13 id=43 bi_kBs=736352 bo_kBs=18204
+09:25:42 load=13.92 17.62 20.62 io_some=17.82 io_full=12.08 wa=15 id=43 bi_kBs=53904 bo_kBs=231044
+09:26:13 load=14.27 17.35 20.43 io_some=20.24 io_full=13.36 wa=19 id=39 bi_kBs=50424 bo_kBs=156512
+09:26:44 load=14.89 17.19 20.28 io_some=43.88 io_full=26.22 wa=23 id=19 bi_kBs=99332 bo_kBs=125532
+09:27:15 load=21.84 18.64 20.65 io_some=53.88 io_full=33.56 wa=36 id=15 bi_kBs=26748 bo_kBs=127224
+09:27:47 load=38.80 22.93 22.00 io_some=73.27 io_full=44.92 wa=42 id=7 bi_kBs=180068 bo_kBs=163924
+09:28:18 load=41.00 25.08 22.75 io_some=66.81 io_full=40.41 wa=31 id=23 bi_kBs=567648 bo_kBs=76304
