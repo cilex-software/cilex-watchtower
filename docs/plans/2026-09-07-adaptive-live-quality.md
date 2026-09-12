@@ -262,3 +262,24 @@ resampling?). Real ceiling is **their HLS proxy, ~21 concurrent `-opt` streams**
 (~11 consumers) fits; a second remote client would not. `httpLiveBudget` stays 10.
 Client tuned: HTTP rung first attempt 15 s, later attempts 8 s; failed-rung block
 60 s → 15 s (their Retry-After).
+
+**CV, 2026-09-11 (late), two letters:**
+- **20 fps resolved: the transcode is the fault, not the fleet.** All 133 cameras
+  are 15 fps by ISAPI. `-opt` emits ~19 fps from a ~14.5 fps `-sub` because
+  go2rtc's ffmpeg template pads CFR to a declared 20/1 nominal (~1 in 4 frames
+  duplicated). DEGRADED badge is safe (floor 10 vs a correct 15 nominal); an
+  `-opt` tile's measured/reported fps reads ~19 until fixed — do not badge on
+  deviation from 15. **`-g 20` never took effect** (go2rtc appends `-g 50` after
+  `#raw=`); the "3.82→2.91 s" claim is withdrawn; our budgets were measured on the
+  real stream and stand. Both fixes need go2rtc's ffmpeg template overridden in
+  go2rtc.yaml = a go2rtc restart = **operator window**; the fix is unproven.
+- **RTSP `-sub` warmth DECLINED** (RTSP bypasses query-api so nothing arms; the
+  cover cost 919 kbit/s + ~4 CPU points per held stream and bought nothing;
+  reverted). `-sub` opened through the HLS proxy — our `SD·NET` rung — still
+  lingers. LINGER_MAX 16 → 6. Stampede bug in the linger found and fixed.
+- **Go #1 subset is LIVE**: all 35 "Улица" cameras GovLength 50 → 15 since
+  2026-09-11 02:52Z (1 s keyframe at 15 fps). CV's `-sub` warm join mean 3.37 →
+  2.16 s. Cost signal already visible: Улица `-sub` now runs near its 1024 kbit/s
+  VBR cap (~919 kbit/s measured) — the retention-days figure is still owed before
+  any fleet rollout (our 2026-09-11 letter, item 2b). For the remote wall that is
+  ~9 Mbit/s for 10 `SD·NET` tiles, well inside both links.
