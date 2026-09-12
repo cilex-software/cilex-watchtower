@@ -87,3 +87,12 @@
 08:09:27 OUTLIER first-seen n=309 pb_open_armed_d1 reason=no_metric primary=None log=logs/n0309-pb_open_armed_d1.log par08:23:48 START rocknroll soak until 11:00 local; build 2168826+bin@120426; 28 actions in 7 groups
 
 08:29:17 SOAK PAUSED by me — pilot box ~19 min from ENOSPC, recorder spool growing 750 MB/min
+09:51:29 START rocknroll soak until 11:00 local; build ebe085e+bin@120943; 28 actions in 7 groups
+09:52:38 REPRO-OK n=344 hero primary=203.0 (no outlier after the fix)
+09:53:47 REPRO-OK n=345 hero primary=263.5 (no outlier after the fix)
+09:54:37 OUTLIER first-seen n=346 pb_rollover reason=over_target:2250.0>1000 primary=2250.0 log=logs/n0346-pb_rollover.log params={'WT_PLAYBACK_IP': '192.168.1.183', 'WT_TTFF_DAYS': '2026-09-11', 'WT_TTFF_EOS': '1'}
+09:56:06 OUTLIER first-seen n=348 pb_open_d1 reason=over_target:8014.0>1000 primary=8014.0 log=logs/n0348-pb_open_d1.log params={'WT_PLAYBACK_IP': '192.168.1.189', 'WT_TTFF_DAYS': '2026-09-11'}
+10:06:53 OUTLIER first-seen n=358 pb_open_armed_d1 reason=over_target:1232.0>1000 primary=1232.0 log=logs/n0358-pb_open_armed_d1.log params={'WT_PLAYBACK_IP': '192.168.1.212', 'WT_TTFF_DAYS': '2026-09-11'}
+10:17:01 OUTLIER first-seen n=368 tabs reason=over_target:6497.0>5000 primary=6497.0 log=logs/n0368-tabs.log params={'WT_TABS': '192.168.1.221,192.168.1.103,192.168.1.212,192.168.1.102', 'WT_TABS_HOME': '1'}
+10:52:06 DIGEST runs=66 outliers=6 kinds={'pb_rollover:over_target': 2, 'pb_open_d1:over_target': 2, 'pb_open_armed_d1:over_target': 1, 'tabs:over_target': 1}
+11:00:29 FINISHED at 11:00; runs=409; see rows.jsonl

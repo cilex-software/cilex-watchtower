@@ -1,10 +1,10 @@
-# Rock-n-roll soak — 2026-09-12, 02:10 → 08:27 MSK
+# Rock-n-roll soak — 2026-09-12, 02:10 → 11:00 MSK
 
 **Goal (operator, 2026-09-12 02:05):** *"run a rock n roll soak test until 11 AM … a list of totally random actions … measure all timings … grouped into sensible groups … stats of various actions … which actions are outliers … analyse what had caused an outlier preferably on the spot and apply fix and attempt to reproduce the issue you just fixed."*
 
-**Shape:** 343 runs of the real app binary (`build/watchtower`, software decode default), one launch per run, weighted-random action from a 28-entry catalogue in 8 groups (BACKEND 39, EVENTS 34, LIVE 67, PLAYBACK 96, STARTUP 8, STRESS 35, UI 41, WALL 23), against the live pilot backend (`WT_SOAK_NOEXPORT=1`, no writes; review/mosaic sessions disposed after each run). Driver `tools/rocknroll-soak.py`, report `tools/rocknroll-report.py`, rows in `rows.jsonl`, outliers in `outliers.jsonl`, events in `events.log`, hand notes in `notes.jsonl`. Every fix was rebuilt mid-run and the action re-queued (`queue.txt`) to reproduce; the per-build table below shows before/after. Builds seen: 2168826+bin@120426, 254b5ab+bin@120217, 254b5ab+bin@120248, 3cdd436+bin@120217, 91a34c8+bin@120248, 91a34c8+bin@120252, 91a34c8+bin@120255, 91ae28c+bin@111257, 91ae28c+bin@120217, ac8cfa1+bin@120255, ac8cfa1+bin@120400, ac8cfa1+bin@120405, ac8cfa1+bin@120409, ac8cfa1+bin@120413, ac8cfa1+bin@120418, ac8cfa1+bin@120420, ac8cfa1+bin@120426. Crashes: **1** (n118 wall_day1).
+**Shape:** 418 runs of the real app binary (`build/watchtower`, software decode default), one launch per run, weighted-random action from a 28-entry catalogue in 8 groups (BACKEND 48, EVENTS 40, LIVE 80, PLAYBACK 122, STARTUP 11, STRESS 39, UI 51, WALL 27), against the live pilot backend (`WT_SOAK_NOEXPORT=1`, no writes; review/mosaic sessions disposed after each run). Driver `tools/rocknroll-soak.py`, report `tools/rocknroll-report.py`, rows in `rows.jsonl`, outliers in `outliers.jsonl`, events in `events.log`, hand notes in `notes.jsonl`. Every fix was rebuilt mid-run and the action re-queued (`queue.txt`) to reproduce; the per-build table below shows before/after. Builds seen: 2168826+bin@120426, 254b5ab+bin@120217, 254b5ab+bin@120248, 3cdd436+bin@120217, 91a34c8+bin@120248, 91a34c8+bin@120252, 91a34c8+bin@120255, 91ae28c+bin@111257, 91ae28c+bin@120217, ac8cfa1+bin@120255, ac8cfa1+bin@120400, ac8cfa1+bin@120405, ac8cfa1+bin@120409, ac8cfa1+bin@120413, ac8cfa1+bin@120418, ac8cfa1+bin@120420, ac8cfa1+bin@120426, ebe085e+bin@120943. Crashes: **1** (n118 wall_day1).
 
-**Ended early.** The run was stopped at 08:29 MSK, not at the planned 11:00: the pilot host ran out of disk at 08:08–08:09 (the driver itself died writing its log, and the Watchtower supervisor could not start), and after a restart at 08:23 I stopped the soak again at 08:29 while the host was still filling at 750 MB/min. The cause is on the backend side and is written up under "Host condition" below; the soak was measured not to be driving it. Everything in this report is from the 02:10–08:27 window.
+**Interrupted, in three parts.** The run went 02:10–08:09, 08:23–08:29 and 09:51–11:00. It was not one continuous soak because the pilot host ran out of disk at 08:08: the driver died mid-write, the Watchtower supervisor could not start, and after a restart at 08:23 I stopped the run again at 08:29 while the host was still filling at 750 MB/min. The cause was a backend volume-slot exhaustion written up under "Host condition" below, and the soak was measured not to be driving it — spool growth was identical with the soak stopped. The backend agent cleared the box at 09:51 against their own criterion (recorder spool under 5 GB, seaweed free slots above 50), which I verified independently before restarting.
 
 **One row was lost** to the disk failure: the record for run 309 was truncated mid-write at 08:09:27 and the restarted driver appended its next record onto the same line. I split them, kept the intact record and dropped the fragment. The run itself is in `events.log` (a `pb_open_armed_d1` flagged `no_metric`). Run numbering also has a gap at 309–340 because the restarted driver numbers from the file's line count; no data is missing there.
 
@@ -17,39 +17,39 @@
 Primary metric per action: the first `[TAG] key=` the harness prints for that action (playback = the day click's own first frame; live = `playing dt`; wall = `first_frame dt`; stress = an error/violation count). Outlier = crash, harness FAIL, no metric, over the target, or over 2.5× the action's running median.
 
 |---|---|---|---|---|---|---|---|---|---|
-| BACKEND | api_probe | 39 | 0 | **1** | 84 | 177 | 230 | median×2.5 | 2168826,254b5ab,3cdd436,91a34c8,ac8cfa1 |
-| EVENTS | events_section | 8 | 0 | **0** | 51 | 98 | 98 | 1500 | 3cdd436,91ae28c,ac8cfa1 |
-| EVENTS | hero | 26 | 4 | **5** | 284 | 6251 | 6487 | 3000 | 91a34c8,ac8cfa1 |
-| LIVE | live_open_armed (on-page) | 17 | 1 | **0** | 168 | 237 | 3046 | 500 | 91a34c8,ac8cfa1 |
+| BACKEND | api_probe | 48 | 0 | **1** | 77 | 171 | 230 | median×2.5 | 2168826,254b5ab,3cdd436,91a34c8,ac8cfa1,ebe085e |
+| EVENTS | events_section | 11 | 0 | **0** | 51 | 76 | 98 | 1500 | 3cdd436,91ae28c,ac8cfa1,ebe085e |
+| EVENTS | hero | 29 | 4 | **5** | 263 | 6251 | 6487 | 3000 | 91a34c8,ac8cfa1,ebe085e |
+| LIVE | live_open_armed (on-page) | 20 | 1 | **0** | 170 | 231 | 3046 | 500 | 91a34c8,ac8cfa1,ebe085e |
 | LIVE | live_open_armed (off-page) | 4 | 3 | **1** | 890 | 919 | 919 | 500 | 91a34c8,ac8cfa1 |
 | LIVE | live_open_armed (unknown-page) | 5 | 1 | **0** | 240 | 4349 | 4349 | 500 | 254b5ab,3cdd436,91ae28c |
-| LIVE | live_open_offpage (on-page) | 2 | 0 | **0** | 177 | 208 | 208 | 3500 | ac8cfa1 |
-| LIVE | live_open_offpage (off-page) | 11 | 0 | **0** | 893 | 1171 | 1223 | 3500 | ac8cfa1 |
+| LIVE | live_open_offpage (on-page) | 3 | 0 | **0** | 154 | 208 | 208 | 3500 | ac8cfa1,ebe085e |
+| LIVE | live_open_offpage (off-page) | 17 | 0 | **0** | 893 | 1171 | 1223 | 3500 | ac8cfa1,ebe085e |
 | LIVE | live_open_offpage (unknown-page) | 2 | 0 | **0** | 905 | 960 | 960 | median×2.5 | 254b5ab,3cdd436 |
-| LIVE | live_open_recording (on-page) | 21 | 1 | **0** | 206 | 280 | 1102 | 500 | 2168826,91a34c8,ac8cfa1 |
+| LIVE | live_open_recording (on-page) | 24 | 1 | **0** | 199 | 280 | 1102 | 500 | 2168826,91a34c8,ac8cfa1,ebe085e |
 | LIVE | live_open_recording (unknown-page) | 5 | 3 | **0** | 518 | 879 | 879 | 500 | 254b5ab,3cdd436 |
-| PLAYBACK | pb_churn | 7 | 0 | **1** | 6.0 | 6.0 | 6.0 | median×2.5 | 91ae28c,ac8cfa1 |
-| PLAYBACK | pb_cold_boot | 4 | 1 | **0** | 1748 | 6284 | 6284 | 3000 | ac8cfa1 |
-| PLAYBACK | pb_frame_mode | 7 | 0 | **0** | 9.0 | 9.0 | 9.0 | median×2.5 | ac8cfa1 |
-| PLAYBACK | pb_open_armed_d1 | 5 | 3 | **0** | 1276 | 2257 | 2257 | 1000 | 254b5ab,ac8cfa1 |
-| PLAYBACK | pb_open_d1 | 24 | 15 | **0** | 1308 | 7433 | 21238 | 1000 | 254b5ab,3cdd436,ac8cfa1 |
+| PLAYBACK | pb_churn | 9 | 0 | **1** | 6.0 | 6.0 | 6.0 | median×2.5 | 91ae28c,ac8cfa1,ebe085e |
+| PLAYBACK | pb_cold_boot | 5 | 1 | **0** | 1212 | 6284 | 6284 | 3000 | ac8cfa1,ebe085e |
+| PLAYBACK | pb_frame_mode | 9 | 0 | **0** | 9.0 | 9.0 | 9.0 | median×2.5 | ac8cfa1,ebe085e |
+| PLAYBACK | pb_open_armed_d1 | 7 | 4 | **0** | 1254 | 2257 | 2257 | 1000 | 254b5ab,ac8cfa1,ebe085e |
+| PLAYBACK | pb_open_d1 | 29 | 17 | **0** | 1281 | 8014 | 21238 | 1000 | 254b5ab,3cdd436,ac8cfa1,ebe085e |
 | PLAYBACK | pb_open_d3 | 10 | 7 | **0** | 1410 | 1716 | 1967 | 1000 | 254b5ab,ac8cfa1 |
-| PLAYBACK | pb_open_d7 | 6 | 0 | **1** | - | - | - | 1000 | 254b5ab,ac8cfa1 |
-| PLAYBACK | pb_rollover | 12 | 11 | **0** | 2435 | 10084 | 11852 | 1000 | 3cdd436,91ae28c,ac8cfa1 |
-| PLAYBACK | pb_seek | 11 | 3 | **1** | 634 | 6299 | 6489 | 4000 | ac8cfa1 |
-| PLAYBACK | pb_smooth | 10 | 0 | **0** | 0.0 | 0.0 | 0.0 | 2000 | ac8cfa1 |
-| STARTUP | wall_lightup | 8 | 0 | **0** | 3005 | 3786 | 3786 | 5000 | ac8cfa1 |
+| PLAYBACK | pb_open_d7 | 7 | 0 | **1** | - | - | - | 1000 | 254b5ab,ac8cfa1,ebe085e |
+| PLAYBACK | pb_rollover | 16 | 13 | **0** | 2168 | 10084 | 11852 | 1000 | 3cdd436,91ae28c,ac8cfa1,ebe085e |
+| PLAYBACK | pb_seek | 14 | 3 | **1** | 474 | 6299 | 6489 | 4000 | ac8cfa1,ebe085e |
+| PLAYBACK | pb_smooth | 16 | 0 | **0** | 0.0 | 0.0 | 0.0 | 2000 | ac8cfa1,ebe085e |
+| STARTUP | wall_lightup | 11 | 0 | **0** | 2943 | 3391 | 3786 | 5000 | ac8cfa1,ebe085e |
 | STRESS | fsoak | 9 | 0 | **0** | 0.0 | 0.0 | 0.0 | 0 | 254b5ab,ac8cfa1 |
 | STRESS | guard_soak | 10 | 0 | **1** | 0.0 | 0.0 | 0.0 | 0 | 254b5ab,ac8cfa1 |
-| STRESS | night_soak | 10 | 0 | **0** | 334 | 696 | 750 | 15000 | 254b5ab,ac8cfa1 |
-| STRESS | wall_churn | 6 | 0 | **0** | 37 | 56 | 56 | 150 | ac8cfa1 |
-| UI | calstress | 7 | 1 | **0** | 8322 | 41774 | 41774 | 15000 | ac8cfa1 |
-| UI | group_grid | 11 | 0 | **0** | 477 | 667 | 1248 | 3000 | 254b5ab,3cdd436,91a34c8,ac8cfa1 |
+| STRESS | night_soak | 11 | 0 | **0** | 334 | 696 | 750 | 15000 | 254b5ab,ac8cfa1,ebe085e |
+| STRESS | wall_churn | 9 | 0 | **0** | 44 | 62 | 62 | 150 | ac8cfa1,ebe085e |
+| UI | calstress | 8 | 1 | **0** | 8440 | 41774 | 41774 | 15000 | ac8cfa1,ebe085e |
+| UI | group_grid | 17 | 0 | **0** | 468 | 740 | 1248 | 3000 | 254b5ab,3cdd436,91a34c8,ac8cfa1,ebe085e |
 | UI | nav | 9 | 1 | **0** | 408 | 15127 | 15127 | 1500 | ac8cfa1 |
-| UI | resize | 7 | 0 | **0** | 148 | 151 | 151 | median×2.5 | 2168826,ac8cfa1 |
-| UI | tabs | 7 | 0 | **0** | 3172 | 4028 | 4028 | 5000 | 3cdd436,ac8cfa1 |
-| WALL | wall_day1 | 10 | 0 | **1** | 8659 | 11787 | 13236 | median×2.5 | 2168826,ac8cfa1 |
-| WALL | wall_live | 13 | 1 | **0** | 8885 | 11200 | 17034 | median×2.5 | 254b5ab,91ae28c,ac8cfa1 |
+| UI | resize | 8 | 0 | **0** | 148 | 151 | 151 | median×2.5 | 2168826,ac8cfa1,ebe085e |
+| UI | tabs | 9 | 1 | **0** | 3431 | 6497 | 6497 | 5000 | 3cdd436,ac8cfa1,ebe085e |
+| WALL | wall_day1 | 11 | 0 | **1** | 8738 | 11787 | 13236 | median×2.5 | 2168826,ac8cfa1,ebe085e |
+| WALL | wall_live | 16 | 1 | **0** | 8782 | 11776 | 17034 | median×2.5 | 254b5ab,91ae28c,ac8cfa1,ebe085e |
 
 ## Per build (actions rebuilt during the run)
 
@@ -65,10 +65,12 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | api_probe | ac8cfa1+bin@120413 | 1 | 65 | 65 | 65 | 0 |
 | api_probe | ac8cfa1+bin@120420 | 1 | 220 | 220 | 220 | 0 |
 | api_probe | ac8cfa1+bin@120426 | 22 | 90 | 158 | 185 | 1 |
+| api_probe | ebe085e+bin@120943 | 9 | 61 | 145 | 145 | 0 |
 | events_section | 3cdd436+bin@120217 | 1 | 42 | 42 | 42 | 0 |
 | events_section | 91ae28c+bin@111257 | 1 | 53 | 53 | 53 | 0 |
 | events_section | ac8cfa1+bin@120255 | 1 | 51 | 51 | 51 | 0 |
 | events_section | ac8cfa1+bin@120426 | 5 | 51 | 98 | 98 | 0 |
+| events_section | ebe085e+bin@120943 | 3 | 44 | 76 | 76 | 0 |
 | hero | 91a34c8+bin@120252 | 1 | - | - | - | 1 |
 | hero | ac8cfa1+bin@120255 | 6 | 76 | 6251 | 6251 | 2 |
 | hero | ac8cfa1+bin@120400 | 3 | 941 | 6234 | 6234 | 2 |
@@ -76,6 +78,7 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | hero | ac8cfa1+bin@120413 | 3 | 203 | 301 | 301 | 0 |
 | hero | ac8cfa1+bin@120420 | 2 | 232 | 268 | 268 | 0 |
 | hero | ac8cfa1+bin@120426 | 8 | 441 | 6406 | 6406 | 3 |
+| hero | ebe085e+bin@120943 | 3 | 203 | 263 | 263 | 0 |
 | live_open_armed | 254b5ab+bin@120217 | 2 | 317 | 482 | 482 | 0 |
 | live_open_armed | 254b5ab+bin@120248 | 1 | 240 | 240 | 240 | 0 |
 | live_open_armed | 3cdd436+bin@120217 | 1 | 192 | 192 | 192 | 0 |
@@ -86,6 +89,7 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | live_open_armed | ac8cfa1+bin@120255 | 1 | 173 | 173 | 173 | 0 |
 | live_open_armed | ac8cfa1+bin@120420 | 1 | 178 | 178 | 178 | 0 |
 | live_open_armed | ac8cfa1+bin@120426 | 14 | 155 | 237 | 3046 | 2 |
+| live_open_armed | ebe085e+bin@120943 | 3 | 211 | 221 | 221 | 0 |
 | live_open_offpage | 254b5ab+bin@120217 | 1 | 850 | 850 | 850 | 0 |
 | live_open_offpage | 3cdd436+bin@120217 | 1 | 960 | 960 | 960 | 0 |
 | live_open_offpage | ac8cfa1+bin@120255 | 2 | 1006 | 1171 | 1171 | 0 |
@@ -93,6 +97,7 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | live_open_offpage | ac8cfa1+bin@120409 | 1 | 998 | 998 | 998 | 0 |
 | live_open_offpage | ac8cfa1+bin@120413 | 1 | 657 | 657 | 657 | 0 |
 | live_open_offpage | ac8cfa1+bin@120426 | 8 | 818 | 1223 | 1223 | 0 |
+| live_open_offpage | ebe085e+bin@120943 | 7 | 541 | 1119 | 1119 | 0 |
 | live_open_recording | 2168826+bin@120426 | 1 | 198 | 198 | 198 | 0 |
 | live_open_recording | 254b5ab+bin@120217 | 2 | 586 | 655 | 655 | 2 |
 | live_open_recording | 254b5ab+bin@120248 | 1 | 879 | 879 | 879 | 1 |
@@ -100,16 +105,21 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | live_open_recording | 91a34c8+bin@120255 | 2 | 187 | 239 | 239 | 0 |
 | live_open_recording | ac8cfa1+bin@120255 | 3 | 207 | 242 | 242 | 0 |
 | live_open_recording | ac8cfa1+bin@120426 | 15 | 206 | 280 | 1102 | 1 |
+| live_open_recording | ebe085e+bin@120943 | 3 | 136 | 151 | 151 | 0 |
 | pb_churn | 91ae28c+bin@111257 | 1 | - | - | - | 1 |
 | pb_churn | ac8cfa1+bin@120255 | 3 | 6.0 | 6.0 | 6.0 | 0 |
 | pb_churn | ac8cfa1+bin@120426 | 3 | 6.0 | 6.0 | 6.0 | 0 |
+| pb_churn | ebe085e+bin@120943 | 2 | 6.0 | 6.0 | 6.0 | 0 |
 | pb_cold_boot | ac8cfa1+bin@120255 | 1 | 2285 | 2285 | 2285 | 0 |
 | pb_cold_boot | ac8cfa1+bin@120405 | 1 | 6284 | 6284 | 6284 | 1 |
 | pb_cold_boot | ac8cfa1+bin@120426 | 2 | 946 | 1212 | 1212 | 0 |
+| pb_cold_boot | ebe085e+bin@120943 | 1 | 608 | 608 | 608 | 0 |
 | pb_frame_mode | ac8cfa1+bin@120255 | 3 | 9.0 | 9.0 | 9.0 | 0 |
 | pb_frame_mode | ac8cfa1+bin@120426 | 4 | 9.0 | 9.0 | 9.0 | 0 |
+| pb_frame_mode | ebe085e+bin@120943 | 2 | 9.0 | 9.0 | 9.0 | 0 |
 | pb_open_armed_d1 | 254b5ab+bin@120217 | 1 | 1276 | 1276 | 1276 | 1 |
 | pb_open_armed_d1 | ac8cfa1+bin@120426 | 4 | 1197 | 2257 | 2257 | 2 |
+| pb_open_armed_d1 | ebe085e+bin@120943 | 2 | 1232 | 1232 | 1232 | 1 |
 | pb_open_d1 | 254b5ab+bin@120217 | 2 | 3416 | 6479 | 6479 | 1 |
 | pb_open_d1 | 3cdd436+bin@120217 | 1 | 6613 | 6613 | 6613 | 1 |
 | pb_open_d1 | ac8cfa1+bin@120255 | 5 | 1094 | 7433 | 7433 | 3 |
@@ -117,21 +127,27 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | pb_open_d1 | ac8cfa1+bin@120413 | 1 | 905 | 905 | 905 | 0 |
 | pb_open_d1 | ac8cfa1+bin@120418 | 1 | 672 | 672 | 672 | 0 |
 | pb_open_d1 | ac8cfa1+bin@120426 | 13 | 1359 | 8288 | 21238 | 10 |
+| pb_open_d1 | ebe085e+bin@120943 | 5 | 587 | 8014 | 8014 | 2 |
 | pb_open_d3 | 254b5ab+bin@120217 | 2 | 1725 | 1967 | 1967 | 2 |
 | pb_open_d3 | ac8cfa1+bin@120426 | 8 | 1303 | 1716 | 1716 | 5 |
 | pb_open_d7 | 254b5ab+bin@120248 | 1 | - | - | - | 1 |
 | pb_open_d7 | ac8cfa1+bin@120255 | 2 | - | - | - | 0 |
 | pb_open_d7 | ac8cfa1+bin@120426 | 3 | - | - | - | 0 |
+| pb_open_d7 | ebe085e+bin@120943 | 1 | - | - | - | 0 |
 | pb_rollover | 3cdd436+bin@120217 | 1 | 2426 | 2426 | 2426 | 1 |
 | pb_rollover | 91ae28c+bin@120217 | 1 | 1198 | 1198 | 1198 | 1 |
 | pb_rollover | ac8cfa1+bin@120255 | 3 | 2087 | 2651 | 2651 | 3 |
 | pb_rollover | ac8cfa1+bin@120426 | 7 | 4955 | 11852 | 11852 | 6 |
+| pb_rollover | ebe085e+bin@120943 | 4 | 1187 | 2250 | 2250 | 2 |
 | pb_seek | ac8cfa1+bin@120255 | 1 | 263 | 263 | 263 | 0 |
 | pb_seek | ac8cfa1+bin@120426 | 10 | 795 | 6489 | 6489 | 4 |
+| pb_seek | ebe085e+bin@120943 | 3 | 146 | 955 | 955 | 0 |
 | pb_smooth | ac8cfa1+bin@120255 | 3 | 0.0 | 0.0 | 0.0 | 0 |
 | pb_smooth | ac8cfa1+bin@120426 | 7 | 0.0 | 0.0 | 0.0 | 0 |
+| pb_smooth | ebe085e+bin@120943 | 6 | 0.0 | 0.0 | 0.0 | 0 |
 | wall_lightup | ac8cfa1+bin@120255 | 5 | 2916 | 3391 | 3391 | 0 |
 | wall_lightup | ac8cfa1+bin@120426 | 3 | 3094 | 3786 | 3786 | 0 |
+| wall_lightup | ebe085e+bin@120943 | 3 | 2943 | 3237 | 3237 | 0 |
 | fsoak | 254b5ab+bin@120217 | 1 | 0.0 | 0.0 | 0.0 | 0 |
 | fsoak | ac8cfa1+bin@120255 | 2 | 0.0 | 0.0 | 0.0 | 0 |
 | fsoak | ac8cfa1+bin@120426 | 6 | 0.0 | 0.0 | 0.0 | 0 |
@@ -141,30 +157,40 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | night_soak | 254b5ab+bin@120217 | 1 | 133 | 133 | 133 | 0 |
 | night_soak | ac8cfa1+bin@120255 | 1 | 256 | 256 | 256 | 0 |
 | night_soak | ac8cfa1+bin@120426 | 8 | 350 | 750 | 750 | 0 |
+| night_soak | ebe085e+bin@120943 | 1 | 135 | 135 | 135 | 0 |
+| wall_churn | ac8cfa1+bin@120426 | 6 | 37 | 56 | 56 | 0 |
+| wall_churn | ebe085e+bin@120943 | 3 | 50 | 62 | 62 | 0 |
+| calstress | ac8cfa1+bin@120426 | 7 | 8322 | 41774 | 41774 | 1 |
+| calstress | ebe085e+bin@120943 | 1 | 8558 | 8558 | 8558 | 0 |
 | group_grid | 254b5ab+bin@120217 | 1 | 1248 | 1248 | 1248 | 0 |
 | group_grid | 3cdd436+bin@120217 | 1 | 259 | 259 | 259 | 0 |
 | group_grid | 91a34c8+bin@120252 | 1 | 355 | 355 | 355 | 0 |
 | group_grid | ac8cfa1+bin@120255 | 1 | 534 | 534 | 534 | 0 |
 | group_grid | ac8cfa1+bin@120426 | 7 | 477 | 667 | 667 | 0 |
+| group_grid | ebe085e+bin@120943 | 6 | 319 | 740 | 740 | 0 |
 | nav | ac8cfa1+bin@120255 | 2 | 402 | 433 | 433 | 0 |
 | nav | ac8cfa1+bin@120400 | 1 | 704 | 704 | 704 | 0 |
 | nav | ac8cfa1+bin@120426 | 6 | 369 | 15127 | 15127 | 1 |
 | resize | 2168826+bin@120426 | 1 | 143 | 143 | 143 | 0 |
 | resize | ac8cfa1+bin@120255 | 3 | 150 | 151 | 151 | 0 |
 | resize | ac8cfa1+bin@120426 | 3 | 148 | 150 | 150 | 0 |
+| resize | ebe085e+bin@120943 | 1 | 149 | 149 | 149 | 0 |
 | tabs | 3cdd436+bin@120217 | 2 | 3136 | 3172 | 3172 | 0 |
 | tabs | ac8cfa1+bin@120255 | 1 | 3495 | 3495 | 3495 | 0 |
 | tabs | ac8cfa1+bin@120426 | 4 | 3129 | 4028 | 4028 | 0 |
+| tabs | ebe085e+bin@120943 | 2 | 5196 | 6497 | 6497 | 1 |
 | wall_day1 | 2168826+bin@120426 | 1 | 13236 | 13236 | 13236 | 0 |
 | wall_day1 | ac8cfa1+bin@120255 | 2 | 8638 | 9845 | 9845 | 0 |
 | wall_day1 | ac8cfa1+bin@120409 | 1 | 8460 | 8460 | 8460 | 0 |
 | wall_day1 | ac8cfa1+bin@120413 | 1 | 8738 | 8738 | 8738 | 1 |
 | wall_day1 | ac8cfa1+bin@120420 | 1 | 9425 | 9425 | 9425 | 0 |
 | wall_day1 | ac8cfa1+bin@120426 | 4 | 8370 | 11787 | 11787 | 0 |
+| wall_day1 | ebe085e+bin@120943 | 1 | 10333 | 10333 | 10333 | 0 |
 | wall_live | 254b5ab+bin@120217 | 2 | 7893 | 8129 | 8129 | 0 |
 | wall_live | 91ae28c+bin@111257 | 1 | 7149 | 7149 | 7149 | 1 |
 | wall_live | ac8cfa1+bin@120255 | 2 | 8706 | 9291 | 9291 | 0 |
 | wall_live | ac8cfa1+bin@120426 | 8 | 9474 | 17034 | 17034 | 0 |
+| wall_live | ebe085e+bin@120943 | 3 | 8535 | 11776 | 11776 | 0 |
 
 ## Fixes applied during the run (with reproduction)
 
@@ -219,11 +245,11 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
   - fix: none client-side
 - **pb_seek:over_target** (n=138, 04:40): Server-side, known class: the seek test's far seeks each open a new session window whose first two segments render cold — sessions a376434a (seg0 serve 2,895 ms, seg1 3,298 ms) and b0a28468 (3,132 + 3,285 ms) → first_frame 6.8 s and one 8.0 s TIMEOUT; the in-stream 1 s steps land in 1-3 ms; sessions whose renditions already existed served in 43-440 ms per segment (f6e46824)
   - fix: none client-side; the cold-rendition cost per new window is CV's (a prewarm around the seek target, as B3 does for mosaics, would be the ask — not sent tonight)
-- **pb_open_armed_d1:over_target** (n=162, 05:09): Server-side session build for a motion-only day (fast_open_skip why=light-day, by design): session_http 434 ms then session_ready at 1,989 ms with the whole-day manifest; the first segments served from cache in 2-43 ms. first_frame 1,783 ms is the session wait
+- **pb_open_armed_d1:over_target** (n=162, 358, 05:09): Server-side session build for a motion-only day (fast_open_skip why=light-day, by design): session_http 434 ms then session_ready at 1,989 ms with the whole-day manifest; the first segments served from cache in 2-43 ms. first_frame 1,783 ms is the session wait. Recurred cleanly after the backend recovered (n358, 1,232 ms at 10:06, on the healthy box CV measured at 24-149 ms session creates), which confirms it is the whole-day manifest cost and not the catch-up: session_http 136 ms and session_ready 154 ms but with frags=1741 for the motion-only day, segments served in 103-273 ms. The client work after the manifest is what puts it over 1 s, not any single slow request
   - fix: none client-side (the bounded fast-open is skipped for light days on purpose; the whole-day session cost is CV's)
 - **pb_rollover:over_target** (n=183,205 (9 runs, 8 over target), 06:00): Systematic server class: the rollover action opens the day at its START (fast_open tgt=00:00:17) — a 30-min window nothing else ever renders, so its first two segments are cold on every run (n205: session_ready 752 ms, seg0 serve 3,432 ms, seg1 4,098 ms → first_frame 8,286 ms; medians 1.2-2.6 s on warmer runs). Not a client cost: source_set 23 ms after session_ready
   - fix: none client-side; a server-side prewarm of the first segments at session creation (as B3 prewarm does for mosaics) is the ask — not sent tonight
-- **hero:over_2.5x_median** (n=260, 07:06): No stall: 36 seeks, none ≥ 3 s (max 2,450 ms), median 618 ms flagged only against the running median of ~240 ms; 10 of the 36 seeks were cross-fragment re-opens whose new sessions rendered cold (0.5-2.4 s) — the server rendition class under the re-open path
+- **hero:over_2.5x_median** (n=260, 292, 07:06): No stall: 36 seeks, none ≥ 3 s (max 2,450 ms), median 618 ms flagged only against the running median of ~240 ms; 10 of the 36 seeks were cross-fragment re-opens whose new sessions rendered cold (0.5-2.4 s) — the server rendition class under the re-open path. CORRECTION, same session: I first wrote that n292 (958 ms at 07:46) had no stall. That was wrong and I had not looked at its per-seek lines. It has three seeks at or above 3 s, peaking at 6,519 ms. Recorded together so the per-build table is read correctly — on the 04:26 build the hero action ran 8 times and only ONE run exceeded the target, n130, which is the over-served/codec-boundary session CV has since confirmed as their defect. The dead-zone fix did not regress What those three actually are: every one follows a [HT] REOPEN and lands on a ±60 s jump, i.e. the re-open path fetching a NEW session window whose segments render cold — the server rendition class documented elsewhere in these notes, not the in-stream dead-zone stall the 04:20 fix addressed (its signature is a stall with no network activity ended by the 6 s watchdog; these have segment fetches in them). n292 also ran at 07:46, inside the host IO storm (07:25-08:09, io full-stall 26-43 %), which is when cold renditions were at their slowest. So the per-build table should be read as: on the 04:26 build the hero action ran 8 times, ONE exceeded the 3,000 ms target (n130, the over-served codec-boundary session CV has since confirmed as their defect), and the two median-relative flags are n260 (618 ms, no seek over 2,450 ms) and n292 (958 ms median, with re-open cold renditions during the storm). The dead-zone fix did not regress.
   - fix: none; within the 3 s target
 - **host_load:io_saturation** (n=285-287 + api_probe 07:37, 07:30-): Environment, not the client: from ~07:30 the pilot host is IO-saturated — /proc/loadavg 41.7/32.8/22.4 on 20 cores, /proc/pressure/io full avg10=40 % (all tasks blocked on disk 40 % of the time), vmstat wa 10-27 %, reads 100-230 MB/s. Container block-IO delta over 10 s: playback-service read 17 MB/s + write 34 MB/s (rendering the soak's playback opens cold), every other container < 1 MB/s → the bulk of the reads is the host-level seaweed `weed` volume process (69 % CPU) — CV's storage, cause unknown from here (compaction/retention?). Symptoms in the soak: live_open_recording n285 1,102 ms and live_open_armed n286 3,046 ms with GUI stalls of 0.9-2.0 s (the hinted pipeline adopted in 4-32 ms, so the pick/parking logic is fine), nav n287 15,127 ms, api_probe coverage 5,078 ms. Operator notified 07:40. Subsiding by 07:41 (load 22.6, io_full 4 %, reads 16 MB/s) — a ~15-minute window. A host-load sampler (unit hostload-0912b, 30 s) writes host-load.log beside rows.jsonl for the report
   - fix: none client-side; rows in this window are reported with the host condition, not as client regressions
@@ -237,16 +263,20 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
   - fix: PRESERVED by CV: /mnt/cilex-storage/orphaned-spool/2026-09-12/orphans.tar.gz, 147 files, 139.9 MB, verified by listing the archive, on the data disk rather than the container layer. Copied not moved, originals left in place, with a README beside it recording what they are, that they have zero video_segments rows, and what restoring them needs. Our two client-side constraints were taken as REQUIREMENTS for the future reconcile pass and the second travels in that README: (1) idempotent and safe against a spool being written concurrently, because the moment it is useful is exactly when uploads are failing and the directory is growing; (2) rows must carry the TRUE recorded timestamps parsed from seg-YYYYMMDD-HHMMSS.ts, never upload time - four-day-old footage catalogued as today puts a guard's evening in the wrong place on the scrubber, which is worse than it being missing, and is the test to write before shipping. Nothing to change on our side: our client reads the catalogue and shows an honest empty state for that minute, which is correct given what the system knows and is exactly why nobody noticed.
 - **INCIDENT:class_app_data_on_container_writable_layers** (n=generalisation of the disk incident, 09:40): The defect behind tonight's outage is not 'the recorder spool leaks' - it is APPLICATION DATA WRITTEN TO CONTAINER WRITABLE LAYERS. The spool was simply the instance large enough to take the box down; any other instance is invisible until a rebuild eats it, and rebuilds are routine. Two instances known so far. (1) recorder-service /tmp/recorder: the live spool, 46 GB at peak, and 147 files in it were the ONLY copy of real footage (zero video_segments rows) - preserved by CV to /mnt/cilex-storage/orphaned-spool/2026-09-12/ (139.9 MB, copied not moved, README beside it). (2) query-api /tmp/cilex-event-stills, 83 MB, 2,563 entries - flagged by this box from a measurement taken while hunting the disk filler, checked by CV (routers/events.py:1138): these are a CACHE of JPEG frames pulled from recorded segments, so they regenerate and losing the layer costs CPU, not data. BENIGN TODAY, TWO LATENT BUGS: there is no eviction, TTL or size cap on that directory, so it only grows; and it is young only because query-api is redeployed often (CV wiped it several times today without noticing). In a stable deployment it grows unbounded on the root disk and eventually holds stills whose source footage has passed retention - at which point those JPEGs become the only copy, on a layer a rebuild destroys. Same shape as the spool, arriving later and quieter.
   - fix: Nothing for us to change; both instances are CV's. Recorded here because the generalisation is the transferable part and because the next person meeting a full disk on this box needs it before they reach for rm or a rebuild. CV has taken the framing as the heading of their incident file and noted that their other services want auditing for the same shape. Neither latent bug is urgent, neither is fixed.
+- **pb_rollover:over_target** (n=346, 348, 09:54): Post-incident backend catch-up, NOT the cold-window class of the earlier rollover outliers: the SESSION CREATE was slow (session_http 1,262-2,258 ms against the 50-750 ms seen all night, session_ready 1,269 ms) while segment serves were normal (seg 2 in 73 ms). Measured 3 minutes after the recorder spool finished draining (988 MB left, 200 uploads/min still running), so query-api was still competing with the upload backlog. n348 (pb_open_d1, 8,014 ms, 09:56) is the same window with both components visible: session_http 3,668 ms then 1,706 ms on the span60 open (catch-up), and a cold segment render of 3,307 ms on the day session (the rendition class seen all night). Recorded together because they are one condition, not two new kinds. CONFIRMED AND CLOSED by CV at 10:08 with their own measurement: five session creates on a real camera over 30-minute windows came back at 61, 149, 34, 71 and 24 ms — not merely inside the 50-750 ms all-night baseline but at its fast end — with query-api at 6.3 % CPU and timescaledb at 5.4 %, both idle, spool stable at ~940 MB. MECHANISM, theirs: session create is the DB-heavy half (build_manifest does four reads plus a Python walk) while segment serve is mostly file I/O, which is exactly why creates degraded to seconds while serves in the same runs stayed at 73-431 ms. So this was query-api and timescaledb competing with the 46 GB upload backlog, not a rendition cost and not a client defect
+  - fix: none needed; normalised on its own once the backlog cleared, confirmed by measurement on both sides
+- **tabs:over_target / HARNESS METHODOLOGY** (n=368, 10:17): The 16-tile light-up took 6,497 ms against 2,705-4,028 ms for the seven earlier runs of this action. Not a client change (same build as the 2,828 ms run at 06:04) and not the backend incident (closed, CV measured session creates at 24-149 ms). The cause is the harness interfering with itself THROUGH THE BACKEND: soak actions run back-to-back as separate app launches, but the server-side work they start OUTLIVES the client process. n368 followed pb_churn at 10:15:29 and pb_smooth at 10:16:07, both playback-heavy; at 10:15-10:17 the host showed load 12-14 with io_full 13-19 % and reads to 200 MB/s, and playback-service was measured at 449 % CPU while the tabs run was lighting its wall. So a run's numbers can carry the tail of the previous run's server-side rendering. Sequential client launches are NOT sequential backend load.
+  - fix: none applied - this is a property of the harness, not a defect to patch mid-run, and the driver's weighted-random ordering means it affects a minority of runs. Recorded so the report's outliers are read correctly: an isolated over-target on a UI or STARTUP action that follows a PLAYBACK or WALL action should be checked against the preceding row before it is attributed to the client. If this harness is run again, the cheap fix is a settle window between runs (poll the backend's CPU or simply wait ~30 s after playback-heavy actions) or grouping actions so heavy ones do not precede light ones; both cost wall-clock, which is why they were not added at 10:17 with 40 minutes left
 
 ## Outliers (reason → count), by action
 
-- `pb_open_d1` — over_target × 15
-- `pb_rollover` — over_target × 11
+- `pb_open_d1` — over_target × 17
+- `pb_rollover` — over_target × 13
 - `pb_open_d3` — over_target × 7
 - `live_open_armed` — over_target × 5
+- `pb_open_armed_d1` — over_target × 4
 - `live_open_recording` — over_target × 4
 - `hero` — over_target × 4
-- `pb_open_armed_d1` — over_target × 3
 - `hero` — over_2.5x_median × 3
 - `pb_seek` — over_target × 3
 - `hero` — no_metric × 2
@@ -261,6 +291,7 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 - `calstress` — over_target × 1
 - `pb_seek` — no_metric × 1
 - `live_open_armed` — no_metric × 1
+- `tabs` — over_target × 1
 
 ## Every outlier
 
@@ -334,6 +365,12 @@ Primary metric per action: the first `[TAG] key=` the harness prints for that ac
 | 304 | 08:02:45 | pb_open_d1 | over_target:1281.0>1000 | 1281.0 | {"WT_PLAYBACK_IP": "192.168.1.245", "WT_TTFF_DAYS": "2026-09 | logs/n0304-pb_open_d1.log |
 | 307 | 08:07:54 | pb_seek | no_metric | None | {"WT_PLAYBACK_IP": "192.168.1.102", "WT_PLAYBACK_DAY": "2026 | logs/n0307-pb_seek.log |
 | 308 | 08:08:40 | live_open_armed | no_metric | None | {"WT_FOCUS_IP": "page:armed", "WT_FOCUS_DELAY_MS": "12000",  | logs/n0308-live_open_armed.log |
+| 346 | 09:54:37 | pb_rollover | over_target:2250.0>1000 | 2250.0 | {"WT_PLAYBACK_IP": "192.168.1.183", "WT_TTFF_DAYS": "2026-09 | logs/n0346-pb_rollover.log |
+| 348 | 09:56:06 | pb_open_d1 | over_target:8014.0>1000 | 8014.0 | {"WT_PLAYBACK_IP": "192.168.1.189", "WT_TTFF_DAYS": "2026-09 | logs/n0348-pb_open_d1.log |
+| 358 | 10:06:53 | pb_open_armed_d1 | over_target:1232.0>1000 | 1232.0 | {"WT_PLAYBACK_IP": "192.168.1.212", "WT_TTFF_DAYS": "2026-09 | logs/n0358-pb_open_armed_d1.log |
+| 368 | 10:17:01 | tabs | over_target:6497.0>5000 | 6497.0 | {"WT_TABS": "192.168.1.221,192.168.1.103,192.168.1.212,192.1 | logs/n0368-tabs.log |
+| 380 | 10:30:12 | pb_open_d1 | over_target:1604.0>1000 | 1604.0 | {"WT_PLAYBACK_IP": "192.168.1.183", "WT_TTFF_DAYS": "2026-09 | logs/n0380-pb_open_d1.log |
+| 397 | 10:47:27 | pb_rollover | over_target:1482.0>1000 | 1482.0 | {"WT_PLAYBACK_IP": "192.168.1.105", "WT_TTFF_DAYS": "2026-09 | logs/n0397-pb_rollover.log |
 
 ## Host condition
 
@@ -341,7 +378,7 @@ The pilot host (20 cores) carried CV's full backend throughout. From about 07:25
 
 | samples (30 s) | first | last | load₁ min / median / max | samples with IO full-stall ≥ 20 % | storm windows (IO full ≥ 20 %) |
 |---|---|---|---|---|---|
-| 220 | 07:41 | 09:35 | 9 / 15 / 43 | 63 (29 %) | 07:43–07:43, 07:50–07:50, 07:56–08:00, 08:02–08:02, 08:19–08:21, 08:35–08:35, 08:39–08:39, 08:46–08:46, 08:58–08:59, 09:01–09:04, 09:06–09:07, 09:08–09:11, 09:13–09:14, 09:15–09:17, 09:20–09:21, 09:26–09:28, 09:34–09:35 |
+| 384 | 07:41 | 11:00 | 8 / 14 / 43 | 80 (21 %) | 07:43–07:43, 07:50–07:50, 07:56–08:00, 08:02–08:02, 08:19–08:21, 08:35–08:35, 08:39–08:39, 08:46–08:46, 08:58–08:59, 09:01–09:04, 09:06–09:07, 09:08–09:11, 09:13–09:14, 09:15–09:17, 09:20–09:21, 09:26–09:28, 09:34–09:35, 09:41–09:41, 09:54–09:56, 10:13–10:13, 10:18–10:18, 10:26–10:26, 10:28–10:30, 10:47–10:47, 10:53–10:53 |
 
 ## Letters
 
@@ -350,4 +387,4 @@ The pilot host (20 cores) carried CV's full backend throughout. From about 07:25
 
 ## Logs
 
-Per-run logs of outliers and forced reproductions are kept on the dev box under `logs/` (105 files, ~197M); they are gitignored, not committed. `rows.jsonl` carries every number in this README.
+Per-run logs of outliers and forced reproductions are kept on the dev box under `logs/` (113 files, ~209M); they are gitignored, not committed. `rows.jsonl` carries every number in this README.
