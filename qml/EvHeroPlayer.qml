@@ -353,6 +353,30 @@ Item {
     // Freeze-watchdog (LAST RESORT only): on a continuous session direct seeks land ~99% — the slow ones are
     // cold BASE renditions (S3 fetch, ~2-4s) that DO land, and re-opening hits the same cold base, so a tight
     // watchdog just churns. So it's deliberately long: it re-opens only a genuine >6s hang, never the cold tail.
+    // END-ZONE watchdog (rock-n-roll soak 2026-09-12, n93/n106/n107, [HT] SEEKREQ trace): every
+    // 6 s stall was an in-stream seek whose target lay in the LAST SECOND of the player's media
+    // (pos 0.96–1.03 s before duration) — the +30 s/+10 s jumps clamped at the clip end, and after
+    // a re-open the pending seek lands 3 s before the end of a 10 s ready playlist so the next +1 s
+    // is the last second again. There the FFmpeg backend renders nothing and never reports
+    // EndOfMedia; only the 6 s watchdog moved us, by re-opening — into another short playlist,
+    // eight re-opens in a row. So: honour the click (the operator refused an up-front dead
+    // zone, 08-26), but if no frame lands within 1.5 s, step back IN-STREAM to 2.5 s before
+    // the end. No re-open, no chain; the scrubber shows where it really landed.
+    property int _endZoneSeq: -1
+    property double _endZoneWall: -1
+    Timer {
+        id: endZoneWatch; interval: 1500; repeat: false
+        onTriggered: {
+            if (hp._endZoneSeq >= 0 && hp._frameSeq <= hp._endZoneSeq) {
+                if (hp._htOn || (typeof wtTrace !== "undefined" && wtTrace))
+                    console.log("[HT] ENDZONE reopen wall=" + hp._endZoneWall + " t=" + Date.now());
+                hp._endZoneSeq = -1;
+                hp._seekFar(hp._endZoneWall);   // an in-stream step did not recover it (n111); a re-open lands in ~0.4 s
+                return;
+            }
+            hp._endZoneSeq = -1;
+        }
+    }
     Timer {
         id: seekWatch; interval: 6000; repeat: false
         onTriggered: {
@@ -541,7 +565,7 @@ Item {
         mkMeasuredMs = -1; mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();
         if (typeof MemTel !== "undefined") MemTel.trimNow();   // return retained decode arenas at teardown
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
-        seekWatch.stop(); _seekWatchSeq = -1; player.stop(); player.source = "";
+        seekWatch.stop(); _seekWatchSeq = -1; endZoneWatch.stop(); _endZoneSeq = -1; player.stop(); player.source = "";
     }
     function _open() {
         if (!ev || !ev.id || !playbackClient) return;
@@ -615,7 +639,9 @@ Item {
         _winStopped = false;        // a scrub away from the end re-arms the hard-stop latch
         wall = Math.max(tlStartMs, Math.min(tlEndMs, wall));
         if (_continuous) {
-            if (_armed && _frags.length > 0 && _crossesBoundary(_playheadWallMs, wall)) { _seekFar(wall); return; }
+            if (!_armed || _frags.length === 0) { _seekFar(wall); return; }   // no map yet: a blind position is a 6 s stall
+            if (_crossesBoundary(_playheadWallMs, wall)) { _seekFar(wall); return; }
+            if (_inDeadZone(wall)) { _seekFar(wall); return; }                  // the last segment is unreachable in-stream
             _seekWall(wall);
             _seekWatchSeq = _frameSeq; _seekWatchWall = wall; seekWatch.restart();   // arm the freeze-watchdog
             return;
@@ -625,6 +651,22 @@ Item {
     }
     // Does the wall jump [from,to] step over a kept discontinuity:true fragment? (The leading "start" sits at
     // the run start ≤ from, so a normal mid-clip seek never crosses it — only real gaps/codec/profile/wrap.)
+    // The LAST segment of the playlist the player holds is unreachable by an in-stream seek
+    // (rock-n-roll soak 2026-09-12, 45 traced seeks over n106/n107/n111: every target 0.96–3.2 s
+    // before the player's end fetched that last segment and rendered nothing, no EndOfMedia,
+    // until the 6 s watchdog; every target in the second-to-last segment landed). A second
+    // in-stream seek does not recover the stalled pipeline either (n111: four end-zone steps,
+    // four re-opens). So a target in the last ready fragment — or outside the session — goes
+    // through a re-open that lands inside ready media; see _seekFar for the window.
+    // Zone size: the measured boundary lies between 3.2 s (stalled) and 5.9 s (landed) from
+    // the media end, so 4.5 s — not the whole last fragment: review fragments run 7–30 s, and
+    // "last fragment" made two thirds of a short window a re-open (n121: 21 re-opens in 50
+    // seeks, each a NEW session whose segments render cold, 1.4–4.4 s apiece).
+    function _inDeadZone(wall) {
+        if (_frags.length === 0) return true;
+        var last = _frags[_frags.length - 1], first = _frags[0];
+        return wall >= last.we - 4500 || wall < first.ws - 250;
+    }
     function _crossesBoundary(fromWall, toWall) {
         var lo = Math.min(fromWall, toWall), hi = Math.max(fromWall, toWall);
         for (var i = 0; i < _frags.length; i++)
@@ -637,6 +679,7 @@ Item {
         var ep = EventsStore.episodeWindow(ev);
         if (_htOn) console.log("[HT] REOPEN cont=" + _continuous + " t=" + Date.now());   // re-open count = the leak proxy
         seekWatch.stop(); _seekWatchSeq = -1;                            // a re-open supersedes any pending direct-seek watch
+        endZoneWatch.stop(); _endZoneSeq = -1;
         _gen++;
         openDeadline.restart();
         _loading = true; _armed = false; _frags = []; _pendingSeekMs = wall; _seekingToWall = wall;
@@ -645,8 +688,13 @@ Item {
         MotionScan.reset();                              // new compact timeline: old PTS mapping is void
         player.stop(); player.source = "";
         playbackClient.ensureReady();
+        // The target sits 5 s into the new session, not 15: a re-open is consumed the moment
+        // it is ready, when CV reports 2–3 ready fragments (~10 s) of the whole window, and a
+        // landing 15 s in fell beyond them — into "3 s before the end of a 10 s playlist", the
+        // dead zone again, eight re-opens in a row (n93). Scrubbing back past the session start
+        // is one more re-open (_inDeadZone), ~0.4 s when the segments are cached.
         playbackClient.openSession(ev.cam.id,
-            new Date(wall - 15000).toISOString(),
+            new Date(wall - 5000).toISOString(),
             new Date(Math.max(ep.endMs, wall) + 15000).toISOString(), true, _curTag);
     }
 
@@ -658,6 +706,17 @@ Item {
                 return f.cs + ((f.we > f.ws) ? (ms - f.ws) / (f.we - f.ws) : 0) * (f.ce - f.cs);
         }
         for (var j = 0; j < _frags.length; j++) if (_frags[j].ws >= ms) return _frags[j].cs;
+        // Past the last READY fragment. The ready list is a snapshot taken at session-ready — a
+        // re-open is consumed the instant it is ready, when CV reports 2–3 ready fragments of a
+        // 56 s window (rock-n-roll soak 2026-09-12, n93: every seek after the first re-open fell
+        // through here to _compactDur, i.e. "declared end − 1 s", a point past the last real
+        // frame where FFmpeg neither renders nor ends → the 6 s watchdog → another re-open with
+        // another 2-fragment snapshot, eight in a row). The playlist itself is complete VOD and
+        // FFmpeg fetches on demand, so a continuous session is LINEAR beyond the snapshot.
+        if (_continuous && _frags.length > 0) {
+            var l = _frags[_frags.length - 1];
+            return l.ce + (ms - l.we) / 1000;
+        }
         return _compactDur;
     }
     // compact player-position (ms) → wall ms — inverse of _wallToPos, for the on-screen timestamp
@@ -692,12 +751,28 @@ Item {
         if (ev && ev.id) _learnedWin[String(ev.id)] = { endWall: tlEndMs };
         player.play();
     }
+    // Seekable media end, seconds: the session's declaration plus in-place growth, capped by
+    // the player's own duration (the playlist sum) when THAT is shorter — a re-opened session
+    // is consumed with 2–3 ready fragments, and the player cannot seek past what it has.
+    function _mediaEndSec() {
+        var cd = _compactDur + _extInPlaceMs / 1000;     // in-place growth is seekable media
+        if (player.duration > 0 && player.duration / 1000 < cd) cd = player.duration / 1000;
+        return cd;
+    }
     function _seekWall(ms) {
         var pos = _wallToPos(ms);
-        var cd = _compactDur + _extInPlaceMs / 1000;     // in-place growth is seekable media
+        var cd = _mediaEndSec();
         // Dead zone at the end is 1s, not 3: the old -3 made the scrubber refuse
         // everything past 0:37 of an extended 40s window (operator, 08-26).
         if (cd > 1) pos = Math.min(pos, cd - 1);
+        if (cd > 2.5 && pos >= cd - 2.5) { _endZoneSeq = _frameSeq; _endZoneWall = ms; endZoneWatch.restart(); }   // see endZoneWatch
+        else { endZoneWatch.stop(); _endZoneSeq = -1; }
+        if (_htOn) console.log("[HT] SEEKREQ wall=" + ms + " head=" + Math.round(_playheadWallMs) + " frags=" + _frags.length
+                               + (_frags.length ? " span=" + _frags[0].ws + ".." + _frags[_frags.length - 1].we
+                                                  + " lastce=" + _frags[_frags.length - 1].ce.toFixed(1) : "")
+                               + " pos=" + pos.toFixed(2) + " cd=" + cd.toFixed(1) + " compact=" + _compactDur
+                               + " dur=" + player.duration + " ppos=" + player.position + " seekable=" + player.seekable
+                               + " status=" + player.mediaStatus + " t=" + Date.now());
         player.position = Math.round(Math.max(0, pos) * 1000);
     }
     function _fmt(ms) { var s = Math.max(0, Math.round(ms / 1000)); return EventsStore._p2(Math.floor(s / 60)) + ":" + EventsStore._p2(s % 60); }
@@ -874,7 +949,7 @@ Item {
                     for (var i = 0; i < hp._frags.length; i++) {
                         var f = hp._frags[i], d, w;
                         if (target >= f.ws && target <= f.we) { d = 0; w = target; }
-                        else if (target > f.we) { d = target - f.we; w = f.we - 3000; }
+                        else if (target > f.we) { d = target - f.we; w = f.ws; }   // its tail is the dead zone (see _inDeadZone)
                         else { d = f.ws - target; w = f.ws; }
                         if (d < bestD) { bestD = d; bestWall = w; }
                     }

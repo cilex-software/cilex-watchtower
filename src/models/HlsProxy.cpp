@@ -372,15 +372,26 @@ void HlsProxy::prefetchAround(const QString &path)
     if (!ok || n < 0)
         return;
     const QString prefix = path.left(slash + 1);
+    // SEQUENTIAL among themselves (still concurrent with the operator's own fetch of n):
+    // n+1 first, n+2 only once n+1 has landed clean. The parallel form fetched n+2 while
+    // n+1 was still rendering, and CV's renderer works out of order — so n+2 was served
+    // with an UNKNOWABLE predecessor, header `X-Cilex-TS-Continuity: fallback`, and we
+    // cached that joint for the session's lifetime: 2 corrupt frames, and under hardware
+    // decode a VA-API failure and a heap abort (rock-n-roll soak 2026-09-12, n117 session
+    // 89691a82: prefetch 2.ts and 3.ts → fallback at 04:13:10–11, our own prefetch of 1.ts
+    // → 503 at 04:13:12). "The player does not fetch out of order" — this proxy did.
     for (int k = 1; k <= kReadAhead; ++k) {
         const QString next = prefix + QString::number(n + k) + QStringLiteral(".ts");
-        if (m_segCache.contains(next) || m_inflight.contains(next))
+        if (m_segCache.contains(next))
             continue;
-        startPrefetch(next);
+        if (m_inflight.contains(next))
+            return;                                  // a chain is already running from here
+        startPrefetch(next, kReadAhead - k);
+        return;
     }
 }
 
-void HlsProxy::startPrefetch(const QString &path)
+void HlsProxy::startPrefetch(const QString &path, int chain)
 {
     m_inflight.insert(path);
     QNetworkRequest req{QUrl(m_upstream + path)};
@@ -388,17 +399,31 @@ void HlsProxy::startPrefetch(const QString &path)
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
     QNetworkReply *reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, path]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, path, chain]() {
         reply->deleteLater();
         m_inflight.remove(path);
         // Best-effort: only cache a clean 200. A cold segment may 503 (still
         // rendering) — drop it; the real request will retry and warm the cache.
-        if (reply->error() != QNetworkReply::NoError)
-            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray cc = reply->rawHeader("X-Cilex-TS-Continuity");
+        // Logged like the player's own fetches: a prefetched segment is served later as
+        // "cache=1" with no upstream line of its own, and the 2026-09-12 continuity case
+        // (session 94e8d9c6, joint 2→3) could not be attributed because both segments
+        // had arrived this way — order, code and the continuity header unrecorded.
+        if (s_hlsLog)
+            qInfo().noquote() << QStringLiteral("WTHLS prefetch code=%1 err=%2 bytes=%3 chain=%6 %4 cc=%5")
+                                     .arg(code).arg(int(reply->error())).arg(reply->bytesAvailable())
+                                     .arg(path.section(QLatin1Char('/'), -3))
+                                     .arg(QString::fromLatin1(cc)).arg(chain);
+        if (reply->error() != QNetworkReply::NoError)
+            return;                                  // 503: not rendered yet — the chain stops here
         if (code != 200 && code != 0)
             return;
+        if (cc == "fallback")
+            return;                                  // never cache a fallback joint; a re-fetch self-heals (CV 2026-09-12 §1)
         cachePut(path, reply->readAll(), reply->header(QNetworkRequest::ContentTypeHeader).toByteArray());
+        if (chain > 0)
+            prefetchAround(path);                    // n+2 only now, behind a clean n+1
     });
 }
 
@@ -599,6 +624,11 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             [this, reply, guardedSock, path, attempt, spentMs, fetchTimer, rid, hdrMs, fbMs,
              streaming, acc, work, tail, alignTs, chunked]() {
         reply->deleteLater();
+        // A `fallback` joint is served (the player asked for these bytes) but never cached:
+        // the next fetch of the same index self-heals to `shifted` once its predecessor has
+        // been counted (CV 2026-09-12 §1), and a cached copy would pin 2 corrupt frames —
+        // and under hardware decode a heap abort — for the session's lifetime.
+        const bool ccFallback = reply->rawHeader("X-Cilex-TS-Continuity") == "fallback";
         if (s_hlsLog) {
             const int logCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             // Server-Timing carries CV's OWN decomposition — serve, queue, index,
@@ -613,6 +643,11 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             // single-camera lines stay clean; without it our own logs cannot tell the
             // two apart, which is how 549 saturated responses went unnoticed here.
             const QByteArray mst = reply->rawHeader("X-Cilex-Mosaic-State");
+            // X-Cilex-TS-Continuity says how CV joined this segment's continuity counters
+            // to its predecessor's: first | shifted | fallback. `fallback` is the corrupt
+            // last-two-frames case (CV letters 2026-09-11/12); logging it per segment, in
+            // the player's own fetch order, is the evidence CV asked for (session id + index).
+            const QByteArray cc = reply->rawHeader("X-Cilex-TS-Continuity");
             // bytesAvailable() does NOT consume the buffer — readAll() below still gets
             // the whole body. Logging the size matters: a "383,896 bytes" figure carried
             // over from a DIFFERENT session sent one analysis down the wrong road, when
@@ -648,6 +683,8 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             line += QStringLiteral(" st=[") + QString::fromUtf8(st) + QLatin1Char(']');
             if (!mst.isEmpty())
                 line += QStringLiteral(" mstate=") + QString::fromLatin1(mst);
+            if (!cc.isEmpty())
+                line += QStringLiteral(" cc=") + QString::fromLatin1(cc);
             qInfo().noquote() << line;
         }
         // STREAMED: the leader already has its bytes, so this is only the tail, the
@@ -672,7 +709,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
                 guardedSock->disconnectFromHost();   // Connection: close terminates the body
             }
             if (reply->error() == QNetworkReply::NoError) {
-                cachePut(path, *acc, ct);
+                if (!ccFallback) cachePut(path, *acc, ct);
                 deliver(path, nullptr, 200, ct, *acc);   // nullptr = leader already served
             } else {
                 // Upstream died mid-body. The leader gets a short read and its own
@@ -752,7 +789,7 @@ void HlsProxy::forward(QTcpSocket *sock, const QString &path, int attempt, int s
             if (path.endsWith(QLatin1String(".m3u8")) || outCt.contains("mpegurl")) {
                 body = rewritePlaylist(body);
                 if (outCt.isEmpty()) outCt = QByteArrayLiteral("application/vnd.apple.mpegurl");
-            } else if (isSegmentPath(path) && (code == 200 || code == 0)) {
+            } else if (isSegmentPath(path) && (code == 200 || code == 0) && !ccFallback) {
                 cachePut(path, body, outCt);   // warm the cache for re-seeks to this region
             }
             outCode = code ? code : 200;

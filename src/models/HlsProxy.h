@@ -84,7 +84,7 @@ private:
     static bool isSegmentPath(const QString &path);
     static QString sessionKey(const QString &path);   // ".../<uuid>/seg/N.ts" -> uuid
     void prefetchAround(const QString &path);   // kick read-ahead for path's successors
-    void startPrefetch(const QString &path);     // background fetch → cache (no socket)
+    void startPrefetch(const QString &path, int chain = 0);   // background fetch → cache (no socket); chain = how many more to follow, one at a time
     bool cacheServe(QTcpSocket *sock, const QString &path);  // serve from cache if present
     void cachePut(const QString &path, const QByteArray &body, const QByteArray &ct);
 
