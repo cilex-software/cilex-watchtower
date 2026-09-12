@@ -662,10 +662,20 @@ Item {
     // the media end, so 4.5 s — not the whole last fragment: review fragments run 7–30 s, and
     // "last fragment" made two thirds of a short window a re-open (n121: 21 re-opens in 50
     // seeks, each a NEW session whose segments render cold, 1.4–4.4 s apiece).
+    // The end is measured from the PLAYER's media, not the ready snapshot: a re-open reports
+    // 2–3 ready fragments of a 25–35 s window and the map never refreshes, so measured from
+    // the snapshot most forward jumps in a short clip were "dead" (n126: 39 re-opens in 66
+    // seeks). player.duration grows with the playlist; _wallToPos extrapolates linearly.
     function _inDeadZone(wall) {
         if (_frags.length === 0) return true;
         var last = _frags[_frags.length - 1], first = _frags[0];
-        return wall >= last.we - 4500 || wall < first.ws - 250;
+        if (wall < first.ws - 250) return true;
+        var endWall = last.we;
+        if (_continuous) {
+            var lin = first.ws - first.cs * 1000 + _mediaEndSec() * 1000;
+            if (lin > endWall) endWall = lin;
+        }
+        return wall >= endWall - 4500;
     }
     function _crossesBoundary(fromWall, toWall) {
         var lo = Math.min(fromWall, toWall), hi = Math.max(fromWall, toWall);
