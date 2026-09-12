@@ -6,8 +6,9 @@
 
 
 <!-- 2026-09-12 pointer -->
-> **2026-09-12 — rock-n-roll soak, 343 runs over 8 groups, ended early by a HOST
-> DISK FAILURE at 08:08 (not ours).** Full report + every number:
+> **2026-09-12 — rock-n-roll soak COMPLETE: 409 runs over 8 groups, 02:10–11:00,
+> interrupted 08:09–09:51 by a HOST DISK FAILURE (not ours) and resumed once the
+> backend agent cleared the box.** Full report + every number:
 > `docs/perf/2026-09-12-rocknroll-soak/README.md`. Four client defects found,
 > fixed and reproduced during the run: the live auto ladder took the HD rung
 > first (4,349 → 185–260 ms, `2cdfe04`); on-page live opens did not adopt the
@@ -21,10 +22,19 @@
 > derived from free disk, so at 0 free slots every upload to `raw-video-warm`
 > fails, the recorder spools to its container-local disk at ~750 MB/min and fills
 > the box — which is what stopped this soak and left the Watchtower supervisor
-> unable to start. CV confirmed the mechanism and that two comments in their
-> codebase document `-max=0` as "unlimited"; the remedy (an explicit `-max`) is an
-> operator decision. Measured: the soak was NOT driving it — spool growth was
-> identical with the soak stopped.
+> unable to start. **RESOLVED 09:04** by CV restarting one seaweed volume server:
+> `-max=0` recomputes the ceiling only AT STARTUP (that node 4198 → 4307, topology
+> free slots 0 → 109), uploads went clean and the 46 GB spool drained. CV fixed four
+> comments in their codebase that documented `-max=0` as "unlimited" (`d9879e9`).
+> A REPRIEVE, NOT A CURE — measured drain ~0.35 slots/min, so the remaining ~44 slots
+> are hours; **the explicit `-max` is still an OPERATOR decision**, as is CV's question
+> on 0-byte segments (my recommendation: 503 + retry, never a blank tile served as
+> ready). Measured: the soak was NOT driving it — spool growth was identical with the
+> soak stopped. **Data-loss finding:** 147 orphaned spool files were the ONLY copy of
+> their footage (zero `video_segments` rows) and sat on a container writable layer a
+> rebuild destroys; CV archived them to `/mnt/cilex-storage/orphaned-spool/2026-09-12/`.
+> The real class is **application data written to container writable layers**, not
+> "the spool leaks".
 
 <!-- 2026-09-08 pointer -->
 > **2026-09-08 — live open from a lit wall: 128–212 ms (n=5 first opens, median
