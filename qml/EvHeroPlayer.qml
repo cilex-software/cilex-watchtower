@@ -709,11 +709,59 @@ Item {
     }
 
     // compact player-seconds ↔ wall ms (via the session's ready fragments)
+    //
+    // AMBIGUOUS SPANS. A wall instant can be claimed by TWO fragments. Confirmed by CV
+    // 2026-09-12 from the manifest of session 2c351168: at boundary="codec" (an
+    // hevc_capable session serving the hot window as HEVC main and the rest as H.264 sub)
+    // frag 3 declared 23:49:11.000–23:49:15.809 while frag 2 already declared
+    // 23:48:57.000–23:49:15.809 — the same 4.809 s, twice. The loop below returns the
+    // FIRST match, so every target inside such a span silently resolves to the earlier
+    // copy: deterministic, repeatable, and up to seconds wrong, which is worse than an
+    // error that announces itself (mobile's point, and they are right). We do NOT change
+    // which copy wins here: nobody has yet measured which one holds decodable frames, and
+    // guessing would replace a silent wrong answer with a confident one. Trace it so the
+    // next session can measure it. Gap boundaries do not do this (CV measured 0.007 s,
+    // sub-frame, on a gap-spanning session; a frame at 15 fps is 66 ms).
+    // Threshold ONE FRAME, 67 ms at the fleet's 15 fps (mobile's standard, adopted so both
+    // clients report the same thing). CV measured 10 of 35 manifest pairs overlapping by
+    // 0.007 s — sub-frame rounding at segment boundaries, which no seek can resolve. Reporting
+    // those would train whoever reads this log to scroll past it, and the one case that matters
+    // is 4,809 ms, four orders of magnitude clear of the threshold.
+    readonly property int _ambiguityFloorMs: 67
+    function _ambiguousAt(ms) {
+        var hit = [];
+        for (var i = 0; i < _frags.length; i++)
+            if (ms >= _frags[i].ws && ms <= _frags[i].we) hit.push(i);
+        if (hit.length < 2) return [];
+        for (var a = 0; a < hit.length; a++)          // keep only genuinely resolvable ambiguity
+            for (var b = a + 1; b < hit.length; b++) {
+                var f = _frags[hit[a]], g = _frags[hit[b]];
+                if (Math.min(f.we, g.we) - Math.max(f.ws, g.ws) >= _ambiguityFloorMs) return hit;
+            }
+        return [];
+    }
     function _wallToPos(ms) {
         for (var i = 0; i < _frags.length; i++) {
             var f = _frags[i];
-            if (ms >= f.ws && ms <= f.we)
+            if (ms >= f.ws && ms <= f.we) {
+                if (_htOn || (typeof wtTrace !== "undefined" && wtTrace)) {
+                    var hit = _ambiguousAt(ms);
+                    if (hit.length > 1) {
+                        var d = "";
+                        for (var k = 0; k < hit.length; k++) {
+                            var g = _frags[hit[k]];
+                            d += " [" + hit[k] + " ws=" + g.ws + " we=" + g.we + " cs=" + g.cs.toFixed(2)
+                               + " ce=" + g.ce.toFixed(2) + " disc=" + g.disc + " boundary=" + (g.boundary || "-") + "]";
+                        }
+                        var ov = Math.min(_frags[hit[0]].we, _frags[hit[1]].we) - Math.max(_frags[hit[0]].ws, _frags[hit[1]].ws);
+                        console.log("[HT] AMBIGUOUS wall=" + ms + " claimed by " + hit.length
+                                    + " fragments overlapping " + Math.round(ov) + "ms, taking " + hit[0]
+                                    + " (seeks past it land ~" + Math.round(ov) + "ms early on a wall-linear client):"
+                                    + d + " t=" + Date.now());
+                    }
+                }
                 return f.cs + ((f.we > f.ws) ? (ms - f.ws) / (f.we - f.ws) : 0) * (f.ce - f.cs);
+            }
         }
         for (var j = 0; j < _frags.length; j++) if (_frags[j].ws >= ms) return _frags[j].cs;
         // Past the last READY fragment. The ready list is a snapshot taken at session-ready — a
