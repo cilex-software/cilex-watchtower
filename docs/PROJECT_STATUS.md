@@ -26,10 +26,22 @@
 > `-max=0` recomputes the ceiling only AT STARTUP (that node 4198 → 4307, topology
 > free slots 0 → 109), uploads went clean and the 46 GB spool drained. CV fixed four
 > comments in their codebase that documented `-max=0` as "unlimited" (`d9879e9`).
-> A REPRIEVE, NOT A CURE — measured drain ~0.35 slots/min, so the remaining ~44 slots
-> are hours; **the explicit `-max` is still an OPERATOR decision**, as is CV's question
-> on 0-byte segments (my recommendation: 503 + retry, never a blank tile served as
-> ready). Measured: the soak was NOT driving it — spool growth was identical with the
+> **ROOT-CAUSED AND FIXED 2026-09-12 ~16:40 (CV, `b0a49eb`) — and the `-max` lever both
+> boxes pushed to the operator for two days was WRONG.** The volume-server binary is a
+> "30GB" build: with `-max=0` it sizes capacity in 30 GB units, while the master ran
+> `-volumeSizeLimitMB=1024` — a 30× over-reservation, so it reserved 30 GB of disk for
+> every volume the master would fill to 1 GB. An explicit `-max` does NOT fix it: CV
+> recreated a node with `-max=6500` and it came back reporting 4322, because an explicit
+> max is only an UPPER BOUND and the disk-derived figure binds first. The fix was
+> `-volumeSizeLimitMB 1024 → 30000`, which raises no slot count at all — it makes the
+> ~11,000 EXISTING volumes writable again (raw-video-warm averaged 1,072 MB, so every one
+> had passed the old limit and read as full). **`Topology Free` is no longer a health
+> signal: it reads 0 and that is now CORRECT.** Verified independently from this box at
+> 16:35: `/dir/assign` returns valid fids for raw-video-warm and raw-video-hot with Free
+> still 0, and the master logged zero "failed to pick" in three minutes. The real
+> signals are the master's failed-to-pick count, s3 assign errors, and the recorder spool
+> climbing off its ~1 GB steady state. **STILL AN OPERATOR DECISION:** CV's question on
+> 0-byte segments (my recommendation: 503 + retry, never a blank tile served as ready). Measured: the soak was NOT driving it — spool growth was identical with the
 > soak stopped. **Data-loss finding:** 147 orphaned spool files were the ONLY copy of
 > their footage (zero `video_segments` rows) and sat on a container writable layer a
 > rebuild destroys; CV archived them to `/mnt/cilex-storage/orphaned-spool/2026-09-12/`.
