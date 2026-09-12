@@ -111,3 +111,5 @@
 08:38:34 load=13.48 13.81 13.63 io_some=14.27 io_full=9.78 wa=19 id=40 bi_kBs=677088 bo_kBs=3456
 08:39:05 load=16.38 14.43 13.84 io_some=34.28 io_full=20.93 wa=23 id=24 bi_kBs=174820 bo_kBs=68180
 08:39:36 load=26.54 17.19 14.78 io_some=54.43 io_full=35.44 wa=31 id=16 bi_kBs=144996 bo_kBs=108540
+08:40:07 load=25.28 17.84 15.08 io_some=22.59 io_full=14.50 wa=19 id=33 bi_kBs=279824 bo_kBs=77016
+08:40:38 load=23.25 18.08 15.25 io_some=13.06 io_full=7.67 wa=12 id=40 bi_kBs=105576 bo_kBs=117076
