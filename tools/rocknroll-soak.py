@@ -54,7 +54,7 @@ C = [
  dict(id="wall_live",    group="WALL", w=4, t=125, env=lambda: {"WT_WALL_DAY": "live"}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
  dict(id="wall_day1",    group="WALL", w=2, t=125, env=lambda: {"WT_WALL_DAY": day(1)}, primary=("WALLTIME", "first_frame dt", "first"), target=None),
  # EVENTS
- dict(id="hero",         group="EVENTS", w=3, t=65, env=lambda: {"WT_HERO_TEST": "1", "WT_SECTION": "events"}, primary=("HT", "lat", "median"), target=3000),
+ dict(id="hero",         group="EVENTS", w=3, t=65, env=lambda: {"WT_HERO_TEST": "1", "WT_SECTION": "events", "WT_HERO_AUTOPLAY": "1"}, primary=("HT", "lat", "median"), target=3000),
  dict(id="events_section", group="EVENTS", w=3, t=60, env=lambda: {"WT_SECTION": "events", "WT_EVENTS_TEST": "1"}, primary=("EV", "lat", "median"), target=1500),
  # UI
  dict(id="tabs",         group="UI", w=2, t=45, env=lambda: {"WT_TABS": ",".join(random.sample((INV.get("wall_recording") or []) + (INV.get("wall_armed") or []), 4)), "WT_TABS_HOME": "1"}, primary=("STARTUP", "tiles16", "first"), target=5000),
