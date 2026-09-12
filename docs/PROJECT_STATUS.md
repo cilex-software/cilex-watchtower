@@ -40,8 +40,22 @@
 > 16:35: `/dir/assign` returns valid fids for raw-video-warm and raw-video-hot with Free
 > still 0, and the master logged zero "failed to pick" in three minutes. The real
 > signals are the master's failed-to-pick count, s3 assign errors, and the recorder spool
-> climbing off its ~1 GB steady state. **STILL AN OPERATOR DECISION:** CV's question on
-> 0-byte segments (my recommendation: 503 + retry, never a blank tile served as ready). Measured: the soak was NOT driving it — spool growth was identical with the
+> climbing off its ~1 GB steady state. **STILL OPERATOR DECISIONS, two:** (1) CV's question on 0-byte segments (my
+> recommendation: 503 + retry, never a blank tile served as ready); (2) **NEW, with
+> numbers, raised by CV 2026-09-12 ~17:00: whether to raise
+> `maxParallelVacuumPerServer` above 2.** Retention deletion only TOMBSTONES needles —
+> only vacuum returns disk — so free disk now declines monotonically at roughly the
+> footage rate. Measured here 16:40: node 07fa 561 GB free with 622 GB of garbage, node
+> 4fa8 1,258 GB free with 703 GB. CV's projection (their words, not a measurement): 07fa
+> has on the order of 28 hours, 4fa8 perhaps 63, and vacuum reclaims ~12 GB/hour against
+> 1,325 GB of garbage — about 110 hours to clear while new garbage arrives, so it falls
+> behind rather than catches up. CV has NOT pulled the parallelism lever because vacuum
+> IO is what drove the 07:25–08:09 storm this box measured; more parallelism means more
+> of that IO. A second risk from their own fix, on the record from them: at 30 GB
+> volumes, vacuuming one rewrites up to 30 GB instead of 1 — bigger IO spike per volume.
+> This box samples all of it every 5 min via `tools/storage-sample.py` into
+> `docs/perf/2026-09-12-rocknroll-soak/storage-watch.log` (largest volume is the
+> early warning: 1.10 GB now). Measured: the soak was NOT driving it — spool growth was identical with the
 > soak stopped. **Data-loss finding:** 147 orphaned spool files were the ONLY copy of
 > their footage (zero `video_segments` rows) and sat on a container writable layer a
 > rebuild destroys; CV archived them to `/mnt/cilex-storage/orphaned-spool/2026-09-12/`.
