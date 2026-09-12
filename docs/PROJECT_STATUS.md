@@ -5,6 +5,27 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-12 pointer -->
+> **2026-09-12 — rock-n-roll soak, 343 runs over 8 groups, ended early by a HOST
+> DISK FAILURE at 08:08 (not ours).** Full report + every number:
+> `docs/perf/2026-09-12-rocknroll-soak/README.md`. Four client defects found,
+> fixed and reproduced during the run: the live auto ladder took the HD rung
+> first (4,349 → 185–260 ms, `2cdfe04`); on-page live opens did not adopt the
+> parked pipeline (→ 135–239 ms, `ac8cfa1`); hero scrubber jumps stalled 6.2–6.8 s
+> whenever the target landed in the last segment the player holds (median 6,251 →
+> 54–269 ms, `1e2c4a2`, `2168826`); and our HLS proxy's read-ahead fetched
+> segments OUT OF ORDER and cached the corrupt continuity joints that resulted —
+> hardware-decode wall corrupt packets 116 → 4 → **0** over 71 segments
+> (`1e2c4a2`). **HOST INCIDENT, CV's side, still open at the time of writing:**
+> seaweed runs its volume servers with `-max=0`, whose allowable volume count is
+> derived from free disk, so at 0 free slots every upload to `raw-video-warm`
+> fails, the recorder spools to its container-local disk at ~750 MB/min and fills
+> the box — which is what stopped this soak and left the Watchtower supervisor
+> unable to start. CV confirmed the mechanism and that two comments in their
+> codebase document `-max=0` as "unlimited"; the remedy (an explicit `-max`) is an
+> operator decision. Measured: the soak was NOT driving it — spool growth was
+> identical with the soak stopped.
+
 <!-- 2026-09-08 pointer -->
 > **2026-09-08 — live open from a lit wall: 128–212 ms (n=5 first opens, median
 > 164 ms), operator target 500 ms MET; re-opens inside the grace 14–377 ms (n=20).
