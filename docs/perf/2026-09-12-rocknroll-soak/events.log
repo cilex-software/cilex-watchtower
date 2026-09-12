@@ -1,0 +1,89 @@
+02:10:03 START rocknroll soak until 11:00 local; build 91ae28c+bin@111257; 28 actions in 7 groups
+02:10:53 OUTLIER first-seen n=1 pb_churn reason=no_metric primary=None log=logs/n0001-pb_churn.log params={'WT_PLAYBACK_IP': '192.168.1.184', 'WT_PLAYBACK_DAY': '2026-09-11', 'WT_CHURNTEST': '6', 'WT_CHURN_ALT': '2026-09-10'}
+02:12:12 START rocknroll soak until 11:00 local; build 91ae28c+bin@111257; 28 actions in 7 groups
+02:13:07 START rocknroll soak until 11:00 local; build 91ae28c+bin@111257; 28 actions in 7 groups
+02:14:53 OUTLIER first-seen n=2 live_open_armed reason=over_target:4349.0>500 primary=4349.0 log=logs/n0002-live_open_armed.log params={'WT_FOCUS_IP': '192.168.1.143', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:17:03 OUTLIER first-seen n=3 wall_live reason=over_target:7149.0>2000 primary=7149.0 log=logs/n0003-wall_live.log params={'WT_WALL_DAY': 'live'}
+02:17:53 OUTLIER first-seen n=4 pb_rollover reason=over_target:1198.0>1000 primary=1198.0 log=logs/n0004-pb_rollover.log params={'WT_PLAYBACK_IP': '192.168.1.245', 'WT_TTFF_DAYS': '2026-09-11', 'WT_TTFF_EOS': '1'}
+02:18:09 START rocknroll soak until 11:00 local; build 3cdd436+bin@120217; 28 actions in 7 groups
+02:18:51 REPRO-OK n=6 live_open_recording primary=260.0 (no outlier after the fix)
+02:19:37 REPRO-OK n=7 live_open_armed primary=192.0 (no outlier after the fix)
+02:20:28 REPRO-OK n=8 live_open_recording primary=185.0 (no outlier after the fix)
+02:25:34 OUTLIER first-seen n=14 pb_open_d1 reason=over_target:6613.0>1000 primary=6613.0 log=logs/n0014-pb_open_d1.log params={'WT_PLAYBACK_IP': '192.168.1.102', 'WT_TTFF_DAYS': '2026-09-11'}
+02:26:23 OUTLIER first-seen n=15 pb_rollover reason=over_target:2426.0>1000 primary=2426.0 log=logs/n0015-pb_rollover.log params={'WT_PLAYBACK_IP': '192.168.1.245', 'WT_TTFF_DAYS': '2026-09-11', 'WT_TTFF_EOS': '1'}
+02:26:42 START rocknroll soak until 11:00 local; build 254b5ab+bin@120217; 28 actions in 7 groups
+02:27:27 OUTLIER reproduced n=18 pb_open_d1 reason=over_target:6479.0>1000 primary=6479.0 log=logs/n0018-pb_open_d1.log params={'WT_PLAYBACK_IP': '192.168.1.102', 'WT_TTFF_DAYS': '2026-09-11'}
+02:28:16 REPRO-OK n=19 pb_open_d1 primary=354.0 (no outlier after the fix)
+02:29:24 START rocknroll soak until 11:00 local; build 254b5ab+bin@120217; 28 actions in 7 groups
+02:30:10 OUTLIER first-seen n=21 pb_open_d3 reason=over_target:1967.0>1000 primary=1967.0 log=logs/n0021-pb_open_d3.log params={'WT_PLAYBACK_IP': '192.168.1.123', 'WT_TTFF_DAYS': '2026-09-09'}
+02:34:48 OUTLIER first-seen n=24 guard_soak reason=no_metric primary=None log=logs/n0024-guard_soak.log params={'WT_GUARD_SOAK': '1', 'WT_GUARD_LIVE_MS': '12000', 'WT_THUMB_REFRESH_MS': '700'}
+02:35:19 START rocknroll soak until 11:00 local; build 254b5ab+bin@120217; 28 actions in 7 groups
+02:38:59 OUTLIER first-seen n=28 pb_open_d3 reason=over_target:1483.0>1000 primary=1483.0 log=logs/n0028-pb_open_d3.log params={'WT_PLAYBACK_IP': '192.168.1.150', 'WT_TTFF_DAYS': '2026-09-09'}
+02:40:02 START rocknroll soak until 11:00 local; build 254b5ab+bin@120217; 28 actions in 7 groups
+02:40:45 OUTLIER first-seen n=29 pb_open_armed_d1 reason=over_target:1276.0>1000 primary=1276.0 log=logs/n0029-pb_open_armed_d1.log params={'WT_PLAYBACK_IP': '192.168.1.104', 'WT_TTFF_DAYS': '2026-09-11'}
+02:45:54 OUTLIER first-seen n=32 live_open_recording reason=over_target:518.0>500 primary=518.0 log=logs/n0032-live_open_recording.log params={'WT_FOCUS_IP': '192.168.1.245', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:48:27 OUTLIER first-seen n=35 pb_open_d7 reason=no_metric primary=None log=logs/n0035-pb_open_d7.log params={'WT_PLAYBACK_IP': '192.168.1.189', 'WT_TTFF_DAYS': '2026-09-05'}
+02:49:16 OUTLIER reproduced n=36 live_open_recording reason=over_target:879.0>500 primary=879.0 log=logs/n0036-live_open_recording.log params={'WT_FOCUS_IP': '192.168.1.189', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:50:02 REPRO-OK n=37 live_open_armed primary=240.0 (no outlier after the fix)
+02:50:14 START rocknroll soak until 11:00 local; build 91a34c8+bin@120248; 28 actions in 7 groups
+02:50:56 OUTLIER reproduced n=39 live_open_armed reason=over_target:919.0>500 primary=919.0 log=logs/n0039-live_open_armed.log params={'WT_FOCUS_IP': '192.168.1.230', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:51:34 START rocknroll soak until 11:00 local; build 91a34c8+bin@120248; 28 actions in 7 groups
+02:52:35 START rocknroll soak until 11:00 local; build 91a34c8+bin@120252; 28 actions in 7 groups
+02:53:17 OUTLIER reproduced n=42 live_open_armed reason=over_target:504.0>500 primary=504.0 log=logs/n0042-live_open_armed.log params={'WT_FOCUS_IP': '192.168.1.230', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:54:04 OUTLIER reproduced n=43 live_open_armed reason=over_target:890.0>500 primary=890.0 log=logs/n0043-live_open_armed.log params={'WT_FOCUS_IP': '192.168.1.230', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+02:55:13 OUTLIER first-seen n=44 hero reason=no_metric primary=None log=logs/n0044-hero.log params={'WT_HERO_TEST': '1'}
+02:56:01 START rocknroll soak until 11:00 local; build 91a34c8+bin@120255; 28 actions in 7 groups
+02:56:43 REPRO-OK n=45 live_open_armed primary=164.0 (no outlier after the fix)
+02:57:30 REPRO-OK n=46 live_open_recording primary=239.0 (no outlier after the fix)
+02:58:16 REPRO-OK n=47 live_open_armed primary=168.0 (no outlier after the fix)
+02:59:06 REPRO-OK n=48 live_open_recording primary=135.0 (no outlier after the fix)
+02:59:44 START rocknroll soak until 11:00 local; build ac8cfa1+bin@120255; 28 actions in 7 groups
+03:02:23 OUTLIER first-seen n=52 pb_rollover reason=over_target:2087.0>1000 primary=2087.0 log=logs/n0052-pb_rollover.log params={'WT_PLAYBACK_IP': '192.168.1.105', 'WT_TTFF_DAYS': '2026-09-11', 'WT_TTFF_EOS': '1'}
+03:06:30 OUTLIER first-seen n=55 hero reason=no_metric primary=None log=logs/n0055-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events'}
+03:07:19 START rocknroll soak until 11:00 local; build ac8cfa1+bin@120255; 28 actions in 7 groups
+03:08:24 REPRO-OK n=57 hero primary=1651.5 (no outlier after the fix)
+03:09:12 OUTLIER first-seen n=58 pb_open_d1 reason=over_target:1516.0>1000 primary=1516.0 log=logs/n0058-pb_open_d1.log params={'WT_PLAYBACK_IP': '192.168.1.245', 'WT_TTFF_DAYS': '2026-09-11'}
+03:30:48 OUTLIER first-seen n=80 pb_rollover reason=over_target:1362.0>1000 primary=1362.0 log=logs/n0080-pb_rollover.log params={'WT_PLAYBACK_IP': '192.168.1.105', 'WT_TTFF_DAYS': '2026-09-11', 'WT_TTFF_EOS': '1'}
+03:46:34 OUTLIER first-seen n=93 hero reason=over_target:6251.0>3000 primary=6251.0 log=logs/n0093-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events', 'WT_HERO_AUTOPLAY': '1'}
+03:53:13 REPRO-OK n=99 hero primary=76.0 (no outlier after the fix)
+03:54:22 REPRO-OK n=100 hero primary=68.0 (no outlier after the fix)
+03:55:32 REPRO-OK n=101 hero primary=75.0 (no outlier after the fix)
+04:01:55 OUTLIER reproduced n=106 hero reason=over_2.5x_median:941.0>190 primary=941.0 log=logs/n0106-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events', 'WT_HERO_AUTOPLAY': '1'}
+04:03:04 OUTLIER reproduced n=107 hero reason=over_target:6234.0>3000 primary=6234.0 log=logs/n0107-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events', 'WT_HERO_AUTOPLAY': '1'}
+04:04:14 REPRO-OK n=108 hero primary=100.5 (no outlier after the fix)
+04:05:49 OUTLIER first-seen n=110 pb_cold_boot reason=over_target:6284.0>3000 primary=6284.0 log=logs/n0110-pb_cold_boot.log params={'WT_PLAYBACK_IP': '192.168.1.189', 'WT_PLAYBACK_DAY': '2026-09-11', 'WT_TTFF_DAYS': '2026-09-11'}
+04:06:58 REPRO-OK n=111 hero primary=162.0 (no outlier after the fix)
+04:08:11 OUTLIER reproduced n=112 hero reason=over_target:6487.5>3000 primary=6487.5 log=logs/n0112-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events', 'WT_HERO_AUTOPLAY': '1'}
+04:08:11 DIGEST runs=63 outliers=10 kinds={'pb_open_d1:over_target': 3, 'pb_rollover:over_target': 2, 'hero:over_target': 3, 'hero:over_2.5x_median': 1, 'pb_cold_boot:over_target': 1}
+04:09:20 REPRO-OK n=113 hero primary=1123.5 (no outlier after the fix)
+04:10:09 REPRO-OK n=114 pb_open_d1 primary=999.0 (no outlier after the fix)
+04:12:18 REPRO-OK n=115 wall_day1 primary=8460.0 (no outlier after the fix)
+04:13:04 REPRO-OK n=116 live_open_offpage primary=998.0 (no outlier after the fix)
+04:13:52 REPRO-OK n=117 pb_open_d1 primary=905.0 (no outlier after the fix)
+04:14:27 OUTLIER reproduced n=118 wall_day1 reason=crash:6 Aborted primary=8738.0 log=logs/n0118-wall_day1.log params={'WT_WALL_DAY': '2026-09-11', 'WT_PB_HW_DECODE': '1'}
+04:15:13 REPRO-OK n=119 live_open_offpage primary=657.0 (no outlier after the fix)
+04:16:25 REPRO-OK n=120 hero primary=113.5 (no outlier after the fix)
+04:17:34 REPRO-OK n=121 hero primary=301.0 (no outlier after the fix)
+04:18:44 REPRO-OK n=122 hero primary=203.0 (no outlier after the fix)
+04:19:32 REPRO-OK n=123 pb_open_d1 primary=672.0 (no outlier after the fix)
+04:21:41 REPRO-OK n=124 wall_day1 primary=9425.0 (no outlier after the fix)
+04:22:50 REPRO-OK n=125 hero primary=197.0 (no outlier after the fix)
+04:24:00 REPRO-OK n=126 hero primary=268.5 (no outlier after the fix)
+04:28:09 REPRO-OK n=129 hero primary=71.0 (no outlier after the fix)
+04:29:19 OUTLIER reproduced n=130 hero reason=over_target:6406.0>3000 primary=6406.0 log=logs/n0130-hero.log params={'WT_HERO_TEST': '1', 'WT_SECTION': 'events', 'WT_HERO_AUTOPLAY': '1'}
+04:31:17 OUTLIER first-seen n=132 pb_open_d3 reason=over_target:1337.0>1000 primary=1337.0 log=logs/n0132-pb_open_d3.log params={'WT_PLAYBACK_IP': '192.168.1.123', 'WT_TTFF_DAYS': '2026-09-09'}
+04:40:44 OUTLIER first-seen n=138 pb_seek reason=over_target:6489.0>4000 primary=6489.0 log=logs/n0138-pb_seek.log params={'WT_PLAYBACK_IP': '192.168.1.183', 'WT_PLAYBACK_DAY': '2026-09-11', 'WT_SEEK_TEST': '1', 'WT_SEEK_ITERS': '6'}
+05:08:14 DIGEST runs=54 outliers=7 kinds={'wall_day1:crash': 1, 'hero:over_target': 1, 'pb_open_d3:over_target': 2, 'pb_open_d1:over_target': 2, 'pb_seek:over_target': 1}
+05:09:54 OUTLIER first-seen n=162 pb_open_armed_d1 reason=over_target:1783.0>1000 primary=1783.0 log=logs/n0162-pb_open_armed_d1.log params={'WT_PLAYBACK_IP': '192.168.1.221', 'WT_TTFF_DAYS': '2026-09-11'}
+06:10:04 DIGEST runs=58 outliers=12 kinds={'pb_rollover:over_target': 4, 'pb_open_armed_d1:over_target': 1, 'pb_open_d3:over_target': 2, 'pb_open_d1:over_target': 4, 'pb_seek:over_target': 1}
+07:10:17 DIGEST runs=60 outliers=3 kinds={'pb_open_d1:over_target': 1, 'pb_open_armed_d1:over_target': 1, 'hero:over_2.5x_median': 1}
+07:34:51 OUTLIER first-seen n=285 live_open_recording reason=over_target:1102.0>500 primary=1102.0 log=logs/n0285-live_open_recording.log params={'WT_FOCUS_IP': 'page:recording', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+07:35:37 OUTLIER first-seen n=286 live_open_armed reason=over_target:3046.0>500 primary=3046.0 log=logs/n0286-live_open_armed.log params={'WT_FOCUS_IP': 'page:armed', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+07:37:18 OUTLIER first-seen n=287 nav reason=over_target:15127.0>1500 primary=15127.0 log=logs/n0287-nav.log params={'WT_NAVTEST': '6'}
+07:37:31 OUTLIER first-seen api_probe:slow_or_failed:coverage_ms metrics={'health_ms': 132, 'health_code': 200, 'events_ms': 163, 'events_code': 200, 'streams_ms': 115, 'streams_code': 200, 'coverage_ms': 5078, 'coverage_code': 200, 'cpu_query-api': 9.26, 'cpu_timescaledb': 32.84, 'cpu_recorder-service': 268.0, 'cpu_go2rtc': 15.47}
+07:58:31 OUTLIER first-seen n=301 calstress reason=over_target:41774.0>15000 primary=41774.0 log=logs/n0301-calstress.log params={'WT_PLAYBACK_IP': '192.168.1.105', 'WT_CAL_STRESS': '1'}
+08:07:54 OUTLIER first-seen n=307 pb_seek reason=no_metric primary=None log=logs/n0307-pb_seek.log params={'WT_PLAYBACK_IP': '192.168.1.102', 'WT_PLAYBACK_DAY': '2026-09-11', 'WT_SEEK_TEST': '1', 'WT_SEEK_ITERS': '6'}
+08:08:40 OUTLIER first-seen n=308 live_open_armed reason=no_metric primary=None log=logs/n0308-live_open_armed.log params={'WT_FOCUS_IP': 'page:armed', 'WT_FOCUS_DELAY_MS': '12000', 'WT_FOCUS_CLOSE_MS': '6000'}
+08:09:27 OUTLIER first-seen n=309 pb_open_armed_d1 reason=no_metric primary=None log=logs/n0309-pb_open_armed_d1.log par08:23:48 START rocknroll soak until 11:00 local; build 2168826+bin@120426; 28 actions in 7 groups
+
+08:29:17 SOAK PAUSED by me — pilot box ~19 min from ENOSPC, recorder spool growing 750 MB/min

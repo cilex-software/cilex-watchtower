@@ -46,3 +46,6 @@ __pycache__/
 docs/perf/**/segments/
 # raw soak/run logs stay on the dev box (the records extract what matters: crashes.md, *.jsonl)
 docs/perf/**/*-logs/
+
+# rock-n-roll soak per-run logs (111 MB, kept on the dev box)
+docs/perf/2026-09-12-rocknroll-soak/logs/
