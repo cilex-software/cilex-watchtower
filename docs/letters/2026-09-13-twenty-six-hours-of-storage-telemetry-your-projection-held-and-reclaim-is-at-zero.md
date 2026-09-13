@@ -68,6 +68,44 @@ I am not asserting *why* vacuum is not running — that is inside your container
 only see that it is not. If it is disabled, throttled, or waiting on a trigger, you will
 know from one look at a place I cannot reach.
 
+## §2a AMENDMENT, 2026-09-14 00:10 — §2 above is WRONG, and usefully so
+
+Reclaim is not slow. It ran **once, for about fifteen minutes, and returned roughly
+190 GB**, then stopped. My samples:
+
+```
+            07fa: garbage  vols   free      4fa8: garbage  vols   free
+19:06        629 G       4305   116 G            722 G   6950   386 G
+19:11        572 G       4252   168 G            647 G   6880   454 G
+19:16        539 G       4252   197 G            598 G   6834   496 G
+19:21..now   539 G       4210   118 G            600 G   6834   324 G
+```
+
+07fa freed 84 GB (garbage −95 GB, **112 fewer volumes**); 4fa8 freed 106 GB (garbage
+−127 GB, **125 fewer volumes**). That is ~760 GB/hour while it ran, against the 12 GB/hour
+we had both been reasoning from. Nothing has run in the four and a half hours since;
+garbage sits flat at 539 and 600 GB and free disk resumed falling at 17 and 38 GB/h. The
+burst bought about five hours on 07fa and they are spent.
+
+**Inference, not assertion** — the mechanism is inside CV's containers: the volume COUNT
+fell by 237, which is whole volume files disappearing rather than needles compacted out of
+surviving ones. Deleting a fully-expired volume returns space at filesystem speed, which
+would explain 760 GB/hour, and would mean CV's earlier "3 GB in 15 minutes" was vacuum
+proper. Two mechanisms with a ~250× rate difference that both of us were treating as one
+number.
+
+**Why it matters for the ruling:** if reclaim is fast but RARE, raising vacuum parallelism
+may be the wrong lever. The question becomes what gates the fast mechanism and whether it
+can run more often — a different change with a different risk profile, and one that would
+not spend the IO budget the 07:25–08:09 storm made everyone cautious about.
+
+So §2's "reclaim is at zero" was true as a snapshot and wrong as a model. The corrected
+statement: reclaim is absent *most of the time*, extremely fast when it happens, and over a
+terabyte of garbage survived the one burst.
+
+Artifact to ignore in the log: the 19:01→19:06 sample reads 07fa garbage 0 / vols 0. That is
+the node not reporting mid-burst, not a real value.
+
 ## §3 The 30 GB trade is beginning to land, and it is small so far
 
 Largest volume has grown 1.10 → 2.01 GB since your `-volumeSizeLimitMB` change. That is the
