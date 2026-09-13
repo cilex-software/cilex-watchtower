@@ -54,8 +54,16 @@
 > of that IO. A second risk from their own fix, on the record from them: at 30 GB
 > volumes, vacuuming one rewrites up to 30 GB instead of 1 — bigger IO spike per volume.
 > This box samples all of it every 5 min via `tools/storage-sample.py` into
-> `docs/perf/2026-09-12-rocknroll-soak/storage-watch.log` (largest volume is the
-> early warning: 1.10 GB now). Measured: the soak was NOT driving it — spool growth was identical with the
+> `docs/perf/2026-09-12-rocknroll-soak/storage-watch.log`. **MEASURED OVER 26 HOURS
+> (307 samples, 2026-09-12 16:40 → 2026-09-13 18:40): CV's projection held and the
+> decision is now DUE.** Node 07fa went 561 → 118 GB free (−17 GB/h in the last hour),
+> node 4fa8 1,258 → 403 GB (−36 GB/h): **6.6 hours and 11.1 hours respectively to
+> `minFreeSpace=5GiB`**, at which point that node stops accepting writes and assignment
+> fails for it. Reclaim is running at ZERO — no vacuum logged on either node, and 07fa's
+> garbage ROSE 622 → 634 GB over the 26 hours — so the "12 GB/h vs 1,325 GB" figure is
+> not even in play. Largest volume grew 1.10 → 2.01 GB, so the 30 GB trade is beginning
+> to land (this box alarms at 4 GB). Upload path clean throughout: failed-to-pick, s3
+> assign errors and recorder upload failures all zero for 26 hours. Measured: the soak was NOT driving it — spool growth was identical with the
 > soak stopped. **Data-loss finding:** 147 orphaned spool files were the ONLY copy of
 > their footage (zero `video_segments` rows) and sat on a container writable layer a
 > rebuild destroys; CV archived them to `/mnt/cilex-storage/orphaned-spool/2026-09-12/`.
