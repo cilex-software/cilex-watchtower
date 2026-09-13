@@ -5,6 +5,28 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 pointer -->
+> **2026-09-14 01:10 — THE PILOT'S STORAGE IS ~5.5 HOURS FROM ITS FLOOR AND THE ONLY
+> REMAINING LEVERS ARE THE OPERATOR'S.** Node 07fa: 99 GB free (97 % used), falling
+> 17 GB/h. Node 4fa8: 284 GB, 38 GB/h. Measured continuously by `tools/storage-sample.py`
+> into `docs/perf/2026-09-12-rocknroll-soak/storage-watch.log`; the upload path has been
+> clean on every counter for 32 hours. **All non-destructive options are exhausted, and
+> that is CV's measurement, not a guess:** `volume.vacuum` is a confirmed NO-OP on this
+> build under every invocation tried; the one-off sweep of 219 fully-dead volumes (191.8 GB,
+> done by hand at 19:06–19:21 on 09-13) cannot repeat because zero fully-dead volumes
+> remain; `volume.balance` works but moved one volume in twelve minutes. **1,140 GB is
+> locked inside 6,459 READ-ONLY volumes (58 % of 11,044) that nothing on the box can
+> reach — and that count only ratchets upward.** What remains is **lower retention, more
+> disk, or the floor**, which is a FOOTAGE-POLICY decision and the operator's alone;
+> neither agent is making it. Asked of CV so the choice is between measured outcomes:
+> for retention of 5.0 / 4.5 / 4.0 / 3.5 days (current 5.5), how many volumes tip to
+> fully-dead and how much disk that actually returns — **because with compaction broken,
+> lowering retention does NOT free disk by itself**: it raises garbage inside volumes that
+> stay the same size, and disk returns only when a whole volume tips and is deleted.
+> **If retention drops, this box owes one piece of work:** make the retention horizon
+> legible in the timeline and coverage views, so a guard scrubbing past it sees a marker
+> rather than silence they would report as missing footage.
+
 <!-- 2026-09-12 pointer -->
 > **2026-09-12 — rock-n-roll soak COMPLETE: 409 runs over 8 groups, 02:10–11:00,
 > interrupted 08:09–09:51 by a HOST DISK FAILURE (not ours) and resumed once the
