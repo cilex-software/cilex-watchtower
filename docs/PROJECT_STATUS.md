@@ -23,6 +23,22 @@
 > fully-dead and how much disk that actually returns — **because with compaction broken,
 > lowering retention does NOT free disk by itself**: it raises garbage inside volumes that
 > stay the same size, and disk returns only when a whole volume tips and is deleted.
+> **THE CLOCK, confirmed with CV 2026-09-14 02:30 — ACT BEFORE 06:25, and the 08:06
+> failure is the 09-12 outage repeating rather than a clean stop.** The two nodes do not
+> fail independently: the master is already load-aware (CV measured 40 assignments —
+> 8/12 and 3/17 split toward the emptier node), so when 07fa reaches `minFreeSpace`
+> around **06:25** everything routes to 4fa8, which then drains at the combined 53 GB/h
+> instead of 35 and reaches its own floor around **08:06**. Quoting each node's own
+> runway gives 08:56 and overstates the deadline by ~50 minutes. **The 06:25–08:06 window
+> is not merely half capacity — it actively converts recoverable disk into PERMANENTLY
+> frozen disk**, because everything landing on 4fa8 pushes more of its volumes read-only,
+> and a read-only volume can never expire its contents on this build. **At 08:06 the
+> recorder does not stop cleanly: it spools to the container-local disk, which is exactly
+> what took the root filesystem to zero and wedged the filer on 09-12.** So fleet
+> recording stopping is the SECOND failure, not the first. Expect a brief burst of upload
+> failures at the 06:25 handover as in-flight uploads are reassigned — that is normal and
+> clears; the signal that matters is failures that PERSIST (this box's alarm now requires
+> two consecutive samples for exactly that reason).
 > **If retention drops, this box owes one piece of work:** make the retention horizon
 > legible in the timeline and coverage views, so a guard scrubbing past it sees a marker
 > rather than silence they would report as missing footage.
