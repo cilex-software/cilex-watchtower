@@ -34,8 +34,13 @@ def vol_stats():
                 key = server.split("-")[2][:4] if server.count("-") > 2 else server[:4]
                 g = sum(v.get("DeletedByteCount", 0) for v in vols or [])
                 big = max((v.get("Size", 0) for v in vols or []), default=0)
-                cur = out.get(key, (0, 0, 0))
-                out[key] = (cur[0] + g, max(cur[1], big), cur[2] + len(vols or []))
+                # READ-ONLY count is the ratchet (CV, 2026-09-14): a volume that goes
+                # read-only stops accepting writes and, with compaction a no-op on this
+                # build, its garbage is unreachable until someone deletes the whole file.
+                # It only ever climbs, so it says how much of tonight is recoverable later.
+                ro = sum(1 for v in vols or [] if v.get("ReadOnly"))
+                cur = out.get(key, (0, 0, 0, 0))
+                out[key] = (cur[0] + g, max(cur[1], big), cur[2] + len(vols or []), cur[3] + ro)
     return out, d.get("Version")
 
 def count(container, pattern, since="3m"):
@@ -48,9 +53,9 @@ vs, ver = vol_stats()
 parts = [datetime.datetime.now().strftime("%H:%M:%S")]
 for short, cont in NODES.items():
     free = df_free_gb(cont)
-    g, big, n = vs.get(short, (0, 0, 0))
-    parts.append(f"{short}: free={free:.0f}G garbage={g/1e9:.0f}G largest={big/1e9:.2f}G vols={n}"
-                 if free is not None else f"{short}: free=? garbage={g/1e9:.0f}G largest={big/1e9:.2f}G vols={n}")
+    g, big, n, ro = vs.get(short, (0, 0, 0, 0))
+    f = f"{free:.0f}G" if free is not None else "?"
+    parts.append(f"{short}: free={f} garbage={g/1e9:.0f}G largest={big/1e9:.2f}G vols={n} ro={ro}")
 parts.append(f"spool={spool}M")
 parts.append(f"failed_to_pick={count('seaweed-master','failed to pick')}")
 parts.append(f"s3_assign_err={count('s3','assign volume')}")

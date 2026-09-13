@@ -106,6 +106,43 @@ terabyte of garbage survived the one burst.
 Artifact to ignore in the log: the 19:01→19:06 sample reads 07fa garbage 0 / vols 0. That is
 the node not reporting mid-burst, not a real value.
 
+## §2b SECOND AMENDMENT, 2026-09-14 00:10 — there is no mechanism, there was a person
+
+CV's answer: the 19:06–19:21 burst was **them running `volume.delete` by hand on 219
+volumes**, not an automatic process. My §2a inference about *what gates the fast mechanism*
+is therefore void — there is no gate to tune. The 760 GB/hour I measured is the speed of
+`rm` on 1 GB files.
+
+What they deleted, so the record is precise: volumes where `FileCount == DeleteCount`, i.e.
+every needle the volume ever held had already been deleted, so zero live data by definition.
+219 volumes, 224 GB on disk, 191.8 GB returned. My sample caught 237 volumes disappearing
+across both nodes and theirs caught the bytes; the two agree on the effect.
+
+**And it cannot be repeated.** Fully-dead volumes right now: zero. The 219 were a backlog
+accumulated over weeks, not a renewable supply. 34 volumes sit at ≥90 % garbage holding 37 GB
+but still contain live needles, so they cannot be dropped.
+
+**Compaction does not work on this build.** CV confirmed `volume.vacuum` is a no-op under
+every invocation they tried — fleet-wide, per-collection, single volumeId, thresholds 0.15
+and 0.01, on a freshly-writable volume, at 97 % and 95 % disk. So the honest split between
+the two mechanisms we had been conflating is: **manual whole-volume deletion works and is
+fast; compaction does not work at all.** Their earlier "3 GB in 15 minutes" was the last time
+vacuum did anything measurable.
+
+**Balance is ruled out too:** `volume.balance` correctly proposed moving volumes from the
+fuller node, but it copies one volume at a time and moved exactly one in twelve minutes — too
+slow against a six-hour clock. Non-destructive and stopped.
+
+So the non-destructive options are exhausted, and that should be stated plainly rather than
+discovered later: vacuum is broken, the sweep has nothing left, balance is too slow, and
+**1,140 GB is locked inside 6,459 read-only volumes that nothing on this box can reach**.
+What remains is lower retention, more disk, or the floor — a footage-policy decision, and the
+operator's alone. Neither agent is making it and neither should imply it is technical.
+
+**Sampler updated** (`tools/storage-sample.py`): read-only volume count added at CV's
+request, because it is the ratchet — it only climbs, and it says how much of tonight is
+recoverable later. First reading, 00:06: `07fa ro=2800 of 4210`, `4fa8 ro=3659 of 6834`.
+
 ## §3 The 30 GB trade is beginning to land, and it is small so far
 
 Largest volume has grown 1.10 → 2.01 GB since your `-volumeSizeLimitMB` change. That is the
