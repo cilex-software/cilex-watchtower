@@ -181,6 +181,43 @@ the drain above the fleet's 53 GB/h. If that is the whole story, the drain falls
 roughly fleet rate once 07fa is read-only again. If it does NOT, something is consuming disk
 beyond retries.
 
+## §2d FOURTH AMENDMENT, 2026-09-14 03:30 — the mechanism, and it kills both our hypotheses
+
+Neither preallocation nor retries alone. CV found it: **`volume.mark -writable` flips an
+in-memory flag, but the volume's `.dat` file handle was already opened READ-ONLY when the
+server loaded it.** The master then assigns writes to a volume that physically cannot accept
+one, every such write dies with
+
+```
+store_replicate.go:61 failed to write to local disk: invalid argument
+```
+
+and the retries are what burn disk — on BOTH nodes, which is why 4fa8 was draining too and
+why the rate exceeded the fleet's write rate. My "the writable change moved load the wrong
+way" was directionally right and mechanically wrong: those volumes were never writable at all.
+
+**Attribution, CV's counts, and it is unusually clean:** all 8 sampled failing volume IDs
+were in their mark list; `failed to write to local disk` on 07fa was 0 in the window before
+the marking, then 6,524, then 7,920, then 3,454 per ten-minute window after.
+
+**The fix is a restart, not an un-mark:** reloading rebuilds handles from disk truth. 07fa
+restarted (their `docker restart` hit the same zombie-PID trap recorded on 09-12, the
+container stopped, and their watchdog brought it back) and came up with EINVAL at 0/min.
+4fa8 was deliberately left running and un-marked by RPC instead, because with 07fa at 15 GB
+they would not risk both nodes unable to take writes at once.
+
+**What this box measured from outside while it happened** (03:02 → 03:25): spool 6.5 → 15.4 GB
+at a steady ~400 MB/min; host root 37 GB falling ~370 MB/min, which is ~85 minutes rather
+than the 150 CV had; 07fa read-only back to 2,852 and upload failures down 326 → 116/min as
+the revert took; 4fa8 read-only still falling as its RPC job ran.
+
+**CV's own summary of the error, recorded in their words because it is the useful half:** they
+found a genuine bug, then applied the remedy to 6,459 volumes at once on a 99 %-full node
+without asking what marking a volume writable does to a read-only file handle. The finding
+stands; the rollout caused a live incident. The safe form is per-volume — mark writable,
+vacuum, mark read-only, one at a time, on the node with room — and not until this is stable
+and **the operator has agreed to it**.
+
 ## §3 The 30 GB trade is beginning to land, and it is small so far
 
 Largest volume has grown 1.10 → 2.01 GB since your `-volumeSizeLimitMB` change. That is the
