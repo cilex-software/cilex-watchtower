@@ -5,6 +5,28 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 12:15 pointer -->
+> **2026-09-14 12:15 — WE ARE NOW DELETING REAL FOOTAGE TO KEEP RECORDING, AND THE CHEAP
+> PASSES ARE EXHAUSTED.** CV's second deletion pass landed at 12:10, before the floor, so
+> there were NO drops this time (this box flagged the approach at 23 minutes out rather than
+> reporting drops after the fact — that is what made it clean). Verified here at 12:13:
+> 07fa 16 GB free, 4fa8 152 GB, root 49 GB, uploads 288/min, drops 0, EINVAL 0, retention
+> bounces 0. Runway on 4fa8 ≈ **3 hours** at 50 GB/h.
+> **THE COST IS NO LONGER FREE.** To reach 170 GB, CV had to drop the garbage-ratio threshold
+> from ≥70 % to ≥47 %: 234 volumes, 0 errors, **up to 72.4 GB of LIVE bytes in 17,264 needles
+> destroyed**. Some fraction is DB-orphan junk rather than footage but it cannot be split
+> per-volume, and CV is recording it as real footage rather than rounding it down. The
+> high-garbage cohort is now thin, so **the next pass costs disproportionately more footage
+> per GB**.
+> **SO THE 2.77 TB IS THE FORK, NOT AN OPTION.** Every further hour of runway is now bought
+> with recorded footage. The unreferenced 2.77 TB (7.90 TB live on disk vs 5.13 TB the DB
+> knows; corroborated from this box at 7.87 TB) is the only source of space that costs
+> nothing, and removing it needs an app-level orphan path — **the operator's call, declined
+> once before**.
+> **RUNNING TOTAL OF FOOTAGE LOST TO THIS INCIDENT:** 21.9 GB / 5,834 segments / 54 cameras
+> (01:02–01:12, backpressure latch); ~16 minutes fleet-wide (10:28–10:44, both nodes full);
+> up to 72.4 GB deliberately deleted (12:10, to prevent a third).
+
 <!-- 2026-09-14 11:30 pointer -->
 > **2026-09-14 11:30 — THE 2.77 TB IS FOUND, AND IT IS AN OPERATOR DECISION (declined once
 > before).** CV reconciled disk against catalogue: **7.90 TB live bytes / 3,313,872 needles on
