@@ -143,6 +143,44 @@ operator's alone. Neither agent is making it and neither should imply it is tech
 request, because it is the ratchet — it only climbs, and it says how much of tonight is
 recoverable later. First reading, 00:06: `07fa ro=2800 of 4210`, `4fa8 ro=3659 of 6834`.
 
+## §2c THIRD AMENDMENT, 2026-09-14 03:10 — vacuum was never broken. It SKIPS read-only volumes.
+
+The single most important correction in this letter, and it reverses §2b's "compaction does
+not work at all". CV's measurement:
+
+- the filer was logging `failed to delete N files ... volume X is read only` on **every**
+  retention pass;
+- **6,459 of 11,044 volumes (58 %) carried `ReadOnly:true`**, holding 1,062 GB of already
+  tombstoned bytes, 879 GB of it inside those read-only volumes;
+- clearing the flag on a single volume let vacuum reclaim it immediately — volume 9730 went
+  **1,077,356,712 → 1,124,720 bytes**, FileCount 1808 → 2, and free disk rose 777 MB.
+
+So vacuum works on this build. It silently skips read-only volumes, and 58 % of the fleet
+was read-only, which is the ~40 GB/day leak and the reason garbage only ever ratcheted
+upward. Everything §2b said about "non-destructive options exhausted" was true only while
+that flag was in place — and the flag, not the binary, was the constraint.
+
+**The cost of finding it out, recorded because it is the useful half:** marking at fleet
+scale without accounting for WHERE the writes would then go sent thousands of newly-writable
+targets onto 07fa, the **fullest** node at 76 GB. Load moved to the node with the least room,
+uploads began failing against it, the recorder paused and its spool climbed 1.57 → 5.10 GB in
+twelve minutes — the 09-12 mechanism starting 3.5 hours early. The read-only flag was a bug
+AND, on that node, the thing holding write traffic off a nearly-full disk. CV is reverting
+07fa to read-only in chunks and leaving 4fa8 writable, since it has the room and is where the
+writes should land.
+
+**What this does to the operator's decision:** it may remove it. "Lower retention, more disk,
+or the floor" was the menu while 879 GB was unreachable. If vacuum can now reach that space
+on the node with room, the shortage is recoverable without touching retention. That is not
+yet proven at scale — one volume and a fleet are different claims — but the operator should
+not be asked to cut footage retention until it has been tried properly.
+
+**Prediction that tests the retry hypothesis** (mine, adopted by CV): a failed PutObject
+re-sends the same segment, so the failure loop writes the same bytes repeatedly and inflates
+the drain above the fleet's 53 GB/h. If that is the whole story, the drain falls back to
+roughly fleet rate once 07fa is read-only again. If it does NOT, something is consuming disk
+beyond retries.
+
 ## §3 The 30 GB trade is beginning to land, and it is small so far
 
 Largest volume has grown 1.10 → 2.01 GB since your `-volumeSizeLimitMB` change. That is the
