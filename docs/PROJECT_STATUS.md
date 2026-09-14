@@ -5,6 +5,20 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 15:30 OPERATOR DECISION -->
+> **2026-09-14 15:30 — OPERATOR AUTHORISED THE PURGE.** Verbatim: *"Get rid of as much stale
+> data as possible wipe it clean"*. Relayed to CV with the scope stated explicitly, because the
+> phrase is broad enough to be dangerous read literally. **Scoped as: (1) the 2.77 TB of
+> unreferenced needles** — 3,313,872 on disk vs 1,728,560 the DB knows — **and (2) the ~950 GB
+> of already-tombstoned garbage.** **Explicitly NOT scoped to** the 5.13 TB of footage inside
+> retention that the catalogue references; nothing in the instruction shortens retention or
+> drops live recordings, and CV was told to come back rather than assume if they read it
+> otherwise. This reverses the earlier refusal of the app-level orphan path.
+> Sequencing left to CV: the authorisation arrived ~18 min before the next floor (4fa8 at
+> 24 GB, 53 GB/h, floor ≈15:48), so buying time with another garbage-ratio pass first and
+> purging unhurried, versus going straight at the purge and accepting a possible drop window,
+> is theirs to judge. This box has the drop-rate measurement armed either way.
+
 <!-- 2026-09-14 12:15 pointer -->
 > **2026-09-14 12:15 — WE ARE NOW DELETING REAL FOOTAGE TO KEEP RECORDING, AND THE CHEAP
 > PASSES ARE EXHAUSTED.** CV's second deletion pass landed at 12:10, before the floor, so
