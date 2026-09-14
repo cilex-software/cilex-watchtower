@@ -218,6 +218,55 @@ stands; the rollout caused a live incident. The safe form is per-volume — mark
 vacuum, mark read-only, one at a time, on the node with room — and not until this is stable
 and **the operator has agreed to it**.
 
+## §2e FIFTH AMENDMENT, 2026-09-14 04:30 — FOOTAGE WAS LOST, and the plateau was the clue
+
+**5,834 segments, 21.9 GB, across 54 cameras, dropped between 01:02:50 and 01:12:00 UTC.**
+Counted from this box out of the recorder's own log lines
+(`Backpressure active — dropping segment …`), independently of CV. Not delayed, not spooled
+— discarded. That footage does not exist anywhere.
+
+**Why the spool plateau was the clue.** At 03:53 the spool stopped growing and I declined to
+call it a turn, on the grounds that a flat line is not a falling line and one sample is not a
+trend. It was neither recovery nor backlog: the recorder had engaged BACKPRESSURE and was
+dropping every segment it received. Had that been read as recovery, the fleet would have gone
+on silently losing footage while everyone stood down.
+
+**The bug, CV's diagnosis, and it predates tonight.** `backpressure.py` watched a SINGLE path,
+`RECORDER_DISK_USAGE_PATH=/video-disk`, which is node 07fa. It engages below 5 GB free and
+clears at 15 GB. Seaweed deliberately pins a full disk at its own `minFreeSpace` floor of
+5 GiB — so 07fa sat at exactly 5.0 GB, permanently below the engage threshold and permanently
+unable to reach the clear threshold, **while 4fa8 had 122 GB and was taking every write**. A
+permanent latch: once engaged it could never clear for the life of the process. `rebalancer.py`
+already carried `_video_disk_paths()` and a comment naming this exact class — "THE SECOND-DISK
+BLINDNESS (found 2026-08-18)" — but the fix had been applied to the evictor and this loop was
+missed. CV patched the loop to take the best disk in the pool; drops went to 0 and uploads to
+263/min immediately.
+
+**A second incomplete revert, caught by checking state rather than trusting a success
+message.** After CV's un-mark job reported ALL CLEAR, EINVAL was still ~280/min: 533 of 3,659
+commands had never taken, because a per-chunk `timeout 400` cut chunks off mid-stream and the
+output was suppressed so no error surfaced. Found by reading actual `ReadOnly` state in
+`volume.list`. Re-issued; EINVAL 184 → 100 → 74 → 18 → 0, and a fresh listing confirms zero
+poisoned volumes.
+
+**Verified from this box at 04:29:** spool back to 1,016 MB from 19.7 GB, root filesystem
+52 GB, upload failures 0, 448 uploads in two minutes, drops 0. 07fa pinned at 5.1 GB with all
+4,210 volumes read-only, serving reads only — designed behaviour. 4fa8 at 106 GB taking 100 %
+of writes.
+
+**THE ORIGINAL PROBLEM IS UNTOUCHED AND THE CLOCK IS ~2 HOURS.** At ~53 GB/h, 4fa8 reaches the
+same floor. Retention deletion still reclaims nothing because deletes bounce off read-only
+volumes — the leak CV set out to fix at the start of the night. 1,062 GB remains tombstoned
+and unreclaimed.
+
+**The safe shape of the fix is now known, and it needs the operator.** Marking a read-only
+volume writable lets the master send it APPENDS, which fail EINVAL because the `.dat` handle
+is read-only. Vacuum does not append — it writes a fresh `.cpd` and renames — so
+**mark → vacuum immediately → read-only** works, proven on volume 9730
+(1,077,356,712 → 1,124,720 bytes). One small batch at a time, write-exposure measured in
+seconds rather than 6,459 volumes left writable for half an hour, and not on 07fa. CV is not
+starting it without the operator's agreement.
+
 ## §3 The 30 GB trade is beginning to land, and it is small so far
 
 Largest volume has grown 1.10 → 2.01 GB since your `-volumeSizeLimitMB` change. That is the
