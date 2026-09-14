@@ -5,6 +5,30 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 11:30 pointer -->
+> **2026-09-14 11:30 — THE 2.77 TB IS FOUND, AND IT IS AN OPERATOR DECISION (declined once
+> before).** CV reconciled disk against catalogue: **7.90 TB live bytes / 3,313,872 needles on
+> disk against 5.13 TB / 1,728,560 segments the database knows about — 2.77 TB and 1.58 M
+> needles the DB has no row for but the FILER still references.** Corroborated independently
+> from this box: 8.91 TB used across both nodes minus 1.04 TB garbage = 7.87 TB live, against
+> CV's 7.90. That is why `fsck` finds no orphans — from SeaweedFS's view they are legitimate
+> files, so only an APP-LEVEL orphan path can remove them. **Deleting them is the operator's
+> call.**
+> **TWO CORRECTIONS THAT KILL EARLIER CONCLUSIONS.** (1) **Vacuum does nothing on this build** —
+> CV tested it properly with `volume.list` snapshots either side of vacuum runs: **0 of 10,995
+> volumes decreased in Size**. The 20 GB drop that looked like compaction was their 21 deleted
+> volumes. So every "mark writable so vacuum can run" step, *including the one that caused the
+> 02:35 outage and the 21.9 GB of lost footage*, bought nothing. (2) What DOES work is
+> `volume.delete` on whole volumes targeted by garbage ratio — no free space and no writable
+> volume needed; 50 volumes at ≥70 % garbage freed 41 GB + 2.7 GB.
+> **THE DURABLE WIN:** retention deletion had been bouncing off read-only volumes on every pass
+> — the ~40 GB/day leak — and is now **0 bouncing deletes in 5 minutes**. Leak closed.
+> **FOOTAGE LOST SO FAR: 21.9 GB / 5,834 segments / 54 cameras (01:02–01:12), plus ~16 minutes
+> fleet-wide at 10:28–10:44.** Both while spool and root stayed healthy: **the drop counter is
+> the only instrument that catches this failure** — see `tools/storage-sample.py`.
+> Gotcha for the next person: `fsck` needs `-filer=seaweed-filer:8888` passed explicitly or it
+> dies with "received empty target in Build()".
+
 <!-- 2026-09-14 pointer -->
 > **2026-09-14 01:10 — THE PILOT'S STORAGE IS ~5.5 HOURS FROM ITS FLOOR AND THE ONLY
 > REMAINING LEVERS ARE THE OPERATOR'S.** Node 07fa: 99 GB free (97 % used), falling

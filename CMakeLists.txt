@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.441
+    VERSION 1.1.442
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
