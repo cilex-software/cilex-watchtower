@@ -5,6 +5,28 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 15:50 PURGE RESULT -->
+> **2026-09-14 15:50 — THE PURGE WORKED AND COST ZERO FOOTAGE. Verified from this box:
+> 07fa 5 → 300 GB free, 4fa8 20 → 473 GB, drops 0, uploads 232/min, root 50 GB.** No drop
+> window occurred; it beat the 15:48 floor. 628 GB reclaimed from 1,200 volumes with 492 still
+> running, 0 errors.
+> **THE METHOD IS THE THING TO KEEP — it trades no footage at all, unlike the garbage-ratio
+> passes that cost up to 72.4 GB of live bytes.** The catalogue covers 2026-09-09..09-14 and
+> nothing older. Every volume carries `ModifiedAtSecond`, its last write, already present in
+> `volume.list`. **Any volume whose last write predates the catalogue's oldest day cannot hold
+> a single referenced needle — pre-catalogue by construction.** That set was 1,692 volumes last
+> written 2026-06-15..2026-08-25, a fifteen-day margin below the catalogue floor. No fsck, no
+> vacuum, no writable volumes, no footage traded. **This is the reclaim instrument for this
+> box; garbage ratio was the wrong one.**
+> **What the orphans actually were:** day-directories for 2026-08-10..08-16 with no catalogue
+> rows at all. Retention had deleted their rows weeks earlier and the S3 deletes bounced off
+> read-only volumes — the leak this box's filer log line exposed. Those were the 2.77 TB.
+> **CV's own correction, recorded because it runs against them:** they estimated 844 GB for all
+> 1,692 volumes, but 1,200 have already yielded 628 GB — so `Size` in `volume.list` UNDERSTATES
+> on-disk footprint for old volumes. Their estimate was low, not high.
+> Still to come: a fresh orphan scan once this finishes, and any leftover orphan day-directories
+> cleaned through the app path.
+
 <!-- 2026-09-14 15:30 OPERATOR DECISION -->
 > **2026-09-14 15:30 — OPERATOR AUTHORISED THE PURGE.** Verbatim: *"Get rid of as much stale
 > data as possible wipe it clean"*. Relayed to CV with the scope stated explicitly, because the
