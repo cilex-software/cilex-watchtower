@@ -5,6 +5,37 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-14 20:40 PURGE STOPPED SHORT -->
+> **2026-09-14 20:40 — THE PURGE WAS ONLY PARTLY DONE, AND CV STOPPED DELIBERATELY. The ~2 TB
+> of orphans was NOT deleted.** The operator's *"wipe it clean"* was executed for the
+> pre-catalogue volumes (628 GB+, zero footage cost) but NOT for the orphan set, and the reason
+> is the operator's to weigh: **`fsck` SILENTLY TRUNCATES.** CV gave it a 200-volume list
+> containing five volumes they had individually confirmed at 95 % orphaned, and it reported none
+> of the five — so the orphan set cannot be enumerated reliably and they would not delete from a
+> list known to be incomplete. The alternative, whole-volume deletion, measures **683 MB of
+> orphan against 358 MB of genuinely referenced footage per volume**, so reclaiming ~1.7 TB
+> would destroy **~0.9 TB of catalogued footage**. CV judged that a bad trade and stopped rather
+> than spend it. **That judgement is now the operator's to confirm or overrule.**
+> **CORRECTION — VACUUM IS NOT DEAD.** CV told this box twice that compaction does nothing on
+> this build, including a "0 of 10,995 volumes shrank" test offered as definitive. Every such
+> test was run while the disk was below `minFreeSpace=5GiB`, which makes the volume server
+> refuse compaction outright. With 250 GB free it works: vol 32 went 1,075,552,848 →
+> 736,042,592 bytes, DeletedByteCount 337,979,104 → 0. **It is still the wrong instrument here**
+> — 25 volumes per 16 minutes measured, so ~75 hours for the 7,027 volumes holding 763 GB, and
+> it must rewrite 7.4 TB of live bytes to reclaim 0.76 TB; it also holds the admin `lock` for
+> its whole run, blocking `volume.list` and reaping.
+> **CAVEAT ON THE ModifiedAtSecond METHOD recorded above:** now that retention deletes actually
+> LAND, a tombstone write updates a volume's `ModifiedAtSecond`, so an old volume receiving a
+> delete today looks freshly written. **The heuristic degrades over time** — it was clean on
+> 09-14 precisely because the deletes had been bouncing.
+> **EINVAL DETECTION RULE, from the residue this box caught at a trickle:** `ReadOnly:false AND
+> DeletedByteCount > 0` = marked writable but never compacted, i.e. the stale read-only handle
+> that EINVALs on every write. `ReadOnly:false AND DeletedByteCount == 0` = vacuumed cleanly and
+> safe. 27 such volumes were left by a vacuum job killed mid-batch; re-marked read-only and the
+> trickle went to zero.
+> State 20:40: 07fa 244 GB, 4fa8 394 GB, root 48 GB, uploads 224/min, drops 0, EINVAL 0,
+> retention bounces 0.
+
 <!-- 2026-09-14 15:50 PURGE RESULT -->
 > **2026-09-14 15:50 — THE PURGE WORKED AND COST ZERO FOOTAGE. Verified from this box:
 > 07fa 5 → 300 GB free, 4fa8 20 → 473 GB, drops 0, uploads 232/min, root 50 GB.** No drop
