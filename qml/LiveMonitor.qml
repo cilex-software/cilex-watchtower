@@ -717,8 +717,15 @@ Item {
                 id: headerRow
                 anchors.fill: parent
                 anchors.leftMargin: 20
-                anchors.rightMargin: 20
+                // Right margin opens by exactly the pinned "»" band (38 + one spacing) while
+                // anything is collapsed, so row content STOPS before the button instead of
+                // running underneath it. No dead gap when nothing is collapsed (operator,
+                // 2026-08-21), and no oscillation: the margin keys off "collapsed at all",
+                // not off the level, and a row that fits in the NARROWER width would have
+                // fitted in the wider one — so the level can only settle, never flip back.
+                anchors.rightMargin: 20 + (root._tbHidden > 0 ? 50 : 0)
                 spacing: 12
+                clip: true      // a left side wide enough to overflow is cut at that edge
 
                 // layout segmented control — NetIcon pictograms (2×2 / 3×3 / 4×4 / Other)
                 Rectangle {
@@ -1229,84 +1236,99 @@ Item {
                 // Overflow ("»"): when the row is too narrow to fit the action buttons above
                 // (Go-back / Save / Arrange), they collapse here — MS-Office-style right-edge
                 // overflow. Opens a menu with the same commands. Shown only while collapsed.
-                Rectangle {
-                    id: overflowBtn
-                    visible: root._tbHidden > 0
-                    Layout.preferredHeight: 38; Layout.preferredWidth: 38
-                    color: (ovMa.containsMouse || ovPopup.visible) ? Theme.panel : "transparent"
-                    border.width: 1
-                    border.color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.line2
-                    Accessible.role: Accessible.Button
-                    Accessible.name: "More controls"
-                    Row {     // "»" double chevron
-                        anchors.centerIn: parent; spacing: 0
-                        Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
-                        Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
-                    }
-                    MouseArea { id: ovMa; anchors.fill: parent; hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor; onClicked: ovPopup.open() }
-                    C.ToolTip.visible: ovMa.containsMouse && !ovPopup.visible
-                    C.ToolTip.text: "More controls"
-                    C.ToolTip.delay: 400
-                    C.Popup {
-                        id: ovPopup
-                        y: overflowBtn.height + 4
-                        x: overflowBtn.width - width
-                        width: 210; padding: 4
-                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1; radius: 2 }
-                        contentItem: Column {
-                            spacing: 0
-                            component OvRow: Rectangle {
-                                property string label: ""
-                                property string icon: ""
-                                signal triggered()
-                                width: 202; height: 34
-                                color: orMa.containsMouse ? Theme.panel2 : "transparent"
-                                Row {
-                                    anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                                    spacing: 9
-                                    Icon { anchors.verticalCenter: parent.verticalCenter; name: icon; size: 15; color: Theme.ink2 }
-                                    Text { anchors.verticalCenter: parent.verticalCenter; text: label
-                                        color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13 }
-                                }
-                                MouseArea { id: orMa; anchors.fill: parent; hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor; onClicked: { parent.triggered(); ovPopup.close() } }
+                // The "»" is NOT inline any more. It is pinned to the sub-bar's right edge
+                // (just below headerRow), and the space it needs is reserved by this row's
+                // rightMargin above — the `ov` term in _tbWantHidden matches that 38 + 12.
+                // Why: the row collapses only from the RIGHT, so once the left-hand controls
+                // (layout presets + group + filter chips) filled the bar, the escape hatch was
+                // pushed off the edge together with the commands it holds — reported at
+                // 2560x1440 (operator, 2026-09-17, "nearly invisible"), reproduced at 1150
+                // logical where the row was truncated after the last chip and neither
+                // "+ Filter" nor "»" was drawn. Same class as the 2026-09-02 "could not find
+                // Save" report, one level up.
+            }
+            // PINNED overflow ("»") — see the note in headerRow for why it is not inline.
+            Rectangle {
+                id: overflowBtn
+                visible: root._tbHidden > 0
+                width: 38; height: 38
+                anchors.right: parent.right
+                anchors.rightMargin: 20          // same margin headerRow uses
+                anchors.verticalCenter: parent.verticalCenter
+                z: 3                              // above any row content clipped under it
+                color: (ovMa.containsMouse || ovPopup.visible) ? Theme.panel : Theme.bg    // opaque: clipped row content must not show through
+                border.width: 1
+                border.color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.line2
+                Accessible.role: Accessible.Button
+                Accessible.name: "More controls"
+                Row {     // "»" double chevron
+                    anchors.centerIn: parent; spacing: 0
+                    Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
+                    Icon { name: "fwd"; size: 12; color: (ovMa.containsMouse || ovPopup.visible) ? Theme.accent : Theme.ink2 }
+                }
+                MouseArea { id: ovMa; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor; onClicked: ovPopup.open() }
+                C.ToolTip.visible: ovMa.containsMouse && !ovPopup.visible
+                C.ToolTip.text: "More controls"
+                C.ToolTip.delay: 400
+                C.Popup {
+                    id: ovPopup
+                    y: overflowBtn.height + 4
+                    x: overflowBtn.width - width
+                    width: 210; padding: 4
+                    background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1; radius: 2 }
+                    contentItem: Column {
+                        spacing: 0
+                        component OvRow: Rectangle {
+                            property string label: ""
+                            property string icon: ""
+                            signal triggered()
+                            width: 202; height: 34
+                            color: orMa.containsMouse ? Theme.panel2 : "transparent"
+                            Row {
+                                anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                                spacing: 9
+                                Icon { anchors.verticalCenter: parent.verticalCenter; name: icon; size: 15; color: Theme.ink2 }
+                                Text { anchors.verticalCenter: parent.verticalCenter; text: label
+                                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13 }
                             }
-                            // Only the commands actually hidden at the current overflow level —
-                            // a menu duplicating inline buttons would be two names for one fact.
-                            // (Sort + full-screen never collapse, so they no longer appear here.)
-                            OvRow { visible: root._tbHidden >= 2
-                                label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
-                            OvRow { visible: root._tbHidden >= 3
-                                label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
-                            OvRow { visible: root._tbHidden >= 1
-                                label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"
-                                onTriggered: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1 } }
-                            OvRow { visible: root._tbHidden >= 1 && root.arrangeMode && root.hasArrangement
-                                label: qsTr("Reset arrangement"); icon: "back"; onTriggered: root.resetArrangement() }
-                            OvRow { visible: root._tbHidden >= 5
-                                label: qsTr("Full-screen"); icon: "full"; onTriggered: root.fullscreenToggled() }
-                            Column {
-                                visible: root._tbHidden >= 4
-                                Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
-                                Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
-                                    text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
-                                    font.pixelSize: 9; font.letterSpacing: 1 }
-                                Repeater {
-                                    model: [ { id: "live", lbl: qsTr("Live first") }, { id: "ip", lbl: qsTr("IP address") }, { id: "default", lbl: qsTr("Stream order") },
-                                             { id: "status", lbl: qsTr("Status first") }, { id: "alpha", lbl: qsTr("Alphabetical") } ]
-                                    delegate: Rectangle {
-                                        required property var modelData
-                                        width: 202; height: 30
-                                        color: soMa.containsMouse ? Theme.panel2 : "transparent"
-                                        Text { anchors { left: parent.left; leftMargin: 34; verticalCenter: parent.verticalCenter }
-                                            text: modelData.lbl
-                                            color: root.sortMode === modelData.id ? Theme.accent : Theme.ink
-                                            font.family: Theme.fontSans; font.pixelSize: 12 }
-                                        MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
-                                    }
+                            MouseArea { id: orMa; anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor; onClicked: { parent.triggered(); ovPopup.close() } }
+                        }
+                        // Only the commands actually hidden at the current overflow level —
+                        // a menu duplicating inline buttons would be two names for one fact.
+                        // (Sort + full-screen never collapse, so they no longer appear here.)
+                        OvRow { visible: root._tbHidden >= 2
+                            label: qsTr("Go back in time"); icon: "history"; onTriggered: root.wallPlaybackRequested() }
+                        OvRow { visible: root._tbHidden >= 3
+                            label: qsTr("Save current view"); icon: "bookmark"; onTriggered: root.saveViewRequested() }
+                        OvRow { visible: root._tbHidden >= 1
+                            label: root.arrangeMode ? qsTr("Done arranging") : qsTr("Arrange"); icon: "grid"
+                            onTriggered: { root.arrangeMode = !root.arrangeMode; root.pickerCell = -1 } }
+                        OvRow { visible: root._tbHidden >= 1 && root.arrangeMode && root.hasArrangement
+                            label: qsTr("Reset arrangement"); icon: "back"; onTriggered: root.resetArrangement() }
+                        OvRow { visible: root._tbHidden >= 5
+                            label: qsTr("Full-screen"); icon: "full"; onTriggered: root.fullscreenToggled() }
+                        Column {
+                            visible: root._tbHidden >= 4
+                            Rectangle { width: 202; height: 1; color: Theme.line2 }   // divider before Sort
+                            Text { leftPadding: 12; topPadding: 7; bottomPadding: 3
+                                text: qsTr("SORT BY"); color: Theme.ink3; font.family: Theme.fontMono
+                                font.pixelSize: 9; font.letterSpacing: 1 }
+                            Repeater {
+                                model: [ { id: "live", lbl: qsTr("Live first") }, { id: "ip", lbl: qsTr("IP address") }, { id: "default", lbl: qsTr("Stream order") },
+                                         { id: "status", lbl: qsTr("Status first") }, { id: "alpha", lbl: qsTr("Alphabetical") } ]
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    width: 202; height: 30
+                                    color: soMa.containsMouse ? Theme.panel2 : "transparent"
+                                    Text { anchors { left: parent.left; leftMargin: 34; verticalCenter: parent.verticalCenter }
+                                        text: modelData.lbl
+                                        color: root.sortMode === modelData.id ? Theme.accent : Theme.ink
+                                        font.family: Theme.fontSans; font.pixelSize: 12 }
+                                    MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
                                 }
                             }
                         }
