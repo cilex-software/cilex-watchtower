@@ -43,6 +43,40 @@ $distExe = Join-Path $dist (Split-Path -Leaf $ExePath)
 Write-Host "== windeployqt =="
 & windeployqt --release --qmldir "$QmlDir" --compiler-runtime "$distExe"
 
+# 1b) VC++ runtime, belt-and-braces. MEASURED on wt-sm-vnutri-01 2026-09-17 with Qt 6.12.0 +
+#     VS BuildTools 17.14: --compiler-runtime above copies NOTHING - not with VCToolsRedistDir
+#     set, not with VCINSTALLDIR set. The dist shipped zero CRT DLLs while watchtower.exe
+#     imports MSVCP140/VCRUNTIME140/VCRUNTIME140_1 and the Qt DLLs additionally pull
+#     MSVCP140_1/_2 (dumpbin /dependents). On a build box those resolve from System32 because
+#     the Redistributable is installed; on a CLEAN target PC the app dies at load with a
+#     missing-DLL dialog and no log. That is fatal for an unattended wall display.
+#     CMakeLists.txt sets no MSVC_RUNTIME_LIBRARY, so this is a dynamic /MD build and the
+#     dependency is real. (Build with the Hybrid CRT instead and this step finds nothing to do.)
+$crtSrc = $null
+if ($env:VCToolsRedistDir -and (Test-Path (Join-Path $env:VCToolsRedistDir "x64\Microsoft.VC143.CRT"))) {
+    $crtSrc = Join-Path $env:VCToolsRedistDir "x64\Microsoft.VC143.CRT"
+} else {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $vsPath = & $vswhere -latest -products * -property installationPath
+        if ($vsPath) {
+            $crtSrc = Get-ChildItem (Join-Path $vsPath "VC\Redist\MSVC") -Directory -ErrorAction SilentlyContinue |
+                      ForEach-Object { Join-Path $_.FullName "x64\Microsoft.VC143.CRT" } |
+                      Where-Object { Test-Path $_ } | Select-Object -First 1
+        }
+    }
+}
+if ($crtSrc) {
+    Write-Host "== VC++ runtime from $crtSrc =="
+    Copy-Item (Join-Path $crtSrc "*.dll") -Destination $dist -Force
+} else {
+    Write-Warning "VC++ redist DLLs NOT found - the target PC must have the VC++ Redistributable x64 installed."
+}
+# Fail loudly rather than shipping a dist that cannot start on a clean machine.
+foreach ($crtDll in @("VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll")) {
+    if (-not (Test-Path (Join-Path $dist $crtDll))) { throw "CRT DLL missing from dist: $crtDll" }
+}
+
 # 2) GStreamer runtime — LGPL subset ONLY (README.md / DEVELOPMENT.md for the rationale). The
 #    live pipeline is rtspsrc ! decodebin(d3d11 HW) ! ... ! appsink; ship its closure, never
 #    gst-plugins-ugly (GPL). Copies are best-effort (names drift across GStreamer versions and
