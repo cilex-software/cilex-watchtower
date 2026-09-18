@@ -949,12 +949,18 @@ void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
             reply->abort();
         }
     });
-    connect(reply, &QNetworkReply::readyRead, reply, [reply, guarded]() {
+    connect(reply, &QNetworkReply::readyRead, reply, [reply, guarded, headered]() {
         if (!guarded) { reply->abort(); return; }
         // Loopback player slower than the stream for this long = it is gone in
         // all but name; cap the kernel-buffer pileup instead of growing forever.
         if (guarded->bytesToWrite() > 8 * 1024 * 1024) { reply->abort(); return; }
-        guarded->write(reply->readAll());
+        // CHUNK-FRAMED, because writeHead() declares Transfer-Encoding: chunked for
+        // every length-less body (f648146). Writing the bytes raw under that header
+        // is a malformed response: AVFoundation answers "Failed to load media" and
+        // every remote tile dies. Measured on the operator's colleague 2026-09-18,
+        // 524 failures in one session; curl calls it "chunk hex-length char not a
+        // hex digit: 0x23" — 0x23 being the '#' of #EXTM3U.
+        writeBody(guarded, reply->readAll(), *headered);
     });
     connect(reply, &QNetworkReply::finished, reply, [this, reply, guarded, headered]() {
         reply->deleteLater();
@@ -964,6 +970,7 @@ void HlsProxy::forwardLive(QTcpSocket *sock, const QString &upath)
             writeResponse(guarded, 502, "text/plain", "upstream failed");
             return;
         }
+        guarded->write("0\r\n\r\n");   // terminate the chunked body: EOF, not a truncated stream
         guarded->disconnectFromHost();
     });
     // The player hanging up (teardown, a ladder move) must stop the upstream pull.
