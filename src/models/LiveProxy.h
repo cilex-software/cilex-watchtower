@@ -29,7 +29,31 @@ public:
     // the url is not that shape; callers then fall back to liveUrlFor().
     Q_INVOKABLE QString liveUrlForUpstream(const QString &hlsUrl) const;
 
+    // Is go2rtc's RTSP port reachable from THIS network? -1 unknown, 0 no, 1 yes.
+    // A client off the VPN cannot reach 8554 at all, and without this every tile
+    // independently spends 2x8 s of doomed connects to find that out — serialized
+    // through ReconnectCoordinator's 700 ms global slot, so a 20-tile wall took
+    // minutes to settle and a single-camera view looked like it hung forever
+    // (measured on the operator's Mac 2026-09-18, 60 s in and only 3 of 20 tiles
+    // had given up). One 3 s TCP probe answers it for the whole app.
+    Q_PROPERTY(int rtspProbe READ rtspProbe NOTIFY rtspProbeChanged)
+    int rtspProbe() const { return m_rtspProbe; }
+    // Probe the host:port of an rtsp:// url. Cheap, idempotent per host:port, and
+    // re-run when the host changes (roaming on/off the VPN changes the answer).
+    void probeRtspHost(const QString &rtspUrl);
+
+    static LiveProxy *instance() { return s_instance; }
+
+signals:
+    void rtspProbeChanged();
+
 private:
+    void setRtspProbe(int v);
+
     HlsProxy *m_proxy = nullptr;
     QThread *m_thread = nullptr;
+    int m_rtspProbe = -1;          // -1 unknown, 0 unreachable, 1 reachable
+    QString m_probedHostPort;      // what m_rtspProbe refers to
+    bool m_probeInFlight = false;
+    static LiveProxy *s_instance;
 };

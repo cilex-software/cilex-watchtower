@@ -7,10 +7,15 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <QTcpSocket>
+#include <QTimer>
+
+LiveProxy *LiveProxy::s_instance = nullptr;
 
 LiveProxy::LiveProxy(QObject *parent)
     : QObject(parent)
 {
+    s_instance = this;
     auto *auth = AuthController::instance();
     m_thread = new QThread(this);
     m_thread->setObjectName(QStringLiteral("live-proxy"));
@@ -67,4 +72,47 @@ QString LiveProxy::liveUrlForUpstream(const QString &hlsUrl) const
     if (!ok.match(src).hasMatch())
         return QString();
     return m_proxy->localBase() + QStringLiteral("/live/stream.m3u8?src=") + src;
+}
+
+void LiveProxy::setRtspProbe(int v)
+{
+    if (m_rtspProbe == v)
+        return;
+    m_rtspProbe = v;
+    emit rtspProbeChanged();
+}
+
+void LiveProxy::probeRtspHost(const QString &rtspUrl)
+{
+    const QUrl u(rtspUrl);
+    if (u.host().isEmpty())
+        return;
+    const int port = u.port(8554);
+    const QString key = u.host() + QLatin1Char(':') + QString::number(port);
+    if (m_probeInFlight || key == m_probedHostPort)
+        return;                                  // answered, or answering
+    m_probedHostPort = key;
+    m_probeInFlight = true;
+    setRtspProbe(-1);                            // unknown while we ask
+
+    auto *sock = new QTcpSocket(this);
+    auto *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    auto finish = [this, sock, timer](int result) {
+        if (!m_probeInFlight)
+            return;
+        m_probeInFlight = false;
+        timer->stop();
+        sock->abort();
+        sock->deleteLater();
+        timer->deleteLater();
+        qInfo("[RTSP-PROBE] %s -> %s", qPrintable(m_probedHostPort),
+              result == 1 ? "reachable" : "UNREACHABLE (live falls back to HTTP)");
+        setRtspProbe(result);
+    };
+    connect(sock, &QTcpSocket::connected, this, [finish]() { finish(1); });
+    connect(sock, &QTcpSocket::errorOccurred, this, [finish](QAbstractSocket::SocketError) { finish(0); });
+    connect(timer, &QTimer::timeout, this, [finish]() { finish(0); });
+    timer->start(3000);                          // a reachable port answers in ms; 3 s is generous
+    sock->connectToHost(u.host(), quint16(port));
 }

@@ -80,6 +80,16 @@ Item {
     function stepDownTier(reason) { if (stepDownAllowed()) _stepDownTier(reason && reason.length ? reason : "external") }
     signal tierStepped(string reason, string badge)
 
+    // First rung worth trying: normally 0, but when RTSP is known-unreachable on
+    // this network every rtsp rung is skipped — otherwise each surface pays
+    // 2x8 s to rediscover it, queued behind every other surface doing the same.
+    function _firstUsableRung() {
+        if (tiers.length === 0 || !ReconnectCoordinator.rtspKnownUnreachable())
+            return 0;
+        for (var i = 0; i < tiers.length; i++)
+            if (_isHttp(tiers[i].url)) return i;
+        return 0;
+    }
     function _applyTier() {
         if (tiers.length === 0)
             return;
@@ -99,7 +109,30 @@ Item {
         console.info("[TIER] step down →", (currentTier ? currentTier.badge : "?"), "(" + reason + ")");
         tierStepped(reason, currentTier ? currentTier.badge : "");
     }
-    onTiersChanged: { _tierIndex = 0; _coldFailsThisTier = 0; _prevRungPlayed = false; _rungBlockedUntil = ({}); _applyTier(); }
+    onTiersChanged: { _tierIndex = _firstUsableRung(); _coldFailsThisTier = 0; _prevRungPlayed = false; _rungBlockedUntil = ({}); _applyTier(); }
+    // The moment ANY surface (or the startup probe) proves rtsp is dead here, every
+    // surface still waiting on an rtsp rung jumps straight to the first http rung
+    // instead of finishing its own doomed countdown.
+    Connections {
+        target: ReconnectCoordinator
+        function onRemoteModeChanged() { root._skipDeadRtspRung() }
+    }
+    Connections {
+        target: (typeof LiveHttp !== "undefined") ? LiveHttp : null
+        function onRtspProbeChanged() { root._skipDeadRtspRung() }
+    }
+    function _skipDeadRtspRung() {
+        if (_everPlayed || tiers.length === 0) return;
+        if (!ReconnectCoordinator.rtspKnownUnreachable()) return;
+        var cur = tiers[_tierIndex];
+        if (cur && _isHttp(cur.url)) return;            // already on http
+        var i = _firstUsableRung();
+        if (i > _tierIndex) {
+            console.info("[TIER] rtsp unreachable here → skipping to", tiers[i].badge);
+            _coldFailsThisTier = 0;
+            _tierIndex = i;
+        }
+    }
     on_TierIndexChanged: _applyTier()
 
     // `playing` = FRAMES ARE ACTUALLY FLOWING, not merely "the pipeline reports itself up".

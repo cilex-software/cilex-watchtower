@@ -27,12 +27,25 @@ QtObject {
     // the VPN mid-session can still fall back.
     property double rtspLastFrameMs: -1
     // REMOTE MODE: some surface had to abandon RTSP for the HTTP (HLS) transport.
-    // CV's live proxy tops out at ~130 requests/s and HLS costs ~5.4 req/s per tile
-    // (0.5 s segments — both measured 2026-09-11), so a remote wall is held to
-    // httpLiveBudget live tiles and the rest show snapshots. Cleared by rtsp frames.
+    // CV's live proxy tops out at ~130 req/s and is comfortable to ~50 (their
+    // measurement 2026-09-11), so a remote wall is held to httpLiveBudget live tiles
+    // and the rest show snapshots. Cleared by rtsp frames.
+    //
+    // 16, not the original 10. That 10 came from CV's estimate of 5.4 req/s per
+    // tile; measured end to end on this Mac 2026-09-18 the real cost is 3.0 req/s
+    // (one tile, 70 s, counted at our own proxy — AVFoundation fetches each segment
+    // once, so the duplicate fetches that number assumed do not happen). 16 tiles is
+    // therefore ~48 req/s — still inside the ~50 CV sized for, and it lights a full
+    // 4x4 page instead of leaving six tiles on snapshots.
     property bool remoteMode: false
-    readonly property int httpLiveBudget: 10
+    readonly property int httpLiveBudget: 16
     function noteTransportFallback() { remoteMode = true; }
+    // Authoritative "do not bother with rtsp on this network": either a surface
+    // already had to fall back, or the startup TCP probe says the port is dead.
+    function rtspKnownUnreachable() {
+        if (remoteMode) return true;
+        return (typeof LiveHttp !== "undefined") && LiveHttp.rtspProbe === 0;
+    }
     function noteRtspFrame() {
         var now = Date.now();
         if (now - rtspLastFrameMs > 2000) rtspLastFrameMs = now;   // throttled write

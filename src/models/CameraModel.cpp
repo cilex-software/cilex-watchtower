@@ -1,4 +1,5 @@
 #include "CameraModel.h"
+#include "LiveProxy.h"
 
 // Camera/group names are operator-authored server strings rendered by QML Text
 // (AutoText -> StyledText parses <img src>). Neutralise markup at ingest — see the
@@ -517,6 +518,13 @@ void CameraModel::fetchCameras()
                 c.favorite = pit->second;
 
             out.push_back(c);
+        }
+        // Ask ONCE per host whether go2rtc's RTSP port is reachable from this
+        // network, so surfaces can skip a transport that cannot work instead of
+        // each discovering it the slow way (LiveProxy::probeRtspHost).
+        if (auto *lp = LiveProxy::instance()) {
+            for (const auto &cd : out)
+                if (!cd.rtspSubUrl.isEmpty()) { lp->probeRtspHost(cd.rtspSubUrl); break; }
         }
         {   // one line when coverage changes — the ladder's OPT·NET rung depends on it
             static int lastSub = -1, lastOpt = -1, lastN = -1;

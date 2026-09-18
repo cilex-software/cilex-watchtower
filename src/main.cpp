@@ -546,6 +546,11 @@ int main(int argc, char *argv[])
     // before the engine loads so AuthController::instance() is valid when the
     // QML-instantiated models are constructed.
     auto *auth = new AuthController(&app);
+    // BEFORE restoreSession(): that call kicks the first /streams fetch, and
+    // CameraModel asks LiveProxy whether go2rtc's RTSP port is reachable the moment
+    // the camera list lands. Created later, instance() is still null at exactly that
+    // moment and the probe never runs (measured 2026-09-18).
+    auto *liveProxy = new LiveProxy(&app);
     auth->restoreSession();
     // Opt-in dev convenience: WT_CV_AUTOLOGIN skips the login screen using the
     // WT_CV_USER/WT_CV_PASS service creds (previous always-on behaviour).
@@ -597,7 +602,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("AuthController", auth);
     // Live-over-HTTP loopback proxy (remote-live transport) — app-lifetime, so
     // live surfaces can fall back to it whenever RTSP cannot deliver.
-    engine.rootContext()->setContextProperty("LiveHttp", new LiveProxy(&app));
+    engine.rootContext()->setContextProperty("LiveHttp", liveProxy);
     engine.rootContext()->setContextProperty("LiveHints", new LiveHints(&app));   // parking-lot hint, see RtspVideoSource.h
 
     // Shareable event links (cilex:// scheme, operator order 2026-08-21).
