@@ -13,6 +13,25 @@ BIN="build-macos/watchtower.app/Contents/MacOS/watchtower"
 # this one also covers builds too old to carry it. Idempotent, ~100 ms.
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 [ -x "$LSREG" ] && "$LSREG" -f "$PWD/build-macos/watchtower.app" 2>/dev/null
+# ----------------------------------------------------------------- banner
+# Printed BEFORE the exec below, so it reaches the terminal only and never
+# enters run-last.log — that file gets pasted into bug reports verbatim and
+# should stay all signal. Colour only on a TTY, so piping stays clean.
+if [ -t 1 ]; then
+  g=$'\033[38;5;214m'; w=$'\033[38;5;223m'; d=$'\033[38;5;242m'; r=$'\033[0m'
+else
+  g=; w=; d=; r=
+fi
+printf '%s\n' \
+"${g}    ▟▙▟▙" \
+"${g}   ▐████▌  ${w}█   █ ▄▀▀▀▄ ▀▀█▀▀ ▄▀▀▀▀ █   █ ▀▀█▀▀ ▄▀▀▀▄ █   █ █▀▀▀▀ █▀▀▀▄" \
+"${g}   ▐█  █▌  ${w}█ █ █ █▀▀▀█   █   █     █▀▀▀█   █   █   █ █ █ █ █▀▀   █▀▀▄" \
+"${g}   ▐████▌  ${w}▀▄▀▄▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀▄▀▄▀ ▀▀▀▀▀ ▀  ▀▄" \
+"${g}   ▐█  █▌" \
+"${g}  ▟██████▙ ${d} C I L E X   ·   V I S I O N${r}" \
+"" \
+"${d}   \"Night gathers, and now my watch begins.\"${r}" \
+""
 # Every run tees to a rolling log so a bug report needs zero setup — just paste:
 #   grep -E "MSCAN|MKT|HERO" "$HOME/Library/Logs/CilexWatchtower/run-last.log"
 LOGDIR="$HOME/Library/Logs/CilexWatchtower"

@@ -29,6 +29,24 @@ BUILD=build-macos
 PUBLISH=0
 [ "${1:-}" = "-Publish" ] && PUBLISH=1
 
+# Banner before the prerequisite checks so it greets even a first run that
+# stops for a missing brew package. Colour only on a TTY.
+if [ -t 1 ]; then
+  g=$'\033[38;5;214m'; w=$'\033[38;5;223m'; d=$'\033[38;5;242m'; r=$'\033[0m'
+else
+  g=; w=; d=; r=
+fi
+printf '%s\n' \
+"${g}    ▟▙▟▙" \
+"${g}   ▐████▌  ${w}█   █ ▄▀▀▀▄ ▀▀█▀▀ ▄▀▀▀▀ █   █ ▀▀█▀▀ ▄▀▀▀▄ █   █ █▀▀▀▀ █▀▀▀▄" \
+"${g}   ▐█  █▌  ${w}█ █ █ █▀▀▀█   █   █     █▀▀▀█   █   █   █ █ █ █ █▀▀   █▀▀▄" \
+"${g}   ▐████▌  ${w}▀▄▀▄▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀▄▀▄▀ ▀▀▀▀▀ ▀  ▀▄" \
+"${g}   ▐█  █▌" \
+"${g}  ▟██████▙ ${d} C I L E X   ·   V I S I O N${r}" \
+"" \
+"${d}   \"Night gathers, and now my watch begins.\"${r}" \
+""
+
 [ "$(uname -m)" = "arm64" ] || { echo "FATAL: this script builds arm64 on Apple Silicon only"; exit 1; }
 
 cmake -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
