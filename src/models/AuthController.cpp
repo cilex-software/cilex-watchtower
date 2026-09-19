@@ -42,6 +42,28 @@ static bool serviceCreds(QString &user, QString &pass)
     return true;
 }
 
+// `message ?? detail` — CV's error contract as of e8b0a4a (their reply14 §2).
+//
+// Every /auth error now carries a stable `code` plus a human sentence, but `detail`
+// is frozen byte-for-byte at whatever that site sent before, because clients were
+// already matching on it. That leaves two shapes: the login sites had a SENTENCE in
+// `detail` and gained `code`; the SSO sites had the ENUM in `detail` (literally
+// "SSO_TOKEN_EXPIRED") and gained the sentence in `message`. CV declined to move the
+// prose into `detail` for us — it would have fixed this screen tonight and silently
+// broken anyone branching on the enum.
+//
+// So: prefer `message`, fall back to `detail`, and an SSO enum never reaches a guard.
+// `message` is ABSENT, not empty, on a site with no prose yet, so the fallback stays
+// live. Scope is /auth only: PlaybackClient and WatchClient still read `detail`
+// because CV has not coded those routers, and guessing a key they do not send would
+// blank the one string those screens have.
+static QString serverMessage(const QByteArray &raw)
+{
+    const QJsonObject o = QJsonDocument::fromJson(raw).object();
+    const QString msg = o.value(QStringLiteral("message")).toString();
+    return msg.isEmpty() ? o.value(QStringLiteral("detail")).toString() : msg;
+}
+
 AuthController::AuthController(QObject *parent)
     : QObject(parent), m_nam(new StationNam(this))
 {
@@ -229,9 +251,10 @@ void AuthController::refreshSession()
             }
         }
         // Log the server's own sentence VERBATIM — the 2026-08-02 00:52 early
-        // rejection was undiagnosable because nobody kept this string.
-        const QString detail =
-            QJsonDocument::fromJson(raw).object().value(QStringLiteral("detail")).toString();
+        // rejection was undiagnosable because nobody kept this string. `message ?? detail`
+        // so an SSO rejection logs its sentence rather than the bare enum; the raw body
+        // is still the fallback, which is what made that incident readable at all.
+        const QString detail = serverMessage(raw);
         qWarning("[AUTH] refresh rejected (HTTP %d): \"%s\"", code,
                  qPrintable(detail.isEmpty() ? QString::fromUtf8(raw.left(120)) : detail));
         if (code == 401) {
@@ -435,16 +458,19 @@ void AuthController::attemptPasswordLogin()
         if (code == 401 || code == 403 || code == 400) {
             setBusy(false);
             m_pendingPassword.clear();
-            // CV's `detail` is ENGLISH PROSE and lands on a Russian guard's sign-in screen
-            // verbatim (auth.py:138/147/158: "Invalid username or password", "This account
-            // has been deactivated — contact an administrator.", …). A display string on the
-            // wire cannot be localised by the client, and matching on its text would break
-            // the day CV rewords it — so this is knowingly left as passthrough until CV
-            // carries a stable code beside the prose. Asked for in the letter of 2026-09-20,
-            // seconding cilex-pro-mobile's identical ask for FleetPair.host.
-            // The fallback below is OURS, so it is translated; note it fires only when CV
-            // sends no detail at all, which for bad credentials it does not.
-            QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
+            // `message ?? detail` (serverMessage above): on the SSO sites `detail` is the
+            // raw enum — "SSO_TOKEN_EXPIRED" — and the sentence is in `message`. Reading
+            // `detail` alone put that enum on a guard's sign-in screen.
+            //
+            // Still ENGLISH prose, and still not localisable here: matching on the text
+            // would break the day CV rewords it. What CV shipped in e8b0a4a is the part
+            // that IS matchable — a stable `code` beside it (invalid_credentials,
+            // SSO_TOKEN_EXPIRED, account_deactivated, service_suspended, …, 15 of them).
+            // Mapping those to Russian copy is the follow-up; until then the server's
+            // sentence beats the server's enum, which is what this line buys.
+            // The fallback below is OURS, so it is translated; it fires only when CV sends
+            // neither key, which for bad credentials it does not.
+            QString detail = serverMessage(raw);
             if (detail.isEmpty())
                 detail = tr("Invalid username or password");
             setError(detail);

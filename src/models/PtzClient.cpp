@@ -95,8 +95,17 @@ void PtzClient::post(const QString &camId, const QString &what, const QString &t
         QString msg;
         if (body.contains(QLatin1String("ok")))
             msg = body.value(QLatin1String("message")).toString();
-        else if (body.contains(QLatin1String("detail")))
-            msg = body.value(QLatin1String("detail")).toString();
+        else if (body.contains(QLatin1String("message")) || body.contains(QLatin1String("detail")))
+            // `message ?? detail`, CV's error contract since e8b0a4a (their reply14 §2). A
+            // CodedError carries {code, detail, message} and NO `ok`, so it lands in this
+            // branch — and on a site whose legacy `detail` was an ENUM the sentence is only
+            // in `message`. Reading `detail` alone would put that enum in front of a guard.
+            // Inert today: CV has not coded the PTZ router yet, `message` is ABSENT rather
+            // than empty on an uncoded site, so this falls through to `detail` exactly as
+            // before. It stops being inert the moment CV takes the reply15 §3 offer on the
+            // PTZ live-control 423, which this wall does call.
+            msg = body.value(QLatin1String("message")).toString(
+                      body.value(QLatin1String("detail")).toString());
         if (msg.isEmpty())
             msg = reply->error() != QNetworkReply::NoError
                       ? reply->errorString()

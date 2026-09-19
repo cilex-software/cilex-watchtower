@@ -37,6 +37,10 @@ class StorageHealth : public QObject
     // curated sentence and nobody could tell which they were reading. Kept apart now:
     // chrome is the app's own voice, evidence stays as it came.
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
+    // `reason` is a stable CODE (`storage_agent_unreachable`, `storage_agent_circuit_open`)
+    // — CV's storage_health_state.py:113 says so in a comment written ABOUT this client,
+    // which was printing it verbatim as prose. `reason_text` (e8b0a4a) is the sentence.
+    Q_PROPERTY(QString reasonText READ reasonText NOTIFY changed)
     Q_PROPERTY(bool ok READ ok NOTIFY changed)
     // Rendered VERBATIM — never re-derived from the booleans.
     Q_PROPERTY(QString state READ state NOTIFY changed)
@@ -54,6 +58,7 @@ public:
     bool circuitOpen() const { return m_circuitOpen; }
     QString reason() const { return m_reason; }
     QString lastError() const { return m_lastError; }
+    QString reasonText() const { return m_reasonText; }
     QString state() const { return m_state; }
     QString lastOkAt() const { return m_lastOkAt; }
     QString checkedAt() const { return m_checkedAt; }
@@ -80,7 +85,7 @@ private:
     QString m_baseUrl;
     bool m_loading = false;
     bool m_loaded = false;
-    QString m_status, m_reason, m_lastError, m_state, m_lastOkAt, m_checkedAt;
+    QString m_status, m_reason, m_reasonText, m_lastError, m_state, m_lastOkAt, m_checkedAt;
     int m_consecutiveFailures = 0;
     bool m_degraded = false;
     bool m_reachable = true;

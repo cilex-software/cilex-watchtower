@@ -55,6 +55,7 @@ void StorageHealth::fetch()
         m_consecutiveFailures = o.value("consecutive_failures").toInt();
         m_reason = o.value("reason").toString();
         m_lastError = o.value("last_error").toString();
+        m_reasonText = o.value("reason_text").toString();
         m_loaded = true;
         emit changed();
     });

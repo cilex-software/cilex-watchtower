@@ -207,7 +207,8 @@ Item {
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter; width: 7; height: 7; radius: 4
                     color: (!parent.parent.sh || !parent.parent.sh.loaded) ? Theme.ink3
-                         : (parent.parent.sh.state === "ok" ? Theme.good
+                         : (parent.parent.sh.state === "ok"
+                            ? (parent.parent.sh.degraded ? Theme.warn : Theme.good)
                          : parent.parent.sh.state === "intermittent" ? Theme.warn
                          : parent.parent.sh.state === "unreachable" ? Theme.bad
                          : parent.parent.sh.state === "unknown" ? Theme.ink3
@@ -221,7 +222,16 @@ Item {
                         var sh = parent.parent.sh;
                         if (!sh || !sh.loaded) return qsTr("Status unknown");
                         switch (sh.state) {
-                        case "ok":           return qsTr("Operational");
+                        // `state` ALONE IS NOT THE VERDICT. When the breaker latches, CV
+                        // reports state "ok" with degraded true and circuit_open true —
+                        // the agent answers, the service has stopped asking
+                        // (storage_health_state.py:112, `degraded = st == "unreachable" or
+                        // open_`). This switch used to return "Operational" there, over a
+                        // green dot, for a subsystem whose checks were paused; the
+                        // pre-912dc73 fallback below had caught it via circuitOpen and the
+                        // switch made that line unreachable. Flagged by CV's reply14 §4 with
+                        // the serialised row. Degraded is never green here again.
+                        case "ok":           return sh.degraded ? qsTr("Degraded") : qsTr("Operational");
                         case "intermittent": return qsTr("Intermittent");
                         case "unreachable":  return qsTr("Unreachable");
                         case "unknown":      return qsTr("Status unknown");
@@ -235,7 +245,7 @@ Item {
                     color: {
                         var sh = parent.parent.sh;
                         if (!sh || !sh.loaded) return Theme.ink3;
-                        if (sh.state === "ok") return Theme.ink2;
+                        if (sh.state === "ok") return sh.degraded ? Theme.warn : Theme.ink2;
                         if (sh.state === "intermittent") return Theme.warn;
                         if (sh.state === "unreachable") return Theme.bad;
                         if (sh.state === "unknown") return Theme.ink3;
@@ -264,11 +274,29 @@ Item {
                     }
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11
                 }
+                // CORRECTION 2026-09-20: this row used to render `reason` as prose, in sans.
+                // `reason` is a stable CODE — `storage_agent_unreachable` — and CV's
+                // storage_health_state.py:113 names this client as the one printing it
+                // verbatim. A guard was being shown a snake_case identifier in the app's own
+                // voice, which is the exact mirror of the traceback-as-chrome defect fixed
+                // one commit earlier. `reason_text` (CV e8b0a4a) is the sentence, so the
+                // sentence is what goes here.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: parent.parent.sh && parent.parent.sh.reason !== ""
-                    text: parent.parent.sh ? ("· " + parent.parent.sh.reason) : ""
+                    visible: parent.parent.sh && parent.parent.sh.reasonText !== ""
+                    text: parent.parent.sh ? ("· " + parent.parent.sh.reasonText) : ""
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight
+                }
+                // The code itself, shown ONLY when CV sent no sentence — an older backend, or
+                // a degraded state it has no text for. Mono, because it is a machine fact and
+                // must not read as copy. Hiding it instead would trade a mismatched font for a
+                // silent fault, which is the worse of the two.
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: parent.parent.sh && parent.parent.sh.reasonText === ""
+                             && parent.parent.sh.reason !== ""
+                    text: parent.parent.sh ? ("· " + parent.parent.sh.reason) : ""
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight
                 }
                 // `last_error` is NOT a status phrase — it is str(exc) from the storage agent
                 // (cilex-vision agent_client.py:150), truncated to 160 chars server-side. Until
