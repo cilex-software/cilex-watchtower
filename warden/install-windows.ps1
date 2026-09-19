@@ -16,7 +16,12 @@
 param(
     [Parameter(Mandatory = $true)][string]$AppExe,
     [string]$Token = "",
-    [string]$Backend = "http://192.168.1.79:8000",
+    # Pilot backend. Was 192.168.1.79 until 2026-09-20 — that host is DEAD and had
+    # been for weeks, yet every install kept writing it into warden.conf as if
+    # configured. Measured from wt-sm-vnutri-01: .79 does not refuse, it TIMES OUT
+    # after 46 s; 192.168.1.4 answers in 141 ms. Always pass -Backend for a site
+    # that is not the pilot LAN; the probe below says out loud what was written.
+    [string]$Backend = "http://192.168.1.4:8000",
     [string]$WardenExe = ""          # default: warden.exe next to this script
 )
 $ErrorActionPreference = "Stop"
@@ -43,6 +48,39 @@ if (-not (Test-Path $conf)) {
     if (-not $Token) { Write-Warning "STATION_TOKEN is EMPTY - uploads/heartbeats stay off until it is set." }
 } else {
     Write-Host "config exists, untouched: $conf"
+}
+
+# --- 1b. Say out loud whether that backend actually answers ------------------
+# The whole point: an install that WRITES an address must also state whether the
+# address works. The dead .79 default survived for weeks because a wrong value and
+# a right value looked identical here, and Warden only fails later, on a station
+# nobody is watching. Probes the EFFECTIVE value — the pre-existing conf wins over
+# -Backend, so a re-install over a stale conf is reported too, not silently passed.
+$effective = $Backend
+if (Test-Path $conf) {
+    $line = [System.IO.File]::ReadAllText($conf, [System.Text.Encoding]::UTF8) -split "`r?`n" |
+            Where-Object { $_ -match '^\s*BACKEND_URL=' } | Select-Object -First 1
+    if ($line) { $effective = ($line -replace '^\s*BACKEND_URL=', '').Trim() }
+}
+if (-not $PSBoundParameters.ContainsKey('Backend')) {
+    Write-Warning "no -Backend given - the built-in default was used. Confirm it is THIS site's server."
+}
+$reachable = $false
+try {
+    $u = [Uri]$effective
+    $port = if ($u.Port -gt 0) { $u.Port } else { 8000 }
+    $tcp = New-Object Net.Sockets.TcpClient
+    $iar = $tcp.BeginConnect($u.Host, $port, $null, $null)
+    $reachable = $iar.AsyncWaitHandle.WaitOne(5000)     # 5 s: .79 needs 46 s to fail
+    if ($reachable) { $tcp.EndConnect($iar) }
+    $tcp.Close()
+} catch { $reachable = $false }
+if ($reachable) {
+    Write-Host "backend reachable: $effective"
+} else {
+    Write-Warning "BACKEND UNREACHABLE: $effective"
+    Write-Warning "  Warden will stall on every cycle and this station will not appear in the fleet."
+    Write-Warning "  Fix BACKEND_URL in $conf , then restart Warden."
 }
 
 # --- 2. WER LocalDumps (crash dir must match FlightRecorder's) ---------------
