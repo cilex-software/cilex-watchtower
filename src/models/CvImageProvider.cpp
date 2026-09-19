@@ -1,5 +1,6 @@
 ﻿#include "CvImageProvider.h"
 #include "AuthController.h"
+#include "StationNam.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -276,7 +277,7 @@ void CvImageResponse::start()
 // shared-NAM consumer (EventModel, CameraModel, StorageHealth, SiteMapModel) at
 // once. Constructed on the GUI thread (main.cpp) — matches where start() runs.
 CvImageProvider::CvImageProvider(AuthController *auth)
-    : m_auth(auth), m_nam(new QNetworkAccessManager)
+    : m_auth(auth), m_nam(new StationNam)
 {
 }
 

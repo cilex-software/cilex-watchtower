@@ -1,4 +1,5 @@
 #include "PlaybackClient.h"
+#include "StationNam.h"
 
 #include <QMutex>
 #include <QColor>
@@ -62,7 +63,7 @@ PlaybackClient::PlaybackClient(QObject *parent)
     // playback is awfully slow" report). A private pool makes playback control calls
     // (sessions/coverage/timeline/exports) independent of thumbnail storms. The auth
     // cookie is mirrored from AuthController (same pattern as HlsProxy::setAuthToken).
-    m_nam = new QNetworkAccessManager(this);
+    m_nam = new StationNam(this);
     m_baseUrl = auth->baseUrl();
     applyAuthCookie();
 

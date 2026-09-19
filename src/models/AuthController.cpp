@@ -1,4 +1,5 @@
 #include "AuthController.h"
+#include "StationNam.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkCookie>
@@ -42,7 +43,7 @@ static bool serviceCreds(QString &user, QString &pass)
 }
 
 AuthController::AuthController(QObject *parent)
-    : QObject(parent), m_nam(new QNetworkAccessManager(this))
+    : QObject(parent), m_nam(new StationNam(this))
 {
     s_instance = this;
     const auto env = QProcessEnvironment::systemEnvironment();

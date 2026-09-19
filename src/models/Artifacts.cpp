@@ -1,4 +1,5 @@
 #include "Artifacts.h"
+#include "StationNam.h"
 #include "AuthController.h"
 
 #include <QPainter>
@@ -168,7 +169,7 @@ void Artifacts::captureMainStreamSnapshot(const QString &camId, const QString &c
                        + safeCam + QStringLiteral("/snapshot"));
 
     if (!m_nam)
-        m_nam = new QNetworkAccessManager(this);
+        m_nam = new StationNam(this);
 
     QNetworkRequest req(httpUrl);
     // Private NAM, so the login cookie never lands in this jar — attach it per

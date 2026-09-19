@@ -1,4 +1,5 @@
 #include "WatchClient.h"
+#include "StationNam.h"
 #include "AuthController.h"
 
 #include <QJsonArray>
@@ -16,7 +17,7 @@ WatchClient::WatchClient(QObject *parent) : QObject(parent)
     // NAM) queued our first requests past their transfer timeout — same
     // starvation CvImageProvider solved in July. The Watch's traffic is a
     // handful of requests an hour; auth rides the per-request Cookie header.
-    m_nam = new QNetworkAccessManager(this);
+    m_nam = new StationNam(this);
     // Keep the chip truthful across handovers/auto-close without a click:
     // a slow poll is plenty (the chip is the only writer on this station).
     auto *t = new QTimer(this);

@@ -1,4 +1,5 @@
 #include "HlsProxy.h"
+#include "StationNam.h"
 
 #include <QRegularExpression>
 
@@ -142,9 +143,9 @@ void HlsProxy::init()
 {
     if (m_nam)
         return;                                // already initialised
-    m_nam = new QNetworkAccessManager(this);   // the proxy's own, thread-affine manager
+    m_nam = new StationNam(this);              // the proxy's own, thread-affine manager
     for (int i = 0; i < kLivePool; ++i)
-        m_livePool.append(new QNetworkAccessManager(this));
+        m_livePool.append(new StationNam(this));
     m_server = new QTcpServer(this);
     connect(m_server, &QTcpServer::newConnection, this, &HlsProxy::onNewConnection);
     m_server->listen(QHostAddress::LocalHost, 0);
