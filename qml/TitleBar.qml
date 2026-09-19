@@ -195,6 +195,14 @@ Item {
                 readonly property bool backendMismatch:
                     wardenBackend !== "" && cvUrl !== "" && wardenBackend !== cvUrl
 
+                // What we send as X-Watchtower-Station, and whether CV's hint contract can ever
+                // join it (StationNam::hintJoinable — lower-cased, ≤63 chars, [a-z0-9-._] only).
+                // An unjoinable name is discarded server-side in SILENCE, so the wall says it.
+                readonly property string stationName:
+                    (typeof wtStationName !== "undefined") ? wtStationName : ""
+                readonly property bool stationJoinable:
+                    (typeof wtStationJoinable !== "undefined") ? wtStationJoinable : false
+
                 readonly property string cvUrl:
                     (typeof AuthController !== "undefined" && AuthController.baseUrl)
                     ? AuthController.baseUrl : ""
@@ -282,6 +290,32 @@ Item {
                             rowSpacing: 4
                             columnSpacing: 14
 
+                            // STATION — the name this wall puts in X-Watchtower-Station, which is
+                            // also the JOIN KEY CV stores the station row under. A human types
+                            // that string when minting the token and nothing on the server checks
+                            // it against what the wall sends, so a friendly label ("Office PC")
+                            // produces a station that beats, authenticates, and is attributed to
+                            // nobody (CV, letter reply4 §3-4; the `unknown` row is that mistake
+                            // made permanent). Always shown: it is the one fact that answers
+                            // "which wall am I standing at", and it has to be readable off the
+                            // screen BEFORE the token exists.
+                            Text {
+                                text: qsTr("STATION")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                text: wardenEye.stationName === "" ? qsTr("unknown")
+                                      : wardenEye.stationJoinable ? wardenEye.stationName
+                                      : wardenEye.stationName + "\n"
+                                        + qsTr("this name cannot be reported — the fleet will not name this station")
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: wardenEye.stationName === "" ? Theme.ink3
+                                       : wardenEye.stationJoinable ? Theme.ink : Theme.warn
+                            }
                             Text {
                                 text: qsTr("SERVER")
                                 font.family: wardenEye.serifFamily

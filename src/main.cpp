@@ -64,6 +64,7 @@
 #include "models/FlightRecorder.h"
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
+#include "models/StationNam.h"
 #include "models/FrameClock.h"
 #include "models/MotionScan.h"
 #include "models/FrameCache.h"
@@ -830,6 +831,15 @@ int main(int argc, char *argv[])
     // posting somewhere else the panel would otherwise read like confirmation while
     // nothing lands (WT-OFFICE-01, 2026-09-19: app .4, Warden still the installer's .79).
     engine.rootContext()->setContextProperty("wtWardenBackend", qEnvironmentVariable("WT_WARDEN_BACKEND"));
+    // What this wall calls itself in X-Watchtower-Station, and whether CV can ever join it.
+    // The hostname is the JOIN KEY: CV stores a station row under a host string that a human
+    // types when minting the token, and nothing on the server reconciles it with what the wall
+    // actually sends (CV, 2026-09-20, letter reply4 §3 — the `unknown` row in client_stations
+    // is that mismatch already made permanent). Until now the string lived only inside the
+    // network layer, so the person minting the token had nowhere to read it.
+    engine.rootContext()->setContextProperty("wtStationName",
+                                             QString::fromUtf8(StationNam::stationName()));
+    engine.rootContext()->setContextProperty("wtStationJoinable", StationNam::hintJoinable());
     // Large-scale scrubber seek-latency harness: WT_SEEK10K = plan json
     // [{ip,days:[...]},…], WT_SEEK10K_N = total seeks (default 10000). Logs one
     // [SEEK10K] line per seek: click-equivalent seekToWall() → first rendered

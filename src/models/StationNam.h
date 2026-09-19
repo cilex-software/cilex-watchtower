@@ -32,6 +32,33 @@ public:
         return name;
     }
 
+    // Can this hostname ever name us on the server? CV's hint contract, written down on
+    // 2026-09-19 (letter reply3 §2) and mirrored here so the wall can say the answer out
+    // loud instead of the operator discovering it from a station that never appears:
+    // the hint is stripped and lower-cased, then DISCARDED ENTIRELY if it is empty, longer
+    // than 63 characters, or holds anything outside [a-z 0-9 - . _]. Case is free — CV folds
+    // both sides and joins on lower(host) — so `WT-OFFICE-01` is fine and `Пост 1` is not.
+    // Discarded in silence: no row, no log, no counter (reply3 §3), which is why a client
+    // that knows the rule should state it rather than leave the operator to infer it.
+    //
+    // This does NOT gate the header. Measured 2026-09-20 against the pilot: a Cyrillic value
+    // and one containing a space both returned 200 from /openapi.json, so an unjoinable hint
+    // costs the request nothing and withholding it would only hide the fault.
+    static bool hintJoinable()
+    {
+        const QString h = QString::fromUtf8(stationName()).trimmed().toLower();
+        if (h.isEmpty() || h.size() > 63)
+            return false;
+        for (const QChar c : h) {
+            const char16_t u = c.unicode();
+            const bool ok = (u >= u'a' && u <= u'z') || (u >= u'0' && u <= u'9')
+                            || u == u'-' || u == u'.' || u == u'_';
+            if (!ok)
+                return false;
+        }
+        return true;
+    }
+
 protected:
     QNetworkReply *createRequest(Operation op, const QNetworkRequest &req,
                                  QIODevice *outgoingData) override

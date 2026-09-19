@@ -4540,6 +4540,16 @@
     </message>
     <message>
         <location filename="../qml/TitleBar.qml" line="286"/>
+        <source>STATION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="286"/>
+        <source>this name cannot be reported — the fleet will not name this station</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="286"/>
         <source>SERVER</source>
         <translation type="unfinished"></translation>
     </message>
