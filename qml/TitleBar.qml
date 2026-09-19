@@ -179,6 +179,22 @@ Item {
                             return stack[i];
                     return Theme.fontSans;
                 }
+                // Warden is the only process that knows whether a station token is configured,
+                // so it hands us WT_WARDEN_TOKEN when it spawns the app (warden.py). An older
+                // Warden sends nothing at all, and that reads "unknown" — never "set".
+                readonly property string tokenState:
+                    (typeof wtWardenToken !== "undefined" && wtWardenToken !== "") ? wtWardenToken : "unknown"
+
+                // Where WARDEN posts, which is not necessarily where the APP is signed in.
+                // The SERVER row below is AuthController.baseUrl — the app's. On 2026-09-19
+                // the office wall had the app on .4 while Warden still carried the
+                // installer's .79 default, so the panel read like confirmation while every
+                // beat fell on the floor. Empty when the supervisor predates this.
+                readonly property string wardenBackend:
+                    (typeof wtWardenBackend !== "undefined") ? wtWardenBackend : ""
+                readonly property bool backendMismatch:
+                    wardenBackend !== "" && cvUrl !== "" && wardenBackend !== cvUrl
+
                 readonly property string cvUrl:
                     (typeof AuthController !== "undefined" && AuthController.baseUrl)
                     ? AuthController.baseUrl : ""
@@ -306,6 +322,49 @@ Item {
                                 font.family: Theme.fontMono
                                 font.pixelSize: 12
                                 color: Theme.ink2
+                            }
+                            // TOKEN — shown only when it is NOT set, because a station with no
+                            // token is invisible to the fleet: Warden's heartbeat and crash-upload
+                            // loops both do nothing, and the server has no row for this machine.
+                            // Two machines were lost to that silence (the booth 2026-07-26..08-09,
+                            // the office wall for days until the cilex-pro-mobile letter of
+                            // 2026-09-19 found it with a database query). The person standing in
+                            // front of the wall is the one who can fix it, so it is stated here.
+                            // Unknown is NOT healthy: an older Warden sends no WT_WARDEN_TOKEN, and
+                            // that reads "unknown", never blank.
+                            // Only when Warden posts somewhere OTHER than where the app is
+                            // signed in, or when an older Warden cannot say. Silent when they
+                            // agree, because then SERVER above is the whole truth.
+                            Text {
+                                visible: wardenEye.backendMismatch || wardenEye.wardenBackend === ""
+                                text: qsTr("WARDEN SENDS TO")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                visible: wardenEye.backendMismatch || wardenEye.wardenBackend === ""
+                                text: wardenEye.backendMismatch ? wardenEye.wardenBackend : qsTr("unknown")
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: wardenEye.backendMismatch ? Theme.warn : Theme.ink3
+                            }
+                            Text {
+                                visible: wardenEye.tokenState !== "set"
+                                text: qsTr("TOKEN")
+                                font.family: wardenEye.serifFamily
+                                font.pixelSize: 10
+                                font.letterSpacing: 1.6
+                                color: Theme.ink3
+                            }
+                            Text {
+                                visible: wardenEye.tokenState !== "set"
+                                text: wardenEye.tokenState === "missing" ? qsTr("none — this station is invisible to the fleet")
+                                                                         : qsTr("unknown")
+                                font.family: Theme.fontMono
+                                font.pixelSize: 12
+                                color: wardenEye.tokenState === "missing" ? Theme.warn : Theme.ink3
                             }
                         }
                     }

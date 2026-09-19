@@ -280,113 +280,113 @@
         <translation type="vanished">Подключение…</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="440"/>
+        <location filename="../qml/CameraTile.qml" line="503"/>
         <source>NO SIGNAL</source>
         <translation>НЕТ СИГНАЛА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="449"/>
-        <location filename="../qml/CameraTile.qml" line="450"/>
+        <location filename="../qml/CameraTile.qml" line="512"/>
+        <location filename="../qml/CameraTile.qml" line="513"/>
         <source>last seen </source>
         <translation>был на связи </translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="449"/>
+        <location filename="../qml/CameraTile.qml" line="512"/>
         <source>image </source>
         <translation>снимок </translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="469"/>
+        <location filename="../qml/CameraTile.qml" line="532"/>
         <source>STREAM UNAVAILABLE</source>
         <translation>ПОТОК НЕДОСТУПЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="489"/>
+        <location filename="../qml/CameraTile.qml" line="552"/>
         <source>LIVE VIEW OFF</source>
         <translation>ЭФИР ВЫКЛЮЧЕН</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="494"/>
+        <location filename="../qml/CameraTile.qml" line="557"/>
         <source>switched off by operator</source>
         <translation>выключено оператором</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="587"/>
+        <location filename="../qml/CameraTile.qml" line="650"/>
         <source>◌ SNAPSHOT</source>
         <translation>◌ СНИМОК</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="595"/>
+        <location filename="../qml/CameraTile.qml" line="658"/>
         <source>MOTION</source>
         <translation>ДВИЖЕНИЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="673"/>
+        <location filename="../qml/CameraTile.qml" line="746"/>
         <source>RECORDING STALLED</source>
         <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="673"/>
+        <location filename="../qml/CameraTile.qml" line="746"/>
         <source>since</source>
         <translation>с</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="674"/>
+        <location filename="../qml/CameraTile.qml" line="747"/>
         <source>LIVE, NO RECORDING</source>
         <translation>ЭФИР БЕЗ ЗАПИСИ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="674"/>
+        <location filename="../qml/CameraTile.qml" line="747"/>
         <source>STREAM DEGRADED</source>
         <translation>СБОИ ПОТОКА</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="691"/>
+        <location filename="../qml/CameraTile.qml" line="764"/>
         <source>VIEW ISSUE</source>
         <translation>ПОДРОБНЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="753"/>
+        <location filename="../qml/CameraTile.qml" line="826"/>
         <source>HD</source>
         <translation>HD</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="753"/>
+        <location filename="../qml/CameraTile.qml" line="826"/>
         <source>SD</source>
         <translation>SD</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="786"/>
+        <location filename="../qml/CameraTile.qml" line="859"/>
         <source>AF</source>
         <translation>АФ</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="796"/>
+        <location filename="../qml/CameraTile.qml" line="869"/>
         <source>Open playback</source>
         <translation>Открыть воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="797"/>
+        <location filename="../qml/CameraTile.qml" line="870"/>
         <source>Capture snapshot</source>
         <translation>Сделать снимок</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="801"/>
+        <location filename="../qml/CameraTile.qml" line="874"/>
         <source>Remove from favorites</source>
         <translation>Убрать из избранного</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="801"/>
+        <location filename="../qml/CameraTile.qml" line="874"/>
         <source>Add to favorites</source>
         <translation>В избранное</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="804"/>
+        <location filename="../qml/CameraTile.qml" line="877"/>
         <source>Open in new tab</source>
         <translation>Открыть в новой вкладке</translation>
     </message>
     <message>
-        <location filename="../qml/CameraTile.qml" line="805"/>
+        <location filename="../qml/CameraTile.qml" line="878"/>
         <source>Split into 1×1 cells</source>
         <translation>Разделить на ячейки 1×1</translation>
     </message>
@@ -581,62 +581,62 @@
 <context>
     <name>EvHeroPlayer</name>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="998"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1131"/>
         <source>Previous frame</source>
         <translation>Предыдущий кадр</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1013"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1146"/>
         <source>Next frame</source>
         <translation>Следующий кадр</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1009"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1142"/>
         <source>Play</source>
         <translation>Воспроизвести</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1009"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1142"/>
         <source>Pause</source>
         <translation>Пауза</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1015"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1148"/>
         <source>Back 10 seconds</source>
         <translation>Назад на 10 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1016"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1149"/>
         <source>Forward 10 seconds</source>
         <translation>Вперёд на 10 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1050"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1183"/>
         <source>Playback speed</source>
         <translation>Скорость воспроизведения</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1051"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1184"/>
         <source>Copy share link</source>
         <translation>Скопировать ссылку на событие</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1052"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1185"/>
         <source>Export clip</source>
         <translation>Экспортировать клип</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1053"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1186"/>
         <source>Assign to operator</source>
         <translation>Назначить оператору</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1055"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1188"/>
         <source>Bookmark</source>
         <translation>В закладки</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1055"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1188"/>
         <source>Remove bookmark</source>
         <translation>Убрать закладку</translation>
     </message>
@@ -646,22 +646,22 @@
         <translation>Воспроизведение остановилось — сервер записи перестал отдавать этот участок. Нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="713"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="846"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation>Сервер записи не ответил за 25 с — нажмите воспроизведение, чтобы повторить.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="811"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="944"/>
         <source>Recording in progress — waiting for the first footage…</source>
         <translation>Идёт запись — ждём первые кадры…</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="814"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="947"/>
         <source>No footage recorded around this moment.</source>
         <translation>Нет записи в этот момент.</translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="915"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1048"/>
         <source>Loading recording…</source>
         <translation>Загрузка записи…</translation>
     </message>
@@ -2157,307 +2157,307 @@
         <translation>Все камеры</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="615"/>
+        <location filename="../qml/LiveMonitor.qml" line="629"/>
         <source>Camera list unavailable</source>
         <translation>Список камер недоступен</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="616"/>
-        <location filename="../qml/LiveMonitor.qml" line="633"/>
+        <location filename="../qml/LiveMonitor.qml" line="630"/>
+        <location filename="../qml/LiveMonitor.qml" line="647"/>
         <source>No cameras</source>
         <translation>Нет камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="616"/>
+        <location filename="../qml/LiveMonitor.qml" line="630"/>
         <source>No matches</source>
         <translation>Совпадений нет</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="620"/>
+        <location filename="../qml/LiveMonitor.qml" line="634"/>
         <source>Could not fetch the camera list from Cilex Vision. Watchtower keeps retrying automatically.</source>
         <translation>Не удалось получить список камер от Cilex Vision. Watchtower продолжает попытки автоматически.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="622"/>
+        <location filename="../qml/LiveMonitor.qml" line="636"/>
         <source>No cameras are assigned to your account. Ask an administrator to grant camera access in Cilex Vision.</source>
         <translation>К вашей учётной записи не привязано ни одной камеры. Попросите администратора выдать доступ к камерам в Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="623"/>
+        <location filename="../qml/LiveMonitor.qml" line="637"/>
         <source> in %1</source>
         <translation> в %1</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="625"/>
+        <location filename="../qml/LiveMonitor.qml" line="639"/>
         <source>No cameras have had an event in the last hour</source>
         <translation>Ни по одной камере не было событий за последний час</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="626"/>
+        <location filename="../qml/LiveMonitor.qml" line="640"/>
         <source>No cameras are online</source>
         <translation>Нет камер в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="627"/>
+        <location filename="../qml/LiveMonitor.qml" line="641"/>
         <source>No cameras are offline</source>
         <translation>Нет камер не в сети</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="628"/>
+        <location filename="../qml/LiveMonitor.qml" line="642"/>
         <source>No cameras are degraded</source>
         <translation>Нет камер с ухудшением</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="629"/>
+        <location filename="../qml/LiveMonitor.qml" line="643"/>
         <source>No cameras are recording</source>
         <translation>Нет пишущих камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="630"/>
+        <location filename="../qml/LiveMonitor.qml" line="644"/>
         <source>All cameras are recording</source>
         <translation>Все камеры пишут</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="631"/>
+        <location filename="../qml/LiveMonitor.qml" line="645"/>
         <source>No starred cameras</source>
         <translation>Нет избранных камер</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="632"/>
+        <location filename="../qml/LiveMonitor.qml" line="646"/>
         <source>No cameras have issues</source>
         <translation>Ни по одной камере нет проблем</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="673"/>
+        <location filename="../qml/LiveMonitor.qml" line="687"/>
         <source>0 of 0</source>
         <translation>0 из 0</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="676"/>
+        <location filename="../qml/LiveMonitor.qml" line="690"/>
         <source>%1–%2 of %3</source>
         <translation>%1–%2 из %3</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="683"/>
-        <location filename="../qml/LiveMonitor.qml" line="1168"/>
-        <location filename="../qml/LiveMonitor.qml" line="1282"/>
+        <location filename="../qml/LiveMonitor.qml" line="697"/>
+        <location filename="../qml/LiveMonitor.qml" line="1189"/>
+        <location filename="../qml/LiveMonitor.qml" line="1319"/>
         <source>Live first</source>
         <translation>Сначала в эфире</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="683"/>
-        <location filename="../qml/LiveMonitor.qml" line="1169"/>
-        <location filename="../qml/LiveMonitor.qml" line="1282"/>
+        <location filename="../qml/LiveMonitor.qml" line="697"/>
+        <location filename="../qml/LiveMonitor.qml" line="1190"/>
+        <location filename="../qml/LiveMonitor.qml" line="1319"/>
         <source>IP address</source>
         <translation>IP-адрес</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="684"/>
-        <location filename="../qml/LiveMonitor.qml" line="1170"/>
-        <location filename="../qml/LiveMonitor.qml" line="1282"/>
+        <location filename="../qml/LiveMonitor.qml" line="698"/>
+        <location filename="../qml/LiveMonitor.qml" line="1191"/>
+        <location filename="../qml/LiveMonitor.qml" line="1319"/>
         <source>Stream order</source>
         <translation>Порядок потоков</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="684"/>
-        <location filename="../qml/LiveMonitor.qml" line="1171"/>
-        <location filename="../qml/LiveMonitor.qml" line="1283"/>
+        <location filename="../qml/LiveMonitor.qml" line="698"/>
+        <location filename="../qml/LiveMonitor.qml" line="1192"/>
+        <location filename="../qml/LiveMonitor.qml" line="1320"/>
         <source>Status first</source>
         <translation>Сначала по статусу</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="685"/>
-        <location filename="../qml/LiveMonitor.qml" line="1172"/>
-        <location filename="../qml/LiveMonitor.qml" line="1283"/>
+        <location filename="../qml/LiveMonitor.qml" line="699"/>
+        <location filename="../qml/LiveMonitor.qml" line="1193"/>
+        <location filename="../qml/LiveMonitor.qml" line="1320"/>
         <source>Alphabetical</source>
         <translation>По алфавиту</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="725"/>
+        <location filename="../qml/LiveMonitor.qml" line="746"/>
         <source>Other</source>
         <translation>Другие</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="797"/>
+        <location filename="../qml/LiveMonitor.qml" line="818"/>
         <source>OTHER LAYOUTS</source>
         <translation>ДРУГИЕ РАСКЛАДКИ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="980"/>
+        <location filename="../qml/LiveMonitor.qml" line="1001"/>
         <source>↻  Sync from server</source>
         <translation>↻  Синхронизировать с сервером</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1004"/>
+        <location filename="../qml/LiveMonitor.qml" line="1025"/>
         <source>Clear selection</source>
         <translation>Снять выделение</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1016"/>
+        <location filename="../qml/LiveMonitor.qml" line="1037"/>
         <source>Favorites</source>
         <translation>Избранное</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1024"/>
+        <location filename="../qml/LiveMonitor.qml" line="1045"/>
         <source>Online</source>
         <translation>Онлайн</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1031"/>
+        <location filename="../qml/LiveMonitor.qml" line="1052"/>
         <source>Recent events</source>
         <translation>Недавние события</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1036"/>
+        <location filename="../qml/LiveMonitor.qml" line="1057"/>
         <source>Issues</source>
         <translation>Проблемы</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1036"/>
+        <location filename="../qml/LiveMonitor.qml" line="1057"/>
         <source>Filter</source>
         <translation>Фильтр</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1060"/>
-        <location filename="../qml/LiveMonitor.qml" line="1265"/>
+        <location filename="../qml/LiveMonitor.qml" line="1081"/>
+        <location filename="../qml/LiveMonitor.qml" line="1302"/>
         <source>Go back in time</source>
         <translation>Назад во времени</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1082"/>
-        <location filename="../qml/LiveMonitor.qml" line="1267"/>
+        <location filename="../qml/LiveMonitor.qml" line="1103"/>
+        <location filename="../qml/LiveMonitor.qml" line="1304"/>
         <source>Save current view</source>
         <translation>Сохранить текущий вид</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1108"/>
-        <location filename="../qml/LiveMonitor.qml" line="1269"/>
+        <location filename="../qml/LiveMonitor.qml" line="1129"/>
+        <location filename="../qml/LiveMonitor.qml" line="1306"/>
         <source>Done arranging</source>
         <translation>Готово</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1108"/>
-        <location filename="../qml/LiveMonitor.qml" line="1269"/>
+        <location filename="../qml/LiveMonitor.qml" line="1129"/>
+        <location filename="../qml/LiveMonitor.qml" line="1306"/>
         <source>Arrange</source>
         <translation>Расстановка</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1125"/>
+        <location filename="../qml/LiveMonitor.qml" line="1146"/>
         <source>Reset</source>
         <translation>Сбросить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1144"/>
+        <location filename="../qml/LiveMonitor.qml" line="1165"/>
         <source>Sort: </source>
         <translation>Сортировка: </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1209"/>
+        <location filename="../qml/LiveMonitor.qml" line="1230"/>
         <source>Full-screen monitoring (F)</source>
         <translation>Полноэкранный мониторинг (F)</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1272"/>
+        <location filename="../qml/LiveMonitor.qml" line="1309"/>
         <source>Reset arrangement</source>
         <translation>Сбросить расстановку</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1274"/>
+        <location filename="../qml/LiveMonitor.qml" line="1311"/>
         <source>Full-screen</source>
         <translation>Полный экран</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1279"/>
+        <location filename="../qml/LiveMonitor.qml" line="1316"/>
         <source>SORT BY</source>
         <translation>СОРТИРОВКА</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1524"/>
+        <location filename="../qml/LiveMonitor.qml" line="1562"/>
         <source>CENTER</source>
         <translation>ЦЕНТР</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1530"/>
+        <location filename="../qml/LiveMonitor.qml" line="1568"/>
         <source>Tap to change</source>
         <translation>Нажмите, чтобы изменить</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1669"/>
+        <location filename="../qml/LiveMonitor.qml" line="1707"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation>Объединение недоступно в этой раскладке</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1670"/>
+        <location filename="../qml/LiveMonitor.qml" line="1708"/>
         <source>Split %1×%2</source>
         <translation>Разделить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1672"/>
+        <location filename="../qml/LiveMonitor.qml" line="1710"/>
         <source>Merge %1×%2</source>
         <translation>Объединить %1×%2</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1674"/>
+        <location filename="../qml/LiveMonitor.qml" line="1712"/>
         <source>Shift+drag to select cells to merge</source>
         <translation>Shift+перетаскивание — выделить ячейки для объединения</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1729"/>
+        <location filename="../qml/LiveMonitor.qml" line="1767"/>
         <source>Loading cameras…</source>
         <translation>Загрузка камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1760"/>
+        <location filename="../qml/LiveMonitor.qml" line="1798"/>
         <source>Exit full-screen</source>
         <translation>Выйти из полного экрана</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1787"/>
+        <location filename="../qml/LiveMonitor.qml" line="1825"/>
         <source>%1 · %2 cameras · Page %3 of %4</source>
         <translation>%1 · камер: %2 · страница %3 из %4</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1797"/>
+        <location filename="../qml/LiveMonitor.qml" line="1835"/>
         <source>M — merge · Esc — cancel</source>
         <translation>M — объединить · Esc — отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1798"/>
+        <location filename="../qml/LiveMonitor.qml" line="1836"/>
         <source>⇧ drag — merge cells</source>
         <translation>⇧ перетаскивание — объединить ячейки</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1837"/>
+        <location filename="../qml/LiveMonitor.qml" line="1875"/>
         <source>Camera for </source>
         <translation>Камера для </translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1874"/>
+        <location filename="../qml/LiveMonitor.qml" line="1912"/>
         <source>Search cameras…</source>
         <translation>Поиск камер…</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1886"/>
+        <location filename="../qml/LiveMonitor.qml" line="1924"/>
         <source>Hide on-wall</source>
         <translation>Скрыть на стене</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1997"/>
+        <location filename="../qml/LiveMonitor.qml" line="2035"/>
         <source>ON WALL</source>
         <translation>НА СТЕНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2020"/>
+        <location filename="../qml/LiveMonitor.qml" line="2058"/>
         <source>No cameras match.</source>
         <translation>Нет подходящих камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2020"/>
+        <location filename="../qml/LiveMonitor.qml" line="2058"/>
         <source>No cameras available.</source>
         <translation>Нет доступных камер.</translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2027"/>
+        <location filename="../qml/LiveMonitor.qml" line="2065"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
@@ -2549,63 +2549,98 @@
 <context>
     <name>LoginScreen</name>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="78"/>
+        <location filename="../qml/LoginScreen.qml" line="79"/>
+        <source>Saved servers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="92"/>
         <source>build </source>
         <translation>сборка </translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="102"/>
+        <location filename="../qml/LoginScreen.qml" line="116"/>
         <source>CILEX VISION</source>
         <translation>CILEX VISION</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="112"/>
+        <location filename="../qml/LoginScreen.qml" line="126"/>
         <source>Sign in to the surveillance backend</source>
         <translation>Вход в систему видеонаблюдения</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="123"/>
-        <location filename="../qml/LoginScreen.qml" line="174"/>
+        <location filename="../qml/LoginScreen.qml" line="137"/>
+        <location filename="../qml/LoginScreen.qml" line="307"/>
         <source>Password</source>
         <translation>Пароль</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="123"/>
+        <location filename="../qml/LoginScreen.qml" line="137"/>
         <source>Token</source>
         <translation>Токен</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="163"/>
+        <location filename="../qml/LoginScreen.qml" line="177"/>
         <source>Server</source>
         <translation>Сервер</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="173"/>
+        <location filename="../qml/LoginScreen.qml" line="264"/>
+        <source>Nickname</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="276"/>
+        <source>Save nickname</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="276"/>
+        <source>Set a nickname</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="290"/>
+        <source>Forget this server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="306"/>
         <source>Username</source>
         <translation>Имя пользователя</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="173"/>
+        <location filename="../qml/LoginScreen.qml" line="306"/>
         <source>operator</source>
         <translation>оператор</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="183"/>
+        <location filename="../qml/LoginScreen.qml" line="325"/>
         <source>TOKEN</source>
         <translation>ТОКЕН</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="213"/>
+        <location filename="../qml/LoginScreen.qml" line="355"/>
         <source>Paste a token issued by Cilex Vision.</source>
         <translation>Вставьте токен, выданный Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="244"/>
+        <location filename="../qml/LoginScreen.qml" line="384"/>
+        <source>Trying to reach server… attempt %1 of %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="387"/>
+        <source>Connecting to server…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LoginScreen.qml" line="420"/>
         <source>Signing in…</source>
         <translation>Вход…</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="244"/>
+        <location filename="../qml/LoginScreen.qml" line="420"/>
         <source>Sign in</source>
         <translation>Войти</translation>
     </message>
@@ -2628,7 +2663,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="71"/>
-        <location filename="../qml/Main.qml" line="1983"/>
+        <location filename="../qml/Main.qml" line="2078"/>
         <source>Groups</source>
         <translation>Группы</translation>
     </message>
@@ -2639,7 +2674,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="73"/>
-        <location filename="../qml/Main.qml" line="2086"/>
+        <location filename="../qml/Main.qml" line="2181"/>
         <source>Events</source>
         <translation>События</translation>
     </message>
@@ -2666,35 +2701,35 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="41"/>
-        <location filename="../qml/Main.qml" line="192"/>
-        <location filename="../qml/Main.qml" line="261"/>
-        <location filename="../qml/Main.qml" line="482"/>
-        <location filename="../qml/Main.qml" line="625"/>
-        <location filename="../qml/Main.qml" line="641"/>
-        <location filename="../qml/Main.qml" line="646"/>
+        <location filename="../qml/Main.qml" line="202"/>
+        <location filename="../qml/Main.qml" line="271"/>
+        <location filename="../qml/Main.qml" line="492"/>
+        <location filename="../qml/Main.qml" line="635"/>
+        <location filename="../qml/Main.qml" line="651"/>
+        <location filename="../qml/Main.qml" line="656"/>
         <source>All cameras</source>
         <translation>Все камеры</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="351"/>
+        <location filename="../qml/Main.qml" line="361"/>
         <source>Selected (%1)</source>
         <translation>Выбрано (%1)</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="501"/>
-        <location filename="../qml/Main.qml" line="508"/>
-        <location filename="../qml/Main.qml" line="554"/>
-        <location filename="../qml/Main.qml" line="603"/>
+        <location filename="../qml/Main.qml" line="511"/>
+        <location filename="../qml/Main.qml" line="518"/>
+        <location filename="../qml/Main.qml" line="564"/>
+        <location filename="../qml/Main.qml" line="613"/>
         <source>Link</source>
         <translation>Ссылка</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="501"/>
+        <location filename="../qml/Main.qml" line="511"/>
         <source>Not a Cilex Watchtower link</source>
         <translation>Это не ссылка Cilex Watchtower</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="509"/>
+        <location filename="../qml/Main.qml" line="519"/>
         <source>This link belongs to another Cilex installation (%1) — this Watchtower is signed in to %2</source>
         <translation>Ссылка ведёт на другую установку Cilex (%1) — этот Watchtower подключён к %2</translation>
     </message>
@@ -2703,63 +2738,63 @@
         <translation type="vanished">Событие старше загруженной очереди — открытие таких событий по ссылке появится после серверного контракта</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="555"/>
-        <location filename="../qml/Main.qml" line="604"/>
+        <location filename="../qml/Main.qml" line="565"/>
+        <location filename="../qml/Main.qml" line="614"/>
         <source>The linked event is not available — it may not exist, or your sign-in cannot see it</source>
         <translation>Событие по ссылке недоступно — возможно, его не существует или у вашей учётной записи нет к нему доступа</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="1527"/>
+        <location filename="../qml/Main.qml" line="1622"/>
         <source>PASS</source>
         <translation>ОК</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="1527"/>
+        <location filename="../qml/Main.qml" line="1622"/>
         <source>SLOW</source>
         <translation>МЕДЛ</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="1635"/>
+        <location filename="../qml/Main.qml" line="1730"/>
         <source>HIGH</source>
         <translation>ВЫС</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="1635"/>
+        <location filename="../qml/Main.qml" line="1730"/>
         <source>STD</source>
         <translation>СТД</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2151"/>
+        <location filename="../qml/Main.qml" line="2247"/>
         <source>Coming soon</source>
         <translation>Скоро</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2296"/>
+        <location filename="../qml/Main.qml" line="2392"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation>Автофокус запущен — объектив может настраиваться до 40 секунд</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2301"/>
+        <location filename="../qml/Main.qml" line="2397"/>
         <source>Autofocus finished</source>
         <translation>Автофокус завершён</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2315"/>
+        <location filename="../qml/Main.qml" line="2411"/>
         <source>New badge earned: %1 — %2</source>
         <translation>Новый значок: %1 — %2</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2319"/>
+        <location filename="../qml/Main.qml" line="2415"/>
         <source>The Watch</source>
         <translation>Дозор</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2329"/>
+        <location filename="../qml/Main.qml" line="2432"/>
         <source>Shared</source>
         <translation>Общие</translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2329"/>
+        <location filename="../qml/Main.qml" line="2432"/>
         <source>Mine</source>
         <translation>Мои</translation>
     </message>
@@ -3362,138 +3397,138 @@
 <context>
     <name>PlaybackScreen</name>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="874"/>
+        <location filename="../qml/PlaybackScreen.qml" line="1104"/>
         <source>TIMEOUT</source>
         <translation>ТАЙМАУТ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1720"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2022"/>
         <source>PASS</source>
         <translation>ОК</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="1720"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2022"/>
         <source>FAIL</source>
         <translation>СБОЙ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2193"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2495"/>
         <source>Unstable build for playback — this launch runs Qt </source>
         <translation>Нестабильная сборка для воспроизведения — этот запуск использует Qt </translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2361"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2663"/>
         <source>Loading recording…</source>
         <translation>Загрузка записи…</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2373"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2675"/>
         <source>Back</source>
         <translation>Назад</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2378"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2680"/>
         <source>PLAYBACK</source>
         <comment>video mode chip</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2404"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2706"/>
         <source>FRAME-BY-FRAME</source>
         <translation>ПОКАДРОВЫЙ РЕЖИМ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2404"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2706"/>
         <source>ESC TO EXIT</source>
         <translation>ESC — ВЫХОД</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2429"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2731"/>
         <source>HEVC</source>
         <translation>HEVC</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2431"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2733"/>
         <source>HD 1440p (HEVC)</source>
         <translation>HD 1440p (HEVC)</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2431"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2733"/>
         <source>SD 720p (H.264)</source>
         <translation>SD 720p (H.264)</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2451"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2753"/>
         <source>OFFLINE</source>
         <comment>camera state chip</comment>
         <translation>НЕ В СЕТИ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2452"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2754"/>
         <source>NOT RECORDING</source>
         <comment>camera state chip</comment>
         <translation>ЗАПИСЬ ВЫКЛ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2459"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2761"/>
         <source>Its archive is complete up to the moment it dropped, and is fully playable below.</source>
         <translation>Её архив полон до момента обрыва и полностью доступен ниже.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2460"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2762"/>
         <source>The archive below is everything this camera has. It will not grow while recording is off.</source>
         <translation>Архив ниже — это всё, что есть у камеры. Пока запись выключена, он не пополнится.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2513"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2815"/>
         <source>PLAYBACK</source>
         <comment>honest-state tag</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2515"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2817"/>
         <source>Playback is switched off — recorded playback and export are paused.</source>
         <translation>Воспроизведение выключено — просмотр записи и экспорт приостановлены.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2516"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2818"/>
         <source>An operator turned this off in settings. Live view is unaffected.</source>
         <translation>Оператор выключил это в настройках. На эфир это не влияет.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2517"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2819"/>
         <source>Open settings</source>
         <translation>Открыть настройки</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2523"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2825"/>
         <source>ERROR</source>
         <comment>honest-state tag</comment>
         <translation>ОШИБКА</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2525"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2827"/>
         <source>Could not open a playback session for this camera.</source>
         <translation>Не удалось открыть сессию воспроизведения.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2526"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2828"/>
         <source>The recording service did not answer. Nothing has been lost — this is a connection problem.</source>
         <translation>Служба записи не ответила. Ничего не потеряно — это проблема соединения.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2527"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2829"/>
         <source>Retry</source>
         <translation>Повторить</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2533"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2835"/>
         <source>ARCHIVE</source>
         <comment>honest-state tag</comment>
         <translation>АРХИВ</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/PlaybackScreen.qml" line="2534"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2836"/>
         <source>This camera has no recorded footage in the last %n day(s).</source>
         <translation>
             <numerusform>У этой камеры нет записи за последний %n день.</numerusform>
@@ -3502,33 +3537,33 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2535"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2837"/>
         <source>Nothing to play back. The archive ribbon is empty because the archive is empty.</source>
         <translation>Воспроизводить нечего. Лента архива пуста, потому что пуст архив.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2541"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2843"/>
         <source>FOOTAGE</source>
         <comment>honest-state tag</comment>
         <translation>ЗАПИСЬ</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2542"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2844"/>
         <source>No footage recorded around this moment.</source>
         <translation>Нет записи в этот момент.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2543"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2845"/>
         <source>The archive has a gap here. The nearest recorded footage is below.</source>
         <translation>Здесь в архиве пропуск. Ближайшая запись — ниже.</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2549"/>
+        <location filename="../qml/PlaybackScreen.qml" line="2851"/>
         <source>Nearest footage %1 →</source>
         <translation>Ближайшая запись %1 →</translation>
     </message>
     <message>
-        <location filename="../qml/PlaybackScreen.qml" line="2757"/>
+        <location filename="../qml/PlaybackScreen.qml" line="3059"/>
         <source>Drag to resize · double-click to reset</source>
         <translation>Потяните, чтобы изменить высоту · двойной щелчок — сброс</translation>
     </message>
@@ -4157,13 +4192,13 @@
     </message>
     <message>
         <location filename="../qml/SavedViewsScreen.qml" line="89"/>
-        <location filename="../qml/SavedViewsScreen.qml" line="201"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="243"/>
         <source>Mine</source>
         <translation>Мои</translation>
     </message>
     <message>
         <location filename="../qml/SavedViewsScreen.qml" line="90"/>
-        <location filename="../qml/SavedViewsScreen.qml" line="201"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="243"/>
         <source>Shared</source>
         <translation>Общие</translation>
     </message>
@@ -4183,37 +4218,37 @@
         <translation>+ Сохранить текущий вид</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="180"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="222"/>
         <source>Delete view</source>
         <translation>Удалить вид</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="187"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="229"/>
         <source>Unfavorite</source>
         <translation>Убрать из избранного</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="187"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="229"/>
         <source>Favorite</source>
         <translation>В избранном</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="217"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="259"/>
         <source>Open</source>
         <translation>Открыть</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="233"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="275"/>
         <source>No views match this filter.</source>
         <translation>Нет видов по этому фильтру.</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="233"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="275"/>
         <source>No saved views yet.</source>
         <translation>Сохранённых видов пока нет.</translation>
     </message>
     <message>
-        <location filename="../qml/SavedViewsScreen.qml" line="237"/>
+        <location filename="../qml/SavedViewsScreen.qml" line="279"/>
         <source>Set up the Live Monitor, then “Save current view”.</source>
         <translation>Настройте Монитор эфира, затем «Сохранить текущий вид».</translation>
     </message>
@@ -4244,129 +4279,137 @@
 <context>
     <name>SingleCameraDetail</name>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="368"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="448"/>
         <source>Capture snapshot</source>
         <translation>Сделать снимок</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="369"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="449"/>
         <source>Snapshot with timestamp</source>
         <translation>Снимок с меткой времени</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="370"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="450"/>
         <source>PTZ / lens control</source>
         <translation>Управление PTZ/объективом</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="260"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="334"/>
         <source>Recording audio</source>
         <translation>Идёт запись звука</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="85"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="115"/>
         <source>now</source>
         <translation>сейчас</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="86"/>
-        <location filename="../qml/SingleCameraDetail.qml" line="93"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="116"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="123"/>
         <source>m</source>
         <translation>м</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="87"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="117"/>
         <source>h</source>
         <translation>ч</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="88"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="118"/>
         <source>d</source>
         <translation>д</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="92"/>
-        <location filename="../qml/SingleCameraDetail.qml" line="93"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="122"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="123"/>
         <source>s</source>
         <translation>с</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="189"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="260"/>
         <source>Connecting…</source>
         <translation>Подключение…</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="196"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="262"/>
+        <source>Still trying — the live stream may be unreachable or too slow from this network</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/SingleCameraDetail.qml" line="270"/>
         <source>NO SIGNAL</source>
         <translation>НЕТ СИГНАЛА</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="203"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="277"/>
         <source>STREAM UNAVAILABLE</source>
         <translation>ПОТОК НЕДОСТУПЕН</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="216"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="290"/>
         <source>LIVE VIEW OFF</source>
         <translation>ЭФИР ВЫКЛЮЧЕН</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="217"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="291"/>
         <source>switched off by operator</source>
         <translation>выключено оператором</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="232"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="306"/>
         <source>Back</source>
         <translation>Назад</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="260"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="334"/>
         <source>Audio recording disabled</source>
         <translation>Запись звука отключена</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="360"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="440"/>
+        <source>AUTO </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>HD</source>
-        <translation>HD</translation>
+        <translation type="vanished">HD</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="360"/>
         <source>SD</source>
-        <translation>SD</translation>
+        <translation type="vanished">SD</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="386"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="466"/>
         <source>Open playback</source>
         <translation>Открыть воспроизведение</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="418"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="498"/>
         <source>EVENTS</source>
         <translation>СОБЫТИЯ</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="423"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="503"/>
         <source>loading…</source>
         <translation>загрузка…</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="545"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="625"/>
         <source>No events recorded for this camera yet.</source>
         <translation>События с этой камеры пока не записаны.</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="558"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="638"/>
         <source>SAME GROUP</source>
         <translation>ТА ЖЕ ГРУППА</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="612"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="692"/>
         <source>No other cameras in this group.</source>
         <translation>Других камер в этой группе нет.</translation>
     </message>
     <message>
-        <location filename="../qml/SingleCameraDetail.qml" line="612"/>
+        <location filename="../qml/SingleCameraDetail.qml" line="692"/>
         <source>This camera isn&apos;t in a group.</source>
         <translation>Эта камера не входит ни в одну группу.</translation>
     </message>
@@ -4511,87 +4554,104 @@
         <translation type="vanished">Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="252"/>
+        <location filename="../qml/TitleBar.qml" line="268"/>
         <source>Watches · Restarts · Reports</source>
         <translation>Наблюдает · Перезапускает · Сообщает</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="270"/>
+        <location filename="../qml/TitleBar.qml" line="286"/>
         <source>SERVER</source>
         <translation>СЕРВЕР</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="283"/>
+        <location filename="../qml/TitleBar.qml" line="299"/>
         <source>SESSION</source>
         <translation>СЕАНС</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="297"/>
+        <location filename="../qml/TitleBar.qml" line="313"/>
         <source>WARDEN</source>
         <translation>ХРАНИТЕЛЬ</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="277"/>
+        <location filename="../qml/TitleBar.qml" line="293"/>
         <source>not configured</source>
         <translation>не задан</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="203"/>
+        <location filename="../qml/TitleBar.qml" line="219"/>
         <source>not signed in</source>
         <translation>вход не выполнен</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="305"/>
+        <location filename="../qml/TitleBar.qml" line="321"/>
+        <location filename="../qml/TitleBar.qml" line="348"/>
+        <location filename="../qml/TitleBar.qml" line="364"/>
         <source>unknown</source>
         <translation>неизвестна</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="192"/>
+        <location filename="../qml/TitleBar.qml" line="208"/>
         <source>operator</source>
         <translation>оператор</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="194"/>
+        <location filename="../qml/TitleBar.qml" line="210"/>
         <source>administrator</source>
         <translation>администратор</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="195"/>
+        <location filename="../qml/TitleBar.qml" line="211"/>
         <source>viewer</source>
         <translation>наблюдатель</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="196"/>
+        <location filename="../qml/TitleBar.qml" line="212"/>
         <source>manager</source>
         <translation>руководитель</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="197"/>
+        <location filename="../qml/TitleBar.qml" line="213"/>
         <source>installer</source>
         <translation>монтажник</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="318"/>
+        <location filename="../qml/TitleBar.qml" line="340"/>
+        <source>WARDEN SENDS TO</source>
+        <translation>ХРАНИТЕЛЬ ШЛЁТ В</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="355"/>
+        <source>TOKEN</source>
+        <translation>ТОКЕН</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="363"/>
+        <source>none — this station is invisible to the fleet</source>
+        <translation>нет — станция не видна системе</translation>
+    </message>
+    <message>
+        <location filename="../qml/TitleBar.qml" line="377"/>
         <source>WATCHTOWER</source>
         <translation>WATCHTOWER</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="339"/>
+        <location filename="../qml/TitleBar.qml" line="398"/>
         <source>Minimize</source>
         <translation>Свернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="343"/>
+        <location filename="../qml/TitleBar.qml" line="402"/>
         <source>Restore</source>
         <translation>Восстановить</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="343"/>
+        <location filename="../qml/TitleBar.qml" line="402"/>
         <source>Maximize</source>
         <translation>Развернуть</translation>
     </message>
     <message>
-        <location filename="../qml/TitleBar.qml" line="347"/>
+        <location filename="../qml/TitleBar.qml" line="406"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
@@ -4668,258 +4728,258 @@
 <context>
     <name>WallPlayback</name>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="48"/>
+        <location filename="../qml/WallPlayback.qml" line="52"/>
         <source>Playback is switched off</source>
         <translation>Воспроизведение отключено</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="196"/>
+        <location filename="../qml/WallPlayback.qml" line="200"/>
         <source>“%1” has no cameras to play back.</source>
         <translation>В группе «%1» нет камер для воспроизведения.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="609"/>
+        <location filename="../qml/WallPlayback.qml" line="628"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation>Воспроизведение отключено — синхронизированная стена приостановлена. Это настройка оператора, а не сбой.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="982"/>
+        <location filename="../qml/WallPlayback.qml" line="1016"/>
         <source>Opening wall session…</source>
         <translation>Открытие сессии стены…</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="982"/>
+        <location filename="../qml/WallPlayback.qml" line="1016"/>
         <source>Compositing…</source>
         <translation>Сборка…</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1000"/>
+        <location filename="../qml/WallPlayback.qml" line="1034"/>
         <source>The server-composited grid stream (E1) isn&apos;t live yet. Live tiles are unaffected — use Return to live.</source>
         <translation>Серверный composited-поток сетки (E1) ещё не запущен. На живые ячейки это не влияет — используйте «Вернуться в эфир».</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1058"/>
+        <location filename="../qml/WallPlayback.qml" line="1092"/>
         <source>1 STREAM · %1/%2 RECORDING</source>
         <translation>1 ПОТОК · ПИШУТ %1/%2</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1065"/>
+        <location filename="../qml/WallPlayback.qml" line="1099"/>
         <source>Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.</source>
         <translation>Все ячейки — один и тот же момент по построению: единый composited-поток. Удерживайте T, чтобы проштамповать каждую ячейку.</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1073"/>
+        <location filename="../qml/WallPlayback.qml" line="1107"/>
         <source>Wall playback</source>
         <translation>Воспроизведение на стене</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1081"/>
+        <location filename="../qml/WallPlayback.qml" line="1115"/>
         <source>EDIT CAMERAS</source>
         <translation>ИЗМЕНИТЬ КАМЕРЫ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1089"/>
+        <location filename="../qml/WallPlayback.qml" line="1123"/>
         <source>GROUP</source>
         <translation>ГРУППА</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1131"/>
+        <location filename="../qml/WallPlayback.qml" line="1165"/>
         <source>No cameras in this group</source>
         <translation>В этой группе нет камер</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1159"/>
+        <location filename="../qml/WallPlayback.qml" line="1193"/>
         <source>CALENDAR DAY</source>
         <translation>КАЛЕНДАРНЫЙ ДЕНЬ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1159"/>
+        <location filename="../qml/WallPlayback.qml" line="1193"/>
         <source>ROLLING</source>
         <translation>СКОЛЬЗЯЩЕЕ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1180"/>
+        <location filename="../qml/WallPlayback.qml" line="1214"/>
         <source>Midnight to midnight, clamped to now</source>
         <translation>С полуночи до полуночи, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1181"/>
+        <location filename="../qml/WallPlayback.qml" line="1215"/>
         <source>Ends now — the far left is %1 at %2</source>
         <translation>Кончается сейчас — крайнее левое: %1, %2</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1190"/>
-        <location filename="../qml/WallPlayback.qml" line="1382"/>
+        <location filename="../qml/WallPlayback.qml" line="1224"/>
+        <location filename="../qml/WallPlayback.qml" line="1416"/>
         <source>%1% of the window has footage</source>
         <translation>%1% окна содержит запись</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1218"/>
+        <location filename="../qml/WallPlayback.qml" line="1252"/>
         <source>ROLL CALL</source>
         <translation>ПЕРЕКЛИЧКА</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1223"/>
-        <location filename="../qml/WallPlayback.qml" line="1265"/>
+        <location filename="../qml/WallPlayback.qml" line="1257"/>
+        <location filename="../qml/WallPlayback.qml" line="1299"/>
         <source>RECORDING</source>
         <translation>ПИШЕТ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1264"/>
+        <location filename="../qml/WallPlayback.qml" line="1298"/>
         <source>MOTION</source>
         <translation>ДВИЖ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1266"/>
+        <location filename="../qml/WallPlayback.qml" line="1300"/>
         <source>nothing at this instant</source>
         <translation>в этот момент ничего</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1267"/>
+        <location filename="../qml/WallPlayback.qml" line="1301"/>
         <source>availability unknown</source>
         <translation>доступность неизвестна</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1367"/>
+        <location filename="../qml/WallPlayback.qml" line="1401"/>
         <source>−10s</source>
         <translation>−10с</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1368"/>
+        <location filename="../qml/WallPlayback.qml" line="1402"/>
         <source>+10s</source>
         <translation>+10с</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1369"/>
+        <location filename="../qml/WallPlayback.qml" line="1403"/>
         <source>Last hour</source>
         <translation>Последний час</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1370"/>
+        <location filename="../qml/WallPlayback.qml" line="1404"/>
         <source>Last 15 min</source>
         <translation>Последние 15 мин</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1388"/>
+        <location filename="../qml/WallPlayback.qml" line="1422"/>
         <source>Rolling window — the last 15 min, ending now</source>
         <translation>Скользящее окно — последние 15 мин, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1389"/>
+        <location filename="../qml/WallPlayback.qml" line="1423"/>
         <source>Rolling window — the last 1h, ending now</source>
         <translation>Скользящее окно — последний 1 ч, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1390"/>
+        <location filename="../qml/WallPlayback.qml" line="1424"/>
         <source>Rolling window — the last 6h, ending now</source>
         <translation>Скользящее окно — последние 6 ч, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1391"/>
+        <location filename="../qml/WallPlayback.qml" line="1425"/>
         <source>Rolling window — the last 12h, ending now</source>
         <translation>Скользящее окно — последние 12 ч, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1392"/>
+        <location filename="../qml/WallPlayback.qml" line="1426"/>
         <source>Rolling window — the last 24h, ending now</source>
         <translation>Скользящее окно — последние 24 ч, до текущего момента</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1394"/>
+        <location filename="../qml/WallPlayback.qml" line="1428"/>
         <source>Drop the custom zoom back to the loaded window</source>
         <translation>Сбросить масштаб к загруженному окну</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1396"/>
+        <location filename="../qml/WallPlayback.qml" line="1430"/>
         <source>Events</source>
         <translation>События</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1397"/>
+        <location filename="../qml/WallPlayback.qml" line="1431"/>
         <source>Show a motion lane per camera in the scrubber</source>
         <translation>Показать дорожку движения для каждой камеры</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1400"/>
+        <location filename="../qml/WallPlayback.qml" line="1434"/>
         <source>Export selection</source>
         <translation>Экспорт выделения</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1402"/>
+        <location filename="../qml/WallPlayback.qml" line="1436"/>
         <source>Return to live</source>
         <translation>Вернуться в эфир</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1525"/>
+        <location filename="../qml/WallPlayback.qml" line="1559"/>
         <source>WARMING</source>
         <translation>ГОТОВИТСЯ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1765"/>
+        <location filename="../qml/WallPlayback.qml" line="1799"/>
         <source>IN </source>
         <translation>ЧЕРЕЗ </translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1767"/>
+        <location filename="../qml/WallPlayback.qml" line="1801"/>
         <source>spans a gap — some cameras have no footage inside it</source>
         <translation>пересекает пробел — у части камер внутри нет записи</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1791"/>
+        <location filename="../qml/WallPlayback.qml" line="1825"/>
         <source>Assign cameras</source>
         <translation>Назначить камеры</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1792"/>
+        <location filename="../qml/WallPlayback.qml" line="1826"/>
         <source>The wall re-composites at the current moment</source>
         <translation>Стена пересобирается на текущий момент</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1814"/>
-        <location filename="../qml/WallPlayback.qml" line="1926"/>
+        <location filename="../qml/WallPlayback.qml" line="1848"/>
+        <location filename="../qml/WallPlayback.qml" line="1960"/>
         <source>Search name, IP or group…</source>
         <translation>Поиск по имени, IP или группе…</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1858"/>
+        <location filename="../qml/WallPlayback.qml" line="1892"/>
         <source>Use live wall</source>
         <translation>Использовать живую стену</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1870"/>
-        <location filename="../qml/WallPlayback.qml" line="1958"/>
+        <location filename="../qml/WallPlayback.qml" line="1904"/>
+        <location filename="../qml/WallPlayback.qml" line="1992"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1878"/>
+        <location filename="../qml/WallPlayback.qml" line="1912"/>
         <source>Apply · </source>
         <translation>Применить · </translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1905"/>
+        <location filename="../qml/WallPlayback.qml" line="1939"/>
         <source>Choose camera for this tile</source>
         <translation>Выберите камеру для этой ячейки</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1910"/>
+        <location filename="../qml/WallPlayback.qml" line="1944"/>
         <source>Replaces </source>
         <translation>Заменяет </translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1947"/>
+        <location filename="../qml/WallPlayback.qml" line="1981"/>
         <source>ON WALL</source>
         <translation>НА СТЕНЕ</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2020"/>
-        <location filename="../qml/WallPlayback.qml" line="2027"/>
+        <location filename="../qml/WallPlayback.qml" line="2054"/>
+        <location filename="../qml/WallPlayback.qml" line="2061"/>
         <source>FF</source>
         <translation>FF</translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2021"/>
-        <location filename="../qml/WallPlayback.qml" line="2028"/>
+        <location filename="../qml/WallPlayback.qml" line="2055"/>
+        <location filename="../qml/WallPlayback.qml" line="2062"/>
         <source>RW</source>
         <translation>RW</translation>
     </message>

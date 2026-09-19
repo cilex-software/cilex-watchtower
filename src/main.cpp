@@ -823,6 +823,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtHoverShot", qEnvironmentVariableIsSet("WT_HOVERSHOT"));
     // Warden version, for the supervision indicator's tooltip (set by warden.py).
     engine.rootContext()->setContextProperty("wtWardenVersion", qEnvironmentVariable("WT_WARDEN_VERSION"));
+    // "set" / "missing", straight from Warden (warden.py sets it when it spawns us). Empty when
+    // the supervisor predates it — the overlay renders that as "unknown", never as healthy.
+    engine.rootContext()->setContextProperty("wtWardenToken", qEnvironmentVariable("WT_WARDEN_TOKEN"));
+    // Warden's OWN backend. The overlay's SERVER row is the APP's server; when Warden is
+    // posting somewhere else the panel would otherwise read like confirmation while
+    // nothing lands (WT-OFFICE-01, 2026-09-19: app .4, Warden still the installer's .79).
+    engine.rootContext()->setContextProperty("wtWardenBackend", qEnvironmentVariable("WT_WARDEN_BACKEND"));
     // Large-scale scrubber seek-latency harness: WT_SEEK10K = plan json
     // [{ip,days:[...]},…], WT_SEEK10K_N = total seeks (default 10000). Logs one
     // [SEEK10K] line per seek: click-equivalent seekToWall() → first rendered
