@@ -31,6 +31,23 @@ clears. Backend items map to the living letter
 3. Alert-firing pipeline (B2 now produces events) — medium.
 4. Silence the `hlsdemux2` v2 log-spam by pinning legacy v1 — small (cosmetic; trade-off, see Parked).
 5. Light/Dark theme switching — largest (reactive `Theme` refactor).
+6. Map CV's error **codes** to Russian copy — medium. CV's e8b0a4a gives ~15
+   stable codes on `/auth` plus `live_control_suspended` / `service_locked`;
+   every sentence the wall shows for them is still CV's English. **Held** until
+   CV codes `auth/jwt.py` (their reply17 §4) — otherwise the most-hit error of
+   all, `Authentication required`, stays out of the table. `tools/tests/server-message.cpp
+   --live <baseUrl>` fails the moment that lands, which is the signal to start.
+   Do not unify duplicate codes (`account_deactivated` vs `SSO_ACCOUNT_DEACTIVATED`):
+   two keys, one string — agreed with cilex-pro-mobile, reply19 §1.
+7. A suspended service is **silent on a running wall** — small/medium, design call.
+   `AuthController.cpp:255` treats a 423 on *refresh* as transient: 3 retries, then
+   nothing is scheduled while the token still has life. The wall keeps working, which
+   is right — a billing state must not kill a guard's wall — but says nothing for up
+   to the token's remaining ~10 h, and only states the real reason once it drops to
+   sign-in (fixed there in 1.1.468). Now that `code` exists the two are separable, so
+   the wall could stay up *and* say why. Found 2026-09-20 while fixing the sign-in
+   case; deliberately not built, because what to show on a working wall is an
+   operator/design decision, not a client one.
 
 ## Blocked — what clears each
 - **Backend shared-ack endpoint (B1)** → server-backed acknowledge (currently local-only).
