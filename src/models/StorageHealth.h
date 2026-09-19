@@ -30,6 +30,13 @@ class StorageHealth : public QObject
     Q_PROPERTY(bool reachable READ reachable NOTIFY changed)
     Q_PROPERTY(bool circuitOpen READ circuitOpen NOTIFY changed)
     Q_PROPERTY(QString reason READ reason NOTIFY changed)
+    // CV's `reason` is CURATED (a short status phrase, sometimes a code); `last_error` is
+    // RAW EVIDENCE — str(exc) from the storage agent, truncated to 160 chars server-side
+    // (cilex-vision agent_client.py:150, health_summary.py:745). They were one property
+    // here until 2026-09-20, which meant a Python traceback rendered as if it were a
+    // curated sentence and nobody could tell which they were reading. Kept apart now:
+    // chrome is the app's own voice, evidence stays as it came.
+    Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
     Q_PROPERTY(bool ok READ ok NOTIFY changed)
     // Rendered VERBATIM — never re-derived from the booleans.
     Q_PROPERTY(QString state READ state NOTIFY changed)
@@ -46,6 +53,7 @@ public:
     bool reachable() const { return m_reachable; }
     bool circuitOpen() const { return m_circuitOpen; }
     QString reason() const { return m_reason; }
+    QString lastError() const { return m_lastError; }
     QString state() const { return m_state; }
     QString lastOkAt() const { return m_lastOkAt; }
     QString checkedAt() const { return m_checkedAt; }
@@ -72,7 +80,7 @@ private:
     QString m_baseUrl;
     bool m_loading = false;
     bool m_loaded = false;
-    QString m_status, m_reason, m_state, m_lastOkAt, m_checkedAt;
+    QString m_status, m_reason, m_lastError, m_state, m_lastOkAt, m_checkedAt;
     int m_consecutiveFailures = 0;
     bool m_degraded = false;
     bool m_reachable = true;

@@ -270,6 +270,32 @@ Item {
                     text: parent.parent.sh ? ("· " + parent.parent.sh.reason) : ""
                     color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight
                 }
+                // `last_error` is NOT a status phrase — it is str(exc) from the storage agent
+                // (cilex-vision agent_client.py:150), truncated to 160 chars server-side. Until
+                // 2026-09-20 the model collapsed it into `reason` and this row rendered a raw
+                // traceback in the same grey sans as curated copy, with no way to tell them
+                // apart. Kept visually distinct now: mono, because the repo renders machine
+                // facts in mono, and a guard should never mistake an exception for a sentence
+                // the app chose to say. The ask that follows from this went to CV as reply9,
+                // narrowed by cilex-pro-mobile's reply11: a code beside the prose for anything
+                // the UI states in its OWN voice — never for a foreign error text, which is
+                // evidence and stays as it came.
+                //
+                // Capped and elided because the strip is 32px and one line: the full string
+                // lives in the tooltip, so truncation costs nothing. Eliding evidence with no
+                // way to read the rest would be the same dishonesty one layer down.
+                Text {
+                    id: lastErrText
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: parent.parent.sh && parent.parent.sh.lastError !== ""
+                    text: parent.parent.sh ? ("· " + parent.parent.sh.lastError) : ""
+                    color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11
+                    width: Math.min(implicitWidth, 360); elide: Text.ElideRight
+                    MouseArea { id: lastErrMa; anchors.fill: parent; hoverEnabled: true }
+                    QC.ToolTip.visible: lastErrMa.containsMouse && lastErrText.truncated
+                    QC.ToolTip.text: parent.parent.sh ? parent.parent.sh.lastError : ""
+                    QC.ToolTip.delay: 300
+                }
                 // PLAYBACK subsystem — the 2026-08-10 P0 must never be silent again:
                 // a playback auth fault is a station-level fault with its own strip,
                 // not a sentence buried inside one camera's video pane.

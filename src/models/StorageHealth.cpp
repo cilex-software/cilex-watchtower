@@ -54,8 +54,7 @@ void StorageHealth::fetch()
         m_checkedAt = o.value("checked_at").toString();
         m_consecutiveFailures = o.value("consecutive_failures").toInt();
         m_reason = o.value("reason").toString();
-        if (m_reason.isEmpty())
-            m_reason = o.value("last_error").toString();
+        m_lastError = o.value("last_error").toString();
         m_loaded = true;
         emit changed();
     });
