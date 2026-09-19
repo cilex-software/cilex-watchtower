@@ -21,11 +21,21 @@
 // first cut of this (1d04cf9) was /auth only, on the reasoning that CV had not coded the
 // other routers. That reasoning was wrong: `auth/jwt.py` is the SHARED dependency 51
 // routers run, so its 401/423 bodies arrive on playback, The Watch and PTZ replies too.
-// Two of its sites are code-only TODAY — `service_suspended` and `password_change_required`
-// (jwt.py:205/196) send the bare code in `detail` with no `code` field at all — and
-// PlaybackClient's 401 branch feeds HealthScreen's playback strip, so a suspended service
-// would print `service_suspended` at a guard right now. CV's reply17 §4 adds the sentences;
-// this is the read that lets them arrive.
+//
+// HISTORICAL, and left here because it is why this read exists at all. As of 2026-09-20
+// ~01:00, two jwt.py sites were code-only — `service_suspended` and `password_change_required`
+// (:205/:196) sent the bare code in `detail` with no `code` field — and PlaybackClient's 401
+// branch feeds HealthScreen's playback strip, so a suspended service printed the bare enum
+// `service_suspended` at a guard. Photographed, reply18 §1.
+// **No longer true.** CV coded all seven jwt.py sites the same night (654b9df / 869aab5 /
+// e614cac / b7ddb53); every one now carries a `code` and a human `message`. Measured here
+// 2026-09-20: GET /cameras/x/ptz unauthenticated returns
+// {"code":"not_authenticated","detail":"Authentication required","message":"You are not signed in."}
+// Dated and marked rather than deleted, because a claim about someone ELSE's system stated
+// in the present tense is the one that outlives every letter (CV's own reply20 §5, about a
+// comment of theirs describing our screen). The scope reasoning above stands on its own and
+// never depended on those two sites being uncoded.
+// Pinned by tools/tests/server-message.cpp — `--live` fails if a rollback takes it away.
 namespace wt {
 
 inline QString serverMessage(const QJsonObject &o)

@@ -450,11 +450,15 @@ void AuthController::attemptPasswordLogin()
             // `detail` alone put that enum on a guard's sign-in screen.
             //
             // Still ENGLISH prose, and still not localisable here: matching on the text
-            // would break the day CV rewords it. What CV shipped in e8b0a4a is the part
-            // that IS matchable — a stable `code` beside it (invalid_credentials,
-            // SSO_TOKEN_EXPIRED, account_deactivated, service_suspended, …, 15 of them).
-            // Mapping those to Russian copy is the follow-up; until then the server's
-            // sentence beats the server's enum, which is what this line buys.
+            // would break the day CV rewords it. What CV shipped is the part that IS
+            // matchable — a stable `code` beside it (invalid_credentials, SSO_TOKEN_EXPIRED,
+            // account_deactivated, service_suspended, not_authenticated, role_not_authorized,
+            // …). e8b0a4a gave 15 on routers/auth.py; 654b9df et al added the seven shared
+            // sites in auth/jwt.py the same night (count as of 2026-09-20 — do not trust a
+            // number here over CV's own table, which is the only thing that moves).
+            // Mapping those to Russian copy is the follow-up, and it is UNBLOCKED as of
+            // 2026-09-20 (docs/BACKLOG.md). Until then the server's sentence beats the
+            // server's enum, which is what this line buys.
             // The fallback below is OURS, so it is translated; it fires only when CV sends
             // neither key, which for bad credentials it does not.
             QString detail = wt::serverMessage(raw);
