@@ -18,8 +18,10 @@ param(
     [string]$Token = "",
     # Pilot backend. Was 192.168.1.79 until 2026-09-20 — that host is DEAD and had
     # been for weeks, yet every install kept writing it into warden.conf as if
-    # configured. Measured from wt-sm-vnutri-01: .79 does not refuse, it TIMES OUT
-    # after 46 s; 192.168.1.4 answers in 141 ms. Always pass -Backend for a site
+    # configured. Measured from wt-sm-vnutri-01 2026-09-20, TCP/8000: .79 does not
+    # refuse, it TIMES OUT after 46 s (45,983 ms then, 46,383 ms on a re-check the
+    # same night); 192.168.1.4 answered in 141 ms, 114 ms on re-check. Point
+    # measurements from one station, not a standing guarantee. Always pass -Backend
     # that is not the pilot LAN; the probe below says out loud what was written.
     [string]$Backend = "http://192.168.1.4:8000",
     [string]$WardenExe = ""          # default: warden.exe next to this script
@@ -40,7 +42,8 @@ if (-not (Test-Path $conf)) {
         "STATION_TOKEN=$Token"
         "APP_CMD=$AppExe"
         # No WT_CV_AUTOLOGIN on stations: service credentials never live in a
-        # station env (CV directive, session-refresh thread). The guard signs in
+        # station env (CV directive, 2026-08-11, the session-refresh thread —
+        # unverified by this station, restated from that letter). The guard signs in
         # once; the 24h token + /auth/refresh keeps the session alive.
         "APP_ENV="
     ) | Set-Content -Path $conf -Encoding UTF8
