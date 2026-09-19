@@ -373,6 +373,13 @@ Item {
                 property int value: 0
                 property color numColor: Theme.ink
                 property bool last: false
+                // The backend cannot report this figure at all. A stat card is read as a
+                // measurement, so a hard 0 here would be a green-by-default for a condition
+                // nobody is measuring — "absent data renders as unknown, never as healthy".
+                // Renders an em dash, carries the reason, and is NOT a filter (filtering on
+                // a state no camera can hold just empties the table).
+                property bool unknown: false
+                property string unknownWhy: ""
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 readonly property bool active: root.activeFilter === card.key
@@ -385,10 +392,24 @@ Item {
                         anchors.left: parent.left; anchors.top: parent.top
                         anchors.leftMargin: 18; anchors.topMargin: card.active ? 15 : 18
                         spacing: 8
-                        Text { text: card.value; color: card.numColor; font.family: Theme.fontSans; font.pixelSize: 32; font.weight: Font.Bold; font.letterSpacing: -1 }
+                        Text {
+                            text: card.unknown ? "\u2014" : String(card.value)
+                            color: card.unknown ? Theme.ink3 : card.numColor
+                            font.family: Theme.fontSans; font.pixelSize: 32
+                            font.weight: Font.Bold; font.letterSpacing: -1
+                        }
                         Text { text: card.label; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase }
                     }
-                    MouseArea { id: cardMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.activeFilter = card.key; root.sel = null } }
+                    MouseArea {
+                        id: cardMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: card.unknown ? Qt.ArrowCursor : Qt.PointingHandCursor
+                        onClicked: { if (card.unknown) return; root.activeFilter = card.key; root.sel = null }
+                    }
+                    QC.ToolTip.visible: card.unknown && cardMa.containsMouse
+                    QC.ToolTip.text: card.unknownWhy
+                    QC.ToolTip.delay: 300
                 }
             }
 
@@ -400,7 +421,25 @@ Item {
                 Card { key: "offline";  label: qsTr("Offline");       value: root.cameraModel ? root.cameraModel.offlineCount : 0;     numColor: Theme.bad }
                 Card { key: "degraded"; label: qsTr("Degraded");      value: root.cameraModel ? root.cameraModel.degradedCount : 0;    numColor: Theme.accent }
                 Card { key: "notrec";   label: qsTr("Not recording"); value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; numColor: Theme.accent }
-                Card { key: "gap";      label: qsTr("Recent gaps");   value: root.cameraModel ? root.cameraModel.recordingGapCount : 0; numColor: Theme.accent; last: true }
+                // RECENT GAPS reads UNKNOWN, not 0, and the reason is a dead end on the wire.
+                // `recordingGapCount` counts cameras in CameraStatus::RecordingGap, which is
+                // reachable only from the string "recording_gap" (CameraModel.cpp:64). CV's
+                // /streams never sends it: recording_state() (streams.py:162) returns exactly
+                // armed | disabled | offline | recording | stalled | unknown, and the token
+                // appears nowhere in their repo except one playback test's function name
+                // (verified 2026-09-20). So this card has read 0 since it was written, and
+                // read 0 through the 21.9 GB footage loss of 2026-09-14 — the very event an
+                // operator would look at it to catch.
+                // Not deleted: the concept is real and CV has no recording-gap signal at all
+                // (their reply to the 2026-09-15 letter: the counter built for it,
+                // cilex_recorder_segments_dropped_total, exists and is never incremented).
+                // An em dash says "nobody is measuring this"; a 0 said "measured, all clear".
+                Card {
+                    key: "gap"; label: qsTr("Recent gaps"); numColor: Theme.accent; last: true
+                    value: root.cameraModel ? root.cameraModel.recordingGapCount : 0
+                    unknown: true
+                    unknownWhy: qsTr("The server does not report recording gaps. This is not a count of zero — nothing is measuring it.")
+                }
             }
         }
 

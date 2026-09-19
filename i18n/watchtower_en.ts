@@ -1809,6 +1809,11 @@
 <context>
     <name>HealthScreen</name>
     <message>
+        <location filename="../qml/HealthScreen.qml" line="410"/>
+        <source>The server does not report recording gaps. This is not a count of zero — nothing is measuring it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/HealthScreen.qml" line="217"/>
         <source>STORAGE SUBSYSTEM</source>
         <translation type="unfinished"></translation>
