@@ -12,6 +12,15 @@ checkout gets the same rules automatically.
   are single-problem, dated files. **Never edit a letter you did not write;
   reply in a new `*.reply.md` file.** Letters received from another agent
   are committed VERBATIM.
+  **Name replies `<thread>.replyN-<sender>.md`** (CV's convention, adopted
+  2026-09-20). A bare `replyN` is a contended namespace: four sessions write
+  into this one directory at once, and the "a wall that cannot say who it is"
+  thread collided three times in a single evening — two different `reply3`
+  letters, a letter naming an already-taken `reply5`, and a racing `reply6`.
+  The sender suffix costs nothing and makes a collision impossible.
+  If you find a `replyN` collision already committed, keep the letter that was
+  published first at the bare name and give the other an author suffix — never
+  merge two letters into one file, and never edit either.
 - `docs/plans/`, `docs/design-briefs/`, `docs/perf/` — plans, design
   handoffs, measurement records.
 

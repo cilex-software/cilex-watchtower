@@ -422,7 +422,7 @@ void AuthController::attemptPasswordLogin()
             setBusy(false);
             m_pendingPassword.clear();
             if (token.isEmpty()) {
-                setError(QStringLiteral("Login response did not include a token"));
+                setError(tr("Login response did not include a token"));
                 emit loginFailed(m_errorString);
                 return;
             }
@@ -435,9 +435,18 @@ void AuthController::attemptPasswordLogin()
         if (code == 401 || code == 403 || code == 400) {
             setBusy(false);
             m_pendingPassword.clear();
+            // CV's `detail` is ENGLISH PROSE and lands on a Russian guard's sign-in screen
+            // verbatim (auth.py:138/147/158: "Invalid username or password", "This account
+            // has been deactivated — contact an administrator.", …). A display string on the
+            // wire cannot be localised by the client, and matching on its text would break
+            // the day CV rewords it — so this is knowingly left as passthrough until CV
+            // carries a stable code beside the prose. Asked for in the letter of 2026-09-20,
+            // seconding cilex-pro-mobile's identical ask for FleetPair.host.
+            // The fallback below is OURS, so it is translated; note it fires only when CV
+            // sends no detail at all, which for bad credentials it does not.
             QString detail = QJsonDocument::fromJson(raw).object().value("detail").toString();
             if (detail.isEmpty())
-                detail = QStringLiteral("Invalid username or password");
+                detail = tr("Invalid username or password");
             setError(detail);
             emit loginFailed(detail);
             return;
@@ -450,7 +459,7 @@ void AuthController::attemptPasswordLogin()
         }
         setBusy(false);
         m_pendingPassword.clear();
-        setError(QStringLiteral("Could not reach the server"));
+        setError(tr("Could not reach the server"));
         emit loginFailed(m_errorString);
     });
 }
@@ -461,7 +470,7 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
     setBaseUrl(baseUrl);
     const QString tok = token.trimmed();
     if (tok.isEmpty()) {
-        setError(QStringLiteral("Enter a token"));
+        setError(tr("Enter a token"));
         emit loginFailed(m_errorString);
         return;
     }
@@ -469,7 +478,7 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
     QStringList sc;
     qint64 e = 0;
     if (!decodeClaims(tok, u, r, sc, e)) {
-        setError(QStringLiteral("That does not look like a valid token"));
+        setError(tr("That does not look like a valid token"));
         emit loginFailed(m_errorString);
         return;
     }
@@ -497,7 +506,7 @@ void AuthController::attemptTokenLogin()
         if (code == 401 || code == 403) {
             setBusy(false);
             clearSession();
-            setError(QStringLiteral("Token rejected or expired"));
+            setError(tr("Token rejected or expired"));
             emit loginFailed(m_errorString);
             return;
         }
@@ -509,7 +518,7 @@ void AuthController::attemptTokenLogin()
         }
         setBusy(false);
         clearSession();
-        setError(QStringLiteral("Could not reach the server"));
+        setError(tr("Could not reach the server"));
         emit loginFailed(m_errorString);
     });
 }
@@ -537,7 +546,7 @@ void AuthController::loginWithStationToken(const QString &baseUrl, const QString
         if (code != 200 || tok.isEmpty()) {
             qWarning("[AUTH] station display-session refused: HTTP %d %s", code,
                      qUtf8Printable(o.value("detail").toString().left(80)));
-            setError(QStringLiteral("Station credential rejected"));
+            setError(tr("Station credential rejected"));
             emit loginFailed(m_errorString);
             return;
         }

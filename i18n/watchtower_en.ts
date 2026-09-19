@@ -2,6 +2,44 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
+    <name>AuthController</name>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Login response did not include a token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Invalid username or password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Could not reach the server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Enter a token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>That does not look like a valid token</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Token rejected or expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Station credential rejected</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>AlertsDropdown</name>
     <message>
         <location filename="../qml/AlertsDropdown.qml" line="35"/>

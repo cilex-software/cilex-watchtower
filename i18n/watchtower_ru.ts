@@ -2,6 +2,44 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
 <context>
+    <name>AuthController</name>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Login response did not include a token</source>
+        <translation>Ответ сервера не содержит токен</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Invalid username or password</source>
+        <translation>Неверное имя пользователя или пароль</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Could not reach the server</source>
+        <translation>Сервер недоступен</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Enter a token</source>
+        <translation>Введите токен</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>That does not look like a valid token</source>
+        <translation>Это не похоже на действительный токен</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Token rejected or expired</source>
+        <translation>Токен отклонён или истёк</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="441"/>
+        <source>Station credential rejected</source>
+        <translation>Учётные данные станции отклонены</translation>
+    </message>
+</context>
+<context>
     <name>AlertsDropdown</name>
     <message>
         <location filename="../qml/AlertsDropdown.qml" line="35"/>
