@@ -1,4 +1,5 @@
 #include "AuthController.h"
+#include "ServerMessage.h"
 #include "StationNam.h"
 
 #include <QNetworkAccessManager>
@@ -42,27 +43,6 @@ static bool serviceCreds(QString &user, QString &pass)
     return true;
 }
 
-// `message ?? detail` — CV's error contract as of e8b0a4a (their reply14 §2).
-//
-// Every /auth error now carries a stable `code` plus a human sentence, but `detail`
-// is frozen byte-for-byte at whatever that site sent before, because clients were
-// already matching on it. That leaves two shapes: the login sites had a SENTENCE in
-// `detail` and gained `code`; the SSO sites had the ENUM in `detail` (literally
-// "SSO_TOKEN_EXPIRED") and gained the sentence in `message`. CV declined to move the
-// prose into `detail` for us — it would have fixed this screen tonight and silently
-// broken anyone branching on the enum.
-//
-// So: prefer `message`, fall back to `detail`, and an SSO enum never reaches a guard.
-// `message` is ABSENT, not empty, on a site with no prose yet, so the fallback stays
-// live. Scope is /auth only: PlaybackClient and WatchClient still read `detail`
-// because CV has not coded those routers, and guessing a key they do not send would
-// blank the one string those screens have.
-static QString serverMessage(const QByteArray &raw)
-{
-    const QJsonObject o = QJsonDocument::fromJson(raw).object();
-    const QString msg = o.value(QStringLiteral("message")).toString();
-    return msg.isEmpty() ? o.value(QStringLiteral("detail")).toString() : msg;
-}
 
 AuthController::AuthController(QObject *parent)
     : QObject(parent), m_nam(new StationNam(this))
@@ -254,7 +234,7 @@ void AuthController::refreshSession()
         // rejection was undiagnosable because nobody kept this string. `message ?? detail`
         // so an SSO rejection logs its sentence rather than the bare enum; the raw body
         // is still the fallback, which is what made that incident readable at all.
-        const QString detail = serverMessage(raw);
+        const QString detail = wt::serverMessage(raw);
         qWarning("[AUTH] refresh rejected (HTTP %d): \"%s\"", code,
                  qPrintable(detail.isEmpty() ? QString::fromUtf8(raw.left(120)) : detail));
         if (code == 401) {
@@ -470,7 +450,7 @@ void AuthController::attemptPasswordLogin()
             // sentence beats the server's enum, which is what this line buys.
             // The fallback below is OURS, so it is translated; it fires only when CV sends
             // neither key, which for bad credentials it does not.
-            QString detail = serverMessage(raw);
+            QString detail = wt::serverMessage(raw);
             if (detail.isEmpty())
                 detail = tr("Invalid username or password");
             setError(detail);

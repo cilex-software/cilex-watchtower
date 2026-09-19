@@ -1,4 +1,5 @@
 #include "PtzClient.h"
+#include "ServerMessage.h"
 #include "AuthController.h"
 
 #include <QDateTime>
@@ -96,16 +97,19 @@ void PtzClient::post(const QString &camId, const QString &what, const QString &t
         if (body.contains(QLatin1String("ok")))
             msg = body.value(QLatin1String("message")).toString();
         else if (body.contains(QLatin1String("message")) || body.contains(QLatin1String("detail")))
-            // `message ?? detail`, CV's error contract since e8b0a4a (their reply14 §2). A
-            // CodedError carries {code, detail, message} and NO `ok`, so it lands in this
-            // branch — and on a site whose legacy `detail` was an ENUM the sentence is only
-            // in `message`. Reading `detail` alone would put that enum in front of a guard.
-            // Inert today: CV has not coded the PTZ router yet, `message` is ABSENT rather
-            // than empty on an uncoded site, so this falls through to `detail` exactly as
-            // before. It stops being inert the moment CV takes the reply15 §3 offer on the
-            // PTZ live-control 423, which this wall does call.
-            msg = body.value(QLatin1String("message")).toString(
-                      body.value(QLatin1String("detail")).toString());
+            // `message ?? detail` (ServerMessage.h). A CodedError carries {code, detail,
+            // message} and NO `ok`, so it lands in this branch rather than the one above.
+            //
+            // CV has since coded this router — `live_control_suspended`, e614cac, the 423
+            // this wall can hit on the triple-click autofocus path. CORRECTION to what I
+            // wrote when adding this: I said reading `detail` alone would have put an enum
+            // in front of a guard here. It would not have. CV's invariant is that a code
+            // only ever goes into `detail` at a site that ALREADY had one, and this site's
+            // legacy `detail` was the sentence "Live control is suspended by the owner"
+            // (CV reply17 §1/§2). The read is still correct — it is required wherever
+            // `detail` was the code, and free where it was not — but it fixed no live
+            // defect on THIS route.
+            msg = wt::serverMessage(body);
         if (msg.isEmpty())
             msg = reply->error() != QNetworkReply::NoError
                       ? reply->errorString()

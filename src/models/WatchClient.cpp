@@ -1,4 +1,5 @@
 #include "WatchClient.h"
+#include "ServerMessage.h"
 #include "StationNam.h"
 #include "AuthController.h"
 
@@ -187,8 +188,9 @@ void WatchClient::checkin(const QString &guardId)
                   o.value(QStringLiteral("resumed")).toBool() ? "true" : "false");
             refreshWatch();
         } else {
-            const QString why = o.value(QStringLiteral("detail")).toString(
-                QStringLiteral("HTTP %1").arg(code));
+            QString why = wt::serverMessage(o);      // `message ?? detail` (ServerMessage.h)
+            if (why.isEmpty())
+                why = QStringLiteral("HTTP %1").arg(code);
             qWarning("[WATCH] checkin FAILED: %s", qPrintable(why));
             emit opFailed(why);
             QTimer::singleShot(5000, this, &WatchClient::refreshWatch);   // reconcile late commits
@@ -209,8 +211,9 @@ void WatchClient::checkout()
             refreshWatch();
         } else {
             const QJsonObject o = QJsonDocument::fromJson(reply->readAll()).object();
-            const QString why = o.value(QStringLiteral("detail")).toString(
-                QStringLiteral("HTTP %1").arg(code));
+            QString why = wt::serverMessage(o);      // `message ?? detail` (ServerMessage.h)
+            if (why.isEmpty())
+                why = QStringLiteral("HTTP %1").arg(code);
             qWarning("[WATCH] checkout FAILED: %s", qPrintable(why));
             emit opFailed(why);
             QTimer::singleShot(5000, this, &WatchClient::refreshWatch);   // reconcile late commits
