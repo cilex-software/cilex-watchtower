@@ -145,6 +145,18 @@ int main(int argc, char **argv) {
     check("jwt.py invalid_token",
           R"({"code":"invalid_token","detail":"Invalid token","message":"Your session is not valid. Please sign in again."})",
           "Your session is not valid. Please sign in again.");
+    // The remaining two of CV's seven (reply20 §3). Not measured here — `token_expired`
+    // needs an aged token and `invalid_token_claims` a hand-crafted JWT; both are CV's
+    // published table. THE SHAPE IS THE POINT: at these terse prose sites `message` is NOT
+    // a copy of `detail`, which is new from CV and is exactly why `detail` alone is not
+    // good enough — "Token expired" is barely better than `token_expired` on a guard's
+    // screen, and the read now gets the real sentence instead.
+    check("jwt.py token_expired",
+          R"({"code":"token_expired","detail":"Token expired","message":"Your session has expired. Please sign in again."})",
+          "Your session has expired. Please sign in again.");
+    check("jwt.py invalid_token_claims",
+          R"({"code":"invalid_token_claims","detail":"Invalid token claims","message":"Your session is not valid. Please sign in again."})",
+          "Your session is not valid. Please sign in again.");
 
     // ---- the gated jwt.py sites (CV reply20 §2, rendered through the real handler; reaching
     //      them live needs a state nobody should create on a running box).
