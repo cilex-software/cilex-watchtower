@@ -31,14 +31,18 @@ clears. Backend items map to the living letter
 3. Alert-firing pipeline (B2 now produces events) — medium.
 4. Silence the `hlsdemux2` v2 log-spam by pinning legacy v1 — small (cosmetic; trade-off, see Parked).
 5. Light/Dark theme switching — largest (reactive `Theme` refactor).
-6. Map CV's error **codes** to Russian copy — medium. CV's e8b0a4a gives ~15
-   stable codes on `/auth` plus `live_control_suspended` / `service_locked`;
-   every sentence the wall shows for them is still CV's English. **Held** until
-   CV codes `auth/jwt.py` (their reply17 §4) — otherwise the most-hit error of
-   all, `Authentication required`, stays out of the table. `tools/tests/server-message.cpp
-   --live <baseUrl>` fails the moment that lands, which is the signal to start.
-   Do not unify duplicate codes (`account_deactivated` vs `SSO_ACCOUNT_DEACTIVATED`):
-   two keys, one string — agreed with cilex-pro-mobile, reply19 §1.
+6. **Map CV's error codes to Russian copy — medium. UNBLOCKED 2026-09-20.**
+   CV shipped `auth/jwt.py` (654b9df / 869aab5 / e614cac / b7ddb53), so all ~22
+   codes now exist, including the most-returned error on the whole API —
+   `not_authenticated`, which the wall currently renders as CV's English *"You
+   are not signed in."* The hold is lifted; nothing waits on the backend.
+   Read `code`, key Russian copy off it, keep CV's `message` as the fallback for
+   codes we do not know. Do not unify duplicate codes (`account_deactivated` vs
+   `SSO_ACCOUNT_DEACTIVATED`): two keys, one string — agreed with
+   cilex-pro-mobile, reply19 §1. `role_not_authorized` carries `role` as its own
+   field, which is what makes «Нужна роль: …» possible.
+   Pinned by `tools/tests/server-message.cpp` (frozen 11 / live 17, both green);
+   the live mode asserts the contract and fails if a rollback removes it.
 7. A suspended service is **silent on a running wall** — small/medium, design call.
    `AuthController.cpp:255` treats a 423 on *refresh* as transient: 3 retries, then
    nothing is scheduled while the token still has life. The wall keeps working, which

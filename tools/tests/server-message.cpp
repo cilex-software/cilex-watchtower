@@ -1,10 +1,5 @@
 // Client-side test of the `message ?? detail` read (src/models/ServerMessage.h).
 //
-// Bodies are REAL: rows 1-2 measured from the pilot (GET /cameras/x/ptz unauthenticated,
-// and auth/jwt.py:205 as CV serialised it in reply17 §3); rows 3-4 from CV live probes in
-// reply14 §2 and reply17 §1. Row 2 is the defect this read cannot fix from the client:
-// a code-only site with no sentence anywhere, which is what CV reply17 §4 adds.
-//
 // TWO MODES, and the second one exists because the first cannot do what I claimed.
 //
 //   (no args)         FROZEN: drives captured bodies through the real parse. Fast, offline,
@@ -14,11 +9,19 @@
 //                     half that notices. Read-only, unauthenticated, no credentials, nothing
 //                     that touches a lockout counter.
 //
-// I wrote in reply18 §4 that the frozen case pinning `service_suspended -> service_suspended`
-// would "fail when CV ships, so someone has to look". THAT WAS WRONG and cilex-pro-mobile's
-// reply19 §3 caught it: a captured body is unaffected by anything CV deploys. The live mode's
-// third probe is the real tripwire — it asserts auth/jwt.py is STILL UNCODED, and fails the
-// moment CV ships their reply17 §4, which is the signal to re-capture and map the new codes.
+// HISTORY, because it is the point of the file. I wrote in reply18 §4 that the frozen case
+// pinning `service_suspended -> service_suspended` would "fail when CV ships, so someone has
+// to look". That was WRONG — cilex-pro-mobile's reply19 §3 caught it: captured bytes are
+// unaffected by any deploy. The live mode was added as the real tripwire, asserting that
+// auth/jwt.py was still UNCODED. It fired in production within the hour (CV reply20 §2:
+// "I have shipped, and it is still green ... a passing test describing a wire that no longer
+// exists"), which is exactly what it was for.
+//
+// So the frozen bodies below were RE-CAPTURED on 2026-09-20 after CV shipped 654b9df /
+// 869aab5 / e614cac / b7ddb53, and the live assertion has been flipped from "jwt.py is
+// uncoded" to the contract that replaced it. Every body marked MEASURED was fetched from the
+// pilot by this box; the gated ones CV rendered through the real handler and published in
+// reply20 §2, because reaching them needs a state nobody should create on a live box.
 //
 // Build + run (Qt 6.12):
 //   g++ -std=c++17 -fPIC -o /tmp/svrmsg tools/tests/server-message.cpp -Isrc/models \
@@ -32,13 +35,14 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QTimer>
+
 int fails = 0;
+
 static void check(const char *name, const QByteArray &body, const QString &want) {
     const QString got = wt::serverMessage(body);
     const bool ok = (got == want);
-    if (!ok) ++fails;
-    qInfo().noquote() << (ok ? "PASS" : "FAIL") << name << "->" << (got.isEmpty() ? "<empty>" : got);
+    if (!ok) { ++fails; qInfo().noquote() << "FAIL" << name << "-> got:" << got << " want:" << want; }
+    else       qInfo().noquote() << "PASS" << name << "->" << (got.isEmpty() ? "<empty>" : got);
 }
 
 // ---------------------------------------------------------------- live mode
@@ -49,9 +53,11 @@ static void say(bool ok, const QString &what) {
 
 // One unauthenticated request. Returns the parsed body; `code` gets the HTTP status.
 static QJsonObject probe(QNetworkAccessManager &nam, const QString &url,
-                         const QByteArray &post, int &code) {
+                         const QByteArray &post, int &code, const QByteArray &cookie = {}) {
     QNetworkRequest req{QUrl(url)};
     req.setTransferTimeout(8000);
+    if (!cookie.isEmpty())
+        req.setRawHeader("Cookie", cookie);
     if (!post.isNull())
         req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QNetworkReply *r = post.isNull() ? nam.get(req) : nam.post(req, post);
@@ -62,6 +68,16 @@ static QJsonObject probe(QNetworkAccessManager &nam, const QString &url,
     const QByteArray raw = r->readAll();
     r->deleteLater();
     return QJsonDocument::fromJson(raw).object();
+}
+
+static void assertCoded(const QJsonObject &o, const QString &where) {
+    const QString c = o.value("code").toString();
+    const QString d = o.value("detail").toString();
+    const QString m = o.value("message").toString();
+    say(!c.isEmpty(), QStringLiteral("  %1 carries `code` (%2)").arg(where, c));
+    say(!m.isEmpty(), QStringLiteral("  %1 carries a human `message`").arg(where));
+    say(wt::serverMessage(o) == m && m != d,
+        QStringLiteral("  %1 the read picks the sentence, not `detail` (%2)").arg(where, d));
 }
 
 static int runLive(const QString &base) {
@@ -85,20 +101,27 @@ static int runLive(const QString &base) {
     say(!m.isEmpty() && m != d, QStringLiteral("  sentence lives in `message`"));
     say(wt::serverMessage(sso) == m, QStringLiteral("  the read picks the sentence, not the enum"));
 
-    // 3. THE TRIPWIRE. auth/jwt.py is the shared dependency 51 routers run, and CV's
-    //    reply17 §3 measured it as UNCODED. While that holds, a 401 from any protected
-    //    route carries `detail` and nothing else. When CV ships reply17 §4 this FAILS —
-    //    which is the point: it is the only assertion here that a deploy can move.
+    // 3. THE TRIPWIRE, now inverted. It used to assert auth/jwt.py was UNCODED and it fired
+    //    when CV shipped (654b9df et al). What replaces it is the contract that arrived: the
+    //    shared dependency 51 routers run must carry a code AND a sentence. If a rollback or
+    //    a regression takes either away, the wall goes back to rendering `detail` — a bare
+    //    enum on the code-only sites — and this fails instead of nobody noticing.
     QJsonObject shared = probe(nam, base + "/cameras/x/ptz", QByteArray(), code);
     say(code == 401, QStringLiteral("GET /cameras/x/ptz -> 401 (got %1)").arg(code));
-    const bool uncoded = !shared.contains("code");
-    if (uncoded)
-        say(true, QStringLiteral("  auth/jwt.py still uncoded (detail=\"%1\") — expected, nothing to do")
-                      .arg(shared.value("detail").toString()));
-    else
-        say(false, QStringLiteral("  auth/jwt.py IS NOW CODED (code=%1) -> re-capture the frozen "
-                                  "bodies above and map the new codes to Russian")
-                       .arg(shared.value("code").toString()));
+    assertCoded(shared, QStringLiteral("jwt.py"));
+
+    // 4. The same body from a DIFFERENT router is the proof it is the dependency and not one
+    //    handler being polite (CV reply20 §2 makes exactly this claim; this checks it).
+    QJsonObject other = probe(nam, base + "/streams", QByteArray(), code);
+    say(code == 401, QStringLiteral("GET /streams -> 401 (got %1)").arg(code));
+    say(other == shared, QStringLiteral("  identical body from another router (shared dependency)"));
+
+    // 5. A garbage cookie reaches _decode_token, a different jwt.py site.
+    QJsonObject bad = probe(nam, base + "/cameras/x/ptz", QByteArray(), code,
+                            QByteArray("access_token=not-a-real-token"));
+    say(code == 401, QStringLiteral("GET /cameras/x/ptz (garbage cookie) -> 401 (got %1)").arg(code));
+    assertCoded(bad, QStringLiteral("_decode_token"));
+
     return fails;
 }
 
@@ -111,22 +134,55 @@ int main(int argc, char **argv) {
         qInfo().noquote() << (fails ? QString("%1 FAILED").arg(fails) : QStringLiteral("all passed"));
         return fails ? 1 : 0;
     }
-    // 1. auth/jwt.py TODAY: prose-only, no code, no message -> must fall through to detail
-    check("jwt.py uncoded 401", R"({"detail":"Authentication required"})",
-          "Authentication required");
-    // 2. auth/jwt.py TODAY: CODE-ONLY in detail, nothing to rescue it (the defect)
-    check("jwt.py service_suspended (today)", R"({"detail":"service_suspended"})",
+
+    // ---- auth/jwt.py, the shared dependency, AFTER CV coded it (MEASURED here 2026-09-20).
+    //      Note the read now returns something DIFFERENT from `detail` on the most-hit error
+    //      on the whole API: the wall says "You are not signed in.", not "Authentication
+    //      required". That difference is what this thread was for.
+    check("jwt.py not_authenticated",
+          R"({"code":"not_authenticated","detail":"Authentication required","message":"You are not signed in."})",
+          "You are not signed in.");
+    check("jwt.py invalid_token",
+          R"({"code":"invalid_token","detail":"Invalid token","message":"Your session is not valid. Please sign in again."})",
+          "Your session is not valid. Please sign in again.");
+
+    // ---- the gated jwt.py sites (CV reply20 §2, rendered through the real handler; reaching
+    //      them live needs a state nobody should create on a running box).
+    //      The 423 is byte-for-byte the "after" row photographed in reply18 §1.
+    check("jwt.py service_suspended (coded)",
+          R"({"code":"service_suspended","detail":"service_suspended","message":"Service suspended — contact your provider."})",
+          "Service suspended — contact your provider.");
+    check("jwt.py password_change_required",
+          R"({"code":"password_change_required","detail":"password_change_required","message":"You must change your password before continuing."})",
+          "You must change your password before continuing.");
+    // role_not_authorized carries the role as its OWN field rather than interpolated into the
+    // sentence — asked for by both clients independently, and what makes «Нужна роль: …»
+    // possible at all. The parse must ignore the extra field cleanly.
+    check("jwt.py role_not_authorized (+role field)",
+          R"({"code":"role_not_authorized","detail":"Role 'viewer' not authorized for this resource","message":"Your role does not have access to this resource.","role":"viewer"})",
+          "Your role does not have access to this resource.");
+
+    // ---- LEGACY, not dead: an un-upgraded backend still sends the code alone with no
+    //      sentence anywhere. `message ?? detail` then returns the enum, correctly, because
+    //      the enum is all there is. Kept so the parse stays pinned for old boxes — NOT as a
+    //      claim about the current wire, which is the mistake this file already made once.
+    check("legacy uncoded box (pre-e8b0a4a)", R"({"detail":"service_suspended"})",
           "service_suspended");
-    // 3. SSO: detail is the ENUM, sentence only in message -> must prefer message
-    check("SSO enum in detail", R"({"code":"SSO_TOKEN_INVALID","detail":"SSO_TOKEN_INVALID","message":"This single sign-on link is not valid. Sign in again."})",
+
+    // ---- SSO: detail is the ENUM, sentence only in `message` (CV reply14 §2).
+    check("SSO enum in detail",
+          R"({"code":"SSO_TOKEN_INVALID","detail":"SSO_TOKEN_INVALID","message":"This single sign-on link is not valid. Sign in again."})",
           "This single sign-on link is not valid. Sign in again.");
-    // 4. prose shape (PTZ e614cac): detail == message, either read is the sentence
-    check("PTZ live_control_suspended", R"({"code":"live_control_suspended","detail":"Live control is suspended by the owner","message":"Live control is suspended by the owner"})",
+    // ---- PTZ, prose shape (e614cac): either read yields the sentence.
+    check("PTZ live_control_suspended",
+          R"({"code":"live_control_suspended","detail":"Live control is suspended by the owner","message":"Live control is suspended by the owner"})",
           "Live control is suspended by the owner");
-    // 5. degenerate bodies must not throw or invent
+
+    // ---- degenerate bodies must not throw or invent.
     check("empty object", R"({})", "");
     check("not json", "<html>502 Bad Gateway</html>", "");
     check("message empty string", R"({"detail":"fallback","message":""})", "fallback");
+
     qInfo().noquote() << (fails ? QString("%1 FAILED").arg(fails) : QStringLiteral("all passed"));
     return fails ? 1 : 0;
 }
