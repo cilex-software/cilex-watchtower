@@ -109,6 +109,28 @@ def log(msg):
     print(f"[warden] {time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
 
 
+# A supervisor that declines to supervise must be the loudest line in its own log.
+# Without a station token the heartbeat loop and the crash uploader below do NOTHING —
+# and until 2026-09-19 they did it in complete silence: no log line, no warning, no
+# visible state. Two machines were lost to that silence. The booth sat unheard from
+# 2026-07-26 to 08-09, and CV's "box is off or unreachable" was truthful, not a display
+# bug. The office wall then ran for days with no station row at all, and it took a
+# database query to notice (cilex-pro-mobile letter, 2026-09-19).
+# `warden status` has always printed token=MISSING; this puts the same fact where a
+# person actually looks. Loud the first time, then hourly per caller.
+_NO_TOKEN_SAID = {}
+
+
+def warn_no_token(what):
+    now = time.time()
+    if now - _NO_TOKEN_SAID.get(what, 0.0) < 3600:
+        return
+    _NO_TOKEN_SAID[what] = now
+    log(f"STATION_TOKEN missing — {what} DISABLED. This station is INVISIBLE to the fleet: "
+        f"no heartbeats, no crash uploads, and no station row for it on the server. "
+        f"Put a token in ~/.config/watchtower-warden/warden.conf (STATION_TOKEN=…) and restart.")
+
+
 def alarm(kind, text):
     # CW-13 (channel TBD): loud log line now; ALARM_CMD hook so the operator
     # channel can be wired later WITHOUT touching frozen guard boxes.
@@ -499,7 +521,7 @@ HB = {"app_state": "stopped_expected", "app_state_reason": "warden_stopping",
       # 24 h of uptime. Mobile renders around that using warden_started_at, which we
       # already send — they explicitly did not ask for persistence.
       "deaths": [], "warden_started": time.time()}
-CONTACT = {"last_ok": None, "unreachable_since": None}
+CONTACT = {"last_ok": None, "unreachable_since": None, "said_at": 0.0}
 
 
 def contact_ok():
@@ -511,15 +533,28 @@ def contact_ok():
     CONTACT["last_ok"] = time.time()
 
 
-def contact_failed():
-    if CONTACT["unreachable_since"] is None:
-        CONTACT["unreachable_since"] = time.time()
-        # Say it on the way DOWN, not only on the way back up. Recovery was the only
-        # thing logged, so a gap that never recovered wrote nothing at all and the
-        # station went quiet server-side with no local trace — the operator saw
-        # "offline" on the fleet page while the log looked clean (2026-09-11).
-        log("heartbeat: backend UNREACHABLE — beats are failing from now "
-            "(next line will be the recovery, with this gap's start)")
+def contact_failed(why=""):
+    """Say it on the way DOWN, name WHERE and WHY, and keep saying it.
+
+    The way-down line was added 2026-09-11, when a gap that never recovered wrote
+    nothing at all. Two gaps remained and cilex-pro-mobile found them on 2026-09-19:
+    the exception was bound and dropped (`except … as e` with no log), so the line
+    said a beat failed but never which address or why; and it fired only on the
+    TRANSITION, so a station unreachable since Tuesday showed a clean log today.
+    A supervisor talking to nobody should be as loud as one that declines to talk.
+    """
+    now = time.time()
+    first = CONTACT["unreachable_since"] is None
+    if first:
+        CONTACT["unreachable_since"] = now
+    # First failure of a gap, then hourly for as long as it lasts.
+    if first or now - CONTACT.get("said_at", 0.0) >= 3600:
+        CONTACT["said_at"] = now
+        since = "" if first else f" (since {iso(CONTACT['unreachable_since'])})"
+        log(f"heartbeat: backend UNREACHABLE at {CFG['BACKEND_URL']}{since} — "
+            f"beats are failing{': ' + why if why else ''}. Check BACKEND_URL in "
+            f"~/.config/watchtower-warden/warden.conf; the recovery line will carry "
+            f"this gap's start.")
 
 
 def iso(ts):
@@ -830,13 +865,15 @@ class Heartbeat(threading.Thread):
                 return True
         except (urllib.error.URLError, urllib.error.HTTPError, OSError,
                 json.JSONDecodeError) as e:
-            contact_failed()
+            contact_failed(f"{type(e).__name__}: {e}")
             return False
 
     def run(self):
         first = True
         while True:
-            if CFG["STATION_TOKEN"]:
+            if not CFG["STATION_TOKEN"]:
+                warn_no_token("heartbeats")
+            else:
                 ok = self.send()
                 if first and ok:
                     log(f"heartbeat: first beat accepted (stale_after={self.stale_after}s) "
@@ -885,13 +922,16 @@ class Uploader(threading.Thread):
                 body = {}
             return e.code, body, hdrs
         except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
-            contact_failed()
+            contact_failed(f"{type(e).__name__}: {e}")
             return -1, {"error": str(e)}, {}
 
     def run(self):
         while True:
             time.sleep(3)
-            if self.frozen or not CFG["STATION_TOKEN"]:
+            if not CFG["STATION_TOKEN"]:
+                warn_no_token("crash-bundle upload")
+                continue
+            if self.frozen:
                 continue
             now = time.time()
             for rd in sorted(PENDING.iterdir()) if PENDING.exists() else []:
@@ -1016,6 +1056,14 @@ class Supervisor:
         # The app keeps it HONEST itself (parent-pid check) — this only arms it.
         env["WT_UNDER_WARDEN"] = "1"
         env["WT_WARDEN_VERSION"] = WARDEN_VERSION
+        # The person standing at the wall is the one who can fix a missing token, so the
+        # title-bar overlay states it (TitleBar.qml). Warden is the only process that knows.
+        env["WT_WARDEN_TOKEN"] = "set" if CFG["STATION_TOKEN"] else "missing"
+        # The overlay's SERVER row is the APP's server (AuthController.baseUrl). Warden
+        # may be posting somewhere else entirely — on WT-OFFICE-01 the app had .4 while
+        # Warden still had the installer's .79 default, so the panel read like
+        # confirmation while nothing was being delivered (cilex-pro-mobile, 2026-09-19).
+        env["WT_WARDEN_BACKEND"] = CFG["BACKEND_URL"]
         return env
 
     def spawn(self):
