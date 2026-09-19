@@ -434,8 +434,15 @@ void AuthController::attemptPasswordLogin()
             setAuthenticated(true);
             return;
         }
-        // Hard rejection (bad credentials / bad request): don't retry.
-        if (code == 401 || code == 403 || code == 400) {
+        // Hard rejection: the server gave a definitive answer — do not retry.
+        //
+        // 423 BELONGS HERE and was missing. CV's sign-in 423 is `service_suspended`
+        // (their reply15 §2) — a provider/billing state a human must lift, not a blip.
+        // It fell through to the transient branch below and, after four retries, told a
+        // guard "Could not reach the server" while the server had answered promptly with
+        // the exact reason. Not merely unlocalised: FALSE, and it sends whoever is called
+        // out to check the network for a fault that is not there.
+        if (code == 401 || code == 403 || code == 400 || code == 423) {
             setBusy(false);
             m_pendingPassword.clear();
             // `message ?? detail` (serverMessage above): on the SSO sites `detail` is the
@@ -465,7 +472,20 @@ void AuthController::attemptPasswordLogin()
         }
         setBusy(false);
         m_pendingPassword.clear();
-        setError(tr("Could not reach the server"));
+        // Only claim unreachability when NOTHING answered. `code == 0` is this repo's
+        // convention for no HTTP response at all (transport failure); any other code means
+        // the server replied and we simply have no branch for it. Saying "could not reach
+        // the server" then is an invented diagnosis — the 423 case above is how that was
+        // found, and the same lie was waiting behind every unhandled status.
+        QString why;
+        if (code == 0)
+            why = tr("Could not reach the server");
+        else {
+            why = wt::serverMessage(raw);
+            if (why.isEmpty())
+                why = tr("The server refused the sign-in (HTTP %1)").arg(code);
+        }
+        setError(why);
         emit loginFailed(m_errorString);
     });
 }

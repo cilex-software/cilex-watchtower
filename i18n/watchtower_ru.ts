@@ -4,6 +4,11 @@
 <context>
     <name>AuthController</name>
     <message>
+        <location filename="../src/models/AuthController.cpp" line="470"/>
+        <source>The server refused the sign-in (HTTP %1)</source>
+        <translation>Сервер отклонил вход (HTTP %1)</translation>
+    </message>
+    <message>
         <location filename="../src/models/AuthController.cpp" line="441"/>
         <source>Login response did not include a token</source>
         <translation>Ответ сервера не содержит токен</translation>
