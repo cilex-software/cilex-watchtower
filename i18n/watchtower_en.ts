@@ -4557,6 +4557,11 @@
 <context>
     <name>TitleBar</name>
     <message>
+        <location filename="../qml/TitleBar.qml" line="399"/>
+        <source>none — sign in once as an administrator and this station enrols itself</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/TitleBar.qml" line="208"/>
         <source>operator</source>
         <translation type="unfinished"></translation>

@@ -4603,6 +4603,11 @@
 <context>
     <name>TitleBar</name>
     <message>
+        <location filename="../qml/TitleBar.qml" line="399"/>
+        <source>none — sign in once as an administrator and this station enrols itself</source>
+        <translation>нет — войдите один раз администратором, и станция зарегистрируется сама</translation>
+    </message>
+    <message>
         <source>Supervised by Cilex Warden %1 — auto-restart and crash reporting armed</source>
         <translation type="vanished">Хранитель Cilex Warden %1 наблюдает — автоперезапуск и отчёты о сбоях включены</translation>
     </message>

@@ -203,6 +203,15 @@ Item {
                 readonly property bool stationJoinable:
                     (typeof wtStationJoinable !== "undefined") ? wtStationJoinable : false
 
+                // Whether THIS session could provision the station if it has no token.
+                // Mirrors CV's gate (admin | el_padrino) so the plate does not promise an
+                // enrolment the server would refuse.
+                readonly property bool canEnrol: {
+                    if (typeof AuthController === "undefined") return false;
+                    var r = (AuthController.role || "").toLowerCase();
+                    return r === "admin" || r === "el_padrino";
+                }
+
                 readonly property string cvUrl:
                     (typeof AuthController !== "undefined" && AuthController.baseUrl)
                     ? AuthController.baseUrl : ""
@@ -394,8 +403,23 @@ Item {
                             }
                             Text {
                                 visible: wardenEye.tokenState !== "set"
-                                text: wardenEye.tokenState === "missing" ? qsTr("none — this station is invisible to the fleet")
-                                                                         : qsTr("unknown")
+                                // A station with no token enrols ITSELF the first time an
+                                // ADMIN signs in on it (StationEnrolment.h — the app mints
+                                // via CV's POST /client/stations on that ordinary session and
+                                // writes warden.conf). A viewer or operator session cannot:
+                                // CV refuses it at client_reports.py:1411, by design, because
+                                // minting a credential is a provisioning act.
+                                //
+                                // So on a wall signed in as anything else the errand is real
+                                // but invisible — which is exactly how the office wall stayed
+                                // off the fleet: it signs in as `office`, a VIEWER, so nothing
+                                // would ever have enrolled it and nothing said so. The person
+                                // standing in front of the wall is the one who can fix it in a
+                                // minute, so the plate names the act instead of the symptom.
+                                text: wardenEye.tokenState !== "missing" ? qsTr("unknown")
+                                      : wardenEye.canEnrol
+                                        ? qsTr("none — this station is invisible to the fleet")
+                                        : qsTr("none — sign in once as an administrator and this station enrols itself")
                                 font.family: Theme.fontMono
                                 font.pixelSize: 12
                                 color: wardenEye.tokenState === "missing" ? Theme.warn : Theme.ink3
