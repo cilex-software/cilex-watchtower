@@ -162,6 +162,61 @@ DATA = Path(CFG["DATA_DIR"])
 CRASH, FLTREC = DATA / "crash", DATA / "flightrec"
 
 
+# ---------------------------------------------------------------- single instance
+#
+# ONE supervisor per machine, enforced by the OS rather than by hope.
+#
+# Two Wardens is not a tidiness problem. They both spawn a Watchtower (two walls on one
+# iGPU), both read and — since the app can enrol a station — both WRITE the STATION_TOKEN
+# line in warden.conf, and both beat for the same station. The operator put it plainly on
+# 2026-09-21: "it contradicts the whole logic of having one parent process per Cilex
+# Watchtower, but it also creates conflicting environment were one Cilex Warden may
+# potentially go into a deadlock with another one." He had three live at once.
+#
+# How they multiply is a Windows packaging detail — PyInstaller onefile means stopping the
+# scheduled task kills the bootloader while the real child keeps supervising, measured on
+# wt-sm-vnutri-01 2026-08-07 (install-windows.ps1:148-154, which names this lock as the
+# real fix and defers it here as shared code). But the lock does not care WHY a second one
+# started; it refuses regardless, which is what makes it the right layer.
+#
+# An OS lock, not a PID file: the kernel drops it when the holder dies, however it dies —
+# SIGKILL, power cut, a Stop-ScheduledTask that only reaches the bootloader. So there is no
+# stale-lock case to reason about and no "is that PID still alive" guessing.
+#
+# The lock byte sits past any data so the PID at offset 0 stays readable by the loser: on
+# Windows a locked region blocks reads too, and the loser's whole job is to name the winner.
+_LOCK_FD = None
+_LOCK_OFFSET = 1024
+
+
+def acquire_single_instance():
+    """Take the supervisor lock. None on success; the holder's pid (or '?') if refused."""
+    global _LOCK_FD
+    W.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(W / "warden.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        if WIN:
+            import msvcrt
+            os.lseek(fd, _LOCK_OFFSET, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            held = os.read(fd, 32).decode("ascii", "replace").strip()
+        except OSError:
+            held = ""
+        os.close(fd)
+        return held or "?"
+    os.lseek(fd, 0, os.SEEK_SET)
+    os.ftruncate(fd, 0)
+    os.write(fd, f"{os.getpid()}\n".encode())
+    _LOCK_FD = fd                      # held for the life of the process, never closed
+    return None
+
+
 def log(msg):
     print(f"[warden] {time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
 
@@ -1547,6 +1602,14 @@ def cmd_status():
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
     if cmd == "run":
+        # Before anything else: one supervisor per machine. A second would spawn a second
+        # wall and fight this one over warden.conf.
+        holder = acquire_single_instance()
+        if holder is not None:
+            log(f"ANOTHER WARDEN IS ALREADY RUNNING (pid {holder}) — refusing to start a "
+                f"second. Two supervisors would spawn two walls and both rewrite "
+                f"STATION_TOKEN. Stop that process first if you meant to replace it.")
+            sys.exit(3)
         # Say where the address came from, once, at the top of the log. Two places to
         # configure one server is how wt-office-01 stayed invisible for days while its
         # panel read like confirmation; whichever won, the log now names it.
