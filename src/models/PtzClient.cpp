@@ -1,5 +1,6 @@
 #include "PtzClient.h"
 #include "ServerMessage.h"
+#include "ServerCodes.h"
 #include "AuthController.h"
 
 #include <QDateTime>
@@ -109,7 +110,7 @@ void PtzClient::post(const QString &camId, const QString &what, const QString &t
             // (CV reply17 §1/§2). The read is still correct — it is required wherever
             // `detail` was the code, and free where it was not — but it fixed no live
             // defect on THIS route.
-            msg = wt::serverMessage(body);
+            msg = wt::localisedServerError(body);
         if (msg.isEmpty())
             msg = reply->error() != QNetworkReply::NoError
                       ? reply->errorString()

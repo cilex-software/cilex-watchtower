@@ -2,6 +2,139 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
+    <name>ServerError</name>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Wrong username or password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account is no longer active</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account has been deactivated — contact an administrator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The current password is wrong</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The new password must differ from the current one</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>You are not signed in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This session is not valid. Please sign in again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This session has expired. Please sign in again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>You must change your password before continuing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Service suspended — contact your provider</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Locked by the service provider — contact them to lift it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Live camera control is suspended by the owner</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Your role does not have access to this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The role "%1" does not have access to this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>All viewing channels are busy — try again in a few seconds</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This single sign-on link is not valid. Sign in again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This single sign-on link has expired. Sign in again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account no longer exists on this server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account is not allowed to sign in here</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>That username already belongs to another account on this server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Single sign-on is not set up on this server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This station's credentials were refused by the server</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This station has been revoked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Too many attempts from this station — try again shortly</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This display session is not allowed to see that</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This display session has expired</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>AuthController</name>
     <message>
         <location filename="../src/models/AuthController.cpp" line="470"/>

@@ -1,5 +1,6 @@
 #include "WatchClient.h"
 #include "ServerMessage.h"
+#include "ServerCodes.h"
 #include "StationNam.h"
 #include "AuthController.h"
 
@@ -188,7 +189,7 @@ void WatchClient::checkin(const QString &guardId)
                   o.value(QStringLiteral("resumed")).toBool() ? "true" : "false");
             refreshWatch();
         } else {
-            QString why = wt::serverMessage(o);      // `message ?? detail` (ServerMessage.h)
+            QString why = wt::localisedServerError(o);   // our copy by code, else CV's sentence
             if (why.isEmpty())
                 why = QStringLiteral("HTTP %1").arg(code);
             qWarning("[WATCH] checkin FAILED: %s", qPrintable(why));
@@ -211,7 +212,7 @@ void WatchClient::checkout()
             refreshWatch();
         } else {
             const QJsonObject o = QJsonDocument::fromJson(reply->readAll()).object();
-            QString why = wt::serverMessage(o);      // `message ?? detail` (ServerMessage.h)
+            QString why = wt::localisedServerError(o);   // our copy by code, else CV's sentence
             if (why.isEmpty())
                 why = QStringLiteral("HTTP %1").arg(code);
             qWarning("[WATCH] checkout FAILED: %s", qPrintable(why));

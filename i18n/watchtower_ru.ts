@@ -2,6 +2,139 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
 <context>
+    <name>ServerError</name>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Wrong username or password</source>
+        <translation>Неверное имя пользователя или пароль</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account is no longer active</source>
+        <translation>Учётная запись больше не активна</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account has been deactivated — contact an administrator</source>
+        <translation>Учётная запись отключена — обратитесь к администратору</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The current password is wrong</source>
+        <translation>Текущий пароль неверен</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The new password must differ from the current one</source>
+        <translation>Новый пароль должен отличаться от текущего</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>You are not signed in</source>
+        <translation>Вы не вошли в систему</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This session is not valid. Please sign in again</source>
+        <translation>Сеанс недействителен. Войдите снова</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This session has expired. Please sign in again</source>
+        <translation>Срок сеанса истёк. Войдите снова</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>You must change your password before continuing</source>
+        <translation>Необходимо сменить пароль, прежде чем продолжить</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Service suspended — contact your provider</source>
+        <translation>Обслуживание приостановлено — обратитесь к поставщику</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Locked by the service provider — contact them to lift it</source>
+        <translation>Заблокировано поставщиком услуг — обратитесь к нему для снятия</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Live camera control is suspended by the owner</source>
+        <translation>Управление камерой приостановлено владельцем</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Your role does not have access to this</source>
+        <translation>У вашей роли нет доступа к этому</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>The role "%1" does not have access to this</source>
+        <translation>Роль «%1» не имеет доступа к этому</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>All viewing channels are busy — try again in a few seconds</source>
+        <translation>Все каналы просмотра заняты — попробуйте через несколько секунд</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This single sign-on link is not valid. Sign in again</source>
+        <translation>Ссылка единого входа недействительна. Войдите снова</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This single sign-on link has expired. Sign in again</source>
+        <translation>Срок ссылки единого входа истёк. Войдите снова</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account no longer exists on this server</source>
+        <translation>Этой учётной записи больше нет на этом сервере</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This account is not allowed to sign in here</source>
+        <translation>Этой учётной записи вход сюда запрещён</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>That username already belongs to another account on this server</source>
+        <translation>Это имя пользователя уже принадлежит другой учётной записи на этом сервере</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Single sign-on is not set up on this server</source>
+        <translation>Единый вход не настроен на этом сервере</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This station's credentials were refused by the server</source>
+        <translation>Сервер отклонил учётные данные станции</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This station has been revoked</source>
+        <translation>Станция отозвана</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>Too many attempts from this station — try again shortly</source>
+        <translation>Слишком много попыток с этой станции — повторите чуть позже</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This display session is not allowed to see that</source>
+        <translation>Этому сеансу отображения это недоступно</translation>
+    </message>
+    <message>
+        <location filename="../src/models/ServerCodes.h" line="45"/>
+        <source>This display session has expired</source>
+        <translation>Срок сеанса отображения истёк</translation>
+    </message>
+</context>
+<context>
     <name>AuthController</name>
     <message>
         <location filename="../src/models/AuthController.cpp" line="470"/>

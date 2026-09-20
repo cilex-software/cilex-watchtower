@@ -1,5 +1,6 @@
 #include "PlaybackClient.h"
 #include "ServerMessage.h"
+#include "ServerCodes.h"
 #include "StationNam.h"
 
 #include <QMutex>
@@ -410,7 +411,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
                 return;
             }
             if (code == 401) {                               // refresh did not help: SAY SO, loudly
-                setAuthFault(true, wt::serverMessage(raw));
+                setAuthFault(true, wt::localisedServerError(raw));
             }
             // code 0 = no HTTP response (transport failure: timeout / unreachable /
             // reset). Usually transient — retry a couple of times with a short
@@ -422,7 +423,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
                 });
                 return;
             }
-            const QString detail = wt::serverMessage(raw);
+            const QString detail = wt::localisedServerError(raw);
             const QString msg = !detail.isEmpty() ? detail
                         : code == 0 ? QStringLiteral("Couldn't reach the recording backend (%1).").arg(reply->errorString())
                         : QStringLiteral("Session error (%1).").arg(code);
@@ -765,7 +766,7 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
             // 404 = the mosaic endpoint isn't deployed yet → honest "pending"
             // (not an error). Any other code is a real failure to surface.
             const bool pending = (code == 404);
-            QString detail = wt::serverMessage(raw);
+            QString detail = wt::localisedServerError(raw);
             emit mosaicSessionFailed(
                 pending ? QStringLiteral("backend compositing pending")
                         : (detail.isEmpty() ? QStringLiteral("Wall session error (%1).").arg(code) : detail),
@@ -941,7 +942,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
         // grey-out/confirm race). Surface the backend's explanation; the operator
         // can re-export at Standard quality.
         if (code == 422) {
-            const QString detail = wt::serverMessage(obj);
+            const QString detail = wt::localisedServerError(obj);
             emit exportFailed(QString(), detail.isEmpty()
                 ? QStringLiteral("High-quality export needs the high-res original, which has aged to standard storage for part of this selection. Export at Standard quality instead.")
                 : detail);

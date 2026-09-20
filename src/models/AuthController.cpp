@@ -1,5 +1,6 @@
 #include "AuthController.h"
 #include "ServerMessage.h"
+#include "ServerCodes.h"
 #include "StationEnrolment.h"
 #include "StationNam.h"
 
@@ -470,7 +471,7 @@ void AuthController::attemptPasswordLogin()
             // server's enum, which is what this line buys.
             // The fallback below is OURS, so it is translated; it fires only when CV sends
             // neither key, which for bad credentials it does not.
-            QString detail = wt::serverMessage(raw);
+            QString detail = wt::localisedServerError(raw);
             if (detail.isEmpty())
                 detail = tr("Invalid username or password");
             setError(detail);
@@ -494,7 +495,7 @@ void AuthController::attemptPasswordLogin()
         if (code == 0)
             why = tr("Could not reach the server");
         else {
-            why = wt::serverMessage(raw);
+            why = wt::localisedServerError(raw);
             if (why.isEmpty())
                 why = tr("The server refused the sign-in (HTTP %1)").arg(code);
         }
