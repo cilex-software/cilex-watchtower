@@ -20,6 +20,14 @@ Item {
     signal openPlayback(var cam)
     signal openEvents(var cam)
 
+    // WT_DEMO drives the mock store, which DOES populate both of the states the real
+    // backend never sends (MockData.cpp:102-104 degraded, :106-107 recording gaps). That is
+    // how two dead cards survived: under demo the strip shows DEGRADED 3 and RECENT GAPS 2,
+    // so anyone checking whether the screen works sees working cards. Real data or an honest
+    // empty state is a house rule; this was its inverse — mock data lending confidence to an
+    // indicator that is structurally zero in production.
+    readonly property bool demoStore: (typeof wtDemo !== "undefined") && wtDemo
+
     property string activeFilter: ""           // default to Visible (all) — real fleets are mostly healthy, so an Offline default (per the mock) would open empty
     property var sel: null                     // selected camera map -> detail panel
 
@@ -419,7 +427,21 @@ Item {
                 Card { key: "";         label: qsTr("Visible");       value: root.cameraModel ? root.cameraModel.total : 0;            numColor: Theme.ink }
                 Card { key: "online";   label: qsTr("Online");        value: root.cameraModel ? root.cameraModel.onlineCount : 0;      numColor: Theme.good }
                 Card { key: "offline";  label: qsTr("Offline");       value: root.cameraModel ? root.cameraModel.offlineCount : 0;     numColor: Theme.bad }
-                Card { key: "degraded"; label: qsTr("Degraded");      value: root.cameraModel ? root.cameraModel.degradedCount : 0;    numColor: Theme.accent }
+                // DEGRADED is the same dead end as RECENT GAPS below, confirmed from both
+                // sides. It counts CameraStatus::Degraded, set ONLY from the camera `status`
+                // strings "maintenance" or "error" (CameraModel.cpp:409-410, :620-621).
+                // CV measured it 2026-09-20: NOTHING writes either value — the health loop
+                // writes only online|offline (camera_health.py:121,126), provisioner_import
+                // COMPUTES status rather than reading it from the upload (:156), no request
+                // model exposes the field, and the two literals appear in their repo only in
+                // migration 0001's CHECK constraint that permits them. Live pilot: 133 online,
+                // 3 offline, zero of either.
+                Card {
+                    key: "degraded"; label: qsTr("Degraded"); numColor: Theme.accent
+                    value: root.cameraModel ? root.cameraModel.degradedCount : 0
+                    unknown: !root.demoStore
+                    unknownWhy: qsTr("The server never reports a camera as degraded. This is not a count of zero — nothing is measuring it.")
+                }
                 Card { key: "notrec";   label: qsTr("Not recording"); value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; numColor: Theme.accent }
                 // RECENT GAPS reads UNKNOWN, not 0, and the reason is a dead end on the wire.
                 // `recordingGapCount` counts cameras in CameraStatus::RecordingGap, which is
@@ -437,7 +459,7 @@ Item {
                 Card {
                     key: "gap"; label: qsTr("Recent gaps"); numColor: Theme.accent; last: true
                     value: root.cameraModel ? root.cameraModel.recordingGapCount : 0
-                    unknown: true
+                    unknown: !root.demoStore
                     unknownWhy: qsTr("The server does not report recording gaps. This is not a count of zero — nothing is measuring it.")
                 }
             }
