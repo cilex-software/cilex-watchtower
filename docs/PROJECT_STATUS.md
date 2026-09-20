@@ -5,6 +5,41 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-20 STATION TOKENS ARE NO LONGER A HUMAN'S JOB -->
+> **2026-09-20 — NOBODY HANDLES A STATION TOKEN ANY MORE, and wt-office-01 needs ONE ADMIN
+> SIGN-IN (not a build).** Operator goal: *"decommission the token, if the user has logged in
+> they are already authenticated."* Delivered without removing the credential, because removing
+> it was measured unsafe — CV proved `machine_key` is `host:<hostname>` with registration
+> upserting ON CONFLICT, and the booth's real row is keyed that way IN PRODUCTION, so a session
+> merely asserting a hostname could upsert onto a live station's row and make a dead wall look
+> alive. Pro Mobile refused to lose `warden_up` for the same reason. Both were right.
+>
+> **What shipped instead (c1d890f, 1737c78, fa624f7):** the app self-provisions. CV's
+> `POST /client/stations` takes the operator's ORDINARY COOKIE SESSION (`get_current_user`) and
+> mints server-side, so an admin who has signed in has already proved everything CV wants. The
+> app calls it, writes `warden.conf` at 0600, and Warden picks the token up within a heartbeat.
+> Gated hard: only under Warden, only when Warden reports NO token, only for an admin session,
+> once per process, `WT_NO_STATION_ENROL=1` to disable. A station that already has a token is
+> never re-minted. The plate now names the errand when the session cannot provision
+> ("sign in once as an administrator and this station enrols itself") — the office wall signs in
+> as `office`, a VIEWER, which is why it would otherwise have stayed silent forever.
+>
+> **Warden 1.4.4** re-reads `STATION_TOKEN` per beat, so enrolment needs no restart; below that
+> the app SAYS so rather than succeeding silently (on Windows the task uses
+> `MultipleInstances IgnoreNew`, so a running Warden never restarts itself). **Warden also takes
+> its backend from the app's saved server now** (50eeaa9) — it used to default to a dead
+> `192.168.1.79` that times out after 46 s rather than refusing, which is why that wall beat into
+> nothing for days.
+>
+> **State of wt-office-01 as of 0f63f18 (Windows agent, measured on the box):** app 1.1.477,
+> Warden 1.4.4, sends `wt-office-01`, `BACKEND_URL` corrected to `192.168.1.4`, `STATION_TOKEN`
+> empty deliberately. **The only remaining act is one administrator sign-in at that wall.** CV's
+> `cilex_station_hint_unmatched_total` climbing with that hostname means "correctly built,
+> correctly addressed, nobody has signed in yet"; it stops at enrolment, and CV's derivation then
+> records `identity_source='app'` (verified in their deployed image for both `wt-office-01` and
+> `WT-OFFICE-01`). **Do not paste a token into that box** — that is the errand the whole change
+> removed, and the operator declined it explicitly.
+
 <!-- 2026-09-14 20:40 PURGE STOPPED SHORT -->
 > **2026-09-14 20:40 — THE PURGE WAS ONLY PARTLY DONE, AND CV STOPPED DELIBERATELY. The ~2 TB
 > of orphans was NOT deleted.** The operator's *"wipe it clean"* was executed for the
