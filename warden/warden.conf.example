@@ -3,7 +3,15 @@
 # Env override: WT_WARDEN_<KEY>.
 
 # cilex-vision backend (the same LAN server that serves footage).
-BACKEND_URL=http://192.168.1.79:8000
+# LEAVE THIS BLANK unless this station must talk to a DIFFERENT server than the wall.
+# Blank means Warden takes the address from the app's own saved server, so there is one
+# address configured in one place — the sign-in screen — instead of two that can disagree.
+# They did disagree on wt-office-01 (app on .4, Warden on the installer's .79), and every
+# heartbeat fell on the floor for days while the station panel read like confirmation.
+# This line used to ship a literal .79, a host that does not refuse but times out after
+# 46 s, so the failure was silent. If you do set it, `warden status` prints the address
+# AND names which of the two it came from.
+BACKEND_URL=
 
 # Station ingest token (X-Cilex-Station-Token). Pilot value for dev/chaos:
 #   (no example value — the pilot literal that used to sit here was the LIVE token

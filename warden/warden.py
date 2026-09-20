@@ -45,13 +45,19 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.2"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at
+WARDEN_VERSION = "1.4.3"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
 
 DEFAULTS = {
-    "BACKEND_URL": "http://192.168.1.79:8000",
+    # EMPTY by design. This carried "http://192.168.1.79:8000" until 2026-09-20 — a host
+    # that has not existed for weeks and does not refuse, it times out after 46 s. A default
+    # pointing at a dead address is worse than none: Warden posts into a void and says
+    # nothing, which is exactly what wt-office-01 did for days. Empty means "ask the app",
+    # see app_saved_backend() below: the wall already knows which server it is signed in to,
+    # and two places to configure one address is the duplication this removes.
+    "BACKEND_URL": "",
     "STATION_TOKEN": "",                # X-Cilex-Station-Token (TOFU bootstrap secret)
     "APP_CMD": "",                      # e.g. /home/user/projects/cilex-watchtower/run.sh
     "APP_ENV": "",                      # extra env, comma-separated K=V
@@ -73,6 +79,45 @@ DEFAULTS = {
 }
 
 
+# Where the APP is signed in — the single source of truth for the server address.
+#
+# Warden used to carry its own BACKEND_URL, separately from the wall's, and the two could
+# disagree silently: on wt-office-01 the app talked to .4 while Warden held the installer's
+# .79, so every heartbeat fell on the floor while the panel read like confirmation. One
+# address, configured once, in the place a human actually sets it.
+#
+# Reads Qt's QSettings store for organisation "Cilex Vision", application "Watchtower",
+# key auth/baseUrl (AuthController.cpp:281 writes it on every accepted session). Native
+# format differs per platform, so all three are handled; any failure returns None and the
+# caller falls back to an explicit BACKEND_URL.
+def app_saved_backend():
+    try:
+        if WIN:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                r"Software\Cilex Vision\Watchtower\auth") as k:
+                return (winreg.QueryValueEx(k, "baseUrl")[0] or "").strip() or None
+        if sys.platform == "darwin":
+            import plistlib
+            pl = Path.home() / "Library/Preferences/com.cilex-vision.Watchtower.plist"
+            with open(pl, "rb") as fh:
+                return (plistlib.load(fh).get("auth/baseUrl") or "").strip() or None
+        # Linux/BSD: QSettings writes an INI. Scanned by hand rather than with configparser
+        # because Qt escapes keys in ways configparser does not expect, and we want exactly
+        # one value out of a file that also holds the operator's whole UI state.
+        ini = Path.home() / ".config/Cilex Vision/Watchtower.conf"
+        section = ""
+        for line in ini.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1]
+            elif section == "auth" and line.startswith("baseUrl="):
+                return line.split("=", 1)[1].strip() or None
+    except Exception:
+        pass          # no app settings yet, unreadable, or a platform we do not know
+    return None
+
+
 def load_config():
     cfg = dict(DEFAULTS)
     for p in ("/etc/watchtower-warden.conf",
@@ -87,6 +132,17 @@ def load_config():
             pass
     for k in cfg:
         cfg[k] = os.environ.get("WT_WARDEN_" + k, cfg[k])
+    global BACKEND_SOURCE
+    if not cfg["BACKEND_URL"]:
+        derived = app_saved_backend()
+        cfg["BACKEND_URL"] = derived or ""
+        BACKEND_SOURCE = "the app's saved server" if derived else "NOWHERE — unset"
+    else:
+        app_url = app_saved_backend()
+        BACKEND_SOURCE = "warden.conf"
+        if app_url and app_url.rstrip("/") != cfg["BACKEND_URL"].rstrip("/"):
+            BACKEND_SOURCE = (f"warden.conf, but the APP is signed in to {app_url} — "
+                              "heartbeats go to the first and the wall to the second")
     if not cfg["DATA_DIR"]:
         # Must equal Qt's AppDataLocation for the app (flightrec/, crash/ live there):
         # %APPDATA%/Cilex Vision/Watchtower on Windows, XDG data dir on Linux.
@@ -98,6 +154,7 @@ def load_config():
     return cfg
 
 
+BACKEND_SOURCE = ""
 CFG = load_config()
 W = Path(CFG["WARDEN_DIR"])
 PENDING, SENT, QUAR, CONSOLE = W / "pending", W / "sent", W / "quarantine", W / "console"
@@ -129,6 +186,26 @@ def warn_no_token(what):
     log(f"STATION_TOKEN missing — {what} DISABLED. This station is INVISIBLE to the fleet: "
         f"no heartbeats, no crash uploads, and no station row for it on the server. "
         f"Put a token in ~/.config/watchtower-warden/warden.conf (STATION_TOKEN=…) and restart.")
+
+
+_NO_BACKEND_SAID = {}
+
+
+def warn_no_backend(what):
+    """Same contract as warn_no_token: loud once, then hourly, per caller.
+
+    A station with no address is as invisible as one with no token, and until 2026-09-20 it
+    was quieter about it — BACKEND_URL defaulted to a dead host, so Warden posted into a void
+    and reported only a timeout. Empty is now the default, and empty says so.
+    """
+    now = time.time()
+    if now - _NO_BACKEND_SAID.get(what, 0.0) < 3600:
+        return
+    _NO_BACKEND_SAID[what] = now
+    log(f"BACKEND_URL unset — {what} DISABLED. This station is INVISIBLE to the fleet. "
+        f"Warden takes the address from the app's saved server when BACKEND_URL is blank, "
+        f"so this means the wall has never signed in on this box either. Sign in once, or "
+        f"set BACKEND_URL= in ~/.config/watchtower-warden/warden.conf, and restart.")
 
 
 def alarm(kind, text):
@@ -873,6 +950,8 @@ class Heartbeat(threading.Thread):
         while True:
             if not CFG["STATION_TOKEN"]:
                 warn_no_token("heartbeats")
+            elif not CFG["BACKEND_URL"]:
+                warn_no_backend("heartbeats")
             else:
                 ok = self.send()
                 if first and ok:
@@ -1418,7 +1497,8 @@ def cmd_status():
         return len(list(d.iterdir())) if d.exists() else 0
     print(f"warden {WARDEN_VERSION} spool={W} pending={count(PENDING)} "
           f"sent={count(SENT)} quarantine={count(QUAR)} "
-          f"backend={CFG['BACKEND_URL']} token={'set' if CFG['STATION_TOKEN'] else 'MISSING'}")
+          f"backend={CFG['BACKEND_URL'] or '(none)'} [{BACKEND_SOURCE}] "
+          f"token={'set' if CFG['STATION_TOKEN'] else 'MISSING'}")
     # Watchtower's own last beat — answerable from ANY shell, without waiting for the
     # fleet page or asking the running supervisor (operator ask 2026-09-11).
     ts, age = app_beat()
@@ -1439,6 +1519,10 @@ def cmd_status():
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
     if cmd == "run":
+        # Say where the address came from, once, at the top of the log. Two places to
+        # configure one server is how wt-office-01 stayed invisible for days while its
+        # panel read like confirmation; whichever won, the log now names it.
+        log(f"backend {CFG['BACKEND_URL'] or '(none)'} — from {BACKEND_SOURCE}")
         sys.exit(Supervisor().run())
     elif cmd == "bundle-now":
         cmd_bundle_now()
