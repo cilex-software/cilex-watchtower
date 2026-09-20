@@ -23,6 +23,20 @@
 // pilot by this box; the gated ones CV rendered through the real handler and published in
 // reply20 §2, because reaching them needs a state nobody should create on a live box.
 //
+// PROVENANCE UPGRADED 2026-09-20. The four I could not reach were originally pinned on CV's
+// published table alone. cilex-pro-mobile's rule — "verify what is handed to you ESPECIALLY
+// when it matches what you asked for; agreement is not evidence" — landed the same night CV
+// admitted writing a param set for Pro Mobile from the ASK rather than from their code. So
+// all seven were checked against source rather than against the letter:
+//   auth/jwt.py:85  token_expired            :91  invalid_token
+//              :140 not_authenticated        :155 invalid_token_claims
+//              :199 password_change_required :208 service_suspended
+//              :250 role_not_authorized (+ role=user.role)
+// :199 and :208 pass NO `detail`; errors.py:55 is `detail=code if detail is None else detail`,
+// so both send the bare code there — which is what these fixtures assert. Seven for seven,
+// no discrepancy. The check confirming the table is worth as much as one overturning it:
+// the point is that it was checked.
+//
 // Build + run (Qt 6.12):
 //   g++ -std=c++17 -fPIC -o /tmp/svrmsg tools/tests/server-message.cpp -Isrc/models \
 //       -I$QT/include -I$QT/include/QtCore -I$QT/include/QtNetwork \
@@ -145,9 +159,9 @@ int main(int argc, char **argv) {
     check("jwt.py invalid_token",
           R"({"code":"invalid_token","detail":"Invalid token","message":"Your session is not valid. Please sign in again."})",
           "Your session is not valid. Please sign in again.");
-    // The remaining two of CV's seven (reply20 §3). Not measured here — `token_expired`
-    // needs an aged token and `invalid_token_claims` a hand-crafted JWT; both are CV's
-    // published table. THE SHAPE IS THE POINT: at these terse prose sites `message` is NOT
+    // The remaining two of CV's seven (reply20 §3). Not measured on the wire — `token_expired`
+    // needs an aged token and `invalid_token_claims` a hand-crafted JWT — but both bodies are
+    // verified against auth/jwt.py:85 and :155 (see PROVENANCE above). THE SHAPE IS THE POINT: at these terse prose sites `message` is NOT
     // a copy of `detail`, which is new from CV and is exactly why `detail` alone is not
     // good enough — "Token expired" is barely better than `token_expired` on a guard's
     // screen, and the read now gets the real sentence instead.
@@ -159,7 +173,8 @@ int main(int argc, char **argv) {
           "Your session is not valid. Please sign in again.");
 
     // ---- the gated jwt.py sites (CV reply20 §2, rendered through the real handler; reaching
-    //      them live needs a state nobody should create on a running box).
+    //      them live needs a state nobody should create on a running box). Bodies verified
+    //      against auth/jwt.py:199/:208/:250 + errors.py:55 — see PROVENANCE above.
     //      The 423 is byte-for-byte the "after" row photographed in reply18 §1.
     check("jwt.py service_suspended (coded)",
           R"({"code":"service_suspended","detail":"service_suspended","message":"Service suspended — contact your provider."})",
