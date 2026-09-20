@@ -128,20 +128,56 @@ template <typename F>
 inline void enrolStation(QNetworkAccessManager *nam, const QString &baseUrl,
                          const QString &role, F report)
 {
-    static bool tried = false;
-    if (tried || !nam || baseUrl.isEmpty() || !enrolmentWanted())
+    // `attempted` latches ONLY once a POST goes out, so one enrolment per process.
+    // `explained` is separate, so a "why not" line is said once without ever blocking a
+    // later attempt. Those were one flag until 2026-09-21 and it was a real defect:
+    //
+    //   the office wall signs in as `office`, a VIEWER. On start it restores that session,
+    //   the non-admin branch below fired, set the single flag and reported "sign in as an
+    //   administrator". The owner then DID sign in as an admin — in the same process — and
+    //   the very first line returned silently on that flag. Admin session, Warden 1.4.4,
+    //   correct address, no token, and no second message to explain it. He was told for
+    //   hours to do the one thing he had already done.
+    //
+    // A role gate that latches turns "not yet" into "never" for the whole run.
+    static bool attempted = false;
+    static bool explained = false;
+    if (attempted || !nam || baseUrl.isEmpty())
         return;
-    const QString r = role.toLower();
-    if (r != QLatin1String("admin") && r != QLatin1String("el_padrino")) {
-        // Not a failure and not worth repeating: a viewer signing in to a station that has
-        // no token is an ordinary state. Say it once so the reason is discoverable.
-        tried = true;
-        report(QStringLiteral("station has no token and this session is '%1' — only an "
-                              "administrator can provision one. Sign in once as an admin on "
-                              "this machine and it will enrol itself.").arg(role));
+
+    if (!enrolmentWanted()) {
+        // The silent early return was the other half of the same defect: four branches
+        // that reported nothing, so "never ran" and "ran and worked" looked identical from
+        // outside. Say why, once — except when the station simply already has a token,
+        // which is the healthy case and deserves no line at all.
+        if (!explained && !qEnvironmentVariableIsSet("WT_NO_STATION_ENROL")) {
+            if (!qEnvironmentVariableIsSet("WT_UNDER_WARDEN")) {
+                explained = true;
+                report(QStringLiteral("not running under Warden — nothing here would use a "
+                                      "station token, so enrolment is skipped"));
+            } else if (qgetenv("WT_WARDEN_TOKEN") != QByteArrayLiteral("set")) {
+                explained = true;
+                report(QStringLiteral("Warden did not say whether this station has a token "
+                                      "— an older supervisor. Enrolment skipped; Warden "
+                                      "1.4.4 or later reports it."));
+            }
+        }
         return;
     }
-    tried = true;
+
+    const QString r = role.toLower();
+    if (r != QLatin1String("admin") && r != QLatin1String("el_padrino")) {
+        // Says why, once — and does NOT latch. Signing in as an admin afterwards, in this
+        // same process, must still enrol.
+        if (!explained) {
+            explained = true;
+            report(QStringLiteral("station has no token and this session is '%1' — only an "
+                                  "administrator can provision one. Sign in as an admin on "
+                                  "this machine and it will enrol itself.").arg(role));
+        }
+        return;
+    }
+    attempted = true;
 
     const QString host = QSysInfo::machineHostName();
     if (host.isEmpty()) {

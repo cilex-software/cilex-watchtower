@@ -19,7 +19,11 @@
 #include "StationEnrolment.h"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QEventLoop>
+#include <QNetworkAccessManager>
 #include <QTemporaryDir>
+#include <QTimer>
+#include <algorithm>
 
 int fails = 0;
 
@@ -39,9 +43,54 @@ static bool wanted(const char *underWarden, const char *token, bool optOut)
     return wt::enrolmentWanted();
 }
 
+// THE REGRESSION THIS EXISTS FOR (2026-09-21). A viewer session must not lock out a later
+// admin one. The office wall signs in as `office`, a VIEWER: on start it restored that
+// session, the role gate fired, latched a single `tried` flag and reported "sign in as an
+// administrator". The owner then DID — in the same process — and the first line of
+// enrolStation returned on that flag, silently. Admin session, Warden 1.4.4, correct
+// address, no token, no second message. Hours were spent telling him to do what he had
+// already done.
+//
+// Needs a listener: run tools/tests/enrolstub.py on 127.0.0.1:8127 first, then
+//   ./station-enrolment --seq http://127.0.0.1:8127
+static int sequenceTest(QCoreApplication &app, const QString &base)
+{
+    qputenv("WT_UNDER_WARDEN", "1");
+    qputenv("WT_WARDEN_TOKEN", "missing");
+    qputenv("WT_WARDEN_VERSION", "1.4.4");
+    qunsetenv("WT_NO_STATION_ENROL");
+    QTemporaryDir home;
+    qputenv("HOME", home.path().toUtf8());
+
+    QNetworkAccessManager nam;
+    QStringList said;
+    auto say = [&said](const QString &line) { said << line; };
+
+    wt::enrolStation(&nam, base, QStringLiteral("viewer"), say);
+    ok(said.size() == 1 && said.first().contains(QStringLiteral("administrator")),
+       "a viewer session says why, once");
+
+    // ...and the admin sign-in that follows IN THE SAME PROCESS must still enrol.
+    wt::enrolStation(&nam, base, QStringLiteral("admin"), say);
+    QEventLoop loop;
+    QTimer::singleShot(2500, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    const bool enrolled = std::any_of(said.cbegin(), said.cend(), [](const QString &l) {
+        return l.contains(QStringLiteral("provisioned"));
+    });
+    ok(enrolled, QStringLiteral("an ADMIN sign-in after a viewer one still enrols — said: %1")
+                     .arg(said.join(QStringLiteral(" | "))));
+    qInfo().noquote() << (fails ? QStringLiteral("%1 FAILED").arg(fails)
+                                : QStringLiteral("all passed"));
+    return fails ? 1 : 0;
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    if (argc >= 3 && QString::fromUtf8(argv[1]) == QLatin1String("--seq"))
+        return sequenceTest(app, QString::fromUtf8(argv[2]));
 
     // ---- the gate
     ok(wanted("1", "missing", false) == true,
