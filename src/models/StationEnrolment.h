@@ -98,6 +98,21 @@ inline bool writeStationToken(const QString &token, QString *why)
     return true;
 }
 
+// Can the supervising Warden pick up a token written underneath it, without a restart?
+// refresh_station_token() landed in 1.4.4. Unknown or older versions cannot, and an
+// enrolment against one of those is a success that changes nothing until a restart.
+inline bool wardenRereadsToken()
+{
+    const QList<QByteArray> got = qgetenv("WT_WARDEN_VERSION").split('.');
+    const int need[3] = {1, 4, 4};
+    for (int i = 0; i < 3; ++i) {
+        const int have = i < got.size() ? got.at(i).toInt() : 0;
+        if (have != need[i])
+            return have > need[i];
+    }
+    return true;
+}
+
 inline bool enrolmentWanted()
 {
     if (qEnvironmentVariableIsSet("WT_NO_STATION_ENROL"))
@@ -164,9 +179,25 @@ inline void enrolStation(QNetworkAccessManager *nam, const QString &baseUrl,
                                   "— the credential is LOST, mint again").arg(why));
             return;
         }
-        report(QStringLiteral("station '%1' provisioned and written to %2 — Warden picks it "
-                              "up within a heartbeat; no token was handled by anyone")
-                   .arg(host, wardenConfPath()));
+        // Warden only re-reads STATION_TOKEN in place from 1.4.4 (refresh_station_token).
+        // An older supervisor will not notice the file changed, and — on Windows — will
+        // never restart itself to find out: the scheduled task repeats every 30 minutes
+        // with MultipleInstances IgnoreNew (warden/install-windows.ps1:134-139), so the
+        // repeat is a no-op while one is already running. Enrolling against such a Warden
+        // SUCCEEDS and changes nothing until the box is restarted, which is the silent
+        // success this whole thread exists to stamp out. Say which of the two happened.
+        if (wardenRereadsToken())
+            report(QStringLiteral("station '%1' provisioned and written to %2 — Warden picks "
+                                  "it up within a heartbeat; no token was handled by anyone")
+                       .arg(host, wardenConfPath()));
+        else
+            report(QStringLiteral("station '%1' provisioned and written to %2, but Warden %3 "
+                                  "cannot re-read it while running — RESTART WARDEN (or the "
+                                  "machine) or this station stays invisible")
+                       .arg(host, wardenConfPath(),
+                            QString::fromUtf8(qgetenv("WT_WARDEN_VERSION")).isEmpty()
+                                ? QStringLiteral("(version unknown)")
+                                : QString::fromUtf8(qgetenv("WT_WARDEN_VERSION"))));
     });
 }
 

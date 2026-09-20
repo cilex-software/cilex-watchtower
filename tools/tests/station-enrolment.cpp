@@ -57,6 +57,27 @@ int main(int argc, char **argv)
     ok(wanted("1", "missing", true) == false,
        "WT_NO_STATION_ENROL=1 disables it outright");
 
+    // ---- can the supervising Warden pick a token up in place? refresh_station_token
+    //      landed in warden 1.4.4. Older ones succeed at enrolling and change NOTHING until
+    //      a restart, which on Windows never happens by itself: the scheduled task repeats
+    //      every 30 min with MultipleInstances IgnoreNew, a no-op while one is running.
+    //      Getting this comparison wrong in either direction is a silent failure, so both
+    //      directions are pinned.
+    auto reread = [](const char *v) {
+        if (v) qputenv("WT_WARDEN_VERSION", v); else qunsetenv("WT_WARDEN_VERSION");
+        return wt::wardenRereadsToken();
+    };
+    ok(reread("1.4.4") == true,  "1.4.4 re-reads the token in place");
+    ok(reread("1.4.5") == true,  "1.4.5 re-reads (later patch)");
+    ok(reread("1.5.0") == true,  "1.5.0 re-reads (later minor)");
+    ok(reread("2.0.0") == true,  "2.0.0 re-reads (later major)");
+    ok(reread("1.4.3") == false, "1.4.3 does NOT — the version that shipped without it");
+    ok(reread("1.4.2") == false, "1.4.2 does NOT — what wt-office-01 runs today");
+    ok(reread("1.3.9") == false, "1.3.9 does NOT (earlier minor)");
+    ok(reread("0.9.9") == false, "0.9.9 does NOT (earlier major)");
+    ok(reread(nullptr) == false, "an unknown version is treated as CANNOT, never as can");
+    ok(reread("") == false,      "an empty version is treated as CANNOT");
+
     // ---- the writer, against a throwaway HOME so no real warden.conf is touched
     QTemporaryDir home;
     ok(home.isValid(), "temp HOME created");
