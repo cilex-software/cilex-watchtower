@@ -126,9 +126,19 @@ Item {
                         property string lbl: ""
                         property int value: 0
                         property color valueColor: Theme.ink
+                        // Same contract as HealthScreen's Card: a figure the backend cannot
+                        // supply renders as an em dash, never as 0. This cell is the WALL
+                        // header — the one a guard reads without navigating anywhere — so a
+                        // confident zero here is worse than the same zero on the Health page.
+                        property bool unknown: false
+                        property string unknownWhy: ""
                         width: (stats.width - stats.columnSpacing) / 2
                         height: 64
                         color: Theme.bg
+                        MouseArea { id: cellMa; anchors.fill: parent; hoverEnabled: cell.unknown }
+                        C.ToolTip.visible: cell.unknown && cellMa.containsMouse
+                        C.ToolTip.text: cell.unknownWhy
+                        C.ToolTip.delay: 300
                         Column {
                             anchors { left: parent.left; top: parent.top; leftMargin: 14; topMargin: 12 }
                             spacing: 4
@@ -141,8 +151,8 @@ Item {
                                 font.capitalization: Font.AllUppercase
                             }
                             Text {
-                                text: cell.value
-                                color: cell.valueColor
+                                text: cell.unknown ? "\u2014" : String(cell.value)
+                                color: cell.unknown ? Theme.ink3 : cell.valueColor
                                 font.family: Theme.fontSans
                                 font.pixelSize: 22
                                 font.weight: Font.Bold
@@ -153,7 +163,20 @@ Item {
 
                     StatCell { lbl: qsTr("Online");   value: root.cameraModel ? root.cameraModel.onlineCount : 0;       valueColor: Theme.good }
                     StatCell { lbl: qsTr("Offline");  value: root.cameraModel ? root.cameraModel.offlineCount : 0;      valueColor: Theme.bad }
-                    StatCell { lbl: qsTr("Degraded"); value: root.cameraModel ? root.cameraModel.degradedCount : 0;     valueColor: Theme.warn }
+                    // DEGRADED is structurally zero against a real backend: it needs a camera
+                    // `status` of "maintenance" or "error", and CV measured 2026-09-20 that
+                    // NOTHING writes either (health loop writes online|offline only;
+                    // provisioner_import.py:156 computes the value; the literals survive only
+                    // in migration 0001's CHECK constraint). Flagged by the Windows station
+                    // agent, who pointed out degradedCount has TWO render sites and this —
+                    // the wall header — is the one a guard actually reads. Numbers under
+                    // WT_DEMO so the mock store still exercises the state.
+                    StatCell {
+                        lbl: qsTr("Degraded"); valueColor: Theme.warn
+                        value: root.cameraModel ? root.cameraModel.degradedCount : 0
+                        unknown: !((typeof wtDemo !== "undefined") && wtDemo)
+                        unknownWhy: qsTr("The server never reports a camera as degraded. This is not a count of zero — nothing is measuring it.")
+                    }
                     StatCell { lbl: qsTr("Not rec");  value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; valueColor: Theme.warn }
                 }
             }
