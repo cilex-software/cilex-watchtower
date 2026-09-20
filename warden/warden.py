@@ -208,6 +208,30 @@ def warn_no_backend(what):
         f"set BACKEND_URL= in ~/.config/watchtower-warden/warden.conf, and restart.")
 
 
+def refresh_station_token():
+    """Re-read STATION_TOKEN from the conf files, without restarting.
+
+    The app self-provisions a station when this box has none (src/models/StationEnrolment.h):
+    an admin signs in, Watchtower calls CV's POST /client/stations on that ordinary session,
+    and writes the minted token into warden.conf. Warden must then start beating WITHOUT
+    someone restarting the supervisor, or the enrolment would still need a human — which is
+    the whole thing it removes. Cheap: two small files, once a heartbeat.
+
+    Only STATION_TOKEN is re-read. Everything else stays as it was at start, because changing
+    APP_CMD or DATA_DIR under a running supervisor is a different and much riskier idea.
+    """
+    for p_ in ("/etc/watchtower-warden.conf",
+               str(Path.home() / ".config/watchtower-warden/warden.conf")):
+        try:
+            for line in Path(p_).read_text(encoding="utf-8-sig").splitlines():
+                line = line.strip()
+                if line.startswith("STATION_TOKEN="):
+                    CFG["STATION_TOKEN"] = line.split("=", 1)[1].strip()
+        except OSError:
+            pass
+    return CFG["STATION_TOKEN"]
+
+
 def alarm(kind, text):
     # CW-13 (channel TBD): loud log line now; ALARM_CMD hook so the operator
     # channel can be wired later WITHOUT touching frozen guard boxes.
@@ -949,7 +973,11 @@ class Heartbeat(threading.Thread):
         first = True
         while True:
             if not CFG["STATION_TOKEN"]:
-                warn_no_token("heartbeats")
+                # The app may have just enrolled this station; pick the token up in place.
+                if refresh_station_token():
+                    log("STATION_TOKEN appeared — the app enrolled this station; beating now")
+                else:
+                    warn_no_token("heartbeats")
             elif not CFG["BACKEND_URL"]:
                 warn_no_backend("heartbeats")
             else:

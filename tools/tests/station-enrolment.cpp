@@ -1,0 +1,108 @@
+// Tests for self-provisioning a station (src/models/StationEnrolment.h).
+//
+// The network half is deliberately NOT exercised here: POST /client/stations creates a row
+// in CV's live client_stations and mints a real credential, and this repo's rule is that
+// writes to the shared pilot are announced before they are made. So what is tested is
+// everything that decides WHETHER to call it, and everything that happens to the credential
+// AFTERWARDS — the two halves where a mistake is silent and expensive:
+//
+//   * the gate, because a station that already has a token must never be re-minted (that
+//     would rotate a working credential out from under a beating Warden), and an
+//     unsupervised desktop must never enrol at all;
+//   * the writer, because it edits a config file that is not ours alone and puts a live
+//     ingest credential on disk.
+//
+// Build + run (Qt 6.12):
+//   g++ -std=c++17 -fPIC -o /tmp/stenrol tools/tests/station-enrolment.cpp -Isrc/models \
+//       -I$QT/include -I$QT/include/QtCore -I$QT/include/QtNetwork \
+//       -L$QT/lib -lQt6Core -lQt6Network && LD_LIBRARY_PATH=$QT/lib /tmp/stenrol
+#include "StationEnrolment.h"
+#include <QCoreApplication>
+#include <QDebug>
+#include <QTemporaryDir>
+
+int fails = 0;
+
+static void ok(bool cond, const QString &what)
+{
+    if (!cond) ++fails;
+    qInfo().noquote() << (cond ? "PASS" : "FAIL") << what;
+}
+
+// enrolmentWanted() reads the environment each call, so each case sets its own world.
+static bool wanted(const char *underWarden, const char *token, bool optOut)
+{
+    qunsetenv("WT_UNDER_WARDEN"); qunsetenv("WT_WARDEN_TOKEN"); qunsetenv("WT_NO_STATION_ENROL");
+    if (underWarden) qputenv("WT_UNDER_WARDEN", underWarden);
+    if (token)       qputenv("WT_WARDEN_TOKEN", token);
+    if (optOut)      qputenv("WT_NO_STATION_ENROL", "1");
+    return wt::enrolmentWanted();
+}
+
+int main(int argc, char **argv)
+{
+    QCoreApplication app(argc, argv);
+
+    // ---- the gate
+    ok(wanted("1", "missing", false) == true,
+       "enrols: under Warden AND Warden reports no token");
+    ok(wanted("1", "set", false) == false,
+       "does NOT enrol when the station already has a token (never rotate a live one)");
+    ok(wanted(nullptr, "missing", false) == false,
+       "does NOT enrol when not under Warden (a developer desktop never provisions)");
+    ok(wanted("1", "", false) == false,
+       "does NOT enrol when Warden said nothing — unknown is not 'missing'");
+    ok(wanted("1", nullptr, false) == false,
+       "does NOT enrol against an older Warden that sends no WT_WARDEN_TOKEN at all");
+    ok(wanted("1", "missing", true) == false,
+       "WT_NO_STATION_ENROL=1 disables it outright");
+
+    // ---- the writer, against a throwaway HOME so no real warden.conf is touched
+    QTemporaryDir home;
+    ok(home.isValid(), "temp HOME created");
+    qputenv("HOME", home.path().toUtf8());
+
+    const QString conf = wt::wardenConfPath();
+    ok(conf.startsWith(home.path()), "warden.conf path follows HOME: " + conf);
+
+    // (a) no file yet -> creates one carrying the token
+    QString why;
+    ok(wt::writeStationToken("cvst_FIRST", &why), "writes when no conf exists: " + why);
+    QFile f1(conf); f1.open(QIODevice::ReadOnly);
+    ok(QString::fromUtf8(f1.readAll()).contains("STATION_TOKEN=cvst_FIRST"),
+       "the token is in the file");
+    f1.close();
+
+    // (b) an existing conf keeps every other line, comments included, and the token is
+    //     REPLACED rather than appended — a second STATION_TOKEN= line would mean Warden
+    //     silently took the last one.
+    QFile seed(conf);
+    seed.open(QIODevice::WriteOnly | QIODevice::Truncate);
+    seed.write("# a comment a human wrote\n"
+               "BACKEND_URL=\n"
+               "STATION_TOKEN=cvst_OLD\n"
+               "APP_CMD=/home/x/run.sh\n");
+    seed.close();
+    ok(wt::writeStationToken("cvst_NEW", &why), "rewrites an existing conf: " + why);
+
+    QFile f2(conf); f2.open(QIODevice::ReadOnly);
+    const QString body = QString::fromUtf8(f2.readAll());
+    f2.close();
+    ok(body.contains("# a comment a human wrote"), "keeps the human's comment");
+    ok(body.contains("APP_CMD=/home/x/run.sh"),   "keeps APP_CMD");
+    ok(body.contains("BACKEND_URL="),             "keeps BACKEND_URL");
+    ok(body.contains("STATION_TOKEN=cvst_NEW"),   "the new token is present");
+    ok(!body.contains("cvst_OLD"),                "the old token is GONE, not shadowed");
+    ok(body.count("STATION_TOKEN=") == 1,         "exactly one STATION_TOKEN line");
+
+    // (c) a live ingest credential must not be world-readable
+    const auto perms = QFile::permissions(conf);
+    ok(perms.testFlag(QFileDevice::ReadOwner) && perms.testFlag(QFileDevice::WriteOwner),
+       "owner can read and write it");
+    ok(!perms.testFlag(QFileDevice::ReadGroup) && !perms.testFlag(QFileDevice::ReadOther),
+       "group and other CANNOT read it");
+
+    qInfo().noquote() << (fails ? QStringLiteral("%1 FAILED").arg(fails)
+                                : QStringLiteral("all passed"));
+    return fails ? 1 : 0;
+}

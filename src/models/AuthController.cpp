@@ -1,5 +1,6 @@
 #include "AuthController.h"
 #include "ServerMessage.h"
+#include "StationEnrolment.h"
 #include "StationNam.h"
 
 #include <QNetworkAccessManager>
@@ -176,6 +177,14 @@ void AuthController::applyToken(const QString &token)
               (long long)(e - QDateTime::currentSecsSinceEpoch()));
         emit identityChanged();
         armRenewal();
+        // Self-provision a station identity if this box has none (StationEnrolment.h).
+        // Gated there: only under Warden, only when Warden reports NO token, only for an
+        // admin session, once per process. Runs on the session the operator already has —
+        // CV's POST /client/stations takes the ordinary cookie, so nobody ever mints,
+        // carries or pastes a station token by hand.
+        wt::enrolStation(m_nam, m_baseUrl, m_role, [](const QString &line) {
+            qInfo("[STATION] %s", qUtf8Printable(line));
+        });
     }
     emit tokenChanged();
 }
