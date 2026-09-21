@@ -217,6 +217,26 @@ def acquire_single_instance():
     return None
 
 
+def write_state(rd, st):
+    """Write a report's state.json ATOMICALLY.
+
+    It used to be a plain write_text: truncate, then write. A process death between the two
+    leaves a ZERO-BYTE state.json — and the scan loop below skipped an unreadable one with a
+    bare `continue`, so that report became invisible and stayed invisible.
+
+    Measured on this dev box 2026-09-21: three bundles from 2026-09-06, 4 MB each, all with
+    0-byte state.json, all skipped silently for FIFTEEN DAYS while the station reported
+    healthy. The interpreter died mid-write at 22:52 that evening ("Fatal Python error:
+    _enter_buffered_busy ... at interpreter shutdown"), which is exactly the window.
+
+    Tmp + os.replace: the rename is atomic, so a reader sees the old file or the new one,
+    never a half-written one.
+    """
+    tmp = rd / "state.json.tmp"
+    tmp.write_text(json.dumps(st), encoding="utf-8")
+    os.replace(tmp, rd / "state.json")
+
+
 def log(msg):
     print(f"[warden] {time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
 
@@ -639,8 +659,7 @@ def collect(report_id, trigger, head, console_file, marker_path=None, core=None)
     package(rd, manifest, arts)
     if dump.exists():
         dump.rename(rd / "minidump.consumed.dmp")   # consumed like markers: no double-collect
-    (rd / "state.json").write_text(json.dumps(
-        {"phase": "manifest", "attempts": 0, "next_retry": 0}), encoding="utf-8")
+    write_state(rd, {"phase": "manifest", "attempts": 0, "next_retry": 0})
     if marker_path and marker_path.exists():
         marker_path.rename(rd / "marker.consumed.json")     # consume: boot replay key
     log(f"collected report={report_id} trigger={trigger} "
@@ -1100,8 +1119,18 @@ class Uploader(threading.Thread):
                 st_file = rd / "state.json"
                 try:
                     st = json.loads(st_file.read_text(encoding="utf-8-sig"))
-                except (OSError, json.JSONDecodeError):
-                    continue
+                except (OSError, json.JSONDecodeError) as exc:
+                    # A `continue` here is how three real bundles sat unsent for fifteen
+                    # days. The state file only tracks attempts and the retry clock; the
+                    # manifest and the bundle beside it are intact, and CV dedupes a
+                    # re-upload (`dup=` in the PUT log). So REBUILD it and start again,
+                    # loudly. Skipping was the one option that could never recover.
+                    if not (rd / "manifest.json").exists():
+                        continue          # not a report dir at all; leave it alone
+                    log(f"report {rd.name}: state.json unreadable ({exc}) — rebuilding and "
+                        f"retrying. The bundle is intact; this would otherwise never upload.")
+                    st = {"phase": "manifest", "attempts": 0, "next_retry": 0}
+                    write_state(rd, st)
                 if st.get("next_retry", 0) > now:
                     continue
                 self.advance(rd, st)
@@ -1111,7 +1140,7 @@ class Uploader(threading.Thread):
         st["attempts"] = st.get("attempts", 0) + 1
         delay = retry_after or min(60 * (2 ** min(st["attempts"], 6)), 3600)
         st["next_retry"] = time.time() + delay
-        (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
+        write_state(rd, st)
 
     def finish(self, rd, dest, why):
         dest.mkdir(exist_ok=True)
@@ -1136,7 +1165,7 @@ class Uploader(threading.Thread):
                 st["phase"] = "bundle"
                 st["attempts"] = 0
                 st["next_retry"] = 0
-                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
+                write_state(rd, st)
             elif code == 400:
                 alarm("upload-400", f"deterministic reject of manifest {rid} — warden bug")
                 self.finish(rd, QUAR, "400")
@@ -1161,7 +1190,7 @@ class Uploader(threading.Thread):
                 self.finish(rd, SENT, "stored")
             elif code == 409:              # manifest lost server-side? replay it
                 st["phase"] = "manifest"
-                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
+                write_state(rd, st)
             elif code == 413:
                 # Rebuild without the core (degenerate truncation), re-PUT the
                 # manifest too — last-write-wins records the smaller artifact set.
@@ -1169,7 +1198,7 @@ class Uploader(threading.Thread):
                 self.strip_core(rd)
                 st["phase"] = "manifest"
                 st["attempts"] = 0
-                (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
+                write_state(rd, st)
             elif code == 400:
                 alarm("upload-400", f"deterministic reject of bundle {rid}")
                 self.finish(rd, QUAR, "400")
@@ -1409,7 +1438,7 @@ class Supervisor:
             rd.rename(PENDING / rd.name)
             rd = PENDING / rd.name
         st = {"phase": "manifest", "attempts": 0, "next_retry": 0}
-        (rd / "state.json").write_text(json.dumps(st), encoding="utf-8")
+        write_state(rd, st)
 
     def loop_tick(self):
         if self.loop_id and self.deaths and \
