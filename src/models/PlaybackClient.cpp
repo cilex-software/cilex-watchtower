@@ -185,6 +185,36 @@ void PlaybackClient::armUnresponsiveAnnounce(QNetworkReply *reply)
     t->start();
 }
 
+namespace {
+QString humanBytes(qint64 b)
+{
+    if (b < 0) return {};
+    if (b < 1024) return QStringLiteral("%1 B").arg(b);
+    const double kb = b / 1024.0;
+    if (kb < 1024) return QStringLiteral("%1 KB").arg(kb, 0, 'f', 0);
+    const double mb = kb / 1024.0;
+    if (mb < 1024) return QStringLiteral("%1 MB").arg(mb, 0, 'f', 1);
+    return QStringLiteral("%1 GB").arg(mb / 1024.0, 0, 'f', 2);
+}
+}
+
+void PlaybackClient::setExportState(const QString &phase, qreal fraction, const QString &detail)
+{
+    const bool active = !phase.isEmpty();
+    if (active && !m_exportActive)
+        m_exportStartedMs = QDateTime::currentMSecsSinceEpoch();
+    if (m_exportActive == active && m_exportPhase == phase
+        && qFuzzyCompare(m_exportFraction + 2.0, fraction + 2.0) && m_exportDetail == detail)
+        return;                                   // nothing a viewer could see changed
+    m_exportActive = active;
+    m_exportPhase = phase;
+    m_exportFraction = active ? fraction : -1;
+    m_exportDetail = active ? detail : QString();
+    if (!active)
+        m_exportStartedMs = 0;
+    emit exportStateChanged();
+}
+
 void PlaybackClient::setServerUnresponsive(bool v)
 {
     if (m_serverUnresponsive == v)
@@ -1114,6 +1144,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
         m_exportDest.insert(jobId, destPath);
         if (!post.isEmpty()) m_exportPost.insert(jobId, post);   // client compression/overlays
         emit exportStarted(jobId);
+        setExportState(QStringLiteral("preparing"), -1, tr("Queued on the server"));
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
     });
 }
@@ -1152,6 +1183,7 @@ void PlaybackClient::createMosaicExport(const QString &sessionId, const QString 
         if (jobId.isEmpty()) { emit exportFailed(QString(), "Combined-grid export rejected."); return; }
         m_exportDest.insert(jobId, destPath);
         emit exportStarted(jobId);
+        setExportState(QStringLiteral("preparing"), -1, tr("Queued on the server"));
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
     });
 }
@@ -1197,11 +1229,24 @@ void PlaybackClient::pollExport(const QString &jobId)
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         const QString state = obj.value("state").toString();
         emit exportProgress(jobId, state);
+        // NO progress field exists on this job object (checked against a real one,
+        // 2026-09-22), so the fraction stays -1 and the bar stays indeterminate. What
+        // IS real: started_at tells us the server picked the job up rather than merely
+        // queueing it, and this line re-fires every 2 s, so the detail text changing is
+        // itself evidence the pipeline is alive.
+        if (state != "ready" && state != "failed" && state != "error") {
+            const bool picked = !obj.value("started_at").isNull()
+                                && !obj.value("started_at").toString().isEmpty();
+            setExportState(QStringLiteral("preparing"), -1,
+                           picked ? tr("Building the clip on the server")
+                                  : tr("Queued on the server"));
+        }
         if (state == "ready") {
             QString dl = obj.value("download_url").toString();
             dl.replace("/api/review/", "/review/");      // route via the local proxy
             downloadExport(jobId, m_proxy->localBase() + dl, m_exportDest.value(jobId));
         } else if (state == "failed" || state == "error") {
+            setExportState(QString(), -1, QString());
             emit exportFailed(jobId, obj.value("error_msg").toString());
         } else {
             QTimer::singleShot(2000, this, [this, jobId]() { pollExport(jobId); });
@@ -1228,6 +1273,16 @@ void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
     QNetworkReply *reply = m_nam->get(req);
     // Stream chunks straight to disk so a large clip never sits in memory.
     connect(reply, &QNetworkReply::readyRead, file, [reply, file]() { file->write(reply->readAll()); });
+    // The one phase with a genuine denominator. If the server sends no Content-Length,
+    // total is -1 and we say so by staying indeterminate while still showing the bytes
+    // that HAVE arrived - a number that moves is what tells the operator we are alive.
+    setExportState(QStringLiteral("downloading"), -1, tr("Starting download"));
+    connect(reply, &QNetworkReply::downloadProgress, this, [this](qint64 got, qint64 total) {
+        const qreal frac = total > 0 ? qBound<qreal>(0.0, qreal(got) / qreal(total), 1.0) : -1;
+        setExportState(QStringLiteral("downloading"), frac,
+                       total > 0 ? tr("%1 of %2").arg(humanBytes(got), humanBytes(total))
+                                 : tr("%1 downloaded").arg(humanBytes(got)));
+    });
     connect(reply, &QNetworkReply::finished, this, [this, reply, file, jobId, destPath]() {
         reply->deleteLater();
         file->write(reply->readAll());
@@ -1247,13 +1302,16 @@ void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
                 QFile::remove(srcTmp);
                 if (QFile::rename(destPath, srcTmp)) {
                     emit exportProgress(jobId, QStringLiteral("compressing"));
+                    setExportState(QStringLiteral("compressing"), -1, tr("Starting"));
                     runPostProcess(jobId, srcTmp, destPath, post);
                     return;
                 }
                 // couldn't stage the source → fall through, deliver the original as-is
             }
+            setExportState(QString(), -1, QString());
             emit exportSaved(jobId, destPath);
         } else {
+            setExportState(QString(), -1, QString());
             QFile::remove(destPath);   // don't leave a partial/empty file behind
             emit exportFailed(jobId, reply->error() == QNetworkReply::NoError
                                          ? QStringLiteral("Downloaded clip was empty.")
@@ -1268,10 +1326,16 @@ void PlaybackClient::runPostProcess(const QString &jobId, const QString &srcPath
     auto *tc = new ClipTranscoder(this);
     connect(tc, &ClipTranscoder::progress, this, [this, jobId](int pct) {
         emit exportProgress(jobId, QStringLiteral("compressing %1%").arg(pct));
+        // ffmpeg's own `time=` against the clip duration - best-effort but MEASURED,
+        // so it is allowed a real fill. It was already computed here and thrown away
+        // into a string nothing in QML listened to.
+        setExportState(QStringLiteral("compressing"), qBound(0.0, pct / 100.0, 1.0),
+                       tr("Re-encoding on this machine"));
     });
     connect(tc, &ClipTranscoder::finished, this, [this, jobId, srcPath, tc](const QString &out) {
         QFile::remove(srcPath);
         tc->deleteLater();
+        setExportState(QString(), -1, QString());
         emit exportSaved(jobId, out);
     });
     connect(tc, &ClipTranscoder::failed, this, [this, jobId, srcPath, dstPath, tc](const QString &err) {
@@ -1280,6 +1344,7 @@ void PlaybackClient::runPostProcess(const QString &jobId, const QString &srcPath
         QFile::remove(dstPath);
         QFile::rename(srcPath, dstPath);
         tc->deleteLater();
+        setExportState(QString(), -1, QString());
         emit exportFailed(jobId, QStringLiteral("Couldn't compress the clip (%1) — kept the original-quality export.").arg(err));
     });
     tc->start(srcPath, dstPath, post.value(QStringLiteral("height")).toInt(),

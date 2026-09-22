@@ -2371,8 +2371,22 @@ Window {
     }
 
     // Toast stack overlay (snapshot feedback now; alerts later).
+    // Export progress. App-wide and anchored to the window bottom on purpose: the
+    // operator confirms an export from the playback drawer and then navigates away,
+    // so a strip living inside that drawer would vanish exactly when the long wait
+    // starts. Collapses to zero height when nothing is exporting.
+    ExportProgress {
+        id: exportStrip
+        client: playbackClient
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        z: 900
+    }
+
     ToastHost {
         id: toastHost
+        // ToastHost fills the window and pins its stack bottom-right, so the strip
+        // would sit under it. Lift the fill's floor instead of moving the host.
+        anchors.bottomMargin: exportStrip.height
         onActionInvoked: (actionId) => { if (actionId === "retryExportHigh") playbackClient.retryLastExportAsHigh() }
     }
 

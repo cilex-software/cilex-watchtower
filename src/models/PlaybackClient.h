@@ -33,6 +33,24 @@ class PlaybackClient : public QObject
     // screen shows it INSTEAD of "Loading recording...", so a guard can tell a stalled
     // backend from a hung app - see the 2026-09-22 111 s API stall.
     Q_PROPERTY(bool serverUnresponsive READ serverUnresponsive NOTIFY serverUnresponsiveChanged)
+    // EXPORT PROGRESS. An export is three phases with three DIFFERENT honesties, and
+    // the UI must not blur them into one invented number:
+    //   preparing   - CV builds the clip. Its job object carries state/started_at and
+    //                 NO progress field (verified against a real job 2026-09-22), so
+    //                 this phase is genuinely INDETERMINATE: exportFraction < 0.
+    //   downloading - real bytes, from QNetworkReply::downloadProgress. Determinate
+    //                 whenever Content-Length is known; indeterminate if it is not.
+    //   compressing - real ffmpeg `time=` against the known duration (ClipTranscoder).
+    // exportFraction < 0 means UNKNOWN and must render as an indeterminate bar, never
+    // as 0% and never as a guess. exportDetail always carries something that CHANGES
+    // while work is happening, so a stalled export is distinguishable from a live one -
+    // which is the whole complaint this exists to answer (operator, 2026-09-22: a 1 h
+    // export with no feedback, "clueless if Watchtower was exporting it or frozen").
+    Q_PROPERTY(bool exportActive READ exportActive NOTIFY exportStateChanged)
+    Q_PROPERTY(QString exportPhase READ exportPhase NOTIFY exportStateChanged)
+    Q_PROPERTY(qreal exportFraction READ exportFraction NOTIFY exportStateChanged)
+    Q_PROPERTY(QString exportDetail READ exportDetail NOTIFY exportStateChanged)
+    Q_PROPERTY(qint64 exportStartedMs READ exportStartedMs NOTIFY exportStateChanged)
 public:
     explicit PlaybackClient(QObject *parent = nullptr);
     ~PlaybackClient() override;               // stops + joins the proxy thread
@@ -42,6 +60,11 @@ public:
     bool authFault() const { return m_authFault; }
     QString authFaultDetail() const { return m_authFaultDetail; }
     bool serverUnresponsive() const { return m_serverUnresponsive; }
+    bool exportActive() const { return m_exportActive; }
+    QString exportPhase() const { return m_exportPhase; }
+    qreal exportFraction() const { return m_exportFraction; }
+    QString exportDetail() const { return m_exportDetail; }
+    qint64 exportStartedMs() const { return m_exportStartedMs; }
 
     // Ensure a session cookie exists (auto-login with configured/dev creds),
     // then resolve camera_ids from /streams. Safe to call repeatedly.
@@ -159,6 +182,7 @@ signals:
     void loggedInChanged();
     void statusChanged();
     void serverUnresponsiveChanged();
+    void exportStateChanged();
     void authFaultChanged();
     void camerasResolved();
     // tag: OWNERSHIP token echoed from openSession(). Multiple consumers share
@@ -191,6 +215,8 @@ signals:
 private:
     void setStatus(const QString &s);
     void setServerUnresponsive(bool v);
+    // phase "" ends the run. fraction < 0 = indeterminate (unknown), never rendered as 0%.
+    void setExportState(const QString &phase, qreal fraction, const QString &detail);
     // Raise the "not responding" banner if `reply` is STILL in flight after
     // s_apiAnnounceMs, without cancelling it. Announcing and giving up are two
     // different deadlines; see the note in the .cpp.
@@ -229,6 +255,11 @@ private:
     bool m_loggingIn = false;
     QString m_status;
     bool m_serverUnresponsive = false;
+    bool m_exportActive = false;
+    QString m_exportPhase;
+    qreal m_exportFraction = -1;
+    QString m_exportDetail;
+    qint64 m_exportStartedMs = 0;
     QHash<QString, QString> m_ipToCamId;
     QHash<QString, QString> m_macToCamId;
     QHash<QString, QString> m_exportDest;   // jobId -> local file path
