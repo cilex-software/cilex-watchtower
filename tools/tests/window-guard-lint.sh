@@ -21,10 +21,31 @@
 # instances and nothing else:
 #     git grep -nE "$RULE" HEAD~1 -- 'qml/*'   -> 5 hits (the five real ones)
 #     git grep -nE "$RULE" HEAD   -- 'qml/*'   -> 0
-# Zero false positives across qml/ at the time of writing. If this ever fires on
-# a comparison that genuinely cannot be NaN, rewrite it as `!(a > b)` anyway
-# rather than adding an exception: the two are the same for every valid input,
-# so there is nothing to trade away.
+# Zero false positives across qml/ at the time of writing.
+#
+# WHAT THIS RULE CANNOT SEE, and the limit was found by cilex-pro-mobile running
+# it against their own code before deciding whether to adopt it (2026-09-22).
+# It keys on a NAMING CONVENTION, not on types, so it cannot tell an INSTANT from
+# a DURATION. The justification "rewrite it anyway, the two forms are identical
+# for valid input so there is nothing to trade away" is TRUE FOR INSTANT vs
+# INSTANT and was overclaimed as universal when this script was first written.
+# For a DURATION compared to a threshold — mobile's `startMs - last.endMs <=
+# joinGapMs`, or `overlapMs >= OVERLAP_FLOOR_MS` — neither operand is a
+# wire-derived instant, `!(a > b)` costs readability, and it buys nothing.
+#
+# WHY THE RULE IS STILL SAFE HERE: measured, every `*Ms <op> *Ms` comparison in
+# qml/ is instant-vs-instant — 22 of them with `<`/`>`, zero duration-vs-
+# threshold. That is a property of THIS codebase's naming, not of the rule. On a
+# codebase where durations are also named `*Ms`, the rule would flag correct
+# sites and force either pointless rewrites or the exception list this comment
+# argues against — which is exactly why mobile measured five hits, zero
+# reachable, two of them durations, and correctly declined to build it. A rule
+# that starts life with an exception list is one nobody trusts.
+#
+# So if this ever fires on a comparison whose operands are durations: do not add
+# an exception here. Check that neither operand can be NaN, and if that holds,
+# the naming is what needs fixing — a duration called `*Ms` is what made the
+# rule ambiguous in the first place.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 RULE='[A-Za-z_][A-Za-z0-9_.]*Ms[[:space:]]*(<=|>=)[[:space:]]*[A-Za-z_][A-Za-z0-9_.]*Ms\b'

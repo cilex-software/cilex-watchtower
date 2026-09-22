@@ -244,6 +244,16 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   (`PlaybackScreen.qml` `_wasFitted`) was found only once the rule was made mechanical.
   **`tools/tests/window-guard-lint.sh` now enforces it** — it found all five known instances
   at the pre-fix commit and zero false positives across `qml/`. Run it with the other tests.
+  - **The rule's limit, and it is narrower than first written.** It keys on a NAMING
+    CONVENTION, not on types, so it cannot tell an instant from a duration. "Rewrite it
+    anyway, the two forms are identical for valid input" is true for **instant vs instant**
+    and was overclaimed as universal. For a duration against a threshold (`gapMs >=
+    joinGapMs`) neither operand is a wire instant, so `!(a > b)` costs readability and buys
+    nothing. It is safe here because, measured, all 22 `*Ms <op> *Ms` comparisons in `qml/`
+    are instant-vs-instant and none is a duration — a property of this codebase's naming,
+    not of the rule. cilex-pro-mobile ran it against their own code before adopting it, found
+    five hits, zero reachable and two of them durations, and correctly declined to build it:
+    a rule that starts life with an exception list is one nobody trusts.
   - The general shape, named by cilex-vision the same evening after shipping its twin
     (`if token in _bootstrap_tokens(request) and proj.host:` — where `proj.host` falls back
     to the truthy literal `"unknown"`, so the condition could never be false): *a guard
