@@ -152,6 +152,19 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
 
 ## Gotchas & caveats (don't regress)
 
+- **`pgrep -f` / `pkill -f` match YOUR OWN shell.** The pattern you pass is itself in your
+  command line, so `pkill -f watchtower` kills the shell running it, and
+  `until ! pgrep -f "…/warden.py run"; do sleep 1; done` never exits — it is matching itself.
+  This cost a **Warden restart that stopped and did not start** on 2026-09-22: the wall was
+  down for about three minutes while the loop span against its own process. It bit five
+  times in one session. Either exclude your own pid
+  (`for p in $(pgrep -f X); do [ "$p" != "$$" ] && kill "$p"; done`), match on something the
+  command line cannot contain, or — for a systemd unit — ask systemd
+  (`systemctl --user show wt-warden -p MainPID --value`) instead of scanning processes.
+- **Restarting `wt-warden` restarts the WALL.** Warden is the app's parent, so
+  `systemctl --user restart wt-warden` kills and respawns Watchtower and generates a crash
+  report with a forced-kill trigger. That is normal and the bundle uploads like any other —
+  do not read it as a real crash. Manage the wall this way and never with a bare `./run.sh`.
 - **Qt 6.4 resource prefix**: `qt_add_qml_module` defaults to `/<URI>`, not `/qt/qml/`. We pin `RESOURCE_PREFIX "/qt/qml"` so `main.cpp` loads `qrc:/qt/qml/Watchtower/qml/Main.qml`. `loadFromModule()` doesn't exist in 6.4 — load by URL.
 - **qml6glsink doesn't work** on Ubuntu 24.04's `gstreamer1.0-qt6` 1.24.2 (the `Qt6GLVideoItem` QML type never registers). We use **QtMultimedia** instead (verified VA-API HW decode). Don't reintroduce the direct-qml6glsink path without re-checking.
 - **Qt 6.4.2 is BANNED (CMake floor 6.8) — it has three fatal bugs; primary is 6.12, fallback 6.8.3 (see Build).** (0) QtMultimedia's GStreamer backend SIGSEGVs in libsoup-3.0 on recorded-playback seek/day-switch churn (the P0). (1) QtMultimedia `VideoOutput` leaks ~one frame-buffer per rendered frame: bisected to `m_sink->setVideoFrame()`, reproduced on OpenGL/Vulkan/software RHI and with **both** RtspVideoSource and QMediaPlayer, and custom render paths (QSGSimpleTextureNode + `createTextureFromImage`, QQuickPaintedItem/FBO) leak *worse* — there is **no client-side workaround on 6.4.2**. → ~260 MB/s on a 9-tile wall → earlyoom SIGTERM (the "Terminated" the operator saw) in ~30 s. (2) `GridLayout` SIGSEGVs in `QQuickGridLayoutBase::rearrange` after minimize/restore. **6.8.3 fixes both** (verified). The diagnostics that found it stay in `main.cpp`: a **fatal-signal handler** (prints signal + RSS at death → instantly tells OOM-SIGTERM from a code SIGSEGV) and `WT_TRACE=1` (`[WT-MEM] rss/live_pipelines/frames` every 2 s).
