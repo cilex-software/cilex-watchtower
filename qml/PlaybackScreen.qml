@@ -3171,6 +3171,7 @@ Item {
     ExportDrawer {
         id: exportDrawer
         z: 50
+        client: root.client
         onConfirmed: (s, e, mode, purpose, quality, compHeight, burnTs, burnName) => {
             if (!root.client) return;
             root._xt("export CONFIRMED cache=" + FrameCache.frames + "f pts=" + FrameClock.lastPtsMs.toFixed(0));

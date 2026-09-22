@@ -22,6 +22,7 @@ Item {
 
     // ---- inputs (set by openWith) ---------------------------------------
     property var camera: null
+    property var client: null          // PlaybackClient — for sessionHevcCapable, below
     property string cameraId: ""
     property var frags: []             // [{cs,ce,ws,we,codec,...}] ready fragments
     property double selStartMs: -1
@@ -177,7 +178,24 @@ Item {
     }
     // High-quality export is only offered if the WHOLE selection is still covered by
     // the high-res original; if any covered span has aged to the 720p sub, it isn't.
+    // CAN THE MANIFEST TESTIFY AT ALL? Only if we asked the server for the high-res
+    // original. macOS forces hevc_capable=false on the playback session (Apple's HLS
+    // rules bar HEVC-in-TS), so every fragment comes back as the 720p sub REGARDLESS of
+    // what is in storage — and reading retention out of that says "aged out" for
+    // footage recorded one minute ago. Verified the other way round on 2026-09-22:
+    // POST /review/exports with hevc_capable=true for 02:58 that morning returned
+    // 2560x1440, while this drawer was calling the same window aged out.
+    //
+    // So when we cannot know, we OFFER High and let CV adjudicate. Its 422 path already
+    // exists and already carries the backend's own explanation
+    // (PlaybackClient.cpp, createExport), which is a true statement from the party that
+    // knows, in place of a false one from the party that cannot. Diagnosis and fix from
+    // the Linux dev box (letter 2026-09-22, "the export drawer tells mac operators
+    // their footage aged out when it did not", option (a) + the copy half of (b)).
+    readonly property bool retentionKnowable: client ? client.sessionHevcCapable !== false : true
+
     readonly property bool highAvailable: {
+        if (!retentionKnowable) return true;          // unknown is not "aged out"
         if (!frags.length || durMs <= 0) return false;
         var anyHigh = false;
         for (var i = 0; i < frags.length; i++) {
@@ -188,6 +206,7 @@ Item {
         return anyHigh;
     }
     readonly property bool highMixed: {                   // some original, some aged-out within the selection
+        if (!retentionKnowable) return false;             // never claim a mix we cannot see
         var hi = false, lo = false;
         for (var i = 0; i < frags.length; i++) {
             var a = Math.max(startMs, frags[i].ws), b = Math.min(endMs, frags[i].we);

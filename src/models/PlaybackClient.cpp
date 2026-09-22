@@ -412,6 +412,12 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     // 360p beats a 1440p poster; the quality-tier conversation belongs to CV, not this flag).
     hevcCapable = false;
 #endif
+    // Record what we are actually sending, so the export drawer can tell whether the
+    // manifest it gets back is capable of testifying about retention at all.
+    if (m_sessionHevcCapable != hevcCapable) {
+        m_sessionHevcCapable = hevcCapable;
+        emit sessionHevcCapableChanged();
+    }
     // [PBTIME] pairs with the QML open-path stage logs (see PlaybackScreen.qml).
     static const bool pbTime = qEnvironmentVariableIsSet("WT_TRACE")
                                || qEnvironmentVariableIsSet("WT_TTFF_DAYS");

@@ -46,6 +46,13 @@ class PlaybackClient : public QObject
     // while work is happening, so a stalled export is distinguishable from a live one -
     // which is the whole complaint this exists to answer (operator, 2026-09-22: a 1 h
     // export with no feedback, "clueless if Watchtower was exporting it or frozen").
+    // What we ACTUALLY asked the server for on the current playback session. macOS
+    // forces this false (see the note in requestSession), which means the manifest
+    // comes back as the 720p sub for EVERY window — so on this platform the manifest
+    // is not evidence about what is still in high-res storage, and anything that reads
+    // retention out of it will be wrong 100% of the time. The export drawer uses this
+    // to know whether it may draw a conclusion at all.
+    Q_PROPERTY(bool sessionHevcCapable READ sessionHevcCapable NOTIFY sessionHevcCapableChanged)
     Q_PROPERTY(bool exportActive READ exportActive NOTIFY exportStateChanged)
     Q_PROPERTY(QString exportPhase READ exportPhase NOTIFY exportStateChanged)
     Q_PROPERTY(qreal exportFraction READ exportFraction NOTIFY exportStateChanged)
@@ -60,6 +67,7 @@ public:
     bool authFault() const { return m_authFault; }
     QString authFaultDetail() const { return m_authFaultDetail; }
     bool serverUnresponsive() const { return m_serverUnresponsive; }
+    bool sessionHevcCapable() const { return m_sessionHevcCapable; }
     bool exportActive() const { return m_exportActive; }
     QString exportPhase() const { return m_exportPhase; }
     qreal exportFraction() const { return m_exportFraction; }
@@ -182,6 +190,7 @@ signals:
     void loggedInChanged();
     void statusChanged();
     void serverUnresponsiveChanged();
+    void sessionHevcCapableChanged();
     void exportStateChanged();
     void authFaultChanged();
     void camerasResolved();
@@ -255,6 +264,7 @@ private:
     bool m_loggingIn = false;
     QString m_status;
     bool m_serverUnresponsive = false;
+    bool m_sessionHevcCapable = true;
     bool m_exportActive = false;
     QString m_exportPhase;
     qreal m_exportFraction = -1;
