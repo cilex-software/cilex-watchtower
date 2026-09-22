@@ -26,6 +26,11 @@ Item {
     property real selSec: 0
     property int selClips: -1        // < 0 = unknown (the coverage contract has no per-day count)
     property double selMs: 0
+    // Coverage has not answered (or its answer failed). UNKNOWN IS NOT EMPTY: with
+    // this set, no day may render as a confirmed blank and the label block says so
+    // outright. On 2026-09-22 a refresh that hit a 111 s API stall wiped the ribbon
+    // and it read "no footage this day" for a camera with 74,899 s recorded that day.
+    property bool pending: false
 
     signal daySelected(string key)
 
@@ -103,12 +108,14 @@ Item {
             Text {
                 width: parent.width
                 elide: Text.ElideRight
-                text: rib.tiny ? PbFmt.daysW(rib._daysWithFootage)
+                text: rib.pending ? qsTr("coverage unknown")
+                      : rib.tiny ? PbFmt.daysW(rib._daysWithFootage)
                                : (rib.selSec > 0
                                   ? (PbFmt.durM(rib.selSec * 1000)
                                      + (rib.selClips >= 0 ? " · " + PbFmt.clips(rib.selClips) : ""))
                                   : qsTr("no footage this day"))
-                color: rib.selSec > 0 || rib.tiny ? Theme.ink2 : Theme.ink3
+                color: rib.pending ? Theme.ink3
+                       : rib.selSec > 0 || rib.tiny ? Theme.ink2 : Theme.ink3
                 font.family: Theme.fontMono; font.pixelSize: 9
             }
         }
@@ -182,7 +189,9 @@ Item {
                               : rib.compact ? PbFmt.wd1(cell.d.ms) : PbFmt.wd(cell.d.ms)
                         color: cell.isSel ? Theme.accent
                                : cell.monthStart ? Theme.ink2
-                               : cell.has ? Theme.ink3 : Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.32)
+                               : cell.has ? Theme.ink3
+                               : rib.pending ? Theme.ink3
+                               : Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.32)
                         font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.2
                     }
                     Text {
@@ -190,7 +199,9 @@ Item {
                         width: parent.width; horizontalAlignment: Text.AlignHCenter
                         text: cell.d ? new Date(cell.d.ms).getDate() : ""
                         color: cell.isSel ? Theme.accent
-                               : cell.has ? Theme.ink2 : Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.42)
+                               : cell.has ? Theme.ink2
+                               : rib.pending ? Theme.ink3
+                               : Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.42)
                         font.family: Theme.fontMono; font.pixelSize: 10
                         font.weight: cell.isSel ? Font.DemiBold : Font.Normal
                     }
@@ -202,6 +213,17 @@ Item {
                             visible: cell.has
                             height: Math.max(1, Math.round(Math.min(1, cell.d.sec / 21600) * 4))
                             color: Theme.good
+                        }
+                        // The unknown mark. A day with no green bar and nothing else
+                        // reads as "measured, and there is nothing here" - which is the
+                        // lie. A 1px neutral dash says we have not been told, and it can
+                        // never be mistaken for the green bar's "this much".
+                        Rectangle {
+                            anchors { left: parent.left; right: parent.right; bottom: parent.bottom
+                                      leftMargin: 3; rightMargin: 3 }
+                            visible: rib.pending && !cell.has
+                            height: 1
+                            color: Qt.rgba(110 / 255, 102 / 255, 87 / 255, 0.45)
                         }
                     }
                 }

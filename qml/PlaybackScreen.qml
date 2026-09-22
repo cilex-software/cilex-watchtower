@@ -1345,6 +1345,16 @@ Item {
         function onCoverageReady(cameraId, available, retentionDays, days) {
             if (cameraId !== root.camId) return;
             root.coveragePending = !available;
+            // A FAILED answer must not erase a good one. The once-a-minute refresh
+            // above re-asks while the operator is mid-review, and on 2026-09-22 those
+            // refreshes met a 111 s API stall: overwriting footageDays/dayInfo with the
+            // empty payload turned a correct ribbon into "no footage this day" for a
+            // camera that had 74,899 s recorded that very day. Keep the last known-good
+            // coverage and let coveragePending state the truth - unknown, not empty.
+            // A camera change resets both in openFor(), so this can never show another
+            // camera's days. _covWaitResume() still runs: a day click parked behind
+            // coverage must not be stranded because the refresh failed.
+            if (!available) { root._covWaitResume(); return; }
             if (available && retentionDays > 0) root.retentionDays = retentionDays;
             var out = [], info = ({});
             for (var i = 0; i < days.length; i++) {
@@ -2692,7 +2702,12 @@ Item {
                     visible: (root.loading || (player.mediaStatus === MediaPlayer.LoadingMedia)
                               || (root._ttffPending && root.frags.length > 0))
                              && root.errorText === "" && !root.blocked
-                    label: qsTr("Loading recording…")
+                    // A stalled backend is not "loading". Saying so is the whole
+                    // difference between a guard waiting and a guard filing a fault
+                    // against an app that looks hung (2026-09-22: 110 s of this text).
+                    label: (root.client && root.client.serverUnresponsive)
+                           ? qsTr("Server isn\'t responding — retrying…")
+                           : qsTr("Loading recording…")
                 }
 
                 // ---- top-left overlay: back · mode chips · camera ----------
@@ -2993,6 +3008,7 @@ Item {
                 id: ribbon
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 days: root.ribbonDays
+                pending: root.coveragePending
                 selKey: root.selDayKey
                 selMs: root._selDay0
                 selSec: root.selDaySec
@@ -3009,6 +3025,7 @@ Item {
                 hasPlayhead: root.frags.length > 0
                 segCount: root._cov.n
                 coveredPct: root._cov.pct
+                pending: root.loading || (root.client ? root.client.serverUnresponsive : false)
                 lastMotionMs: root.lastMotionMs
                 markMs: root.markMs
                 showMotion: root.showMotionLane

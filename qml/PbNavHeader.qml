@@ -18,6 +18,10 @@ Item {
     property bool hasPlayhead: false
     property int segCount: 0
     property int coveredPct: 0
+    // The timeline has not answered for this window, so its segment count is not a
+    // measurement yet. Without this, an unopened session renders as the definite
+    // "no footage in this window" (2026-09-22, while the archive was in fact intact).
+    property bool pending: false
     property double lastMotionMs: -1
     property double markMs: -1         // marked-range duration, ms; <= 0 = no range
     property bool showMotion: true
@@ -98,6 +102,7 @@ Item {
         Rectangle {
             id: covCell
             readonly property bool zero: hdr.segCount <= 0
+            readonly property bool unknown: hdr.pending
             Layout.preferredWidth: covRow.implicitWidth + 20
             Layout.fillHeight: true
             color: "transparent"
@@ -106,11 +111,12 @@ Item {
                 id: covRow
                 anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                 spacing: 4
-                Text { visible: !covCell.zero; text: PbFmt.segs(hdr.segCount)
+                Text { visible: !covCell.zero && !covCell.unknown; text: PbFmt.segs(hdr.segCount)
                     color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 9; font.weight: Font.DemiBold }
-                Text { text: covCell.zero ? qsTr("no footage in this window")
+                Text { text: covCell.unknown ? qsTr("coverage unknown")
+                             : covCell.zero ? qsTr("no footage in this window")
                                           : "· " + qsTr("%1% covered").arg(hdr.coveredPct)
-                    color: covCell.zero ? Theme.bad : Theme.ink3
+                    color: covCell.unknown ? Theme.ink3 : covCell.zero ? Theme.bad : Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 9 }
             }
         }

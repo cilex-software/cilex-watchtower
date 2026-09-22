@@ -27,6 +27,12 @@ class PlaybackClient : public QObject
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool authFault READ authFault NOTIFY authFaultChanged)
     Q_PROPERTY(QString authFaultDetail READ authFaultDetail NOTIFY authFaultChanged)
+    // True once a control call (session POST / coverage GET) has aborted with NO HTTP
+    // response at all, and until one answers again. Distinct from authFault (the server
+    // answered, and said no) and from status (which narrates a healthy open). The
+    // screen shows it INSTEAD of "Loading recording...", so a guard can tell a stalled
+    // backend from a hung app - see the 2026-09-22 111 s API stall.
+    Q_PROPERTY(bool serverUnresponsive READ serverUnresponsive NOTIFY serverUnresponsiveChanged)
 public:
     explicit PlaybackClient(QObject *parent = nullptr);
     ~PlaybackClient() override;               // stops + joins the proxy thread
@@ -35,6 +41,7 @@ public:
     QString status() const { return m_status; }
     bool authFault() const { return m_authFault; }
     QString authFaultDetail() const { return m_authFaultDetail; }
+    bool serverUnresponsive() const { return m_serverUnresponsive; }
 
     // Ensure a session cookie exists (auto-login with configured/dev creds),
     // then resolve camera_ids from /streams. Safe to call repeatedly.
@@ -151,6 +158,7 @@ public:
 signals:
     void loggedInChanged();
     void statusChanged();
+    void serverUnresponsiveChanged();
     void authFaultChanged();
     void camerasResolved();
     // tag: OWNERSHIP token echoed from openSession(). Multiple consumers share
@@ -182,6 +190,7 @@ signals:
 
 private:
     void setStatus(const QString &s);
+    void setServerUnresponsive(bool v);
     void applyAuthCookie();
     void setAuthFault(bool v, const QString &detail);   // mirror the access_token into our private NAM's jar
     void fetchStreams();
@@ -215,6 +224,7 @@ private:
     QString m_authFaultDetail;         // ownership token of the in-flight openSession
     bool m_loggingIn = false;
     QString m_status;
+    bool m_serverUnresponsive = false;
     QHash<QString, QString> m_ipToCamId;
     QHash<QString, QString> m_macToCamId;
     QHash<QString, QString> m_exportDest;   // jobId -> local file path

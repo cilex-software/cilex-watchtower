@@ -53,6 +53,36 @@ static int runningTo(QNetworkAccessManager *nam, const QString &host)
     return n;
 }
 
+namespace {
+// Control-call transfer budget (ms) for the two calls a stalled backend leaves the
+// operator staring at: the session POST and the coverage GET.
+//
+// Qt's setTransferTimeout is an IDLE timeout, not a deadline - it resets on every
+// byte, so a slow-but-progressing transfer is never aborted (the note at
+// HlsProxy.cpp:115 spells this out). Both of these return small JSON in one burst,
+// so in practice the window IS the queue wait, which is exactly what needs bounding:
+// on 2026-09-22 CV's API stalled ~111 s (both /events polls returned in the same
+// millisecond, while RTSP on :8554 kept flowing) and the session POST simply hung.
+// The screen read "Loading recording..." for 110 s with no error, because
+// PlaybackClient was the one client here that set no timeout at all - AuthController,
+// WatchClient and HlsProxy all do.
+//
+// SIZED OFF MEASUREMENTS, NOT FEEL, because too tight is actively harmful. A timeout
+// surfaces as code 0, which requestSession() already retries twice at 500 ms, and
+// EVERY attempt calls cancelPrefetches() - so a budget under the real worst case
+// would tear the read-ahead down three times per jump and re-create the abandoned-
+// session waste that the 2026-09-22 read-ahead fix removed. The numbers it must
+// clear: coverage 9,847 ms under the startup burst (against 1,030 ms idle - see
+// fetchCoverage), worst full jump 8,233 ms on the fixed build, and the proxy's own
+// upstream bound of 10,000 ms. 30 s is ~3x the worst of those, costs nothing on a
+// healthy path (Qt arms a timer that never fires), and still turns a two-minute hang
+// into a stated fault in a quarter of the time.
+const int s_apiTimeoutMs = []{
+    const int v = qEnvironmentVariableIntValue("WT_PB_API_TIMEOUT_MS");
+    return v != 0 ? v : 30000;
+}();
+}
+
 PlaybackClient::PlaybackClient(QObject *parent)
     : QObject(parent)
 {
@@ -115,6 +145,17 @@ PlaybackClient::~PlaybackClient()
         m_proxyThread->quit();
         m_proxyThread->wait(3000);            // m_proxy is deleteLater'd on the thread's finished signal
     }
+}
+
+void PlaybackClient::setServerUnresponsive(bool v)
+{
+    if (m_serverUnresponsive == v)
+        return;
+    m_serverUnresponsive = v;
+    if (v)
+        qWarning().noquote() << "[WT-DEGRADED] subsystem=playback reason=no-response "
+                                "action=retrying budget_ms=" << s_apiTimeoutMs;
+    emit serverUnresponsiveChanged();
 }
 
 void PlaybackClient::setStatus(const QString &s)
@@ -310,6 +351,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     setStatus(attempt == 0 ? QStringLiteral("Opening session…") : QStringLiteral("Reconnecting…"));
     QNetworkRequest req{QUrl(m_baseUrl + "/review/sessions")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    req.setTransferTimeout(s_apiTimeoutMs);
     QJsonObject body{{"camera_id", cameraId},
                      {"wall_start", wallStartIso},
                      {"wall_end", wallEndIso},
@@ -422,6 +464,13 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             // reset). Usually transient — retry a couple of times with a short
             // backoff before surfacing the failure (a plain HTTP POST, no pipeline
             // teardown involved, so retrying here is safe).
+            // SAY IT ON THE FIRST ABORT rather than after the ladder exhausts. Three
+            // attempts at s_apiTimeoutMs is ~91 s of silence, and silence is the fault
+            // the operator actually reported on 2026-09-22 - a spinner a guard cannot
+            // tell from a hung app. The retries continue underneath, so a transient
+            // blip still self-heals with nothing said and nothing for anyone to do.
+            if (code == 0)
+                setServerUnresponsive(true);
             if (code == 0 && attempt < 2) {
                 QTimer::singleShot(500, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, tag]() {
                     requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, attempt + 1, tag);
@@ -436,6 +485,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             setStatus(QString());
             return;
         }
+        setServerUnresponsive(false);            // it answered; drop the banner
         const auto obj = QJsonDocument::fromJson(raw).object();
         const QString sid = obj.value("session_id").toString();
         if (sid.isEmpty()) {
@@ -645,6 +695,7 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     // arrive late. Measured 9,847 ms under the burst against 1,030 ms idle, and in
     // one launch it lost the race to the guard's click by 228 ms.
     req.setPriority(QNetworkRequest::HighPriority);
+    req.setTransferTimeout(s_apiTimeoutMs);
     QElapsedTimer covTimer;
     covTimer.start();
     m_coverageInflight.insert(cameraId);
@@ -660,9 +711,15 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
         }
         if (code != 200) {
             // Endpoint not shipped yet (404) or error: honest pending state.
+            // code 0 is specifically "no HTTP response" - timed out, unreachable or
+            // reset - which is the banner's condition; a 404/500 is the server
+            // answering, however unhelpfully, so it must not raise it.
+            if (code == 0)
+                setServerUnresponsive(true);
             emit coverageReady(cameraId, false, 0, {});
             return;
         }
+        setServerUnresponsive(false);
         const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
         const int retentionDays = obj.value("retention_days").toInt();
         QVariantList days;
