@@ -237,3 +237,56 @@ not *bandwidth* — read-ahead still shares the link — and a pre-warm that has
 returned before the player asks cannot help that jump. Closing the remaining tail
 means making read-ahead cheaper or smarter (it is still fetching ~5 MB segments
 speculatively), not re-arbitrating sockets.
+
+## Full 50-jump re-measurement on the fixed build (v1.1.501)
+
+Identical targets to the "before" run (same fixed seed), same camera
+(192.168.1.117), same window (22:00 Mon → 03:00 Tue), read-ahead still ENABLED,
+over the tailnet as every run in this report was.
+
+| | BEFORE | AFTER | |
+|---|---|---|---|
+| jump **p50** | 15,844 ms | **1,115 ms** | **14×** |
+| jump mean | 15,564 ms | 2,368 ms | 7× |
+| jump p90 | 24,333 ms | 5,410 ms | 4× |
+| jump max | 31,676 ms | 8,233 ms | 4× |
+| jumps that never landed | 3 | **0** | |
+| `session_http` (CV's share) | 218 ms | 217 ms | unchanged — never the problem |
+| `source_set` | 242 ms | 232 ms | unchanged |
+| `first_frame` p50 | 16,189 ms | **1,043 ms** | **16×** |
+| playlist fetch p50 / max | 4,935 / 9,443 ms | **117 / 308 ms** | **42×** |
+| time-to-headers p50 | 4,852 ms | 118 ms | 41× |
+| **GUI freezes > 1 s** | **46** | **0** | |
+| total UI frozen | 468 s | 6 s | 81× |
+| longest single freeze | 17,090 ms | 769 ms | 22× |
+| speculative bytes pulled | 4,167 MB | 148 MB | 28× |
+
+Mechanisms fired on essentially every jump: **54 prewarm, 50 prewarm-hit
+(50/50 jumps), 52 prefetch-cancel.**
+
+### Did each fix do its job?
+
+- **Pool separation** — time-to-headers 4,852 → 118 ms. Nothing queues behind
+  read-ahead any more; that was the whole 8 s.
+- **Playlist pre-warm** — 50 hits in 50 jumps, playlist p50 4,935 → 117 ms, and
+  **GUI freezes over 1 s went 46 → 0**. The freeze is gone as a class, not merely
+  shortened: the longest remaining stall in the whole run is 769 ms.
+- **Cancel on abandon** — speculative transfer 4,167 → 148 MB (28×), with
+  read-ahead still on and still useful for in-session back-seeks.
+
+### Where the remaining ~1.1 s goes
+
+    0    ->  232 ms   session request + manifest + handing the player a URL
+                      (217 ms of that is CV answering — the network floor)
+    232  -> 1043 ms   player fetches the FIRST SEGMENT and decodes it  (811 ms)
+
+The playlist no longer appears in the budget at all. The single largest item is
+now **fetching the first video segment**: 158 player-served segment fetches, p50
+1,800 ms, p90 6,208 ms — but only **118 ms** of that is waiting for headers, so it
+is genuine transfer of multi-MB segments, not queueing. That also explains the
+tail: 17 of 50 jumps take ≥3 s, and they are the ones landing where the first
+segment is large or cold-rendered.
+
+Further gains therefore need **smaller or warmer first segments**, which is CV's
+side (segment size / render-ahead), not more client-side scheduling. The client
+is no longer wasting time; it is now waiting on bytes it genuinely needs.
