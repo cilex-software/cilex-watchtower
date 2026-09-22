@@ -135,12 +135,16 @@ Item {
     // recent list (its first page is enough; those are rare/recent).
     function loadTimeline() {
         motionEpisodes = []; motionBuckets = []; bucketMode = false;
-        if (!client || camId === "" || tlEndMs <= tlStartMs) return;
+        // `!(a > b)` rather than `a <= b`: IDENTICAL for every finite pair (trichotomy),
+        // and it fires on NaN where `<=` silently does not. See tools/tests/window-guard.qml.
+        if (!client || camId === "" || !(tlEndMs > tlStartMs)) return;
         client.fetchTimeline(camId, new Date(tlStartMs).toISOString(), new Date(tlEndMs).toISOString(), 0);
     }
     function loadMotionEvents() {
         pointEvents = []; eventList = [];
-        if (camId === "" || tlEndMs <= tlStartMs) return;
+        // `!(a > b)` rather than `a <= b`: IDENTICAL for every finite pair (trichotomy),
+        // and it fires on NaN where `<=` silently does not. See tools/tests/window-guard.qml.
+        if (camId === "" || !(tlEndMs > tlStartMs)) return;
         motionEvents.search(camId, new Date(tlStartMs).toISOString(), new Date(tlEndMs).toISOString());
     }
     function rebuildEvents() {
@@ -2079,7 +2083,7 @@ Item {
     // that whole day; on a 1H window the count would be the window's, not the
     // day's, and the block claims to state the day.
     readonly property int selDayClips: {
-        if (selectedDay === "" || tlEndMs <= tlStartMs) return -1;
+        if (selectedDay === "" || !(tlEndMs > tlStartMs)) return -1;
         var dayEnd = Math.min(_selDay0 + 86400000, Date.now());
         return (tlStartMs <= _selDay0 + 60000 && tlEndMs >= dayEnd - 60000) ? tlFrags.length : -1;
     }

@@ -537,7 +537,9 @@ Item {
     }
     function loadWallTimeline() {
         motionByCam = ({});
-        if (!client || winEndMs <= winStartMs) return;
+        // `!(a > b)` rather than `a <= b`: identical for every finite pair, and it fires
+        // on NaN where `<=` does not — which is the form line 156 already used.
+        if (!client || !(winEndMs > winStartMs)) return;
         var ll = laneList, s = new Date(winStartMs).toISOString(), e = new Date(winEndMs).toISOString();
         // wide windows → ask the server for density bins (compact, fast) instead of
         // every episode; narrow windows → precise episode spans.

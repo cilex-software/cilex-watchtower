@@ -52,24 +52,43 @@ clears. Backend items map to the living letter
    case; deliberately not built, because what to show on a working wall is an
    operator/design decision, not a client one.
 
-8. **The `/review` manifest window is parsed unguarded in QML** — small, but do NOT
-   ship it blind. `root.winStartMs = Date.parse(meta.wall_start)` appears bare in
-   `PlaybackScreen.qml:1160,1161,1191,1192` and `WallPlayback.qml:686,687,702`. An
-   unreadable `wall_start` does not degrade the timeline, it makes it **NaN** — and every
-   comparison against NaN is false, so the screen renders an empty window that looks like
-   "no footage here" rather than "I could not read this". This is the highest-cost instance
-   of the family fixed in `f80c028`: cilex-pro-mobile named the same route on their side as
-   the one where a NaN *"does not render a wrong time, it empties the footage intervals the
-   whole archive screen is built on"* (2026-09-22).
-   **Why it is not done:** the precedent (`b31c0ee`) says a session that cannot be used is
-   reported as FAILED, not handed on as ready — but a false positive there breaks playback
-   on a live wall, and the manifest-level `wall_start` format is **not measured** (the
-   *fragment*-level one demonstrably parses with `Qt::ISODateWithMs`, since playback works;
-   the window-level one is assumed to match and has not been checked against a real
-   manifest). The session token here is expired and the wall is up, so I could not verify it
-   tonight and would not guess. `2527306` wires the SHAPE detector into all five `/review`
-   timestamp keys, so a naive value now announces itself; the NaN narrowing wants one live
-   manifest first.
+8. **The `/review` manifest window — guards fixed; the parse itself still open.**
+   `root.winStartMs = Date.parse(meta.wall_start)` is bare at
+   `PlaybackScreen.qml:1160,1161,1191,1192` and `WallPlayback.qml:686,687,702`, so an
+   unreadable window is NaN.
+   **CORRECTION 2026-09-22 — this entry first said the consequence was "an empty window that
+   looks like no footage". That was asserted, not traced, and it was wrong in both
+   directions.** Measured: the guards meant to catch "no usable window" read
+   `tlEndMs <= tlStartMs`, which is **false** against NaN, so they fail OPEN — and the next
+   line calls `new Date(NaN).toISOString()`, which **throws `RangeError`**. Not an empty
+   timeline: a guard failing open into a thrown exception. cilex-pro-mobile traced every
+   consumer on their side rather than assuming, found their own equivalent already guarded,
+   and corrected a claim they had made in the same breath; doing the same here is what turned
+   this up.
+   **DONE** (see `git log -S'!(tlEndMs > tlStartMs)'`): all four guards now read `!(end > start)` — identical to `<=` for
+   every finite pair by trichotomy, and it fires on NaN. Safe without a live manifest
+   precisely because no valid window changes behaviour. `WallPlayback.qml:156` already used
+   this form, so the rule was in the codebase and three later guards did not follow it.
+   Pinned by `tools/tests/window-guard.qml` (8/8), which also pins the throw.
+   **STILL OPEN, and the blocker has MOVED — both original reasons are now cleared:**
+   - *"the manifest-level `wall_start` format is not measured"* — cleared by cilex-vision from
+     source (2026-09-22): `review.py:549-550` is the manifest window, `:403-404` the fragment
+     pair, and **both were `.isoformat()` before their change and both are `iso_ms` after** —
+     they have never differed in either direction. `wall_start: datetime` is a required,
+     non-Optional Pydantic field (`review.py:63,216`), so the key is always a non-empty
+     offset-bearing string. Their reading of their source, not a live capture of mine.
+   - *"a C++ guard might refuse a manifest QML could draw"* — my own worry, and measured
+     false here: `Qt::ISODateWithMs` and QV4's `Date.parse` agree on all six shapes tested,
+     **including the space-separated form** I expected to diverge. No parser asymmetry, so a
+     C++-side decision cannot be stricter than the screen that renders it.
+
+   What remains is therefore **not** a format question but a **UI design call**: what three
+   screens should SHOW when a session arrives with an unreadable window. The precedent
+   (`b31c0ee`) says report it FAILED rather than hand on a ready session, and that is almost
+   certainly right — but it is an operator-facing state across `PlaybackScreen`,
+   `WallPlayback` and the export path, and this box will not design it blind against a live
+   wall. Until then the guards no longer throw and `2527306`'s detector announces a naive
+   value on all five `/review` keys.
 
 
 ## Blocked — what clears each
