@@ -1,4 +1,5 @@
 #include "WatchClient.h"
+#include "WireTime.h"
 #include "ServerMessage.h"
 #include "ServerCodes.h"
 #include "StationNam.h"
@@ -137,7 +138,7 @@ void WatchClient::refreshWatch()
         m_guardId = o.value(QStringLiteral("guard_id")).toString();
         m_guardName = o.value(QStringLiteral("display_name")).toString();
         m_shiftId = o.value(QStringLiteral("shift_id")).toString();
-        m_startedAt = o.value(QStringLiteral("started_at")).toString();
+        m_startedAt = wt::wireInstant(o.value(QStringLiteral("started_at")), "started_at");
         emit stateChanged();
         if (!m_guardId.isEmpty())
             fetchWatchstate();

@@ -1,4 +1,5 @@
 #include "StorageHealth.h"
+#include "WireTime.h"
 #include "AuthController.h"
 
 #include <QNetworkAccessManager>
@@ -50,8 +51,8 @@ void StorageHealth::fetch()
         m_reachable = o.value("storage_agent_reachable").toBool(true);
         m_circuitOpen = o.value("circuit_open").toBool();
         m_state = o.value("state").toString();
-        m_lastOkAt = o.value("last_ok_at").toString();
-        m_checkedAt = o.value("checked_at").toString();
+        m_lastOkAt = wt::wireInstant(o.value("last_ok_at"), "last_ok_at");
+        m_checkedAt = wt::wireInstant(o.value("checked_at"), "checked_at");
         m_consecutiveFailures = o.value("consecutive_failures").toInt();
         m_reason = o.value("reason").toString();
         m_lastError = o.value("last_error").toString();
