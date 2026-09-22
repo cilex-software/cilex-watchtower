@@ -263,6 +263,27 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   - And the mechanism, from cilex-pro-mobile, who hit it in their repo the same day: *the
     rule was written once and not made structural, so it held where it was written and
     nowhere else.* That is the argument for the lint over the four fixes.
+- **Your own `setTransferTimeout` firing is `TimeoutError` (4), NOT `OperationCanceledError`
+  (5).** Measured on **Qt 6.12.0** here 2026-09-22 against a socket that accepts and never
+  answers: `error=TimeoutError (4)`, `httpStatus=0`. The macOS session measured the same on
+  **Qt 6.11** — so it holds across both toolchains, and a guard that tests only
+  `OperationCanceledError` silently never matches. That exact defect shipped in an interim
+  cut of `PlaybackClient`'s "do not retry our own timeout" rule and let the retry ladder fire
+  three times *with the guard in place*. It surfaced only because their harness counted what
+  the SERVER would have seen rather than what the client believed it had done — a client-side
+  assertion would have passed. The shipped form tests **both** codes
+  (`PlaybackClient.cpp:531-532`), which is right; keep it that way if you bound a request on
+  the Windows or Linux side.
+- **Nothing scrapes `:8000/metrics`, so there is no metric history for any incident.**
+  `pilot-prometheus` is *defined* (`cilex-vision/infra/docker-compose.pilot.yml:175`,
+  `prom/prometheus:v2.53.1`) but the container **does not exist** on this host, and the
+  `infra_prometheus_data` volume's newest TSDB block is **2026-08-22 19:37** — a month stale.
+  `alertmanager` runs and its config points at `prometheus/rules/*.yml`, which makes it look
+  like monitoring is live when nothing is scraping. Checked 2026-09-22 while trying to answer
+  the 111 s API stall from history; the answer is that history does not exist. CV's
+  `query_db_latency_ms` **does** already include the `pool.acquire()` wait (their
+  `utils/db.py` starts `t0` before the acquire), so the metric is the right one — it is
+  simply never recorded. Capture it live with `tools/pilot-stall-capture.sh`.
 
 ## Verification convention
 
