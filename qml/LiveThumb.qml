@@ -54,6 +54,7 @@ Rectangle {
     // QML Image — the query-api cached snapshot endpoint requires auth, and a bare QML Image sends no cookie →
     // 401 "Host requires authentication" → blank tile. Strip scheme+host (the backend echoes our connect host,
     // so the provider's baseUrl + path resolves to the same URL).
+    // (Claim about cilex-vision, written 2026-06-29 and not re-checked since.)
     readonly property string _provBase: _base === "" ? "" : ("image://cvframe/" + _base.replace(/^[a-z]+:\/\/[^\/]+\//, ""))
     property int _tick: 0
     property bool _showA: true          // which buffer is on screen

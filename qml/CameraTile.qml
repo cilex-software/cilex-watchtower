@@ -241,6 +241,7 @@ Item {
     // Asks the wall to promote/demote this tile's HD stream. In the grid the wall
     // gates promotion against a concurrency cap (go2rtc transcode budget) rather
     // than letting the tile flip itself; a focused (non-grid) tile flips freely.
+    // (Claim about go2rtc, written 2026-06-16 and not re-checked since.)
     signal hdToggleRequested()
 
     // Capture a still and announce it. Prefer the main stream via go2rtc's

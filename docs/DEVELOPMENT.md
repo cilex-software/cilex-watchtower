@@ -293,6 +293,29 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   the argument for the rule rather than the vigilance: quoting code in a commit message is
   normal and the failure is silent, so the only reliable defence is never using the form
   that breaks.
+- **A comment asserting how ANOTHER system behaves must say when, or how you know.**
+  Enforced on new lines by `tools/tests/cross-system-claim-lint.py`, wired into the
+  `pre-commit` hook (`WT_NO_CLAIM_LINT=1` skips it). A date, a source citation
+  (`review.py:1430`), a letter reference, or "measured"/"verified" all satisfy it.
+  **Diff-scoped on purpose:** cilex-pro-mobile declined a lint of mine on 2026-09-22
+  because it would have begun life with an exception list, and they were right — so this
+  one judges only the lines a commit ADDS and starts at zero.
+  - **Why it exists, measured 2026-09-23.** `qml/ExportDrawer.qml:12`, written 2026-05-27,
+    still said cilex-vision's `POST /review/exports` "accepts only `{camera_id, wall_start,
+    wall_end, mode}`" and that "Purpose … ha[s] no server field yet". Both went false
+    without anyone noticing: CV's model (`review.py:1430-1441`) carries `group_id`,
+    `purpose` and `hevc_capable`, and **our own** `PlaybackClient::createExport`
+    (`:1150-1151`) sends them. The comment contradicted a change we shipped ourselves
+    (`c5b4d98`) and outlived it by four months.
+  - **Scope, measured rather than guessed.** A first pass counted 127 offenders; that was
+    inflated four-fold. 569 comment lines name another system, but 213 are a bare "backend"
+    meaning TLS/media/GStreamer, 243 are architectural rather than behavioural, and 67
+    already carry a date. **13 made a behavioural claim with neither a date nor a
+    citation** — one false (above), ten now annotated with their `git blame` date, two
+    describing our own code and left alone.
+  - **Dates come from `git blame`, never invented.** "Written YYYY-MM-DD and not re-checked
+    since" is verifiable and is what a reader needs; a date nobody measured would be the
+    same defect wearing the fix's clothes.
 
 ## Verification convention
 

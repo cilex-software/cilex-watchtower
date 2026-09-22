@@ -60,6 +60,7 @@ Item {
     // A rung that failed to deliver after a rung that DID is not retried for 15 s
     // (e.g. CV's -opt budget answering 503): the surface returns to the last rung
     // that played. Recovery, not an upgrade probe — auto step-UP stays off.
+    // (Claim about cilex-vision, written 2026-09-11 and not re-checked since.)
     property var _rungBlockedUntil: ({})
     property bool _prevRungPlayed: false
     function _rungBlocked(i) { var t = _rungBlockedUntil[i]; return t !== undefined && Date.now() < t; }

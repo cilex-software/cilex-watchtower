@@ -703,6 +703,7 @@ Item {
         // landing 15 s in fell beyond them — into "3 s before the end of a 10 s playlist", the
         // dead zone again, eight re-opens in a row (n93). Scrubbing back past the session start
         // is one more re-open (_inDeadZone), ~0.4 s when the segments are cached.
+        // (Claim about cilex-vision, written 2026-09-12 and not re-checked since.)
         playbackClient.openSession(ev.cam.id,
             new Date(wall - 5000).toISOString(),
             new Date(Math.max(ep.endMs, wall) + 15000).toISOString(), true, _curTag);

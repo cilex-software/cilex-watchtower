@@ -9,12 +9,25 @@ import Watchtower
 // nudges, options, required Purpose, a gap-warning ribbon computed from the real
 // session fragments, and a centered confirmation modal.
 //
-// Backend reality: cilex-vision's POST /review/exports accepts only
-// {camera_id, wall_start, wall_end, mode}. Purpose, the timestamp/camera-name
-// overlays and audio have no server field yet — and exports are stream-copy, so
-// burn-in overlays need a new backend path. The full UI is built per design and
-// those choices are collected here for the upcoming API (see the functional spec
-// in docs/letters/), but only the supported fields are sent on confirm.
+// CORRECTED 2026-09-23. This block said, undated, that "POST /review/exports accepts
+// only {camera_id, wall_start, wall_end, mode}" and that "Purpose ... ha[s] no server
+// field yet". Both were true when written on 2026-05-27 and both went false without
+// anyone noticing — falsified by cilex-vision's own model AND by our own client:
+//
+//   cilex-vision review.py:1430-1441   camera_id, wall_start, wall_end, mode,
+//                                      group_id (I7), purpose (A1), hevc_capable
+//   PlaybackClient::createExport       sends hevc_capable always, group_id and
+//                                      purpose when non-empty
+//
+// `purpose` in particular shipped in c5b4d98 and is recorded as done in
+// docs/BACKLOG.md, so this comment contradicted a change we made ourselves.
+//
+// What remains TRUE of the original: exports are stream-copy server-side, so the
+// timestamp / camera-name burn-in is done CLIENT-side by ClipTranscoder rather than
+// by a server field. Audio still has no export path (BACKLOG A5, blocked on backend).
+//
+// Verified against cilex-vision's source on this box, 2026-09-23. If you read this
+// later than a few weeks from then, re-check review.py before trusting the field list.
 Item {
     id: root
     anchors.fill: parent

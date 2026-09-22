@@ -106,6 +106,7 @@ Item {
             // frames" still; cache:false so one bad shared-cache entry can't blank
             // every thumbnail, + retry a few times with a cache-busting suffix.
             // (Lists are virtualised, so only the ~visible thumbnails fetch.)
+            // (Claim about go2rtc, written 2026-06-18 and not re-checked since.)
             property int _retry: 0
             readonly property string _base: (root._real && root.ev && root.ev.cam && root.ev.cam.snapshotUrl) ? root.ev.cam.snapshotUrl : ""
             // LAZY: only fetch the go2rtc live frame once the event-still has actually FAILED. Fetching it

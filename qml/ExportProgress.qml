@@ -5,7 +5,8 @@ import Watchtower
 // rule: THE BAR NEVER INVENTS A NUMBER.
 //
 // An export is three phases with three different honesties (see the Q_PROPERTY note on
-// PlaybackClient::exportFraction). CV's job object carries no progress field, so the
+// PlaybackClient::exportFraction). CV's job object carries no progress field (checked
+// against review.py's export model 2026-09-23), so the
 // server phase is genuinely unknown and renders as a SWEEP, not as a fill sitting at
 // 0%. Download and re-encode have real denominators and get a real fill.
 //

@@ -39,6 +39,7 @@ Item {
     // transcode, so concurrent HD tiles are capped to keep go2rtc out of its
     // memory cgroup under heavy wall use (backend-requested ~6). A promotion past
     // the cap is blocked with a hint; demotions and page changes free the budget.
+    // (Claim about go2rtc, written 2026-09-02 and not re-checked since.)
     readonly property int hdCap: 6
     property int hdCount: 0
     // HD promotion gate, centralized + headless-testable (qml/HdCapTest.qml).

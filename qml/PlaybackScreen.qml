@@ -896,6 +896,7 @@ Item {
             // frags in 4,813-17,238 ms but 4 KB in as little as 20.6 ms. The player
             // rolls forward at EndOfMedia, so a shorter window costs a roll, not a
             // re-open. Default unchanged at 30 min.
+            // (Claim about cilex-vision, written 2026-09-01 and not re-checked since.)
             var _winMs = (typeof wtPbWindowMs !== "undefined" && wtPbWindowMs > 0) ? wtPbWindowMs : 1800000;
             _explicitEnd = Math.min(_explicitStart + _winMs, dayEnd);
             _tlOweDay = dateStr; _tlDayStart = s; _tlDayEnd = dayEnd;
@@ -1206,6 +1207,7 @@ Item {
             // window that starts before the first footage there is nothing to trim and the
             // boolean is correctly a no-op. Without this the two cases are
             // indistinguishable from here and we would keep re-measuring a null.
+            // (Claim about cilex-vision, written 2026-08-31 and not re-checked since.)
             if (root._pbTime)
                 console.log("[PBTIME] session_ready dt=" + (_tReady - root._obT0)
                             + "ms frags=" + fragments.length

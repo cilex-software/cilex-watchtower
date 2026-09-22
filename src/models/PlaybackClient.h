@@ -36,6 +36,7 @@ class PlaybackClient : public QObject
     // EXPORT PROGRESS. An export is three phases with three DIFFERENT honesties, and
     // the UI must not blur them into one invented number:
     //   preparing   - CV builds the clip. Its job object carries state/started_at and
+//                 (claim about cilex-vision, written 2026-09-22; re-check review.py)
     //                 NO progress field (verified against a real job 2026-09-22), so
     //                 this phase is genuinely INDETERMINATE: exportFraction < 0.
     //   downloading - real bytes, from QNetworkReply::downloadProgress. Determinate

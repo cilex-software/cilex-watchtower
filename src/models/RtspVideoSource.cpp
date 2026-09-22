@@ -731,6 +731,7 @@ void RtspVideoSource::startPipelineNow()
     if (m_warmOnly) {
         // Consumer only: depayload and discard. No decodebin, no appsink, no frames — the
         // sole purpose is to be "a consumer" so go2rtc keeps the producer dialled.
+        // (Claim about go2rtc, written 2026-09-08 and not re-checked since.)
         pipeStr = "rtspsrc name=src drop-on-latency=true ! rtph264depay ! fakesink sync=false";
         qInfo("[WT-WARM] warm-keep consumer (no decode) for %s",
               qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo)));

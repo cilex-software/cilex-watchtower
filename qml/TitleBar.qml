@@ -198,6 +198,7 @@ Item {
                 // What we send as X-Watchtower-Station, and whether CV's hint contract can ever
                 // join it (StationNam::hintJoinable — lower-cased, ≤63 chars, [a-z0-9-._] only).
                 // An unjoinable name is discarded server-side in SILENCE, so the wall says it.
+                // (Claim about cilex-vision, written 2026-09-19 and not re-checked since.)
                 readonly property string stationName:
                     (typeof wtStationName !== "undefined") ? wtStationName : ""
                 readonly property bool stationJoinable:
