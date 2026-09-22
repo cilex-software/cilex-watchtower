@@ -729,8 +729,13 @@ int main(int argc, char *argv[])
     // non-live tiles decode small JPEGs instead of full-res — measures the snapshot-side memory saving
     // of display-resolution rendering. 0 (unset) = decode at native size (current behaviour).
     engine.rootContext()->setContextProperty("wtThumbScale", qEnvironmentVariableIntValue("WT_THUMB_SCALE"));
-    // WT_THUMB_REFRESH_MS: decode-capped live-tile snapshot poll interval (default 1000; the cached endpoint
-    // makes a fast poll cheap). Lower = less apparent lag on capped tiles.
+    // WT_THUMB_REFRESH_MS: decode-capped live-tile snapshot poll interval. The DEFAULT
+    // IS 10000, set in LiveThumb.qml:31 to match CV's SNAPSHOT_CACHE_TTL_S - polling
+    // faster returns byte-identical cached JPEGs. This comment said 1000 and "the cached
+    // endpoint makes a fast poll cheap" long after that stopped being true, and on
+    // 2026-09-22 it nearly had this box blaming its own wall for CV's snapshot storm.
+    // The two defaults must agree or one side is lying to the other; if the TTL moves,
+    // LiveThumb.qml moves with it and this line follows both.
     engine.rootContext()->setContextProperty("wtThumbRefreshMs", qEnvironmentVariableIntValue("WT_THUMB_REFRESH_MS"));
     // Test drivers (env-gated, inert unless set): programmatic resize / playback-seek / events stress
     // harnesses that drive the UI deterministically and log timestamps for the external CPU/RSS sampler.
