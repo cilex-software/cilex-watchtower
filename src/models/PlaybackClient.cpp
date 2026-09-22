@@ -1242,7 +1242,21 @@ void PlaybackClient::pollExport(const QString &jobId)
                                   : tr("Queued on the server"));
         }
         if (state == "ready") {
-            QString dl = obj.value("download_url").toString();
+            // CV now returns an ABSOLUTE download URL. Verified against a live job
+            // 2026-09-23: "http://<host>:8000/review/exports/<id>/download?token=...".
+            // This line used to receive a PATH (under /api/review/) and prepend the
+            // local proxy base to it. Given an absolute URL that concatenation built
+            // "http://127.0.0.1:<port>" + "http://100.107.51.72:8000/review/..." which
+            // QUrl parses to a host of "", so every download died with "Host  not
+            // found" — the server built the clip and the client could never fetch it.
+            // Take the path+query in both shapes, so the proxy route is exactly what it
+            // always was and a contract change back would not break it again.
+            const QString rawDl = obj.value("download_url").toString();
+            const QUrl dlUrl(rawDl);
+            QString dl = dlUrl.isRelative()
+                       ? rawDl
+                       : dlUrl.path() + (dlUrl.hasQuery() ? QStringLiteral("?") + dlUrl.query()
+                                                          : QString());
             dl.replace("/api/review/", "/review/");      // route via the local proxy
             downloadExport(jobId, m_proxy->localBase() + dl, m_exportDest.value(jobId));
         } else if (state == "failed" || state == "error") {
