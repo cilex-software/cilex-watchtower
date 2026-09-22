@@ -433,6 +433,14 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         }
         const auto obj = QJsonDocument::fromJson(raw).object();
         const QString sid = obj.value("session_id").toString();
+        if (sid.isEmpty()) {
+            // Same rule as the mosaic path below: a 200 carrying no session is a failure,
+            // not a session with no name. Without this the playhead would open against an
+            // empty id and every later call would 404 with no stated cause.
+            emit sessionFailed(tr("The server accepted the request but returned no session."),
+                               tag);
+            return;
+        }
         const auto man = obj.value("manifest").toObject();
         const auto fragsArr = man.value("fragments").toArray();
         // Fragments cross the C++→QML boundary as POSITIONAL PRIMITIVE ROWS
@@ -773,8 +781,20 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
                 pending);
             return;
         }
+        // A 200 WITH NOTHING IN IT IS NOT A SESSION. cilex-vision's serve hop forwards an
+        // upstream status verbatim and has no zero-byte guard on the composite path (their
+        // 2026-08-29 mosaic letter §4, still open on their side as of 2026-09-22), so a
+        // success-shaped reply can carry an empty or unparseable body. Without this the
+        // empty session_id was written over `mosaic/lastSession` — destroying the id of a
+        // real session — and then emitted as READY with no grid, no cells and no fragments:
+        // a working-looking wall with nothing behind it. Fail honestly instead.
         const auto obj = QJsonDocument::fromJson(raw).object();
         const QString sid = obj.value("session_id").toString();
+        if (sid.isEmpty()) {
+            emit mosaicSessionFailed(
+                tr("The server accepted the request but returned no wall session."), false);
+            return;
+        }
         {
             QSettings st;                                            // see the orphan note above
             st.setValue(QStringLiteral("mosaic/lastSession"), sid);
