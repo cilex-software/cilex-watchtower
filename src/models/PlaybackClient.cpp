@@ -1,4 +1,5 @@
 #include "PlaybackClient.h"
+#include "WireTime.h"
 #include "ServerMessage.h"
 #include "ServerCodes.h"
 #include "StationNam.h"
@@ -464,8 +465,10 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             compactDuration = qMax(compactDuration, ce);
             frags.append(QVariant(QVariantList{
                 fo.value("compact_start").toDouble(), ce,
-                double(QDateTime::fromString(fo.value("wall_start").toString(), Qt::ISODateWithMs).toMSecsSinceEpoch()),
-                double(QDateTime::fromString(fo.value("wall_end").toString(), Qt::ISODateWithMs).toMSecsSinceEpoch()),
+                double(QDateTime::fromString(wt::wireInstant(fo.value("wall_start"), "review.fragment.wall_start"),
+                                             Qt::ISODateWithMs).toMSecsSinceEpoch()),
+                double(QDateTime::fromString(wt::wireInstant(fo.value("wall_end"), "review.fragment.wall_end"),
+                                             Qt::ISODateWithMs).toMSecsSinceEpoch()),
                 fo.value("discontinuity").toBool(),
                 fo.value("boundary").toString(),
                 fo.value("codec").toString(),
@@ -474,8 +477,8 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
                 fo.value("stream_type").toString()}));
         }
         QVariantMap meta;
-        meta["wall_start"] = man.value("wall_start").toString();
-        meta["wall_end"] = man.value("wall_end").toString();
+        meta["wall_start"] = wt::wireInstant(man.value("wall_start"), "review.wall_start");
+        meta["wall_end"] = wt::wireInstant(man.value("wall_end"), "review.wall_end");
         meta["clipped_to_finalized"] = man.value("clipped_to_finalized").toBool();
         meta["live_gap_s"] = man.value("live_gap_s").toDouble();
         // manifest "events" deliberately NOT forwarded: no QML consumer exists, and on
@@ -545,7 +548,8 @@ void PlaybackClient::fetchThumbnails(const QString &cameraId, const QString &tag
         for (const auto &tv : obj.value(QStringLiteral("thumbnails")).toArray()) {
             const auto to = tv.toObject();
             QVariantMap t;
-            t.insert(QStringLiteral("wallTime"), to.value(QStringLiteral("wall_time")).toString());
+            t.insert(QStringLiteral("wallTime"),
+                     wt::wireInstant(to.value(QStringLiteral("wall_time")), "review.wall_time"));
             t.insert(QStringLiteral("reason"), to.value(QStringLiteral("reason")).toString());
             QImage tileImg;
             const QString b64 = to.value(QStringLiteral("jpeg_b64")).toString();
@@ -815,8 +819,8 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
                 compactDuration = qMax(compactDuration, fo.value("compact_end").toDouble());
         }
         QVariantMap meta;
-        meta["wall_start"] = man.value("wall_start").toString();
-        meta["wall_end"] = man.value("wall_end").toString();
+        meta["wall_start"] = wt::wireInstant(man.value("wall_start"), "review.wall_start");
+        meta["wall_end"] = wt::wireInstant(man.value("wall_end"), "review.wall_end");
         meta["clipped_to_finalized"] = man.value("clipped_to_finalized").toBool();
         meta["live_gap_s"] = man.value("live_gap_s").toDouble();
         emit mosaicSessionReady(sid, grid, cells, compactDuration, frags, meta);

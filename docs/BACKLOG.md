@@ -52,6 +52,26 @@ clears. Backend items map to the living letter
    case; deliberately not built, because what to show on a working wall is an
    operator/design decision, not a client one.
 
+8. **The `/review` manifest window is parsed unguarded in QML** — small, but do NOT
+   ship it blind. `root.winStartMs = Date.parse(meta.wall_start)` appears bare in
+   `PlaybackScreen.qml:1160,1161,1191,1192` and `WallPlayback.qml:686,687,702`. An
+   unreadable `wall_start` does not degrade the timeline, it makes it **NaN** — and every
+   comparison against NaN is false, so the screen renders an empty window that looks like
+   "no footage here" rather than "I could not read this". This is the highest-cost instance
+   of the family fixed in `f80c028`: cilex-pro-mobile named the same route on their side as
+   the one where a NaN *"does not render a wrong time, it empties the footage intervals the
+   whole archive screen is built on"* (2026-09-22).
+   **Why it is not done:** the precedent (`b31c0ee`) says a session that cannot be used is
+   reported as FAILED, not handed on as ready — but a false positive there breaks playback
+   on a live wall, and the manifest-level `wall_start` format is **not measured** (the
+   *fragment*-level one demonstrably parses with `Qt::ISODateWithMs`, since playback works;
+   the window-level one is assumed to match and has not been checked against a real
+   manifest). The session token here is expired and the wall is up, so I could not verify it
+   tonight and would not guess. `2527306` wires the SHAPE detector into all five `/review`
+   timestamp keys, so a naive value now announces itself; the NaN narrowing wants one live
+   manifest first.
+
+
 ## Blocked — what clears each
 - **Backend shared-ack endpoint (B1)** → server-backed acknowledge (currently local-only).
 - **Backend re-encode path (A2)**, **audio path (A5)**, **typed schemas (C1/C2)** → backend-sequenced; we wire when they land.
