@@ -12,15 +12,53 @@ var LIVE = { Unknown: 0, Live: 1, Offline: 2, Degraded: 3, Loading: 4, NoSignal:
 
 function _rec(c) { return c ? c.recording : REC.Unknown; }
 
+// ---------------------------------------------------------------------------
+// ONE narrowing predicate for "is this an instant I can compare?".
+//
+// Adopted from cilex-pro-mobile (b436010, 2026-09-22) after the same family of
+// defect cost them three hours: a timestamp that is ABSENT and one that is
+// UNPARSEABLE are the same answer — "no usable instant" — and they must not take
+// opposite branches. Here they did. `""` fell to the -1 sentinel every site
+// below handles correctly; a non-empty string Date.parse cannot read became NaN,
+// and NaN answers FALSE to every comparison, `<= 0` included. So the "no
+// timestamp" branch was skipped AND the "too old" branch was skipped, and the
+// predicate returned "nothing wrong" about a camera it could say nothing about.
+// It does not throw. It quietly stops being true.
+//
+// STANDING: insurance, not a repair. cilex-vision serialises every field below
+// through iso_ms() (services/_common/timefmt.py:35) off TIMESTAMPTZ columns, so
+// a non-empty unparseable value has never been observed on this wire. Same
+// footing as the 200/0-byte session guards — and labelled the same way.
+//
+// AND A SECOND RULE, measured here 2026-09-22 and true of BOTH our parsers: an
+// ISO string with NO timezone is read as LOCAL time — by QV4's Date.parse in
+// this file, and by QDateTime::fromString(.., Qt::ISODate) in src/ (verified
+// Qt 6.12: naive input yields timeSpec=0). On this box, MSK, that is a silent
+// 3-hour shift; in a UTC container it is none — so a dev box and the guard booth
+// would disagree and neither would say so. Nothing on this side can detect it.
+// What prevents it is on the SERVER: iso_ms() emits an offset if and only if the
+// datetime handed to it is tz-aware, and the columns behind these fields are
+// TIMESTAMPTZ (alembic 0053/0054; 0028 for last_vmd_event_at). That is a
+// cross-repo dependency no test on either side pins: cilex-vision's route tests
+// assert `wire == iso_ms(input)`, which passes just as well if BOTH sides are
+// naive. If these ever start arriving without an offset, the damage lands here,
+// three hours wide, and the parse will look fine.
+function ms(iso) {
+    if (!iso) return -1;
+    var t = Date.parse(iso);
+    return t > 0 ? t : -1;        // NaN, 0 and negatives all mean "cannot compare"
+}
+
+
 // two independent axes -------------------------------------------------------
 function recBroken(c) { var r = _rec(c); return r === REC.NotRecording || r === REC.Stalled; }
 function detBroken(c) { return !!(c && c.motionKnown === true && c.motionReady === false); }
 // detecting motion recently while the newest footage is older than that
 // detection = the recorder is not writing this camera (the 2026-08-07 P1).
 function notRecordingNow(c) {
-    if (!c || _rec(c) !== REC.Armed || !c.motionLastVmdAt) return false;
-    var v = Date.parse(c.motionLastVmdAt);
-    var s = c.lastSegmentAt ? Date.parse(c.lastSegmentAt) : -1;
+    if (!c || _rec(c) !== REC.Armed) return false;
+    var v = ms(c.motionLastVmdAt);          // -1 covers the old `!c.motionLastVmdAt` guard
+    var s = ms(c.lastSegmentAt);
     return v > 0 && (Date.now() - v) < 10800000 && (s <= 0 || (v - s) > 3600000);
 }
 function unknown(c) { return _rec(c) === REC.Unknown; }
@@ -34,7 +72,7 @@ function FAULT(c) { return REC_BROKEN(c) || DET_BROKEN(c); }
 
 function silent(c) {
     if (!c || _rec(c) !== REC.Armed) return false;
-    var s = c.lastSegmentAt ? Date.parse(c.lastSegmentAt) : -1;
+    var s = ms(c.lastSegmentAt);
     return s <= 0 || (Date.now() - s) > 86400000;
 }
 function warn(c) {
@@ -56,7 +94,7 @@ function marker(c) {
     if (r === REC.Disabled) return "OFF";
     if (r === REC.Gap) return "GAP";
     if (silent(c)) {
-        var s = c.lastSegmentAt ? Date.parse(c.lastSegmentAt) : -1;
+        var s = ms(c.lastSegmentAt);
         return s <= 0 ? "NO MOTION" : "SILENT";
     }
     return "";
@@ -76,7 +114,7 @@ function badgeText(c) {
     if (notRecordingNow(c)) out += " · NOT RECORDING";
     if (DET_BROKEN(c)) out += (notRecordingNow(c) ? " + NOT READY" : " · NOT READY");
     if (out === "ARMED" && silent(c)) {
-        var s = c.lastSegmentAt ? Date.parse(c.lastSegmentAt) : -1;
+        var s = ms(c.lastSegmentAt);
         out = s <= 0 ? "no motion ever"
             : "ARMED · silent " + Math.floor((Date.now() - s) / 86400000) + "d";
     }

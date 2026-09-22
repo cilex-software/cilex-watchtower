@@ -20,9 +20,17 @@ Item {
 
     readonly property var ws: Watch.watchstate
 
+    // "" means "I cannot say how long" — never a rendered NaN. The `=== ""` guard
+    // alone let a non-empty unparseable started_at through to getTime() -> NaN,
+    // and Math.floor(NaN) is NaN, so the chip on the title bar would have read
+    // "ON WATCH · <guard> · NaNm" to a guard mid-shift. Not observed on this wire
+    // (/watch/state serialises through the same server-side formatter); guarded
+    // because a shift clock that lies is worse than one that declines to answer.
     function sinceLabel() {
-        if (Watch.startedAt === "") return "";
-        var ms = Date.now() - new Date(Watch.startedAt).getTime();
+        var t = Date.parse(Watch.startedAt);
+        if (!(t > 0)) return "";
+        // A server clock a few seconds ahead of ours reads "0m", not "-1h 59m".
+        var ms = Math.max(0, Date.now() - t);
         var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
         return h > 0 ? (h + qsTr("h") + " " + m + qsTr("m")) : (m + qsTr("m"));
     }
@@ -49,9 +57,12 @@ Item {
             Text {
                 text: {
                     root._tick;   // minute refresh dep
-                    return Watch.onWatch
-                        ? qsTr("ON WATCH · %1 · %2").arg(Watch.guardName).arg(root.sinceLabel())
-                        : qsTr("Check in");
+                    if (!Watch.onWatch) return qsTr("Check in");
+                    // No duration => drop the separator too, rather than trail a
+                    // lone "· " where a number should be.
+                    var since = root.sinceLabel();
+                    return since === "" ? qsTr("ON WATCH · %1").arg(Watch.guardName)
+                                        : qsTr("ON WATCH · %1 · %2").arg(Watch.guardName).arg(since);
                 }
                 color: Watch.onWatch ? Theme.ink : Theme.ink2
                 font.family: Theme.fontMono

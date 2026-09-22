@@ -180,6 +180,37 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   - **Auto-reconnect on stall (recovers stalled tiles to live video):** once `playing` is frame-accurate, `VideoSurface` actively rebuilds a stalled pipeline. **Per-tile exponential backoff** (`_backoffMs` 2/5/10/20/30 s, reset on frame recovery; a patient 8 s on a *cold* connect so a slow first frame isn't torn down) calls `RtspVideoSource.reconnect()` (a `Q_INVOKABLE` → `rebuild()`; qtmm path re-sets `source`). **Critically, every attempt is routed through the `ReconnectCoordinator` singleton**, a global serializer that releases at most one reconnect initiation per `minIntervalMs` (700 ms). This is the freeze guard: a fleet-wide stall (16 tiles) recovers one pipeline at a time over ~11 s instead of bursting 16 simultaneous VA-API rebuilds — the decode-context churn we suspect causes the Live-relayout freeze. Only **active** tiles (visible, real url) reconnect; the closure null-guards `root` so a paged-out tile's queued attempt is a no-op. **If you add any other reconnect/rebuild path, route it through `ReconnectCoordinator` too** — never let N pipelines rebuild at once.
 - **Relayout-freeze fix — pipeline BUILDS are globally rate-limited; never build inline.** The shared Intel iGPU wedges (20 s freeze, sometimes an OOM kill) when ~16 VA-API decode contexts are created at once — a layout change, page turn, app start, or (formerly) entering/exiting **Arrange**. So `RtspVideoSource::rebuild()` does **not** build inline: it enqueues with the global **`PipelineBuildPump`** (RtspVideoSource.cpp — a GUI-thread, leaked singleton) which calls `startPipelineNow()` **≤1 per `kBuildStaggerMs` (120 ms)**. A lone build still fires immediately; only bursts spread (each tile shows its loading bar until its turn). `teardown()`/dtor `cancel()` a queued build; reconnects ride the same pump. **Teardown** is separately bounded by `kMaxConcurrentTeardowns` (8), so create+destroy churn is capped both ways. Two companion changes: **(a)** Live tiles **stay playing during Arrange** (`videoActive` is `root.visible`, not `&& !arrangeMode`) — the arrange overlay just dims them; tearing 16 down on enter + rebuilding on exit was the crash repro's trigger. **(b)** The "Tap to change" picker thumbnails only fetch when the picker is open (`pickerCell >= 0`) — its GridView delegates exist while hidden and were snapshotting every camera in the background. **RULE: any new code that starts a live pipeline MUST go via `rebuild()` (→ the pump); never call `startPipelineNow()` or `gst_element_set_state(PLAYING)` directly in a loop.** The freeze only reproduces on the real iGPU under load — verify live (Arrange/Tap cycling, layout switches, page turns), not just offscreen.
 - **Keep `countsChanged` off hot paths anyway**: it re-runs every `page()`/`countFiltered()` binding. `pollStatuses()` recomputes counts only on a genuine live/recording flip, **not** on a `last_segment_at` advance (which ticks every poll) — see b5345dd.
+- **A timestamp we cannot parse must never read as "nothing wrong".** Two sentinels for the
+  same answer is the trap: in `qml/GroupsStatus.js` an ABSENT `lastSegmentAt` fell to `-1`,
+  which every site handles, while a non-empty UNPARSEABLE one became `NaN` — and `NaN`
+  answers **false** to every comparison, `<= 0` included, so both the "no timestamp" branch
+  and the "too old" branch were skipped and a camera nothing could be said about classified
+  as healthy. It does not throw; it quietly stops being true. Fixed by one narrowing
+  predicate, `St.ms(iso)`, which returns `-1` for absent, unparseable and non-positive alike
+  — the sentinel the code already handled. `qml/HealthScreen.qml` had a byte-faithful copy of
+  the classifier and now delegates, so there is one predicate, not two that must be fixed
+  twice. Pinned by `tools/tests/groups-status-ts.qml` (18/18; shown to fail 5 against the
+  pre-fix behaviour). Same family in `WatchChip.sinceLabel`, which would have rendered
+  **"ON WATCH · <guard> · NaNm"** on the title bar. Found by mirroring a sweep
+  cilex-pro-mobile ran on their side (`b436010`); **not observed on our wire** — insurance,
+  and labelled as such in the file.
+- **ISO timestamps with no timezone are read as LOCAL time — by both our parsers** (measured
+  2026-09-22, Qt 6.12): `QDateTime::fromString(s, Qt::ISODate)` on a naive string yields
+  `timeSpec=0` (`Qt::LocalTime`), and QV4's `Date.parse` agrees. On this box (MSK) that is a
+  silent **3-hour** shift; in a UTC container it is none — so a dev box and the guard booth
+  would disagree and neither would say so. Nothing client-side can detect it. What prevents
+  it is server-side: cilex-vision's `iso_ms()` (`services/_common/timefmt.py:35`) emits an
+  offset **iff** the datetime it is handed is tz-aware, and the columns behind these fields
+  are `TIMESTAMPTZ` (alembic `0053`/`0054`; `0028` for `last_vmd_event_at`). That dependency
+  is pinned by no test on either side — CV's route tests assert `wire == iso_ms(input)`,
+  which holds just as well if BOTH sides are naive.
+  - Same measurement retires an open question in CV's own docstring
+    (`timefmt.py:14-17`, *"Whether Qt tolerates six is UNMEASURED by me"*): **Qt 6.12
+    `Qt::ISODate` and `Qt::ISODateWithMs` both accept six fractional digits**, truncating to
+    ms with rounding (`.873977` → `.874`). So `iso_ms` was never load-bearing for us; it was
+    load-bearing for Hermes on cilex-pro-mobile. Note `decommissioned_at`
+    (`routers/streams.py:577,1496`) still goes out as raw `.isoformat()` — six digits — which
+    is fine for Qt and is the phone's hazard, not ours.
 
 ## Verification convention
 

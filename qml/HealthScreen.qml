@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic as QC
 import Watchtower
+import "GroupsStatus.js" as St
 
 // Health (S07) — design handoff README §7 + watchtower.html HealthScreen.
 // A full-width strip of 6 stat cards over CameraModel's live counts, a camera
@@ -95,12 +96,13 @@ Item {
         default: return qsTr("Unknown");
         }
     }
-    function _notRec(cam) {
-        if (cam.recording !== CameraStatus.Armed || !cam.motionLastVmdAt) return false;
-        var v = Date.parse(cam.motionLastVmdAt);
-        var sgm = cam.lastSegmentAt ? Date.parse(cam.lastSegmentAt) : -1;
-        return v > 0 && (Date.now() - v) < 10800000 && (sgm <= 0 || (v - sgm) > 3600000);
-    }
+    // Delegates to the ONE classifier (GroupsStatus.js). This was a byte-faithful
+    // copy of St.notRecordingNow until 2026-09-22 — which is precisely what that
+    // file's own header warns against ("ad-hoc filters at call sites are how a
+    // facet says 21 while 13 tiles wear the ring"). It also meant the NaN
+    // narrowing had to be made twice or it would have been made once and believed
+    // twice. One predicate, four screens.
+    function _notRec(cam) { return St.notRecordingNow(cam); }
     function issueText(cam) {
         if (cam.live === CameraStatus.Offline || cam.live === CameraStatus.NoSignal) return qsTr("No signal");
         if (cam.recording === CameraStatus.Armed && cam.motionKnown && !cam.motionReady) return qsTr("Motion detector not ready");
