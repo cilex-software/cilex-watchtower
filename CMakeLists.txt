@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.486
+    VERSION 1.1.487
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -75,6 +75,27 @@ execute_process(
 if(NOT WT_GIT_SHA)
     set(WT_GIT_SHA "dev")
 endif()
+
+# A SHA from a DIRTY tree is worse than no SHA: it looks exact while naming a commit that
+# does not contain the code you are running. Advice given to cilex-pro-mobile 2026-09-22 and
+# owed to ourselves — a screenshot of a build id is only a git ref when the tree was clean,
+# and nothing here enforced that. Two lines.
+execute_process(
+    COMMAND git status --porcelain
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE WT_GIT_DIRTY
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+if(WT_GIT_DIRTY)
+    set(WT_GIT_SHA "${WT_GIT_SHA}-dirty")
+endif()
+
+# THE BOUND ON THAT, stated because the marker would otherwise imply more than it can:
+# both values are captured at CONFIGURE time, not at every compile. In practice CMakeLists
+# is rewritten by the per-commit version bump, so a commit always forces a reconfigure and
+# the SHA is fresh after one. An edit that touches no CMake input and is then built WITHOUT
+# reconfiguring keeps the previous stamp — so `-dirty` proves the tree was dirty at
+# configure, and its ABSENCE does not prove the binary is clean. Re-run cmake to be sure.
 target_compile_definitions(watchtower PRIVATE WT_GIT_SHA="${WT_GIT_SHA}")
 target_compile_definitions(watchtower PRIVATE WT_VERSION="${PROJECT_VERSION}")
 
