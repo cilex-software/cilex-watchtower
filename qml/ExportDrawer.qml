@@ -135,10 +135,38 @@ Item {
     // kept the full retention). The manifest carries codec + resolution per fragment,
     // so we know — per slice of the selection — whether the original is still there.
     function _isHigh(f) {
-        // `stream_type` is the backend's authoritative "is the high-res original
-        // retained for this span" (main ⇒ yes, sub ⇒ only standard remains). It is
-        // orthogonal to `tier` (retention age) and `codec`. Fall back to a codec/
-        // resolution guess only for legacy fragments that predate stream_type.
+        // CORRECTION 2026-09-22. This said `stream_type` was "the backend's
+        // authoritative 'is the high-res original retained for this span'".
+        // MEASURED FALSE by cilex-vision against the live DB: `10 Улица 15`,
+        // 02:55–03:01 that morning, carried 12 main/hot segments AND 12 sub/warm
+        // segments one-for-one — the H.265 original fully retained — while the
+        // manifest reported every fragment as `sub`.
+        //
+        // `stream_type` reports which stream the manifest SELECTED, and that is
+        // chosen by the `hevc_capable` the SESSION asked for: main-first when
+        // true, sub-first when false (cilex-vision review.py:209-211, and the
+        // merge at :155-175 takes every sub segment, filling only uncovered
+        // spans with main). So it is evidence about retention ONLY on a
+        // main-first session. Our macOS build must send false — Apple's HLS
+        // rules forbid HEVC-in-MPEG-TS (PlaybackClient.cpp:295-303) — so there
+        // every fragment is `sub` and this function answers "aged out" about
+        // footage minutes old. That is the defect in
+        // docs/letters/2026-09-22-the-export-drawer-tells-mac-operators-...md.
+        //
+        // Do NOT reach for `tier` instead: THREE combinations are live, not two
+        // — hot/main, warm/main and warm/sub (cilex-vision, measured same day),
+        // so warm does not imply sub. And do not infer "main exists wherever a
+        // fragment exists": sub-without-main is currently zero across 10,779
+        // camera-hours, but that zero is disk pressure, not an invariant —
+        // `rebalancer._expire_hot_with_twin` is shipped and armed to delete a
+        // hot main wherever a sub twin spans its midpoint, at hot_days=8, and
+        // has never fired only because the governor evicts at ~5.5 days. Two
+        // 22 TB disks landed 2026-09-17. When retention crosses eight days that
+        // rule starts lying OPTIMISTICALLY, which is the direction that misleads
+        // an operator.
+        //
+        // Fall back to a codec/resolution guess only for legacy fragments that
+        // predate stream_type.
         var st = ("" + (f.stream_type || "")).toLowerCase();
         if (st === "main") return true;
         if (st === "sub") return false;
