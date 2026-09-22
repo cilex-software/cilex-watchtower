@@ -91,6 +91,32 @@ clears. Backend items map to the living letter
    value on all five `/review` keys.
 
 
+9. **A camera whose motion detection stops delivering renders as HEALTHY.** Measured
+   2026-09-22: `10 Улица 15` (`hiwatch-083bc14f0040`, continuous profile) took **zero** raw
+   VMD alerts for five hours, 22:00Z–03:00Z, with sharp edges either side (`50, 70, 49, —,
+   —, —, —, —, 50, 30, 89`). In the 22:00Z hour the fleet logged **551 alerts across 17
+   cameras** and .117 logged **0**, while an ambulance crossed it at 22:49:58Z — the
+   highest-scoring event of that night in cilex-vision's scan. The camera was `enabled`,
+   `sensitivity=60`, **432 of 432 grid bits armed**. It was not failing to see; it was not
+   delivering.
+   **Watchtower showed nothing, and could not have.** Both motion predicates in
+   `qml/GroupsStatus.js` open with `if (!c || _rec(c) !== REC.Armed) return false;` —
+   `notRecordingNow()` (`:62-63`) and `silent()` (`:77-78`). A **continuous**-profile camera
+   therefore has *no* motion-health predicate at all, and `detBroken()` keys off the
+   readiness probe's `ready` flag, not off VMD going quiet. So the tile stayed green for five
+   hours. That is "absent data rendering as healthy", which is the one thing the house rules
+   in `CLAUDE.md` are most explicit about.
+   **Why it is not built yet — the threshold is a real design question, not an oversight.**
+   .117 takes 50–89 alerts/hour in the evening and 1–4 *per night* in the 22:00–03:00Z band,
+   so any fixed "quiet for N minutes" rule is wrong at one end of the day or the other. It
+   needs either a per-camera baseline or an operator-set expectation, and inventing one would
+   produce a badge that cries wolf nightly — which is worse than the silence it replaces.
+   The data is now available client-side (`motionLastVmdAt`, and .117 gained a
+   `camera_motion_readiness` row when CV probed it), so this is a predicate + threshold
+   decision, not a plumbing one. Pairs with cilex-vision's server-side half, which they
+   called the bigger item and which outranks the Labs screen.
+
+
 ## Blocked — what clears each
 - **Backend shared-ack endpoint (B1)** → server-backed acknowledge (currently local-only).
 - **Backend re-encode path (A2)**, **audio path (A5)**, **typed schemas (C1/C2)** → backend-sequenced; we wire when they land.
