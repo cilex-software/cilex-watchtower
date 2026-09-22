@@ -37,6 +37,84 @@ cmake --build "$BUILD" -j"$(sysctl -n hw.ncpu)"
 APP="$BUILD/watchtower.app"
 [ -d "$APP" ] || { echo "FATAL: $APP missing — MACOSX_BUNDLE did not apply"; exit 1; }
 
+# ── ffmpeg: BUILT HERE, LGPL, AND BUNDLED ────────────────────────────────────
+# Export post-processing (overlay burn-in, the compression ladder) shells out to
+# ffmpeg. Windows ships a pinned LGPL build beside its exe; macOS shipped nothing,
+# so the feature depended on whatever the user happened to have — and Homebrew's
+# stock `ffmpeg` is a slim build that cannot do it.
+#
+# WE BUILD IT RATHER THAN DOWNLOAD IT, because no usable prebuilt exists (checked
+# 2026-09-23): evermeet is GPL and Intel-only and its maintainer will not do Apple
+# Silicon; ffmpeg.martin-riedl.de is --enable-gpl --enable-libx264 --enable-libx265;
+# and the "LGPL macOS" repos on GitHub were either created within the fortnight with
+# zero stars or abandoned in 2022. None of those belong in software that guards a
+# camera fleet. ffmpeg.org source plus a pinned SHA-256 is auditable and answers to
+# nobody else.
+#
+# NO --enable-gpl ANYWHERE. We distribute this app, so a GPL ffmpeg would impose GPL
+# on the product. configure prints "License: LGPL version 2.1 or later" and the step
+# below FAILS THE BUILD if it ever prints anything else — the check is the point, not
+# the comment. No libx264 follows from that, so the encoder is Apple's
+# h264_videotoolbox (see ClipTranscoder, which picks by capability).
+#
+# --disable-autodetect keeps the build from silently absorbing whatever happens to be
+# installed on the packaging machine, which is both a licence and a reproducibility
+# property. --enable-zlib is then REQUIRED and easy to miss: the PNG decoder needs it,
+# and without it everything configures and builds cleanly and then fails at run time
+# with "no decoder found for: png" — the overlay images are PNGs.
+FFMPEG_VERSION=9.0.2
+FFMPEG_SHA256=8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+FFMPEG_CACHE="$HOME/Library/Caches/CilexWatchtower/ffmpeg-lgpl"
+FFMPEG_BIN="$FFMPEG_CACHE/$FFMPEG_VERSION/ffmpeg"
+
+if [ ! -x "$FFMPEG_BIN" ]; then
+  echo "== building LGPL ffmpeg $FFMPEG_VERSION (once; cached in $FFMPEG_CACHE) =="
+  mkdir -p "$FFMPEG_CACHE/src"
+  TAR="$FFMPEG_CACHE/src/ffmpeg-$FFMPEG_VERSION.tar.xz"
+  [ -f "$TAR" ] || curl -fsSL --max-time 600 -o "$TAR" \
+      "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz"
+  GOT=$(shasum -a 256 "$TAR" | cut -d' ' -f1)
+  [ "$GOT" = "$FFMPEG_SHA256" ] || {
+    echo "FATAL: ffmpeg source SHA-256 mismatch"
+    echo "  expected $FFMPEG_SHA256"
+    echo "  got      $GOT"
+    rm -f "$TAR"; exit 1; }
+  echo "  source SHA-256 verified"
+  SRC="$FFMPEG_CACHE/src/ffmpeg-$FFMPEG_VERSION"
+  rm -rf "$SRC"; tar xf "$TAR" -C "$FFMPEG_CACHE/src"
+  ( cd "$SRC" && ./configure \
+      --disable-everything --disable-autodetect --disable-doc --disable-network --disable-debug \
+      --disable-shared --enable-static --enable-small \
+      --enable-zlib --enable-videotoolbox \
+      --enable-encoder=h264_videotoolbox \
+      --enable-decoder=h264 --enable-decoder=hevc --enable-decoder=png --enable-decoder=rawvideo \
+      --enable-demuxer=mov --enable-demuxer=image2 --enable-demuxer=png_pipe \
+      --enable-muxer=mp4 \
+      --enable-parser=h264 --enable-parser=hevc --enable-parser=png \
+      --enable-filter=scale,overlay,format,null,copy,setpts,fps \
+      --enable-protocol=file \
+      --enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb \
+      --enable-ffmpeg --disable-ffplay --disable-ffprobe > configure.log 2>&1 ) || {
+        tail -20 "$SRC/configure.log"; echo "FATAL: ffmpeg configure failed"; exit 1; }
+  LIC=$(grep -m1 '^License:' "$SRC/configure.log" || true)
+  echo "  $LIC"
+  case "$LIC" in
+    *"LGPL version 2.1 or later"*) ;;
+    *) echo "FATAL: refusing to bundle — ffmpeg reports '$LIC', expected LGPL"; exit 1 ;;
+  esac
+  ( cd "$SRC" && make -j"$(sysctl -n hw.ncpu)" > build.log 2>&1 ) || {
+      tail -20 "$SRC/build.log"; echo "FATAL: ffmpeg build failed"; exit 1; }
+  mkdir -p "$FFMPEG_CACHE/$FFMPEG_VERSION"
+  cp "$SRC/ffmpeg" "$FFMPEG_BIN"
+fi
+
+# Nothing outside macOS's own libraries, or the zip is not self-contained.
+LEAKS=$(otool -L "$FFMPEG_BIN" | tail -n +2 | grep -vE "/usr/lib/|/System/Library/" || true)
+[ -z "$LEAKS" ] || { echo "FATAL: bundled ffmpeg links non-system libraries:"; echo "$LEAKS"; exit 1; }
+cp "$FFMPEG_BIN" "$APP/Contents/MacOS/ffmpeg"
+chmod +x "$APP/Contents/MacOS/ffmpeg"
+echo "== bundled ffmpeg $FFMPEG_VERSION (LGPL, $(du -h "$FFMPEG_BIN" | cut -f1)) =="
+
 VERSION=$(sed -n 's/^ *VERSION \([0-9.]*\) *$/\1/p' CMakeLists.txt | head -1)
 SHA=$(git rev-parse --short=8 HEAD)
 NAME="CilexWatchtower-$VERSION-macos-arm64"
