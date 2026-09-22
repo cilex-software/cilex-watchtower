@@ -1,5 +1,6 @@
 #include "ClipTranscoder.h"
 #include <memory>
+#include <QCoreApplication>
 #include <QTemporaryFile>
 
 #include <QFile>
@@ -187,6 +188,13 @@ QStringList ClipTranscoder::ffmpegCandidates()
     const QString override = qEnvironmentVariable("WT_FFMPEG");
     if (!override.isEmpty())
         c << override;                   // explicit wins, always
+    // A BUNDLED ffmpeg beside the executable outranks anything on the machine. This is
+    // how Windows already ships the feature: packaging/windows/deploy.ps1 downloads a
+    // PINNED, SHA-256-verified LGPL build and drops ffmpeg.exe next to the exe, so no
+    // user ever installs anything. macOS bundles nothing yet, which is why overlays
+    // depend on what happens to be on the operator's machine; this entry is inert
+    // until the mac packaging does the same, and then costs no further code.
+    c << QCoreApplication::applicationDirPath() + QStringLiteral("/ffmpeg");
 #ifdef Q_OS_MACOS
     // Homebrew's capable build is keg-only, so it lives here and NOT on PATH. Both
     // prefixes listed because Apple Silicon and Intel differ.
