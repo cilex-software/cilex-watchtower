@@ -245,6 +245,7 @@ Item {
     }
     function seekToWall(ms) {
         if (!isFinite(ms)) { console.warn("[PB] seekToWall(non-finite) ignored"); return; }
+        _seekT0 = Date.now(); _seekKind = "?"; _seekDt = -1; _seekTargetMs = ms;
         root._nudgeAnchor = -1;   // an absolute seek re-bases the relative-move pointer
         stepper.cancelStep();   // cancel any in-flight step; cache stays (in-session pts remain valid)
         // A far-seek open is in flight: route straight to seekFar, which COALESCES
@@ -283,6 +284,7 @@ Item {
                 // instant direct path (15-173 ms measured).
                 if (pd > root._maxPosSeen + 300000) { seekFar(ms); return; }
                 player.position = pd; root._scanPos = pd;
+                root._seekKind = "direct";
                 // Operator aimed somewhere new: the same-target recovery budget resets.
                 if (Math.abs(ms - root._mislandWall) > 2000) { root._mislandWall = -1; root._mislandCount = 0; }
                 _seekWatchSeq = _frameSeq; _seekWatchWall = ms; _seekWatchPosMs = pd;
@@ -329,6 +331,8 @@ Item {
         // player for nothing (soak rounds 1-3, NaN wall-times from a bad caller).
         if (!isFinite(ms)) { console.warn("[PB] seekFar(non-finite) ignored"); return; }
         _lastFarMs = ms;
+        if (root._seekT0 < 0) { root._seekT0 = Date.now(); root._seekDt = -1; root._seekTargetMs = ms; }
+        root._seekKind = "far";
         stepper.invalidate();   // a re-open supersedes any cache-step state / in-flight step
         // A far target in DEAD AIR (most of a sparse day) must not open a ±30 min
         // session around nothing — that returns zero ready fragments and strands the
@@ -462,7 +466,18 @@ Item {
                     FrameCache.captureCurrent();
                 }
             }
+            if (root._seekT0 >= 0 && root._seekKind === "direct") {
+                root._seekDt = Date.now() - root._seekT0;
+                root._seekT0 = -1;
+                if (root._pbTime) console.log("[PBSEEK] kind=direct dt=" + Math.round(root._seekDt) + "ms");
+            }
             if (root._ttffPending) {       // first frame of a fresh open — the TTFF endpoint
+                if (root._seekT0 >= 0) {
+                    root._seekDt = Date.now() - root._seekT0;
+                    root._seekT0 = -1;
+                    if (root._pbTime) console.log("[PBSEEK] kind=" + root._seekKind
+                                                  + " dt=" + Math.round(root._seekDt) + "ms");
+                }
                 root._ttffPending = false;
                 root.lastTtffMs = Date.now() - root._obT0;
                 root._coverageFlush();   // the picture is up — now the calendar may refresh
@@ -622,6 +637,16 @@ Item {
     property double _obT0: 0           // when the current open began
     property string _obTag: ""
     property bool _ttffPending: false  // armed on source-set; cleared by the first rendered frame
+    // ---- per-JUMP timing (operator ask 2026-09-22: "time between requesting a
+    // fragment and it playing", measured over many scrubber jumps). TTFF above
+    // measures an OPEN; a jump is not always an open — an in-window target is a
+    // direct player seek with no session at all, and that path carried no timing
+    // mark, so half of a scrubbing session was invisible. These three cover both:
+    // armed by seekToWall, completed by the first frame that lands after it.
+    property double _seekT0: -1        // when the operator's jump was issued
+    property string _seekKind: ""      // "far" = re-open a session, "direct" = in-window seek
+    property double _seekDt: -1        // result, ms; -1 = no frame arrived
+    property double _seekTargetMs: -1
     property double lastTtffMs: -1     // last open→first-frame (read by the WT_TTFF_DAYS harness)
     function _obMark(tag) {
         _obT0 = Date.now(); _obTag = tag; _ttffPending = false;
@@ -3270,6 +3295,95 @@ Item {
                         + "ms maxDesync=" + Math.round(probe.maxDesyncMs) + "ms frames=" + probe.frames + " over=" + sec + "s");
                     Qt.quit();
                 }
+            }
+        }
+    }
+
+    // JUMP harness (WT_SEEK_COUNT=N, WT_SEEK_WINDOW="isoA,isoB"): drives N scrubber
+    // jumps to pseudo-random targets inside the window on the camera opened at boot
+    // (WT_PLAYBACK_IP/WT_PLAYBACK_DAY), logging each jump's request→first-frame time
+    // and a summary. Targets come from a fixed seed so a re-run hits the SAME points
+    // and two builds are comparable. Pair with WT_TRACE=1 for the [PBTIME] stage
+    // breakdown of every far jump.
+    Item {
+        id: seekProbe
+        property int want: (typeof wtSeekCount !== "undefined" && wtSeekCount > 0) ? wtSeekCount : 0
+        property double winA: 0
+        property double winB: 0
+        property int idx: -1
+        property var rows: []
+        property double tgt: -1
+        property int rng: 987654321
+        Component.onCompleted: {
+            if (typeof wtSeekWindow !== "undefined" && wtSeekWindow !== "") {
+                var pr = String(wtSeekWindow).split(",");
+                winA = Date.parse(pr[0]); winB = Date.parse(pr[1]);
+                console.log("[PBSEEK] window " + pr[0] + " .. " + pr[1] + " n=" + want);
+            }
+        }
+        function nextTarget() {
+            rng = (rng * 1103515245 + 12345) % 2147483648;
+            if (rng < 0) rng += 2147483648;
+            return winA + (rng / 2147483648) * (winB - winA);
+        }
+        function pct(a, q) { if (!a.length) return -1; var b = a.slice().sort(function(x,y){return x-y});
+                             return b[Math.min(b.length-1, Math.floor(q * b.length))]; }
+        // WAIT for each jump to land rather than dwelling a fixed time: a fixed
+        // dwell shorter than the jump smears the measurement (the first run used
+        // 13 s against a 20 s p50 — jumps overlapped and coalesced, and 8 landings
+        // were mis-scored as lost). Issue, wait for the frame or a hard cap, record,
+        // settle, repeat.
+        Timer {
+            running: seekProbe.want > 0 && seekProbe.winB > seekProbe.winA
+            interval: 500; repeat: true
+            property int ticks: 0
+            property int actAt: 36            // boot grace, in 500 ms ticks
+            property int deadline: 0
+            property bool waiting: false
+            onTriggered: {
+                ticks++;
+                if (ticks < actAt) return;
+                if (waiting) {
+                    var landed = root._seekDt >= 0;
+                    if (!landed && ticks < deadline) return;          // still in flight
+                    var dt = landed ? Math.round(root._seekDt) : -1;
+                    seekProbe.rows.push({ dt: dt, kind: root._seekKind });
+                    console.log("[PBSEEK] i=" + seekProbe.idx + " kind=" + root._seekKind
+                                + " dt=" + dt + "ms target="
+                                + Qt.formatDateTime(new Date(seekProbe.tgt), "MM-dd HH:mm:ss"));
+                    waiting = false;
+                    actAt = ticks + 4;                                 // 2 s settle
+                    return;
+                }
+                seekProbe.idx++;
+                if (seekProbe.idx >= seekProbe.want) {
+                    var ok = [], far = [], dir = [];
+                    for (var i = 0; i < seekProbe.rows.length; i++) {
+                        var r = seekProbe.rows[i];
+                        if (r.dt >= 0) { ok.push(r.dt); (r.kind === "far" ? far : dir).push(r.dt); }
+                    }
+                    var sum = 0; for (var j = 0; j < ok.length; j++) sum += ok[j];
+                    // first vs last third: is the app getting slower as the session runs?
+                    var third = Math.max(1, Math.floor(ok.length / 3));
+                    var f3 = ok.slice(0, third), l3 = ok.slice(ok.length - third);
+                    var mean = function (a) { var t = 0; for (var k = 0; k < a.length; k++) t += a[k];
+                                              return a.length ? Math.round(t / a.length) : -1; };
+                    console.log("[PBSEEK] SUMMARY n=" + seekProbe.rows.length
+                                + " landed=" + ok.length + " lost=" + (seekProbe.rows.length - ok.length)
+                                + " mean=" + mean(ok)
+                                + " p50=" + seekProbe.pct(ok, 0.5)
+                                + " p90=" + seekProbe.pct(ok, 0.9)
+                                + " max=" + (ok.length ? Math.max.apply(null, ok) : -1)
+                                + " firstThirdMean=" + mean(f3) + " lastThirdMean=" + mean(l3)
+                                + " far_n=" + far.length + " direct_n=" + dir.length);
+                    Qt.quit(); return;
+                }
+                root._seekDt = -1; root._seekKind = "?";
+                seekProbe.tgt = seekProbe.nextTarget();
+                root.seekToWall(seekProbe.tgt);
+                waiting = true;
+                deadline = ticks + ((typeof wtSeekDwell !== "undefined" && wtSeekDwell > 0)
+                                    ? wtSeekDwell * 2 : 80);           // hard cap, 40 s default
             }
         }
     }

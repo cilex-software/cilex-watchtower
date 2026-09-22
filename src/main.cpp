@@ -975,6 +975,10 @@ int main(int argc, char *argv[])
     // WT_TTFF_EOS=1: during the WT_TTFF_DAYS harness, seek near the loaded window's end
     // after each open so EndOfMedia → the bounded-window roll-over is exercised.
     engine.rootContext()->setContextProperty("wtTtffEos", qEnvironmentVariableIsSet("WT_TTFF_EOS"));
+    // Jump-latency harness (see the seekProbe Item in PlaybackScreen.qml).
+    engine.rootContext()->setContextProperty("wtSeekCount", qEnvironmentVariableIntValue("WT_SEEK_COUNT"));
+    engine.rootContext()->setContextProperty("wtSeekWindow", qEnvironmentVariable("WT_SEEK_WINDOW"));
+    engine.rootContext()->setContextProperty("wtSeekDwell", qEnvironmentVariableIntValue("WT_SEEK_DWELL"));
     // QA: WT_WALLPERF=1 (or =quick) attaches the synchronized-wall seek/re-composite
     // latency harness (drives the playhead over fixed offsets, measures time-to-replay
     // across all 16 cells). Logs "WALLPERF,..." CSV lines. Needs a real GPU (VA-API).
