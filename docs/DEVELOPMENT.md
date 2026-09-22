@@ -284,6 +284,15 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   `query_db_latency_ms` **does** already include the `pool.acquire()` wait (their
   `utils/db.py` starts `t0` before the acquire), so the metric is the right one — it is
   simply never recorded. Capture it live with `tools/pilot-stall-capture.sh`.
+- **Write commit messages with `git commit -F -` and a heredoc, never `-m "..."`.** A
+  backticked phrase inside a double-quoted `-m` string is **command-substituted by the
+  shell** and silently deleted from the message. It cost two commits on 2026-09-22 —
+  `6586430` lost "the `async with pool.acquire()`" and `37da641` lost
+  "`_rec(c) !== REC.Armed -> return false`" — and since `main` is never rewritten here,
+  neither can be repaired. The second happened *after* the first was written down, which is
+  the argument for the rule rather than the vigilance: quoting code in a commit message is
+  normal and the failure is silent, so the only reliable defence is never using the form
+  that breaks.
 
 ## Verification convention
 
