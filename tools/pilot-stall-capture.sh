@@ -53,9 +53,14 @@ emit() { printf '%s\t%s\t%s\t%s\n' "$(date -u +%H:%M:%S)" "$1" "$2" "$3" >> "$OU
 END=$(( $(date +%s) + SECS ))
 while [ "$(date +%s)" -lt "$END" ]; do
     # 1. DB latency histogram — count and sum per query_type (acquire wait included)
+    # Default FS, label pulled by regex. An earlier version split on [{}" ]+ and
+    # tested for a field equal to "query_type" — but that split leaves the field as
+    # `query_type=`, so the test never matched and EVERY series was emitted with an
+    # empty label, silently collapsing all query types into one line. Caught in the
+    # smoke output, which is the only reason it is not still there.
     curl -s -m 2 -L "$API/metrics" 2>/dev/null \
-      | awk -F'[{}" ]+' '/^query_db_latency_ms_(count|sum)\{/ {
-            for (i = 1; i <= NF; i++) if ($i == "query_type") t = $(i+1);
+      | awk '/^query_db_latency_ms_(count|sum)\{/ {
+            t = $0; sub(/.*query_type="/, "", t); sub(/".*/, "", t);
             k = ($0 ~ /^query_db_latency_ms_count/) ? "count" : "sum";
             print t "." k "\t" $NF }' \
       | while IFS=$'\t' read -r k v; do emit metrics "$k" "$v"; done
