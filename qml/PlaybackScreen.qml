@@ -1160,7 +1160,10 @@ Item {
                 // "deliberately zoomed".
                 var _wasFitted = (root.viewStartMs === root.tlStartMs
                                   && root.viewEndMs === root.tlEndMs)
-                                 || root.viewEndMs <= root.viewStartMs;
+                                 // `!(a > b)`, not `a <= b`: a NaN view must count as
+                                 // UNFITTED so resetView() recovers it. `<=` answered
+                                 // false on NaN and preserved a view that did not exist.
+                                 || !(root.viewEndMs > root.viewStartMs);
                 root.tlStartMs = Date.parse(meta.wall_start);
                 root.tlEndMs = Date.parse(meta.wall_end);
                 root.tlFrags = tlo;

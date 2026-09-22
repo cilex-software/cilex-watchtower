@@ -234,6 +234,25 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
     storage_tiers.py 13). Those are a PRECISION question, not an offset one, while the columns
     stay `TIMESTAMPTZ` — so nothing there is broken, and `streams.py` is not the whole wire.
     Do not read the finding above as wider than it is.
+- **A guard whose predicate cannot reach the state it exists to catch is not a guard.**
+  Four window guards read `end <= start` — "I have no usable window, do nothing". Against
+  NaN that is **false**, so they failed OPEN and the next line threw on
+  `new Date(NaN).toISOString()`. Use **`!(end > start)`**: identical for every finite pair by
+  trichotomy, and it fires on NaN, so the rewrite is provably behaviour-preserving for valid
+  input — which is why it could ship without a live manifest to test against.
+  `WallPlayback.qml:156` already used that form; three later guards did not, and a **fifth**
+  (`PlaybackScreen.qml` `_wasFitted`) was found only once the rule was made mechanical.
+  **`tools/tests/window-guard-lint.sh` now enforces it** — it found all five known instances
+  at the pre-fix commit and zero false positives across `qml/`. Run it with the other tests.
+  - The general shape, named by cilex-vision the same evening after shipping its twin
+    (`if token in _bootstrap_tokens(request) and proj.host:` — where `proj.host` falls back
+    to the truthy literal `"unknown"`, so the condition could never be false): *a guard
+    written as a positive comparison against a value that can be NaN, None, or a truthy
+    placeholder is not a guard.* Mine failed open because NaN makes every comparison false;
+    theirs because a fallback made one always true. Neither of us found our own by reading it.
+  - And the mechanism, from cilex-pro-mobile, who hit it in their repo the same day: *the
+    rule was written once and not made structural, so it held where it was written and
+    nowhere else.* That is the argument for the lint over the four fixes.
 
 ## Verification convention
 
