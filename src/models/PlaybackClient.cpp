@@ -1257,8 +1257,21 @@ void PlaybackClient::pollExport(const QString &jobId)
                        ? rawDl
                        : dlUrl.path() + (dlUrl.hasQuery() ? QStringLiteral("?") + dlUrl.query()
                                                           : QString());
-            dl.replace("/api/review/", "/review/");      // route via the local proxy
-            downloadExport(jobId, m_proxy->localBase() + dl, m_exportDest.value(jobId));
+            dl.replace("/api/review/", "/review/");
+            // DIRECT TO THE API, NOT THROUGH HlsProxy. The proxy writes its loopback
+            // socket only from the upstream reply's finished handler (its own note at
+            // HlsProxy.cpp:115-127), so it buffers the WHOLE response before a byte
+            // moves. Measured 2026-09-23 on a 1 h export: downloadProgress sat at
+            // "Starting download" for 286 s and then reported 647 MB in 2.4 s - the
+            // local hand-off, not the transfer. The progress strip was therefore
+            // motionless for exactly the wait it exists to explain, and 647 MB sat in
+            // the proxy's memory first.
+            //
+            // The proxy was only ever needed to attach the session cookie, and an
+            // export download does not need it: the URL carries its own ?token=. Host
+            // comes from m_baseUrl rather than the one CV advertises, so the transfer
+            // uses the address we already know is reachable.
+            downloadExport(jobId, m_baseUrl + dl, m_exportDest.value(jobId));
         } else if (state == "failed" || state == "error") {
             setExportState(QString(), -1, QString());
             emit exportFailed(jobId, obj.value("error_msg").toString());
