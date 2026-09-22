@@ -128,3 +128,70 @@ during a 50-jump run. The first-segment exemption is per-session and cannot see 
 never let read-ahead occupy a connection slot while a player-requested fetch is
 outstanding. Either alone breaks the starvation; `WT_NO_PREFETCH=1` proves the
 ceiling (p50 15,171 ms → 708 ms).
+
+## CORRECTION AND THE REAL AMPLIFIER: the GUI thread freezes for the playlist fetch
+
+The stack above attributed the jump to network contention. That is the trigger but
+not the whole mechanism, and the earlier trace hid the important line because it
+filtered to `[PBTIME]`/`[WTHLS]` only:
+
+    17:22:58.613 [LIVETIME] gui_stall 16862 ms ended
+
+`gui_stall` (`src/main.cpp:588`) is a 20 ms `PreciseTimer` reporting any gap over
+150 ms — so **the Qt GUI event loop did not run for 16.9 of those 22 seconds.**
+
+### What the two 4,797-byte requests are
+
+`sessions/<uuid>/playlist.m3u8` — the review session's HLS **media playlist**. The
+player must read it before it can request any video.
+
+### They are not slow at the server
+
+Same object, same endpoint, elsewhere in the same run:
+
+    ms=53   hdr=50   bytes=4797  playlist.m3u8  st=[serve;dur=1.7]
+    ms=41   hdr=38   bytes=4797  playlist.m3u8  st=[serve;dur=2.3]
+    ms=123  hdr=123  bytes=4797  playlist.m3u8  st=[serve;dur=2.7]
+
+CV serves it in **1.7–2.7 ms**; uncontended round trip is **41–123 ms**. Under
+read-ahead the identical request takes **8,119 ms / 8,710 ms**, with `hdr ≈ ms` and
+`work=0` — the request never got on the wire, it queued for a free connection.
+**~200× on an identical 4.8 KB object.**
+
+### `player.source = …` blocks the GUI thread for that whole fetch
+
+Measured across the run, for every stall over 1 s, the offset between the stall's
+start and the `source_set` log line:
+
+    -21ms  -22ms  -15ms  -26ms  -15ms  -16ms  -8ms  -5ms
+
+i.e. the freeze begins AT the source assignment (within the 20 ms tick granularity)
+and **45 of 46 stalls >1 s ended within 0.5 s of a `playlist.m3u8` completing.**
+The Qt darwin/AVFoundation backend fetches the playlist synchronously on the GUI
+thread, so the entire UI is frozen for as long as that HTTP request takes.
+
+### The A/B, restated in those terms
+
+| | stalls >1 s | total UI frozen | jump p50 |
+|---|---|---|---|
+| read-ahead **ON** | **46** (p50 11,066 ms) | **468 s** of 732 s (**64 %**) | 15,844 ms |
+| read-ahead **OFF** | **0** | 5 s | 708 ms |
+
+### So there are TWO defects, not one
+
+1. **Trigger** — read-ahead starves the player's own fetch (the 6-connection budget
+   shared between `forward():490` and `startPrefetch():402`, never cancelled for
+   abandoned sessions).
+2. **Amplifier** — a synchronous playlist load on the GUI thread turns any slow
+   fetch into a full UI freeze. This one is the more dangerous of the two: it means
+   *any* backend or network slowness freezes the whole application, not just video.
+
+Fixing (1) removes today's trigger and is measured at 21×. Fixing (2) is what stops
+the next slow fetch — from any cause — from freezing the operator's UI.
+
+### Why `first_frame` trails the last segment by ~4 s
+
+It is not buffering. The event loop had been dead for 16.9 s; when the playlist
+finally landed it had to drain everything queued behind it — six camera snapshots
+completing at 17:23:00.0–00.3, two more read-ahead completions at 17:23:02.8 — and
+only then could a frame be rendered and `first_frame` logged.
