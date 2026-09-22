@@ -174,33 +174,83 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
         emit failed(err.isEmpty() ? QStringLiteral("Couldn't start ffmpeg.") : err);
     });
 
-    m_proc->start(QStringLiteral("ffmpeg"), args);
+    m_proc->start(ffmpegProgram(), args);
+}
+
+namespace {
+QString s_chosenFfmpeg;                  // set by probeCapabilities()
+}
+
+QStringList ClipTranscoder::ffmpegCandidates()
+{
+    QStringList c;
+    const QString override = qEnvironmentVariable("WT_FFMPEG");
+    if (!override.isEmpty())
+        c << override;                   // explicit wins, always
+#ifdef Q_OS_MACOS
+    // Homebrew's capable build is keg-only, so it lives here and NOT on PATH. Both
+    // prefixes listed because Apple Silicon and Intel differ.
+    c << QStringLiteral("/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")
+      << QStringLiteral("/usr/local/opt/ffmpeg-full/bin/ffmpeg");
+#endif
+    c << QStringLiteral("ffmpeg");       // whatever PATH offers, last
+    return c;
+}
+
+QString ClipTranscoder::ffmpegProgram()
+{
+    return s_chosenFfmpeg.isEmpty() ? QStringLiteral("ffmpeg") : s_chosenFfmpeg;
 }
 
 void ClipTranscoder::probeCapabilities(QObject *ctx,
                                        std::function<void(bool, bool)> done)
 {
-    auto *p = new QProcess(ctx);
-    // finished and errorOccurred can BOTH fire for one process; answer exactly once.
-    auto answered = std::make_shared<bool>(false);
-    auto settle = [p, done, answered](bool haveFfmpeg, bool haveDrawtext) {
-        if (*answered) return;
-        *answered = true;
-        p->deleteLater();
-        done(haveFfmpeg, haveDrawtext);
+    // Walk the candidates in order and take the FIRST that can do drawtext. If none
+    // can, fall back to the first that merely runs, so the compression ladder still
+    // works — losing overlays must not also cost the operator their downscale.
+    auto cands = std::make_shared<QStringList>(ffmpegCandidates());
+    auto firstWorking = std::make_shared<QString>();
+    auto step = std::make_shared<std::function<void(int)>>();
+
+    *step = [ctx, done, cands, firstWorking, step](int i) {
+        if (i >= cands->size()) {                       // exhausted
+            const bool any = !firstWorking->isEmpty();
+            s_chosenFfmpeg = any ? *firstWorking : QString();
+            if (any)
+                qInfo("[FFMPEG] using %s (no drawtext)", qUtf8Printable(*firstWorking));
+            done(any, false);
+            return;
+        }
+        const QString prog = cands->at(i);
+        qInfo("[FFMPEG] probing candidate %d/%d: %s", i + 1, int(cands->size()), qUtf8Printable(prog));
+        auto *p = new QProcess(ctx);
+        auto answered = std::make_shared<bool>(false);
+        auto settle = [p, answered, step, i, prog, firstWorking, done](bool ran, bool drawtext) {
+            if (*answered) return;
+            *answered = true;
+            p->deleteLater();
+            if (ran && firstWorking->isEmpty())
+                *firstWorking = prog;
+            if (ran && drawtext) {                      // best possible: stop here
+                s_chosenFfmpeg = prog;
+                qInfo("[FFMPEG] using %s (drawtext available)", qUtf8Printable(prog));
+                done(true, true);
+                return;
+            }
+            (*step)(i + 1);
+        };
+        QObject::connect(p, &QProcess::finished, ctx, [p, settle](int, QProcess::ExitStatus) {
+            // `ffmpeg -filters` prints one line per filter: " ... drawtext  V->V  ...".
+            // Match with the surrounding spaces so "drawtext" inside another filter
+            // name cannot pass. stdout only — the banner is suppressed.
+            settle(true, p->readAllStandardOutput().contains(" drawtext "));
+        });
+        QObject::connect(p, &QProcess::errorOccurred, ctx, [settle](QProcess::ProcessError) {
+            settle(false, false);                       // absent, or refused to start
+        });
+        p->start(prog, {QStringLiteral("-hide_banner"), QStringLiteral("-filters")});
     };
-    QObject::connect(p, &QProcess::finished, ctx, [p, settle](int, QProcess::ExitStatus) {
-        // `ffmpeg -filters` prints one line per filter: " ... drawtext  V->V  ...".
-        // Match with the surrounding spaces so "drawtext" inside another name cannot
-        // pass, and read stdout only — the banner is suppressed.
-        const QByteArray out = p->readAllStandardOutput();
-        settle(true, out.contains(" drawtext "));
-    });
-    QObject::connect(p, &QProcess::errorOccurred, ctx, [settle](QProcess::ProcessError) {
-        settle(false, false);            // not on PATH, or refused to start
-    });
-    p->start(QStringLiteral("ffmpeg"),
-             {QStringLiteral("-hide_banner"), QStringLiteral("-filters")});
+    (*step)(0);
 }
 
 void ClipTranscoder::cleanup()

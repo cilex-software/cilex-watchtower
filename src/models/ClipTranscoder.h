@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QProcess>
 #include <functional>
 
@@ -49,6 +50,17 @@ public:
     // fires once, on ctx's thread; haveFfmpeg=false means nothing is on PATH at all.
     static void probeCapabilities(QObject *ctx,
                                   std::function<void(bool haveFfmpeg, bool haveDrawtext)> done);
+
+    // The binary the probe settled on. Empty until probeCapabilities() has answered,
+    // after which start() uses it. A bare "ffmpeg" off PATH is NOT good enough on
+    // macOS: Homebrew ships a slim `ffmpeg` (no drawtext) and puts the capable build
+    // in `ffmpeg-full`, which is KEG-ONLY — deliberately not linked onto PATH — so it
+    // is invisible to a plain exec. Worse, the slim one cannot simply be replaced:
+    // gstreamer and freerdp depend on it, and gstreamer is what plays our live wall.
+    // So we look for a capable build in the places Homebrew puts one, and fall back to
+    // PATH. WT_FFMPEG overrides everything.
+    static QString ffmpegProgram();
+    static QStringList ffmpegCandidates();
 
     // Exposed for unit-style checks: the -vf filtergraph for the given options ("" = none).
     static QString buildFilter(int heightPx, bool burnName, bool burnTimestamp,
