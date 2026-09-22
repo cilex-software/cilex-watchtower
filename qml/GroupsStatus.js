@@ -35,7 +35,11 @@ function _rec(c) { return c ? c.recording : REC.Unknown; }
 // this file, and by QDateTime::fromString(.., Qt::ISODate) in src/ (verified
 // Qt 6.12: naive input yields timeSpec=0). On this box, MSK, that is a silent
 // 3-hour shift; in a UTC container it is none — so a dev box and the guard booth
-// would disagree and neither would say so. Nothing on this side can detect it.
+// would disagree and neither would say so. A client cannot recover the right
+// INSTANT from such a string — but it CAN see that the string is the wrong
+// SHAPE, and src/models/WireTime.h now names any field that arrives without an
+// offset. (This comment said "nothing on this side can detect it" when first
+// written, on 2026-09-22; cilex-pro-mobile drew the distinction and was right.)
 // What prevents it is on the SERVER: iso_ms() emits an offset if and only if the
 // datetime handed to it is tz-aware, and the columns behind these fields are
 // TIMESTAMPTZ (alembic 0053/0054; 0028 for last_vmd_event_at). That is a

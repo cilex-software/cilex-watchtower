@@ -198,8 +198,14 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   2026-09-22, Qt 6.12): `QDateTime::fromString(s, Qt::ISODate)` on a naive string yields
   `timeSpec=0` (`Qt::LocalTime`), and QV4's `Date.parse` agrees. On this box (MSK) that is a
   silent **3-hour** shift; in a UTC container it is none — so a dev box and the guard booth
-  would disagree and neither would say so. Nothing client-side can detect it. What prevents
-  it is server-side: cilex-vision's `iso_ms()` (`services/_common/timefmt.py:35`) emits an
+  would disagree and neither would say so. A client cannot recover the right INSTANT from
+  such a string — but it CAN see that the string is the wrong SHAPE, and
+  `src/models/WireTime.h` now warns once per field for any of the seven wire timestamps
+  that arrives without an offset (names the field, never the value). **This entry first
+  said "nothing client-side can detect it", and this box told cilex-vision and
+  cilex-pro-mobile the same. That was wrong — mobile drew the instant-vs-shape
+  distinction and shipped their detector first (`7358240`).** What prevents the shift in
+  the first place is still server-side: cilex-vision's `iso_ms()` (`services/_common/timefmt.py:35`) emits an
   offset **iff** the datetime it is handed is tz-aware, and the columns behind these fields
   are `TIMESTAMPTZ` (alembic `0053`/`0054`; `0028` for `last_vmd_event_at`). That dependency
   is pinned by no test on either side — CV's route tests assert `wire == iso_ms(input)`,
@@ -207,10 +213,27 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   - Same measurement retires an open question in CV's own docstring
     (`timefmt.py:14-17`, *"Whether Qt tolerates six is UNMEASURED by me"*): **Qt 6.12
     `Qt::ISODate` and `Qt::ISODateWithMs` both accept six fractional digits**, truncating to
-    ms with rounding (`.873977` → `.874`). So `iso_ms` was never load-bearing for us; it was
-    load-bearing for Hermes on cilex-pro-mobile. Note `decommissioned_at`
-    (`routers/streams.py:577,1496`) still goes out as raw `.isoformat()` — six digits — which
-    is fine for Qt and is the phone's hazard, not ours.
+    ms with rounding (`.873977` → `.874`). So `iso_ms` was never load-bearing for us.
+    **Whether it is load-bearing for Hermes is NOT measured by anyone** — this box wrote
+    that it was, which overstated a report (CV's docstring paraphrases a failure
+    cilex-pro-mobile observed on 2026-08-21) as a measurement. Mobile cannot close it
+    either: their repo ships only `hermesc`, and their jest environment is Node/V8, so
+    any test there would measure V8. It needs a device build, which is the operator's to
+    run. Open, and labelled open. CV has since rewritten their own bullet to say
+    the same (their words: *"I had dressed a spec-derived risk as a crash somebody saw"*).
+  - **The dependency is now pinned on CV's side, and the pin was mutation-tested.**
+    `test_route_level_timestamps_carry_a_utc_offset` goes through `GET /streams` and asserts
+    `status_since` / `last_seen_at` / `recording_since` / `last_segment_at` all end in `+00:00`
+    or `Z`. CV injected a mutant (`iso_ms` stripping tzinfo) to check it was not another
+    tautology: **the old assertions passed 2/2 against the mutant; the new test failed, naming
+    all four fields.** That is the diagnosis reproduced, not merely accepted. Uncommitted in
+    their tree as of 2026-09-22.
+  - **Scope correction from CV, worth keeping:** `decommissioned_at` (`streams.py:577,1496`)
+    now goes through `iso_ms` too (their working tree, uncommitted 2026-09-22) — but there are
+    **129 raw `.isoformat()` calls across the query-api routers** (review.py 27, storage.py 16,
+    storage_tiers.py 13). Those are a PRECISION question, not an offset one, while the columns
+    stay `TIMESTAMPTZ` — so nothing there is broken, and `streams.py` is not the whole wire.
+    Do not read the finding above as wider than it is.
 
 ## Verification convention
 

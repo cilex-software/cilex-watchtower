@@ -1,4 +1,5 @@
 #include "EventModel.h"
+#include "WireTime.h"
 
 // Server- and operator-authored strings render through QML Text, whose default
 // AutoText promotes anything that looks like markup to StyledText — which parses
@@ -245,7 +246,7 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     e.camName = plain(o.value("camera_name").toString());
     if (e.camName.isEmpty()) e.camName = e.camId;
     e.group = plain(o.value("zone").toString());             // zone = camera group name
-    const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+    const QDateTime dt = QDateTime::fromString(wt::wireInstant(o.value("start_time"), "start_time"), Qt::ISODate);
     e.time = dt.isValid() ? dt.toLocalTime().toString("HH:mm:ss") : o.value("start_time").toString();
     e.tsMs = dt.isValid() ? dt.toMSecsSinceEpoch() : 0;
     e.durationMs = o.value("duration_ms").toVariant().toLongLong();
@@ -268,7 +269,7 @@ wt::EventData EventModel::parseRow(const QJsonObject &o) const
     // ack derives from triage_state (anything past "new")
     e.ack = !e.triageState.isEmpty() && e.triageState != QLatin1String("new");
     e.ackBy = o.value("acknowledged_by").toString();
-    const QDateTime adt = QDateTime::fromString(o.value("acknowledged_at").toString(), Qt::ISODate);
+    const QDateTime adt = QDateTime::fromString(wt::wireInstant(o.value("acknowledged_at"), "acknowledged_at"), Qt::ISODate);
     e.ackTime = adt.isValid() ? adt.toLocalTime().toString("HH:mm") : QString();
     const QJsonValue det = o.value("detection");
     if (det.isObject()) {
@@ -579,7 +580,7 @@ void EventModel::trackMotionRow(const QJsonObject &o, bool *advanced)
     const QString t = o.value("event_type").toString().toLower();
     if (!t.startsWith(QLatin1String("motion_")) || t == QLatin1String("motion_not_ready"))
         return;
-    const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+    const QDateTime dt = QDateTime::fromString(wt::wireInstant(o.value("start_time"), "start_time"), Qt::ISODate);
     if (!dt.isValid())
         return;
     const QString cid = o.value("camera_id").toString();
@@ -713,7 +714,7 @@ void EventModel::fetchLiveFeed()
             // carried camId all along; this live-feed map never did, so OpsSidebar's
             // preview had nothing to ask for and every fresh row stayed blank.
             m.insert("camId", o.value("camera_id").toString());
-            const QDateTime dt = QDateTime::fromString(o.value("start_time").toString(), Qt::ISODate);
+            const QDateTime dt = QDateTime::fromString(wt::wireInstant(o.value("start_time"), "start_time"), Qt::ISODate);
             m.insert("tsMs", dt.isValid() ? double(dt.toMSecsSinceEpoch()) : -1.0);
             m.insert("hasClip", !o.value("clip_url").toString().isEmpty());
             // The sidebar's still comes from `events/{id}/snapshot`, which EXTRACTS a

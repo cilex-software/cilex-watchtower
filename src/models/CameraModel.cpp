@@ -1,4 +1,5 @@
 #include "CameraModel.h"
+#include "WireTime.h"
 #include "LiveProxy.h"
 
 // Camera/group names are operator-authored server strings rendered by QML Text
@@ -397,10 +398,10 @@ void CameraModel::fetchCameras()
             const QString st = o.value("status").toString();
             {   // authoritative state onsets (additive fields; recording_since is null ≤30s post-flip)
                 const QString cid = o.value("camera_id").toString();
-                const QDateTime ss = QDateTime::fromString(o.value("status_since").toString(), Qt::ISODate);
+                const QDateTime ss = QDateTime::fromString(wt::wireInstant(o.value("status_since"), "status_since"), Qt::ISODate);
                 if (ss.isValid())
                     m_statusSinceAuth.insert(cid, ss.toMSecsSinceEpoch());
-                const QDateTime rs = QDateTime::fromString(o.value("recording_since").toString(), Qt::ISODate);
+                const QDateTime rs = QDateTime::fromString(wt::wireInstant(o.value("recording_since"), "recording_since"), Qt::ISODate);
                 if (rs.isValid())
                     m_recSinceAuth.insert(cid, rs.toMSecsSinceEpoch());
             }
@@ -415,12 +416,12 @@ void CameraModel::fetchCameras()
             // moment the backend ships it the badges go truthful with no client
             // change beyond this parse.
             c.recording = effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), c.live);
-            c.lastSegmentAt = o.value(QStringLiteral("last_segment_at")).toString();
+            c.lastSegmentAt = wt::wireInstant(o.value(QStringLiteral("last_segment_at")), "last_segment_at");
             // last_seen_at: when the camera last answered at ALL — the first question a guard
             // asks at a NO SIGNAL tile. Backend carries it to the second (probed 2026-08-20:
             // all seven 4.1-house cameras cut at the same second); the client showed a dash.
             {
-                const QString seenIso = o.value("last_seen_at").toString();
+                const QString seenIso = wt::wireInstant(o.value("last_seen_at"), "last_seen_at");
                 if (!seenIso.isEmpty()) {
                     const QDateTime seenDt = QDateTime::fromString(seenIso, Qt::ISODateWithMs).toLocalTime();
                     if (seenDt.isValid())
@@ -434,7 +435,7 @@ void CameraModel::fetchCameras()
                 c.motionReady = mo.value(QStringLiteral("ready")).toBool(false);
                 c.motionConfirmed = mo.value(QStringLiteral("confirmed")).toBool(false);
                 c.motionStatus = mo.value(QStringLiteral("status")).toString();
-                c.motionLastVmdAt = mo.value(QStringLiteral("last_vmd_at")).toString();
+                c.motionLastVmdAt = wt::wireInstant(mo.value(QStringLiteral("last_vmd_at")), "motion.last_vmd_at");
             }
             {   // absent != false on the wire too: only a real bool sets the tri-state
                 const QJsonValue hsr = o.value(QStringLiteral("has_sub_recording"));
@@ -620,12 +621,12 @@ void CameraModel::pollStatuses()
                             : (st == QLatin1String("maintenance") || st == QLatin1String("error"))
                                                                  ? CameraStatus::Degraded
                                                                  : CameraStatus::LiveUnknown;
-            const QDateTime ss = QDateTime::fromString(o.value(QStringLiteral("status_since")).toString(), Qt::ISODate);
-            const QDateTime rs = QDateTime::fromString(o.value(QStringLiteral("recording_since")).toString(), Qt::ISODate);
+            const QDateTime ss = QDateTime::fromString(wt::wireInstant(o.value(QStringLiteral("status_since")), "status_since"), Qt::ISODate);
+            const QDateTime rs = QDateTime::fromString(wt::wireInstant(o.value(QStringLiteral("recording_since")), "recording_since"), Qt::ISODate);
             bool audSup = false, audRec = false;
             const bool audPresent = parseAudio(o, o.value(QStringLiteral("ip")).toString(), audSup, audRec);
             incoming.insert(camId, { live, effectiveRec(recStateFrom(o.value(QStringLiteral("recording")).toString()), live),
-                                     o.value(QStringLiteral("last_segment_at")).toString(),
+                                     wt::wireInstant(o.value(QStringLiteral("last_segment_at")), "last_segment_at"),
                                      o.value(QStringLiteral("group_id")).toString(),
                                      o.value(QStringLiteral("group_name")).toString(),
                                      ss.isValid() ? ss.toMSecsSinceEpoch() : -1,
