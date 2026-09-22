@@ -62,6 +62,37 @@ public:
     static QString ffmpegProgram();
     static QStringList ffmpegCandidates();
 
+    // What the chosen binary can do, filled in by probeCapabilities(). drawtext is
+    // optional now: without it we render the overlays ourselves (see
+    // renderOverlayAssets) and composite with the core `overlay` filter, which every
+    // ffmpeg has. The ENCODER is not optional, and which one exists depends on the
+    // build: a bundled LGPL ffmpeg has no libx264 (GPL), so macOS uses Apple's
+    // h264_videotoolbox and Windows uses libopenh264.
+    struct Caps {
+        bool drawtext = false;
+        bool libx264 = false;
+        bool videotoolbox = false;
+        bool openh264 = false;
+        bool any() const { return libx264 || videotoolbox || openh264; }
+    };
+    static Caps caps();
+
+    // Render the burn-in overlays as images, in Qt, at the OUTPUT resolution.
+    // Returns false if nothing could be written. `dir` is created and owned by the
+    // caller. Produces:
+    //   name.png            one static caption, when `label` is non-empty
+    //   ts_%06d.png         one per second of the clip, when startEpochMs > 0
+    // Qt draws the text, so this needs no freetype, no fontconfig and no font file
+    // hunting, and it renders the fleet's Cyrillic camera names the same way the rest
+    // of the UI already does. It also makes the CLOCK OURS: ffmpeg's drawtext
+    // `%{pts:localtime:...}` formats in the EXPORTING MACHINE's timezone, so the same
+    // footage exported from two places carried two different burned-in times (found
+    // by the Linux dev box, 2026-09-23). These images carry an explicit UTC offset so
+    // the text is unambiguous wherever it was produced.
+    static bool renderOverlayAssets(const QString &dir, const QString &label,
+                                    qint64 startEpochMs, qint64 durationMs,
+                                    int outW, int outH, int *tsCount);
+
     // Exposed for unit-style checks: the -vf filtergraph for the given options ("" = none).
     static QString buildFilter(int heightPx, bool burnName, bool burnTimestamp,
                                const QString &nameFilePath, qint64 startEpochMs);
@@ -77,6 +108,7 @@ private:
 
     QProcess *m_proc = nullptr;
     QString m_dst;
+    QString m_assetDir;     // Qt-rendered overlay images, removed on completion
     QString m_nameFile;     // temp file holding the caption (deleted on completion)
     qint64 m_durationMs = 0;
     QString m_tail;         // last slice of stderr (for an error message)

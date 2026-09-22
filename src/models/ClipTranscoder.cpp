@@ -1,6 +1,11 @@
 #include "ClipTranscoder.h"
 #include <memory>
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QGuiApplication>
+#include <QFontMetrics>
+#include <QPainter>
+#include <QImage>
 #include <QTemporaryFile>
 
 #include <QFile>
@@ -8,6 +13,12 @@
 #include <QDir>
 #include <QRegularExpression>
 #include <QtMath>
+
+namespace {
+QString s_chosenFfmpeg;                  // set by probeCapabilities()
+ClipTranscoder::Caps s_caps;             // ditto
+}
+
 
 ClipTranscoder::ClipTranscoder(QObject *parent) : QObject(parent) {}
 
@@ -110,13 +121,68 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
         else m_nameFile.clear();
     }
 
-    const QString filter = buildFilter(heightPx, burnName && !m_nameFile.isEmpty(),
-                                       burnTimestamp, m_nameFile, startEpochMs);
+    const bool wantName = burnName && !label.isEmpty();
+    const bool wantTs   = burnTimestamp && startEpochMs > 0;
+    const bool useImageOverlays = (wantName || wantTs) && !s_caps.drawtext;
 
     QStringList args{ QStringLiteral("-y"), QStringLiteral("-hide_banner"),
                       QStringLiteral("-loglevel"), QStringLiteral("error"), QStringLiteral("-stats"),
                       QStringLiteral("-i"), src, QStringLiteral("-an") };
-    if (filter.isEmpty()) {
+
+    QString filter;
+    QString complex;
+    if (useImageOverlays) {
+        // NO drawtext in this build, so Qt draws the text and ffmpeg only composites.
+        // Needs nothing beyond the core `overlay` filter, which is why a dependency-
+        // free LGPL ffmpeg can ship the feature at all. Renders at the OUTPUT size, so
+        // the scale has to happen before the overlay.
+        m_assetDir = QDir::temp().filePath(QStringLiteral("wt_ovl_%1")
+                                           .arg(QDateTime::currentMSecsSinceEpoch()));
+        QDir().mkpath(m_assetDir);
+        // Output geometry: the source height unless we are downscaling. Width is
+        // unknown until ffmpeg scales, so lay the chips out against a 16:9 estimate —
+        // they are anchored to corners, so a width mismatch shifts nothing visible.
+        const int outH = heightPx > 0 ? heightPx : 1080;
+        const int outW = outH * 16 / 9;
+        int tsCount = 0;
+        if (!renderOverlayAssets(m_assetDir, wantName ? label : QString(),
+                                 wantTs ? startEpochMs : 0, durationMs, outW, outH, &tsCount)) {
+            cleanup();
+            emit failed(QStringLiteral("Couldn't render the overlay images."));
+            return;
+        }
+        const QString scale = heightPx > 0
+            ? QStringLiteral("scale=-2:%1").arg(heightPx)
+            : QStringLiteral("null");
+        QStringList chain;
+        chain << QStringLiteral("[0:v]") + scale + QStringLiteral("[v0]");
+        QString cur = QStringLiteral("[v0]");
+        int idx = 1;
+        if (wantName) {
+            args << QStringLiteral("-loop") << QStringLiteral("1")
+                 << QStringLiteral("-i") << m_assetDir + QStringLiteral("/name.png");
+            chain << QStringLiteral("%1[%2:v]overlay=x=16:y=12:eof_action=pass[vn]")
+                         .arg(cur).arg(idx++);
+            cur = QStringLiteral("[vn]");
+        }
+        if (wantTs && tsCount > 0) {
+            args << QStringLiteral("-framerate") << QStringLiteral("1")
+                 << QStringLiteral("-i") << m_assetDir + QStringLiteral("/ts_%06d.png");
+            chain << QStringLiteral("%1[%2:v]overlay=x=W-w-16:y=H-h-12:eof_action=pass[vt]")
+                         .arg(cur).arg(idx++);
+            cur = QStringLiteral("[vt]");
+        }
+        complex = chain.join(QLatin1Char(';'));
+        args << QStringLiteral("-filter_complex") << complex
+             << QStringLiteral("-map") << cur
+             << QStringLiteral("-shortest");
+    } else {
+        // Caption goes to a temp file so arbitrary camera names need no escaping.
+        filter = buildFilter(heightPx, burnName && !m_nameFile.isEmpty(),
+                             burnTimestamp, m_nameFile, startEpochMs);
+    }
+
+    if (filter.isEmpty() && complex.isEmpty()) {
         args << QStringLiteral("-c") << QStringLiteral("copy");
     } else {
         // Windows/W2: the bundled Windows ffmpeg is LGPL and has NO libx264 (GPL), so the
@@ -126,22 +192,34 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
         // surveillance footage). Verified on-hardware 2026-07-06 (ffmpeg N-125444 LGPL:
         // scale+drawtext+libopenh264 -> clean H.264). See docs/perf/2026-07-06-win-export-encoder.md.
         // Plain STD/HIGH export (no filter) is unaffected (direct download, no ffmpeg).
-        args << QStringLiteral("-vf") << filter;
-#if defined(Q_OS_WIN)
-        const int refH = heightPx > 0 ? heightPx : 1080;        // output height (source height if unscaled)
+        if (!filter.isEmpty())
+            args << QStringLiteral("-vf") << filter;
+        // ENCODER BY CAPABILITY, not by platform. A bundled LGPL ffmpeg has no libx264
+        // (GPL), so the choice has to follow what the chosen binary actually carries:
+        // libx264 where it exists (quality-targeted CRF), otherwise Apple's
+        // VideoToolbox on macOS or libopenh264 as Windows has always used. Both of the
+        // latter are bitrate-targeted; -preset/-crf are libx264-only.
+        const int refH = heightPx > 0 ? heightPx : 1080;
         const int kbps = qBound(800, refH * refH / 180, 8000);  // ~1.3M@480, 2.9M@720, 6.5M@1080
-        args << QStringLiteral("-c:v") << QStringLiteral("libopenh264")
-             << QStringLiteral("-b:v") << QStringLiteral("%1k").arg(kbps);
-#else
-        args << QStringLiteral("-c:v") << QStringLiteral("libx264")
-             << QStringLiteral("-preset") << QStringLiteral("veryfast")
-             << QStringLiteral("-crf") << QStringLiteral("23");
-#endif
+        if (s_caps.libx264) {
+            args << QStringLiteral("-c:v") << QStringLiteral("libx264")
+                 << QStringLiteral("-preset") << QStringLiteral("veryfast")
+                 << QStringLiteral("-crf") << QStringLiteral("23");
+        } else if (s_caps.videotoolbox) {
+            args << QStringLiteral("-c:v") << QStringLiteral("h264_videotoolbox")
+                 << QStringLiteral("-b:v") << QStringLiteral("%1k").arg(kbps);
+        } else {
+            args << QStringLiteral("-c:v") << QStringLiteral("libopenh264")
+                 << QStringLiteral("-b:v") << QStringLiteral("%1k").arg(kbps);
+        }
         args << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p")
              << QStringLiteral("-movflags") << QStringLiteral("+faststart");
     }
     args << dst;
 
+    if (qEnvironmentVariableIsSet("WT_TRACE"))
+        qInfo("[FFCMD] %s %s", qUtf8Printable(ffmpegProgram()),
+              qUtf8Printable(args.join(QLatin1Char(' '))));
     m_proc = new QProcess(this);
     m_proc->setProcessChannelMode(QProcess::SeparateChannels);
     connect(m_proc, &QProcess::readyReadStandardError, this, [this]() {
@@ -178,8 +256,78 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
     m_proc->start(ffmpegProgram(), args);
 }
 
-namespace {
-QString s_chosenFfmpeg;                  // set by probeCapabilities()
+ClipTranscoder::Caps ClipTranscoder::caps() { return s_caps; }
+
+// Draw one overlay image: transparent background, white text, dark shadow so it stays
+// legible over both a bright driveway and a black night sky.
+static bool drawChip(const QString &path, const QString &text, int w, int h, int px)
+{
+    QImage img(w, h, QImage::Format_ARGB32);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+    QFont f = QGuiApplication::font();
+    f.setPixelSize(px);
+    f.setWeight(QFont::DemiBold);
+    p.setFont(f);
+    const QRect r = img.rect().adjusted(px / 2, 0, -px / 2, 0);
+    // A 1px dark outline in four directions reads on any background without a slab.
+    p.setPen(QColor(0, 0, 0, 200));
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = -1; dy <= 1; ++dy)
+            if (dx || dy)
+                p.drawText(r.translated(dx, dy), Qt::AlignVCenter | Qt::AlignLeft, text);
+    p.setPen(QColor(255, 255, 255));
+    p.drawText(r, Qt::AlignVCenter | Qt::AlignLeft, text);
+    p.end();
+    return img.save(path, "PNG");
+}
+
+bool ClipTranscoder::renderOverlayAssets(const QString &dir, const QString &label,
+                                         qint64 startEpochMs, qint64 durationMs,
+                                         int outW, int outH, int *tsCount)
+{
+    if (tsCount) *tsCount = 0;
+    if (outW <= 0 || outH <= 0)
+        return false;
+    // Scale the type to the output so a 480p clip is not branded with 1440p-sized
+    // text. 2.2% of height matches what drawtext was producing at 1440p.
+    const int px = qBound(14, int(outH * 0.022), 48);
+    const int chipH = px * 2;
+
+    bool ok = true;
+    if (!label.isEmpty()) {
+        QFont probe = QGuiApplication::font();
+        probe.setPixelSize(px);
+        probe.setWeight(QFont::DemiBold);
+        const int w = qMin(outW, QFontMetrics(probe).horizontalAdvance(label) + px * 2);
+        ok = drawChip(dir + QStringLiteral("/name.png"), label, qMax(16, w), chipH, px) && ok;
+    }
+    if (startEpochMs > 0 && durationMs > 0) {
+        // EXPLICIT offset, captured once: the text says which clock it is on, so a
+        // clip exported from another timezone cannot be silently misread.
+        const QDateTime t0 = QDateTime::fromMSecsSinceEpoch(startEpochMs);
+        const int offMin = t0.offsetFromUtc() / 60;
+        const QString off = QStringLiteral("UTC%1%2:%3")
+                                .arg(offMin < 0 ? QLatin1Char('-') : QLatin1Char('+'))
+                                .arg(qAbs(offMin) / 60, 2, 10, QLatin1Char('0'))
+                                .arg(qAbs(offMin) % 60, 2, 10, QLatin1Char('0'));
+        const int n = int((durationMs + 999) / 1000) + 1;      // cover the tail second
+        QFont probe = QGuiApplication::font();
+        probe.setPixelSize(px);
+        probe.setWeight(QFont::DemiBold);
+        const QString widest = QStringLiteral("0000-00-00 00:00:00 ") + off;
+        const int w = qMin(outW, QFontMetrics(probe).horizontalAdvance(widest) + px * 2);
+        for (int i = 0; i < n && ok; ++i) {
+            const QString txt = t0.addMSecs(qint64(i) * 1000).toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+                                + QLatin1Char(' ') + off;
+            ok = drawChip(QStringLiteral("%1/ts_%2.png").arg(dir).arg(i, 6, 10, QLatin1Char('0')),
+                          txt, qMax(16, w), chipH, px);
+        }
+        if (ok && tsCount) *tsCount = n;
+    }
+    return ok;
 }
 
 QStringList ClipTranscoder::ffmpegCandidates()
@@ -239,19 +387,39 @@ void ClipTranscoder::probeCapabilities(QObject *ctx,
             p->deleteLater();
             if (ran && firstWorking->isEmpty())
                 *firstWorking = prog;
-            if (ran && drawtext) {                      // best possible: stop here
+            // TAKE THE FIRST THAT RUNS AND CAN ENCODE. drawtext is no longer a
+            // selection criterion: when it is absent we render the overlays in Qt and
+            // composite with the core `overlay` filter, so a dependency-free LGPL
+            // build is fully capable. Candidate ORDER is therefore the preference, and
+            // the bundled binary — the one we ship, pin and test — comes first.
+            if (ran && s_caps.any()) {
                 s_chosenFfmpeg = prog;
-                qInfo("[FFMPEG] using %s (drawtext available)", qUtf8Printable(prog));
+                qInfo("[FFMPEG] using %s (drawtext %s, encoder %s)", qUtf8Printable(prog),
+                      drawtext ? "yes" : "no — overlays rendered in Qt",
+                      s_caps.libx264 ? "libx264"
+                        : s_caps.videotoolbox ? "h264_videotoolbox" : "libopenh264");
                 done(true, true);
                 return;
             }
             (*step)(i + 1);
         };
-        QObject::connect(p, &QProcess::finished, ctx, [p, settle](int, QProcess::ExitStatus) {
+        QObject::connect(p, &QProcess::finished, ctx, [p, prog, settle](int, QProcess::ExitStatus) {
             // `ffmpeg -filters` prints one line per filter: " ... drawtext  V->V  ...".
             // Match with the surrounding spaces so "drawtext" inside another filter
             // name cannot pass. stdout only — the banner is suppressed.
-            settle(true, p->readAllStandardOutput().contains(" drawtext "));
+            const QByteArray filters = p->readAllStandardOutput();
+            const bool dt = filters.contains(" drawtext ");
+            // Encoders are a separate question and a blocking one: a build with no
+            // usable H.264 encoder cannot burn anything in, whatever its filters say.
+            QProcess enc;
+            enc.start(prog, {QStringLiteral("-hide_banner"), QStringLiteral("-encoders")});
+            enc.waitForFinished(4000);
+            const QByteArray e = enc.readAllStandardOutput();
+            s_caps.drawtext     = dt;
+            s_caps.libx264      = e.contains("libx264");
+            s_caps.videotoolbox = e.contains("h264_videotoolbox");
+            s_caps.openh264     = e.contains("libopenh264");
+            settle(true, dt);
         });
         QObject::connect(p, &QProcess::errorOccurred, ctx, [settle](QProcess::ProcessError) {
             settle(false, false);                       // absent, or refused to start
@@ -263,6 +431,7 @@ void ClipTranscoder::probeCapabilities(QObject *ctx,
 
 void ClipTranscoder::cleanup()
 {
+    if (!m_assetDir.isEmpty()) { QDir(m_assetDir).removeRecursively(); m_assetDir.clear(); }
     if (!m_nameFile.isEmpty()) { QFile::remove(m_nameFile); m_nameFile.clear(); }
     if (m_proc) { m_proc->deleteLater(); m_proc = nullptr; }
 }

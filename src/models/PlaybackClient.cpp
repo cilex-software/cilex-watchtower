@@ -128,13 +128,17 @@ PlaybackClient::PlaybackClient(QObject *parent)
     // overlay burn-in and a compression ladder that a slim ffmpeg cannot deliver; see
     // ClipTranscoder::probeCapabilities for why this is per-machine on macOS.
     ClipTranscoder::probeCapabilities(this, [this](bool haveFfmpeg, bool haveDrawtext) {
-        const bool overlays = haveFfmpeg && haveDrawtext;
+        // Overlays need an ENCODER, not drawtext: without drawtext the text is drawn
+        // in Qt and composited with the core `overlay` filter. So the checkboxes are
+        // withheld only when there is no usable ffmpeg at all.
+        const bool overlays = haveFfmpeg && ClipTranscoder::caps().any();
+        Q_UNUSED(haveDrawtext)
         if (m_transcodeSupported == haveFfmpeg && m_overlaysSupported == overlays)
             return;
         m_transcodeSupported = haveFfmpeg;
         m_overlaysSupported = overlays;
-        qInfo("[FFMPEG] ffmpeg=%s drawtext=%s -> overlays %s, local re-encode %s",
-              haveFfmpeg ? "yes" : "NOT FOUND", haveDrawtext ? "yes" : "no",
+        qInfo("[FFMPEG] ffmpeg=%s -> overlays %s, local re-encode %s",
+              haveFfmpeg ? "yes" : "NOT FOUND",
               overlays ? "offered" : "WITHHELD", haveFfmpeg ? "offered" : "WITHHELD");
         emit exportCapsChanged();
     });
