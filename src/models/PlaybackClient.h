@@ -191,6 +191,10 @@ signals:
 private:
     void setStatus(const QString &s);
     void setServerUnresponsive(bool v);
+    // Raise the "not responding" banner if `reply` is STILL in flight after
+    // s_apiAnnounceMs, without cancelling it. Announcing and giving up are two
+    // different deadlines; see the note in the .cpp.
+    void armUnresponsiveAnnounce(class QNetworkReply *reply);
     void applyAuthCookie();
     void setAuthFault(bool v, const QString &detail);   // mirror the access_token into our private NAM's jar
     void fetchStreams();

@@ -22,6 +22,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTimer>
+#include <QPointer>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QFile>
@@ -77,9 +78,31 @@ namespace {
 // upstream bound of 10,000 ms. 30 s is ~3x the worst of those, costs nothing on a
 // healthy path (Qt arms a timer that never fires), and still turns a two-minute hang
 // into a stated fault in a quarter of the time.
-const int s_apiTimeoutMs = []{
+// ANNOUNCING AND GIVING UP ARE TWO DIFFERENT DEADLINES, and conflating them is what
+// made the first cut of this wrong. The operator's complaint was SILENCE, not the
+// waiting - so say "not responding" early, while the one request keeps waiting.
+//
+// Why one request and not a ladder: CV read their own source on 2026-09-22 and found
+// /events calls pool.acquire() with NO timeout against max_size=10 (asyncpg waits
+// indefinitely), wrapped around two 30 s-bounded commands - so a request can sit in an
+// uncounted queue for as long as it likes. Against a queue, three retries do not buy
+// three chances, they buy three POSITIONS IN THE SAME QUEUE; and since each abandoned
+// POST may still have created a review session, the ladder also tripled a WRITE
+// against a backend already struggling. (Argument from CV via the Linux dev box.)
+//
+// So: ONE request, the same total patience the 3x30 s ladder had, and the banner 70 s
+// earlier than that ladder managed. Announce at 2x the worst measured healthy control
+// call (coverage 9,847 ms under the startup burst); give up at 90 s, which also clears
+// the worst full jump on the fixed build (8,233 ms) and the proxy's own 10 s upstream
+// bound. Neither fires on a healthy path: Qt just arms timers that never go off.
+const int s_apiDeadlineMs = []{
     const int v = qEnvironmentVariableIntValue("WT_PB_API_TIMEOUT_MS");
-    return v != 0 ? v : 30000;
+    return v != 0 ? v : 90000;
+}();
+const int s_apiAnnounceMs = []{
+    const int v = qEnvironmentVariableIntValue("WT_PB_API_ANNOUNCE_MS");
+    if (v != 0) return v;
+    return qMin(20000, s_apiDeadlineMs / 2);      // never announce after we have given up
 }();
 }
 
@@ -147,6 +170,21 @@ PlaybackClient::~PlaybackClient()
     }
 }
 
+void PlaybackClient::armUnresponsiveAnnounce(QNetworkReply *reply)
+{
+    if (!reply)
+        return;
+    auto *t = new QTimer(reply);                 // parented to the reply: dies with it
+    t->setSingleShot(true);
+    t->setInterval(s_apiAnnounceMs);
+    QPointer<QNetworkReply> guard(reply);
+    connect(t, &QTimer::timeout, this, [this, guard]() {
+        if (guard && guard->isRunning())         // still waiting, not merely slow to parse
+            setServerUnresponsive(true);
+    });
+    t->start();
+}
+
 void PlaybackClient::setServerUnresponsive(bool v)
 {
     if (m_serverUnresponsive == v)
@@ -154,7 +192,8 @@ void PlaybackClient::setServerUnresponsive(bool v)
     m_serverUnresponsive = v;
     if (v)
         qWarning().noquote() << "[WT-DEGRADED] subsystem=playback reason=no-response "
-                                "action=retrying budget_ms=" << s_apiTimeoutMs;
+                                "action=still-waiting announce_ms=" << s_apiAnnounceMs
+                             << "deadline_ms=" << s_apiDeadlineMs;
     emit serverUnresponsiveChanged();
 }
 
@@ -351,7 +390,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     setStatus(attempt == 0 ? QStringLiteral("Opening session…") : QStringLiteral("Reconnecting…"));
     QNetworkRequest req{QUrl(m_baseUrl + "/review/sessions")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    req.setTransferTimeout(s_apiTimeoutMs);
+    req.setTransferTimeout(s_apiDeadlineMs);
     QJsonObject body{{"camera_id", cameraId},
                      {"wall_start", wallStartIso},
                      {"wall_end", wallEndIso},
@@ -425,6 +464,7 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     if (m_proxy)
         QMetaObject::invokeMethod(m_proxy, "cancelPrefetches", Qt::QueuedConnection);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    armUnresponsiveAnnounce(reply);
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, httpTimer, tag]() {
         reply->deleteLater();
@@ -469,16 +509,41 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
             // the operator actually reported on 2026-09-22 - a spinner a guard cannot
             // tell from a hung app. The retries continue underneath, so a transient
             // blip still self-heals with nothing said and nothing for anyone to do.
-            if (code == 0)
+            if (code == 0) {
+                qWarning("[WT-NETERR] session transport failure err=%d (%s)",
+                         int(reply->error()), qUtf8Printable(reply->errorString()));
                 setServerUnresponsive(true);
-            if (code == 0 && attempt < 2) {
+            }
+            // DO NOT RETRY OUR OWN TIMEOUT. code 0 covers two different worlds and they
+            // deserve opposite treatment. Refused / reset / unreachable means the request
+            // was never taken: nothing ran, retrying is cheap and usually wins. But
+            // OperationCanceledError here is OUR transfer budget firing, and that means
+            // the server has HELD this POST for s_apiTimeoutMs and may well have created
+            // the very session we would be asking for again. Re-sending would triple a
+            // WRITE against a backend that is by hypothesis already struggling, and each
+            // abandoned attempt is one more orphaned review session - the exact shape the
+            // read-ahead fix removed earlier today. One attempt, then say so.
+            // (Raised by the Linux dev box on 2026-09-22, reviewing the budget change.)
+            // Qt 6.11 reports a transfer-timeout abort as TimeoutError (4), NOT
+            // OperationCanceledError - measured here 2026-09-22 after the first cut of
+            // this guard silently never matched and the ladder still fired three times.
+            const auto netErr = reply->error();
+            const bool ourTimeout = netErr == QNetworkReply::TimeoutError
+                                 || netErr == QNetworkReply::OperationCanceledError;
+            if (code == 0 && !ourTimeout && attempt < 2) {
                 QTimer::singleShot(500, this, [this, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, tag]() {
                     requestSession(cameraId, wallStartIso, wallEndIso, hevcCapable, attempt + 1, tag);
                 });
                 return;
             }
+            if (ourTimeout)
+                qWarning("[WT-DEGRADED] subsystem=playback reason=budget-expired ms=%d "
+                         "action=giving-up (not retried: one queue position, and the POST "
+                         "may already have made a session)", s_apiDeadlineMs);
             const QString detail = wt::localisedServerError(raw);
             const QString msg = !detail.isEmpty() ? detail
+                        : ourTimeout ? tr("The recording backend did not answer within %1 s.")
+                                          .arg(s_apiDeadlineMs / 1000)
                         : code == 0 ? QStringLiteral("Couldn't reach the recording backend (%1).").arg(reply->errorString())
                         : QStringLiteral("Session error (%1).").arg(code);
             emit sessionFailed(msg, tag);
@@ -695,11 +760,12 @@ void PlaybackClient::fetchCoverage(const QString &cameraId)
     // arrive late. Measured 9,847 ms under the burst against 1,030 ms idle, and in
     // one launch it lost the race to the guard's click by 228 ms.
     req.setPriority(QNetworkRequest::HighPriority);
-    req.setTransferTimeout(s_apiTimeoutMs);
+    req.setTransferTimeout(s_apiDeadlineMs);
     QElapsedTimer covTimer;
     covTimer.start();
     m_coverageInflight.insert(cameraId);
     QNetworkReply *reply = m_nam->get(req);
+    armUnresponsiveAnnounce(reply);
     connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, covTimer]() {
         reply->deleteLater();
         m_coverageInflight.remove(cameraId);

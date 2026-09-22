@@ -2706,7 +2706,7 @@ Item {
                     // difference between a guard waiting and a guard filing a fault
                     // against an app that looks hung (2026-09-22: 110 s of this text).
                     label: (root.client && root.client.serverUnresponsive)
-                           ? qsTr("Server isn\'t responding — retrying…")
+                           ? qsTr("Server isn\'t responding — still waiting…")
                            : qsTr("Loading recording…")
                 }
 
