@@ -83,3 +83,48 @@ chains keep running.
 Read-ahead exists to make backward seeks inside a warm session cheap (460–670 ms,
 measured 2026-06-14). That benefit is real but small, and it is being paid for with
 15 s on every jump.
+
+## The exact stack, function by function (one real jump, 22.00 s)
+
+Reconstructed from a single `seekfar` in the 50-jump trace (`WT_TRACE=1`,
+`WT_HLS_LOG=1`). Δ is from the moment the operator's jump was issued.
+
+| Δ | function | note |
+|---|---|---|
+| 0.000 s | `qml/PlaybackScreen.qml:246` `seekToWall()` | operator's jump |
+| 0.000 s | `qml/PlaybackScreen.qml:327` `seekFar()` | `_snapToFootage()`, `_obMark("seekfar")` |
+| 0.016 s | `src/models/PlaybackClient.cpp:291` `requestSession()` | `POST /review/sessions` dispatched |
+| 0.225 s | ← CV replies, **208 ms** | server self-report: `serve 14.6 ms, queue 9.3 ms, index 1.8 ms` |
+| 0.225 s | `onSessionReady` (QML) | 61 fragments parsed |
+| 0.228 s | `qml/PlaybackScreen.qml:1301` `player.source = …` | **`source_set`, marshal 3 ms** |
+| | **— everything above costs 228 ms —** | |
+| 0.228 s | AVFoundation asks the loopback proxy for the media playlist | |
+| | `src/models/HlsProxy.cpp:182` `onNewConnection()` → `:207` `serveRequest()` → `:449` `forward()` | |
+| | `src/models/HlsProxy.cpp:490` `m_nam->get(req)` | **← the stall is here** |
+| 8.349 s | ← playlist returns: `ms=8119 hdr=8118 bytes=4797` | **8.1 s to first byte of a 4.8 KB file** |
+| 17.066 s | ← second playlist: `ms=8710 hdr=8706 bytes=4797` | another **8.7 s** |
+| 17.080 s | `src/models/HlsProxy.cpp:362` `prefetchAround()` | `prefetch-hold first-seg` — the exemption DOES fire |
+| 18.129 s | segment `0.ts` served | |
+| 22.003 s | `first_frame dt=22003ms` | |
+
+**16.8 s of the 22.0 s is two 4.8 KB playlist requests waiting for a free socket.**
+
+### Why `m_nam->get()` blocks for 8 s on a 4.8 KB object
+
+`forward()` (`:490`) and `startPrefetch()` (`:402`) issue their GETs on the **same
+`QNetworkAccessManager`**, and Qt caps that at **6 connections per host**. In the
+window above, six read-ahead transfers of ~5 MB each were in flight, for **six
+different abandoned sessions** (`679d2917`, `171d3e2c`, `29aac7a3`, `36922ffa`,
+`c8a6904a`, `e1e2ae98`). Every connection slot was occupied by megabytes nobody
+would watch, so the player's tiny playlist request could not get a socket until one
+freed — `hdr=8118 ms` with `work=0 ms` is precisely that: our own code did nothing
+for eight seconds, it was queued.
+
+`kReadAhead = 2` (`HlsProxy.h:118`) chains forward, and nothing cancels a chain when
+its session is abandoned — which is why 51 session UUIDs were still prefetching
+during a 50-jump run. The first-segment exemption is per-session and cannot see this.
+
+**The fix follows directly:** cancel a session's read-ahead when it is abandoned, and
+never let read-ahead occupy a connection slot while a player-requested fetch is
+outstanding. Either alone breaks the starvation; `WT_NO_PREFETCH=1` proves the
+ceiling (p50 15,171 ms → 708 ms).
