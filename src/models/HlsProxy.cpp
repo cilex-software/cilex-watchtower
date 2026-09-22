@@ -144,6 +144,7 @@ void HlsProxy::init()
     if (m_nam)
         return;                                // already initialised
     m_nam = new StationNam(this);              // the proxy's own, thread-affine manager
+    m_prefetchNam = new StationNam(this);      // speculative traffic, separate 6-connection budget
     for (int i = 0; i < kLivePool; ++i)
         m_livePool.append(new StationNam(this));
     m_server = new QTcpServer(this);
@@ -170,6 +171,7 @@ void HlsProxy::setAuthToken(const QString &token)
         return;                                // pushed again on (re)login
     QNetworkCookie cookie("access_token", token.toUtf8());
     m_nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
+    if (m_prefetchNam) m_prefetchNam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
     for (auto *nam : m_livePool)
         nam->cookieJar()->setCookiesFromUrl({cookie}, QUrl(m_upstream));
 }
@@ -248,6 +250,21 @@ void HlsProxy::serveRequest(QTcpSocket *sock, const QString &path)
             qWarning("[WT-HLS] rejected suspicious proxy path (%d chars)", int(path.size()));
             writeResponse(sock, 400, "text/plain", "bad path");
             return;
+        }
+    }
+    // A prewarmed playlist is answered from memory. This is the request that blocks
+    // Qt's GUI thread inside setSource, so every millisecond saved here is a
+    // millisecond the whole UI is not frozen.
+    if (path.endsWith(QLatin1String(".m3u8"))) {
+        auto pit = m_plCache.constFind(path);
+        if (pit != m_plCache.constEnd()) {
+            if (QDateTime::currentMSecsSinceEpoch() - pit->atMs <= kPlTtlMs) {
+                if (s_hlsLog)
+                    qInfo().noquote() << QStringLiteral("WTHLS prewarm-hit %1").arg(path.section(QLatin1Char('/'), -2));
+                writeResponse(sock, 200, pit->ct, pit->body);
+                return;
+            }
+            m_plCache.remove(path);              // stale: a cold render re-writes the playlist
         }
     }
     if (isSegmentPath(path) && s_slowMs == 0) {
@@ -399,10 +416,12 @@ void HlsProxy::startPrefetch(const QString &path, int chain)
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
-    QNetworkReply *reply = m_nam->get(req);
+    QNetworkReply *reply = (m_prefetchNam ? m_prefetchNam : m_nam)->get(req);
+    m_prefetchReplies.insert(path, reply);
     connect(reply, &QNetworkReply::finished, this, [this, reply, path, chain]() {
         reply->deleteLater();
         m_inflight.remove(path);
+        m_prefetchReplies.remove(path);
         // Best-effort: only cache a clean 200. A cold segment may 503 (still
         // rendering) — drop it; the real request will retry and warm the cache.
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -998,6 +1017,50 @@ static void writeBody(QTcpSocket *sock, const QByteArray &bytes, bool chunked)
     } else {
         sock->write(bytes);
     }
+}
+
+void HlsProxy::cancelPrefetches()
+{
+    if (m_prefetchReplies.isEmpty())
+        return;
+    const int n = m_prefetchReplies.size();
+    const auto replies = m_prefetchReplies;      // abort() re-enters finished → mutates the hash
+    for (auto it = replies.constBegin(); it != replies.constEnd(); ++it)
+        if (it.value()) it.value()->abort();
+    m_prefetchReplies.clear();
+    m_inflight.clear();
+    if (s_hlsLog)
+        qInfo().noquote() << QStringLiteral("WTHLS prefetch-cancel n=%1 (session abandoned)").arg(n);
+}
+
+void HlsProxy::prewarmPlaylist(const QString &path)
+{
+    if (path.isEmpty() || !m_nam)
+        return;
+    QNetworkRequest req{QUrl(m_upstream + path)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    if (s_upstreamTimeoutMs > 0) req.setTransferTimeout(s_upstreamTimeoutMs);
+    QElapsedTimer t; t.start();
+    QNetworkReply *reply = m_nam->get(req);      // DEMAND pool: this is the player's fetch, just early
+    connect(reply, &QNetworkReply::finished, this, [this, reply, path, t]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError)
+            return;                              // the player's own request will do it properly
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (code != 200 && code != 0)
+            return;
+        PlEntry e;
+        e.ct = reply->header(QNetworkRequest::ContentTypeHeader).toByteArray();
+        if (e.ct.isEmpty()) e.ct = QByteArrayLiteral("application/vnd.apple.mpegurl");
+        e.body = rewritePlaylist(reply->readAll());   // exactly what forward() would have sent
+        e.atMs = QDateTime::currentMSecsSinceEpoch();
+        m_plCache.insert(path, e);
+        if (s_hlsLog)
+            qInfo().noquote() << QStringLiteral("WTHLS prewarm ms=%1 bytes=%2 %3")
+                                     .arg(t.elapsed()).arg(e.body.size())
+                                     .arg(path.section(QLatin1Char('/'), -2));
+    });
 }
 
 void HlsProxy::writeHead(QTcpSocket *sock, int code, const QByteArray &contentType, qint64 len)

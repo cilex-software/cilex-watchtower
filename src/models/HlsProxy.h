@@ -5,12 +5,14 @@
 #include <QString>
 #include <QByteArray>
 #include <QHash>
+#include <QPointer>
 #include <QVector>
 #include <QStringList>
 #include <QSet>
 #include <atomic>
 
 class QNetworkAccessManager;
+class QNetworkReply;
 class QTcpSocket;
 
 // Local loopback HLS proxy. Qt 6.4's QMediaPlayer cannot attach an auth cookie
@@ -41,6 +43,16 @@ public slots:
     void init();                               // create the NAM + QTcpServer and listen — ON this thread
     void setUpstream(const QString &base) { m_upstream = base; }
     void setAuthToken(const QString &token);   // set the access_token cookie on the proxy's own NAM
+    // A jump abandons its session; that session's read-ahead is then pure waste AND
+    // it is what starves the next jump. Aborting on the new session's dispatch stops
+    // ~4 GB of pointless transfer per scrubbing run (measured 2026-09-22).
+    void cancelPrefetches();
+    // Fetch a session's media playlist the moment the session exists, so the player's
+    // own request — which blocks Qt's GUI thread inside setSource — is answered from
+    // memory instead of the network. Measured 2026-09-22: that fetch is 41-123 ms
+    // uncontended but 8,119-8,710 ms under read-ahead, and the UI is frozen for every
+    // millisecond of it.
+    void prewarmPlaylist(const QString &path);
 
 private slots:
     void onNewConnection();
@@ -94,6 +106,22 @@ private:
     // they round-robin over a small pool of managers: keep-alive connection reuse
     // (no per-segment TCP+HTTP handshake against a remote RTT) and, with nothing
     // long-lived any more, no per-host starvation either. Cookie set on all.
+    // SPECULATIVE traffic gets its OWN manager. Qt caps a QNetworkAccessManager at 6
+    // connections per host, and read-ahead (5 MB segments, chained, across sessions the
+    // operator has already jumped away from) held every slot — so the player's own
+    // 4.8 KB playlist request queued 8 s for a socket (hdr=8118, work=0). Separating
+    // the pools removes the shared resource instead of arbitrating it: demand traffic
+    // on m_nam can no longer be starved by read-ahead, with no coordination and no
+    // in-flight transfer to abort.
+    QNetworkAccessManager *m_prefetchNam = nullptr;
+    QHash<QString, QPointer<QNetworkReply>> m_prefetchReplies;   // abortable, for cancelPrefetches()
+    // Short-lived playlist cache for prewarmPlaylist(). NOT the segment cache: a
+    // session's playlist is re-fetched as a cold render progresses ("patient outer
+    // loop"), so this must expire quickly — it exists only to cover the player's
+    // first request, microseconds after we set the source.
+    struct PlEntry { QByteArray body; QByteArray ct; qint64 atMs = 0; };
+    QHash<QString, PlEntry> m_plCache;
+    static constexpr int kPlTtlMs = 4000;
     QVector<QNetworkAccessManager *> m_livePool;
     int m_liveRr = 0;
     static constexpr int kLivePool = 4;

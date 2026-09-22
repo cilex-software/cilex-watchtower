@@ -378,6 +378,10 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
               runningTo(m_nam, host),
               m_nam == sharedNam ? -1 : runningTo(sharedNam, host));
     }
+    // This jump abandons whatever session was open; its read-ahead is now pure waste
+    // and is what starves this new one. Drop it before the new fetches start.
+    if (m_proxy)
+        QMetaObject::invokeMethod(m_proxy, "cancelPrefetches", Qt::QueuedConnection);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, cameraId, wallStartIso, wallEndIso, hevcCapable, attempt, httpTimer, tag]() {
@@ -486,6 +490,13 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
         meta["seek_mode"] = man.value("seek_mode").toString();   // "continuous" ⇒ client may seek directly within a run
         setStatus(QString());
         setAuthFault(false, QString());                      // playback is demonstrably authorised again
+        // Fetch the media playlist NOW, on the proxy thread, so the player's own
+        // request — which blocks Qt's GUI thread inside setSource — is answered from
+        // memory. We are ~225 ms into the jump here; the player asks a few ms later.
+        if (m_proxy && !sid.isEmpty())
+            QMetaObject::invokeMethod(m_proxy, "prewarmPlaylist", Qt::QueuedConnection,
+                                      Q_ARG(QString, QStringLiteral("/review/sessions/") + sid
+                                                     + QStringLiteral("/playlist.m3u8")));
         emit sessionReady(sid, compactDuration, frags, meta, tag);
     });
 }

@@ -195,3 +195,45 @@ It is not buffering. The event loop had been dead for 16.9 s; when the playlist
 finally landed it had to drain everything queued behind it — six camera snapshots
 completing at 17:23:00.0–00.3, two more read-ahead completions at 17:23:02.8 — and
 only then could a frame be rendered and `first_frame` logged.
+
+## FIXED — all three, measured on identical targets
+
+Built 2026-09-22 after the operator chose the plan. Read-ahead stays ENABLED in the
+"after" run, so what is measured is the fixes, not the `WT_NO_PREFETCH` bypass.
+
+1. **Separate connection pools** (`m_prefetchNam`). Speculative traffic gets its own
+   `QNetworkAccessManager` and therefore its own 6-connection budget, so it cannot
+   occupy the slots the player's own fetch needs. *Operator's design* — chosen over
+   the runtime "prefetch yields to demand" rule originally proposed here, which has a
+   bootstrapping flaw: a demand request is not detectable as outstanding until it
+   already holds a socket, so honouring the rule would have required aborting
+   in-flight transfers and discarding bytes already paid for.
+2. **Playlist pre-warm** (`HlsProxy::prewarmPlaylist`). `PlaybackClient` asks the
+   proxy to fetch the media playlist the instant the session id exists (~225 ms into
+   the jump); the player's own request, a few ms later, is answered from memory.
+   This is what de-fangs the GUI freeze: `player.source = …` blocks Qt's GUI thread
+   for the duration of that fetch, and it now has nothing to wait for. 4 s TTL,
+   because a cold render re-writes the playlist.
+3. **Cancel on abandon** (`HlsProxy::cancelPrefetches`, called from
+   `requestSession`). A jump abandons its session; that session's read-ahead is both
+   waste and the thing starving the next jump.
+
+| | landed | p50 | mean | p90 | max | GUI stalls >1 s | UI frozen |
+|---|---|---|---|---|---|---|---|
+| **before** | 23/25 | **15,171 ms** | 13,738 ms | 18,984 ms | 22,004 ms | **46** | **468 s** |
+| bypass (`WT_NO_PREFETCH`) | 25/25 | 708 ms | 1,492 ms | 2,616 ms | 9,753 ms | 0 | 5 s |
+| **after (all three)** | **25/25** | **1,007 ms** | 2,483 ms | 6,835 ms | 7,726 ms | **2** | **5 s** |
+
+- **jump p50 15,171 ms → 1,007 ms (15×)**, and nothing is lost (23/25 → 25/25)
+- **UI frozen 468 s → 5 s (94×)**; stalls over a second 46 → 2
+- playlist fetch p50 **4,935 ms → 137 ms**
+- speculative transfer **4,167 MB → 67 MB (62×)** — the cancel working
+- mechanisms confirmed firing: 56 `prewarm`, 27 `prewarm-hit`, 26 `prefetch-cancel`
+
+**Residual, stated honestly.** "After" is still slightly behind the bypass (p50
+1,007 vs 708 ms; p90 6,835 vs 2,616 ms) and two stalls over a second survive. That is
+expected and is the limit of these fixes: separating the pools removes *queueing*,
+not *bandwidth* — read-ahead still shares the link — and a pre-warm that has not
+returned before the player asks cannot help that jump. Closing the remaining tail
+means making read-ahead cheaper or smarter (it is still fetching ~5 MB segments
+speculatively), not re-arbitrating sockets.
