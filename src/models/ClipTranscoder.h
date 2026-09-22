@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QProcess>
+#include <functional>
 
 // Offline, client-side clip transcoder (ffmpeg via QProcess). Used to post-process a
 // downloaded export: optionally downscale to a smaller rendition (the compression
@@ -33,6 +34,21 @@ public:
                bool burnName, bool burnTimestamp, const QString &label,
                qint64 startEpochMs, qint64 durationMs);
     bool busy() const { return m_proc != nullptr; }
+
+    // RUNTIME CAPABILITY PROBE. macOS bundles no ffmpeg — start() below launches a bare
+    // "ffmpeg" off PATH — so what this class can actually do differs per machine, and
+    // the UI must not offer what the local binary cannot deliver. Homebrew split the
+    // formula: stock `ffmpeg` 9.0.1 is a 25-option build with no freetype / harfbuzz /
+    // fontconfig and therefore NO drawtext, while `ffmpeg-full` 9.0.2 carries all four.
+    // Measured on the operator's Mac 2026-09-23, where every export with overlays ran
+    // the whole download and then died on "Filter not found", losing the requested
+    // downscale with it.
+    //
+    // Asynchronous on purpose: a local exec of ~100 ms has no business on the GUI
+    // thread, and the answer is only needed by the time an export drawer opens. `done`
+    // fires once, on ctx's thread; haveFfmpeg=false means nothing is on PATH at all.
+    static void probeCapabilities(QObject *ctx,
+                                  std::function<void(bool haveFfmpeg, bool haveDrawtext)> done);
 
     // Exposed for unit-style checks: the -vf filtergraph for the given options ("" = none).
     static QString buildFilter(int heightPx, bool burnName, bool burnTimestamp,

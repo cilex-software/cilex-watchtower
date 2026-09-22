@@ -53,6 +53,13 @@ class PlaybackClient : public QObject
     // retention out of it will be wrong 100% of the time. The export drawer uses this
     // to know whether it may draw a conclusion at all.
     Q_PROPERTY(bool sessionHevcCapable READ sessionHevcCapable NOTIFY sessionHevcCapableChanged)
+    // What the LOCAL ffmpeg can actually do (ClipTranscoder::probeCapabilities). The
+    // export drawer offers post-processing this machine may not have: overlay burn-in
+    // needs drawtext, and the compression ladder needs ffmpeg at all. Both default to
+    // true until the probe answers, so a drawer opened in the first ~100 ms shows the
+    // status quo rather than flickering a control off and back on.
+    Q_PROPERTY(bool exportOverlaysSupported READ exportOverlaysSupported NOTIFY exportCapsChanged)
+    Q_PROPERTY(bool exportTranscodeSupported READ exportTranscodeSupported NOTIFY exportCapsChanged)
     Q_PROPERTY(bool exportActive READ exportActive NOTIFY exportStateChanged)
     Q_PROPERTY(QString exportPhase READ exportPhase NOTIFY exportStateChanged)
     Q_PROPERTY(qreal exportFraction READ exportFraction NOTIFY exportStateChanged)
@@ -68,6 +75,8 @@ public:
     QString authFaultDetail() const { return m_authFaultDetail; }
     bool serverUnresponsive() const { return m_serverUnresponsive; }
     bool sessionHevcCapable() const { return m_sessionHevcCapable; }
+    bool exportOverlaysSupported() const { return m_overlaysSupported; }
+    bool exportTranscodeSupported() const { return m_transcodeSupported; }
     bool exportActive() const { return m_exportActive; }
     QString exportPhase() const { return m_exportPhase; }
     qreal exportFraction() const { return m_exportFraction; }
@@ -191,6 +200,7 @@ signals:
     void statusChanged();
     void serverUnresponsiveChanged();
     void sessionHevcCapableChanged();
+    void exportCapsChanged();
     void exportStateChanged();
     void authFaultChanged();
     void camerasResolved();
@@ -265,6 +275,8 @@ private:
     QString m_status;
     bool m_serverUnresponsive = false;
     bool m_sessionHevcCapable = true;
+    bool m_overlaysSupported = true;     // until the probe says otherwise
+    bool m_transcodeSupported = true;
     bool m_exportActive = false;
     QString m_exportPhase;
     qreal m_exportFraction = -1;

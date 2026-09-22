@@ -123,6 +123,21 @@ PlaybackClient::PlaybackClient(QObject *parent)
     m_baseUrl = auth->baseUrl();
     applyAuthCookie();
 
+    // Ask the local ffmpeg what it can do, once, off the GUI thread. The drawer offers
+    // overlay burn-in and a compression ladder that a slim ffmpeg cannot deliver; see
+    // ClipTranscoder::probeCapabilities for why this is per-machine on macOS.
+    ClipTranscoder::probeCapabilities(this, [this](bool haveFfmpeg, bool haveDrawtext) {
+        const bool overlays = haveFfmpeg && haveDrawtext;
+        if (m_transcodeSupported == haveFfmpeg && m_overlaysSupported == overlays)
+            return;
+        m_transcodeSupported = haveFfmpeg;
+        m_overlaysSupported = overlays;
+        qInfo("[FFMPEG] ffmpeg=%s drawtext=%s -> overlays %s, local re-encode %s",
+              haveFfmpeg ? "yes" : "NOT FOUND", haveDrawtext ? "yes" : "no",
+              overlays ? "offered" : "WITHHELD", haveFfmpeg ? "offered" : "WITHHELD");
+        emit exportCapsChanged();
+    });
+
     // The HLS proxy runs on its OWN thread so it keeps serving the player's segment reads even while the GUI
     // thread is blocked — e.g. inside QMediaPlayer teardown on the wall↔Live transition, where a GUI-thread
     // proxy deadlocked (stop() waits for the demuxer, the demuxer waits for a segment, the proxy can't serve

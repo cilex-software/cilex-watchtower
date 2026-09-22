@@ -235,11 +235,24 @@ Item {
     readonly property int sourceHeight: effectiveQuality === "high" ? 1440 : 720
     // Compression-ladder target (0 = keep source). A target ≥ the source height would be
     // an upscale / no-op, so it collapses to Original.
-    readonly property int effectiveCompHeight: (compHeight > 0 && compHeight < sourceHeight) ? compHeight : 0
+    // WHAT THIS MACHINE CAN ACTUALLY DELIVER. Post-processing runs through a bare
+    // "ffmpeg" off PATH (ClipTranscoder), so its abilities are per-machine: overlay
+    // burn-in needs the drawtext filter, the compression ladder needs ffmpeg at all.
+    // Homebrew's stock `ffmpeg` has no drawtext (`ffmpeg-full` does), and on the
+    // operator's Mac every overlay export ran the whole download and then died on
+    // "Filter not found", taking the requested downscale down with it. Offering a
+    // control that cannot work is the same fault as a silent no-op control.
+    readonly property bool overlaysPossible: client ? client.exportOverlaysSupported !== false : true
+    readonly property bool transcodePossible: client ? client.exportTranscodeSupported !== false : true
+    // The pick, filtered by capability - so a box left ticked from a previous session
+    // can never reach the ffmpeg command line on a machine that would choke on it.
+    readonly property bool effOverlayTs: overlayTs && overlaysPossible
+    readonly property bool effOverlayName: overlayName && overlaysPossible
+    readonly property int effectiveCompHeight: (compHeight > 0 && compHeight < sourceHeight && transcodePossible) ? compHeight : 0
     readonly property int outHeight: effectiveCompHeight > 0 ? effectiveCompHeight : sourceHeight
     readonly property string resLabel: outHeight + "p"
     // We transcode locally only when there's actual work (downscale and/or overlays).
-    readonly property bool willTranscode: effectiveCompHeight > 0 || overlayTs || overlayName
+    readonly property bool willTranscode: effectiveCompHeight > 0 || effOverlayTs || effOverlayName
     // honest ~estimate: covered seconds × a rough per-output-height bitrate
     readonly property double estMb: {
         var br = outHeight >= 1440 ? 6.0 : outHeight >= 1080 ? 4.0 : outHeight >= 720 ? 2.0 : 1.0;
@@ -260,8 +273,8 @@ Item {
     readonly property string effectivePurpose: purpose === "Other…" ? customPurpose.trim() : purpose
     readonly property string overlaySummary: {
         var ov = [];
-        if (overlayTs) ov.push("timestamp");
-        if (overlayName) ov.push("camera-name");
+        if (effOverlayTs) ov.push("timestamp");
+        if (effOverlayName) ov.push("camera-name");
         return ov.length ? (ov.join(" + ") + " overlay" + (ov.length > 1 ? "s" : "")) : "no overlays";
     }
     readonly property string camLabel: camera ? (camera.name + " (" + camera.ip + ")") : ""
@@ -617,9 +630,27 @@ Item {
 
                 // --- options ---
                 SecLabel { text: qsTr("Options") }
-                OptCheck { label: qsTr("Burn in timestamp overlay"); isOn: root.overlayTs; onToggled: root.overlayTs = !root.overlayTs }
-                OptCheck { label: qsTr("Burn in camera-name overlay"); isOn: root.overlayName; onToggled: root.overlayName = !root.overlayName }
+                OptCheck { label: qsTr("Burn in timestamp overlay"); isOn: root.effOverlayTs
+                           active: root.overlaysPossible
+                           hint: root.overlaysPossible ? "" : qsTr("(needs a full ffmpeg build)")
+                           onToggled: root.overlayTs = !root.overlayTs }
+                OptCheck { label: qsTr("Burn in camera-name overlay"); isOn: root.effOverlayName
+                           active: root.overlaysPossible
+                           hint: root.overlaysPossible ? "" : qsTr("(needs a full ffmpeg build)")
+                           onToggled: root.overlayName = !root.overlayName }
                 OptCheck { label: qsTr("Include audio"); isOn: root.audioOn; active: false; hint: qsTr("(unavailable — video export only)") }
+                // Name the cause and the remedy. "Unavailable" with no reason is the
+                // kind of dead end that gets reported as a bug in the app.
+                Text {
+                    visible: !root.overlaysPossible || !root.transcodePossible
+                    Layout.fillWidth: true; Layout.topMargin: 2
+                    wrapMode: Text.Wrap
+                    text: !root.transcodePossible
+                        ? qsTr("No ffmpeg found on this machine, so overlays and smaller sizes cannot be produced here. The clip still exports at full size. Install ffmpeg to enable them.")
+                        : qsTr("This machine's ffmpeg has no drawtext filter, so overlays cannot be burned in. Smaller sizes still work. Installing a full ffmpeg build (on macOS: brew install ffmpeg-full) enables them.")
+                    color: Theme.warn
+                    font.family: Theme.fontSans; font.pixelSize: 12
+                }
                 Text {
                     Layout.fillWidth: true; Layout.topMargin: 2
                     text: root.willTranscode
@@ -779,7 +810,7 @@ Item {
                         Text { visible: root.quality === "high" && !root.highAvailable; text: qsTr("• High-quality original unavailable for this range — exporting standard (720p)"); color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: qsTr("• This export will be visible to your supervisor"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
                         Text { text: qsTr("• Estimated size: ~ ") + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.willTranscode; text: qsTr("• Re-encoded on this machine after download") + ((root.overlayTs || root.overlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { visible: root.willTranscode; text: qsTr("• Re-encoded on this machine after download") + ((root.effOverlayTs || root.effOverlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                 }
             }
@@ -805,7 +836,7 @@ Item {
                         MouseArea {
                             id: okMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: { root.confirmed(root.startMs, root.endMs, root.mode, root.effectivePurpose, root.effectiveQuality,
-                                                        root.effectiveCompHeight, root.overlayTs, root.overlayName); root.close(); }
+                                                        root.effectiveCompHeight, root.effOverlayTs, root.effOverlayName); root.close(); }
                         }
                     }
                 }

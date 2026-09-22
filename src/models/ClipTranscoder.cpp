@@ -1,4 +1,5 @@
 #include "ClipTranscoder.h"
+#include <memory>
 #include <QTemporaryFile>
 
 #include <QFile>
@@ -174,6 +175,32 @@ void ClipTranscoder::start(const QString &src, const QString &dst, int heightPx,
     });
 
     m_proc->start(QStringLiteral("ffmpeg"), args);
+}
+
+void ClipTranscoder::probeCapabilities(QObject *ctx,
+                                       std::function<void(bool, bool)> done)
+{
+    auto *p = new QProcess(ctx);
+    // finished and errorOccurred can BOTH fire for one process; answer exactly once.
+    auto answered = std::make_shared<bool>(false);
+    auto settle = [p, done, answered](bool haveFfmpeg, bool haveDrawtext) {
+        if (*answered) return;
+        *answered = true;
+        p->deleteLater();
+        done(haveFfmpeg, haveDrawtext);
+    };
+    QObject::connect(p, &QProcess::finished, ctx, [p, settle](int, QProcess::ExitStatus) {
+        // `ffmpeg -filters` prints one line per filter: " ... drawtext  V->V  ...".
+        // Match with the surrounding spaces so "drawtext" inside another name cannot
+        // pass, and read stdout only — the banner is suppressed.
+        const QByteArray out = p->readAllStandardOutput();
+        settle(true, out.contains(" drawtext "));
+    });
+    QObject::connect(p, &QProcess::errorOccurred, ctx, [settle](QProcess::ProcessError) {
+        settle(false, false);            // not on PATH, or refused to start
+    });
+    p->start(QStringLiteral("ffmpeg"),
+             {QStringLiteral("-hide_banner"), QStringLiteral("-filters")});
 }
 
 void ClipTranscoder::cleanup()
