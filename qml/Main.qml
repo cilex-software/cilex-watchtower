@@ -2356,7 +2356,12 @@ Window {
             toastHost.show("Export started", "Preparing clip on cilex-vision…", "accent", "", "")
         }
         function onExportSaved(jobId, path) {
-            toastHost.show("Clip saved", "Saved to " + Artifacts.exportDir, "good", "Open folder", "file://" + Artifacts.exportDir)
+            // State the EXACT size. The drawer could only estimate; this is the file.
+            // Decimal MB, so it matches both the download strip and the Finder.
+            var b = playbackClient.lastExportBytes;
+            var sz = b > 0 ? (b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB") : "";
+            toastHost.show("Clip saved", (sz ? sz + " · " : "") + "Saved to " + Artifacts.exportDir,
+                           "good", "Open folder", "file://" + Artifacts.exportDir)
         }
         function onExportFailed(jobId, err) {
             // A Standard export over a window whose sub-stream wasn't recorded now fails honestly

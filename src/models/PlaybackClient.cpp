@@ -22,6 +22,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTimer>
+#include <QFileInfo>
 #include <QPointer>
 #include <QUrl>
 #include <QUrlQuery>
@@ -201,15 +202,21 @@ void PlaybackClient::armUnresponsiveAnnounce(QNetworkReply *reply)
 }
 
 namespace {
+// DECIMAL, not binary, because the number has to survive being compared with the
+// Finder. macOS has reported decimal MB since 10.6, so a 19,200,000-byte clip is
+// "19.2 MB" there; dividing by 1024 and calling it MB showed "18.3 MB" for the same
+// file and read as the download having shrunk the clip (operator, 2026-09-23). The
+// estimate below is already decimal (Mbit/8), so this makes all three numbers -
+// estimate, transfer, and what the Finder shows - one scale.
 QString humanBytes(qint64 b)
 {
     if (b < 0) return {};
-    if (b < 1024) return QStringLiteral("%1 B").arg(b);
-    const double kb = b / 1024.0;
-    if (kb < 1024) return QStringLiteral("%1 KB").arg(kb, 0, 'f', 0);
-    const double mb = kb / 1024.0;
-    if (mb < 1024) return QStringLiteral("%1 MB").arg(mb, 0, 'f', 1);
-    return QStringLiteral("%1 GB").arg(mb / 1024.0, 0, 'f', 2);
+    if (b < 1000) return QStringLiteral("%1 B").arg(b);
+    const double kb = b / 1000.0;
+    if (kb < 1000) return QStringLiteral("%1 KB").arg(kb, 0, 'f', 0);
+    const double mb = kb / 1000.0;
+    if (mb < 1000) return QStringLiteral("%1 MB").arg(mb, 0, 'f', 1);
+    return QStringLiteral("%1 GB").arg(mb / 1000.0, 0, 'f', 2);
 }
 }
 
@@ -1357,6 +1364,7 @@ void PlaybackClient::downloadExport(const QString &jobId, const QString &url,
                 // couldn't stage the source → fall through, deliver the original as-is
             }
             setExportState(QString(), -1, QString());
+            m_lastExportBytes = sz;                  // exact, straight off the file
             emit exportSaved(jobId, destPath);
         } else {
             setExportState(QString(), -1, QString());
@@ -1384,6 +1392,7 @@ void PlaybackClient::runPostProcess(const QString &jobId, const QString &srcPath
         QFile::remove(srcPath);
         tc->deleteLater();
         setExportState(QString(), -1, QString());
+        m_lastExportBytes = QFileInfo(out).size();   // the re-encode changed it
         emit exportSaved(jobId, out);
     });
     connect(tc, &ClipTranscoder::failed, this, [this, jobId, srcPath, dstPath, tc](const QString &err) {

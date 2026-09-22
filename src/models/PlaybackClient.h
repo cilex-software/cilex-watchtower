@@ -60,6 +60,9 @@ class PlaybackClient : public QObject
     // status quo rather than flickering a control off and back on.
     Q_PROPERTY(bool exportOverlaysSupported READ exportOverlaysSupported NOTIFY exportCapsChanged)
     Q_PROPERTY(bool exportTranscodeSupported READ exportTranscodeSupported NOTIFY exportCapsChanged)
+    // Exact byte count of the clip that just landed, read off the file itself. The
+    // pre-flight figure is necessarily an estimate; this one never is.
+    Q_PROPERTY(qint64 lastExportBytes READ lastExportBytes NOTIFY exportStateChanged)
     Q_PROPERTY(bool exportActive READ exportActive NOTIFY exportStateChanged)
     Q_PROPERTY(QString exportPhase READ exportPhase NOTIFY exportStateChanged)
     Q_PROPERTY(qreal exportFraction READ exportFraction NOTIFY exportStateChanged)
@@ -77,6 +80,7 @@ public:
     bool sessionHevcCapable() const { return m_sessionHevcCapable; }
     bool exportOverlaysSupported() const { return m_overlaysSupported; }
     bool exportTranscodeSupported() const { return m_transcodeSupported; }
+    qint64 lastExportBytes() const { return m_lastExportBytes; }
     bool exportActive() const { return m_exportActive; }
     QString exportPhase() const { return m_exportPhase; }
     qreal exportFraction() const { return m_exportFraction; }
@@ -277,6 +281,7 @@ private:
     bool m_sessionHevcCapable = true;
     bool m_overlaysSupported = true;     // until the probe says otherwise
     bool m_transcodeSupported = true;
+    qint64 m_lastExportBytes = 0;
     bool m_exportActive = false;
     QString m_exportPhase;
     qreal m_exportFraction = -1;
