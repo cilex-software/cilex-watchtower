@@ -110,9 +110,63 @@ mislabelled.
   they lack `avcodec-63`/`avfilter-12`. Only the v1.1.44 tree has a complete set.
 - PowerShell format strings use `{0,10}`, not `{0,>10}`; the latter throws at runtime.
 
-## Not measured
+## MOG2 IS NOW MEASURED — and it is the whole budget
 
-**MOG2 itself**, which is the term that decides the budget — likely 2-7 CPU-s per segment,
-an order of magnitude above the entire decode line. OpenCV is not installed here, and
-installing unsigned `cv2` binaries on a Smart-App-Control-enforced station running the live
-wall is an operator decision, not a detail.
+Measured later the same evening, once the operator authorised starting A4-A6 and OpenCV
+went on this box. `tools/labs/measure_cost.py`, cv2 5.0.0 pinned to one thread, 5 minutes
+of continuous single-camera `-sub` per row, n=3, **decode and frame delivery excluded** by
+a drain pass (ffmpeg runs in a subprocess, so `process_time()` omits it by construction).
+
+    MOG2 + morphology + connected components    ms/frame  CPU-s/30s  CPU-s/cam-h
+    full rate    1280x720                         19.68      8.856       1036.1
+    full rate     640x360                          4.36      1.960        229.3
+    keyframe     1280x720  GOP 50                 17.34      0.156         18.3
+    keyframe     1280x720  GOP 15                 19.67      0.590         69.1
+    keyframe      640x360  GOP 50                  4.29      0.039          4.5
+
+    in-process frame delivery, excluded above: 1.25 ms/frame at 720p
+
+**Across 56 outside cameras for a day:**
+
+    full rate, 1280x720                 386.8 CPU-hours/day
+    keyframe only, 1280x720 GOP 50        6.8
+    keyframe only, 1280x720 GOP 15       25.8
+    keyframe only,  640x360 GOP 50        1.7
+
+Three things follow, and the first reframes the whole exercise.
+
+1. **cilex-vision's fear was right and its cause was wrong.** They worried A4-A6 might be
+   unaffordable and priced *decode* to find out. Decode is ~0.1-0.4 CPU-s per segment and
+   never mattered; MOG2 at full rate is **1,036 CPU-s/camera-hour, about 6x the Linux box's
+   entire full-decode figure of 167**. The unaffordability they sensed is real and lives one
+   stage further on.
+
+2. **Keyframe-only saves 50x here, not 3x.** Decode only saves ~3x by skipping frames,
+   because the frames it keeps are the expensive I-frames. MOG2 has no such asymmetry — it
+   is linear in frames — so the saving is the whole frame-count ratio: 52.9x at GOP 50,
+   16.0x at GOP 15. **The keyframe-vs-full decision is an algorithm decision, and it is a
+   far bigger lever than the decode analysis suggested.**
+
+3. **The GOP spread becomes a budget spread.** On the keyframe path a 720p GOP 15 camera
+   costs 69.1 CPU-s/camera-hour against 18.3 for GOP 50 — **3.8x, at identical resolution**,
+   because it emits 3.3x more keyframes. A single `cost_cpu_s_per_camera_hour` per analyser
+   cannot represent this fleet.
+
+Observation rate was comparable between the two decode rates on the same camera (8.1% of
+frames at full rate against 8.3% keyframe-only on one camera; 4.9% against 5.5% on another),
+which is consistent with cilex-vision's own convergence result.
+
+Bandwidth corroborates the keyframe asymmetry independently: 5 minutes of 720p GOP 15 is
+**51.5 MB** against **8.3 MB** for 720p GOP 50 — 6.2x, same resolution, same duration.
+
+## Conditions for the MOG2 figures
+
+- OpenCV installed into an isolated venv at `C:\wt\labs-venv`, **not** the station's Python.
+- **Smart App Control blocks `numpy.random._philox`** while permitting numpy and cv2
+  themselves — its verdict is per file hash, so a dependency is not simply allowed or
+  denied. Nothing in the analyser or its tests uses `numpy.random`.
+- The guard wall was live throughout (pid 3580, 35 live pipelines); the flight recorder
+  shows no `SLOW`, no error and no reconnect across all of it.
+- `concat20.ts` is unsuitable for this measurement and was discarded: it alternates two
+  cameras, so a full scene change every 30 s makes the whole frame foreground. Correct
+  behaviour, worthless as a cost figure — hence 5 minutes of one camera per row.

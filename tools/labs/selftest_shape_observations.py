@@ -200,6 +200,13 @@ m2 = SegmentMeta.from_api({"segment_id": "y", "duration_s": "4.0", "width": "640
 check(m2.duration_s == 4.0 and m2.width == 640,
       "4-second segment metadata parses (they exist, alongside 30 s)")
 
+print("=== 10a. the FIRST segment is not a reset ===")
+state = AnalyserState(Config())
+_, s0 = run(moving(320, 240, [(40, 60, 12, 40, 9, 0)]), state=state)
+check(s0.model_resets == 0,
+      "creating the model on frame 1 is not counted as a reset",
+      f"got {s0.model_resets} -- a health signal that fires on every healthy start is useless")
+
 print("=== 10. a resolution change mid-window resets the model ===")
 a = moving(320, 240, [(40, 60, 12, 40, 9, 0)], n=45, warm=30)
 b = moving(160, 120, [(20, 30, 6, 20, 4, 0)], n=45, warm=30)
@@ -207,7 +214,8 @@ for i, f in enumerate(b):
     b[i] = Frame(index=45 + i, t_offset_s=float(45 + i), luma=f.luma)
 state = AnalyserState(Config())
 _, st = run(a + b, state=state)
-check(st.model_resets >= 1, "reset recorded on frame-size change", f"resets={st.model_resets}")
+check(st.model_resets == 1, "exactly one reset recorded on frame-size change",
+      f"resets={st.model_resets}")
 check(len(st.resolutions) == 2, "both resolutions recorded", f"{st.resolutions}")
 check(any("resolution changed" in n for n in st.notes), "the change is in the notes",
       f"{st.notes}")

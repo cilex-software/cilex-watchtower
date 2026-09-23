@@ -309,9 +309,18 @@ class AnalyserState:
         return frames
 
     def _ensure(self, shape: tuple[int, int], camera_id: str) -> bool:
-        """Create or reset the model. Returns True if it reset."""
+        """Create or reset the model. Returns True only for a genuine RESET.
+
+        First creation is not a reset, and the distinction matters because
+        `model_resets` is a health signal a worker will log: a reset mid-window
+        means continuity was lost and the model has to converge again, while
+        creating it on the first frame is just starting up. Reporting 1 on a
+        healthy first segment would make the signal useless -- absent data
+        rendering as a fault is the same error as rendering it as healthy.
+        """
+        first = self._bs is None
         reset = (
-            self._bs is None
+            first
             or self._shape != shape
             or (camera_id and self._camera_id and camera_id != self._camera_id)
         )
@@ -327,9 +336,9 @@ class AnalyserState:
             self._warm = 0
             self._prev_centroids = None
             self._recent_areas.clear()
-            if self._bs is not None:
+            if not first:
                 self.resets += 1
-        return reset
+        return reset and not first
 
     @property
     def warm_frames(self) -> int:
