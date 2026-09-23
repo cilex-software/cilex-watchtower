@@ -105,6 +105,18 @@ int main(int argc, char **argv)
        "does NOT enrol against an older Warden that sends no WT_WARDEN_TOKEN at all");
     ok(wanted("1", "missing", true) == false,
        "WT_NO_STATION_ENROL=1 disables it outright");
+    // PRESENCE WAS NEVER VALIDITY (2026-09-23). Warden 1.4.7 reports "rejected" when a
+    // token exists but the server refuses it. The old gate saw any non-empty token as
+    // "set" and never enrolled — so a station with a REVOKED credential was permanently
+    // invisible AND permanently unable to fix itself. Measured on the Linux box: 48-char
+    // token in warden.conf, 401 from the API, token_hash NULL in client_stations.
+    // "rejected" must NOT enrol either, but for a different and deliberate reason: that
+    // machine already has a station row and the upsert behaviour is cilex-vision's to
+    // confirm. What matters is that it is no longer indistinguishable from healthy.
+    ok(wanted("1", "rejected", false) == false,
+       "a REFUSED token does not silently enrol (row-duplication is CV's call)");
+    ok(wanted("1", "set", false) == false,
+       "a working token still never re-mints");
 
     // ---- can the supervising Warden pick a token up in place? refresh_station_token
     //      landed in warden 1.4.4. Older ones succeed at enrolling and change NOTHING until

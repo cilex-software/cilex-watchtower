@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.6"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner
+WARDEN_VERSION = "1.4.7"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -1113,7 +1113,7 @@ class Heartbeat(threading.Thread):
             time.sleep(min(int(CFG["HEARTBEAT_S"]), max(20, int(self.stale_after / 3))))
 
 
-UPLOAD_FROZEN = {"frozen": False}
+UPLOAD_FROZEN = {"frozen": False, "reason": None}
 
 # ---------------------------------------------------------------- uploader
 
@@ -1132,6 +1132,10 @@ class Uploader(threading.Thread):
     @frozen.setter
     def frozen(self, v):
         UPLOAD_FROZEN["frozen"] = v
+        # Both call sites are the 401 arms, so a freeze IS a refused token today. Naming
+        # the reason anyway: a later freeze for some other cause must not be readable as
+        # "your credential is bad".
+        UPLOAD_FROZEN["reason"] = "token_refused" if v else None
 
     def put(self, path, data, ctype, timeout):
         req = urllib.request.Request(
@@ -1297,7 +1301,20 @@ class Supervisor:
         env["WT_WARDEN_VERSION"] = WARDEN_VERSION
         # The person standing at the wall is the one who can fix a missing token, so the
         # title-bar overlay states it (TitleBar.qml). Warden is the only process that knows.
-        env["WT_WARDEN_TOKEN"] = "set" if CFG["STATION_TOKEN"] else "missing"
+        # PRESENCE IS NOT VALIDITY. This reported "set" for any non-empty string, so a
+        # station holding a token the server REFUSES looked provisioned to the app — and
+        # since enrolmentWanted() only fires on "missing", such a station could never
+        # re-enrol itself. Measured on this box 2026-09-23: warden.conf holds a 48-char
+        # token, `GET /labs/analyzers` with it returns 401, and client_stations shows the
+        # row for cilex-vision-MS-7E06 with token_hash NULL. Permanently invisible to the
+        # fleet, by a check that asked the wrong question. Same family as the export
+        # comment that outlived its fact, and as `stream_type` read as a retention signal.
+        #
+        # Set at spawn, so a token refused mid-run shows on the NEXT app start. A refusal
+        # is a persistent condition, so that is acceptable; it is not instantaneous.
+        env["WT_WARDEN_TOKEN"] = ("missing" if not CFG["STATION_TOKEN"]
+                                  else "rejected" if UPLOAD_FROZEN.get("reason") == "token_refused"
+                                  else "set")
         # The overlay's SERVER row is the APP's server (AuthController.baseUrl). Warden
         # may be posting somewhere else entirely — on WT-OFFICE-01 the app had .4 while
         # Warden still had the installer's .79 default, so the panel read like

@@ -155,6 +155,25 @@ inline void enrolStation(QNetworkAccessManager *nam, const QString &baseUrl,
                 explained = true;
                 report(QStringLiteral("not running under Warden — nothing here would use a "
                                       "station token, so enrolment is skipped"));
+            } else if (qgetenv("WT_WARDEN_TOKEN") == QByteArrayLiteral("rejected")) {
+                // Warden 1.4.7 can now tell "has a token" from "has a token the SERVER
+                // REFUSES". Measured on the Linux box 2026-09-23: a 48-char token in
+                // warden.conf, 401 from the API, and client_stations carrying that host
+                // with token_hash NULL — a station permanently invisible to the fleet
+                // because the old gate asked whether a token EXISTED, never whether it
+                // worked.
+                //
+                // DELIBERATELY STILL NOT ENROLLING HERE. Re-minting would be right — a
+                // refused credential is by definition not one worth protecting — but this
+                // machine ALREADY HAS a client_stations row (keyed by machine_id_hash),
+                // and whether POST /client/stations upserts that row or adds a second one
+                // is cilex-vision's behaviour, not something to assume. Asked; until they
+                // answer, say the true thing rather than risk a duplicate station.
+                explained = true;
+                report(QStringLiteral("this station's token is REFUSED by the server — it "
+                                      "is not missing, it is invalid, so re-enrolling is "
+                                      "blocked until an administrator re-provisions it. "
+                                      "Uploads are frozen and nothing is being lost."));
             } else if (qgetenv("WT_WARDEN_TOKEN") != QByteArrayLiteral("set")) {
                 explained = true;
                 report(QStringLiteral("Warden did not say whether this station has a token "

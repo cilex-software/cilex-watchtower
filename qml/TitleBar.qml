@@ -417,13 +417,28 @@ Item {
                                 // would ever have enrolled it and nothing said so. The person
                                 // standing in front of the wall is the one who can fix it in a
                                 // minute, so the plate names the act instead of the symptom.
-                                text: wardenEye.tokenState !== "missing" ? qsTr("unknown")
+                                // REJECTED is not MISSING, and the difference is the whole
+                                // errand. A station holding a credential the server refuses
+                                // reads as provisioned to every check that asks whether a
+                                // token EXISTS — which is why this box sat with a 48-char
+                                // token, a 401 from the API and a token_hash of NULL in
+                                // client_stations, invisible to the fleet and unable to
+                                // enrol itself (Warden 1.4.7 now tells the two apart).
+                                // Re-enrolment is deliberately NOT offered for it: this
+                                // machine already has a station row, and whether a second
+                                // POST upserts or duplicates is cilex-vision's to say.
+                                text: wardenEye.tokenState === "rejected"
+                                        ? qsTr("REFUSED by the server — not missing, invalid. Uploads are frozen; an administrator must re-provision this station.")
+                                      : wardenEye.tokenState !== "missing" ? qsTr("unknown")
                                       : wardenEye.canEnrol
                                         ? qsTr("none — this station is invisible to the fleet")
                                         : qsTr("none — sign in once as an administrator and this station enrols itself")
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
                                 font.family: Theme.fontMono
                                 font.pixelSize: 12
-                                color: wardenEye.tokenState === "missing" ? Theme.warn : Theme.ink3
+                                color: (wardenEye.tokenState === "missing"
+                                        || wardenEye.tokenState === "rejected") ? Theme.warn : Theme.ink3
                             }
                         }
                     }
