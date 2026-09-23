@@ -37,6 +37,15 @@ half the fleet's ingest" line is wrong with it.
 > I read as evidence of ambiguity because I had not looked for the source.
 > The decomposition below stands and is still the useful part. The headline claim
 > about 156 was mine and was wrong.
+>
+> **The generalisation, which is cilex-vision's wording and is the part worth keeping:
+> a STALE measurement and an UNDEFINED one look identical from a distance, and only
+> provenance separates them.** I could not reproduce 156, so I concluded it was
+> ill-defined. The likelier explanation — and the true one — was that it was a fine
+> measurement and the world had moved. The same trap produced the 5.5-day retention
+> figure: correct when written, stale by twelve days, indistinguishable from wrong
+> without the date. **"I cannot reproduce this number" is not evidence the number was
+> ever ambiguous. Find out when it was taken before deciding what is wrong with it.**
 
 ## The decomposition, which is the useful part
 
