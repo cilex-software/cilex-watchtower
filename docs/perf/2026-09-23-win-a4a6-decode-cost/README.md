@@ -36,13 +36,43 @@ Results are in the `.reply-cilex-watchtower-windows.md` beside it.
 | `gop-dist.ps1` | keyframe interval × resolution across 24 of 130 cameras |
 | `bench-convert.ps1`, `bench-gray.ps1` | conversion/delivery cost vs raw decode |
 
-## Headline results
+## CORRECTION 2026-09-23, later the same evening — these are 640x360, not 1280x720
+
+**Every CPU figure below was measured on 640x360 footage and first published labelled
+1280x720.** The numbers are correct; the resolution attached to them was not, and
+640x360 is a quarter of the pixels.
+
+How it happened: the first thing probed this session was a Watchtower mp4 **export**,
+which genuinely is 1280x720. The benchmark segments were then captured separately from
+go2rtc and never re-probed — the 720p reading was carried across from a different file.
+It surfaced only when the analyser's own probe printed the resolution per segment and
+disagreed with this document.
+
+**What survives unchanged**, because they are ratios measured within one file:
+
+* `format=gray` costing 1.72x `format=bgr24`, and plane-0 slicing beating both.
+* full-vs-keyframe ratios (3.09x at GOP 50, 1.72x at GOP 15).
+* an I-frame costing 17.9x a P/B-frame.
+* the GOP and resolution distribution in §3 — an independent measurement that reads
+  dimensions per camera, and the thing that eventually caught this.
+
+**What does not**: every absolute CPU-s figure is a 640x360 figure. Scaled by pixel
+count, 1280x720 is roughly 4x each of them.
+
+**And one inference is withdrawn.** The reply letter reasoned from a 9.5x gap between
+"my 17.5 CPU-s/cam-h" and the Linux box's 167 for the same stream, and attributed the
+remainder to their Python layer. Matched for resolution the gap is ~2.4x, which is
+ordinary CPU difference between two machines. There was no large unexplained gap and
+I should not have drawn a conclusion about somebody else's measurement from one I had
+mislabelled.
+
+## Headline results — all on 640x360 h264 `-sub` unless stated
 
     demux + parse floor     0.0078 CPU-s per 30 s segment
     per I-frame             2.64 ms
     per P/B-frame           0.15 ms      (an I-frame costs 17.9x a P-frame)
 
-    1280x720, per 30 s segment:   GOP 50 -> keyonly 0.032  full 0.098  (3.09x)
+    640x360, per 30 s segment:    GOP 50 -> keyonly 0.032  full 0.098  (3.09x)
                                   GOP 15 -> keyonly 0.087  full 0.150  (1.72x)
 
     decode only                        17.5 CPU-s/cam-h
@@ -55,7 +85,7 @@ Results are in the `.reply-cilex-watchtower-windows.md` beside it.
     -sub resolutions:        640x360 x11 · 1280x720 x9 · 640x480 x4  (4:3, third value)
     frame rate:              15.1 fps on all 24 sampled
 
-## Two traps worth keeping
+## Three traps worth keeping
 
 1. **Sampling.** The first two cameras measured were both GOP 15 and gave a clean
    zero-variance answer that was unrepresentative of the fleet. Keyframe interval is a
@@ -63,6 +93,11 @@ Results are in the `.reply-cilex-watchtower-windows.md` beside it.
 2. **`-vf format=gray` is slower than `format=bgr24`** on this build. swscale has SIMD for
    yuv420p→bgr24 and appears to fall back to generic C for yuv420p→gray. Take the Y plane
    off the native yuv420p frame instead — it needs no conversion at all.
+3. **Probe the file you are measuring, every time.** A resolution inherited from an
+   adjacent file is an assumption wearing a measurement's clothes, and it survived four
+   scripts and two letters here because nothing in the benchmark path ever printed
+   `width x height`. Anything reporting a cost should print the dimensions it measured
+   beside it — `measure_cost.py` does.
 
 ## Windows gotchas that cost time here
 
