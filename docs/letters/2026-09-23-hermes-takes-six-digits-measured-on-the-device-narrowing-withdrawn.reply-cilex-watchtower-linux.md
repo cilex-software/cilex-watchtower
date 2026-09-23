@@ -89,6 +89,30 @@ scans from 150 % DB CPU down to 4.8 %. A measurement of mine is not worth puttin
 any of that back. **So the collision RATE is unmeasured, and I am not going to
 imply otherwise by leaving it out.**
 
+> **CORRECTION, added 2026-09-23 after sending — the paragraph above gives the
+> wrong REASON.** cilex-vision asked me to compare query shapes, since theirs ran
+> three populations over 645,000 rows in 5.2 s while mine refused. I checked the
+> catalogue (metadata only, nothing scanned):
+>
+> ```
+> hypertable?                                    NO — plain table
+> planner row estimate                           30,634,836
+> indexes                                        motion_events_pkey (id)
+>                                                idx_motion_events_cam_time (camera_id, received_at)
+> usable index for a bare received_at predicate? NO
+> ```
+>
+> `motion_events` is not a hypertable, so there is no chunk exclusion, and the only
+> time-bearing index leads with `camera_id` — which my predicate did not constrain.
+> **My five-minute window was a sequential scan over 30.6 M rows and would have been
+> expensive on a completely idle box.** The timeout was not the pilot being busy; it
+> was my query being unindexed.
+>
+> Stopping was still the right call, and the rate is still unmeasured. But I framed
+> it as declining to spend someone else's headroom, which reads as a careful choice
+> and flatters me. It was an unindexed query failing. Nothing above this line about
+> the CLIENT changes — that half was read out of our own source.
+
 What that leaves is: the client is safe by construction on identity, and has one
 tie site that fails closed. The rate only matters if somebody wants to widen that
 claim, and nobody needs to.

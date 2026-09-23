@@ -387,6 +387,20 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   I agree with it: for a derived figure the control is an independent re-derivation,
   not a better label. Labels catch mis-transcribed measurements; only a second
   derivation catches a wrong step between two right ones.
+- **A3's operating table is valid for CONTINUOUS cameras and must be recomputed for a
+  mixed fleet** (cilex-vision, 2026-09-23, three populations over 645 k segments). The
+  byte-share figures reproduce exactly between their population and mine — top 10/30/50 %
+  = 14.1/37.4/58.4 vs 14.2/37.6/58.4 — so `facing` and duration filters do not move the
+  segment-size distribution, and our matching 37.4 % was structural, not a shared accident.
+  Add motion-armed cameras and the top decile's byte share **halves, 14.1 % → 6.5 %**:
+  armed cameras write 4-second segments averaging 0.37 MB against continuous cameras'
+  30-second 4.79 MB ones, and a tiny segment can still be large relative to its own
+  camera-hour median, so it ranks high on the normalised signal while carrying almost no
+  bytes. By the 50 % cut the effect washes out (58.4 vs 58.8), which is why agreement
+  there told us nothing.
+  Note precisely what this does and does not change: **the signal still works; what moved
+  is what a chosen operating point COSTS.** Same population lesson as the entry below,
+  arriving through a fourth door — this time not in a base rate but in a price.
 
 ## Verification convention
 
