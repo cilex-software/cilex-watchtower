@@ -113,8 +113,14 @@ int main(int argc, char **argv)
     // "rejected" must NOT enrol either, but for a different and deliberate reason: that
     // machine already has a station row and the upsert behaviour is cilex-vision's to
     // confirm. What matters is that it is no longer indistinguishable from healthy.
-    ok(wanted("1", "rejected", false) == false,
-       "a REFUSED token does not silently enrol (row-duplication is CV's call)");
+    // INVERTED 2026-09-23, deliberately, and the reason is the point. This asserted
+    // FALSE this afternoon because I would not re-mint without knowing whether CV's
+    // POST upserts an existing machine_key or forks a second station. They answered —
+    // ON CONFLICT (machine_key) DO UPDATE, which also clears revoked_at — and Warden
+    // 1.4.8 now sends that key verbatim. The deferral's condition was met, so the
+    // deferral ends. A refused credential is not one worth protecting.
+    ok(wanted("1", "rejected", false) == true,
+       "a REFUSED token DOES enrol — it is invalid, not precious");
     ok(wanted("1", "set", false) == false,
        "a working token still never re-mints");
 

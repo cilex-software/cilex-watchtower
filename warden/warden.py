@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.8"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate
+WARDEN_VERSION = "1.4.9"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate · 1.4.9: a changed STATION_TOKEN unfreezes uploads, so a re-provisioned station actually resumes
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -295,6 +295,7 @@ def refresh_station_token():
     Only STATION_TOKEN is re-read. Everything else stays as it was at start, because changing
     APP_CMD or DATA_DIR under a running supervisor is a different and much riskier idea.
     """
+    before = CFG["STATION_TOKEN"]
     for p_ in ("/etc/watchtower-warden.conf",
                str(Path.home() / ".config/watchtower-warden/warden.conf")):
         try:
@@ -304,6 +305,17 @@ def refresh_station_token():
                     CFG["STATION_TOKEN"] = line.split("=", 1)[1].strip()
         except OSError:
             pass
+    # A DIFFERENT token earns a fresh attempt. Without this the whole self-heal is a
+    # silent half-fix: a station whose token was refused freezes uploads on the 401,
+    # the app re-provisions, this function picks up the new credential — and uploads
+    # stay frozen for ever, because nothing ever cleared the flag. Good token, still
+    # mute. Cleared only on CHANGE, never per beat: a token that is genuinely bad must
+    # not retry in a loop against the server that just refused it.
+    if CFG["STATION_TOKEN"] and CFG["STATION_TOKEN"] != before:
+        if UPLOAD_FROZEN.get("frozen"):
+            log("station token changed — unfreezing uploads for a fresh attempt")
+        UPLOAD_FROZEN["frozen"] = False
+        UPLOAD_FROZEN["reason"] = None
     return CFG["STATION_TOKEN"]
 
 

@@ -428,7 +428,7 @@ Item {
                                 // machine already has a station row, and whether a second
                                 // POST upserts or duplicates is cilex-vision's to say.
                                 text: wardenEye.tokenState === "rejected"
-                                        ? qsTr("REFUSED by the server — not missing, invalid. Uploads are frozen; an administrator must re-provision this station.")
+                                        ? qsTr("REFUSED by the server — not missing, invalid. Uploads are frozen. Sign in once as an administrator and this station re-provisions itself.")
                                       : wardenEye.tokenState !== "missing" ? qsTr("unknown")
                                       : wardenEye.canEnrol
                                         ? qsTr("none — this station is invisible to the fleet")
