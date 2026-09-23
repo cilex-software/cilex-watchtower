@@ -90,9 +90,70 @@ becomes the audit** — cheap, occasional, and the thing that catches a camera l
 about itself. Which is the same structure as astronomy plus IR: the authoritative
 source, plus an independent path that can contradict it.
 
-## 5. Asked, not assumed
+## 5. ANSWERED: configuration only. The pixel check is not replaced.
 
-Put to cilex-vision: does `GET /ISAPI/Image/channels/1/ircutFilter` on this fleet's
-firmware return a **current state** field, or only configuration? One authenticated
-request from a box that already holds the credentials settles it, and it may remove
-most of B1's decode budget.
+cilex-vision probed five cameras with authenticated read-only GETs, using the
+recorder's own credential resolution — nothing guessed.
+
+```
+/ISAPI/Image/channels/1/ircutFilter      200   IrcutFilterType = auto
+                                               nightToDayFilterLevel = 4, Time = 5
+/ISAPI/Image/channels/1/supplementLight  200   irLight (outdoor) / eventIntelligence (indoor)
+/ISAPI/Image/channels/1/ISPMode          200   mode = auto
+                                               scheduleType = day, 06:00:00-18:00:00
+```
+
+**`auto` says how the camera DECIDES, not where the filter IS.** So the answer is
+question 1 of the two above: configured mode, not live state. **B1's pixel check
+remains the only way to know whether the filter is actually closed, and the decode
+budget is unchanged.**
+
+Still worth having for faults, for the reason that made the question worth asking: a
+camera pinned to `day` will never go IR, which explains a silent camera with no decode
+at all.
+
+`supplementLight` is **unresolved** — it differs between cameras (irLight outdoor,
+eventIntelligence indoor), but that is a configuration difference, not evidence of
+state. The test is the same camera sampled in daylight; cilex-vision will take it when
+the sun is up rather than claim either way at 02:00.
+
+## 6. A FALSE POSITIVE IN MY DRIFT MONITOR, found by accident
+
+Every camera carries a day/night **schedule** of `06:00:00-18:00:00`. Against real sun
+times that is **47 minutes early at dawn and 58 early at dusk**.
+
+It is inert today — all five report `mode = auto`, and the measured transition at 18:59
+against a computed sunset of 18:58 proves light is deciding rather than the clock. **But
+a camera flipped to `mode = schedule` would transition at a fixed 06:00/18:00 and look
+exactly like an hour of coordinate error.**
+
+**So the monitor must read `ISPMode.mode` and EXCLUDE scheduled cameras, not flag
+them.** Without that, one operator changing one camera's mode raises a coordinate alarm
+for the whole site. That is a bigger hole than the 9-to-13-evening resolving power, and
+neither of us would have found it by building the monitor — it came out of a probe
+aimed at something else.
+
+## 7. The probe method is silent on this firmware in BOTH directions
+
+My unauthenticated probe returned 401 on everything including an impossible path.
+cilex-vision assumed authenticating would restore routing so a 404 would mean
+something. **It does not:**
+
+```
+unauthenticated   401 on everything, including /ISAPI/Nonexistent/madeup
+authenticated     403 on /ISAPI/Nonexistent/madeup, 200 on the real paths
+```
+
+**This firmware never reveals existence through a status code.** The only reliable
+discovery is a 200 with a parseable body.
+
+Both of us needed an impossible-path control to learn that, and they had one only
+because I published mine — otherwise three real paths would have returned three 200s
+and "authenticated probing works" would have gone in the register without anyone
+learning that 403 does not mean absent.
+
+**`CLAUDE.md`'s existence-probe rule needs amending on this point.** The "never guess
+credentials, the firmware locks after ~7 failures" half is unaffected and important.
+It is the "read 401-vs-404" half that is unreliable here, in both authenticated and
+unauthenticated form. Not edited unilaterally: that file governs four agents and the
+amendment is the operator's to approve.

@@ -203,6 +203,16 @@ ephemeris is being computed for the wrong place.
 > weather is common-mode and averages down across cameras but not across nights; and
 > expect the per-camera residual to be the more useful output anyway — one camera
 > drifting alone is a camera fault, which is faster to detect and is B2's territory.
+>
+> **AND A FALSE POSITIVE THAT WOULD HAVE FIRED SITE-WIDE.** Probing the cameras for
+> something else, cilex-vision found every one carries a day/night **schedule** of
+> `06:00–18:00` — 47 minutes early at dawn, 58 at dusk. Inert today, because all report
+> `ISPMode.mode = auto` and the measured transition tracks the sun. But **a camera
+> flipped to `mode = schedule` would transition on the clock and be indistinguishable
+> from an hour of coordinate error.** The monitor must read `ISPMode.mode` and EXCLUDE
+> scheduled cameras rather than flag them; otherwise one operator changing one camera
+> raises a coordinate alarm for the whole site. That is a worse hole than the resolving
+> power, and neither of us would have found it by building the thing.
 
 ## Bounds
 
