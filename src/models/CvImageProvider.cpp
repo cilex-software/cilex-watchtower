@@ -257,14 +257,34 @@ void CvImageResponse::start()
         } else if (r->error() == QNetworkReply::OperationCanceledError) {
             m_error = QStringLiteral("cancelled");
         } else if (code == 503 && m_attempt < kMaxSnapshotRetries) {
-            // Governor shed under memory pressure — transient. Honor Retry-After
-            // (seconds; default ~1.2s) and retry; the still shows once pressure clears.
+            // 503 here is transient, but NOT always for the reason this comment used to
+            // give. CV measured 2026-09-23 that the overwhelming majority are
+            // "footage not written yet" (1,769 of their requests in 3 h) rather than the
+            // memory governor shedding (4 in the same window) — the event is simply
+            // younger than the ~60 s it takes recorded video to land.
+            //
+            // DO NOT HOLD THE EXTRACTION SLOT WHILE WAITING. This path used to `return`
+            // straight past releaseSnapshotSlot() at the bottom, so a retrying response
+            // kept one of the pool's TWO slots for up to kMaxSnapshotRetries x 5 s. The
+            // events at the TOP of the rail are the newest, so they are exactly the ones
+            // that 503 for being too young — and two of them could hold the entire
+            // extraction pool for ~15 s while the older events behind them, which WOULD
+            // have been served, never got a turn. Measured before this fix: a 200 s
+            // session moved only 21 event-still requests through a 2-wide pool and
+            // rendered nothing, with every visible row stuck at Image.Loading.
+            //
+            // This is the same shape as the read-ahead starvation fixed in HlsProxy
+            // earlier today: work that cannot succeed yet occupying a scarce resource
+            // that work which CAN succeed is queued behind. Release first, then wait;
+            // start() re-acquires or politely re-enqueues, and releasing pumps the
+            // queue so somebody else gets the slot immediately.
             bool ok = false;
             const int ra = r->rawHeader("Retry-After").toInt(&ok);
             const int delayMs = (ok && ra > 0) ? qMin(ra, 5) * 1000 : 1200;
             ++m_attempt;
             r->deleteLater();
             m_reply = nullptr;
+            releaseSnapshotSlot();
             QTimer::singleShot(delayMs, this, &CvImageResponse::start);
             return;
         } else {
