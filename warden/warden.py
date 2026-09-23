@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.9"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate · 1.4.9: a changed STATION_TOKEN unfreezes uploads, so a re-provisioned station actually resumes
+WARDEN_VERSION = "1.4.10"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate · 1.4.9: a changed STATION_TOKEN unfreezes uploads, so a re-provisioned station actually resumes · 1.4.10: app_version no longer caches a MISS forever (an early read made the field permanently null)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -907,6 +907,9 @@ def app_beat():
 # pid, so the scan happens once per app start rather than once per beat.
 _APP_BANNER = re.compile(r"=== watchtower start v(\S+) pid=(\d+) ")
 _APP_VER = {"pid": None, "ver": None}
+# How long a missing banner stays worth re-reading for. The banner is written at
+# app startup, so anything beyond this is a build that does not emit one.
+BANNER_GRACE_S = 120
 
 
 def app_version():
@@ -929,7 +932,33 @@ def app_version():
                 found = m.group(1)          # last match in file order = this run
         if found:
             break
-    _APP_VER.update(pid=pid, ver=found)
+    # CACHE THE HIT ALWAYS; CACHE THE MISS ONLY ONCE IT IS SETTLED.
+    #
+    # This cached unconditionally, and that was a NEGATIVE CACHE: one call before the
+    # app had flushed its startup banner stored (pid, None), and every later call
+    # short-circuited on the pid guard and returned None for the life of that process.
+    # A single early read made the field permanently null.
+    #
+    # Found by the Windows station agent on wt-office-01 2026-09-23, and it is the
+    # asymmetry that gave it away: two guard stations, identical Warden 1.4.8,
+    # identical Windows, one reporting 1.1.548 and one null — because the booth's
+    # Warden was started by hand and the office's by `schtasks /run` from a SYSTEM
+    # job, which spawns and beats almost immediately. Same code, opposite outcome,
+    # which is what a timing-dependent cache looks like. Reproduced here: with the
+    # banner absent then present, the second call still returned None.
+    #
+    # WHY NOT SIMPLY `if found:`, which was their suggestion and also correct — a
+    # station whose build genuinely predates the banner would then re-read the whole
+    # flight-recorder log on EVERY beat, for ever. Their own box holds 5 MB of it.
+    # A miss is only worth retrying while the banner could still be coming, and the
+    # banner is written at startup, so `app_spawned` bounds it exactly.
+    #
+    # If Warden did not spawn the app it cannot judge its age, so it accepts the miss
+    # rather than scanning for ever.
+    spawned = HB.get("app_spawned")
+    settled = spawned is None or (time.time() - spawned) > BANNER_GRACE_S
+    if found or settled:
+        _APP_VER.update(pid=pid, ver=found)
     return found
 
 
