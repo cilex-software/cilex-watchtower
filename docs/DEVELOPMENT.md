@@ -330,6 +330,13 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   letter, so the letter's arrival is undiscoverable from `git log` and the message is no
   longer a true account of the commit. Stage paths by name; when a received letter turns
   up, commit it deliberately, with its own message.
+  - **Now enforced**, not just written down: `tools/tests/received-letter-lint.sh` in the
+    `pre-commit` hook refuses a commit that stages a letter whose `From:` is another
+    agent alongside any other work. Tested three ways — foreign letter + other work
+    fails; foreign letter alone passes; your own letter + other work passes, so the
+    normal flow is untouched. cilex-pro-mobile audited their own log after this and
+    found `5a95fdd`, a commit titled "полоса кадров ждала ПРОСЬБЫ играть" that also
+    published a letter of cilex-vision's. Same shape, same cause, different repo.
   - **`git log --author` cannot tell the agents apart** — all four sessions commit as the
     same operator. The only discriminator is the `Claude-Session:` trailer. Filter on that
     when auditing "what did I actually do".

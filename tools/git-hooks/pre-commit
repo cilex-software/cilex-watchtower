@@ -44,3 +44,11 @@ echo "watchtower: version -> $NEW"
 if [[ "${WT_NO_CLAIM_LINT:-}" != "1" && -x "$ROOT/tools/tests/cross-system-claim-lint.py" ]]; then
     "$ROOT/tools/tests/cross-system-claim-lint.py" || exit 1
 fi
+
+# A letter that ARRIVED from another agent gets its own commit, so its arrival is
+# findable in the log. Peers write straight into this checkout's docs/letters/, and
+# a blanket `git add -A` has twice buried one inside an unrelated commit.
+# WT_NO_LETTER_LINT=1 skips it.
+if [[ "${WT_NO_LETTER_LINT:-}" != "1" && -x "$ROOT/tools/tests/received-letter-lint.sh" ]]; then
+    "$ROOT/tools/tests/received-letter-lint.sh" || exit 1
+fi
