@@ -20,9 +20,18 @@ frames, scored against OPERATOR-SUPPLIED labels, killed the first half of that:
     pixel MEAN LUMINANCE, as briefed   63.0 %                  18.2 %
 
 The majority-class baseline is 66.7 %, so mean luminance is WORSE THAN ALWAYS
-ANSWERING "DAY". Auto-exposure is why: measured against real labels, full sunshine
-reads 108.3 and midnight reads 104.5 -- 3.6 % between the brightest and darkest
-moments of the day. McNemar: astronomy beats luma 61/0, p = 8.7e-19.
+ANSWERING "DAY". Auto-exposure is why: slot MEDIANS for mean luma run 108.4 (full
+sun), 106.6 (midday), 106.5 (06:00), 106.1 (midnight) -- 2.3 points between the
+brightest and darkest moments of a day. McNemar: astronomy beats luma 61/0,
+p = 8.7e-19. Replicated by cilex-vision from the committed dataset with independently
+written scoring code: 4 of 5 classifiers exact, both McNemar tests to 3 s.f.
+
+WHAT THE TRIAL CANNOT TEST, so this module does not overtrust its input: astronomy is
+only as good as the site coordinates, and a 30 km error moves sunrise by under two
+minutes -- invisible to a trial whose slots sit in the middle of day and night. The
+`astronomical` field is taken on trust here BECAUSE the analyser has no way to check
+it; the check that exists is elsewhere and is the IR transition, which follows the
+real scene rather than the computed one.
 
 So this analyser does NOT infer day/night. The ephemeris states it; the worker passes
 it in. Pixels are spent only on what astronomy cannot know.

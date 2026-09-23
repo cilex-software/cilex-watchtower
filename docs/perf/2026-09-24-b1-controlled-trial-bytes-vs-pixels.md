@@ -89,8 +89,36 @@ civil dawn ended 06:05**, so it was astronomically night.
 | pixel (mean luma) | **39 of 55 cameras (71 %)** |
 | bytes | **9 of 55 cameras (16 %)** |
 
-**The byte signal agrees with the ephemeris; mean luminance does not.** The raw rate
-makes it plain — 06:00 reads **1.781 Mbit/s**, *darker* than midnight's 1.596:
+**The byte signal agrees with the ephemeris; mean luminance does not.**
+
+> **RETRACTED, 2026-09-24, after cilex-vision replicated this from the committed
+> dataset with independently written scoring code.** This paragraph originally said
+> 06:00 reads 1.781 Mbit/s, *"darker than midnight's 1.596"*. **That ordering does not
+> survive the statistic.** Checked in my own data:
+>
+> ```
+>              mean     median    p25      cameras < 1.3 Mbit/s
+> B_dark       1.596    1.871    1.322     14
+> C_0600       1.781    1.872    1.834      3
+> ```
+>
+> The medians differ by **0.08 %**. The 11.6 % gap between the means is entirely
+> B_dark's long left tail — 14 cameras writing under 1.3 Mbit/s at midnight against 3
+> at 06:00. Mann-Whitney gives p = 0.045, which is a difference in distribution SHAPE,
+> not evidence that one slot is darker than the other.
+>
+> **The conclusion is untouched**: both slots are dark, and the byte curve agreed with
+> the ephemeris against the expectation that created the slot. Only the flourish was
+> wrong, and it was wrong in the way a mean is always wrong — by reporting a central
+> tendency that no camera actually has.
+>
+> **The 14 cameras are unexplained.** cilex-vision predicted A3's motion confound and
+> then measured against it: 00:30 had motion on 17 cameras against 5 at 06:00, the
+> *opposite* direction to the hypothesis, and sampling was uniform (8 segments, 56
+> frames, every camera, every slot). They withdrew the explanation rather than stretch
+> it. Open.
+
+The raw rates, with medians beside the means:
 
 ```
 slot                luma            chroma          byte Mbit/s
@@ -103,10 +131,18 @@ C_0600      105.3 +- 8.0     12.15 +- 3.47        1.781 +- 0.300
 Two independent signal paths — the ephemeris and the encoder's rate control — agree
 that 06:00 was night, against the expectation that set up the slot.
 
-**And there is the auto-exposure finding, quantified against real labels:** full
-sunshine reads 108.3 and midnight reads 104.5. **A 3.6 % difference between the
-brightest and darkest moments of the day.** That is why mean luminance cannot work, and
-it is now measured rather than argued.
+**And there is the auto-exposure finding, quantified against real labels.** I first
+wrote it as "full sunshine 108.3, midnight 104.5 — a 3.6 % difference". cilex-vision
+pointed out that my own raw data is **harsher than my summary**, and they are right.
+Slot **medians**, which is the statistic that should have been used:
+
+```
+A_sunny  108.4      D_midday 106.6      C_0600 106.5      B_dark 106.1
+```
+
+**2.3 points between the brightest and darkest moments of a day** — flatter than the
+means suggested. That is why mean luminance cannot work, and the correct number makes
+the case more strongly than the one I published.
 
 ## Conclusion
 
@@ -117,6 +153,23 @@ it is now measured rather than argued.
 4. So **B1 should not infer day/night at all.** It should read the ephemeris, and spend
    its pixel budget on the two questions astronomy cannot answer: is the camera in IR,
    and is the scene lit when the sky says it should not be.
+
+## The failure mode this trial CANNOT detect
+
+**Astronomy is only as good as the coordinates**, and nothing here tests those.
+cilex-vision's site record was **30 km off** until 2026-09-23 — St Petersburg city
+centre instead of Sestroretsk — and it would still have scored 100 % on this trial,
+because 30 km moves sunrise by under two minutes and none of these four slots is
+anywhere near a boundary. A stale or wrong site location is the one way the winning
+method fails, and a trial built from slots in the middle of day and night is blind to
+it by construction.
+
+Their observation, and it is the most useful caveat either of us produced about the
+result. One practical consequence: **the IR cameras are an independent check on the
+site coordinates.** A working IR-cut filter closes when the scene actually darkens, so
+a camera whose transition sits consistently far from astronomical dusk is evidence the
+ephemeris is being computed for the wrong place — which is exactly the check that was
+missing when the coordinates were 30 km out.
 
 ## Bounds
 
