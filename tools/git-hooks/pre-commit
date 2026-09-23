@@ -55,6 +55,17 @@ if [[ "${WT_NO_MOTION_PIN:-}" != "1" && -x "$ROOT/tools/tests/motion-poll-unfilt
     echo "PASS  pollMotion() still unfiltered (motion indicator invariant)"
 fi
 
+# The client must handle every recording state cilex-vision can emit. Its only live
+# input to notRecordingCount is `stalled`, and its predecessor `not_recording` was
+# already renamed once; a second rename would make three UI surfaces read all-clear
+# during a real fleet failure. Skips cleanly where their checkout is absent.
+# WT_NO_VOCAB_PIN=1 skips it.
+if [[ "${WT_NO_VOCAB_PIN:-}" != "1" && -x "$ROOT/tools/tests/recording-vocab.py" ]]; then
+    "$ROOT/tools/tests/recording-vocab.py" >/dev/null || {
+        "$ROOT/tools/tests/recording-vocab.py"; exit 1; }
+    echo "PASS  recording-state vocabulary still fully handled"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.

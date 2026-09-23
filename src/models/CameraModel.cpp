@@ -1,4 +1,5 @@
 #include "CameraModel.h"
+#include <QSet>
 #include "WireTime.h"
 #include "LiveProxy.h"
 
@@ -55,14 +56,52 @@ quint32 ipSortKey(const QString &ip)
 // mode-aware: recording | stalled | armed | disabled | offline (+ legacy
 // not_recording | recording_gap). "offline"/unknown -> RecUnknown (the live status
 // already conveys an offline camera).
+//
+// A TOKEN RENAME ON THEIR SIDE TURNS A FLEET FAULT INDICATOR GREEN, SILENTLY, AND
+// IT HAS ALREADY HAPPENED ONCE. Enumerated from their source by AST on 2026-09-23,
+// recording_state() (streams.py:162-209) returns exactly:
+//
+//     armed | disabled | offline | recording | stalled
+//
+// `not_recording` is NOT among them, and their health_summary.py:194 says why:
+// "stalled_main (v1's not_recording, renamed)". So the NotRecording branch below is
+// unreachable from the current wire and notRecordingCount is, in practice, a count
+// of STALLED cameras — correct, and correctly labelled, because a stalled camera is
+// not recording.
+//
+// The hazard is the next rename. `stalled` is the ONLY live input to that count,
+// which is rendered in three places (HealthScreen, OpsSidebar, TopBar). If it were
+// renamed the way not_recording was, every unrecognised token would fall to
+// RecUnknown by the return below, notRecordingCount would read 0, and three
+// surfaces would report all-clear during a real fleet failure. Nothing would log,
+// nothing would throw, and the wall would look healthy. That is "green-by-default
+// for an unknown state", which CLAUDE.md names as the thing it is most explicit
+// about — reached not by a wrong branch but by a silent fallback.
+//
+// So the fallback now SAYS SO, once per unseen token per process. Same alarm as
+// wt::wireInstant for naive timestamps, and the same reasoning: names the TOKEN,
+// never a camera or a payload; not behind a dev hook, because a detector behind a
+// flag nobody sets is a detector nobody has. The legacy branches stay — they cost
+// one comparison and they still decode archived rows correctly.
 CameraStatus::RecState recStateFrom(const QString &rec)
 {
     if (rec == QLatin1String("recording"))     return CameraStatus::Recording;
     if (rec == QLatin1String("stalled"))       return CameraStatus::Stalled;
     if (rec == QLatin1String("armed"))         return CameraStatus::Armed;
     if (rec == QLatin1String("disabled"))      return CameraStatus::Disabled;
-    if (rec == QLatin1String("not_recording")) return CameraStatus::NotRecording;
-    if (rec == QLatin1String("recording_gap")) return CameraStatus::RecordingGap;
+    if (rec == QLatin1String("not_recording")) return CameraStatus::NotRecording;   // legacy, pre-rename
+    if (rec == QLatin1String("recording_gap")) return CameraStatus::RecordingGap;   // legacy, never seen live
+    if (rec == QLatin1String("offline"))       return CameraStatus::RecUnknown;     // expected; live status says it
+    if (!rec.isEmpty()) {
+        static QSet<QString> warned;
+        if (!warned.contains(rec)) {
+            warned.insert(rec);
+            qWarning("[RECVOCAB] /streams sent recording=\"%s\", which this build does not know. "
+                     "It is being counted as UNKNOWN, not as a fault. If cilex-vision renamed a "
+                     "state, the Not-recording counters are now under-reporting.",
+                     qUtf8Printable(rec));
+        }
+    }
     return CameraStatus::RecUnknown;
 }
 
