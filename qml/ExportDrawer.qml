@@ -842,11 +842,19 @@ Item {
                         id: factCol
                         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 10
                         spacing: 4
-                        Text { text: qsTr("• MP4 · ") + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.quality === "high" && !root.highAvailable; text: qsTr("• High-quality original unavailable for this range — exporting standard (720p)"); color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { text: qsTr("• This export will be visible to your supervisor"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { text: qsTr("• Estimated size: ~ ") + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
-                        Text { visible: root.willTranscode; text: qsTr("• Re-encoded on this machine after download") + ((root.effOverlayTs || root.effOverlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        // Every fact below wraps to the column. Without this a Text in a
+                        // Column sizes to its CONTENT, so the longest line ran straight
+                        // past the panel border — and the longest line only exists when
+                        // both overlay boxes are ticked ("… · timestamp + camera-name
+                        // overlays burned in"), which is why it read as fine until an
+                        // operator turned them both on (2026-09-24). The panel's height
+                        // already follows factCol.implicitHeight, so wrapping also makes
+                        // the box grow instead of clipping.
+                        Text { width: factCol.width; wrapMode: Text.WordWrap; text: qsTr("• MP4 · ") + (root.effectiveQuality === "high" ? "High quality · " : "Standard · ") + root.resLabel + " · " + root.overlaySummary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { width: factCol.width; wrapMode: Text.WordWrap; visible: root.quality === "high" && !root.highAvailable; text: qsTr("• High-quality original unavailable for this range — exporting standard (720p)"); color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { width: factCol.width; wrapMode: Text.WordWrap; text: qsTr("• This export will be visible to your supervisor"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { width: factCol.width; wrapMode: Text.WordWrap; text: qsTr("• Estimated size: ~ ") + Math.max(1, Math.round(root.estMb)) + " MB"; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12 }
+                        Text { width: factCol.width; wrapMode: Text.WordWrap; visible: root.willTranscode; text: qsTr("• Re-encoded on this machine after download") + ((root.effOverlayTs || root.effOverlayName) ? " · " + root.overlaySummary + " burned in" : ""); color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12 }
                     }
                 }
             }
