@@ -66,6 +66,15 @@ if [[ "${WT_NO_VOCAB_PIN:-}" != "1" && -x "$ROOT/tools/tests/recording-vocab.py"
     echo "PASS  recording-state vocabulary still fully handled"
 fi
 
+# The B1 analyser is pure and its vocabulary is fixed by cilex-vision's migration
+# 0084 CHECK constraint. 33 assertions including a replay of 220 real camera-slot rows.
+# WT_NO_B1_TEST=1 skips it.
+if [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]]; then
+    "$ROOT/tools/tests/b1-illumination.py" >/dev/null || {
+        "$ROOT/tools/tests/b1-illumination.py"; exit 1; }
+    echo "PASS  B1 analyser (33 assertions incl. 220-row replay)"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.
