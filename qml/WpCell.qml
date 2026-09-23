@@ -15,7 +15,7 @@ import Watchtower
 //
 //   recording  the composite carries video here — picture shows through
 //   dormant    this camera provably recorded nothing at this instant
-//   unknown    we cannot tell (see below) — hatched and SAID, never guessed
+//   unknown    we cannot tell — picture shows through, and we SAY we cannot tell
 //   empty      no camera is assigned to this slot at all
 //
 // `unknown` is not in the spec's three; it is the honest degradation the spec's
@@ -24,6 +24,26 @@ import Watchtower
 // backend reports `recording_mode: motion` we can derive the answer soundly (a
 // motion episode IS the recording episode for such a camera, ± its roll); where
 // it reports no mode we must not infer "nothing recorded" from a dark pixel.
+//
+// UNKNOWN NO LONGER HATCHES (2026-09-24). It used to, and the consequence was a
+// wall that showed nothing at all: `recording_profile.mode` is "continuous" on
+// these cameras, `_isMotionMode()` is therefore false for every one of them,
+// cellStateOf() answers "unknown" sixteen times, and sixteen opaque hatches went
+// over a composite that WAS delivering frames. A guard saw an empty grid and no
+// way to tell it from a dead wall.
+//
+// The hatch is for what we know is absent, not for what we cannot confirm.
+// Hiding real server pixels behind it is "clearing an on-screen image" without a
+// real identity change — the thing CLAUDE.md forbids outright, and the same
+// failure as the every-poll tile blanking (888c5da) and the events-rail strobe
+// (f5021b7). So `unknown` now shows the picture and carries a corner badge that
+// says the state is unconfirmed. The operator sees the footage AND is told we
+// cannot vouch for it, which is strictly more information than a hatch.
+//
+// This does NOT restore the original sin. The sin was letting a black cell be
+// READ as "nothing recorded"; the badge names the uncertainty out loud, and a
+// composite that never produces frames at all is still caught by renderGuard in
+// WallPlayback rather than by painting over it here.
 Item {
     id: cell
 
@@ -42,7 +62,12 @@ Item {
     signal pickRequested()
     signal hoverChanged(string camId, bool on)
 
-    readonly property bool _dark: state === "dormant" || state === "unknown"
+    // Hatched = we can PROVE there is nothing here. `unknown` is not proof, so it
+    // is not hatched; it shows whatever the composite has and says it is unconfirmed.
+    readonly property bool _hatched: state === "dormant"
+    // Cells where server pixels may be arriving. These need the scrim and white
+    // type, or the name sits unreadable on top of the picture.
+    readonly property bool _hasPicture: state === "recording" || state === "unknown"
 
     // ---- field ------------------------------------------------------------
     // Dormant is a 6px diagonal hatch, never flat black: black is what a
@@ -56,7 +81,7 @@ Item {
     }
     Item {
         anchors.fill: parent
-        visible: cell._dark
+        visible: cell._hatched
         clip: true
         Rectangle { anchors.fill: parent; color: "#131211" }
         // 6px bars on a 12px pitch at 135°. Rotated about their CENTRE and made
@@ -87,7 +112,7 @@ Item {
     Rectangle {
         anchors { left: parent.left; right: parent.right; top: parent.top }
         height: 22
-        visible: cell.state === "recording"
+        visible: cell._hasPicture
         gradient: Gradient {
             GradientStop { position: 0.0; color: "#b3000000" }
             GradientStop { position: 1.0; color: "#00000000" }
@@ -99,13 +124,13 @@ Item {
         visible: cell.state !== "empty"
         Text {
             text: cell.octet
-            color: cell.state === "recording" ? "#ffffff" : Theme.ink2
+            color: cell._hasPicture ? "#ffffff" : Theme.ink2
             font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.DemiBold
         }
         Text {
             width: Math.max(0, cell.width - 60)
             text: cell.model
-            color: cell.state === "recording" ? "#9effffff" : Theme.ink3
+            color: cell._hasPicture ? "#9effffff" : Theme.ink3
             font.family: Theme.fontSans; font.pixelSize: 10
             elide: Text.ElideRight
         }
@@ -115,10 +140,12 @@ Item {
     Column {
         anchors.centerIn: parent
         spacing: 7
-        visible: cell._dark && cell.height > 54
+        visible: cell._hatched && cell.height > 54
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: cell.state === "dormant" ? qsTr("NOTHING RECORDED") : qsTr("AVAILABILITY UNKNOWN")
+            // Only a dormant cell reaches here now; `unknown` gets the corner badge
+            // below instead, because it has a picture to not cover up.
+            text: qsTr("NOTHING RECORDED")
             color: Theme.ink3
             font.family: Theme.fontMono; font.pixelSize: 9
             font.letterSpacing: 1.4; font.capitalization: Font.AllUppercase
@@ -152,6 +179,36 @@ Item {
             text: qsTr("none in this window")
             color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9
         }
+    }
+
+    // ---- unknown: say so WITHOUT covering the picture ----------------------
+    // Bottom-right so it never collides with the identity row (top-left), the
+    // MOTION chip (top-right) or the T-stamp (bottom-left). Its own scrim keeps
+    // it legible over any footage; it is deliberately small, because the picture
+    // is the content and this is a caveat about the picture.
+    Rectangle {
+        anchors { right: parent.right; bottom: parent.bottom; margins: 4 }
+        visible: cell.state === "unknown" && !cell.hovered && cell.width > 96 && cell.height > 40
+        width: unkT.implicitWidth + 12; height: 15
+        color: "#cc16140f"
+        border.width: 1; border.color: Theme.line2
+        Text {
+            id: unkT
+            anchors.centerIn: parent
+            text: qsTr("AVAILABILITY UNKNOWN")
+            color: Theme.ink3
+            font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.1
+        }
+    }
+    // Too small to carry the words: a bare dot, so the state is still visible on a
+    // dense grid rather than silently dropping to "looks like it is recording".
+    Rectangle {
+        anchors { right: parent.right; bottom: parent.bottom; margins: 5 }
+        visible: cell.state === "unknown" && !cell.hovered
+                 && !(cell.width > 96 && cell.height > 40) && cell.width > 28
+        width: 6; height: 6; radius: 3
+        color: "#cc16140f"
+        border.width: 1; border.color: Theme.ink3
     }
 
     // ---- empty slot -------------------------------------------------------

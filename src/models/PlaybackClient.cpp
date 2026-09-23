@@ -941,6 +941,14 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
     setStatus(QStringLiteral("Opening wall session…"));
     QNetworkRequest req{QUrl(m_baseUrl + "/review/mosaic-sessions")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    // BOUNDED, as of 2026-09-24. The deadline above was added for "the two calls a
+    // stalled backend leaves the operator staring at" -- the single-camera session
+    // POST (line ~455) and the coverage GET (~825) -- and the WALL's two calls were
+    // never given it. So the one screen that opens sixteen cameras at once was the
+    // only one that could hang forever: when CV stalled ~111 s on 2026-09-22 this
+    // POST would have sat there silently with no error and no bound, which is the
+    // exact failure that fix existed to end.
+    req.setTransferTimeout(s_apiDeadlineMs);
     QJsonArray ids;
     for (const QString &id : cameraIds) ids.append(id);
     // 2026-09-08 soak: reap the session a PREVIOUS process left behind. A crash (three of the
@@ -964,11 +972,21 @@ void PlaybackClient::openMosaicSession(const QStringList &cameraIds, const QStri
         body.insert("replaces", replaces);
     if (prewarmAt >= 0)                       // B3: warm around this fragment on create
         body.insert("prewarm_at", prewarmAt);
+    // TIMED: this is the single most expensive call the wall makes, and it was not
+    // measured. The orphan note above records it going from 275 ms to 19.8-22.4 s
+    // when a previous process left a session behind — a 72x swing that only ever
+    // surfaced because a soak happened to be running. Now every open says so.
+    QElapsedTimer mosTimer;
+    mosTimer.start();
+    const int nCams = cameraIds.size();
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, mosTimer, nCams]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
+        const qint64 ms = mosTimer.elapsed();
+        qInfo("[PBTIME] mosaic_http cams=%d ms=%lld code=%d bytes=%lld%s",
+              nCams, ms, code, qint64(raw.size()), ms > 300 ? " SLOW" : "");
         setStatus(QString());
         if (code != 200) {
             // 404 = the mosaic endpoint isn't deployed yet → honest "pending"
@@ -1109,21 +1127,39 @@ void PlaybackClient::fetchTimeline(const QString &cameraId, const QString &start
     if (buckets > 0)
         q.addQueryItem(QStringLiteral("buckets"), QString::number(buckets));
     url.setQuery(q);
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
-    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId]() {
+    // TIMED because the wall fires this ONCE PER CAMERA — sixteen of them back to
+    // back right after the mosaic create (WallPlayback.loadWallTimeline). Until
+    // 2026-09-24 nothing on the wall's own path was instrumented at all: the two
+    // calls it actually makes, the mosaic create and this, were the only ones in
+    // the client with no [PBTIME] line, so "the wall is slow" had no evidence
+    // behind it either way. SLOW marks the operator's 300 ms threshold.
+    QElapsedTimer tlTimer;
+    tlTimer.start();
+    QNetworkRequest tlReq{url};
+    tlReq.setTransferTimeout(s_apiDeadlineMs);   // see the mosaic note: the wall's calls were unbounded
+    QNetworkReply *reply = m_nam->get(tlReq);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, cameraId, tlTimer, buckets]() {
         reply->deleteLater();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const qint64 ms = tlTimer.elapsed();
         if (code == 401)
             AuthController::instance()->noteUnauthorized();
         if (code != 200) {
+            qInfo("[PBTIME] timeline_http cam=%s ms=%lld code=%d FAILED%s",
+                  qUtf8Printable(cameraId), ms, code, ms > 300 ? " SLOW" : "");
             emit timelineReady(cameraId, QStringLiteral("error"), {});
             return;
         }
-        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        const QByteArray raw = reply->readAll();
+        const auto obj = QJsonDocument::fromJson(raw).object();
         const QString mode = obj.value("mode").toString();
         QVariantList blocks;
         for (const auto &bv : obj.value("cameras").toObject().value(cameraId).toArray())
             blocks.append(bv.toObject().toVariantMap());
+        qInfo("[PBTIME] timeline_http cam=%s ms=%lld code=%d bytes=%lld mode=%s buckets=%d blocks=%lld%s",
+              qUtf8Printable(cameraId), ms, code, qint64(raw.size()),
+              qUtf8Printable(mode), buckets, qint64(blocks.size()),
+              ms > 300 ? " SLOW" : "");
         emit timelineReady(cameraId, mode, blocks);
     });
 }

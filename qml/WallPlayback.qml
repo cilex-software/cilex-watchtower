@@ -493,6 +493,27 @@ Item {
         for (var i = 0; i < ll.length; i++) if (cellStateOf(ll[i].camId) === "recording") n++;
         return n;
     }
+    // How many cells we cannot vouch for. Needed because "0/16 RECORDING" is a
+    // CLAIM — it says nothing is recording — and on a wall of continuous-mode
+    // cameras every cell is `unknown`, so that claim was being printed with no
+    // evidence behind it. An unknown is not a zero. Same rule as the fleet's
+    // recording counters: absent data renders as unknown, never as healthy, and
+    // never as a fault either.
+    readonly property int unknownCount: {
+        var n = 0, ll = laneList;
+        for (var i = 0; i < ll.length; i++) if (cellStateOf(ll[i].camId) === "unknown") n++;
+        return n;
+    }
+    // One phrasing, three renderers, so the aside and the roll-call header can
+    // never disagree about what the wall is claiming.
+    readonly property string rollCallTally: {
+        var tot = laneList.length;
+        if (tot === 0) return "";
+        if (unknownCount === tot) return qsTr("%1 UNCONFIRMED").arg(tot);
+        if (unknownCount > 0) return qsTr("%1/%2 RECORDING · %3 UNCONFIRMED")
+                                       .arg(recordingCount).arg(tot).arg(unknownCount);
+        return qsTr("%1/%2 RECORDING").arg(recordingCount).arg(tot);
+    }
     // True when at least one camera on the wall has NO footage covering the whole
     // marked range — the export stays valid, but the short clips stop being a
     // surprise. Cameras whose availability we cannot derive are not counted as
@@ -1091,7 +1112,7 @@ Item {
                                 color: "transparent"; border.width: 1; border.color: Theme.line2
                                 Text {
                                     id: syncT; anchors.centerIn: parent
-                                    text: qsTr("1 STREAM · %1/%2 RECORDING").arg(root.recordingCount).arg(root.laneList.length)
+                                    text: qsTr("1 STREAM · %1").arg(root.rollCallTally)
                                     color: Theme.good; font.family: Theme.fontMono; font.pixelSize: 8
                                     font.letterSpacing: 1.2; font.weight: Font.DemiBold
                                 }
@@ -1256,7 +1277,7 @@ Item {
                             font.letterSpacing: 1.4; font.weight: Font.DemiBold
                         }
                         Text {
-                            text: root.recordingCount + "/" + root.laneList.length + " " + qsTr("RECORDING")
+                            text: root.rollCallTally
                             color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 8
                             font.letterSpacing: 1.2
                         }

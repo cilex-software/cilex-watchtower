@@ -60,6 +60,18 @@ fi
 # already renamed once; a second rename would make three UI surfaces read all-clear
 # during a real fleet failure. Skips cleanly where their checkout is absent.
 # WT_NO_VOCAB_PIN=1 skips it.
+# An `unknown` wall cell must not paint over the composited picture. On 2026-09-24
+# a 16-camera wall showed sixteen empty hatched tiles and "0/16 RECORDING" while the
+# composite was delivering frames the whole time: the cameras are `continuous`, so
+# cellStateOf() answered `unknown` sixteen times -- correctly -- and WpCell drew an
+# opaque hatch over every one. The verdict was honest; the rendering blacked out a
+# working wall. WT_NO_WALL_UNKNOWN_PIN=1 skips it.
+if [[ "${WT_NO_WALL_UNKNOWN_PIN:-}" != "1" && -x "$ROOT/tools/tests/wall-unknown-shows-picture.py" ]]; then
+    "$ROOT/tools/tests/wall-unknown-shows-picture.py" >/dev/null || {
+        "$ROOT/tools/tests/wall-unknown-shows-picture.py"; exit 1; }
+    echo "PASS  an unknown wall cell still shows its picture"
+fi
+
 if [[ "${WT_NO_VOCAB_PIN:-}" != "1" && -x "$ROOT/tools/tests/recording-vocab.py" ]]; then
     "$ROOT/tools/tests/recording-vocab.py" >/dev/null || {
         "$ROOT/tools/tests/recording-vocab.py"; exit 1; }
