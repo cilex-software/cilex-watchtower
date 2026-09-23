@@ -24,6 +24,22 @@
 # backticks", broken forty minutes after being recorded). A rule is not structural
 # until something enforces it.
 #
+# THE SENDER MATCH WAS BLIND TO MOST OF THE CORPUS (found 2026-09-23, hours after
+# this file was written). The original extractor was `grep -m1 '^From:'`. Letters in
+# this directory are written in two header styles, and 379 of 655 use the markdown
+# form `**From:**`, which that pattern does not match AT ALL — so for the majority of
+# arrivals the lint saw no sender, classified the letter as ordinary work, and passed.
+# It passed on the very letter that arrived the day it was written.
+#
+# This is the same defect, in the same shape, as one I had corrected in somebody
+# else's grep that same morning: cilex-vision enumerated Labs' error codes with
+# `CodedError(40[0-9]` and silently missed every call whose status sat on the next
+# line, which cost them a "there is no 403 on this path" that was false. I wrote this
+# pattern AFTER telling them why theirs was wrong. A grep over a corpus you have not
+# counted reports the absence of what it cannot see; the fix in both cases was to
+# count the corpus first. Verified after: 317 foreign / 324 mine / 14 with no
+# recognisable header, against 201 / 0 / 454 before.
+#
 # WT_NO_LETTER_LINT=1 skips it.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -39,10 +55,23 @@ while IFS= read -r f; do
     if [[ "$f" == docs/letters/*.md ]]; then
         # Only ADDED letters can have "arrived"; edits to my own are ordinary work.
         if git diff --cached --diff-filter=A --name-only -- "$f" | grep -q .; then
-            from=$(git show ":$f" 2>/dev/null | grep -m1 '^From:' || true)
+            # Tolerates: leading spaces, a `> ` preface blockquote, and markdown
+            # emphasis in any of the forms seen in this directory -- **From:**,
+            # *From:*, **From**:.
+            from=$(git show ":$f" 2>/dev/null \
+                   | sed -E -n 's/^[[:space:]]*>?[[:space:]]*\**[[:space:]]*From[[:space:]]*\**[[:space:]]*:[[:space:]]*\**[[:space:]]*//p' \
+                   | head -1)
+            # "Mine" stays narrow on purpose: the Windows station agent and the macOS
+            # agent are also @ cilex-watchtower, and their letters ARRIVE here. Only
+            # this box's own qualifier counts. An unqualified header is treated as
+            # foreign -- fail-closed costs one extra commit, the other direction costs
+            # a letter buried in the log, which is the thing this exists to prevent.
             if [[ -n "$from" && "$from" != *"cilex-watchtower (Linux"* ]]; then
                 foreign+=("$f|$from"); continue
             fi
+            # No recognisable header at all. Do not claim it arrived -- but do not
+            # swallow it either, because that silence is what this whole file is about.
+            [[ -z "$from" ]] && echo "note  added letter has no recognisable 'From:' header: $f"
         fi
     fi
     other+=("$f")
