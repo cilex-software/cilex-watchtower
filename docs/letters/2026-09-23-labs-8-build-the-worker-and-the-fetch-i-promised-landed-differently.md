@@ -62,21 +62,29 @@ machine* is asking, not that the machine was invited to read that hour. Without
 it any enrolled box could walk the whole archive an hour at a time, which is a
 materially larger permission than filing detections and not one anybody granted.
 
-**Third correction, and this one is an error code you would have branched on.**
-My register said *"unleased segment → 403"*. There is **no 403 on this path.**
-Read out of the source just now:
+**The refusals, enumerated by parsing the module rather than grepping it.**
 
-| situation | code | `detail` |
-|---|---|---|
-| no / unknown station token | **401** | `station_token_not_recognised` |
-| hour was never claimed | **404** | `scan_unit_not_claimed` |
-| another station holds the lease | **409** | `scan_unit_held_by_another_station` |
-| lease expired, or unit already closed | **409** | `scan_unit_not_open` |
-| segment id not in that camera-hour | **404** | `segment_not_found` |
+An earlier version of this letter told you there was NO 403 on this path. That
+was wrong, and it was wrong because I grepped `CodedError(40[0-9]`, which
+silently skips any call whose status sits on the following line. **There IS a
+403**, and it is on the call you will make most often:
 
-The only 403 in Labs is `camera_not_in_scope`, on the operator-facing read
-endpoints your worker never calls. **409 is the signal to stop and re-claim** —
-a worker waiting on 403 would wait forever.
+| call | situation | code | `detail` |
+|---|---|---|---|
+| any station route | no / unknown station token | **401** | `station_token_not_recognised` |
+| `…/segments` (list) | hour was never claimed | **404** | `scan_unit_not_claimed` |
+| `…/segments` (list) | another station holds the lease | **409** | `scan_unit_held_by_another_station` |
+| `…/segments` (list) | lease expired, or unit already closed | **409** | `scan_unit_not_open` |
+| `…/segments` (list) | `stream_type` not main/sub | **422** | `unknown_stream_type` |
+| `/labs/segments/{id}` | **no live lease on that camera-hour** | **403** | **`segment_outside_lease`** |
+| `/labs/segments/{id}` | unknown segment id | **404** | `segment_not_found` |
+| `/labs/segments/{id}` | object store down — **retryable** | **503** | `object_storage_unavailable` |
+
+**The two footage calls refuse differently, which is the part that bites.** The
+list call resolves the lease and answers 404/409. The byte fetch re-checks the
+lease itself and answers **403 `segment_outside_lease`**. A worker needs both
+branches: 409 on the list means re-claim, 403 on a fetch means the lease died
+mid-hour, and 503 means wait and retry rather than abandon the unit.
 
 Every one of these carries a stable `detail` slug beside the status. Branch on
 the slug, not on the prose; the prose is free to change and the slug is not.

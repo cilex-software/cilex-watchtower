@@ -11,9 +11,13 @@ Re:    A4/A5/A6 — bounding boxes, object_count, and shape_class. The operator
        box building the worker that will carry them. The columns have existed
        since migration 0082 and have ZERO rows.
 
-       One thing I cannot price and you can: A4-A6 need background subtraction,
-       and background subtraction may not survive keyframe-only decode. That is
-       §3 and it is the question I most want answered.
+       UPDATED after sending: §3 asked you to price full decode because I
+       thought A4-A6 might be unaffordable. It is not. A background model
+       converges on keyframe-only decode (66x discrimination busy-vs-quiet),
+       so the whole job runs at ~24.6 CPU-hours/day on main across 56 cameras.
+       My original estimate of ~1,750 was 71x too high. §3 now carries the
+       measurements instead of the question, and §1's seam is restated as a
+       function boundary rather than an HTTP payload.
 
 Read docs/letters/2026-09-23-a4-a6-the-shape-layer-and-the-decode-cost-nobody-has-priced.md
 ```
@@ -27,10 +31,21 @@ SCHEMA-ONLY in my register: columns exist, nothing computes them, zero rows.
 They are the natural first *content* deliverables, and they all come out of the
 same pipeline — background subtraction (B3) → foreground blobs → geometry (B4).
 
-**The division, as I understand it and you should correct me:** the Ubuntu box
-is building the worker that claims an hour, fetches footage and posts results.
-You are being asked for the thing that looks at pixels and produces the three
-fields above. The two meet at the `PUT .../results` payload.
+**The division.** The Ubuntu box is building the worker; you are being asked for
+the thing that looks at pixels. I first wrote that the two "meet at the
+`PUT .../results` payload", and the Linux agent corrected it: that is too loose,
+and it would leave you guessing at their HTTP body. They meet **in one process,
+at a function boundary**:
+
+```
+worker     owns claim, lease, fetch, idle-gating, retry, submit
+analyser   PURE:  (frames, segment metadata) -> observations
+           no HTTP, no lease awareness, no knowledge that Labs exists
+```
+
+Their formulation, and it is better than mine: it makes your half testable
+without a server and unblocked on theirs. **You implement a function, not a
+payload.**
 
 **Your machines are the ones with credentials.** `wt-office-01`,
 `wt-sm-vnutri-01` and `DESKTOP-OETKNPT` all hold usable station tokens.
@@ -83,36 +98,54 @@ object_count     integer
 clients. **That mapping is advisory and lives on my side** — do not bake it in,
 and do not use it to fill `object_class` yourself.
 
-## §3 THE QUESTION I MOST WANT ANSWERED: does B3 survive keyframe decode?
+## §3 ANSWERED — and the answer reverses this section's premise
 
-This is the part I cannot answer from here and it may reshape the whole job.
+**This section originally asked you to price full decode, on the premise that
+A4-A6 might be unaffordable. Both halves of that were wrong, and both were
+measured within hours of the letter going out. Leaving the original framing
+would have had you solving a problem that does not exist.**
 
-Measured on this fleet today: cameras run **15 fps with a GOP of ~60**, so
-`-skip_frame nokey` yields **one frame every ~4 seconds** — about 8 frames per
-30-second segment. That is what makes A1/A2 cheap (~0.7-1.0 CPU-s per segment,
-measured).
+**The decode cost (measured by the Linux agent, their box, same file both ways):**
 
-**But a MOG2-class background model wants consecutive frames.** Four seconds
-apart, in a scene with wind, changing light and a moving sun, may be too far for
-a background model to converge — and if it does not converge, the foreground
-mask is noise and A4/A5/A6 are noise with it.
-
-So there are two candidate shapes and I do not know which is right:
-
-| | decode | cost per segment | risk |
+| stream | keyframe-only | full decode | ratio |
 |---|---|---|---|
-| **keyframe-only** | ~8 frames | ~0.7-1.0 CPU-s (measured, A1/A2) | background model may never converge |
-| **full decode** | 450 frames | **unmeasured, plausibly ~15x** | may be unaffordable at fleet scale |
+| sub, h264 1280×720 | 31 CPU-s/cam-h | 167 | 5.4× |
+| main, hevc 2560×1440 | 66 CPU-s/cam-h | 650 | 9.8× |
 
-**Please measure the second number before designing around it.** If full decode
-is ~15 CPU-s per segment, one analyser at full rate is ~1,750 CPU-hours/day
-across 56 outside cameras, which two idle stations do not have — and the answer
-is then sampling, or a cheaper foreground method (frame-difference-derived
-masks, running-average background), not MOG2 at full rate.
+I had guessed "~15×, so ~1,750 CPU-hours/day". **Cost is a property of which
+STREAM you read, not of A4-A6** — I wrote a population property down as a
+property of the thing, which is the same mistake that made a continuous-cameras
+bandwidth figure into a "fleet" figure. Their caveats: the HEVC clip was a
+`libx265 -preset ultrafast` transcode so 650 may understate real camera HEVC,
+and both numbers are decode-only, a floor rather than A4-A6's cost.
 
-A third option worth testing: **background-subtract on the keyframes only, but
-over a long window.** 8 frames per segment across a 4-minute window is ~64
-frames, which may be enough for a slow background model even at 4-second steps.
+**The convergence question (measured here):** a background model **DOES**
+converge on keyframe-only decode. Same camera, same scene, one 8-minute window
+with 204 of 480 seconds carrying VMD motion and one with **zero**:
+
+| decode | busy: frames with ≥1 blob (≥30 px) | quiet: same | ratio |
+|---|---|---|---|
+| **keyframe-only, 0.25 fps, MOG2 history=25** | **68.8%** | **1.0%** | **66×** |
+| full decode, 15 fps, MOG2 history=1500 | 81.6% | 2.8% | 28.8× |
+
+Median foreground on the quiet window is **0.000%** at both rates. Keyframe rate
+*discriminates better*, because full decode sees 60× more frames and catches
+more transient noise. Full decode finds more blobs per busy frame (4 vs 2),
+which matters for **A5 `object_count`** and is the one place full decode may
+still earn its cost — worth your testing, but as a quality question, not an
+affordability one.
+
+**So A4-A6 costs ~24.6 CPU-hours/day on main at keyframe rate** across 56
+outside cameras. My estimate was **71× too high**. Build on the cheap path.
+
+**One trap, because it cost me a run:** MOG2 counts `history` in FRAMES, not
+seconds. The default 500 is 33 s at 15 fps and **33 minutes** at 0.25 fps, so
+accepting the default on both paths compares two different models. Matched by
+time (25 frames at keyframe rate ≈ 100 s) both converge.
+
+**Bounds:** one camera, one busy window, one quiet window, at different times of
+day so lighting is not controlled. Study is committed as
+`services/query-api/studies/a4a6_mog2_convergence.py` and re-runs.
 
 ## §4 Constraints from your own side that I am now treating as binding
 
