@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.7"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity)
+WARDEN_VERSION = "1.4.8"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -1312,6 +1312,19 @@ class Supervisor:
         #
         # Set at spawn, so a token refused mid-run shows on the NEXT app start. A refusal
         # is a persistent condition, so that is acceptable; it is not instantaneous.
+        # The identity the SERVER already files this machine under. cilex-vision's
+        # StationCreate says it plainly — "stable identity; defaults to host:<host>. Use
+        # the manifest's machine_id_hash when you know it" — and enrolment did not know
+        # it, so it sent host only and the endpoint defaulted to `host:<host>`.
+        #
+        # That is a duplicate waiting to happen, and it is REACHABLE: the trust-on-first-use
+        # path keys a row on machine_id_hash VERBATIM (client_reports.py:311), so any
+        # machine that uploaded a crash report before being provisioned already has a
+        # `sha256:...` row. Re-enrolling it by host would add a second station for one
+        # machine. Measured here: machine_id_hash() returns
+        # sha256:27dd00... and client_stations.machine_key for this host is the same
+        # string, byte for byte — so sending it upserts that row instead of forking it.
+        env["WT_MACHINE_KEY"] = machine_id_hash() or ""
         env["WT_WARDEN_TOKEN"] = ("missing" if not CFG["STATION_TOKEN"]
                                   else "rejected" if UPLOAD_FROZEN.get("reason") == "token_refused"
                                   else "set")

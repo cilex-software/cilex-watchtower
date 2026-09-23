@@ -208,6 +208,17 @@ inline void enrolStation(QNetworkAccessManager *nam, const QString &baseUrl,
         {QStringLiteral("note"), QStringLiteral("self-provisioned by Watchtower on %1")
                                      .arg(QDateTime::currentDateTimeUtc().toString(Qt::ISODate))},
     };
+    // SEND THE KEY THE SERVER ALREADY FILES US UNDER, or enrolment forks the station.
+    // CV's endpoint does `machine_key = body.machine_key or f"host:{body.host}"` and then
+    // ON CONFLICT (machine_key) DO UPDATE — so omitting it is an upsert onto the WRONG
+    // key whenever the existing row was created by the trust-on-first-use crash-report
+    // path, which keys on machine_id_hash verbatim (client_reports.py:311). One machine,
+    // two stations, and the fleet page counts it twice. Warden 1.4.8 supplies it; an
+    // older supervisor sends nothing and we fall back to the host default, which is the
+    // behaviour we had before and is correct for a machine that never crash-reported.
+    const QByteArray mk = qgetenv("WT_MACHINE_KEY");
+    if (!mk.isEmpty())
+        body.insert(QStringLiteral("machine_key"), QString::fromUtf8(mk));
     QNetworkRequest req{QUrl(baseUrl + QStringLiteral("/client/stations"))};
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setTransferTimeout(15000);
