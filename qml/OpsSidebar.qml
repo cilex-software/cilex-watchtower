@@ -228,6 +228,22 @@ Item {
                 clip: true
                 spacing: 0
                 model: feedModel
+                // ONLY ASK FOR WHAT IS ON SCREEN. With the default cacheBuffer this view
+                // builds delegates far past the visible rows — measured 2026-09-23: 28
+                // delegates created and destroyed in 90 s for a rail showing about four,
+                // and SIXTEEN of those were destroyed at Image.Ready, i.e. their thumbnail
+                // had already arrived and was thrown away with them.
+                //
+                // That is not just waste, it is why the VISIBLE rows stayed blank: every
+                // off-screen delegate takes a slot from the 2-wide extraction pool
+                // (CvImageProvider s_poolExtract), so the four rows an operator is looking
+                // at queue behind ten he is not. EvWall already does this.
+                //
+                // NOT pairing it with reuseItems, deliberately: a recycled delegate keeps
+                // the previous row's image until the new one loads, which would put one
+                // camera's frame under another camera's name — the one boundary the
+                // house rules call correctness rather than a performance knob.
+                cacheBuffer: 0
 
                 // The live feed arrives as a QVariantList (EventModel.h:104), so EVERY new
                 // event replaced the whole model and the ListView destroyed and rebuilt
