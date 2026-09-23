@@ -68,12 +68,15 @@ QString descForType(const QString &type, qint64 durMs)
 // bookends (started/ended) and readiness warnings, leaving one deduped
 // motion_detected row per incident (the one carrying the clip). Nothing is
 // suppressed client-side anymore — motion_detected IS the content now.
+//
+// There used to be an isSuppressedType() here doing the drop client-side. It was
+// emptied to `return false` when the server took the job over, and left in place
+// with two call sites still guarding on it. A predicate that always answers no,
+// named as though it decides something, is how this ended up recorded BACKWARDS in
+// three separate notes -- all of them claiming the client suppresses motion_detected
+// and the feed shows started/ended, which is the exact inverse of these two lines.
+// The filter is here and nowhere else now.
 static const char *kExcludeTypes = "motion_not_ready,motion_started,motion_ended";
-
-bool isSuppressedType(const QString &)
-{
-    return false;
-}
 
 // [EVTIME] — WT_TRACE-gated latency/pool diagnostics for the events queries (the
 // Events screens' "same fix" counterpart of the playback [PBTIME] logs; see
@@ -322,8 +325,6 @@ void EventModel::fetchPage(bool append)
             const auto o = v.toObject();
             const QString t = o.value("event_type").toString().toLower();
             trackMotionRow(o, &motionAdvanced);
-            if (isSuppressedType(t))
-                continue;              // drop motion_detected — see isSuppressedType()
             out.push_back(parseRow(o));
         }
         if (motionAdvanced) { ++m_motionRev; emit motionRevChanged(); }
@@ -643,6 +644,12 @@ void EventModel::pollMotion()
         return;
     QUrlQuery q;
     q.addQueryItem("limit", "100");     // deep enough that the motion_not_ready flood can't bury real motion rows
+    // DO NOT ADD exclude_types HERE. Every other /events query in this file carries
+    // it, so adding it looks like tidying up an oversight. It is the oversight that
+    // is load-bearing: kExcludeTypes drops motion_started and motion_ended, and this
+    // is the ONLY poll that sees them. m_lastStarted / m_lastEnded are populated from
+    // nowhere else, so motionActive() -- the live MOTION indicator on the wall --
+    // would go permanently dark, silently, with every other events path still working.
     url.setQuery(q);
     QNetworkReply *reply = m_nam->get(QNetworkRequest{url});
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -778,8 +785,6 @@ void EventModel::refreshIncremental()
         for (const auto &v : arr) {
             const auto o = v.toObject();
             trackMotionRow(o, &motionAdvanced);
-            if (isSuppressedType(o.value("event_type").toString().toLower()))
-                continue;
             wt::EventData e = parseRow(o);
             const auto it = byId.constFind(e.id);
             if (it != byId.constEnd()) {

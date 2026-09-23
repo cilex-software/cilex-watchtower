@@ -98,7 +98,7 @@ before.samples.csv}` + analyzer (takes args) + graph. **Two fix prompts ready (N
 backend continuous-HLS A3 letter) and `…hero-per-open-leak.prompt.md` (bisect like A2; likely DELETE
 /review/sessions + player teardown). · `556760a`+`ed410bc` **P0 #2 FIXED — duplicate/overlapping clips for one motion + duration mismatch.** Each
 motion episode = **THREE backend events sharing `metadata.recording_id`: motion_started (exact start, NULL
-duration), motion_detected (start + duration, dropped by isSuppressedType), motion_ended (the END +
+duration), motion_detected (start + duration; THE ONLY TYPE THE FEED CARRIES — the server excludes the bookends), motion_ended (the END +
 duration).** Shown raw, the queue listed every episode TWICE (started row + ended row) and the wide P0
 window overlapped neighbours → two rows looked like "the same motion." Fix: **`EventsStore.ingestReal` now
 JOINS started↔ended by recording_id (`eventModel.all()` spans all loaded pages) → ONE row per episode,

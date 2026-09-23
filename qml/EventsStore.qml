@@ -153,7 +153,7 @@ QtObject {
         now = new Date();                      // real wall clock for window/relative-time math
         cams = camLookup ? camLookup : ({});   // views' camera axis = the real cameras
         // Collapse the motion lifecycle into ONE episode per recording_id. The backend emits motion_started
-        // (exact start, null duration), motion_detected (dropped — isSuppressedType) and motion_ended (exact
+        // (exact start, null duration), motion_detected and motion_ended (exact
         // END + duration) for EVERY episode. Shown raw, each episode duplicated into a started row AND an
         // ended row, and the wide-window player then overlapped the neighbouring episode's footage. We pair
         // started↔ended by recording_id (eventModel.all() spans every loaded page) and emit ONE row keyed
