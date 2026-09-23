@@ -27,6 +27,11 @@ Item {
     property bool showMotion: true
     property bool showEvents: true
     property int spanMin: 60           // 15 / 60 / 360 / 720 / 1440
+    signal pageRequested(int dir)      // -1 back, +1 forward, by one whole span
+    readonly property string spanLabel: spanMin === 15 ? qsTr("15 minutes")
+                                     : spanMin === 60 ? qsTr("hour")
+                                     : spanMin === 1440 ? qsTr("day")
+                                     : qsTr("%1 hours").arg(Math.round(spanMin / 60))
     property bool zoomed: false        // a free-form wheel zoom is active -> show FIT
 
     signal jumpLastMotion()
@@ -154,6 +159,21 @@ Item {
             label: qsTr("EVENTS", "navigator toggle")
             tip: qsTr("Show or hide the events column")
             onActivated: hdr.toggleEvents()
+        }
+        // Page the loaded window a WHOLE span. These sit with the span chips because
+        // what they move by IS the span: at 1H they step an hour, at 6H six. Chevrons
+        // rather than words so the pair reads as one control and survives translation.
+        Cell {
+            interactive: true; ghost: true
+            label: "\u2039"
+            tip: qsTr("Previous %1 (PageUp)").arg(hdr.spanLabel)
+            onActivated: hdr.pageRequested(-1)
+        }
+        Cell {
+            interactive: true; ghost: true
+            label: "\u203A"
+            tip: qsTr("Next %1 (PageDown)").arg(hdr.spanLabel)
+            onActivated: hdr.pageRequested(1)
         }
         Repeater {
             model: [[qsTr("15M", "span button"), 15], [qsTr("1H", "span button"), 60],

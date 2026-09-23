@@ -1524,6 +1524,10 @@ Item {
         }
         else if (e.key === Qt.Key_Left) { root.nudge(-((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000)); e.accepted = true; }
         else if (e.key === Qt.Key_Right) { root.nudge((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000); e.accepted = true; }
+        // A WHOLE span, not a nudge: PageUp/PageDown are the only keys on this screen
+        // that change which window is loaded rather than where the playhead sits.
+        else if (e.key === Qt.Key_PageDown) { root.pageWindow(1); e.accepted = true; }
+        else if (e.key === Qt.Key_PageUp)   { root.pageWindow(-1); e.accepted = true; }
     }
 
     // ---- frame-by-frame MODE (F): filmstrip UI + hold-to-shuttle arrows ----------
@@ -2343,6 +2347,43 @@ Item {
     }
     // The span is tier 2's zoom. On a day it resizes the window around the
     // playhead; on a rolling window it keeps the "ending now" meaning.
+    // Move the loaded window one WHOLE span, forward or back (operator ask 2026-09-23:
+    // "I'm on the 1H scale, how do I move to the next hour?").
+    //
+    // There was no answer. Nothing was bound to this: the arrow keys nudge the PLAYHEAD
+    // (10 s, 60 s with Shift), and the only pan is Shift+wheel over the lanes at 15 % of
+    // span per notch — which at rest does NOTHING AT ALL, because _openWindow loads a
+    // session exactly `span` long, so viewStart..viewEnd already equals tlStart..tlEnd and
+    // panView clamps to a no-op. Panning only bites after a plain-wheel zoom IN. So the
+    // operator was right that there was no button: moving a whole span means opening the
+    // NEXT session, not scrolling this one.
+    //
+    // _openWindow puts `atMs` 35 % into the window, so to land a window starting at `t`
+    // we ask for t + span*0.35.
+    function pageWindow(dir) {
+        if (!camera || selectedDay === "") return;
+        var span = Math.max(60000, zoomMin * 60000);
+        var from = (tlEndMs > tlStartMs) ? tlStartMs : playheadMs;   // NaN-safe (BL-9 rule)
+        var target = from + dir * span;
+        var day0 = _dayMs(selectedDay);
+        // A day is a session boundary (§3.6), so stepping off the end of one rolls to the
+        // neighbouring day rather than clamping in place and looking broken.
+        if (target < day0 || target >= day0 + 86400000) {
+            var keys = dayInfo ? Object.keys(dayInfo).sort() : [];
+            var i = keys.indexOf(selectedDay);
+            if (i < 0 || i + dir < 0 || i + dir >= keys.length) return;   // no such day: do nothing
+            var nk = keys[i + dir];
+            var nd0 = _dayMs(nk);
+            // entering from the left edge going forward, from the right edge going back
+            _openWindow(nk, dir > 0 ? nd0 + span * 0.35
+                                    : nd0 + 86400000 - span + span * 0.35);
+            return;
+        }
+        _openWindow(selectedDay, target + span * 0.35);
+    }
+    readonly property bool canPageBack: camera && selectedDay !== ""
+    readonly property bool canPageFwd: camera && selectedDay !== ""
+
     function setSpan(minutes) {
         if (!camera) { zoomMin = minutes; return; }
         if (selectedDay === "") { openFor(camera, minutes); return; }
@@ -3039,6 +3080,7 @@ Item {
                 onToggleMotion: Settings.eventsOnScrubber = !Settings.eventsOnScrubber
                 onToggleEvents: { root.railOpen = !root.railOpen; Settings.pbEventsPanel = root.railOpen }
                 onSpanPicked: (m) => root.setSpan(m)
+                onPageRequested: (d) => root.pageWindow(d)
                 onFitRequested: root.resetView()
             }
 
