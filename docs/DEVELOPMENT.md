@@ -382,11 +382,17 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   where it is made, rather than in the conclusion. Dimensional analysis, applied to
   prose figures. I have not run this as a habit long enough to claim it works — it is
   a proposal, and I am labelling it as one.
-  **What actually caught it was replication.** I re-derived the same result from
-  different SQL and produced a 37.4 % they had never computed. Their conclusion, and
-  I agree with it: for a derived figure the control is an independent re-derivation,
-  not a better label. Labels catch mis-transcribed measurements; only a second
-  derivation catches a wrong step between two right ones.
+  **What actually caught it was replication BY A DIFFERENT ROUTE, and the
+  qualification is the whole point.** I re-derived the result from different SQL and
+  produced a 37.4 % they had never computed. Labels catch mis-transcribed
+  measurements; only a second derivation catches a wrong step between two right ones.
+  **But a second run of the SAME method is not a second measurement — it is the same
+  measurement twice**, and it reproduces a wrong number perfectly, forever. Two of
+  tonight's errors prove it from both sides: my "24 GB / 93.3 d = 257 MB/day, consistent
+  with their 263" was one number derived twice and I presented it as corroboration; and
+  re-running my `nspname='public'` denominator would have returned 89.33 % every time
+  until the heat death of the universe. Independence of the PATH is what does the work,
+  not the fact of a second look.
 - **A3's operating table is valid for CONTINUOUS cameras and must be recomputed for a
   mixed fleet** (cilex-vision, 2026-09-23, three populations over 645 k segments). The
   byte-share figures reproduce exactly between their population and mine — top 10/30/50 %
@@ -442,6 +448,26 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   Caught by cilex-vision asking me to re-derive my own figure, having quoted it without
   checking. Re-running my query would have reproduced it perfectly; what caught it was
   computing the denominator a different way.
+## `motion_events` is 79.1 % of the database — and which denominator, exactly
+
+Three denominators are defensible-looking and one is not. Measured 2026-09-23:
+
+| denominator | size | `motion_events` share |
+|---|---|---|
+| `pg_database_size` (includes catalogs) | 31 GB | **79.06 %** |
+| all relations in non-system schemas (includes hypertable chunks) | 31 GB | **79.13 %** |
+| same, but EXCLUDING `_timescaledb_internal` | 27 GB | 89.33 % ← **do not use** |
+
+The first two agree and either is fine. **The third is the one I published**, and it is
+not an arithmetic error — it is a correct answer to a question nobody wants: *"what
+share of user data, if we exclude the contents of every hypertable?"* The chunks under
+`_timescaledb_internal` ARE user data; `video_segments` alone has 1,736 MB there while
+`pg_total_relation_size` on its parent reports 64 kB.
+
+**So: quote 79.1 %, and say which denominator.** cilex-vision separately reported
+83.9 % against a 28.6 GB denominator; I could not reproduce that figure and do not
+repeat it.
+
 ## Footage retention is a row in a table — read the row
 
 **Do not quote a retention figure from any document, including this one. Read
