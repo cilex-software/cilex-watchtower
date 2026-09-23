@@ -72,11 +72,15 @@ Item {
     // Most were the motion-without-recording P1; events born inside that outage window have
     // no footage that could ever be extracted, so they 404 forever and this skip is
     // permanent for them, not a transient optimisation.
-    // Gate relaxed 2026-08-20: CV rows stopped carrying recording_id (all three motion row
-    // types, evening 08-19 onward — flagged to CV; correlates with their storage_agent
-    // incident) while the STILL endpoint kept serving (probed: 200 for a recording_id-less
-    // event). So "no episode" now means "neither a recording link NOR a finished span" —
-    // a finished episode asks for its still regardless; the fallback remains for real 404s.
+    // Gate relaxed 2026-08-20: "no episode" means "neither a recording link NOR a finished
+    // span" — a finished episode asks for its still regardless.
+    //
+    // WHY recording_id is missing, settled by CV's measurement 2026-09-23 rather than the
+    // storage-agent incident originally suspected: on CONTINUOUS cameras the key is
+    // present and null on every one of 4,519 episode rows, permanently and by design,
+    // because a continuous recording has no motion episode to name. On MOTION cameras it
+    // was non-null on all 2,347. So on this fleet's continuous cameras a row will NEVER
+    // carry one, and gating the still on it alone can only ever mean "never ask".
     // The relaxation described directly above was documented on 2026-08-20 and never
     // actually written into this expression — it kept testing recordingId alone. CV has
     // since stopped sending recording_id ENTIRELY (verified against the live API

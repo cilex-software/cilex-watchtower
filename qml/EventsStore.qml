@@ -196,12 +196,23 @@ QtObject {
             else                      { eMs = g.ended.ts; sMs = g.ended.ts - (g.ended.durationMs || 0); }  // started not loaded
             out.push(store._mkEvent(base, camLookup, sMs, Math.max(0, eMs - sMs)));
         }
-        // Proximity fallback (2026-08-20): CV rows stopped carrying recording_id (their
-        // storage-agent incident, letter filed), which broke the primary join above — every
-        // started became a 0-length row and every ended its duplicate, doubling the queue and
-        // starving the still gate. When the KEY is missing, pair started↔ended by the next
-        // ended on the SAME camera within 10 min — the lifecycle guarantees that ordering.
-        // Rows WITH a recording_id never enter this path, so the honest join stays primary.
+        // Proximity join — THE CORRECT PATH FOR CONTINUOUS CAMERAS, not a fallback.
+        // Named "fallback" here since 2026-08-20, when recording_id vanished from CV's
+        // rows and this was written as damage control for what looked like their
+        // storage-agent incident. It is not: CV measured 6 h of events on 2026-09-23 and
+        // split them by camera profile —
+        //
+        //   continuous cameras   4,519 episode rows   key present on all, NON-NULL ON ZERO
+        //   motion cameras       2,347 episode rows   non-null on all 2,347
+        //
+        // A continuous recording has no motion episode to name, so the null is permanent
+        // and by design. Pairing started↔ended by the next ended on the SAME camera
+        // within 10 min is therefore the RIGHT answer there, and the lifecycle guarantees
+        // that ordering.
+        //
+        // The rule is PER ROW, not per camera: non-null recording_id → use it; null →
+        // join by time. Rows WITH a key never enter this path. Per-row survives an
+        // operator moving a camera between profiles, which a per-camera cache would not.
         var endedByCam = ({});
         for (var j3 = 0; j3 < singles.length; j3++) {
             var r3 = singles[j3];
