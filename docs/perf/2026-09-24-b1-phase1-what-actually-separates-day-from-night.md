@@ -132,7 +132,43 @@ cilex-vision shipped `site_solar_times` (migration 0090) while part 3 was runnin
 the ground truth stopped being a bitrate proxy and became real astronomical darkness
 per local date. This re-ran the polarity question against it.
 
-## The join bug — it affects their published figure as well as mine
+## The join bug — I INTRODUCED IT, AND THEN BLAMED IT ON THEM
+
+> **RETRACTION, 2026-09-24, same day.** The section below says this bug affects
+> cilex-vision's published figure. **It does not, and the bug was mine.** The join
+> they actually sent had NO `local_date` term at all — it was range-only:
+>
+> ```sql
+> LEFT JOIN site_solar_times st ON st.site_id = <site>
+>   AND v.start_time >= st.dark_start AND v.start_time < st.dark_end
+> ```
+>
+> A 02:00 segment matches the previous evening's row by construction, because the row
+> carries a window that already spans midnight. **I added the `local_date` predicate
+> myself, broke it, measured the breakage, and reported it to them as a defect in
+> their query** — "it is the join you published to me". It was not. Measured, one
+> population, the join as the only variable:
+>
+> ```
+> A  range-only (theirs)             407,314 dark segs   6.20 MB
+> B  + local_date, own date (mine)   192,699 dark segs   6.18 MB   <- the bug
+> C  + local_date shifted 12h (mine) 407,314 dark segs   6.20 MB
+> ```
+>
+> **Their A and my C agree exactly**, so their `5.89 / 4.57` stands unaltered and my
+> "+23.7 % corrects their figure" was wrong twice over — it corrects *my own* +15.4 %,
+> and theirs never needed correcting.
+>
+> **And their form is better than my fix.** The 12-hour shift works and I verified it
+> at both solstices, but it is a constant that has to hold at every latitude and season
+> the code ever runs at. Range-only needs no shift, no date arithmetic and no
+> assumption, because the row carries its own boundaries — and
+> `ix_site_solar_times_dark (site_id, dark_start, dark_end)` already indexes it.
+> Adopted; the 12-hour shift is withdrawn from the study scripts.
+>
+> The finding below is real and worth keeping as a trap. The attribution was not.
+
+## The join bug, as originally written — real, but mine
 
 **A dark window spans midnight.** `local_date = 2026-09-23` carries
 `dark_start = 09-23 19:39` and `dark_end = 09-24 06:07`. So the obvious join —

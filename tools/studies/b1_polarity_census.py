@@ -32,17 +32,18 @@ with seg as (
          (v.start_time >= st.dark_start and v.start_time < st.dark_end) as is_dark
   from video_segments v
   join cameras c on c.camera_id = v.camera_id and c.decommissioned_at is null
-  -- THE -12h SHIFT IS LOAD-BEARING. A dark window SPANS MIDNIGHT: local_date
-  -- 2026-09-23 carries dark_start 09-23 19:39 and dark_end 09-24 06:07. Joining a
-  -- segment to its OWN local date therefore tests a 02:00 segment against that
-  -- date's EVENING window, and every pre-dawn hour is misclassified as light.
-  -- Measured on this fleet: that dropped 213,670 of 406,369 genuinely dark
-  -- segments -- 53% -- and understated the dark/light byte contrast as 15.4%
-  -- instead of 23.7%. Shifting 12h back before taking the date attributes each
-  -- segment to the night whose evening it belongs to, and is correct at both
-  -- solstices (checked: dark_start ranges ~16:00 midwinter to ~23:30 midsummer).
+  -- RANGE-ONLY JOIN, NO local_date TERM. A dark window spans midnight -- local_date
+  -- 2026-09-23 carries dark_start 09-23 19:39 and dark_end 09-24 06:07 -- so a row
+  -- already describes its own boundaries and a 02:00 segment matches the previous
+  -- evening's row by construction. Adding `st.local_date = <segment's own date>`
+  -- breaks exactly that: it tests 02:00 against that date's EVENING window and drops
+  -- 53% of the dark population. I wrote that bug, measured it, and reported it to
+  -- cilex-vision as a defect in THEIR join, which had never contained the term.
+  -- A 12h-shifted local_date also works and I verified it at both solstices, but it
+  -- is a constant that must hold at every latitude and season; range-only needs no
+  -- shift, no date arithmetic and no assumption. ix_site_solar_times_dark
+  -- (site_id, dark_start, dark_end) indexes it.
   join site_solar_times st on st.site_id = c.site_id
-       and st.local_date = ((v.start_time at time zone 'Europe/Moscow') - interval '12 hours')::date
   where v.start_time >= now() - interval '{days} days'
     and v.stream_type = 'main' and v.bytes > 150000
     and c.recording_state = 'recording'          -- armed cameras sample by motion
