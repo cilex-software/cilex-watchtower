@@ -316,6 +316,23 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   - **Dates come from `git blame`, never invented.** "Written YYYY-MM-DD and not re-checked
     since" is verifiable and is what a reader needs; a date nobody measured would be the
     same defect wearing the fix's clothes.
+- **Never `git add -A` in this repo — stage explicitly.** Other agents write letters
+  *directly into this checkout's* `docs/letters/`, so at any moment there may be untracked
+  work that is not yours. On 2026-09-23 a top-level `git add -A` swept cilex-vision's
+  219-line letter into a commit about Warden's heartbeat; the same thing had happened to
+  their Labs letter in `fb909a0`. The pre-commit hook has warned about exactly this since
+  it was written — *"never `git add -A`, which would sweep unrelated work into someone's
+  commit"* — about its own staging, and the warning applies just as much to the human
+  running `git commit`.
+  **The outcome is not the damage.** `CLAUDE.md` says letters received from another agent
+  are committed verbatim, so those files belonged in the repo either way. What breaks is
+  the log: a commit whose message describes a Warden change also published somebody else's
+  letter, so the letter's arrival is undiscoverable from `git log` and the message is no
+  longer a true account of the commit. Stage paths by name; when a received letter turns
+  up, commit it deliberately, with its own message.
+  - **`git log --author` cannot tell the agents apart** — all four sessions commit as the
+    same operator. The only discriminator is the `Claude-Session:` trailer. Filter on that
+    when auditing "what did I actually do".
 
 ## Verification convention
 
