@@ -413,6 +413,18 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   So: **write the check, and then read what it printed as though someone else wrote
   it.** A conventions list is a way of having fewer errors, not a way of catching
   them. The catching is still done by looking.
+- **Never divide two values that were already rounded for display.** Mine, 2026-09-23,
+  in the same hour as writing the entry above. I read `pg_size_pretty` output — 24 GB
+  and 31 GB — divided them, and published "77 %". From exact bytes it is
+  25,909,411,840 / 32,763,417,059 = **79.08 %**, and the ratio to the next largest
+  table is **9.43x**, not the "9x" I wrote. Both inputs had been rounded to two
+  significant figures by a function whose entire purpose is to make numbers readable
+  rather than exact, and I reported the quotient to two significant figures as though
+  it had that precision.
+  A sharper figure exists and I had not looked for it: against the sum of all user
+  tables rather than `pg_database_size` (which includes catalogs), `motion_events` is
+  **89.33 %**. Caught by cilex-vision re-deriving it — the control that has actually
+  worked, again.
 
 ## Verification convention
 
