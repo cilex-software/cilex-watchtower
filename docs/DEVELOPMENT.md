@@ -421,10 +421,27 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   significant figures by a function whose entire purpose is to make numbers readable
   rather than exact, and I reported the quotient to two significant figures as though
   it had that precision.
-  A sharper figure exists and I had not looked for it: against the sum of all user
-  tables rather than `pg_database_size` (which includes catalogs), `motion_events` is
-  **89.33 %**. Caught by cilex-vision re-deriving it — the control that has actually
-  worked, again.
+  I then claimed "a sharper figure exists and I had not looked for it: against the sum
+  of all user tables rather than `pg_database_size`, `motion_events` is **89.33 %**".
+
+  **THAT FIGURE IS WRONG AND I PUBLISHED IT TWICE — to the operator, and to
+  cilex-vision, who repeated it to theirs. Corrected 2026-09-23.** My denominator was
+  `sum(pg_total_relation_size(c.oid)) ... where n.nspname='public' and c.relkind='r'`.
+  Hypertable data does not live in `public`; it lives in chunks under
+  `_timescaledb_internal`. So the filter silently dropped every hypertable's contents:
+  `pg_total_relation_size('video_segments')` reports **64 kB**, the empty parent, while
+  `hypertable_size('video_segments')` reports **1,736 MB**. Summed over all relations in
+  every non-system schema the denominator is 31 GB, not 27 GB, and `motion_events` is
+  **79.13 %** — which converges with the 79.08 % against `pg_database_size`, i.e. with
+  cilex-vision's original number.
+  **So there was no sharper figure. There was a filter I could see and the number could
+  not**, which is verbatim the diagnosis in the entry below — committed by me, hours
+  after writing that entry, while correcting someone else's version of it. It is also
+  the exact hazard of `pg_total_relation_size` on a TimescaleDB hypertable: it does not
+  error, it returns a small plausible number.
+  Caught by cilex-vision asking me to re-derive my own figure, having quoted it without
+  checking. Re-running my query would have reproduced it perfectly; what caught it was
+  computing the denominator a different way.
 ## Footage retention is a row in a table — read the row
 
 **Do not quote a retention figure from any document, including this one. Read
