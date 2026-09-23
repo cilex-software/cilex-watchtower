@@ -44,6 +44,28 @@ produced the table below.
 | `_clean_metrics` | 422 | `metrics_not_an_object` · `too_many_metrics` · `bad_metric_key` · `metric_value_too_long` · `metric_value_not_scalar` | malformed `metrics` |
 | `list_observations` / `list_events` | 403 | `camera_not_in_scope` | operator read paths; a worker never calls these |
 
+## SUPERSEDED 2026-09-23, same evening: branch on `retryable`
+
+cilex-vision shipped a `retryable` boolean on every station-facing refusal in response
+to the 409 finding below. **That is a better answer than the advice this file gave.**
+Verified by AST: 21 station-facing raises, all carry it, all assigned correctly —
+
+    analyzer_disabled                  409  retryable=False   <- stop
+    scan_unit_held_by_another_station  409  retryable=True    <- re-claim
+    scan_unit_not_open                 409  retryable=True    <- re-claim
+    segment_outside_lease              403  retryable=True    <- re-claim
+    object_storage_unavailable         503  retryable=True    <- wait
+    station_token_not_recognised       401  retryable=False
+    every submit_results 422           422  retryable=False
+
+**A worker should branch on `retryable` and needs to know neither a slug nor a status
+code.** The three raises without the flag are `camera_not_in_scope` (operator read
+paths a worker never calls) and `nothing_to_update` (admin), so station coverage is
+complete.
+
+The table below stays because the slugs remain the right thing to LOG, and because the
+reasoning that produced `retryable` is worth keeping visible.
+
 ## The two traps
 
 **1. The two footage calls refuse differently.** The *list* call resolves the lease and
@@ -54,4 +76,9 @@ branches; they are not interchangeable.
 `scan_unit_held_by_another_station` and `scan_unit_not_open` both mean *re-claim*.
 `analyzer_disabled` means *the operator switched this analyser off* — and a worker that
 branches on the status code alone will **re-claim for ever against a disabled analyser**.
-Branch on the `detail` slug. Never on the status code, and never on the prose.
+Branch on `retryable` (above). Log the `detail` slug. Never branch on the status code,
+and never on the prose.
+
+That progression is the point: the contract went prose -> status code -> slug ->
+a boolean that states the only thing a worker actually needs. Each step was forced by
+someone getting the previous one wrong.
