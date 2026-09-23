@@ -322,7 +322,38 @@ Item {
                             // map). Gating on hasClip is why the rail never asked at all —
                             // measured on the pilot feed, clip_url was set on 1 row of 14
                             // while 3 of 14 had a recording_id.
+                            // SECOND CALL SITE OF THE SAME GATE, and the one on the Live
+                            // screen — so it is the one an operator actually looks at. Fixing
+                            // EvSnapshot alone (4e94d8e) left this rail blank and looked from
+                            // the outside like the fix had not worked.
+                            //
+                            // `recordingId` is null here permanently, not transiently: CV
+                            // measured 6 h of events on 2026-09-23 and on CONTINUOUS cameras
+                            // the key is present and null on all 4,519 episode rows, because a
+                            // continuous recording has no motion episode to name. Camera
+                            // hiwatch-083bc14f0040 is continuous, so gating on recordingId
+                            // alone meant this rail could never ask for a single thumbnail.
+                            // Verified the same day: the endpoint returns 200 with a ~64-70 KB
+                            // JPEG for those very events, 13 to 92 minutes old.
+                            //
+                            // HONEST LIMIT OF THIS CHANGE, measured after making it: in THIS
+                            // model durationMs is 0 on every live-feed row (instrumented
+                            // 2026-09-23 — every row logged durMs=0 while the same events carry
+                            // duration_ms=22423 over the API), so the added clause is inert here
+                            // and the gate still reduces to !recordingId. It is kept because it
+                            // is correct and costs nothing the day duration_ms reaches this map,
+                            // but it did NOT unblank the rail and must not be credited with it.
+                            // What actually blanks the rail today is the extraction governor:
+                            // one 28 s session logged 11 event-still requests and 11 sheds,
+                            // against 128 successful cached camera stills in the same run.
+                            //
+                            // A FINISHED SPAN IS AN EPISODE. durationMs > 0 means started↔ended
+                            // were paired, so footage covers the moment. Note this model spells
+                            // it durationMs (EventModel.cpp:541) where EventsStore spells it
+                            // durationSec — same fact, two names, which is part of why one call
+                            // site got fixed and the other did not.
                             readonly property bool noEpisode: !row.modelData.recordingId
+                                                              && !(row.modelData.durationMs > 0)
                             readonly property bool latched: root._stillFailed[evId] === true
                             readonly property int gen: root._stillGen[evId] || 0
                             property bool waiting: false          // inside a Retry-After pause
