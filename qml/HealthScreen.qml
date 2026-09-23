@@ -675,7 +675,7 @@ Item {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14; Layout.bottomMargin: 14
                                 spacing: 6
                                 Btn { icon: "monitor"; label: qsTr("Open live"); onClicked: if (root.sel) root.openLive(root.sel) }
-                                Btn { icon: "clip"; label: qsTr("Playback"); onClicked: if (root.sel) root.openPlayback(root.sel) }
+                                Btn { icon: "playback"; label: qsTr("Playback"); onClicked: if (root.sel) root.openPlayback(root.sel) }
                                 Btn { icon: "bell"; label: qsTr("Events"); ghost: true; onClicked: if (root.sel) root.openEvents(root.sel) }
                             }
                         }

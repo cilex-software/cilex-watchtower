@@ -674,7 +674,7 @@ Item {
                             Flow {
                                 Layout.fillWidth: true; Layout.leftMargin: 14; Layout.rightMargin: 14; Layout.topMargin: 14
                                 spacing: 6
-                                Btn { primary: true; icon: "clip"; label: qsTr("Open playback"); onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
+                                Btn { primary: true; icon: "playback"; label: qsTr("Open playback"); onClicked: if (root.sel) root.openPlayback(root.sel.camId, root.sel.ts) }
                                 // Export a clip around the event moment straight to the Clips
                                 // library — no scrubbing. Fixed window (15s before → 45s after);
                                 // Open playback → the export drawer covers custom ranges. Hidden

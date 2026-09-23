@@ -462,7 +462,7 @@ Item {
                         border.width: 1; border.color: Theme.accent
                         Row {
                             id: pbRow; anchors.centerIn: parent; spacing: 8
-                            Icon { anchors.verticalCenter: parent.verticalCenter; name: "clip"; size: 14; color: pbMa.containsMouse ? Theme.bg : Theme.accent }
+                            Icon { anchors.verticalCenter: parent.verticalCenter; name: "playback"; size: 14; color: pbMa.containsMouse ? Theme.bg : Theme.accent }
                             Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Open playback"); color: pbMa.containsMouse ? Theme.bg : Theme.accent; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium }
                         }
                         MouseArea { id: pbMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPlayback(root.camera ? root.camera.mac : "") }

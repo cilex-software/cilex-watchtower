@@ -30,13 +30,32 @@ Item {
         "x":        { "p": "M6 6l12 12 M18 6L6 18" },
         "pencil":   { "p": "M4 20l1.2-4.2L16.4 4.6l3 3L8.2 18.8L4 20z M14 7l3 3" },
         "play":     { "p": "M6 4l14 8-14 8V4z", "f": true },
-        // Open playback: a counter-clockwise replay ring (stroked, gap + arrowhead
-        // at top pointing left) with a filled play triangle in the centre.
-        "playback": { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4", "pf": "M10.4 8.7 L15.6 12 L10.4 15.3 Z" },
-        // Go back in time: the same counter-clockwise replay ring (gap + left-pointing
-        // arrowhead at top), but with CLOCK HANDS in the centre instead of a play triangle —
-        // i.e. "rewind through history", distinct from "playback" (which plays a recording).
-        "history":  { "p": "M10.8 4.1 A 8 8 0 1 0 13.2 4.1 M9 4.1 L10.8 2.8 M9 4.1 L10.8 5.4 M12 12 L12 7.8 M12 12 L15.3 12.6" },
+        // REPLAY RING — redrawn 2026-09-23 (operator: "it's drawn awkwardly").
+        //
+        // The head used to be TWO STROKES forming an open V, with its vertex at (9,4.1)
+        // — 1.8 units clear of the arc end at (10.8,4.1). At 1.5 stroke with round caps
+        // those two short lines merged into an amorphous lump floating off the ring: it
+        // read as a smudge, or a bite taken out of the circle, not as an arrow. Rendered
+        // at 120px to see it, which is the only way that was ever going to be visible.
+        //
+        // Now: r=7.4 ring centred (12,12), gap at the top, and a FILLED triangle whose
+        // base midpoint sits exactly ON the arc's end so the head grows out of the stroke
+        // instead of floating beside it.
+        //
+        // THE HEAD IS AT THE RIGHT END OF THE GAP, NOT THE LEFT, and that is the whole
+        // fix. Put at the left end it pointed toward 180 degrees — INTO the arc it had
+        // just travelled — so it read as the ring doubling back on itself, like a beak.
+        // At the right end the tangent points up and LEFT, into the empty gap, which is
+        // the anticlockwise sense that means "back". Base 4.2, height 4.0: deliberately
+        // stocky, because this is drawn at 14-16px and a slender head disappears.
+        "playback": { "p": "M8.87 5.29 A 7.4 7.4 0 1 0 15.47 5.47",
+                      "pf": "M11.94 3.59 L16.46 3.62 L14.48 7.32 Z M10.3 8.4 L16.0 12 L10.3 15.6 Z" },
+        // Go back in time: the SAME ring and head, with clock hands instead of the play
+        // triangle — "rewind through history", distinct from "playback" (play a
+        // recording). Hands are one polyline so the elbow at the centre stays clean;
+        // two subpaths met there with round caps and left a pale notch.
+        "history":  { "p": "M8.87 5.29 A 7.4 7.4 0 1 0 15.47 5.47 M12 8.0 L12 12 L15.2 13.4",
+                      "pf": "M11.94 3.59 L16.46 3.62 L14.48 7.32 Z" },
         "pause":    { "p": "M6 4h4v16H6z M14 4h4v16h-4z", "f": true },
         "back":     { "p": "M15 6l-6 6 6 6" },
         "fwd":      { "p": "M9 6l6 6-6 6" },
