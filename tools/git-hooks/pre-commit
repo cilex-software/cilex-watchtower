@@ -45,6 +45,16 @@ if [[ "${WT_NO_CLAIM_LINT:-}" != "1" && -x "$ROOT/tools/tests/cross-system-claim
     "$ROOT/tools/tests/cross-system-claim-lint.py" || exit 1
 fi
 
+# EventModel::pollMotion() must keep NOT sending exclude_types. Costs a regex over
+# one file; prevents the live MOTION indicator going dark silently. The comment at
+# the line asks a reader to notice; this asks the build to.
+# WT_NO_MOTION_PIN=1 skips it.
+if [[ "${WT_NO_MOTION_PIN:-}" != "1" && -x "$ROOT/tools/tests/motion-poll-unfiltered.py" ]]; then
+    "$ROOT/tools/tests/motion-poll-unfiltered.py" >/dev/null || {
+        "$ROOT/tools/tests/motion-poll-unfiltered.py"; exit 1; }
+    echo "PASS  pollMotion() still unfiltered (motion indicator invariant)"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.

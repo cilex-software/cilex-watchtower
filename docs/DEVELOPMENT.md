@@ -368,6 +368,25 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   would have *quoted* were all wrong.
   So: state the population in the same breath as the number, and when two derivations
   disagree on a rate, suspect the population before the method.
+- **Naming the population does not catch a bad step BETWEEN two named numbers.**
+  Found by cilex-vision on 2026-09-23, hours after both of us adopted the rule above,
+  and it is a different failure from the four instances listed there. They published
+  "fetching the top 30 % by normalised bytes is ~199 GB/day while keeping 57 % of the
+  motion". Both inputs were correct and correctly labelled. The inference was not:
+  30 % of the **segments** is not 30 % of the **bytes**, because the segments the
+  ranking puts on top are by construction the large ones. Measured, it is 37.4 % of
+  bytes — **~248 GB/day, not 199**. Nothing about naming the population would have
+  flagged it; the two factors were already well labelled.
+  **What catches it: carry the unit through the arithmetic, on the line.** Written as
+  `199 GB/day = 30 % [of segments] × 662 GB/day [of bytes]` the mismatch is visible
+  where it is made, rather than in the conclusion. Dimensional analysis, applied to
+  prose figures. I have not run this as a habit long enough to claim it works — it is
+  a proposal, and I am labelling it as one.
+  **What actually caught it was replication.** I re-derived the same result from
+  different SQL and produced a 37.4 % they had never computed. Their conclusion, and
+  I agree with it: for a derived figure the control is an independent re-derivation,
+  not a better label. Labels catch mis-transcribed measurements; only a second
+  derivation catches a wrong step between two right ones.
 
 ## Verification convention
 
