@@ -123,3 +123,92 @@ Observed ~0.6–0.75 CPU-s per segment at 3 keyframes. Two segments per camera-h
 would put the decode cost near **1.2–1.5 CPU-s/camera-hour**, which is in the region
 the brief predicted — but it is an extrapolation from a different sampling shape and
 is labelled as one.
+
+---
+
+# Part 4 — the polarity census, and a join bug that moved numbers on both sides
+
+cilex-vision shipped `site_solar_times` (migration 0090) while part 3 was running, so
+the ground truth stopped being a bitrate proxy and became real astronomical darkness
+per local date. This re-ran the polarity question against it.
+
+## The join bug — it affects their published figure as well as mine
+
+**A dark window spans midnight.** `local_date = 2026-09-23` carries
+`dark_start = 09-23 19:39` and `dark_end = 09-24 06:07`. So the obvious join —
+
+```sql
+JOIN site_solar_times st ON st.site_id = c.site_id
+ AND st.local_date = (v.start_time AT TIME ZONE 'Europe/Moscow')::date
+```
+
+— tests a 02:00 segment against **that same date's evening** window, and every
+pre-dawn hour is classified as light. Measured on 7 days of outdoor continuous
+cameras:
+
+| | dark segments | dark MB | light MB | contrast |
+|---|---|---|---|---|
+| joining on the segment's own date | 192,699 | 6.18 | 5.35 | **+15.4 %** |
+| joining 12 h back | **406,369** | 6.20 | 5.01 | **+23.7 %** |
+
+**213,670 genuinely dark segments — 53 % of the real dark population — were being
+counted as light**, and the contrast was understated by a third. The fix is to shift
+12 hours before taking the date, which attributes a segment to the night whose evening
+it belongs to; checked at both solstices (`dark_start` runs ~16:00 midwinter to ~23:30
+midsummer, so a 12 h shift is unambiguous at every season here).
+
+My earlier `+15.4 %` is retracted; the figure is **+23.7 %** for outdoor continuous
+cameras. cilex-vision's `5.89 vs 4.57` used the same join shape and is likely affected
+in the same direction.
+
+## A sampling error of mine, the second in this study
+
+With the join fixed, 57 of 60 cameras still read dark ≈ light. That was not the fleet;
+it was `ORDER BY start_time DESC`, which takes the **most recent** segment of each
+class — putting the "light" sample minutes before `dark_start`, in civil twilight,
+visually almost night.
+
+**The boundary is exactly where two classes are least distinguishable, so it is the
+worst place to characterise them from.** Sampling `dark_start + 1 h .. dark_end − 1 h`
+against `sunrise + 2 h .. sunset − 2 h` changed the result completely.
+
+## The result that decides the design
+
+59 continuous cameras, one segment mid-dark and one mid-day, 2 keyframes each:
+
+| class | n | meaning |
+|---|---|---|
+| `ir` — chroma 0.00 in the dark | **1** | definitive, no tuned constant |
+| **inverted** — *more* colour in the dark | **11** | coloured artificial light; "low chroma" = day |
+| **normal** — less colour in the dark, never 0 | **12** | dim colour, no IR |
+| flat — no usable separation | **35** | chroma alone cannot classify these |
+
+**The two polarities are nearly balanced: 11 against 12.** A single fleet-wide chroma
+threshold would be wrong on roughly half of the cameras that have any chroma signal at
+all. That is not a tail case, it is a coin flip — and both halves separate cleanly on
+their own, so tuning on either one would look like success.
+
+**And 35 of 59 have no usable chroma separation at all.** Chroma cannot carry
+day/night for most of this fleet. It carries `ir` definitively, for the one camera
+that has it.
+
+*Bound: one segment pair per camera, 2 keyframes. Some "flat" cameras may separate
+with more samples; this is a floor on how many have a signal, not a ceiling.*
+
+## What the fleet actually offers, ranked
+
+1. **Segment bytes.** Free — already in the metadata the worker fetches, no decode at
+   all — and the per-camera census (part 1) found a usable day/night signature on 87
+   of 133 cameras, with transitions landing on 07h and 19h where astronomy puts them.
+   +23.7 % dark-vs-light across outdoor continuous cameras.
+2. **`chroma == 0` → `ir`.** Definitive where it applies. Costs one decoded keyframe.
+3. **Chroma magnitude for day/night.** Only with **per-camera polarity learned from
+   that camera's own distribution**. Never fleet-wide.
+4. **Mean luma.** Falsified. Diagnostic only.
+
+## Cost, still not the registry figure
+
+0.58–0.62 CPU-s per segment at 2–3 keyframes, **fetch included**, consistently across
+three runs totalling ~260 segments. The registry column excludes fetch and is
+per camera-hour, so this is neither — it is the input to that measurement once the
+sampling strategy is fixed.
