@@ -45,7 +45,7 @@ from pathlib import Path
 
 WIN = sys.platform == "win32"
 
-WARDEN_VERSION = "1.4.5"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine)
+WARDEN_VERSION = "1.4.6"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -874,6 +874,53 @@ def app_beat():
         return None, None
 
 
+# Watchtower's own version, OBSERVED rather than asked for (Pro Mobile ask 2026-09-23,
+# so the owner's Health tile can show which build each station is running — the same
+# question `warden_version` already answers for the supervisor, and the reason a 1.4.2
+# vs 1.4.3 difference cost an afternoon last week).
+#
+# NO NEW CHANNEL AND NO CLIENT CHANGE. FlightRecorder already prints a startup banner
+# into the log Warden reads for app_beat():
+#
+#   === watchtower start v1.1.493 pid=3908557 build=e9bfda57 qt=6.12.0 os=... ===
+#
+# MATCHED ON PID, deliberately. The banner is the version of the process that wrote it,
+# so requiring it to match the pid we are supervising makes this exact: we never report
+# a version belonging to an earlier run. If the banner has rotated out of reach we
+# return None rather than the newest one we can find — a wrong version is worse than
+# none, and Pro Mobile draws nothing for null (a printed blank reads as a version with
+# no name), while cilex-vision normalises blank to null on ingest.
+#
+# Cached per pid: a running process cannot change version, and a restart changes the
+# pid, so the scan happens once per app start rather than once per beat.
+_APP_BANNER = re.compile(r"=== watchtower start v(\S+) pid=(\d+) ")
+_APP_VER = {"pid": None, "ver": None}
+
+
+def app_version():
+    pid = HB.get("app_pid")
+    if not pid:
+        return None
+    if _APP_VER["pid"] == pid:
+        return _APP_VER["ver"]
+    found = None
+    # current log first, then rotations newest-first; the pid guard makes order safe
+    for cand in [FLTREC / "watchtower.log"] + \
+                sorted(FLTREC.glob("watchtower.log.*"),
+                       key=lambda q: q.stat().st_mtime if q.exists() else 0, reverse=True):
+        try:
+            text = cand.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in _APP_BANNER.finditer(text):
+            if int(m.group(2)) == pid:
+                found = m.group(1)          # last match in file order = this run
+        if found:
+            break
+    _APP_VER.update(pid=pid, ver=found)
+    return found
+
+
 def _line_epoch(line):
     """Flight-recorder stamps are LOCAL time; the beat speaks UTC."""
     m = _LOGLINE_TS.match(line)
@@ -982,6 +1029,7 @@ class Heartbeat(threading.Thread):
             "app_state": HB["app_state"],
             "app_state_reason": HB["app_state_reason"],
             "app_pid": HB["app_pid"],
+            "app_version": app_version(),
             "app_uptime_s": int(now - HB["app_spawned"]) if HB["app_spawned"] else None,
             # restarts_1h keeps its EXACT former meaning — CV gates its storm verdict
             # on it at RESTART_STORM_1H = 12, so this is deliberately the same count
