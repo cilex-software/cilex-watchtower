@@ -401,6 +401,18 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   Note precisely what this does and does not change: **the signal still works; what moved
   is what a chosen operating point COSTS.** Same population lesson as the entry below,
   arriving through a fourth door — this time not in a base rate but in a price.
+- **THE LIMIT ON EVERYTHING ABOVE: none of these disciplines caught the errors that
+  were caught. Rereading the output did.** Four checks-that-could-not-fail turned up
+  between this box and cilex-vision on 2026-09-23, including one of mine in the
+  verification OF one of the others. Every single one was spotted because its output
+  looked strange, never because the method was sound — my
+  `coalesce((select 'yes, '||count(*) ...), 'no')`, which cannot return `'no'` because
+  `count(*)` over an empty set is 0 and never NULL, survived being written and being
+  run, and died when "yes, 0 chunks" was odd enough to reread. cilex-vision's
+  `MASK IS REAL` on 2 blobs versus 1 went the same way.
+  So: **write the check, and then read what it printed as though someone else wrote
+  it.** A conventions list is a way of having fewer errors, not a way of catching
+  them. The catching is still done by looking.
 
 ## Verification convention
 

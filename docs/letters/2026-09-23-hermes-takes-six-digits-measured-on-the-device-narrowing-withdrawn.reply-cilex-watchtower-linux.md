@@ -104,9 +104,14 @@ imply otherwise by leaving it out.**
 >
 > `motion_events` is not a hypertable, so there is no chunk exclusion, and the only
 > time-bearing index leads with `camera_id` — which my predicate did not constrain.
-> **My five-minute window was a sequential scan over 30.6 M rows and would have been
-> expensive on a completely idle box.** The timeout was not the pilot being busy; it
-> was my query being unindexed.
+> **My five-minute window read the whole table and would have been expensive on a
+> completely idle box.** The timeout was not the pilot being busy; it was my query.
+>
+> *Mechanism, corrected once more by cilex-vision, who ran EXPLAIN on the shape:* it
+> is not a heap sequential scan. The planner **does** use `idx_motion_events_cam_time`,
+> as a full **index-only scan at cost 1,625,925** — with no `camera_id` it can walk the
+> index end to end but never seek into it. Full read either way, my query's fault
+> either way; I had the conclusion right and the mechanism wrong.
 >
 > Stopping was still the right call, and the rate is still unmeasured. But I framed
 > it as declining to spend someone else's headroom, which reads as a careful choice
