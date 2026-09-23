@@ -489,6 +489,23 @@ Same species as the always-false predicate in `EventModel` and cilex-vision's
 unreachable `lpr` key: **a constant that was right once, living where the depending
 code cannot see the thing that governs it.** It does not error and it does not warn.
 
+- **Run a control that cannot succeed.** A check that has never been shown to produce
+  its negative answer has not been shown to work. 2026-09-24, both this box and
+  cilex-vision probed camera firmware for which endpoints exist, using the 401-vs-404
+  method `CLAUDE.md` endorses. Unauthenticated it returns **401 on every path including
+  an impossible one**; authenticated it returns **403 on an impossible path**. Neither
+  code discriminates. Without the control this box would have reported four endpoints
+  as confirmed present, and cilex-vision would have run three real paths, received three
+  200s, and recorded "authenticated probing works".
+  This is the same defect as every unfalsifiable check in the entries below — my
+  `coalesce((select 'yes, '||count(*) ...), 'no')` that could not return `'no'`, their
+  `MASK IS REAL` on 2 blobs versus 1 — but it is the first one where **naming the
+  control in advance would have caught it**, because the question "what would this
+  print if the thing were absent?" has a cheap, concrete answer: run a path that is
+  absent and look.
+  **Transferability is the point.** The specific status codes are a fact about one
+  firmware and will age out. "Include an input your check must reject" outlives it, and
+  is the only part worth writing into a rule.
 
 ## Verification convention
 
