@@ -77,7 +77,21 @@ Item {
     // incident) while the STILL endpoint kept serving (probed: 200 for a recording_id-less
     // event). So "no episode" now means "neither a recording link NOR a finished span" —
     // a finished episode asks for its still regardless; the fallback remains for real 404s.
-    readonly property bool _noEpisode: root._real && !!root.ev && !root.ev.recordingId
+    // The relaxation described directly above was documented on 2026-08-20 and never
+    // actually written into this expression — it kept testing recordingId alone. CV has
+    // since stopped sending recording_id ENTIRELY (verified against the live API
+    // 2026-09-23: absent from every key of every row), so this was true for every event
+    // and the rail asked for NO thumbnails at all. Blank tiles, no errors, nothing in
+    // the log, because a request that is never made cannot fail.
+    //
+    // A FINISHED SPAN IS AN EPISODE. durationSec > 0 means started↔ended were paired —
+    // by recording_id where it exists, else by the proximity join in EventsStore — so
+    // footage covers that moment and the extraction should succeed. Only a row with
+    // neither a recording link nor a finished span is the cheap negative this gate was
+    // built for.
+    readonly property bool _noEpisode: root._real && !!root.ev
+                                       && !root.ev.recordingId
+                                       && !(root.ev.durationSec > 0)
                                        && !(root.ev.durationSec > 0)
 
     // "The still is not coming." Skipping the request leaves evImg at status Null, NOT Error
