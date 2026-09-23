@@ -221,11 +221,33 @@ Item {
                             Rectangle {
                                 Layout.preferredWidth: 36; Layout.preferredHeight: 26
                                 color: "#000"; border.width: 1; border.color: Theme.line2
-                                PlaceholderVid {
+                                // THE REAL CAMERA, not a drawing of one. This was a
+                                // PlaceholderVid — a procedurally generated "lobby" scene
+                                // standing in for whatever camera the row names. It never
+                                // fetched anything, so the palette could never show a
+                                // thumbnail no matter how healthy the backend was
+                                // (operator, 2026-09-23: "no thumbnails in command
+                                // palette"). A synthetic picture presented as a camera is
+                                // also exactly the invented content the house rules forbid:
+                                // an operator could not tell it from a real view.
+                                //
+                                // Same cached-snapshot route the group grid uses and which
+                                // is measured working (128/128 served in one session),
+                                // through the cvframe provider so the auth cookie is
+                                // attached — a bare Image would 401. Five rows at most
+                                // (cr.slice(0,5) above), decoded at thumb size.
+                                Image {
                                     anchors.fill: parent; anchors.margins: 1
-                                    visible: !modelData.header && modelData.row.isCam === true
-                                    pattern: (!modelData.header && modelData.row.data) ? (modelData.row.data.pattern || 0) : 0
-                                    geom: "lobby"
+                                    asynchronous: true
+                                    cache: true
+                                    fillMode: Image.PreserveAspectCrop
+                                    sourceSize.width: 72
+                                    visible: status === Image.Ready
+                                    source: (!modelData.header && modelData.row.isCam === true
+                                             && modelData.row.data && modelData.row.data.camId)
+                                            ? ("image://cvframe/streams/cameras/"
+                                               + modelData.row.data.camId + "/snapshot")
+                                            : ""
                                 }
                                 Icon {
                                     anchors.centerIn: parent
