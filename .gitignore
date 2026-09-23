@@ -49,3 +49,14 @@ docs/perf/**/*-logs/
 
 # rock-n-roll soak per-run logs (111 MB, kept on the dev box)
 docs/perf/2026-09-12-rocknroll-soak/logs/
+
+# Windows packaging output. build-local.ps1 writes these to the REPO ROOT, which
+# /build-*/ above does not cover, so they sat untracked in `git status` on the booth
+# for days — 163 MB of them. Anchored with a leading / so this only ever ignores the
+# packaging artifacts at the root and never a source file that happens to share a name.
+/watchtower.pdb
+/watchtower-pdb.zip
+/watchtower-windows-portable.zip
+/CilexWatchtower-*-setup.exe
+packaging/windows/CilexWatchtower-*-setup.exe
+packaging/windows/watchtower-*.zip
