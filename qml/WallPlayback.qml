@@ -2049,11 +2049,45 @@ Item {
         Component.onCompleted: if (perf.active) startTimer.start()
         Timer { id: startTimer; interval: 6000; onTriggered: perf._begin() }
 
+        // WT_WALLPERF_CAMS: pick the wall under test by IP, e.g. "102,105,110".
+        // WHY THIS EXISTS. The default here is "the first 16 cameras by IP", which on
+        // this fleet is a MIX of continuously-recorded street cameras and motion-only
+        // hall/roof cameras. A playback soak over motion-only cameras measures the
+        // wrong thing: their footage has holes by design, so a seek into a gap times
+        // out and is recorded as a latency failure that is really an empty archive.
+        // Soak the cameras that record around the clock, and say which ones in the
+        // log so the run is reproducible. Empty = previous behaviour, unchanged.
+        function _pickCams() {
+            var want = (typeof wtWallPerfCams !== "undefined" && wtWallPerfCams !== "")
+                       ? String(wtWallPerfCams).split(",") : [];
+            var pool = root.cameraModel.page("", "", "ip", 1, 400), out = [];
+            if (want.length === 0) {
+                for (var i = 0; i < pool.length && out.length < 16; i++)
+                    if (pool[i] && pool[i].camId) out.push(pool[i]);
+                return out;
+            }
+            // Preserve the ORDER GIVEN, so cell N is the same camera on every run and
+            // two runs are comparable cell by cell.
+            for (var w = 0; w < want.length && out.length < 16; w++) {
+                var tok = String(want[w]).trim();
+                if (tok === "") continue;
+                for (var j = 0; j < pool.length; j++) {
+                    var c = pool[j];
+                    if (!c || !c.camId || !c.ip) continue;
+                    var ip = String(c.ip);
+                    if (ip === tok || ip.split(".").pop() === tok) { out.push(c); break; }
+                }
+            }
+            return out;
+        }
+
         function _begin() {
             if (!root.cameraModel || !root.client) { startTimer.restart(); return; }
-            var cams = root.cameraModel.page("", "", "ip", 1, 16), out = [];
-            for (var i = 0; i < cams.length && out.length < 16; i++) if (cams[i] && cams[i].camId) out.push(cams[i]);
+            var out = perf._pickCams();
             if (out.length === 0) { startTimer.restart(); return; }
+            var ips = [];
+            for (var k = 0; k < out.length; k++) ips.push(String(out[k].ip || "?").split(".").pop());
+            console.log("WALLPERF,CAMS," + out.length + "," + ips.join(" "));
             root.cameras = out;
             var now = perf._now();
             perf.baseSmall = now - 4 * 3600000;               // in-stream anchor (recent footage)

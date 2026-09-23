@@ -1887,8 +1887,19 @@ Window {
 
     // Dev hook: WT_WALL_DAY boots into synchronized wall playback over the current
     // live page's cameras — a given day (YYYY-MM-DD) or "live" for the last hour.
+    //
+    // ALSO RUNS FOR WT_WALLPERF, and it must (found by soaking it, 2026-09-24).
+    // This timer is the only thing that flips wallMode to "playback". The perf
+    // harness opens its own session directly on wallPlayback and never touched
+    // wallMode, so with WT_WALLPERF alone the LIVE wall stayed visible and kept all
+    // 35 RTSP pipelines decoding underneath every measurement — self-inflicted load
+    // on the exact thing being measured. Observed: 35 live_pipelines in the harness
+    // process, and timeline calls at 385 ms against 50-172 ms once the live wall is
+    // off. The early return below still stops us opening a second composite.
     Timer {
-        interval: 3000; running: typeof wtWallDay !== "undefined" && wtWallDay !== ""
+        interval: 3000
+        running: (typeof wtWallDay !== "undefined" && wtWallDay !== "")
+                 || (typeof wtWallPerf !== "undefined" && wtWallPerf !== "")
         onTriggered: {
             wallMode = "playback";
             // The WT_WALLPERF harness seeds + opens the session itself; if we also

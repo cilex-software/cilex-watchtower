@@ -988,6 +988,9 @@ int main(int argc, char *argv[])
     // latency harness (drives the playhead over fixed offsets, measures time-to-replay
     // across all 16 cells). Logs "WALLPERF,..." CSV lines. Needs a real GPU (VA-API).
     engine.rootContext()->setContextProperty("wtWallPerf", qEnvironmentVariable("WT_WALLPERF"));
+    // Which cameras the wall soak runs over, by IP or last octet ("102,105,..."). Empty
+    // keeps the old "first 16 by IP", which mixes continuous and motion-only cameras.
+    engine.rootContext()->setContextProperty("wtWallPerfCams", qEnvironmentVariable("WT_WALLPERF_CAMS"));
     // Live RTSP path: low-latency by default (custom GStreamer pipeline →
     // QVideoSink, rtspsrc latency≈150 ms). QMediaPlayer's default 2000 ms
     // jitter buffer is unusable for monitoring — proven so during the spike.
