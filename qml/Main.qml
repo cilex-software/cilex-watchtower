@@ -2353,25 +2353,31 @@ Window {
     Connections {
         target: playbackClient
         function onExportStarted(jobId) {
-            toastHost.show("Export started", "Preparing clip on cilex-vision…", "accent", "", "")
+            toastHost.show(qsTr("Export started"), qsTr("Preparing clip on cilex-vision…"), "accent", "", "")
         }
         function onExportSaved(jobId, path) {
             // State the EXACT size. The drawer could only estimate; this is the file.
             // Decimal MB, so it matches both the download strip and the Finder.
             var b = playbackClient.lastExportBytes;
             var sz = b > 0 ? (b >= 1e9 ? (b / 1e9).toFixed(2) + " GB" : (b / 1e6).toFixed(1) + " MB") : "";
-            toastHost.show("Clip saved", (sz ? sz + " · " : "") + "Saved to " + Artifacts.exportDir,
-                           "good", "Open folder", "file://" + Artifacts.exportDir)
+            // Built with .arg() rather than concatenation: a translator needs to move the
+            // size and the path relative to the words, and "Saved to " + path cannot be
+            // reordered in a language that puts the destination first.
+            toastHost.show(qsTr("Clip saved"),
+                           (sz ? qsTr("%1 · Saved to %2").arg(sz).arg(Artifacts.exportDir)
+                               : qsTr("Saved to %1").arg(Artifacts.exportDir)),
+                           "good", qsTr("Open folder"), "file://" + Artifacts.exportDir)
         }
         function onExportFailed(jobId, err) {
             // A Standard export over a window whose sub-stream wasn't recorded now fails honestly
             // (Cilex Vision reply9) and points at High — offer a one-click re-run from the main
             // stream (option 1). Match the backend's hint; a structured reason code is on our ask list.
             if (err.indexOf("High export") >= 0 || err.indexOf("sub-stream") >= 0)
-                toastHost.show("Standard unavailable for this window", err, "bad",
-                               "Export as High instead", "", "retryExportHigh")
+                toastHost.show(qsTr("Standard unavailable for this window"), err, "bad",
+                               qsTr("Export as High instead"), "", "retryExportHigh")
             else
-                toastHost.show("Export failed", err === "" ? "The clip could not be exported" : err, "bad", "", "")
+                toastHost.show(qsTr("Export failed"),
+                               err === "" ? qsTr("The clip could not be exported") : err, "bad", "", "")
         }
     }
 
