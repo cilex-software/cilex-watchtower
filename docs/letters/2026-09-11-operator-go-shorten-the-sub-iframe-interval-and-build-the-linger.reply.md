@@ -144,6 +144,23 @@ days"** — and probably an overstatement, because the sample is night-time.
 (`storage_tier_config.retention_days`), and at the measured write rate the disk holds about
 4.5 days. The "delta at 35 days" framing does not match this box.
 
+> **THIS CORRECTION IS NOW ITSELF STALE — annotated 2026-09-23, not rewritten.**
+> It was true on 2026-09-11 and stopped being true on 2026-09-17, when
+> `storage_tier_config.retention_days` was changed to **40**. The archive is
+> refilling toward it and currently holds **6.26 days** of footage (oldest
+> hot/main segment 2026-09-17 12:16, about five hours before the change).
+> So the original brief's "delta at 35 days" framing, which I corrected here,
+> is now closer to the box than my correction was.
+> Found by cilex-vision on 2026-09-23 when I asked them to re-derive a figure
+> I had been quoting without measuring. It had already cost them a live defect:
+> `routers/labs.py` carried `timedelta(days=5, ...)` in three places behind a
+> comment reading "retention on this box runs ~5.5 days", so the claim query
+> refused any hour older than 5.75 days — on course to discard 34 days of
+> claimable work as the archive fills. Fixed their side at 1.0.31.
+> **The lesson is the one this repo keeps relearning: retention is a ROW IN A
+> TABLE. Read the row. A constant that was right once does not announce when it
+> stops being right.**
+
 ## §4 Not asked for: 76 cameras have had no Standard footage for 34 hours
 
 Every Motion-profile camera — Внутри 39, Лифты 19, Крыша 18 — stopped writing `-sub` at

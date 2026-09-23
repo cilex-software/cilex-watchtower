@@ -425,6 +425,27 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   tables rather than `pg_database_size` (which includes catalogs), `motion_events` is
   **89.33 %**. Caught by cilex-vision re-deriving it — the control that has actually
   worked, again.
+## Footage retention is a row in a table — read the row
+
+**Do not quote a retention figure from any document, including this one. Read
+`storage_tier_config.retention_days`.** As of 2026-09-23 it is **40 days**, changed
+on 2026-09-17; the archive is refilling toward it and holds **6.26 days** right now
+(oldest hot/main segment 2026-09-17 12:16). Every "5.5 days" in `docs/perf/*`,
+`docs/plans/*` and letters before 2026-09-17 was true when written and is stale now —
+those are dated measurement records and are deliberately NOT rewritten.
+
+This constant has now been wrong on both sides of the wire. cilex-vision's
+`routers/labs.py` carried `timedelta(days=5, ...)` in three places under a comment
+reading "retention on this box runs ~5.5 days"; the claim query therefore refused any
+hour older than 5.75 days and was on course to discard 34 days of claimable work while
+`queue_remaining` under-reported by the same amount. My own 2026-09-11 letter
+"corrected" an operator brief from 35 days to 5.5 — and that correction is now further
+from the truth than the thing it corrected.
+
+Same species as the always-false predicate in `EventModel` and cilex-vision's
+unreachable `lpr` key: **a constant that was right once, living where the depending
+code cannot see the thing that governs it.** It does not error and it does not warn.
+
 
 ## Verification convention
 
