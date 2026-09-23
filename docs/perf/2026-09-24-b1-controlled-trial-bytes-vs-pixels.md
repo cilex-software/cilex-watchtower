@@ -168,8 +168,41 @@ Their observation, and it is the most useful caveat either of us produced about 
 result. One practical consequence: **the IR cameras are an independent check on the
 site coordinates.** A working IR-cut filter closes when the scene actually darkens, so
 a camera whose transition sits consistently far from astronomical dusk is evidence the
-ephemeris is being computed for the wrong place — which is exactly the check that was
-missing when the coordinates were 30 km out.
+ephemeris is being computed for the wrong place.
+
+> **I OVERCLAIMED THAT, and the correction is measured.** I wrote that this is
+> *"exactly the check that was missing when the coordinates were 30 km out"*, which
+> implies it would have caught that error. **It would have taken about a week and a
+> half.** cilex-vision tested it on the byte curve; I re-derived it with a different
+> estimator (time at which the fleet MEDIAN crosses halfway between its day and night
+> plateaus, against their curve inflection) and we agree:
+>
+> ```
+> offset of the transition from computed sunset
+>   mine   (median crossing, 5 evenings)   mean +4.0 min   SD 7.9
+>   theirs (inflection,      7 evenings)   mean +6.4 min   SD 6.6
+> ```
+>
+> **The noise is weather, and it is physically correct behaviour** — cloud darkens a
+> scene early and clear sky late, and the camera responds to light rather than to an
+> ephemeris. The trend is clean (sunset moved −18 min over their week, the byte
+> midpoint −21), so the signal is real; it is the per-evening scatter that is large.
+>
+> At 60.1 N, 30 km of longitude error shifts sunset by **2.2 minutes**. Against an SD
+> of 6.6–7.9 that needs **9 to 13 evenings** to resolve at one standard error.
+>
+> **So it is a slow drift monitor, not an assertion check.** A wrong city or a wrong
+> timezone shows in a single evening. The 30 km error this site actually carried does
+> not. It must never be used to accept a newly entered coordinate — telling someone
+> "the IR transitions confirm your location" would be asserting something unknowable
+> for ten days. cilex-vision's distinction, which is the right one: *"this validates
+> the coordinates"* and *"this would have caught the error we had"* are different
+> claims, and only the first is true.
+>
+> Two refinements of theirs for whoever builds it: use the FLEET transition, since
+> weather is common-mode and averages down across cameras but not across nights; and
+> expect the per-camera residual to be the more useful output anyway — one camera
+> drifting alone is a camera fault, which is faster to detect and is B2's territory.
 
 ## Bounds
 
