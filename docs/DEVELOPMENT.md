@@ -347,6 +347,27 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   - **`git log --author` cannot tell the agents apart** — all four sessions commit as the
     same operator. The only discriminator is the `Claude-Session:` trailer. Filter on that
     when auditing "what did I actually do".
+- **Every figure names the population it was measured on.** A population filter is obvious
+  to whoever wrote the query and invisible in the number it produces, which makes it the
+  easiest way to publish something true-and-misleading. Four instances on 2026-09-23 alone,
+  across two systems:
+  - cilex-vision's bandwidth constant — a continuous-cameras figure written down as a fleet
+    figure (599 MB/camera-hour; the fleet mix is ~360).
+  - their A4-A6 decode estimate — a property of *which stream* stated as a property of the
+    analyser (1,750 CPU-h/day against a measured 24.6).
+  - their A3 base rate — `tier='hot'` had silently selected the continuous population.
+  - **mine**: I re-derived A3 over all cameras, got a 27.96 % base rate against their
+    10.72 %, and attributed the gap to a different motion label. It was not the label — we
+    both used `motion_events`. Motion-armed cameras only record when motion fires, so ~100 %
+    of their segments carry motion by construction. Restricted to continuous cameras the
+    rate is 15.88 %, and the top decile falls from 85 % to 52 %.
+  **What survived is the instructive part.** The contamination moved every headline number
+  and left the decision-relevant one alone: top-30 %-by-normalised-bytes recall was 59.8 %
+  contaminated, 58.8 % clean, 57 % on cilex-vision's stricter population. A conclusion that
+  is robust to the error is not evidence that the error did not matter — the figures anyone
+  would have *quoted* were all wrong.
+  So: state the population in the same breath as the number, and when two derivations
+  disagree on a rate, suspect the population before the method.
 
 ## Verification convention
 
