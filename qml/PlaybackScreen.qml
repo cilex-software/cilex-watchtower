@@ -1522,10 +1522,20 @@ Item {
             if (root.paused) root.togglePlay(); else root.rateStep(1);
             e.accepted = true;
         }
+        // A WHOLE span, not a nudge: these change which window is LOADED rather than
+        // where the playhead sits. Tested BEFORE the plain arrows, which would otherwise
+        // swallow them — Left/Right check no modifiers.
+        //
+        // Option/Alt + arrow is the primary pair. PageUp/PageDown work too, but the
+        // operator's MacBook has no such keys (they are fn+arrow there), so a shortcut
+        // that only exists on a full-size keyboard is a shortcut he does not have.
+        // Option+arrow is free here — Alt appears in this handler only as an EXCLUSION,
+        // never as a binding — and on macOS it already means "move by a bigger unit".
+        else if ((e.key === Qt.Key_Right || e.key === Qt.Key_Left) && (e.modifiers & Qt.AltModifier)) {
+            root.pageWindow(e.key === Qt.Key_Right ? 1 : -1); e.accepted = true;
+        }
         else if (e.key === Qt.Key_Left) { root.nudge(-((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000)); e.accepted = true; }
         else if (e.key === Qt.Key_Right) { root.nudge((e.modifiers & Qt.ShiftModifier) ? 60000 : 10000); e.accepted = true; }
-        // A WHOLE span, not a nudge: PageUp/PageDown are the only keys on this screen
-        // that change which window is loaded rather than where the playhead sits.
         else if (e.key === Qt.Key_PageDown) { root.pageWindow(1); e.accepted = true; }
         else if (e.key === Qt.Key_PageUp)   { root.pageWindow(-1); e.accepted = true; }
     }

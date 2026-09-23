@@ -28,6 +28,14 @@ Item {
     property bool showEvents: true
     property int spanMin: 60           // 15 / 60 / 360 / 720 / 1440
     signal pageRequested(int dir)      // -1 back, +1 forward, by one whole span
+    // The same abbreviation the span chips use, so "< 1H" and the active "1H" chip
+    // are visibly the same unit.
+    readonly property string spanShort: spanMin === 15 ? qsTr("15M", "span button")
+                                     : spanMin === 60 ? qsTr("1H", "span button")
+                                     : spanMin === 1440 ? qsTr("24H", "span button")
+                                     : qsTr("%1H", "span button").arg(Math.round(spanMin / 60))
+    // macOS prints the key as Option (\u2325); everywhere else it is Alt.
+    readonly property string altKeyName: Qt.platform.os === "osx" ? qsTr("\u2325 Option") : qsTr("Alt")
     readonly property string spanLabel: spanMin === 15 ? qsTr("15 minutes")
                                      : spanMin === 60 ? qsTr("hour")
                                      : spanMin === 1440 ? qsTr("day")
@@ -165,16 +173,29 @@ Item {
         // rather than words so the pair reads as one control and survives translation.
         Cell {
             interactive: true; ghost: true
-            label: "\u2039"
-            tip: qsTr("Previous %1 (PageUp)").arg(hdr.spanLabel)
+            labelColor: Theme.ink2
+            // The unit is IN the label, not only in the tooltip. A bare chevron asks the
+            // reader to know what it steps by; "< 1H" tells a guard who has never used
+            // this screen, and nobody hovers a button to find out what it does.
+            // "PREV 1H", not "< 1H". Rendered side by side, a bare "1H >" sat directly
+            // beside the ACTIVE "1H" zoom chip and the row read "< 1H | 1H > | 15M | 1H |
+            // 6H" — three 1H labels running together, where two mean "move" and one means
+            // "zoom". Only visible by looking at it. The verb removes the ambiguity, and
+            // it is what a guard reads rather than decodes.
+            label: "\u2039 " + qsTr("PREV", "timeline pager") + " " + hdr.spanShort
+            tip: qsTr("Back one %1  (%2 + left arrow)").arg(hdr.spanLabel).arg(hdr.altKeyName)
             onActivated: hdr.pageRequested(-1)
         }
         Cell {
             interactive: true; ghost: true
-            label: "\u203A"
-            tip: qsTr("Next %1 (PageDown)").arg(hdr.spanLabel)
+            labelColor: Theme.ink2
+            label: qsTr("NEXT", "timeline pager") + " " + hdr.spanShort + " \u203A"
+            tip: qsTr("Forward one %1  (%2 + right arrow)").arg(hdr.spanLabel).arg(hdr.altKeyName)
             onActivated: hdr.pageRequested(1)
         }
+        // Breathing space so the MOVE pair and the ZOOM set read as two controls, not one
+        // run of nine chips. Without it they abut and the eye groups them wrongly.
+        Item { Layout.preferredWidth: 14; Layout.fillHeight: true }
         Repeater {
             model: [[qsTr("15M", "span button"), 15], [qsTr("1H", "span button"), 60],
                     [qsTr("6H", "span button"), 360], [qsTr("12H", "span button"), 720],
