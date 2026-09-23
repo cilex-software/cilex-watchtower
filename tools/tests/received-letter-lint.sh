@@ -40,6 +40,19 @@
 # count the corpus first. Verified after: 317 foreign / 324 mine / 14 with no
 # recognisable header, against 201 / 0 / 454 before.
 #
+# AND THEN THE IDENTITY TEST KNEW ONE CHECKOUT AND RAN IN THREE (Windows station
+# agent, same evening, reproduced twice on their box). This hook is COMMITTED, so it
+# executes on Windows and on the Mac too, where a hardcoded "mine = Linux dev box"
+# makes every letter the LOCAL agent writes foreign. It fired on a reply their box
+# had written thirty seconds earlier and printed their own name back at them as the
+# sender.
+#
+# I had not merely left that in — I had just written a comment DEFENDING it ("only
+# this box's own qualifier counts"). The reasoning was sound for the Linux checkout
+# and wrong for the tool, which is the same defect as the three cases named above,
+# committed inside the fix for one of them. A check that hardcodes where it is cannot
+# be shared, and this one is shared by construction.
+#
 # WT_NO_LETTER_LINT=1 skips it.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -47,6 +60,21 @@ cd "$(git rev-parse --show-toplevel)"
 
 # Files the version bumper owns are staged by the hook itself and are never "other work".
 BUMPED="CMakeLists.txt packaging/windows/watchtower.rc packaging/windows/installer.nsi packaging/windows/app.manifest"
+
+# WHICH BOX AM I? Three agents share this repo and all three are "@ cilex-watchtower";
+# only the machine qualifier separates them, and each one's own letters are not
+# arrivals. Derived, not hardcoded. Override with:  git config wt.letterAgent "<text>"
+# The `*)` default keeps the fail-closed property on any shell that answers something
+# unexpected -- an unrecognised platform still treats unqualified headers as foreign.
+MINE=$(git config --get wt.letterAgent || true)
+if [[ -z "$MINE" ]]; then
+    case "$(uname -s 2>/dev/null)" in
+        Linux)                MINE="cilex-watchtower (Linux"   ;;
+        Darwin)               MINE="cilex-watchtower (macOS"   ;;
+        MINGW*|MSYS*|CYGWIN*) MINE="cilex-watchtower (Windows" ;;
+        *)                    MINE="cilex-watchtower (Linux"   ;;
+    esac
+fi
 
 foreign=() other=()
 while IFS= read -r f; do
@@ -61,17 +89,19 @@ while IFS= read -r f; do
             from=$(git show ":$f" 2>/dev/null \
                    | sed -E -n 's/^[[:space:]]*>?[[:space:]]*\**[[:space:]]*From[[:space:]]*\**[[:space:]]*:[[:space:]]*\**[[:space:]]*//p' \
                    | head -1)
-            # "Mine" stays narrow on purpose: the Windows station agent and the macOS
-            # agent are also @ cilex-watchtower, and their letters ARRIVE here. Only
-            # this box's own qualifier counts. An unqualified header is treated as
-            # foreign -- fail-closed costs one extra commit, the other direction costs
-            # a letter buried in the log, which is the thing this exists to prevent.
-            if [[ -n "$from" && "$from" != *"cilex-watchtower (Linux"* ]]; then
+            # "Mine" stays narrow on purpose: the other two agents are also
+            # @ cilex-watchtower and their letters ARRIVE here, so only THIS box's
+            # qualifier counts -- $MINE above, whichever box that is. An unqualified
+            # header is treated as foreign: fail-closed costs one extra commit, the
+            # other direction costs a letter buried in the log, which is the thing
+            # this exists to prevent.
+            if [[ -n "$from" && "$from" != *"$MINE"* ]]; then
                 foreign+=("$f|$from"); continue
             fi
             # No recognisable header at all. Do not claim it arrived -- but do not
             # swallow it either, because that silence is what this whole file is about.
-            [[ -z "$from" ]] && echo "note  added letter has no recognisable 'From:' header: $f"
+            [[ -z "$from" ]] && echo "NOTE  added letter has no recognisable 'From:' header, so it was NOT" \
+                                     && echo "      classified as an arrival -- check it yourself: $f"
         fi
     fi
     other+=("$f")
