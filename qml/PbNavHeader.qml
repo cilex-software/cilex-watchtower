@@ -61,13 +61,24 @@ Item {
         property bool interactive: false
         property bool active: false
         property bool ghost: false
+        // A BUTTON, not a label. Everything else in this row is flat text — toggles and
+        // a radio set — so an ACTION rendered the same way disappears into it. The
+        // operator looked straight at "< PREV 1H" in his own screenshot and reported
+        // that there were no buttons; "it is there if you look" is not a standard a
+        // guard's screen gets to meet. An outline and a filled ground make it the only
+        // thing in the row that looks pressable.
+        property bool boxed: false
         property string tip: ""
         signal activated()
         Layout.fillHeight: true
         Layout.preferredWidth: txt.implicitWidth + 20
         color: active && !ghost ? Theme.accent
                : active && ghost ? Theme.accentSoft
-               : (interactive && cMa.containsMouse ? Theme.panel2 : "transparent")
+               : (interactive && cMa.containsMouse ? Theme.panel2
+                  : boxed ? Theme.panel2 : "transparent")
+        border.width: boxed ? 1 : 0
+        border.color: cMa.containsMouse ? Theme.accent : Theme.ink3
+        radius: boxed ? 3 : 0
         Text {
             id: txt
             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
@@ -76,7 +87,9 @@ Item {
             font.family: Theme.fontMono; font.pixelSize: 10; font.letterSpacing: 1.3
             font.weight: c.active && !c.ghost ? Font.Bold : Font.Normal
         }
-        Rectangle { anchors { right: parent.right; top: parent.top; bottom: parent.bottom } width: 1; color: Theme.line }
+        Rectangle { visible: !c.boxed
+                    anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
+                    width: 1; color: Theme.line }
         Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
                     height: 2; color: Theme.accent; visible: c.active && c.ghost }
         MouseArea {
@@ -172,8 +185,8 @@ Item {
         // what they move by IS the span: at 1H they step an hour, at 6H six. Chevrons
         // rather than words so the pair reads as one control and survives translation.
         Cell {
-            interactive: true; ghost: true
-            labelColor: Theme.ink2
+            interactive: true; boxed: true
+            labelColor: Theme.ink
             // The unit is IN the label, not only in the tooltip. A bare chevron asks the
             // reader to know what it steps by; "< 1H" tells a guard who has never used
             // this screen, and nobody hovers a button to find out what it does.
@@ -187,15 +200,15 @@ Item {
             onActivated: hdr.pageRequested(-1)
         }
         Cell {
-            interactive: true; ghost: true
-            labelColor: Theme.ink2
+            interactive: true; boxed: true
+            labelColor: Theme.ink
             label: qsTr("NEXT", "timeline pager") + " " + hdr.spanShort + " \u203A"
             tip: qsTr("Forward one %1  (%2 + right arrow)").arg(hdr.spanLabel).arg(hdr.altKeyName)
             onActivated: hdr.pageRequested(1)
         }
         // Breathing space so the MOVE pair and the ZOOM set read as two controls, not one
         // run of nine chips. Without it they abut and the eye groups them wrongly.
-        Item { Layout.preferredWidth: 14; Layout.fillHeight: true }
+        Item { Layout.preferredWidth: 16; Layout.fillHeight: true }
         Repeater {
             model: [[qsTr("15M", "span button"), 15], [qsTr("1H", "span button"), 60],
                     [qsTr("6H", "span button"), 360], [qsTr("12H", "span button"), 720],
