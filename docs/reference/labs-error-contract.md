@@ -44,6 +44,15 @@ produced the table below.
 | `_clean_metrics` | 422 | `metrics_not_an_object` · `too_many_metrics` · `bad_metric_key` · `metric_value_too_long` · `metric_value_not_scalar` | malformed `metrics` |
 | `list_observations` / `list_events` | 403 | `camera_not_in_scope` | operator read paths; a worker never calls these |
 
+## SOURCE, NOT DEPLOYED — check before you probe
+
+Everything here is parsed from `routers/labs.py` **in the repository**. As of
+2026-09-23 the running `query-api` is an older image: `grep -c 'retryable=' ` returns
+**0 inside the container against 30 in the repo**, confirmed here. So a live call will
+not carry the flag until cilex-vision rebuilds, and finding it absent is a deploy gap,
+not a disagreement. Their deploy is held deliberately — the host was reaping processes
+for memory and they will not start a container build on a box that was just OOM-killed.
+
 ## SUPERSEDED 2026-09-23, same evening: branch on `retryable`
 
 cilex-vision shipped a `retryable` boolean on every station-facing refusal in response

@@ -274,7 +274,14 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   assertion would have passed. The shipped form tests **both** codes
   (`PlaybackClient.cpp:531-532`), which is right; keep it that way if you bound a request on
   the Windows or Linux side.
-- **Nothing scrapes `:8000/metrics`, so there is no metric history for any incident.**
+- **UPDATE 2026-09-23: metrics ARE being scraped now.** A `prometheus` container started
+  **2026-09-22T22:58:12Z**, hours after the finding below was reported, and is healthy: four
+  targets up (query-api, recorder, playback, itself) and 18 `query_db_latency_ms` series
+  recorded. So the macOS session's "one query that might end this" — the DB-latency delta
+  over an incident window — **now works for any FUTURE stall**, though still not for the
+  2026-09-22 one, which predates the scrape. The note below was correct when written and is
+  kept for the reasoning, not the status.
+- **Nothing scraped `:8000/metrics` before 2026-09-22T22:58Z, so no incident before then has metric history.**
   `pilot-prometheus` is *defined* (`cilex-vision/infra/docker-compose.pilot.yml:175`,
   `prom/prometheus:v2.53.1`) but the container **does not exist** on this host, and the
   `infra_prometheus_data` volume's newest TSDB block is **2026-08-22 19:37** — a month stale.
