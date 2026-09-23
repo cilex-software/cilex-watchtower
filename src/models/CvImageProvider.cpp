@@ -17,10 +17,19 @@
 // on any event newer than the fragment-flush lag. Retry a bounded few times, then give
 // up to the caller's fallback. 404 (no episode) still fails immediately.
 //
-// Do NOT raise the Retry-After clamp below to honour a 30 s hint: a waiting response
-// holds one of the two extraction slots, so three of them would stall the whole rail
-// for the entire window. Failing fast frees the slot; the LONG wait belongs to the
-// caller, which is where OpsSidebar's 30 s re-request timer lives.
+// Do NOT raise the Retry-After clamp below to honour a 30 s hint. The instruction
+// stands; the REASON it used to give was wrong about whose resource is at stake, and a
+// wrong reason is how a correct rule gets overturned by the next person to read it.
+//
+// It said "a waiting response holds one of the two extraction slots", which reads as
+// the BACKEND's slots. It is not. CV confirmed 2026-09-23: their try_acquire() either
+// takes a slot or returns immediately, so a client sitting on a Retry-After occupies
+// nothing of theirs. The slot a long wait would hold is one of OURS — s_poolExtract is
+// width 2 (below), so three simultaneous waits would stall our own rail for the whole
+// window while costing the server nothing.
+//
+// So the rule is unchanged and CV endorses it: fail fast to free OUR slot, and keep the
+// LONG wait in the caller, which is where OpsSidebar's 30 s re-request timer lives.
 static constexpr int kMaxSnapshotRetries = 3;
 
 // [EVIMG] — WT_TRACE-gated per-fetch diagnostics (code + latency), to verify the
