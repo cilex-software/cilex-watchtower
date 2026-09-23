@@ -527,6 +527,11 @@ Item {
                     Layout.maximumHeight: root._camRows.length > 0 ? 1000000 : 44
                     Layout.leftMargin: 8; Layout.rightMargin: 8
                     clip: true
+                    // Only build delegates for rows on screen. Off-screen rows otherwise
+                    // take slots from the 2-wide extraction pool and starve the visible
+                    // ones — measured on the other rail 2026-09-23, where 16 of 28
+                    // delegates were destroyed with their thumbnail already loaded.
+                    cacheBuffer: 0
                     model: root._camRows
                     boundsBehavior: Flickable.StopAtBounds
                     ScrollBar.vertical: ScrollBar { }
@@ -563,7 +568,24 @@ Item {
                                     asynchronous: true
                                     fillMode: Image.PreserveAspectCrop
                                     sourceSize.width: 184
-                                    source: (evRow.modelData.clipUrl && evRow.modelData.eventId)
+                                    // NOT clipUrl. events/{id}/snapshot EXTRACTS a frame from
+                                    // recorded video; clip_url asks whether a downloadable CLIP
+                                    // exists. Two different facts, and gating on the wrong one
+                                    // meant this rail almost never asked: clip_url was measured
+                                    // set on 1 row of 14 on the pilot feed. EventModel.cpp:720
+                                    // documents this exact mistake being found and fixed in the
+                                    // OTHER rail on 2026-08-15; this third one kept it, which is
+                                    // why the operator still saw blank thumbnails here after both
+                                    // of the other rails were repaired.
+                                    //
+                                    // The real precondition is an EPISODE: a recording link, or a
+                                    // finished span (started<->ended paired, so footage covers the
+                                    // moment). recordingId is null by design on continuous cameras
+                                    // — CV measured it null on all 4,519 of their episode rows —
+                                    // so durationMs carries it there.
+                                    source: (evRow.modelData.eventId
+                                             && (evRow.modelData.recordingId
+                                                 || evRow.modelData.durationMs > 0))
                                             ? "image://cvframe/events/" + evRow.modelData.eventId + "/snapshot?pos=mid" : ""
                                     visible: status === Image.Ready
                                 }
