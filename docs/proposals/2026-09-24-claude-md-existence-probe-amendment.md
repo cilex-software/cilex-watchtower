@@ -1,6 +1,8 @@
 # Proposed amendment to CLAUDE.md lines 66–68 — NOT APPLIED
 
-**Status: awaiting the operator.** `CLAUDE.md` governs four agents; neither this box
+**Status: SUPERSEDED AND CLOSED, 2026-09-25.** The operator resolved it a better way than either proposal: he supplied the fleet password and replaced the probe entirely with *"try it; if it fails, bring me that camera"*. Authenticated access makes existence testable directly (200 proves presence), so the inference method is not amended but retired. `CLAUDE.md` lines 66-88 carry the new rule, and the impossible-path control survived into it as the transferable half. Kept for the measurements and the reasoning.
+
+**Original status: awaiting the operator.** `CLAUDE.md` governs four agents; neither this box
 nor cilex-vision will edit it on the other's say-so, and a peer agreeing is not an
 approval. cilex-vision is raising the same proposal independently so the operator sees
 it from both sides rather than one of us relaying the other.

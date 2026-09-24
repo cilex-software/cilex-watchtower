@@ -63,9 +63,29 @@ fleet, which real guards are watching.
   arming motion, exports, The Watch check-ins, PTZ/autofocus. Do not run
   sweeps or soak harnesses that write, without saying so in chat first.
 - **Read-heavy verification is fine** (screenshots, `/streams`, `/events`).
-- **Never guess camera credentials** — HiWatch/Hikvision firmware locks
-  after ~7 failures. Existence-probe with an unauthenticated request and
-  read 401-vs-404 instead (Codex's method, adopted repo-wide).
+- **Camera credentials: one password, held in a file, never in this repo.**
+  (Operator rule, 2026-09-25, replacing the existence-probe method below.)
+  User is `admin`. The single fleet password lives in **`~/.config/watchtower/camera.cred`**
+  (`0600`, `user:pass` on one line), the same shape as the soak credential.
+  **It is NOT in this repo and must never be committed** — this file is on
+  GitHub and read by four agents on three machines. Each box needs its own
+  copy, placed by the operator.
+  **Try it once. If it works, carry on. If it fails on a camera: STOP on that
+  camera, do NOT retry, do NOT try variations, and bring the operator that
+  camera and the authentication problem.** Retrying is the only thing that
+  can lock a lens out (~7 failures), and one known-good password tried once
+  cannot. Verified working 2026-09-25 on `192.168.1.127`.
+- **Existence on this firmware is proved by 200, never by a refusal.**
+  Measured 2026-09-25, both this box and cilex-vision, each with an
+  impossible-path control: **unauthenticated, every path returns 401** —
+  including one that cannot exist, so 401 carries no information at all.
+  **Authenticated, a real path returns 200 and an absent one returns 403
+  `Invalid Operation`** — so 200 proves presence, while 403 does not prove
+  absence (a real path you lack rights for looks identical).
+  The old 401-vs-404 rule (Codex's, previously adopted repo-wide) is silent
+  here and was quietly confirming endpoints that may not exist.
+  **Always include a path that cannot exist.** Both agents who probed this
+  firmware reported wrong conclusions until one of them did.
 - **Station tokens are per-station secrets.** The booth station gets its own
   token from CV; never copy another station's, never commit one, never put
   service credentials in a station's app env.
