@@ -1875,7 +1875,21 @@ Item {
                 ListView {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true
-                    model: root.pickerRows
+                    // Structural twin of the wall picker fixed in LiveMonitor (9a64f91),
+                    // applied here because that mechanism is measured rather than assumed:
+                    // the overlay is gated on `visible: root.pickerOpen` (line ~1832), not
+                    // a Loader, so this view lives for the life of the screen — and
+                    // pickerRows is a computed binding that walks EVERY camera in the fleet
+                    // and returns a new array, so any change to cameraModel or pickSearch
+                    // made Qt destroy and re-incubate every delegate, synchronously, for a
+                    // list nobody could see.
+                    //
+                    // On the wall that cost 60-298 s freezes, captured by sampling the
+                    // wedged process, and removing it took the guard soak from 6 hangs in
+                    // 11 minutes to none. No stack was captured for THIS view specifically
+                    // — it is the same shape, not the same observation.
+                    model: root.pickerOpen ? root.pickerRows : []
+                    cacheBuffer: 0
                     spacing: 2
                     delegate: Rectangle {
                         required property var modelData
