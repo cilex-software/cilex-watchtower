@@ -1937,7 +1937,32 @@ Item {
                     clip: true
                     cellWidth: root._pg.cellW
                     cellHeight: root._pg.cellH
-                    model: root.pickModel
+                    // BUILD NOTHING WHILE THE PICKER IS CLOSED. The overlay above is gated
+                    // on `visible:` (root.pickerCell >= 0), not a Loader, so this view is
+                    // instantiated for the life of the wall — and `pickModel` is a computed
+                    // binding that returns a BRAND NEW array whenever pickerSearch,
+                    // pickerGroup, pickerHideShown, displayedIds or arrangedFull change.
+                    // A new array is a new model, so Qt ran the full setModel() path:
+                    // destroy every delegate, re-incubate every delegate, re-run every
+                    // required-property binding — for up to 133 cameras, synchronously, on
+                    // the GUI thread, on every camera swap and every layout change, for a
+                    // grid nobody could see.
+                    //
+                    // That is the freeze. Captured 2026-09-23 by sampling the wedged
+                    // process; the main thread sat in exactly that chain:
+                    //   setModel -> connectModel -> refill -> addVisibleItems -> createItem
+                    //   -> incubate -> setInitialState -> initializeRequiredProperties
+                    // Six freezes reproduced under the guard soak, 71s / 77s / 133s / 222s
+                    // / 298s, each recoverable — and they are the precondition for the
+                    // SIGSEGV in Qt's pixmap reader, which only lands when the GUI thread
+                    // has been unresponsive long enough for the two threads to disagree
+                    // about when an image response died.
+                    //
+                    // Closed, the model is empty and no delegate exists to rebuild.
+                    // cacheBuffer: 0 then keeps an OPEN picker to its visible cells instead
+                    // of the whole roster.
+                    model: root.pickerCell >= 0 ? root.pickModel : []
+                    cacheBuffer: 0
                     delegate: Item {
                         id: pickCell
                         required property var modelData
