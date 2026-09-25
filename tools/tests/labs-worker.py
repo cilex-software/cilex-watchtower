@@ -313,6 +313,36 @@ o = run(c, B1, u)
 check("a LOST lease is still never filed -- the unit is not ours to report on",
       c.submitted == [], str(c.submitted)[:80])
 
+# A FAILURE REPORT MUST CARRY NO OBSERVATIONS. cilex-vision's submit_results checks
+# observations (:1441 count cap, :1510 _clean_metrics) BEFORE it reads `failed`
+# (:1512), so a report still carrying the offending rows is refused for the very
+# reason it reports and ends up 'lease expired'. Each case below uses a plugin that
+# DID produce observations, so a leak would be visible rather than vacuously absent.
+class ProducesThenBad(Nothing):
+    def analyse(self, segs, st, u, ctx):
+        return [{"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+                 "metrics": {"fine": 1}},
+                {"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+                 "metrics": {"bad": "z" * 500}}]
+class ProducesThenCrash(Nothing):
+    def analyse(self, segs, st, u, ctx):
+        self.partial = [{"start_time": "x", "end_time": "x"}]
+        raise RuntimeError("after producing rows")
+
+for label, plugin, refuse in (
+        ("metrics_violation", ProducesThenBad(), None),
+        ("submit_refused",    B1, [R(422, None)]),
+        ("analyser_raised",   ProducesThenCrash(), None)):
+    u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]},
+                         refuse={("submit", u.camera_id): list(refuse)} if refuse else {})
+    run(c, plugin, u)
+    failed = [b for _, b in c.submitted if b.get("failed")]
+    check(f"failure report for {label} carries NO observations",
+          len(failed) == 1 and failed[0]["observations"] == [],
+          f"{len(failed)} failed bodies; obs={[len(b['observations']) for b in failed]}")
+    check(f"...and names {label} as its cause",
+          bool(failed) and failed[0]["error"].startswith(label), failed[0]["error"] if failed else "-")
+
 check("filed error is fitted to the server's silent 500-char slice, visibly",
       len(W.fit("e" * 900, 500)) == 500 and W.fit("e" * 900, 500).endswith("\u2026"))
 

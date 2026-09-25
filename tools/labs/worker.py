@@ -375,16 +375,13 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     try:
         obs = plugin.analyse(decoded, state, unit, ctx)
     except Exception as e:                      # analyser crashed: report, do not hide
-        body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
-                "segments_scanned": out.segments_scanned, "observations": [],
-                "failed": True, "error": f"{type(e).__name__}: {str(e)[:300]}"}
-        try:
-            client.submit(unit, body)
-            out.submitted = True
-        except Refusal as r:
-            out.action = action_for(r)
-        out.note = f"analyser raised {type(e).__name__}"
-        return out
+        # Through _file_failed like every other failure, so there is ONE place that
+        # builds a failure body. This used to build its own -- two copies of the rule
+        # "a failure report carries no observations", which is how rules drift.
+        o = _file_failed(client, plugin, unit, out,
+                         f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
+        o.action = None if o.submitted else o.action   # a filed crash is not a stop signal
+        return o
 
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned,
@@ -431,6 +428,16 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     So when this worker KNOWS why it cannot finish, it says so. The body is minimal
     -- no observations -- so it cannot itself trip the rule that stopped the first.
     ONE attempt: if this is refused too, nothing more is tried.
+
+    AND IT MUST CARRY NO OBSERVATIONS -- the one line here that is load-bearing.
+    cilex-vision's submit_results validates the observations BEFORE it reads
+    `failed`: the count cap at routers/labs.py:1441, the per-observation loop ending
+    in _clean_metrics at :1510, and only then `if body.failed:` at :1512. So a
+    failure report that still carried the offending observations would be refused
+    for the very reason it reports, fall back to the lease sweep, and end up
+    labelled 'lease expired' -- the exact mislabel this function exists to prevent.
+    They caught it; they will move the branch above those checks with the
+    operator's go. Until then this list stays empty, and a test pins it.
     """
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned, "observations": [],
