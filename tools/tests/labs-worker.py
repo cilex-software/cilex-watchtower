@@ -279,19 +279,56 @@ class Oversize(Nothing):
     def analyse(self, segs, st, u, ctx):
         return [{"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
                  "metrics": {"note": "z" * 500}}]
+# A plugin bug is FILED as failed with its real reason -- not raised out of the loop
+# (which would kill the worker), and not abandoned to the lease (which cilex-vision's
+# code would record as 'lease expired', erasing the cause: labs.py :978/:1038/:1072).
 u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
-try:
-    run(c, Oversize(), u); raised = False
-except W.MetricsViolation:
-    raised = True
-check("an oversized metric is a LOCAL error, never sent to the server",
-      raised and c.submitted == [], f"raised={raised} submitted={len(c.submitted)}")
+o = run(c, Oversize(), u)
+b = c.submitted[0][1] if c.submitted else {}
+check("an oversized metric never reaches the server as an observation",
+      b.get("observations") == [], str(b.get("observations"))[:60])
+check("...the unit is FILED as failed, not raised out of the loop and not abandoned",
+      o.submitted and b.get("failed") is True, f"submitted={o.submitted} body={b}")
+check("...and the filed error names the REAL cause, not 'lease expired'",
+      "metrics_violation" in (b.get("error") or ""), b.get("error"))
+
+class Refuse422:
+    def __init__(self): self.calls = 0
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]},
+                     refuse={("submit", u.camera_id): [R(422, None)]})
+o = run(c, B1, u)
+check("a 422 on submit is filed as failed ONCE with the refusal as its reason",
+      len(c.submitted) == 1 and c.submitted[0][1].get("failed") is True
+      and "submit_refused" in (c.submitted[0][1].get("error") or ""), str(c.submitted)[:120])
+
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]},
+                     refuse={("submit", u.camera_id): [R(422, None), R(422, None)]})
+o = run(c, B1, u)
+check("if filing it failed is refused too, nothing more is tried (no loop)",
+      c.submitted == [] and "refused too" in o.note, o.note)
+
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]},
+                     refuse={("fetch", "seg-2"): [R(403, "segment_outside_lease")]})
+o = run(c, B1, u)
+check("a LOST lease is still never filed -- the unit is not ours to report on",
+      c.submitted == [], str(c.submitted)[:80])
+
+check("filed error is fitted to the server's silent 500-char slice, visibly",
+      len(W.fit("e" * 900, 500)) == 500 and W.fit("e" * 900, 500).endswith("\u2026"))
+
+for pl in (P.IlluminationPlugin(), P.ShapePlugin()):
+    v = f"{pl.version}+{W.WORKER_VERSION}"
+    check(f"analyzer_version fits the server's max_length 64 ({pl.name}: {len(v)})",
+          1 <= len(v) <= 64, v)
 
 # PIN THE MIRROR against cilex-vision's source, when their checkout is on this box.
 import re
 cvsrc = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api/routers/labs.py")
 if cvsrc.exists():
     t = cvsrc.read_text(encoding="utf-8")
+    m = re.search(r"analyzer_version: str = Field\(min_length=1, max_length=(\d+)\)", t)
+    check(f"analyzer_version cap in cilex-vision's source is still 64 ({m.group(1) if m else None})",
+          m is not None and int(m.group(1)) == 64)
     for name in ("MAX_METRIC_KEYS", "MAX_METRIC_KEY_LEN", "MAX_METRIC_STR_LEN"):
         m = re.search(rf"^{name}\s*=\s*(\d+)", t, re.M)
         theirs = int(m.group(1)) if m else None

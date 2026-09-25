@@ -92,7 +92,7 @@ if [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]
 elif [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]]; then
     "$ROOT/tools/tests/b1-illumination.py" >/dev/null || {
         "$ROOT/tools/tests/b1-illumination.py"; exit 1; }
-    echo "PASS  B1 analyser (33 assertions incl. 220-row replay)"
+    echo "PASS  B1 analyser ($("$ROOT/tools/tests/b1-illumination.py" 2>/dev/null | grep -c "^PASS") assertions, incl. a 220-row replay)"
 fi
 
 # The Labs worker: 35 hermetic assertions (no network, no DB, no live fleet), proven
@@ -101,7 +101,7 @@ if [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]
     echo "SKIP  Labs worker test -- numpy/cv2 not installed on this box (not a failure)"
 elif [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]]; then
     "$ROOT/tools/tests/labs-worker.py" >/dev/null || { "$ROOT/tools/tests/labs-worker.py"; exit 1; }
-    echo "PASS  Labs worker (35 hermetic assertions)"
+    echo "PASS  Labs worker ($("$ROOT/tools/tests/labs-worker.py" 2>/dev/null | grep -c "^PASS") hermetic assertions)"
 fi
 
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is

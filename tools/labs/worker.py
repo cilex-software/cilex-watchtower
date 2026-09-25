@@ -254,7 +254,9 @@ def _iso(v) -> Optional[str]:
 # A single zero-chroma frame at astronomical night produced a 141-character note, the
 # server would refuse it with 422 metric_value_too_long, this worker (correctly)
 # treats 422 as a bug and abandons the unit unfiled -- and the lapsed lease puts the
-# same camera-hour back in the queue to fail the same way, every 20 minutes, forever.
+# same camera-hour back in the queue to fail the same way -- bounded at THREE attempts,
+# not "forever" as this comment first said (see _file_failed for the correction), and
+# then recorded as 'lease expired', which names the wrong cause.
 #
 # Mirrored here so a violation is a loud LOCAL error in the tests, never a 422 that
 # loops in production. tools/tests/labs-worker.py pins these against cilex-vision's
@@ -387,18 +389,59 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned,
             "observations": obs}
-    # Checked BEFORE submission: a violation here is a bug in a plugin, and it must
-    # surface as that -- loudly, locally -- rather than as a server 422 that abandons
-    # the unit and brings it back round the queue to fail identically.
+    # Checked BEFORE submission. A violation is a bug in a plugin -- and it is FILED
+    # as one, with its real reason, rather than raised out of the loop or left to
+    # the lease. See _file_failed for why abandoning it would hide the cause.
     for ob in obs:
-        check_metrics(ob.get("metrics"))
+        try:
+            check_metrics(ob.get("metrics"))
+        except MetricsViolation as e:
+            return _file_failed(client, plugin, unit, out,
+                                f"metrics_violation: {e}", Action.BUG)
     try:
         client.submit(unit, body)
     except Refusal as r:
-        out.action = action_for(r); out.note = f"submit: {r}"
+        a = action_for(r)
+        if a is Action.BUG:
+            # The server refused the body as malformed. Retrying the same body is
+            # pointless; abandoning it erases the reason. File it failed, once.
+            return _file_failed(client, plugin, unit, out, f"submit_refused: {r}", a)
+        out.action = a; out.note = f"submit: {r}"
         return out
     out.submitted = True
     out.observations = len(obs)
+    return out
+
+
+def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
+    """File a unit as FAILED with its real reason, rather than abandon it.
+
+    WHY, and it corrects a claim of mine. I had written that a unit whose submission
+    the server refuses would "come back round the queue to fail identically, every 20
+    minutes, forever". cilex-vision corrected it from their source, and I verified
+    it (routers/labs.py): an abandoned lease is swept to state='failed' with
+    error='lease expired' (:978); a failed unit is re-claimed only while
+    attempts < 3 (:1038); and every re-claim sets error=NULL (:1072).
+
+    So the loop is BOUNDED at three attempts -- "forever" was wrong. But the real
+    harm is worse in a different way: the actual cause is never recorded anywhere.
+    Three failures, then a permanent label naming the wrong one. Whoever later asks
+    why that camera-hour was never analysed would be told the lease expired.
+
+    So when this worker KNOWS why it cannot finish, it says so. The body is minimal
+    -- no observations -- so it cannot itself trip the rule that stopped the first.
+    ONE attempt: if this is refused too, nothing more is tried.
+    """
+    body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
+            "segments_scanned": out.segments_scanned, "observations": [],
+            "failed": True, "error": fit(reason, 500)}
+    out.action = action
+    out.note = reason
+    try:
+        client.submit(unit, body)
+        out.submitted = True
+    except Refusal as r:
+        out.note = f"{reason}; filing it as failed was refused too: {r}"
     return out
 
 
