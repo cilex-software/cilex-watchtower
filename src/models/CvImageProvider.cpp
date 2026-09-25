@@ -114,10 +114,15 @@ static void imgLedger(const char *ev, const void *obj, quint64 seq,
         return;
     const QThread *t = QThread::currentThread();
     const QByteArray tn = t ? t->objectName().toLocal8Bit() : QByteArray("?");
+    // pid ON EVERY LINE, not just the "ledger opened" banner. Learned the hard way
+    // 2026-09-25: the app was terminated and relaunched within the same second, and
+    // for a minute two instances were appending here. Per-line pid is the only thing
+    // that keeps two interleaved lifecycles from reading as one impossible one —
+    // e.g. a NEW from one process and a DTOR from the other at the same address.
     QMutexLocker lock(&s_ledgerMx);
-    fprintf(f, "%s %-9s obj=%p seq=%llu thr=%p[%s] %s\n",
+    fprintf(f, "%s pid=%d %-9s obj=%p seq=%llu thr=%p[%s] %s\n",
             qPrintable(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"))),
-            ev, obj, (unsigned long long)seq, (const void *)t,
+            (int)getpid(), ev, obj, (unsigned long long)seq, (const void *)t,
             tn.isEmpty() ? "unnamed" : tn.constData(), extra.constData());
     fflush(f);
 }
