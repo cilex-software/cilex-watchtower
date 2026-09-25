@@ -225,6 +225,7 @@ def iter_frames(
     pr: Probe | None = None,
     t0: float = 0.0,
     step_s: float | None = None,
+    want_chroma: bool = False,
 ) -> Iterator[Frame]:
     """Yield luma Frames from one segment through one decoder process.
 
@@ -248,7 +249,7 @@ def iter_frames(
         else:
             step_s = None  # analyser will fall back to a frame count, and say so
 
-    yield from _stream(ff, [path], None, pr, keyframes_only, t0, step_s)
+    yield from _stream(ff, [path], None, pr, keyframes_only, t0, step_s, want_chroma)
 
 
 def iter_concat(
@@ -259,6 +260,7 @@ def iter_concat(
     keyframes_only: bool = False,
     pr: Probe | None = None,
     step_s: float | None = None,
+    want_chroma: bool = False,
 ) -> Iterator[Frame]:
     """Yield frames for MANY segments through ONE decoder process.
 
@@ -281,7 +283,7 @@ def iter_concat(
         for p in paths:
             fh.write("file '" + p.replace("\\", "/") + "'\n")
 
-    yield from _stream(ff, paths, list_path, pr, keyframes_only, 0.0, step_s)
+    yield from _stream(ff, paths, list_path, pr, keyframes_only, 0.0, step_s, want_chroma)
 
 
 def _stream(
@@ -292,6 +294,7 @@ def _stream(
     keyframes_only: bool,
     t0: float,
     step_s: float | None,
+    want_chroma: bool = False,
 ) -> Iterator[Frame]:
     args = _decode_args(ff, inputs, keyframes_only, concat_list, pr.pix_fmt)
     ybytes, fbytes = pr.y_bytes, pr.frame_bytes
@@ -319,10 +322,19 @@ def _stream(
             luma = np.frombuffer(buf[:ybytes], dtype=np.uint8).reshape(
                 pr.height, pr.width
             )
+            ce = None
+            if want_chroma and len(buf) > ybytes:
+                # U and V follow Y contiguously in yuv420p. A mean over both planes
+                # does not care where the split is, so they are read as one array.
+                # x2 because the quantity B1 calibrated on is |U-128| + |V-128|,
+                # and this is the mean of the two rather than their sum.
+                uv = np.frombuffer(buf[ybytes:], dtype=np.uint8)
+                ce = float(np.abs(uv.astype(np.int16) - 128).mean()) * 2.0
             yield Frame(
                 index=idx,
                 t_offset_s=t0 + (idx * step_s if step_s else float(idx)),
                 luma=luma,
+                chroma_energy=ce,
             )
             idx += 1
     finally:

@@ -54,6 +54,30 @@ Measured over all 220 camera-slot rows of the trial, chroma_mean is:
 A 4.29-wide empty gap. Any cut inside it returns identical answers, so IR_CHROMA_MAX
 is not fitted and moving it does nothing until it leaves the gap. That is the property
 A2's 2.0 did not have.
+
+CHROMA IS COLOUR-SPACE DEPENDENT AND THE FIGURE ABOVE IS NOT THE ONE THE WORKER SEES.
+Found 2026-09-25 by comparing two decode paths on the same segments. These cameras
+deliver `yuvj420p` (`color_range=pc`, full range). The study above forced
+`-pix_fmt yuv420p`, which makes swscale do a full->limited range conversion that
+RESCALES chroma toward 128; `frame_source` deliberately passes yuvj420p through, for a
+reason its own comment gives -- a range conversion "changes nothing structural for a
+luma-only background model". True for luma. NOT true for chroma, which is what this
+analyser reads.
+
+Measured, same segments, both paths:
+
+    converted (study)      7.58    floor across 220 rows   4.2944
+    passthrough (worker)   8.26    floor across 22 cameras 4.0930
+
+So the numbers differ by ~9 %, and it would have been invisible: the first check I ran
+compared an IR segment, where both paths read 0.0000 and agreed trivially. Zero equals
+zero in any range. Testing a NON-ZERO value is what surfaced it.
+
+**The decision is unaffected**, and that is the point of using a margin rather than a
+fitted constant: greyscale is 128/128 in every range, so IR reads exactly 0.0 either
+way, and the nearest non-IR reading is 4.09 in the space the worker actually uses.
+The gap narrows from 4.29 to 4.09 and the cut stays at 1.0, still a quarter of the
+way to the nearest observation.
 """
 from __future__ import annotations
 
@@ -100,6 +124,24 @@ class Observation:
         d = asdict(self)
         assert d["scene_light"] in SCENE_LIGHT, d["scene_light"]
         return d
+
+
+def from_shared_frames(frames) -> "list[FrameStats]":
+    """Adapt `frame_source.Frame` (the shared decoder's type) to this analyser.
+
+    ONE DECODE PASS SERVES BOTH ANALYSERS. The decoder already delivers yuv420p, so
+    A4-A6 takes plane 0 and B1 takes the chroma scalar off the same frames -- the
+    worker must not run a second pass. Frames arriving without `chroma_energy` (the
+    flag was not requested) are DROPPED rather than treated as greyscale: a missing
+    measurement is not a measurement of zero, and zero here means `ir`.
+    """
+    out = []
+    for f in frames:
+        ce = getattr(f, "chroma_energy", None)
+        if ce is None:
+            continue
+        out.append(FrameStats(luma_mean=float(f.luma.mean()), chroma_energy=float(ce)))
+    return out
 
 
 def analyse(frames: Iterable[FrameStats], meta: SegmentMeta) -> Observation:

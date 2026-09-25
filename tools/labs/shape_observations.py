@@ -195,6 +195,17 @@ class Frame:
     index: int
     t_offset_s: float  # seconds from the start of the window, monotonic
     luma: np.ndarray
+    # OPT-IN, default None. Added 2026-09-25 by the Linux box so B1 (illumination)
+    # can share this decode pass instead of running a second one. ADDITIVE: A4-A6
+    # never asks for it and pays nothing, and the cheap-decode property the
+    # docstring above defends is untouched.
+    # WHY IT IS FREE: the decoder already delivers yuv420p, so U and V are already
+    # on the pipe and were simply discarded at `buf[:ybytes]`. B1 needs one scalar
+    # from them -- mean|U-128| + mean|V-128| -- which is exactly 0.0 when the
+    # IR-cut filter is closed (measured 0.0000 on IR rows against a 4.2944 floor
+    # across 220 camera-slot rows). Carried as a float, not the planes, so nothing
+    # is retained and no reshape or colour conversion happens.
+    chroma_energy: float | None = None
 
 
 @dataclass

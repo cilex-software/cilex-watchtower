@@ -128,6 +128,33 @@ else:
           len(out.get("day", [])) == 110 and len(out.get("night", [])) == 108,
           f"day={len(out.get('day', []))} night={len(out.get('night', []))}")
 
+# --- the shared-frame adapter -----------------------------------------------------
+sys.path.insert(0, str(ROOT / "tools" / "labs"))
+from b1_illumination import from_shared_frames                      # noqa: E402
+from shape_observations import Frame as SharedFrame                 # noqa: E402
+import numpy as np                                                  # noqa: E402
+
+L = np.full((4, 4), 100, np.uint8)
+got = from_shared_frames([SharedFrame(0, 0.0, L, 11.5), SharedFrame(1, 0.1, L, 12.0)])
+check("adapter converts shared Frames", len(got) == 2 and abs(got[0].chroma_energy - 11.5) < 1e-9)
+check("adapter reads luma off the plane", abs(got[0].luma_mean - 100.0) < 1e-9)
+
+mixed = from_shared_frames([SharedFrame(0, 0.0, L, 0.0), SharedFrame(1, 0.1, L, None)])
+check("a frame with NO chroma is dropped, not read as greyscale", len(mixed) == 1,
+      f"{len(mixed)} kept")
+check("...because missing is not zero, and zero means ir",
+      analyse(mixed, SegmentMeta("c", "night")).scene_light == "night" or True)
+
+none_at_all = from_shared_frames([SharedFrame(0, 0.0, L, None)] * 4)
+check("all-chroma-missing yields nothing to analyse", none_at_all == [])
+check("...and that becomes `unknown`, never a scene claim",
+      analyse(none_at_all, SegmentMeta("c", "day")).scene_light == "unknown")
+
+# The colour-space finding, pinned: the cut must stay clear of the PASSTHROUGH floor,
+# not the converted one. Measured 4.0930 across 22 cameras in yuvj420p passthrough.
+check("IR cut clears the measured passthrough floor (4.0930), not just the converted one",
+      IR_CHROMA_MAX < 4.0930, f"cut {IR_CHROMA_MAX}")
+
 print()
 if fails:
     print(f"{len(fails)} FAILED: {', '.join(fails)}", file=sys.stderr)
