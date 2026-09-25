@@ -1,0 +1,385 @@
+"""Labs worker — the half that claims, fetches, drives analysers, and submits.
+
+SEAM (cilex-vision's, and it is the reason this file exists apart from the analysers):
+
+    worker     owns claim, lease, fetch, idle-gating, retry, submit
+    analyser   PURE:  (frames, segment metadata) -> observations
+               no HTTP, no lease awareness, no knowledge that Labs exists
+
+So everything here is plumbing, and every analyser in tools/labs/ stays testable
+without a server. The HTTP layer sits behind `LabsClient` so this module's logic is
+tested against a fake (tools/tests/labs-worker.py) without touching the live fleet.
+
+CONTRACT — read from the RUNNING service's OpenAPI (1.0.57), 2026-09-25, not from source:
+
+    POST /labs/scan/claim?analyzer=&limit=4          -> {units:[ScanUnit], queue_remaining}
+    GET  /labs/scan/{a}/{cam}/{hour}/segments?stream_type=&limit=200 -> [Segment]
+    GET  <Segment.fetch_url>                          -> segment bytes (lease re-checked)
+    PUT  /labs/scan/{a}/{cam}/{hour}/results          <- {analyzer_version, segments_scanned,
+                                                          observations, failed?, error?}
+    auth: header `x-cilex-station-token`
+
+ERROR CONTRACT — `retryable` verified ON THE WIRE on 1.0.57 with a present-but-bogus
+token. NOTE the trap that made an earlier check blind: with NO token the auth
+dependency raises a plain 401 "station token required" that never carries `code` or
+`retryable` in any version; only a PRESENT token reaches the coded refusals. And
+`POST /labs/scan/claim` validates its query BEFORE auth, so a 422 there is a bug in
+this file, never an auth state.
+
+LEASES ARE 20 MINUTES (labs.py LEASE_MINUTES). A unit not submitted inside that
+window is swept back to the queue and another station may take it. Disabling an
+analyser blocks NEW claims only -- work already leased keeps running until it
+finishes or the lease lapses. That is a gap in the control surface, raised with
+cilex-vision; this worker honours `analyzer_disabled` at the next claim.
+"""
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Iterable, Optional, Protocol
+
+WORKER_VERSION = "worker-0.1"
+
+
+# ----------------------------------------------------------------------------------
+# Refusals and what to do about each one. Branch on the SLUG, never on the status:
+# 409 alone means three different things here (disabled, held elsewhere, not open).
+# ----------------------------------------------------------------------------------
+class Action(Enum):
+    STOP_ANALYSER = "stop_analyser"   # operator turned it off; do not claim again
+    RECLAIM = "reclaim"               # lease lost; drop this unit, claim afresh
+    RETRY_LATER = "retry_later"       # transient; back off and try the same thing
+    SKIP_SEGMENT = "skip_segment"     # one segment is gone; the rest of the unit is fine
+    FATAL = "fatal"                   # this station cannot work at all (bad token)
+    BUG = "bug"                       # the request was malformed: this file is wrong
+
+
+# Slug -> action. Anything absent falls through to `retryable`, then to FATAL: an
+# UNRECOGNISED refusal must stop the worker rather than be guessed at, because a
+# guessed retry on an unknown condition is how a worker hammers a service.
+_BY_SLUG = {
+    "analyzer_disabled": Action.STOP_ANALYSER,
+    "scan_unit_held_by_another_station": Action.RECLAIM,
+    "scan_unit_not_open": Action.RECLAIM,
+    "scan_unit_not_claimed": Action.RECLAIM,
+    "segment_outside_lease": Action.RECLAIM,     # the lease died mid-hour
+    "segment_not_found": Action.SKIP_SEGMENT,
+    "object_storage_unavailable": Action.RETRY_LATER,
+    "station_token_not_recognised": Action.FATAL,
+}
+
+
+@dataclass
+class Refusal(Exception):
+    status: int
+    detail: Optional[str]
+    retryable: Optional[bool]
+    message: str = ""
+
+    def __str__(self) -> str:
+        return f"{self.status} {self.detail or '?'}: {self.message}"
+
+
+def action_for(r: Refusal) -> Action:
+    if r.status == 422:
+        return Action.BUG
+    if r.detail in _BY_SLUG:
+        return _BY_SLUG[r.detail]
+    if r.retryable is True:
+        return Action.RETRY_LATER
+    return Action.FATAL
+
+
+# ----------------------------------------------------------------------------------
+# The HTTP surface, behind a protocol so the logic can be tested against a fake.
+# ----------------------------------------------------------------------------------
+@dataclass(frozen=True)
+class ScanUnit:
+    camera_id: str
+    hour_start: str
+    analyzer: str
+    lease_expires_at: Optional[str]
+    attempts: int
+
+
+@dataclass(frozen=True)
+class Segment:
+    segment_id: str
+    fetch_url: str
+    start_time: Optional[str]
+    end_time: Optional[str]
+    duration_s: Optional[float]
+    bytes: Optional[int]
+    stream_type: Optional[str]
+    width: Optional[int]
+    height: Optional[int]
+    codec: Optional[str]
+
+
+class LabsClient(Protocol):
+    def claim(self, analyzer: str, limit: int) -> tuple[list[ScanUnit], int]: ...
+    def segments(self, unit: ScanUnit, limit: int,
+                 stream_type: Optional[str]) -> list[Segment]: ...
+    def fetch(self, seg: Segment, dest_path: str) -> int: ...
+    def submit(self, unit: ScanUnit, body: dict) -> None: ...
+
+
+class HttpLabsClient:
+    """Real client. stdlib only, so nothing new has to be installed on any station."""
+
+    def __init__(self, base_url: str, token: str, timeout_s: float = 60.0):
+        if not token:
+            raise ValueError("no station token")
+        self.base = base_url.rstrip("/")
+        self._token = token          # never logged, never put in an exception
+        self.timeout = timeout_s
+
+    def _req(self, method: str, path: str, body: Optional[dict] = None,
+             raw_to: Optional[str] = None):
+        url = path if path.startswith("http") else self.base + path
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(url, data=data, method=method)
+        req.add_header("x-cilex-station-token", self._token)
+        if data is not None:
+            req.add_header("content-type", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                if raw_to is not None:
+                    # STREAM to disk in chunks: a raw-bytes signature OOM-killed
+                    # cilex-vision's container at ~450 MB/hour doubled by a join.
+                    n = 0
+                    with open(raw_to, "wb") as f:
+                        while True:
+                            c = resp.read(1 << 20)
+                            if not c:
+                                break
+                            f.write(c)
+                            n += len(c)
+                    return n
+                txt = resp.read().decode()
+                return json.loads(txt) if txt else None
+        except urllib.error.HTTPError as e:
+            raise _refusal_from(e.code, e.read()) from None
+
+    def claim(self, analyzer, limit):
+        q = urllib.parse.urlencode({"analyzer": analyzer, "limit": limit})
+        d = self._req("POST", f"/labs/scan/claim?{q}")
+        units = [ScanUnit(u["camera_id"], u["hour_start"], u["analyzer"],
+                          u.get("lease_expires_at"), int(u.get("attempts", 0)))
+                 for u in d.get("units", [])]
+        return units, int(d.get("queue_remaining", 0))
+
+    def segments(self, unit, limit, stream_type):
+        q = {"limit": limit}
+        if stream_type:
+            q["stream_type"] = stream_type
+        d = self._req("GET", _unit_path(unit, "segments") + "?" + urllib.parse.urlencode(q))
+        return [Segment(s["segment_id"], s["fetch_url"], s.get("start_time"),
+                        s.get("end_time"), s.get("duration_s"), s.get("bytes"),
+                        s.get("stream_type"), s.get("width"), s.get("height"),
+                        s.get("codec")) for s in (d or [])]
+
+    def fetch(self, seg, dest_path):
+        return self._req("GET", seg.fetch_url, raw_to=dest_path)
+
+    def submit(self, unit, body):
+        self._req("PUT", _unit_path(unit, "results"), body=body)
+
+
+def _unit_path(u: ScanUnit, tail: str) -> str:
+    q = urllib.parse.quote
+    return f"/labs/scan/{q(u.analyzer, safe='')}/{q(u.camera_id, safe='')}/{q(u.hour_start, safe='')}/{tail}"
+
+
+def _refusal_from(status: int, body: bytes) -> Refusal:
+    try:
+        d = json.loads(body.decode() or "{}")
+    except Exception:
+        d = {}
+    det = d.get("detail")
+    if not isinstance(det, str):     # FastAPI 422 puts a LIST here
+        det = None
+    return Refusal(status, det, d.get("retryable"), str(d.get("message", ""))[:200])
+
+
+# ----------------------------------------------------------------------------------
+# Analyser plugins: each adapts one pure analyser to the worker.
+# ----------------------------------------------------------------------------------
+class Plugin(Protocol):
+    name: str
+    version: str
+    segment_limit: int
+    keyframes_only: bool
+    want_chroma: bool
+    stateful: bool
+
+    def new_state(self): ...
+    def analyse(self, segs: list[tuple[Segment, list]], state, unit: ScanUnit,
+                context: dict) -> list[dict]: ...
+
+
+def _iso(v) -> Optional[str]:
+    return v if isinstance(v, str) else None
+
+
+# ----------------------------------------------------------------------------------
+# One unit, end to end.
+# ----------------------------------------------------------------------------------
+@dataclass
+class UnitOutcome:
+    unit: ScanUnit
+    submitted: bool = False
+    observations: int = 0
+    segments_scanned: int = 0
+    skipped_segments: int = 0
+    action: Optional[Action] = None
+    note: str = ""
+    decoder_runs: int = 0
+
+
+def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
+             decode: Callable[[str, bool, bool], list],
+             states: dict, context: Optional[dict] = None,
+             tmpdir: Optional[str] = None) -> UnitOutcome:
+    """Claimed unit -> list -> fetch -> decode -> analyse -> submit.
+
+    Rules this enforces, each of which has cost somebody a run:
+      * EMPTY IS A RESULT. Zero observations is submitted, never skipped: it is what
+        lets the server say "checked and found nothing" rather than "nobody looked".
+      * A lost lease abandons the unit WITHOUT submitting. Partial results for an
+        hour this station no longer holds would be a lie about coverage.
+      * Every temp file is removed in a finally, including on exception.
+      * Stateful analysers keep ONE state per camera across segments and units;
+        they reset only on a real discontinuity, which the analyser itself detects.
+    """
+    out = UnitOutcome(unit)
+    ctx = dict(context or {})
+    try:
+        # The plugin's stream, not None: an unpinned request returns whatever the
+        # server picks, and an analyser calibrated on one stream is not calibrated
+        # on the other (B1's IR floor was measured on main; A4-A6's cost on sub).
+        segs = client.segments(unit, plugin.segment_limit,
+                               getattr(plugin, "stream_type", None))
+    except Refusal as r:
+        out.action = action_for(r); out.note = str(r)
+        return out
+
+    if plugin.stateful:
+        state = states.setdefault(unit.camera_id, plugin.new_state())
+    else:
+        state = None
+
+    decoded: list[tuple[Segment, list]] = []
+    for seg in segs:
+        fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
+        os.close(fd)
+        try:
+            try:
+                client.fetch(seg, path)
+            except Refusal as r:
+                a = action_for(r)
+                if a is Action.SKIP_SEGMENT:
+                    out.skipped_segments += 1
+                    continue
+                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
+                return out
+            frames = decode(path, plugin.keyframes_only, plugin.want_chroma)
+            out.decoder_runs += 1
+            decoded.append((seg, frames))
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+    out.segments_scanned = len(decoded)
+    try:
+        obs = plugin.analyse(decoded, state, unit, ctx)
+    except Exception as e:                      # analyser crashed: report, do not hide
+        body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
+                "segments_scanned": out.segments_scanned, "observations": [],
+                "failed": True, "error": f"{type(e).__name__}: {str(e)[:300]}"}
+        try:
+            client.submit(unit, body)
+            out.submitted = True
+        except Refusal as r:
+            out.action = action_for(r)
+        out.note = f"analyser raised {type(e).__name__}"
+        return out
+
+    body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
+            "segments_scanned": out.segments_scanned,
+            "observations": obs}
+    try:
+        client.submit(unit, body)
+    except Refusal as r:
+        out.action = action_for(r); out.note = f"submit: {r}"
+        return out
+    out.submitted = True
+    out.observations = len(obs)
+    return out
+
+
+# ----------------------------------------------------------------------------------
+# The loop: claim a batch, run it, respect the gate and the refusals.
+# ----------------------------------------------------------------------------------
+@dataclass
+class RunReport:
+    claimed: int = 0
+    submitted: int = 0
+    abandoned: int = 0
+    stopped_analysers: list = field(default_factory=list)
+    fatal: Optional[str] = None
+    outcomes: list = field(default_factory=list)
+
+
+def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
+             gate: Callable[[], bool] = lambda: True, claim_limit: int = 4,
+             context_for: Callable[[ScanUnit], dict] = lambda u: {},
+             sleep: Callable[[float], None] = time.sleep,
+             max_retries: int = 3) -> RunReport:
+    """One pass over the given analysers. The caller decides how often to call it.
+
+    `gate` is checked before every CLAIM, never mid-unit: abandoning a leased unit
+    because the guard came back to the desk wastes the lease and costs nothing
+    saved -- the unit is already paid for. Idle gating belongs at the claim.
+    """
+    rep = RunReport()
+    for plugin in plugins:
+        if not gate():
+            break
+        units, tries = None, 0
+        while units is None:
+            try:
+                units, _remaining = client.claim(plugin.name, claim_limit)
+            except Refusal as r:
+                a = action_for(r)
+                if a is Action.STOP_ANALYSER:
+                    rep.stopped_analysers.append(plugin.name); units = []
+                elif a is Action.RETRY_LATER and tries < max_retries:
+                    tries += 1; sleep(min(60.0, 2.0 ** tries))
+                elif a is Action.FATAL:
+                    rep.fatal = str(r); return rep
+                else:
+                    rep.fatal = f"claim {plugin.name}: {r} -> {a.value}"; return rep
+        rep.claimed += len(units)
+        for unit in units:
+            o = run_unit(client, plugin, unit, decode=decode, states=states,
+                         context=context_for(unit))
+            rep.outcomes.append(o)
+            if o.submitted:
+                rep.submitted += 1
+            else:
+                rep.abandoned += 1
+            if o.action is Action.FATAL:
+                rep.fatal = o.note; return rep
+            if o.action is Action.STOP_ANALYSER:
+                rep.stopped_analysers.append(plugin.name); break
+    return rep

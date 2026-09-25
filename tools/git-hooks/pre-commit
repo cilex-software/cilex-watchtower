@@ -87,6 +87,13 @@ if [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]
     echo "PASS  B1 analyser (33 assertions incl. 220-row replay)"
 fi
 
+# The Labs worker: 35 hermetic assertions (no network, no DB, no live fleet), proven
+# able to fail -- seven deliberate bugs, all seven killed. WT_NO_WORKER_TEST=1 skips it.
+if [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]]; then
+    "$ROOT/tools/tests/labs-worker.py" >/dev/null || { "$ROOT/tools/tests/labs-worker.py"; exit 1; }
+    echo "PASS  Labs worker (35 hermetic assertions)"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.
