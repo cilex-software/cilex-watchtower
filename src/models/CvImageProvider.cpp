@@ -276,6 +276,21 @@ void CvImageResponse::finish()
     // reader, and the reader then dereferences freed memory. That is exactly the
     // fault the three Sep crashes died on (x21 = garbage QThreadData, fault x21+0x58).
     //
+    // WHERE THE SECOND DELIVERY COMES FROM — read off the shipped QtQuick 6.11.1
+    // (Homebrew ships no sources), 2026-09-25. QQuickPixmapReader::processJob, right
+    // after requestImageResponse() returns:
+    //   0x1eef08  connectImpl(response, finished -> asyncResponseFinished)   queued
+    //   0x1eefe0  ldaprb <response's finished flag>   "did it ALREADY finish?"
+    //   0x1ef030  invokeMethodImpl(reader, "asyncResponseFinished", Qt::QueuedConnection)
+    // (the name resolves to the cstring at 0x43387c; w2 = 2 = QueuedConnection). A
+    // response that finishes BETWEEN the connect and the check is delivered TWICE
+    // from ONE finished(). Only a response living on ANOTHER thread can finish inside
+    // that window — ours, moved to the GUI thread by requestImageResponse() — and ours
+    // can be fast: of 15,009 fetches in the ledger, one finished 1 ms after creation
+    // and 11 within 5 ms, so a few ms of reader-thread preemption is all it takes.
+    // The flight recorder shows ZERO "duplicate finish suppressed" lines across the
+    // 24 and 25 Sep crash runs: finish() ran once; the duplicate was Qt's own.
+    //
     // Owned by the reader, the DeferredDelete goes into the SAME queue as the
     // deliveries and is therefore ordered BEHIND every one of them. A late or
     // duplicate delivery finds us alive; destruction happens only once the queue
