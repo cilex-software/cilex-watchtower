@@ -11,6 +11,7 @@
 #   MODE=toImage|map|forceCpu|compare /tmp/mcr/repro clip.mp4     (BARS=1 MODE=compare ... bars.mp4, run where src.png is)
 #   [SCOPED=1] /tmp/mcr/probe_test clip.mp4
 # macOS only; uses the cocoa platform (no window is shown). -platform offscreen delivers NO frames.
+# Linux: see LINUX.md — UNTESTED there, with the controls needed to read any result.
 cmake_minimum_required(VERSION 3.21)
 project(metal_cache_repro LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
