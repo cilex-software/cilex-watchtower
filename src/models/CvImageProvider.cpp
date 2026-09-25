@@ -10,6 +10,13 @@
 #include <QQueue>
 #include <QThread>
 #include <QTimer>
+#include <QDir>
+#include <QMutex>
+
+#include <execinfo.h>
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
 
 // The event-snapshot path 503s for two DIFFERENT reasons, both carrying Retry-After:
 // the memory-pressure governor shedding load, and (measured 2026-08-15)
@@ -35,6 +42,85 @@ static constexpr int kMaxSnapshotRetries = 3;
 // [EVIMG] — WT_TRACE-gated per-fetch diagnostics (code + latency), to verify the
 // thumbnail path stays authorized and to attribute pool pressure.
 static const bool s_imgLog = qEnvironmentVariableIsSet("WT_TRACE");
+
+// ─── P0 LIFECYCLE LEDGER (added 2026-09-25) ──────────────────────────────────
+// THREE crashes, 23/24/25 Sep, ONE stack every time:
+//     QQuickPixmapReader::asyncResponseFinished(QQuickImageResponse*)
+//       → QObject::deleteLater()
+//         → QCoreApplicationPrivate::lockThreadPostEventList()   ← dies here
+// MEASURED from the three .ips register dumps, not inferred: x0 holds a plausible
+// heap pointer while x21 holds a SMALL garbage value (0x27da94 / 0x378018 /
+// 0x5b99b0) and the fault address is x21+0x58 in all three. x21 is the QThreadData*
+// read out of the response's QObjectPrivate. A garbage QThreadData means the
+// QObjectPrivate was freed AND its memory reused — a use-after-free of the
+// response, reached through Qt's unconditional deleteLater().
+//
+// A crash report cannot say WHO freed it: by then the destructor has returned and
+// its frames are gone. So this ledger records every lifecycle transition with the
+// object ADDRESS — matchable against x0 in the next report — and captures the
+// DESTRUCTOR'S OWN BACKTRACE. Two entries are the smoking guns:
+//   DTOR  fin=0   → destroyed while Qt still held the pointer (crash is now owed)
+//   DUPFIN        → a second completion, the shape the 2026-07-25 P0 was fixed for
+// Default ON: the mean time between these crashes is ~9 h, so there is exactly one
+// sample per night and no second chance. WT_IMG_LEDGER=0 disables; any other value
+// is used as the log path.
+static std::atomic<quint64> s_respSeq { 0 };
+static QMutex s_ledgerMx;
+
+static FILE *imgLedgerFile()
+{
+    static FILE *f = nullptr;
+    static bool opened = false;
+    if (opened)
+        return f;
+    opened = true;
+    QString path = qEnvironmentVariable("WT_IMG_LEDGER");
+    if (path == QLatin1String("0"))
+        return nullptr;
+    if (path.isEmpty())
+        path = QDir::homePath() + QLatin1String("/Library/Logs/watchtower-imgresp.log");
+    f = fopen(path.toLocal8Bit().constData(), "a");
+    if (f) {
+        setvbuf(f, nullptr, _IOLBF, 0);          // line-buffered: survive a SIGSEGV
+        fprintf(f, "\n=== ledger opened %s pid=%d ===\n",
+                qPrintable(QDateTime::currentDateTime().toString(Qt::ISODateWithMs)),
+                (int)getpid());
+        fflush(f);
+    }
+    return f;
+}
+
+// Frames of the CALLER, skipping this helper. This is the one fact the crash report
+// cannot carry, and the whole reason the ledger exists.
+static QByteArray imgBacktrace(int skip = 2, int want = 12)
+{
+    void *frames[32];
+    const int n = backtrace(frames, qMin(skip + want, 32));
+    char **syms = backtrace_symbols(frames, n);
+    QByteArray out;
+    for (int i = skip; i < n; ++i) {
+        out += "\n        ";
+        out += syms ? syms[i] : "?";
+    }
+    free(syms);
+    return out;
+}
+
+static void imgLedger(const char *ev, const void *obj, quint64 seq,
+                      const QByteArray &extra = QByteArray())
+{
+    FILE *f = imgLedgerFile();
+    if (!f)
+        return;
+    const QThread *t = QThread::currentThread();
+    const QByteArray tn = t ? t->objectName().toLocal8Bit() : QByteArray("?");
+    QMutexLocker lock(&s_ledgerMx);
+    fprintf(f, "%s %-9s obj=%p seq=%llu thr=%p[%s] %s\n",
+            qPrintable(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"))),
+            ev, obj, (unsigned long long)seq, (const void *)t,
+            tn.isEmpty() ? "unnamed" : tn.constData(), extra.constData());
+    fflush(f);
+}
 
 // Client-side pacing for /snapshot requests, per PATH CLASS (GUI-thread only —
 // start()/finished both run there, so no locking):
@@ -92,6 +178,18 @@ static int s_dupFinish = 0;
 
 CvImageResponse::~CvImageResponse()
 {
+    // fin=0 here is THE BUG, caught at the moment it is created rather than hours
+    // later when Qt dereferences us: Qt only deletes a response from inside
+    // asyncResponseFinished(), which runs because finished() was emitted. A
+    // destructor without finished() therefore means somebody ELSE destroyed us
+    // while Qt still holds the pointer, and the backtrace names them.
+    imgLedger(m_finished ? "DTOR" : "DTOR-UNFIN", this, m_seq,
+              QByteArray("fin=") + (m_finished ? "1" : "0")
+              + " gated=" + (m_gated ? "1" : "0")
+              + " queued=" + (m_queued ? "1" : "0")
+              + " attempt=" + QByteArray::number(m_attempt)
+              + " path=" + m_path.right(48).toLocal8Bit()
+              + imgBacktrace());
     // GUI thread (Qt deleteLater()s us). Drop the reply's connection BEFORE aborting:
     // abort() emits QNetworkReply::finished SYNCHRONOUSLY, and our lambda would then
     // run inside this destructor and emit our own finished() again — on an object Qt
@@ -102,7 +200,20 @@ CvImageResponse::~CvImageResponse()
         m_reply->deleteLater();
         m_reply = nullptr;
     }
-    releaseSnapshotSlot();              // never strand a governed-extractor slot
+    // HAZARD INTRODUCED BY THE ORDERING FIX, closed here. Since finish() hands the
+    // object to the pixmap-reader thread, THIS DESTRUCTOR now runs on that thread —
+    // and releaseSnapshotSlot() pumps s_poolCached/s_poolExtract, which are
+    // GUI-thread-only data (see their comment) and whose pump calls start() on
+    // another response. Running it here would be a cross-thread write to the pools
+    // on every completed fetch.
+    //
+    // It is also unnecessary when finished: EVERY caller of finish() releases the
+    // slot first — the reply lambda, cancelOnOwnThread(), and both of start()'s
+    // early-outs — so a finished response owes the pool nothing. The net is kept
+    // exactly where it is still needed: an unfinished destruction, which stays on
+    // the GUI thread because the move only happens inside finish().
+    if (!m_finished)
+        releaseSnapshotSlot();          // never strand a governed-extractor slot
 }
 
 // Qt calls cancel() on the PIXMAP-READER thread, from inside
@@ -113,6 +224,9 @@ CvImageResponse::~CvImageResponse()
 // worse, race a queued start() into a second completion (the P0 above).
 void CvImageResponse::cancel()
 {
+    // Runs on the PIXMAP-READER thread. Logged because a cancel arriving after
+    // finish() is the window in which Qt can still hold a pointer to us.
+    imgLedger("CANCEL", this, m_seq, QByteArray("fin=") + (m_finished ? "1" : "0"));
     m_cancelled.store(true);
     QMetaObject::invokeMethod(this, &CvImageResponse::cancelOnOwnThread, Qt::QueuedConnection);
 }
@@ -133,14 +247,48 @@ void CvImageResponse::cancelOnOwnThread()
 
 void CvImageResponse::finish()
 {
-    if (m_finished) {
+    if (m_finished.exchange(true)) {
         ++s_dupFinish;
+        imgLedger("DUPFIN", this, m_seq,
+                  QByteArray::number(s_dupFinish) + " path="
+                  + m_path.right(48).toLocal8Bit() + imgBacktrace());
         if (s_imgLog || s_dupFinish == 1)
             qWarning("[EVIMG] duplicate finish suppressed (n=%d) %s", s_dupFinish,
                      qPrintable(m_path.right(44)));
         return;
     }
-    m_finished = true;
+    // ─── THE ORDERING FIX (2026-09-25) ───────────────────────────────────────
+    // Hand ourselves back to the pixmap-reader thread BEFORE emitting.
+    //
+    // Qt's QQuickPixmapReader::asyncResponseFinished() runs on the READER thread and
+    // calls deleteLater() on us unconditionally (verified by disassembly: the only
+    // QObject::deleteLater stub reached from QQuickPixmapReader is in that function —
+    // cancel() has none). deleteLater() posts DeferredDelete to the object's OWN
+    // thread. While we belong to the GUI thread those are two independent queues:
+    //     reader queue : [ finished#1 ][ finished#2? ]
+    //     GUI queue    : [ DeferredDelete ]          ← can run first
+    // so the GUI thread can destroy us while a delivery is still queued on the
+    // reader, and the reader then dereferences freed memory. That is exactly the
+    // fault the three Sep crashes died on (x21 = garbage QThreadData, fault x21+0x58).
+    //
+    // Owned by the reader, the DeferredDelete goes into the SAME queue as the
+    // deliveries and is therefore ordered BEHIND every one of them. A late or
+    // duplicate delivery finds us alive; destruction happens only once the queue
+    // drains. Emission itself stays legal from this thread — the connection type is
+    // chosen from the RECEIVER's thread, so finished() is still delivered queued.
+    //
+    // Safe because nothing touches `this` after finish() returns on any path (every
+    // caller makes it the last statement), m_reply is already null here, and the two
+    // slots that can still fire late — start() and cancelOnOwnThread() — both early-
+    // out on m_finished before touching GUI-thread-only data.
+    if (m_readerThread && m_readerThread != QThread::currentThread()
+        && m_readerThread->isRunning())
+        moveToThread(m_readerThread);
+    imgLedger("FINI", this, m_seq,
+              QByteArray("err=") + (m_error.isEmpty() ? "-" : m_error.toLocal8Bit())
+              + " img=" + QByteArray::number(m_image.width()) + "x"
+              + QByteArray::number(m_image.height())
+              + " path=" + m_path.right(48).toLocal8Bit());
     emit finished();
 }
 
@@ -174,6 +322,12 @@ void CvImageResponse::releaseSnapshotSlot()
 
 void CvImageResponse::start()
 {
+    // IDEMPOTENCE, and a precondition of the moveToThread() in finish(). A 503 retry
+    // timer or a woken queue entry can still fire after the job finished or was
+    // cancelled. Once finish() has run we may already belong to the reader thread, so
+    // this path must touch NOTHING — the pools are GUI-thread-only data and
+    // releaseSnapshotSlot() would be a cross-thread write.
+    if (m_finished) { imgLedger("LATESTART", this, m_seq); return; }
     if (!m_auth || !m_nam) { releaseSnapshotSlot(); finish(); return; }
     if (m_cancelled) { releaseSnapshotSlot(); finish(); return; }
     // Governed gate: only /snapshot paths queue, each in its class's pool.
@@ -318,6 +472,15 @@ CvImageProvider::~CvImageProvider()
 QQuickImageResponse *CvImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
     auto *resp = new CvImageResponse(m_auth, m_nam, id, requestedSize);
+    resp->m_seq = ++s_respSeq;
+    // THIS thread — the pixmap loader's — is the one Qt will delete the response
+    // from. Remember it so finish() can hand the object back before emitting; see
+    // the ordering argument there.
+    resp->m_readerThread = QThread::currentThread();
+    imgLedger("NEW", resp, resp->m_seq,
+              QByteArray("req=") + QByteArray::number(requestedSize.width()) + "x"
+              + QByteArray::number(requestedSize.height())
+              + " path=" + id.right(48).toLocal8Bit());
     // The NAM lives on the GUI thread; move the response there and kick the fetch
     // on that thread (this method runs on the pixmap-loader worker thread).
     resp->moveToThread(m_auth->thread());

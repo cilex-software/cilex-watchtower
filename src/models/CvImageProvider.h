@@ -11,6 +11,8 @@
 
 #include <atomic>
 
+class QThread;
+
 class AuthController;
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -71,7 +73,16 @@ private:
     SnapPool *m_pool = nullptr;         // which client gate this /snapshot request belongs to
     bool m_gated = false;               // holds one of its pool's slots
     bool m_queued = false;              // waiting in its pool's queue
-    bool m_finished = false;            // GUI thread only — finish() is never called elsewhere
+    // Was a plain bool documented as GUI-thread-only. Made atomic 2026-09-25: the
+    // guard is the only thing standing between a double completion and the
+    // use-after-free below, and "only one thread touches it" is an invariant no
+    // compiler checks. exchange() makes exactly-once true by construction.
+    std::atomic<bool> m_finished { false };
+    // The thread Qt CREATED us on is the thread Qt DELETES us from
+    // (QQuickPixmapReader::asyncResponseFinished → deleteLater). finish() hands the
+    // object back to it before emitting; see the comment there.
+    QThread *m_readerThread = nullptr;
+    quint64 m_seq = 0;                  // ledger identity, printed with the address
     // Written by cancel() on the PIXMAP-READER thread, read on the GUI thread.
     std::atomic<bool> m_cancelled { false };
 };
