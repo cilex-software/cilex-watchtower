@@ -74,8 +74,10 @@ def main():
               + (f"  [{o.action.value}: {o.note}]" if o.action else ""))
     if rep.stopped_analysers:
         print("stopped (operator disabled):", ", ".join(rep.stopped_analysers))
+    if rep.unreachable:
+        sys.exit(f"UNREACHABLE (the server did not answer; try again later): {rep.unreachable}")
     if rep.fatal:
-        sys.exit(f"FATAL: {rep.fatal}")
+        sys.exit(f"FATAL (this station cannot work until fixed): {rep.fatal}")
 
 
 if __name__ == "__main__":

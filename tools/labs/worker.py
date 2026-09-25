@@ -34,6 +34,7 @@ cilex-vision; this worker honours `analyzer_disabled` at the next claim.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import tempfile
@@ -73,6 +74,7 @@ _BY_SLUG = {
     "segment_not_found": Action.SKIP_SEGMENT,
     "object_storage_unavailable": Action.RETRY_LATER,
     "station_token_not_recognised": Action.FATAL,
+    "transport_error": Action.RETRY_LATER,       # no answer at all: a deploy, a blip
 }
 
 
@@ -85,6 +87,56 @@ class Refusal(Exception):
 
     def __str__(self) -> str:
         return f"{self.status} {self.detail or '?'}: {self.message}"
+
+
+# ----------------------------------------------------------------------------------
+# Transport failures: the connection itself, not the server's answer.
+#
+# FOUND 2026-09-26 by testing the fault the week's measurements predicted rather than
+# the faults this file was designed around. Every deploy refuses connections for
+# 8.8-17 s (measured by cilex-vision and the macOS agent), and until this change a
+# refused or reset connection at ANY of the four calls -- claim, segments, fetch,
+# submit -- escaped as a raw URLError / ConnectionResetError and CRASHED THE WORKER.
+# 72 assertions had not caught it, because every fault they injected was the server
+# answering with a refusal. None was the server not answering at all.
+#
+# Deliberately narrow. OSError is NOT caught wholesale: a PermissionError or a full
+# disk while writing a temp segment is not a network blip, and retrying it would only
+# hide it.
+# ----------------------------------------------------------------------------------
+def _is_transport(e: BaseException) -> bool:
+    if isinstance(e, urllib.error.HTTPError):
+        return False                      # that is the server ANSWERING; see _refusal_from
+    return isinstance(e, (ConnectionError, TimeoutError, http.client.HTTPException,
+                          urllib.error.URLError))
+
+
+def _guard(fn, *a):
+    """Call a client method; a transport failure becomes a retryable Refusal."""
+    try:
+        return fn(*a)
+    except Refusal:
+        raise
+    except Exception as e:
+        if _is_transport(e):
+            raise Refusal(0, "transport_error", True,
+                          f"{type(e).__name__}: {e}"[:200]) from None
+        raise
+
+
+# Backoff covering the longest measured deploy gap (~17 s): 1+2+4+8+16 = 31 s.
+BACKOFF_S = (1, 2, 4, 8, 16)
+
+
+def _retrying(fn, *a, sleep=time.sleep):
+    """Retry a RETRY_LATER refusal across a deploy-sized gap; anything else re-raises."""
+    for i in range(len(BACKOFF_S) + 1):
+        try:
+            return _guard(fn, *a)
+        except Refusal as r:
+            if action_for(r) is not Action.RETRY_LATER or i == len(BACKOFF_S):
+                raise
+            sleep(BACKOFF_S[i])
 
 
 def action_for(r: Refusal) -> Action:
@@ -319,7 +371,8 @@ class UnitOutcome:
 def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
              decode: Callable[[str, bool, bool], list],
              states: dict, context: Optional[dict] = None,
-             tmpdir: Optional[str] = None) -> UnitOutcome:
+             tmpdir: Optional[str] = None,
+             sleep: Callable[[float], None] = time.sleep) -> UnitOutcome:
     """Claimed unit -> list -> fetch -> decode -> analyse -> submit.
 
     Rules this enforces, each of which has cost somebody a run:
@@ -337,8 +390,8 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         # The plugin's stream, not None: an unpinned request returns whatever the
         # server picks, and an analyser calibrated on one stream is not calibrated
         # on the other (B1's IR floor was measured on main; A4-A6's cost on sub).
-        segs = client.segments(unit, plugin.segment_limit,
-                               getattr(plugin, "stream_type", None))
+        segs = _retrying(client.segments, unit, plugin.segment_limit,
+                         getattr(plugin, "stream_type", None), sleep=sleep)
     except Refusal as r:
         out.action = action_for(r); out.note = str(r)
         return out
@@ -354,7 +407,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         os.close(fd)
         try:
             try:
-                client.fetch(seg, path)
+                _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
                 a = action_for(r)
                 if a is Action.SKIP_SEGMENT:
@@ -396,7 +449,14 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
             return _file_failed(client, plugin, unit, out,
                                 f"metrics_violation: {e}", Action.BUG)
     try:
-        client.submit(unit, body)
+        # RETRYING A SUBMISSION IS SAFE ONLY BECAUSE IT IS THE SAME BODY. cilex-vision's
+        # submit_results is not one transaction (routers/labs.py): a version-scoped
+        # DELETE of the unit's rows (:1536), then per-observation inserts (:1558), then
+        # the unit close (:1603). A connection cut between them leaves partial rows with
+        # the unit still claimed. A re-submit heals it, because :1536 clears the partial
+        # rows first -- but ONLY while analyzer_version is unchanged. So the retry sends
+        # this exact `body`, never a rebuilt one, and never across a version change.
+        _retrying(client.submit, unit, body, sleep=sleep)
     except Refusal as r:
         a = action_for(r)
         if a is Action.BUG:
@@ -462,6 +522,11 @@ class RunReport:
     abandoned: int = 0
     stopped_analysers: list = field(default_factory=list)
     fatal: Optional[str] = None
+    # NOT the same as `fatal`, and the difference is what an operator would act on.
+    # `fatal` means THIS STATION is broken (a bad token): retrying changes nothing.
+    # `unreachable` means the server did not answer for longer than the backoff
+    # covers: a deploy that ran long, an outage. The next pass may simply work.
+    unreachable: Optional[str] = None
     outcomes: list = field(default_factory=list)
 
 
@@ -469,7 +534,7 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
              gate: Callable[[], bool] = lambda: True, claim_limit: int = 4,
              context_for: Callable[[ScanUnit], dict] = lambda u: {},
              sleep: Callable[[float], None] = time.sleep,
-             max_retries: int = 3) -> RunReport:
+             max_retries: int = 5) -> RunReport:
     """One pass over the given analysers. The caller decides how often to call it.
 
     `gate` is checked before every CLAIM, never mid-unit: abandoning a leased unit
@@ -483,7 +548,7 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
         units, tries = None, 0
         while units is None:
             try:
-                units, _remaining = client.claim(plugin.name, claim_limit)
+                units, _remaining = _guard(client.claim, plugin.name, claim_limit)
             except Refusal as r:
                 a = action_for(r)
                 if a is Action.STOP_ANALYSER:
@@ -492,12 +557,15 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                     tries += 1; sleep(min(60.0, 2.0 ** tries))
                 elif a is Action.FATAL:
                     rep.fatal = str(r); return rep
+                elif a is Action.RETRY_LATER:
+                    rep.unreachable = f"claim {plugin.name}: gave up after {tries} retries: {r}"
+                    return rep
                 else:
                     rep.fatal = f"claim {plugin.name}: {r} -> {a.value}"; return rep
         rep.claimed += len(units)
         for unit in units:
             o = run_unit(client, plugin, unit, decode=decode, states=states,
-                         context=context_for(unit))
+                         context=context_for(unit), sleep=sleep)
             rep.outcomes.append(o)
             if o.submitted:
                 rep.submitted += 1

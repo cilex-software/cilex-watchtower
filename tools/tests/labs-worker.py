@@ -367,6 +367,81 @@ if cvsrc.exists():
 else:
     print("SKIP metrics caps vs cilex-vision source -- their checkout is not on this box")
 
+# ---------------------------------------------------------------- transport failures
+# The fault the week's measurements predicted and 72 assertions never injected: the
+# server NOT ANSWERING. Every deploy refuses connections for 8.8-17 s. Until
+# 2026-09-26 a refused or reset connection at any call escaped as a raw exception and
+# crashed the worker -- every fault above is the server answering with a refusal.
+import urllib.error
+class Gap:
+    """Fails at one call site with a real transport exception, n times (inf = never back)."""
+    def __init__(self, where, n=10**9, exc=None):
+        self.where, self.left, self.bodies, self.exc = where, n, [], exc
+    def _hit(self, here):
+        if self.where == here and self.left > 0:
+            self.left -= 1
+            raise self.exc or (ConnectionResetError(104, "reset") if here in ("fetch", "submit")
+                               else urllib.error.URLError(ConnectionRefusedError(111, "refused")))
+    def claim(self, a, n):
+        self._hit("claim"); return [unit(a=a)], 0
+    def segments(self, u, n, st):
+        self._hit("segments"); return [seg(1)]
+    def fetch(self, sg, d):
+        self._hit("fetch"); open(d, "wb").write(b"x"); return 1
+    def submit(self, u, b):
+        self._hit("submit"); self.bodies.append(b)
+
+for where in ("claim", "segments", "fetch", "submit"):
+    try:
+        rep = W.run_once(Gap(where), [B1], decode=decode_chroma(11.5), states={}, sleep=lambda s: None)
+        ok = True
+    except Exception as e:
+        ok, rep = False, e
+    check(f"a PERMANENT outage at {where} does not crash the worker", ok, repr(rep)[:90])
+
+for where in ("claim", "segments", "fetch", "submit"):
+    slept = []; c = Gap(where, n=3)
+    rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
+    check(f"a deploy-sized gap at {where} is ridden out and the unit submitted",
+          rep.submitted == 1 and len(slept) == 3, f"submitted={rep.submitted} retries={len(slept)}")
+
+c = Gap("claim")
+rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=lambda s: None)
+check("a server that never answers is UNREACHABLE, not FATAL",
+      rep.unreachable is not None and rep.fatal is None, f"unreachable={rep.unreachable!r} fatal={rep.fatal!r}")
+c = Fake(refuse={("claim", "illumination"): [R(401, "station_token_not_recognised", False)]})
+rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={})
+check("...while a bad token is still FATAL, not unreachable",
+      rep.fatal is not None and rep.unreachable is None)
+
+# The retry must resend the IDENTICAL body: cilex-vision's version-scoped DELETE heals a
+# half-written submission only while analyzer_version is unchanged.
+c = Gap("submit", n=2)
+seen = []
+orig = c.submit
+def spy(u, b):
+    seen.append(id(b)); return orig(u, b)
+c.submit = spy
+W.run_unit(c, B1, unit(), decode=decode_chroma(11.5), states={}, tmpdir=TMP, sleep=lambda s: None)
+check("a retried submission sends the IDENTICAL body, never a rebuilt one",
+      len(seen) == 3 and len(set(seen)) == 1, f"{len(seen)} calls, {len(set(seen))} distinct bodies")
+
+# Narrow on purpose: a local disk fault is NOT a network blip and must not be retried away.
+c = Gap("fetch", exc=PermissionError(13, "Permission denied"))
+try:
+    W.run_unit(c, B1, unit(), decode=decode_chroma(11.5), states={}, tmpdir=TMP, sleep=lambda s: None)
+    swallowed = True
+except PermissionError:
+    swallowed = False
+check("a PermissionError while fetching is NOT treated as a transient network fault", not swallowed)
+
+check("an HTTPError is the server answering, never classed as transport",
+      not W._is_transport(urllib.error.HTTPError("u", 503, "x", {}, None)))
+check("a refused connection IS transport",
+      W._is_transport(urllib.error.URLError(ConnectionRefusedError(111, "refused"))))
+check("the backoff spans the longest measured deploy gap (~17 s)", sum(W.BACKOFF_S) >= 17,
+      str(sum(W.BACKOFF_S)))
+
 # ---------------------------------------------------------------- timestamps
 try:
     P._parse("2026-09-24T10:00:00")
