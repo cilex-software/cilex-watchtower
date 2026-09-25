@@ -442,6 +442,77 @@ check("a refused connection IS transport",
 check("the backoff spans the longest measured deploy gap (~17 s)", sum(W.BACKOFF_S) >= 17,
       str(sum(W.BACKOFF_S)))
 
+# ---------------------------------------------------------------- the REAL HTTP client
+# Every test above uses a fake client. These drive the real HttpLabsClient against a
+# real HTTP server on an ephemeral local port, so its status handling is exercised,
+# not assumed.
+import http.server, threading, json as _json
+
+class _H(http.server.BaseHTTPRequestHandler):
+    status, payload = 200, {}
+    seen_token = []
+    def _reply(self):
+        _H.seen_token.append(self.headers.get("x-cilex-station-token"))
+        n = int(self.headers.get("content-length") or 0)
+        if n: self.rfile.read(n)
+        b = _json.dumps(_H.payload).encode()
+        self.send_response(_H.status); self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    do_PUT = do_POST = do_GET = _reply
+    def log_message(self, *a): pass
+
+srv = http.server.HTTPServer(("127.0.0.1", 0), _H)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+base = f"http://127.0.0.1:{srv.server_address[1]}"
+hc = W.HttpLabsClient(base, "tok-real-client", timeout_s=5)
+
+# cilex-vision labs.py:1435-1439: a retry after a cut that DID commit returns 200
+# {"status": "already_recorded"} BEFORE touching anything -- deliberately a success.
+_H.status, _H.payload = 200, {"status": "already_recorded", "observations": 8}
+try:
+    hc.submit(unit(), {"analyzer_version": "b1-1+w", "segments_scanned": 1, "observations": []})
+    ok = True
+except Exception as e:
+    ok = False
+check("REAL client: 200 already_recorded is a SUCCESS, not a refusal", ok)
+
+u = unit(); c = W.HttpLabsClient(base, "tok-real-client", timeout_s=5)
+class Via(Fake):                      # real submit, fake everything else
+    def submit(self, uu, b): return c.submit(uu, b)
+fk = Via(segs={(u.camera_id, u.hour_start): [seg(1)]})
+o = run(fk, B1, u)
+check("...so a unit whose retry is already_recorded reports submitted, and stops",
+      o.submitted and o.action is None, f"submitted={o.submitted} action={o.action}")
+
+_H.status, _H.payload = 409, {"code": "scan_unit_not_open", "detail": "scan_unit_not_open",
+                               "message": "gone", "retryable": False}
+try:
+    hc.submit(unit(), {"analyzer_version": "x", "segments_scanned": 0, "observations": []})
+    r = None
+except W.Refusal as e:
+    r = e
+check("REAL client: a coded 409 becomes a Refusal carrying its slug and retryable",
+      r is not None and r.detail == "scan_unit_not_open" and r.retryable is False, repr(r))
+
+_H.status, _H.payload = 422, {"detail": [{"type": "missing", "loc": ["body", "x"]}]}
+try:
+    hc.submit(unit(), {}); r = None
+except W.Refusal as e:
+    r = e
+check("REAL client: a FastAPI 422 (detail is a LIST) parses without crashing",
+      r is not None and r.status == 422 and r.detail is None, repr(r))
+check("REAL client: sends the station token header", "tok-real-client" in _H.seen_token)
+srv.shutdown()
+
+# and a real closed port: nothing listens, exactly what a deploy's refusal window is
+dead = W.HttpLabsClient(f"http://127.0.0.1:{srv.server_address[1]}", "t", timeout_s=2)
+try:
+    W._guard(dead.claim, "illumination", 1); r = None
+except W.Refusal as e:
+    r = e
+check("REAL client: a closed port becomes a retryable transport_error",
+      r is not None and r.detail == "transport_error" and W.action_for(r) is W.Action.RETRY_LATER, repr(r))
+
 # ---------------------------------------------------------------- timestamps
 try:
     P._parse("2026-09-24T10:00:00")

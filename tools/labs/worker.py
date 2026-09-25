@@ -256,6 +256,12 @@ class HttpLabsClient:
         return self._req("GET", seg.fetch_url, raw_to=dest_path)
 
     def submit(self, unit, body):
+        # ANY 2xx is success, and that includes 200 {"status": "already_recorded"}:
+        # cilex-vision returns it for a unit already 'done' BEFORE touching anything
+        # (routers/labs.py:1435-1439), deliberately "so the station stops retrying
+        # rather than escalating". It is how a retry after a cut that DID commit heals.
+        # Do not "tighten" this into checking status == "recorded": that would turn
+        # the one idempotent path into a failure and restart the retries it exists to end.
         self._req("PUT", _unit_path(unit, "results"), body=body)
 
 
