@@ -17,8 +17,24 @@ MotionScan.cpp:209), never the forced path — so the open question is only whet
 ## Measured on the pilot host (not a result, a precondition)
 
 - Qt **6.12.0** at `~/Qt/6.12.0/gcc_64`
-- private header **present**:
-  `include/QtMultimedia/6.12.0/QtMultimedia/private/qvideoframeconversionhelper_p.h`
+- the header the harness includes (`repro.cpp:15`, `<private/qvideoframeconverter_p.h>`)
+  is **present**, and it declares `qImageFromVideoFrame` twice:
+  ```
+  :24  QImage qImageFromVideoFrame(const QVideoFrame &frame,
+                                   const VideoTransformation &transformation, ...
+  :28  QImage qImageFromVideoFrame(const QVideoFrame &frame, bool forceCpu = false);
+  ```
+  **So the 2-argument `forceCpu` overload survived into 6.12**, and the harness's
+  `qImageFromVideoFrame(f, true)` matches it. No signature adaptation expected.
+
+> **CORRECTED 2026-09-25, same day.** The first version of this section named
+> `qvideoframeconversionhelper_p.h` as the precondition and I told the macOS agent
+> "the build won't be the blocker". That was the wrong file: it is the conversion
+> HELPER, and it declares `qImageFromVideoFrame` **zero** times. The macOS agent
+> caught it by reading `repro.cpp:15` rather than trusting my summary. The conclusion
+> happened to be right — the correct header is also present — but it was right for a
+> reason I had not checked, which is the thing this repo keeps having to relearn.
+> I verified *a* header and reported it as *the* header.
 
 ## CONTROLS — read before interpreting any number
 
