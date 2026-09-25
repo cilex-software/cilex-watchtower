@@ -468,6 +468,44 @@ share of user data, if we exclude the contents of every hypertable?"* The chunks
 83.9 % against a 28.6 GB denominator; I could not reproduce that figure and do not
 repeat it.
 
+## Querying the pilot database: the limit goes INSIDE the SQL
+
+**Every query against the pilot's `timescaledb` sets `statement_timeout` in the SQL
+itself.** A timeout on the host does not bound the query.
+
+Measured by cilex-vision on 2026-09-25, and it corrected how this box had been working
+all week. `docker exec` does **not** kill the process inside the container when its
+client dies. So `timeout 60 docker exec -i timescaledb psql …` — the pattern this box
+used for every query — kills only the **host-side client** when it fires; `psql` and
+its backend carry on. On 2026-09-23 this box "stopped" a 30-million-row aggregate over
+`motion_events` that way and reported it stopped. **It very likely ran to completion on
+the live database.** Unprovable after the fact; stated because the mechanism is now
+known.
+
+```sql
+set statement_timeout = '60s';      -- Postgres cancels it, whatever happens to the client
+select …;
+```
+
+**And never a forking wrapper or `pkill` INSIDE the container.** There the postmaster
+runs as **PID 1** with no init, and Postgres treats any PID-1 child that dies by a
+signal as a crashed backend and **restarts every connection on the box**. On
+2026-09-25 at 10:49Z a `timeout` + `pkill -f` inside timescaledb crash-restarted the
+pilot database three times: 4 API 500s, **15 motion events on 8 cameras never saved**,
+2 motion segment-index entries lost, a failed operator-event update and a failed export.
+cilex-vision's rule, verbatim: *"Never a wrapper that forks (`timeout`, `nohup`,
+`sh -c 'x &'`), and never `pkill` or `killall` inside it. End a session with
+`pg_terminate_backend`."* The structural fix — `init: true` on timescaledb in compose —
+recreates the database container and is the operator's call.
+
+**And read the database log after anything that touches its processes.** cilex-vision's
+own diagnosis of how they missed it: *"I wrote reply8 four minutes after the last of
+these and did not read the database log. That one check would have caught it."*
+
+```sh
+docker logs timescaledb --since <when> 2>&1 | grep -E "terminated by signal|not properly shut down"
+```
+
 ## Footage retention is a row in a table — read the row
 
 **Do not quote a retention figure from any document, including this one. Read
