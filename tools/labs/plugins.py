@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import b1_illumination as b1
+import worker as W
 import shape_observations as so
 
 # ObservationIn's typed columns, read from the running service's OpenAPI (1.0.57).
@@ -68,16 +69,31 @@ class IlluminationPlugin:
         out = []
         for seg, frames in segs:
             stats = b1.from_shared_frames(frames)
-            meta = b1.SegmentMeta(unit.camera_id, context.get("astronomical"),
-                                  seg.bytes, seg.duration_s)
+            # Per-segment astronomy from the server (1.0.58+). A context value is
+            # only a fallback for tests and for an old server; the segment wins.
+            if seg.astro_key_present:
+                astro, source = seg.scene_light_astronomical, (
+                    "server" if seg.scene_light_astronomical is not None else "no_solar_row")
+            else:
+                astro, source = context.get("astronomical"), (
+                    "context" if context.get("astronomical") else "server_predates_1_0_58")
+            meta = b1.SegmentMeta(unit.camera_id, astro, seg.bytes, seg.duration_s)
             o = b1.analyse(stats, meta)
             st, en = _parse(seg.start_time), _parse(seg.end_time)
             if st is None:
                 continue          # cannot place it in time; never invent a stamp
             m = dict(o.metrics)
             if o.notes:
-                m["notes"] = "; ".join(o.notes)[:400]
+                # W.fit, not a slice: the server's cap is 120 (see worker.check_metrics)
+                # and this used to cut at 400, which could produce a 141-char note.
+                m["notes"] = W.fit("; ".join(o.notes))
             m["segment_id"] = seg.segment_id
+            # ALWAYS record what the sky was, even when the row says `ir`. That is what
+            # keeps the disagreement recoverable per row: IR-cut closed in astronomical
+            # daylight is the case B1 exists to find, and a row reading only `ir`
+            # could not show it. (cilex-vision's suggestion; adopted verbatim.)
+            m["astro"] = astro
+            m["astro_source"] = source
             out.append({"start_time": _iso(st), "end_time": _iso(en or st),
                         "scene_light": o.scene_light, "metrics": m})
         return out

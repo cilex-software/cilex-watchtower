@@ -203,6 +203,103 @@ run(c, B1, u, decode=decode_chroma(11.5), context={"astronomical": "day"})
 check("with astronomy supplied, B1 passes it through",
       c.submitted[0][1]["observations"][0]["scene_light"] == "day")
 
+# ---------------------------------------------------------------- per-segment astronomy
+# cilex-vision 1.0.58: Segment.scene_light_astronomical, per SEGMENT. Three states:
+# a value; null = "no solar row" (NOT night); key ABSENT = server predates 1.0.58.
+def aseg(i, astro, present=True):
+    return W.Segment(f"seg-{i}", f"http://x/labs/segments/seg-{i}",
+                     "2026-09-24T15:00:00+00:00", "2026-09-24T15:00:30+00:00", 30.0,
+                     6_000_000, "main", 64, 48, "h264",
+                     scene_light_astronomical=astro, astro_key_present=present)
+
+def b1_rows(segs, chroma=11.5, context=None):
+    u = unit(hour="2026-09-24T15:00:00Z"); c = Fake(segs={(u.camera_id, u.hour_start): segs})
+    run(c, B1, u, decode=decode_chroma(chroma), context=context or {})
+    return c.submitted[0][1]["observations"]
+
+rows = b1_rows([aseg(1, "day"), aseg(2, "dusk")])
+check("astronomy is PER SEGMENT: an hour holding sunset files both day AND dusk",
+      [r["scene_light"] for r in rows] == ["day", "dusk"], str([r["scene_light"] for r in rows]))
+
+rows = b1_rows([aseg(1, None, present=True)])
+check("null means 'no solar row' -> unknown, NEVER coerced to night",
+      rows[0]["scene_light"] == "unknown", rows[0]["scene_light"])
+check("...and the row says WHY it is unknown",
+      rows[0]["metrics"]["astro_source"] == "no_solar_row", str(rows[0]["metrics"].get("astro_source")))
+
+rows = b1_rows([aseg(1, None, present=False)])
+check("a MISSING key means an old server, not null -> unknown",
+      rows[0]["scene_light"] == "unknown")
+check("...recorded as a different fact from null",
+      rows[0]["metrics"]["astro_source"] == "server_predates_1_0_58",
+      str(rows[0]["metrics"].get("astro_source")))
+
+rows = b1_rows([aseg(1, "day")], chroma=0.0)
+check("IR in astronomical DAYLIGHT files `ir`", rows[0]["scene_light"] == "ir")
+check("...and STILL records that the sky said day (the disagreement survives per row)",
+      rows[0]["metrics"].get("astro") == "day", str(rows[0]["metrics"].get("astro")))
+check("...and flags it as a possible stuck filter",
+      "stuck filter" in rows[0]["metrics"].get("notes", ""), rows[0]["metrics"].get("notes", ""))
+
+rows = b1_rows([aseg(1, "night")], chroma=11.5)
+check("astronomical night WITHOUT IR files `night` and notes the artificial-light case",
+      rows[0]["scene_light"] == "night" and "artificially lit" in rows[0]["metrics"].get("notes", ""))
+
+rows = b1_rows([aseg(1, "day", present=True)], context={"astronomical": "night"})
+check("the server's per-segment value beats a stale context value",
+      rows[0]["scene_light"] == "day")
+
+# ---------------------------------------------------------------- the server's metrics caps
+# Enforced in cilex-vision's PYTHON (_clean_metrics), not in its OpenAPI schema -- so a
+# schema check alone passes a body the server will 422. Found when a B1 note reached 141.
+rows = b1_rows([aseg(1, "night")], chroma=0.0)   # the case that produced 141 chars
+b1_single = []
+u = unit(hour="2026-09-24T15:00:00Z")
+c = Fake(segs={(u.camera_id, u.hour_start): [aseg(1, "night")]})
+def one_zero_frame(p, k, w):
+    return [so.Frame(0, 0.0, np.full((48, 64), 100, np.uint8), 0.0 if w else None)]
+run(c, B1, u, decode=one_zero_frame)
+note = c.submitted[0][1]["observations"][0]["metrics"].get("notes", "") if c.submitted else ""
+check("the note that reached 141 chars now fits the server's 120",
+      0 < len(note) <= W.MAX_METRIC_STR_LEN, f"{len(note)} chars")
+check("...and says it was cut rather than pretending it was whole", note.endswith("\u2026"), note[-8:])
+
+for bad, why in (({"x" * 41: 1}, "key too long"), ({"Bad-Key": 1}, "key not a slug"),
+                 ({"k": [1, 2]}, "nested value"), ({"k": "y" * 121}, "string too long"),
+                 ({f"k{i}": 1 for i in range(25)}, "too many keys")):
+    try:
+        W.check_metrics(bad); ok = False
+    except W.MetricsViolation:
+        ok = True
+    check(f"check_metrics rejects: {why}", ok)
+W.check_metrics({"astro": None, "ir": True, "n": 3, "s": "y" * 120})
+check("check_metrics accepts None, bool, number, and a 120-char string", True)
+
+class Oversize(Nothing):
+    def analyse(self, segs, st, u, ctx):
+        return [{"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+                 "metrics": {"note": "z" * 500}}]
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
+try:
+    run(c, Oversize(), u); raised = False
+except W.MetricsViolation:
+    raised = True
+check("an oversized metric is a LOCAL error, never sent to the server",
+      raised and c.submitted == [], f"raised={raised} submitted={len(c.submitted)}")
+
+# PIN THE MIRROR against cilex-vision's source, when their checkout is on this box.
+import re
+cvsrc = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api/routers/labs.py")
+if cvsrc.exists():
+    t = cvsrc.read_text(encoding="utf-8")
+    for name in ("MAX_METRIC_KEYS", "MAX_METRIC_KEY_LEN", "MAX_METRIC_STR_LEN"):
+        m = re.search(rf"^{name}\s*=\s*(\d+)", t, re.M)
+        theirs = int(m.group(1)) if m else None
+        check(f"{name} matches cilex-vision's source ({theirs})", theirs == getattr(W, name),
+              f"ours {getattr(W, name)}, theirs {theirs}")
+else:
+    print("SKIP metrics caps vs cilex-vision source -- their checkout is not on this box")
+
 # ---------------------------------------------------------------- timestamps
 try:
     P._parse("2026-09-24T10:00:00")

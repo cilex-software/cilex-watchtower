@@ -121,6 +121,17 @@ class Segment:
     width: Optional[int]
     height: Optional[int]
     codec: Optional[str]
+    # Astronomy PER SEGMENT, classified at this segment's start_time (cilex-vision
+    # 1.0.58, bf2ad7f). Per-segment rather than per-unit because at 60 N an hour
+    # holding a solar event holds more than one answer: hiwatch-083bc1f79619 on
+    # 2026-09-24 ran 176 segments `day`, 156 `dusk`, 13 `night` around one sunset.
+    scene_light_astronomical: Optional[str] = None
+    # THREE STATES, NOT TWO, and conflating them is the bug. The server sending
+    # null means "no solar row for this site and date" -- NOT night. The server
+    # NOT SENDING THE KEY means it predates 1.0.58 -- NOT null. Both leave the
+    # analyser without an answer, but they are different facts about the world and
+    # the row records which one it was.
+    astro_key_present: bool = False
 
 
 class LabsClient(Protocol):
@@ -184,7 +195,10 @@ class HttpLabsClient:
         return [Segment(s["segment_id"], s["fetch_url"], s.get("start_time"),
                         s.get("end_time"), s.get("duration_s"), s.get("bytes"),
                         s.get("stream_type"), s.get("width"), s.get("height"),
-                        s.get("codec")) for s in (d or [])]
+                        s.get("codec"),
+                        scene_light_astronomical=s.get("scene_light_astronomical"),
+                        astro_key_present="scene_light_astronomical" in s)
+                for s in (d or [])]
 
     def fetch(self, seg, dest_path):
         return self._req("GET", seg.fetch_url, raw_to=dest_path)
@@ -227,6 +241,62 @@ class Plugin(Protocol):
 
 def _iso(v) -> Optional[str]:
     return v if isinstance(v, str) else None
+
+
+# ----------------------------------------------------------------------------------
+# The metrics rules the server enforces IN CODE, not in its schema.
+#
+# FOUND 2026-09-25, and it corrected a claim of mine: the smoke test reported "every
+# body valid against the live ObservationIn, 0 violations", which was true against the
+# OpenAPI schema and incomplete as a statement about the contract. cilex-vision's
+# `_clean_metrics` (routers/labs.py) enforces these caps in Python, where the schema
+# cannot show them. B1 truncated its notes at 400 characters; the server allows 120.
+# A single zero-chroma frame at astronomical night produced a 141-character note, the
+# server would refuse it with 422 metric_value_too_long, this worker (correctly)
+# treats 422 as a bug and abandons the unit unfiled -- and the lapsed lease puts the
+# same camera-hour back in the queue to fail the same way, every 20 minutes, forever.
+#
+# Mirrored here so a violation is a loud LOCAL error in the tests, never a 422 that
+# loops in production. tools/tests/labs-worker.py pins these against cilex-vision's
+# source when their checkout exists, so a change on their side breaks our build
+# rather than our worker.
+# ----------------------------------------------------------------------------------
+MAX_METRIC_KEYS = 24
+MAX_METRIC_KEY_LEN = 40
+MAX_METRIC_STR_LEN = 120
+_METRIC_KEY_OK = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_")
+
+
+class MetricsViolation(ValueError):
+    pass
+
+
+def check_metrics(m: Optional[dict]) -> None:
+    """Raise MetricsViolation for anything the server's _clean_metrics would 422."""
+    if m is None:
+        return
+    if not isinstance(m, dict):
+        raise MetricsViolation("metrics must be an object")
+    if len(m) > MAX_METRIC_KEYS:
+        raise MetricsViolation(f"{len(m)} metric keys; the server allows {MAX_METRIC_KEYS}")
+    for k, v in m.items():
+        if not isinstance(k, str) or not k or len(k) > MAX_METRIC_KEY_LEN:
+            raise MetricsViolation(f"metric key {k!r} is not 1-{MAX_METRIC_KEY_LEN} chars")
+        if any(ch not in _METRIC_KEY_OK for ch in k):
+            raise MetricsViolation(f"metric key {k!r} is not a lowercase slug")
+        if isinstance(v, bool) or isinstance(v, (int, float)) or v is None:
+            continue
+        if isinstance(v, str):
+            if len(v) > MAX_METRIC_STR_LEN:
+                raise MetricsViolation(
+                    f"metric {k!r} is {len(v)} chars; the server allows {MAX_METRIC_STR_LEN}")
+            continue
+        raise MetricsViolation(f"metric {k!r} is {type(v).__name__}, not a scalar")
+
+
+def fit(text: str, limit: int = MAX_METRIC_STR_LEN) -> str:
+    """Fit prose into a metric string WITHOUT pretending it was not cut."""
+    return text if len(text) <= limit else text[: limit - 1] + "\u2026"
 
 
 # ----------------------------------------------------------------------------------
@@ -317,6 +387,11 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned,
             "observations": obs}
+    # Checked BEFORE submission: a violation here is a bug in a plugin, and it must
+    # surface as that -- loudly, locally -- rather than as a server 422 that abandons
+    # the unit and brings it back round the queue to fail identically.
+    for ob in obs:
+        check_metrics(ob.get("metrics"))
     try:
         client.submit(unit, body)
     except Refusal as r:

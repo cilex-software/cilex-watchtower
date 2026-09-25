@@ -20,7 +20,16 @@ REQ, PROPS = set(OBS.get("required", [])), OBS["properties"]
 SCENE = {"day", "dusk", "night", "ir", "unknown"}
 
 def validate(o):
-    bad = [f"missing {k}" for k in REQ if k not in o]
+    # TWO layers, because the schema is not the whole contract. The OpenAPI schema
+    # carries required fields and types; cilex-vision's `_clean_metrics` enforces the
+    # metrics caps in Python, where the schema cannot show them. Checking only the
+    # first reported "0 violations" for a body the server would refuse with 422.
+    bad = []
+    try:
+        W.check_metrics(o.get("metrics"))
+    except W.MetricsViolation as e:
+        bad.append(f"server metrics rule: {e}")
+    bad += [f"missing {k}" for k in REQ if k not in o]
     bad += [f"unknown key {k}" for k in o if k not in PROPS]
     for k in ("confidence", "shape_confidence"):
         if o.get(k) is not None and not (0.0 <= o[k] <= 1.0):
@@ -79,6 +88,6 @@ for plugin, cam, stream, n in ((P.IlluminationPlugin(), "hiwatch-04eecdd45e2d", 
         print(f"      first: " + json.dumps({k: s[k] for k in list(s)[:6]}, default=str)[:150])
     for b in bad[:5]: print("      VIOLATION:", b)
 print()
-print("RESULT:", "every body valid against the live ObservationIn" if total_bad == 0
-      else f"{total_bad} schema violations")
+print("RESULT:", "every body passes BOTH the live ObservationIn schema AND the server's "
+      "code-level metrics rules" if total_bad == 0 else f"{total_bad} violations")
 sys.exit(1 if total_bad else 0)
