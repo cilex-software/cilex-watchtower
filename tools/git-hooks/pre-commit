@@ -81,7 +81,15 @@ fi
 # The B1 analyser is pure and its vocabulary is fixed by cilex-vision's migration
 # 0084 CHECK constraint. 33 assertions including a replay of 220 real camera-slot rows.
 # WT_NO_B1_TEST=1 skips it.
-if [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]]; then
+# A MISSING DEPENDENCY IS NOT A FAILED TEST. The Labs gates need numpy and cv2, and the
+# Mac has neither, so until 2026-09-25 both gates FAILED there and the macOS agent had to
+# set WT_NO_B1_TEST=1 WT_NO_WORKER_TEST=1 on every commit -- teaching the bypass, and a
+# bypass left in a shell profile would skip them on a box that CAN run them too. So probe:
+# absent deps print a visible SKIP and let the commit through; present deps run and gate.
+labs_deps_ok() { python3 -c "import numpy, cv2" >/dev/null 2>&1; }
+if [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]] && ! labs_deps_ok; then
+    echo "SKIP  B1 analyser test -- numpy/cv2 not installed on this box (not a failure)"
+elif [[ "${WT_NO_B1_TEST:-}" != "1" && -x "$ROOT/tools/tests/b1-illumination.py" ]]; then
     "$ROOT/tools/tests/b1-illumination.py" >/dev/null || {
         "$ROOT/tools/tests/b1-illumination.py"; exit 1; }
     echo "PASS  B1 analyser (33 assertions incl. 220-row replay)"
@@ -89,7 +97,9 @@ fi
 
 # The Labs worker: 35 hermetic assertions (no network, no DB, no live fleet), proven
 # able to fail -- seven deliberate bugs, all seven killed. WT_NO_WORKER_TEST=1 skips it.
-if [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]]; then
+if [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]] && ! labs_deps_ok; then
+    echo "SKIP  Labs worker test -- numpy/cv2 not installed on this box (not a failure)"
+elif [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]]; then
     "$ROOT/tools/tests/labs-worker.py" >/dev/null || { "$ROOT/tools/tests/labs-worker.py"; exit 1; }
     echo "PASS  Labs worker (35 hermetic assertions)"
 fi
