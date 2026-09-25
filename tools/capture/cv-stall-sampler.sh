@@ -7,7 +7,7 @@
 # localhost GET /health. No writes, no config change, no extension, no restart.
 #
 # Why each stream exists — the two readings the 2026-09-22 111 s stall left alive:
-#   db     every non-idle backend grouped by state + wait event, with the oldest
+#   db     every non-idle backend grouped by state + wait event + client (container), with the oldest
 #          query's age: pool exhaustion / lock / IO queueing is reading (2)
 #   host   runnable + blocked processes, iowait, loadavg: the box itself
 #   local  GET /health from localhost: if THIS stays fast while the client's
@@ -34,7 +34,10 @@ db_stream() {
   $PSQL -XAt -F' ' -v ON_ERROR_STOP=0 <<'SQL' | while IFS= read -r l; do printf '%s\n' "$l" >> "$OUT/db-$(day).log"; done
 SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
        coalesce(state,'-'), coalesce(wait_event_type,'-'), coalesce(wait_event,'-'),
-       coalesce(application_name,'-'), count(*),
+       -- application_name is EMPTY on all 11 pilot connections (Linux agent, reply7, 2026-09-25),
+       -- so it cannot attribute a row. Fall back to the client address: each container has
+       -- its own IP on the docker network. A named pool still wins when CV sets one.
+       coalesce(nullif(application_name,''), host(client_addr), 'local') AS who, count(*),
        coalesce(round(max(extract(epoch FROM clock_timestamp()-query_start))*1000)::bigint,0) AS oldest_ms,
        coalesce(round(max(extract(epoch FROM clock_timestamp()-xact_start))*1000)::bigint,0)  AS oldest_xact_ms
 FROM pg_stat_activity
