@@ -1,4 +1,5 @@
 #include "FrameCache.h"
+#include "MetalCacheProbe.h"
 
 #include <QVideoSink>
 #include <QVideoFrame>
@@ -49,6 +50,7 @@ void FrameCache::attach(QObject *videoSink)
     if (m_sink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;
+    MetalCacheProbe::noteSink("FrameCache playback", m_sink);
     clear();
     // DIRECT connection — run on the backend's delivery thread, inside the
     // emission, while the decoder still owns the frame's hw surface. Queued
@@ -109,6 +111,10 @@ void FrameCache::onHarvestFrame(const QVideoFrame &frame)
 {
     if (!m_harvestCapturing.load(std::memory_order_relaxed))
         return;
+    // MetalCacheProbe.h: this sink is render-less, so toImage() makes Qt log "cannot create
+    // texture, Metal texture cache was released?" twice per frame on macOS and then
+    // convert correctly anyway. Reproduced and verified 2026-09-25 — counted, not printed.
+    MetalCacheProbe::ExpectedScope expected("FrameCache harvest sink (render-less)");
     captureFrame(frame, false);                       // harvest never moves the anchor
 }
 
@@ -282,6 +288,7 @@ QVideoSink *FrameCache::harvestSink()
 {
     if (!m_harvestSink) {
         m_harvestSink = new QVideoSink(this);
+        MetalCacheProbe::noteSink("FrameCache harvest", m_harvestSink);
         connect(m_harvestSink, &QVideoSink::videoFrameChanged, this, &FrameCache::onHarvestFrame,
                 Qt::DirectConnection);                // see attach() — same UAF rationale
     }

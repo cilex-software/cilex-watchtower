@@ -1,4 +1,5 @@
 #include "MotionScan.h"
+#include "MetalCacheProbe.h"
 
 #include <QVideoSink>
 #include <QVideoFrame>
@@ -32,6 +33,7 @@ void MotionScan::attach(QObject *videoSink)
     if (m_sink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;
+    MetalCacheProbe::noteSink("MotionScan", m_sink);
     reset();
     if (m_sink) {
         connect(m_sink, &QVideoSink::videoFrameChanged, this, &MotionScan::onFrame);

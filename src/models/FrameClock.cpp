@@ -1,4 +1,5 @@
 #include "FrameClock.h"
+#include "MetalCacheProbe.h"
 
 #include <QVideoSink>
 #include <QVideoFrame>
@@ -19,6 +20,7 @@ void FrameClock::attach(QObject *videoSink)
     if (m_sink)
         disconnect(m_sink, nullptr, this, nullptr);
     m_sink = sink;
+    MetalCacheProbe::noteSink("FrameClock", m_sink);
     reset();
     if (m_sink)
         connect(m_sink, &QVideoSink::videoFrameChanged, this, &FrameClock::onFrame);

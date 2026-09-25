@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.613
+    VERSION 1.1.614
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -257,6 +257,8 @@ qt_add_qml_module(watchtower
         src/models/FrameCache.cpp
         src/models/FlightRecorder.h
         src/models/FlightRecorder.cpp
+        src/models/MetalCacheProbe.h
+        src/models/MetalCacheProbe.cpp
         src/models/DeepLink.h
         src/models/DeepLink.cpp
 )

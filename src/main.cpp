@@ -62,6 +62,7 @@
 #include "models/DeepLink.h"
 #include "models/CvImageProvider.h"
 #include "models/FlightRecorder.h"
+#include "models/MetalCacheProbe.h"
 #include "models/RtspVideoSource.h"
 #include "models/MemTelemetry.h"
 #include "models/StationNam.h"
@@ -346,6 +347,9 @@ int main(int argc, char *argv[])
 #else
     FlightRecorder::install("dev");
 #endif
+    // Metal-cache probe: in front of the recorder's handler, so the proven-benign Metal-cache flood is
+    // counted instead of written, and every other occurrence arrives instrumented.
+    MetalCacheProbe::install();
 
     QGuiApplication app(argc, argv);
     // MUST be after the QGuiApplication exists: constructing a QIcon builds a
@@ -354,6 +358,7 @@ int main(int argc, char *argv[])
     // setDesktopFileName above is fine pre-construction; it only stores a string.
     QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/images/cilex-logo.png")));
     FlightRecorder::startPeriodic(&app);   // CW-02: modules/BuildID snapshots (30 s, on change)
+    MetalCacheProbe::startPeriodic(&app);          // closes idle Metal-cache episodes with one summary line
     FlightRecorder::logTlsBackend();       // must be AFTER the app object — see its note
 
     // GUI-thread hang watchdog (Warden CW-08, app half). A frozen wall that keeps
