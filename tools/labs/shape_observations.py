@@ -241,11 +241,47 @@ class Observation:
     area_stability: float | None = None
     motion_coherence: float | None = None
 
-    def as_payload(self) -> dict:
-        """Dict for the worker to submit. Drops the None extras rather than
-        sending nulls the server did not ask for."""
+    # Which of the fields above ObservationIn actually has a column for. The rest
+    # are MEASUREMENTS and belong in the `metrics` jsonb, not at the top level.
+    # Stated here so a submitter does not have to rediscover it by reading the
+    # server's schema — the Linux worker had to write that discovery out as a
+    # comment in plugins.py, which is a sign it belonged next to the data.
+    API_COLUMNS = frozenset({
+        "bbox_x", "bbox_y", "bbox_w", "bbox_h",
+        "object_count", "shape_class", "shape_confidence",
+    })
+
+    def measurements(self) -> dict:
+        """Every set field as a plain dict, Nones dropped.
+
+        NOT A WIRE PAYLOAD, despite what this used to be called. It is missing
+        `start_time` and `end_time`, which ObservationIn REQUIRES and which only the
+        caller can supply (they are the segment's start plus `t_offset_s`, and this
+        module deliberately does not know what a segment's start time is). It also
+        carries `segment_id`, `frame_index`, `t_offset_s`, `aspect`, `area_frac`,
+        `fill_ratio`, `area_stability` and `motion_coherence`, none of which are
+        columns — see API_COLUMNS.
+
+        Submitting this dict as-is was SILENT DATA LOSS against cilex-vision 1.0.57:
+        ObservationIn set no `extra` policy, so Pydantic's default dropped the
+        unknown keys without error and five shape measurements vanished on arrival.
+        From 1.0.58 (bf2ad7f) both ObservationIn and ResultsIn are extra="forbid",
+        so the same dict 422s instead — louder, and better, but only louder.
+
+        Note those 422s are FastAPI validation errors, not CodedErrors: no `code`,
+        no `retryable`. Anything branching on `retryable` will find it absent.
+
+        The mapping — anchor the timestamps, split on API_COLUMNS, put the rest in
+        `metrics` — lives in the worker (tools/labs/plugins.py), which is the half
+        that is allowed to know Labs exists.
+        """
         d = asdict(self)
         return {k: v for k, v in d.items() if v is not None}
+
+    #: Deprecated name. Kept because the Linux worker calls it and renaming across
+    #: boxes mid-flight is how two agents break one file. New callers: use
+    #: measurements(), whose name does not claim to be something it is not.
+    as_payload = measurements
 
 
 @dataclass

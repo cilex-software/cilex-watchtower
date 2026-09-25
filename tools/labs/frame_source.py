@@ -209,8 +209,20 @@ def _decode_args(
     args += ["-fps_mode", "passthrough"]
     # Only convert if the source is NOT already a Y-first 4:2:0 8-bit layout.
     # These cameras deliver yuvj420p; forcing "yuv420p" on that buys a full-frame
-    # swscale range conversion and changes nothing structural for a luma-only
-    # background model.
+    # swscale range conversion for nothing.
+    #
+    # THE ORIGINAL VERSION OF THIS COMMENT SAID THE CONVERSION "changes nothing
+    # structural for a luma-only background model", WHICH WAS TRUE AND MISLEADING.
+    # True: MOG2 reads luma, and a full->limited range conversion leaves its
+    # structure alone. Misleading the moment this module stopped being luma-only —
+    # the range conversion RESCALES CHROMA, measured ~9% (8.26 passthrough against
+    # 7.58 converted on the same segments) by the Linux box when B1 started sharing
+    # this decode pass (1859391). It moved B1's calibration floor 4.29 -> 4.09.
+    #
+    # So the passthrough is not merely a saving, it is the colour space the shared
+    # frames are IN, and anything reading `chroma_energy` is reading full-range
+    # values. A caveat scoped to one consumer stops being a caveat when a second
+    # one arrives; state the effect, not just the consumer it happened not to hurt.
     if pix_fmt not in _PASSTHROUGH_420:
         args += ["-pix_fmt", "yuv420p"]
     args += ["-f", "rawvideo", "-"]
