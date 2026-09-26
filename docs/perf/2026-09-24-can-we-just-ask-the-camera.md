@@ -112,10 +112,39 @@ Still worth having for faults, for the reason that made the question worth askin
 camera pinned to `day` will never go IR, which explains a silent camera with no decode
 at all.
 
-`supplementLight` is **unresolved** — it differs between cameras (irLight outdoor,
-eventIntelligence indoor), but that is a configuration difference, not evidence of
-state. The test is the same camera sampled in daylight; cilex-vision will take it when
-the sun is up rather than claim either way at 02:00.
+`supplementLight` was **unresolved** here — it differs between cameras (irLight
+outdoor, eventIntelligence indoor), but that is a configuration difference, not
+evidence of state.
+
+> **RESOLVED 2026-09-26 by cilex-vision, with the experiment that could have failed.**
+> Their first daylight read was on a camera whose picture never left colour, so an
+> unchanged field there proved nothing either way — and they said so rather than call
+> it. They then found the ONE outdoor camera that genuinely switches to IR
+> (`hiwatch-04eecdd45e2d`, SATAVG 0.00 at night — the same single camera this box's
+> chroma census had found on 2026-09-24 by an unrelated method) and read every field
+> before and after a real switch, with a frame measured 2 s after each read:
+>
+> ```
+>                                    2026-09-25 13:15 MSK   2026-09-26 03:07 MSK
+>   picture (SATAVG)                 7.65  colour           0  greyscale (IR on)
+>   supplementLightMode              irLight                irLight
+>   irLightBrightness                100                    100
+>   whiteLightBrightness             50                     50
+>   mixedLightBrightnessRegulatMode  auto                   auto
+>   IrcutFilterType / level / time   auto / 4 / 5           auto / 4 / 5
+> ```
+>
+> **The picture changed state; not one field moved.** So ISAPI reports how a camera
+> is CONFIGURED, never what it is DOING. Pixel chroma is the only state signal, and
+> B1's `ir` label cannot come from the camera. This is the same conclusion §5 reached
+> from the other direction — no live-state field in the full image-config dump, and
+> both candidate status paths absent — now confirmed by a controlled before/after on
+> a camera known to switch.
+>
+> **Still worth reading, for faults.** A camera configured with the supplement light
+> off, or with the IR-cut pinned to `day`, will never go IR — which explains a dark
+> or silent camera without decoding a single frame. That is B2 (`camera_health`)
+> territory.
 
 ## 6. A FALSE POSITIVE IN MY DRIFT MONITOR, found by accident
 
