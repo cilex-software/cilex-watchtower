@@ -1019,7 +1019,11 @@ Item {
                     }
                 }
 
-                // save current view (ghost)
+                // save current view — bordered like every other control in the row. It was a
+                // "ghost" (border only on hover) from the first version (1e5f402, 2026-05-25);
+                // the 2026-08-10 redesign brief cited exactly that ghost weight as the fault in
+                // "Go back in time" and promoted Go-back, but left this one behind — the only
+                // borderless button on the bar (operator, 2026-09-26).
                 Rectangle {
                     id: saveBtn
                     visible: root._tbHidden < 3      // outranks Go-back — see _tbWantHidden
@@ -1027,7 +1031,7 @@ Item {
                     implicitWidth: saveTxt.implicitWidth + 28
                     color: saveMa.containsMouse ? Theme.panel : "transparent"
                     border.width: 1
-                    border.color: saveMa.containsMouse ? Theme.accent : "transparent"
+                    border.color: saveMa.containsMouse ? Theme.accent : Theme.line2
                     Text {
                         id: saveTxt
                         anchors.centerIn: parent
