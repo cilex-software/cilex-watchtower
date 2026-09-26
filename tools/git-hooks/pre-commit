@@ -67,17 +67,6 @@ if [[ "${WT_NO_WALL_UNKNOWN_PIN:-}" != "1" && -x "$ROOT/tools/tests/wall-unknown
     echo "PASS  an unknown wall cell still shows its picture"
 fi
 
-# frame_source must drain ffmpeg's stderr WHILE it reads frames. On 2026-09-26 a noisy
-# segment (4.5 KB of warnings) filled Windows' ~4 KB pipe, ffmpeg blocked, and the
-# worker's shared decode pass waited forever with no error. Invisible from Linux (64 KB
-# pipes), so this pin writes 200 KB before any frame: it deadlocks on EVERY platform.
-# WT_NO_FS_STDERR_PIN=1 skips it.
-if [[ "${WT_NO_FS_STDERR_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-stderr.py" ]]; then
-    "$ROOT/tools/tests/frame-source-stderr.py" >/dev/null 2>&1 || {
-        "$ROOT/tools/tests/frame-source-stderr.py"; exit 1; }
-    echo "PASS  frame_source drains stderr while reading (no pipe deadlock)"
-fi
-
 # The client must handle every recording state cilex-vision can emit. Its only live
 # input to notRecordingCount is `stalled`, and its predecessor `not_recording` was
 # already renamed once; a second rename would make three UI surfaces read all-clear
@@ -113,6 +102,22 @@ if [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]
 elif [[ "${WT_NO_WORKER_TEST:-}" != "1" && -x "$ROOT/tools/tests/labs-worker.py" ]]; then
     "$ROOT/tools/tests/labs-worker.py" >/dev/null || { "$ROOT/tools/tests/labs-worker.py"; exit 1; }
     echo "PASS  Labs worker ($("$ROOT/tools/tests/labs-worker.py" 2>/dev/null | grep -c "^PASS") hermetic assertions)"
+fi
+
+# frame_source must drain ffmpeg's stderr WHILE it reads frames. On 2026-09-26 a noisy
+# segment (4.5 KB of warnings) filled Windows' ~4 KB pipe, ffmpeg blocked, and the
+# worker's shared decode pass waited forever with no error. Invisible from Linux (64 KB
+# pipes), so this pin writes 200 KB before any frame: it deadlocks on EVERY platform.
+# It imports frame_source, which needs numpy and cv2, so it probes like the two gates
+# above. Its first version (de07f2c) sat above them without the probe: on a box without
+# numpy it exits 1, which fails the commit (simulated here with `python -S`).
+# WT_NO_FS_STDERR_PIN=1 skips it.
+if [[ "${WT_NO_FS_STDERR_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-stderr.py" ]] && ! labs_deps_ok; then
+    echo "SKIP  frame_source stderr pin -- numpy/cv2 not installed on this box (not a failure)"
+elif [[ "${WT_NO_FS_STDERR_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-stderr.py" ]]; then
+    "$ROOT/tools/tests/frame-source-stderr.py" >/dev/null 2>&1 || {
+        "$ROOT/tools/tests/frame-source-stderr.py"; exit 1; }
+    echo "PASS  frame_source drains stderr while reading (no pipe deadlock)"
 fi
 
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
