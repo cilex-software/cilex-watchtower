@@ -46,10 +46,12 @@ that each costs an hour if you get it wrong:
 
 from __future__ import annotations
 
+import collections
 import os
 import re
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass
 from typing import Iterator, Sequence
 
@@ -335,6 +337,35 @@ def _stream(
         args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         bufsize=fbytes * 2,
     )
+    # DRAIN STDERR CONCURRENTLY, or a noisy segment deadlocks the decoder FOREVER.
+    #
+    # Found on the booth 2026-09-26: a verification run sat 42 minutes on one segment
+    # having used 10 CPU-seconds, its ffmpeg 0. That segment makes ffmpeg write
+    # 4,467 bytes of error-level warnings (non-monotonic DTS), and Windows gives an
+    # anonymous pipe ~4 KB of buffer. stderr was a PIPE that nothing read until the
+    # stream ENDED -- so ffmpeg filled it, blocked on its 33rd warning, stopped
+    # writing frames, and this loop waited on stdout for frames that would never come.
+    #
+    # WINDOWS-ONLY IN PRACTICE: a Linux pipe holds 64 KB, fifteen times more noise
+    # before it bites, which is why it was invisible from the Linux box. It is the
+    # worker's SHARED decode pass (run_worker imports this module), so on a Windows
+    # station one corrupt segment would have hung B1 and blob_geometry with no error,
+    # no timeout and no log line.
+    #
+    # Bounded, so a stream that emits millions of warnings cannot grow memory either;
+    # the tail is kept because the no-frames guard below reports it.
+    err_tail: collections.deque = collections.deque(maxlen=200)
+
+    def _drain_stderr(pipe, sink):
+        try:
+            for line in iter(pipe.readline, b""):
+                sink.append(line)
+        except (OSError, ValueError):
+            pass            # pipe closed under us at teardown; nothing left to keep
+
+    t_err = threading.Thread(target=_drain_stderr, args=(proc.stderr, err_tail),
+                             name="frame_source-stderr", daemon=True)
+    t_err.start()
     idx = 0
     closed_by_consumer = False
     try:
@@ -403,13 +434,17 @@ def _stream(
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
-        err = b""
+            proc.wait(timeout=10)
+        # ffmpeg has exited, so its stderr is at EOF and the drain thread finishes on
+        # its own; join it before reading what it kept. (Reading stderr HERE, at the
+        # end, was the deadlock -- the thread above is the fix.)
+        t_err.join(timeout=5)
+        err = b"".join(err_tail)
         if proc.stderr:
             try:
-                err = proc.stderr.read() or b""
+                proc.stderr.close()
             except (OSError, ValueError):
                 pass
-            proc.stderr.close()
         # A frame source that silently yields NOTHING is the shape of failure that
         # already cost this booth a stale installer: pkg-config existed, could not
         # execute, and every step downstream reported success while rebuilding

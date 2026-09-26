@@ -67,6 +67,17 @@ if [[ "${WT_NO_WALL_UNKNOWN_PIN:-}" != "1" && -x "$ROOT/tools/tests/wall-unknown
     echo "PASS  an unknown wall cell still shows its picture"
 fi
 
+# frame_source must drain ffmpeg's stderr WHILE it reads frames. On 2026-09-26 a noisy
+# segment (4.5 KB of warnings) filled Windows' ~4 KB pipe, ffmpeg blocked, and the
+# worker's shared decode pass waited forever with no error. Invisible from Linux (64 KB
+# pipes), so this pin writes 200 KB before any frame: it deadlocks on EVERY platform.
+# WT_NO_FS_STDERR_PIN=1 skips it.
+if [[ "${WT_NO_FS_STDERR_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-stderr.py" ]]; then
+    "$ROOT/tools/tests/frame-source-stderr.py" >/dev/null 2>&1 || {
+        "$ROOT/tools/tests/frame-source-stderr.py"; exit 1; }
+    echo "PASS  frame_source drains stderr while reading (no pipe deadlock)"
+fi
+
 # The client must handle every recording state cilex-vision can emit. Its only live
 # input to notRecordingCount is `stalled`, and its predecessor `not_recording` was
 # already renamed once; a second rename would make three UI surfaces read all-clear
