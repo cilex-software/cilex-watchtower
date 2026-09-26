@@ -390,6 +390,13 @@ class UnitOutcome:
     note: str = ""
     decoder_runs: int = 0
     undecodable_segments: int = 0
+    # Where a unit's wall time went, by phase (list, fetch, decode, analyse, submit,
+    # total). The first live unit took 45.6 s wall for ~15 CPU-s, and nothing said why.
+    timings: dict = field(default_factory=dict)
+
+
+def _add(out: "UnitOutcome", phase: str, since: float) -> None:
+    out.timings[phase] = round(out.timings.get(phase, 0.0) + time.monotonic() - since, 3)
 
 
 class _LastWarning(logging.Handler):
@@ -462,8 +469,11 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     root = logging.getLogger()
     root.addHandler(heard)
     _heard = heard
+    t0 = time.monotonic()
     try:
-        return _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep)
+        o = _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep)
+        _add(o, "total_s", t0)
+        return o
     finally:
         _heard = prev
         root.removeHandler(heard)
@@ -472,6 +482,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
 def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     out = UnitOutcome(unit)
     ctx = dict(context or {})
+    t = time.monotonic()
     try:
         # The plugin's stream, not None: an unpinned request returns whatever the
         # server picks, and an analyser calibrated on one stream is not calibrated
@@ -483,6 +494,8 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     except Refusal as r:
         out.action = action_for(r); out.note = str(r)
         return out
+    finally:
+        _add(out, "list_s", t)
 
     if plugin.stateful:
         # Keyed by ANALYSER and camera. It used to be the camera alone, so with two
@@ -534,6 +547,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             try:
+                t = time.monotonic()
                 try:
                     _retrying(client.fetch, seg, path, sleep=sleep)
                 except Refusal as r:
@@ -544,7 +558,10 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                     raise _Abandon(a, f"fetch {seg.segment_id}: {r}")
                 except Exception as e:
                     raise _StationFault(e)
+                finally:
+                    _add(out, "fetch_s", t)
                 out.decoder_runs += 1
+                t = time.monotonic()
                 try:
                     frames = decode(path, plugin.keyframes_only, plugin.want_chroma, **planes)
                 except Exception as e:
@@ -556,6 +573,8 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                     out.undecodable_segments += 1
                     last_err = e
                     continue
+                finally:
+                    _add(out, "decode_s", t)
             finally:
                 try:
                     os.unlink(path)
@@ -565,6 +584,8 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
             yield seg, frames
 
     stream = as_decoded()
+    pulled = lambda: out.timings.get("fetch_s", 0.0) + out.timings.get("decode_s", 0.0)
+    p0, t = pulled(), time.monotonic()
     try:
         try:
             obs = plugin.analyse(stream, state, unit, ctx)
@@ -574,6 +595,9 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                 pass
         finally:
             stream.close()
+            # Streamed, so fetch and decode happen INSIDE the analyser's call; its
+            # own time is what is left once theirs is taken out.
+            out.timings["analyse_s"] = round(time.monotonic() - t - (pulled() - p0), 3)
     except _Abandon as a:
         out.action, out.note = a.action, a.note
         return out
@@ -629,6 +653,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             paths.append(path)
+            t = time.monotonic()
             try:
                 _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
@@ -649,6 +674,8 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                                         f"stream_has_a_hole: {seg.segment_id} not found", a)
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
+            finally:
+                _add(out, "fetch_s", t)
             kept.append(seg)
             fetched.append(path)
         if segs and not kept:
@@ -677,11 +704,14 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                         if not c:
                             break
                         yield c
+        t = time.monotonic()
         try:
             obs = plugin.analyse_raw(chunks(), kept, unit)
         except Exception as e:
             return _file_failed(client, plugin, unit, out,
                                 f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
+        finally:
+            _add(out, "analyse_s", t)       # the analyser's OWN decode is in here
     finally:
         for p_ in paths:
             try:
@@ -710,9 +740,11 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
         for seg in segs:
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
+            t = time.monotonic()
             try:
                 _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
+                _add(out, "fetch_s", t)
                 try:
                     os.unlink(path)
                 except OSError:
@@ -723,12 +755,14 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
                     continue
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
+            _add(out, "fetch_s", t)
             fetched.append((seg, path))
         if segs and not fetched:
             return _file_failed(client, plugin, unit, out,
                                 _nothing_looked_at(segs, out, None), Action.BUG)
         out.segments_scanned = len(fetched)
         out.decoder_runs = len(fetched)
+        t = time.monotonic()
         try:
             obs = plugin.analyse_raw_segments(fetched, unit)
         except Exception as e:
@@ -738,6 +772,7 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
             # A plugin that skips bursts it could not decode says how many, so the
             # outcome can report a partial unit as partial.
             out.undecodable_segments += int(getattr(plugin, "last_undecodable", 0) or 0)
+            _add(out, "analyse_s", t)
     finally:
         for _, p_ in fetched:
             try:
@@ -771,7 +806,11 @@ def _finish(client, plugin, unit, out, obs, sleep):
         # the unit close (:1603). A cut between them leaves partial rows with the unit
         # still claimed; a re-submit heals it because :1536 clears them first -- but
         # ONLY while analyzer_version is unchanged. So this exact `body` is resent.
-        _retrying(client.submit, unit, body, sleep=sleep)
+        t = time.monotonic()
+        try:
+            _retrying(client.submit, unit, body, sleep=sleep)
+        finally:
+            _add(out, "submit_s", t)
     except Refusal as r:
         a = action_for(r)
         if a is Action.BUG:
@@ -829,11 +868,14 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
             "failed": True, "error": fit(reason, 500)}
     out.action = action
     out.note = reason
+    t = time.monotonic()
     try:
         client.submit(unit, body)
         out.submitted = True
     except Refusal as r:
         out.note = f"{reason}; filing it as failed was refused too: {r}"
+    finally:
+        _add(out, "submit_s", t)
     return out
 
 

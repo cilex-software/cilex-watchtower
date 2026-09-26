@@ -1257,6 +1257,28 @@ finally:
     P.tl.analyse, P.tl.to_observations = _ta, _to2
     P._FFMPEG = _real_ff
 
+# ---------------------------------------------------------------- where the time went
+# The first live unit took 45.6 s wall for ~15 CPU-s and nothing said why. Each unit
+# now carries its phases; the frame path's analyse time is NET of the fetch and decode
+# it pulls through the stream, or slow footage would be blamed on the analyser.
+import time as _time
+class SlowFake(Fake):
+    def fetch(self, s, dest):
+        _time.sleep(0.05); return super().fetch(s, dest)
+def slow_decode(path, kf, want_chroma, **k):
+    _time.sleep(0.03); return decode_chroma(11.5)(path, kf, want_chroma)
+u = unit(); c = SlowFake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+o = run(c, B1, u, decode=slow_decode)
+tm = o.timings
+check("a unit reports its phases: list, fetch, decode, analyse, submit, total",
+      {"list_s", "fetch_s", "decode_s", "analyse_s", "submit_s", "total_s"} <= set(tm), str(tm))
+check("...fetch and decode carry THEIR time (2 x 0.05 s, 2 x 0.03 s injected)",
+      0.09 <= tm.get("fetch_s", 0) < 0.5 and 0.05 <= tm.get("decode_s", 0) < 0.5, str(tm))
+check("...and the analyser's time is net of them, not their sum",
+      0 <= tm.get("analyse_s", -1) < 0.05, str(tm))
+check("...and the phases fit inside the total",
+      sum(v for k, v in tm.items() if k != "total_s") <= tm.get("total_s", 0) + 0.01, str(tm))
+
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,
 # so on Windows `import plugins` failed: no station there could load the worker, and

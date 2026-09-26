@@ -112,6 +112,8 @@ def main():
               + (f" gone={o.skipped_segments}" if o.skipped_segments else "")
               + (f" undecodable={o.undecodable_segments}" if o.undecodable_segments else "")
               + (f"  [{o.action.value}: {o.note}]" if o.action else (f"  [{o.note}]" if o.note else "")))
+        if o.timings:
+            print("      " + "  ".join(f"{k[:-2]} {v:.2f}s" for k, v in o.timings.items()))
     if rep.stopped_analysers:
         print("stopped (operator disabled):", ", ".join(rep.stopped_analysers))
     if rep.unreachable:
