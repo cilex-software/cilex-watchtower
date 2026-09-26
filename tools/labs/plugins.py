@@ -660,8 +660,11 @@ class CameraHealthPlugin:
     hour (a failed unit comes back up to three times) would drag the reference view
     backwards and make the next hour read `moved`. So an hour at or before the newest
     one already taught is scored against the Baseline but does not teach it
-    (update_baseline=False). cilex-vision's rule; their server claims camera_health
-    oldest-first (84b4cd9), so this is the rare case, not the common one.
+    (update_baseline=False). cilex-vision's rule. Their server claims camera_health
+    oldest-first FROM 84b4cd9 ON, which makes this the rare case -- but a server
+    WITHOUT 84b4cd9 claims it newest-first, the hour in progress included. Check the
+    running code, not the repository: this box once said "oldest-first, unaffected"
+    after reading a commit that 1.0.61 did not yet run (2026-09-26).
 
     EXACTLY ONE STATION may run it (their other rule): two stations would each teach a
     Baseline from alternate hours, and neither would describe the camera. That cannot
