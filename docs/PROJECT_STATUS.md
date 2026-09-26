@@ -5,6 +5,66 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-27 LABS: FIRST LIVE UNIT OF EVERY ANALYSER -->
+> **2026-09-27 — LABS: EVERY ANALYSER HAS RUN ONE LIVE UNIT. All ten done at attempt 1: 0
+> failed, 0 abandoned.** This was the operator-approved plan, run 02:20–02:47 MSK on query-api
+> **1.0.80** (CV's 02:17 deploy, which bounds claims to settled hours; the hold below is
+> lifted). The runs were sequential and manual: `run_worker.py --live --analyzer X --units 1`
+> under `nice 19`/`ionice idle`/`/usr/bin/time`. CV switched each of the eight test analysers
+> off afterwards; **frame_difference and illumination stay ON**, as before. The station
+> scanner was **PAUSED throughout and still is** (see the last paragraph).
+>
+> | analyser | camera-hour | segs | rows | work s | CPU-s (+ffmpeg) | max RSS MiB | claim s* |
+> |---|---|---|---|---|---|---|---|
+> | camera_health | 083bc1df39fa 09-17 12Z | 0 | 0 | 0.07 | 2.8 | 60 | 17.1 |
+> | audio_energy | 083bc1df39d1 09-26 22Z | 120 | 1 | 84.0 | 6.4 | 61 | 35.3 |
+> | blob_geometry | same | 120 | 312 | 212.8 | 173.6 | 186 | 27.0 |
+> | colour_histogram | same | 120 | 30 | 174.8 | 141.5 | 422 | 25.4 |
+> | foreground_mask | same | 120 | 30 | 171.6 | 134.3 | 309 | 31.3 |
+> | optical_flow | same | 30 | 2 | 37.1 | 37.5 | 73 | 26.1 |
+> | perceptual_hash | same | 12 | 12 | 10.0 | 8.9 | 66 | 31.7 |
+> | track_linking | same | 120 | 202 | 130.1 | 142.4 | 88 | 22.9 |
+> | frame_difference | same (main) | 4 | 1 | 3.8 | 6.3 | 291 | 18.5 |
+> | illumination | 04eecdd44b03 09-26 22Z | 2 | 2 | 2.5 | 5.6 | 89 | 16.3 |
+>
+> *Claim = the worker's claim→submit time minus the unit's own work: DERIVED by subtraction,
+> not timed directly. 16–35 s per claim is CV's to fix (their caching item).
+>
+> **Server-side defects found, all CV's:**
+> - camera_health was handed an hour with no main footage. The fix is `labs_analyzers.stream_type`.
+> - audio_energy is claimed on cameras without audio. It will be scoped to audio cameras.
+> - The event layer (D1–D6) files a row per window whatever happened: foreground_mask 30 of 30
+>   windows, perceptual_hash one per sampled segment. Its group sentence for the hour's one real
+>   event gets the subject, the count and the place all wrong.
+>
+> **Eyes-on audit of that hour (hiwatch-083bc1df39d1, "10 Улица 13"; read-only; frames kept
+> local, never committed).** It contains ONE real event: a car comes through the gate,
+> 22:29:57–22:30:44Z. foreground_mask, optical_flow, perceptual_hash, track_linking and
+> blob_geometry all caught it. Nearly everything else is two things:
+> - **A pale streak close to the lens.** It accounts for 182 of 196 `shape_indeterminate`
+>   rows, 20 of 30 foreground_mask boxes and 77 of 202 track entries.
+> - **Wind in the foliage.**
+>
+> Consequences:
+> - **B6 (track_linking)** links the streak to foliage a quarter frame away: 9 of the 10 long
+>   tracks that start on the streak are false. CV is fixing the linker, and will announce the
+>   pin change first.
+> - **frame_difference's "25 s of activity"** is wind. I reproduced its row exactly with its
+>   own decoder.
+> - **A4–A6 (blob_geometry)** gets no size or fill floor: on the booth, blobs of the same size
+>   were real people. It gets spatial recurrence suppression instead. That must span minutes,
+>   not consecutive keyframes: the streak re-detects at a median gap of 11 s, and only 15 of
+>   181 gaps are one keyframe. This is the Windows agent's to build.
+> - **Physical:** something sits near that camera's lens. It's the operator's to check.
+>
+> **The scanner had been switched on.** `control.json` was set to `paused: false` at
+> 2026-09-26 23:20 MSK by "watchtower app (admin)" (someone pressed Resume on the Labs screen).
+> It claimed nothing, because the worker refuses servers older than 1.0.62. That would have
+> stopped holding once the 15-minute recheck saw 1.0.80, so this box re-paused it at 02:20 MSK.
+> Resume from the Labs screen when continuous scanning is wanted. It then claims for whatever
+> the server has switched on. That is CV's design; a claim against a switched-off analyser has
+> not been tested from here.
+
 <!-- 2026-09-26 LABS: THE WORKER EXISTS, NOTHING HAS RUN -->
 > **2026-09-26 — LABS: THE STATION WORKER EXISTS; NOTHING HAS EVER RUN.** Labs is cilex-vision's
 > offline-analysis scheme: a station claims one camera-hour ("scan unit"), runs an analyser on
