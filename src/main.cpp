@@ -894,6 +894,9 @@ int main(int argc, char *argv[])
     // Verification: WT_WALL_HIDE_TEST=<ms> — that long after start, open the Preferences tab (it
     // hides the wall exactly as the operator's avatar menu does), and come back 2 s later.
     engine.rootContext()->setContextProperty("wtWallHideTest", qEnvironmentVariableIntValue("WT_WALL_HIDE_TEST"));
+    // Verification: WT_WALL_GROUP_TEST=<group name> — open the playback wall's group switcher,
+    // then pick that group (WallPlayback.qml).
+    engine.rootContext()->setContextProperty("wtWallGroupTest", qEnvironmentVariable("WT_WALL_GROUP_TEST"));
     // Calendar + historic-playback STRESS driver (dev/soak): rotates over the roster,
     // opening a day, scrubbing it, then clicking the next day — exercising the calendar
     // navigation, session load/seek ("awfully slow" under a degraded backend) and the

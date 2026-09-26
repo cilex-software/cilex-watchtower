@@ -931,85 +931,15 @@ Item {
 
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 24; color: Theme.line2 }
 
-                // group scope switcher — re-scope the grid to a camera group in one click
-                Rectangle {
-                    id: groupControl
-                    Layout.preferredHeight: 38
-                    implicitWidth: groupRow.implicitWidth + 24
-                    color: Theme.panel
-                    border.width: 1
-                    border.color: grpMa.containsMouse ? Theme.accent : Theme.line2
-                    Row {
-                        id: groupRow; anchors.centerIn: parent; spacing: 8
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.groupLabel
-                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12
-                            elide: Text.ElideRight; width: Math.min(implicitWidth, 180)
-                        }
-                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "chev"; size: 12; color: Theme.ink3 }
-                    }
-                    MouseArea { id: grpMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: groupPopup.open() }
-                    C.Popup {
-                        id: groupPopup
-                        y: groupControl.height + 4
-                        x: 0
-                        width: 220
-                        padding: 0
-                        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
-                        contentItem: Column {
-                            Repeater {
-                                model: root.groupOpts
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    readonly property bool isEmpty: modelData.count === 0
-                                    width: 220; height: 34
-                                    color: grpOptMa.containsMouse ? Theme.panel2 : "transparent"
-                                    Text {
-                                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
-                                        width: parent.width - 24 - cntTxt.implicitWidth - 8
-                                        text: modelData.name
-                                        // an empty group still scopes (and says "no cameras in X"),
-                                        // so it stays clickable — it just stops looking like a
-                                        // group with cameras in it
-                                        color: root.groupId === modelData.id ? Theme.accent
-                                             : (parent.isEmpty ? Theme.ink3 : Theme.ink)
-                                        font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        id: cntTxt
-                                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                                        text: modelData.count
-                                        color: parent.isEmpty ? Theme.ink3
-                                             : (root.groupId === modelData.id ? Theme.accent : Theme.ink2)
-                                        font.family: Theme.fontMono; font.pixelSize: 11
-                                    }
-                                    MouseArea {
-                                        id: grpOptMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                        onClicked: { root.groupRequested(modelData.id, modelData.name); groupPopup.close(); }
-                                    }
-                                }
-                            }
-
-                            // Manual resync — pull fresh groups + membership from
-                            // the server now (the 15s poll also auto-syncs groups).
-                            Rectangle { width: 220; height: 1; color: Theme.line2 }
-                            Rectangle {
-                                width: 220; height: 34
-                                color: grpSyncMa.containsMouse ? Theme.panel2 : "transparent"
-                                Text {
-                                    anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                                    text: qsTr("↻  Sync from server")
-                                    color: grpSyncMa.containsMouse ? Theme.accent : Theme.ink2
-                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
-                                }
-                                MouseArea {
-                                    id: grpSyncMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: { if (root.cameraModel) root.cameraModel.refresh(); groupPopup.close(); }
-                                }
-                            }
-                        }
-                    }
+                // group scope switcher — re-scope the grid to a camera group in one click.
+                // GroupSwitcher.qml is shared with the playback wall's sub-bar, so the two
+                // are the same control by construction (operator, 2026-09-26).
+                GroupSwitcher {
+                    options: root.groupOpts
+                    currentId: root.groupId
+                    label: root.groupLabel
+                    cameraModel: root.cameraModel
+                    onPicked: (id, name) => root.groupRequested(id, name)
                 }
 
                 // Clear a transient map-selection scope ("Selected (N)") back to All

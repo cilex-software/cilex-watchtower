@@ -112,13 +112,16 @@ Item {
     // Quick group switch: the wall holds an arbitrary ≤16 set (custom), or a
     // camera group's cameras. wallGroupLabel shows the active group ("" = custom).
     property string wallGroupLabel: ""
+    // The active group's id, for the switcher's highlight ("__custom__" = a hand-picked set,
+    // which no row carries — "All cameras" is id "", so "" cannot mean "none").
+    property string wallGroupId: "__custom__"
     // Counts come from groupList()'s `total` — computed from OUR roster, never the
     // backend's /groups camera_count (which counts cameras this client cannot see).
     // A group with 0 cameras cannot be composited into a wall at all, so here the
     // row is shown with its count and made inert rather than silently swallowing
     // the click (operator-reported 2026-08-10: "nothing happens").
     readonly property var groupOpts: {
-        var out = [{ id: "", name: "All cameras", count: cameraModel ? cameraModel.total : 0 }];
+        var out = [{ id: "", name: qsTr("All cameras"), count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency
             var gs = cameraModel.groupList();
@@ -151,7 +154,11 @@ Item {
     }
     // Re-composite the same wall window over the (changed) camera set and
     // restore the playhead once the new pipeline is seekable.
-    function reopenSameWindow() {
+    // `reason` names the action that rebuilt the composite. Every rebuild is a new server
+    // composite (seconds each), and on 2026-09-26 three landed in four seconds with nothing
+    // saying which action asked for them — so each caller now says so.
+    function reopenSameWindow(reason) {
+        console.log("[WALL] recompose reason=" + (reason || "unspecified") + " cams=" + cameras.length);
         var keepMs = frags.length ? playheadMs : -1;
         if (winEndMs > winStartMs && winStartMs > 0) _open(winStartMs, winEndMs);
         else openFor(loadedSpanMin);
@@ -181,8 +188,9 @@ Item {
         pickerOpen = false;
         cameras = out;
         wallGroupLabel = "";          // hand-picked set → no longer a named group
+        wallGroupId = "__custom__";
         persistLayout();
-        reopenSameWindow();
+        reopenSameWindow("edit-cameras");
     }
     // Load a camera group's cameras onto the wall (first 16 if the group is larger).
     function loadGroup(groupId, label) {
@@ -202,8 +210,9 @@ Item {
         }
         cameras = out;
         wallGroupLabel = label;
+        wallGroupId = groupId;
         persistLayout();
-        reopenSameWindow();
+        reopenSameWindow("group:" + label);
     }
     // Open over an EXPLICIT camera set (Situation-Map "play selected"). Bypasses the
     // persisted-layout preference in seedCameras and does NOT persist — a transient
@@ -213,6 +222,7 @@ Item {
         if (out.length === 0) return;
         cameras = out;
         wallGroupLabel = "";
+        wallGroupId = "__custom__";
         openFor(loadedSpanMin);
     }
 
@@ -249,7 +259,7 @@ Item {
     Timer {
         id: recomposeDebounce
         interval: 800; repeat: false
-        onTriggered: root.reopenSameWindow()
+        onTriggered: root.reopenSameWindow("drag-swap")
     }
 
     // ---- per-cell camera swap (right-click a cell → pick another camera) -----
@@ -277,7 +287,7 @@ Item {
         else next[idx] = cam;                        // otherwise replace this cell's camera
         cameras = next;
         persistLayout();
-        reopenSameWindow();
+        reopenSameWindow("cell-picker");
     }
     readonly property var cellPickerRows: {
         var out = [];
@@ -831,6 +841,29 @@ Item {
             }
         }
     }
+    // WT_WALL_GROUP_TEST=<group name> (verification only): 15 s after start, open the group
+    // switcher (so a screenshot shows the popup); 6 s later pick that group through the same
+    // loadGroup() a click calls.
+    Timer {
+        id: wallGroupTest
+        property int phase: 0
+        interval: 15000
+        running: typeof wtWallGroupTest !== "undefined" && wtWallGroupTest !== ""
+        onTriggered: {
+            if (phase === 0) {
+                console.log("[WALL] group-test: opening the switcher");
+                wallGroupSwitcher.open(); phase = 1; interval = 6000; restart();
+                return;
+            }
+            var opts = root.groupOpts, hit = null;
+            for (var i = 0; i < opts.length; i++) if (opts[i].name === wtWallGroupTest) hit = opts[i];
+            wallGroupSwitcher.close();
+            if (!hit) { console.log("[WALL] group-test: no group named " + wtWallGroupTest); return; }
+            console.log("[WALL] group-test: picking " + hit.name + " (" + hit.count + " cameras)");
+            root.loadGroup(hit.id, hit.name);
+        }
+    }
+
     // [WALL] probe — the first 60 s after an open, every 2 s. Until 2026-09-26 the wall logged
     // NOTHING after its first frame: on the operator's Mac it delivered one frame, then showed a
     // black grid with the transport at ▶ and the playhead frozen at the open, while the log ended
@@ -942,6 +975,36 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
+
+        // ---- sub-bar: the camera-group quick filter — the LIVE wall's control, in the live
+        // wall's place, at the live wall's geometry (Theme.subBarHeight, 20 px margins, the
+        // 1 px rule). Operator, 2026-09-26: "exactly the same one from the live wall screen".
+        // It replaces the small GROUP combo that sat in the side panel.
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: Theme.subBarHeight
+            color: Theme.bg
+            Rectangle {
+                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                height: 1; color: Theme.line
+            }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 20
+                anchors.rightMargin: 20
+                spacing: 12
+                GroupSwitcher {
+                    id: wallGroupSwitcher
+                    options: root.groupOpts
+                    currentId: root.wallGroupLabel !== "" ? root.wallGroupId : "__custom__"
+                    label: root.wallGroupLabel !== "" ? root.wallGroupLabel : qsTr("Custom selection")
+                    cameraModel: root.cameraModel
+                    emptySelectable: false          // zero cameras cannot become a wall
+                    onPicked: (id, name) => root.loadGroup(id, name)
+                }
+                Item { Layout.fillWidth: true }
+            }
+        }
 
         RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
@@ -1209,58 +1272,8 @@ Item {
                                 MouseArea { id: ecMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPicker() }
                             }
                         }
-                        // quick group switch — load a camera group's cameras onto the wall
-                        RowLayout {
-                            Layout.fillWidth: true; Layout.topMargin: 6; spacing: 8
-                            Text { text: qsTr("GROUP"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1; Layout.alignment: Qt.AlignVCenter }
-                            Rectangle {
-                                id: wgCtl
-                                Layout.fillWidth: true; implicitHeight: 28
-                                color: Theme.bg; border.width: 1; border.color: wgMa.containsMouse ? Theme.accent : Theme.line2
-                                Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: wgChev.left; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
-                                    text: root.wallGroupLabel !== "" ? root.wallGroupLabel : "Custom selection"
-                                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
-                                Text { id: wgChev; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "▾"; color: Theme.ink3; font.pixelSize: 11 }
-                                MouseArea { id: wgMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: wgPopup.open() }
-                                C.Popup {
-                                    id: wgPopup
-                                    y: wgCtl.height + 2; x: 0; width: wgCtl.width; padding: 0
-                                    background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
-                                    contentItem: Column {
-                                        Repeater {
-                                            model: root.groupOpts
-                                            delegate: Rectangle {
-                                                required property var modelData
-                                                readonly property bool isEmpty: modelData.count === 0
-                                                width: wgCtl.width; height: 30
-                                                color: (wgoMa.containsMouse && !isEmpty) ? Theme.panel2 : "transparent"
-                                                Text { anchors.left: parent.left; anchors.leftMargin: 10
-                                                    anchors.right: wgoCnt.left; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                                                    text: modelData.name
-                                                    color: parent.isEmpty ? Theme.ink3
-                                                         : (root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink)
-                                                    font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
-                                                Text { id: wgoCnt; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
-                                                    text: modelData.count
-                                                    color: parent.isEmpty ? Theme.ink3
-                                                         : (root.wallGroupLabel === modelData.name ? Theme.accent : Theme.ink2)
-                                                    font.family: Theme.fontMono; font.pixelSize: 11 }
-                                                // 0 cameras cannot become a wall — the row is visibly
-                                                // inert (dimmed, arrow cursor, tooltip) rather than
-                                                // eating the click and leaving the label unchanged.
-                                                MouseArea { id: wgoMa; anchors.fill: parent; hoverEnabled: true
-                                                    cursorShape: parent.isEmpty ? Qt.ArrowCursor : Qt.PointingHandCursor
-                                                    onClicked: { if (parent.isEmpty) return;
-                                                                 root.loadGroup(modelData.id, modelData.name); wgPopup.close() } }
-                                                C.ToolTip.visible: wgoMa.containsMouse && isEmpty
-                                                C.ToolTip.delay: 300
-                                                C.ToolTip.text: qsTr("No cameras in this group")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // (The GROUP combo that lived here moved to the sub-bar above the grid as the
+                        // live wall's own GroupSwitcher — one control, not two.)
                         // The hint line is DELETED (§2.6): its two gestures are now
                         // affordances on the cells themselves (WpCell §2.2e). A
                         // sentence that has to explain the interaction model is a
