@@ -37,11 +37,22 @@
 > which Labs deliberately does not accept (`labs.py:547-553`). CV has been asked to issue
 > one onto the EXISTING row, written straight into `warden.conf` — never through chat.
 >
-> **Cost, measured (smoke run, one camera-hour each):** illumination 13.1 CPU-s,
-> camera_health 22.9 — against cilex-vision's 1.89 for camera_health on its own decoder.
-> ~4.1 of ~5.0 CPU-s per main segment is `frame_source` measuring the keyframe interval by
-> a full decode; a demux-only count gives identical results on 12/12 segments at 0.10
-> CPU-s. Offered to the Windows agent (their module), not yet applied.
+> **Cost, measured (smoke run, one camera-hour each, single runs on a host at load ~7 —
+> own-decoder analysers moved ±50% between runs without any change):** illumination was
+> 13.1 CPU-s and camera_health 22.9, against cilex-vision's 1.89 for camera_health on its
+> own decoder. ~4.1 of ~5.0 CPU-s per main segment was `frame_source` measuring the
+> keyframe interval by a full decode. **Fixed by the Windows agent in 933755f** (one
+> demux pass; identical counts on 12/12 segments here, 28/28 on the booth): illumination
+> now **1.5**, camera_health **3.2**, blob_geometry 14.1 → 4.6, colour_histogram 8.7 → 3.5.
+>
+> **First live unit, 2026-09-26 12:01Z** (after CV issued the token): illumination,
+> hiwatch-083bc14f0009, hour 12:00Z — done, 2 rows (`day`, astronomy `day`), en/ru
+> sentences and one event group, all confirmed in the database. **It exposed a server
+> defect: the claim hands out the hour still in progress** (`routers/labs.py:996`,
+> `newest_useful = now`, hours newest-first), so B1's two samples came from the hour's
+> first minute and the hour is now marked done. **Newest-first claims are HELD until CV
+> bounds the claim to ended hours.** Operator decision the same day: after that fix, CV
+> switches the other eight analysers on for one live unit each, then off.
 >
 > **Two rules that have already cost something.** (1) Vendored analysers (`labs_*.py`) are
 > cilex-vision's, byte-identical, each pinned by sha256 and source commit in
