@@ -78,6 +78,17 @@ if [[ "${WT_NO_VOCAB_PIN:-}" != "1" && -x "$ROOT/tools/tests/recording-vocab.py"
     echo "PASS  recording-state vocabulary still fully handled"
 fi
 
+# The pre-push version check refuses a push that puts two commits on one version (a
+# replayed commit whose N -> N+1 bump matched the one it landed on). This pins the
+# check AND its fix on a real collision made in throwaway repositories, so a hook that
+# stopped refusing -- or a fix that stopped renumbering -- fails a commit, not a push
+# nobody watches. Plain git + bash, so it runs on every box. WT_NO_VERSION_PIN=1 skips it.
+if [[ "${WT_NO_VERSION_PIN:-}" != "1" && -x "$ROOT/tools/tests/version-push-check.sh" ]]; then
+    "$ROOT/tools/tests/version-push-check.sh" >/dev/null 2>&1 || {
+        "$ROOT/tools/tests/version-push-check.sh"; exit 1; }
+    echo "PASS  pre-push refuses a shared version, and its fix renumbers the chain"
+fi
+
 # The B1 analyser is pure and its vocabulary is fixed by cilex-vision's migration
 # 0084 CHECK constraint. 33 assertions including a replay of 220 real camera-slot rows.
 # WT_NO_B1_TEST=1 skips it.

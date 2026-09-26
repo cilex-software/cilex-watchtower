@@ -130,6 +130,10 @@ GitHub releases themselves cost nothing; only Actions minutes did.
   bumps the PATCH component (1.1.1, 1.1.2, …) and restages the four files that
   carry it. Only patch moves; major/minor change only when the operator says so.
   Amending needs `WT_NO_BUMP=1 git commit --amend`. See `docs/DEVELOPMENT.md`.
+  **A `pre-push` hook refuses a push that would put two commits on one version**
+  (operator decision 2026-09-26) — the shape `git pull --rebase` leaves when your
+  commit's bump matched the one it landed on. Run the `git rebase -x
+  tools/renumber-version.sh <base>` it prints, then push again.
 - **15 fps is set ON THE CAMERAS and nowhere else.** The fleet broadcasts at 15;
   no client, proxy or transcode may change it. Verified 2026-08-15: zero
   frame-rate setters in `src/`+`qml/`, and go2rtc's 133 transcode producers pass

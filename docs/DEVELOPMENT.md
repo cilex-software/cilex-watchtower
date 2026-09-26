@@ -93,6 +93,25 @@ version number. Verify with `tools/bump-version.sh --print`.
 Merges, rebases, cherry-picks and reverts are skipped automatically: the version
 already travelled with the commit.
 
+**…which is how two commits used to end up on one version, so a `pre-push` hook now
+refuses it** (operator decision 2026-09-26). `git pull --rebase` replays a local commit
+onto a remote one that made the SAME bump (N → N+1); git merges the identical change
+cleanly, the replayed commit carries no bump of its own, and pre-commit does not run
+during a rebase. Measured on `main` that day: of the last 300 first-parent commits, 12
+version numbers were each shared by two or more commits that changed code (28 counting
+docs-only commits) — among them 854cb4c/efa1561, both 1.1.626, the build blocked on the
+booth. The hook refuses any pushed commit whose version is not strictly greater than its
+parent's and prints the fix, which renumbers the whole chain in one pass:
+
+```
+git rebase -x tools/renumber-version.sh <base printed by the hook>
+```
+
+Each replayed commit becomes its parent + 1 (idempotent; a commit already there is left
+alone). `WT_ALLOW_SAME_VERSION=1 git push` skips the check — emergencies only. Pinned by
+`tools/tests/version-push-check.sh` in pre-commit, on a real collision made in throwaway
+repositories.
+
 **Both agents bumping the same line will conflict** when the Windows agent's
 `win/<topic>` branch meets `main`. The conflict is always in
 `CMakeLists.txt:4` plus the packaging files, and the resolution is always "take

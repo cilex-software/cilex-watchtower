@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Cilex Watchtower — refuse a push that would put two commits on one version.
+#
+# WHY (operator decision 2026-09-26; found by the Windows station agent). The
+# pre-commit hook bumps the patch on every commit, but `git pull --rebase` replays a
+# local commit onto a remote one that made the SAME bump (N -> N+1). Git merges the
+# identical change cleanly, the replayed commit carries no version change of its own,
+# and pre-commit does not run during a rebase. Two commits, one number. The Windows
+# agent counted 12 such pairs in the last 300 first-parent commits on main -- among
+# them 854cb4c/efa1561, both 1.1.626, the build that was blocked on the booth.
+#
+# RULE: every pushed commit (first-parent; merges and roots exempt) carries a version
+# strictly greater than its parent's. The fix it prints renumbers the chain in one
+# pass: `git rebase -x tools/renumber-version.sh <base>` makes each replayed commit
+# its parent + 1. WT_ALLOW_SAME_VERSION=1 skips the check -- for emergencies only.
+set -uo pipefail
+[[ "${WT_ALLOW_SAME_VERSION:-}" == "1" ]] && exit 0
+
+ZERO=0000000000000000000000000000000000000000
+ver_at() {
+    git show "$1:CMakeLists.txt" 2>/dev/null |
+        sed -n 's/^ *VERSION \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\) *$/\1/p' | head -1
+}
+greater() {                    # is version $1 strictly greater than version $2 ?
+    local a1 a2 a3 b1 b2 b3
+    IFS=. read -r a1 a2 a3 <<<"$1"
+    IFS=. read -r b1 b2 b3 <<<"$2"
+    (( a1 > b1 || (a1 == b1 && (a2 > b2 || (a2 == b2 && a3 > b3))) ))
+}
+
+bad=""
+base=""
+while read -r lref lsha rref rsha; do
+    [[ -z "${lsha:-}" || "$lsha" == "$ZERO" ]] && continue          # a delete
+    if [[ "$rsha" == "$ZERO" ]]; then
+        commits=$(git rev-list --first-parent --reverse "$lsha" --not --remotes)
+    else
+        commits=$(git rev-list --first-parent --reverse "$rsha..$lsha")
+    fi
+    for c in $commits; do
+        n=$(git rev-list --parents -n1 "$c" | wc -w)
+        (( n == 2 )) || continue                  # root (1) or merge (3+): exempt
+        vc=$(ver_at "$c"); vp=$(ver_at "$c^")
+        [[ -n "$vc" && -n "$vp" ]] || continue    # no version file at that commit
+        if ! greater "$vc" "$vp"; then
+            bad+="  $(git log -1 --format='%h %s' "$c" | cut -c1-72)  carries $vc; its parent carries $vp"$'\n'
+            [[ -n "$base" ]] || base=$(git rev-parse --short "$c^")
+        fi
+    done
+done
+
+if [[ -n "$bad" ]]; then
+    {
+        echo "pre-push: REFUSED -- a commit would not advance the version past its parent's:"
+        printf '%s' "$bad"
+        echo
+        echo "Renumber from there (each commit becomes its parent + 1), then push again:"
+        echo "  git rebase -x tools/renumber-version.sh $base"
+        echo
+        echo "(WT_ALLOW_SAME_VERSION=1 git push skips this check -- emergencies only.)"
+    } >&2
+    exit 1
+fi
+exit 0
