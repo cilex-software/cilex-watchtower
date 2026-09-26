@@ -45,8 +45,9 @@ class Fake:
         self.claims.append(analyzer); self._pop("claim", analyzer)
         u = self.units.get(analyzer, []); self.units[analyzer] = []
         return u, 0
-    def segments(self, u, limit, stream_type):
+    def segments(self, u, limit, stream_type, window=None, window_at=None):
         self.seg_calls.append((u.camera_id, limit, stream_type))
+        self.window_calls = getattr(self, "window_calls", []) + [(window, window_at)]
         return list(self.segs.get((u.camera_id, u.hour_start), []))
     def fetch(self, s, dest):
         self.fetched.append(s.segment_id)
@@ -384,7 +385,7 @@ class Gap:
                                else urllib.error.URLError(ConnectionRefusedError(111, "refused")))
     def claim(self, a, n):
         self._hit("claim"); return [unit(a=a)], 0
-    def segments(self, u, n, st):
+    def segments(self, u, n, st, window=None, window_at=None):
         self._hit("segments"); return [seg(1)]
     def fetch(self, sg, d):
         self._hit("fetch"); open(d, "wb").write(b"x"); return 1
@@ -512,6 +513,120 @@ except W.Refusal as e:
     r = e
 check("REAL client: a closed port becomes a retryable transport_error",
       r is not None and r.detail == "transport_error" and W.action_for(r) is W.Action.RETRY_LATER, repr(r))
+
+# ---------------------------------------------------------------- frame_difference (A1/A2)
+import hashlib, labs_framediff as FDM
+FD = P.FrameDifferencePlugin()
+
+# The vendored module must stay BYTE-IDENTICAL to cilex-vision's: its threshold is
+# calibrated to its own decoder, and a silent local edit would change what 2.0 means.
+_cvfd = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api/labs_framediff.py")
+if _cvfd.exists():
+    ours = hashlib.sha256((ROOT / "tools/labs/labs_framediff.py").read_bytes()).hexdigest()
+    theirs = hashlib.sha256(_cvfd.read_bytes()).hexdigest()
+    check("vendored labs_framediff.py is byte-identical to cilex-vision's", ours == theirs,
+          f"ours {ours[:12]} theirs {theirs[:12]} -- re-vendor it")
+else:
+    print("SKIP vendored framediff vs source -- their checkout is not on this box")
+
+u1 = W.ScanUnit("c", "2026-09-26T01:00:00Z", "frame_difference", None, 1)
+u2 = W.ScanUnit("c", "2026-09-26T02:00:00Z", "frame_difference", None, 1)
+check("window_at is DETERMINISTIC per hour (a retry must score the same minutes)",
+      FD.window_at(u1) == FD.window_at(u1))
+check("...different hours look at different minutes", FD.window_at(u1) != FD.window_at(u2))
+check("...and stays inside 0..1", all(0.0 <= FD.window_at(W.ScanUnit("c", f"2026-09-26T{h:02d}:00:00Z",
+      "fd", None, 1)) < 1.0 for h in range(24)))
+
+def fseg(i, dur=30.0, start="2026-09-26T01:10:00+00:00", end="2026-09-26T01:10:30+00:00"):
+    return W.Segment(f"f{i}", f"http://x/f{i}", start, end, dur, 5_000_000, "main", 2560, 1440, "hevc")
+
+got = {}
+def fake_analyse(chunks, span_s=None, **k):
+    got["bytes"] = b"".join(chunks); got["span_s"] = span_s
+    return FDM.Scores(peak=9.5, sustained=3, ratio=None, frames=30, median_delta=0.4,
+                      sustained_s=12.0, keyframe_interval_s=4.0)
+_real = P.fdiff.analyse
+P.fdiff.analyse = fake_analyse
+try:
+    segs = [fseg(1, start="2026-09-26T01:10:00+00:00", end="2026-09-26T01:10:30+00:00"),
+            fseg(2, start="2026-09-26T01:10:30+00:00", end="2026-09-26T01:11:00+00:00"),
+            fseg(3, start="2026-09-26T01:11:00+00:00", end="2026-09-26T01:11:30+00:00")]
+    c = Fake(segs={(u1.camera_id, u1.hour_start): segs})
+    o = W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    wc = c.window_calls[-1]
+    check("asks for a WINDOW, not a limit", wc[0] == 4 and c.seg_calls[-1][2] == "main", str(wc))
+    check("...at the deterministic position for this hour", wc[1] == FD.window_at(u1))
+    obs = c.submitted[0][1]["observations"] if c.submitted else []
+    check("ONE observation per window", len(obs) == 1, str(len(obs)))
+    ob = obs[0] if obs else {}
+    check("...spanning the first segment's start to the last one's end",
+          ob.get("start_time") == "2026-09-26T01:10:00Z" and ob.get("end_time") == "2026-09-26T01:11:30Z", str(ob))
+    check("...with NO object class, count, bbox or shape: it observes activity, not an object",
+          not {"object_class", "object_count", "bbox_x", "shape_class", "scene_light"} & set(ob))
+    check("metrics are as_metrics() passed through UNCHANGED",
+          ob.get("metrics") == FDM.Scores(peak=9.5, sustained=3, ratio=None, frames=30, median_delta=0.4,
+                                          sustained_s=12.0, keyframe_interval_s=4.0).as_metrics(), str(ob.get("metrics")))
+    check("span_s is ALWAYS passed, as the sum of the segments' durations", got.get("span_s") == 90.0, str(got.get("span_s")))
+    check("the analyser received every segment's bytes, in order, as a stream", got.get("bytes") == b"x" * 300,
+          f"{len(got.get('bytes', b''))} bytes")
+    check("one decoder run for the whole window", o.decoder_runs == 1, str(o.decoder_runs))
+    check("raw-path temp files are removed", leftovers() == [], str(leftovers()))
+
+    c = Fake(segs={(u1.camera_id, u1.hour_start): []})
+    W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("NO footage in the window is a real answer: filed EMPTY, not failed",
+          b.get("observations") == [] and not b.get("failed"), str(b))
+
+    P.fdiff.analyse = lambda chunks, span_s=None, **k: (list(chunks), None)[1]
+    c = Fake(segs={(u1.camera_id, u1.hour_start): segs})
+    W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("footage that could not be DECODED is a failure to measure, filed with its cause",
+          b.get("failed") is True and "no_keyframes_decoded" in (b.get("error") or ""), str(b))
+    P.fdiff.analyse = fake_analyse
+
+    c = Fake(segs={(u1.camera_id, u1.hour_start): [fseg(i) for i in range(9)]})
+    W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("a server that IGNORED `window` (returned 9 for 4) is refused, not scored",
+          b.get("failed") is True and "server_ignored_window" in (b.get("error") or ""), str(b))
+
+    c = Fake(segs={(u1.camera_id, u1.hour_start): segs},
+             refuse={("fetch", "f2"): [R(404, "segment_not_found")]})
+    W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("a HOLE in a consecutive window is a failure, never silently skipped",
+          b.get("failed") is True and "window_has_a_hole" in (b.get("error") or ""), str(b))
+    check("...and its temp files are removed too", leftovers() == [], str(leftovers()))
+finally:
+    P.fdiff.analyse = _real
+
+# the real HTTP client: window and limit never mix
+_H.status, _H.payload = 200, []
+srv2 = http.server.HTTPServer(("127.0.0.1", 0), _H)
+paths_seen = []
+_orig = _H._reply
+def _rec(self): paths_seen.append(self.path); return _orig(self)
+_H.do_GET = _rec
+threading.Thread(target=srv2.serve_forever, daemon=True).start()
+hc2 = W.HttpLabsClient(f"http://127.0.0.1:{srv2.server_address[1]}", "t", timeout_s=5)
+hc2.segments(u1, 4, "main", 4, 0.25)
+check("REAL client sends window + window_at + stream_type and NO limit",
+      paths_seen and "window=4" in paths_seen[-1] and "window_at=0.25" in paths_seen[-1]
+      and "stream_type=main" in paths_seen[-1] and "limit=" not in paths_seen[-1], paths_seen[-1] if paths_seen else "")
+try:
+    hc2.segments(u1, 4, None, 4, 0.5); raised = False
+except ValueError:
+    raised = True
+check("...and refuses window WITHOUT stream_type before sending (server: window_without_stream_type)", raised)
+srv2.shutdown(); _H.do_GET = _orig
+
+check("capability check refuses a server without `window`",
+      FD.supported_by({"paths": {"/labs/scan/{a}/{c}/{h}/segments": {"get": {"parameters": [{"name": "limit"}]}}}}) is not None)
+check("...and accepts one with it",
+      FD.supported_by({"paths": {"/labs/scan/{a}/{c}/{h}/segments": {"get": {"parameters":
+            [{"name": "limit"}, {"name": "window"}, {"name": "window_at"}]}}}}) is None)
 
 # ---------------------------------------------------------------- timestamps
 try:

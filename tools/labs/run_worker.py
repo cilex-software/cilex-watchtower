@@ -32,7 +32,8 @@ def decode(path, kf, want_chroma):
     return list(frame_source.iter_frames(path, keyframes_only=kf, want_chroma=want_chroma))
 
 
-PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin}
+PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin,
+           "frame_difference": P.FrameDifferencePlugin}
 
 
 def main():
@@ -49,10 +50,25 @@ def main():
     tok = read_token()
     print(f"station token : {'present' if tok else 'MISSING'} ({CONF})")
     try:
-        v = json.load(urllib.request.urlopen(f"{a.api}/openapi.json", timeout=10))["info"]["version"]
-        print(f"service       : {a.api}  version {v}")
+        oa = json.load(urllib.request.urlopen(f"{a.api}/openapi.json", timeout=10))
+        print(f"service       : {a.api}  version {oa['info']['version']}")
     except Exception as e:
         sys.exit(f"service unreachable: {type(e).__name__}")
+    # NEVER CLAIM WORK THIS SERVER CANNOT SERVE. A claimed unit that cannot be done is
+    # either abandoned (recorded as 'lease expired', naming the wrong cause) or filed
+    # failed (counting towards its three attempts, and staying failed after the server
+    # is upgraded). So a plugin that needs a server capability is dropped HERE, before
+    # anything is leased.
+    keep = []
+    for n in names:
+        why = getattr(PLUGINS[n], "supported_by", lambda _oa: None)(oa)
+        if why:
+            print(f"skipping      : {n} -- {why}")
+        else:
+            keep.append(n)
+    names = keep
+    if not names:
+        sys.exit("nothing this server can run")
     if not tok:
         sys.exit("no STATION_TOKEN in warden.conf; nothing to run as")
 

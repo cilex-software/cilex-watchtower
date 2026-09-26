@@ -12,7 +12,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import hashlib
+
 import b1_illumination as b1
+import labs_framediff as fdiff
 import worker as W
 import shape_observations as so
 
@@ -160,3 +163,77 @@ class ShapePlugin:
                     row["metrics"] = extra
                 out.append(row)
         return out
+
+
+# ----------------------------------------------------------------------------------
+class FrameDifferencePlugin:
+    """A1/A2 (cilex-vision's analyser, vendored byte-identical as labs_framediff.py and
+    pinned to their source by tools/tests/labs-worker.py). Answers how violent the most
+    violent moment was (`peak`) and how long activity lasted (`sustained`), from
+    keyframe differencing. Proven against a labelled control.
+
+    IT DECODES FOR ITSELF, and must: its threshold (2.0) was calibrated on its own
+    `scale=W:96,format=gray` decoder. The shared decoder's native-resolution luma gave
+    deltas 4.98x larger on the same footage (measured 2026-09-26). See worker._run_raw.
+
+    A WINDOW, NOT A SEGMENT: one 30 s segment yields ~8 keyframes, so per-segment
+    `sustained` can only be 0..7. The server returns `window` CONSECUTIVE main segments
+    around `window_at` (a6671c5). window=4 is ~2 minutes, ~1/30 of the 96.8
+    CPU-s/camera-hour and ~600 MB of main that a full hour would cost.
+    """
+    name = "frame_difference"
+    version = "fd-1"
+    stream_type = "main"             # the threshold was calibrated on main
+    keyframes_only = True
+    want_chroma = False
+    stateful = False
+    wants_raw = True
+    window = 4
+    segment_limit = window           # unused when `window` is set; the server refuses both
+
+    def new_state(self):
+        return None
+
+    @staticmethod
+    def window_at(unit) -> float:
+        """Where in the hour to look, DETERMINISTIC from the hour.
+
+        Deterministic is what makes a retry safe: a re-submission after a dropped
+        connection must describe the SAME two minutes, because cilex-vision's
+        version-scoped DELETE replaces the unit's rows with whatever arrives. A random
+        position would quietly swap one window's scores for another's. A hash (not
+        Python's hash(), which is salted per process) gives a different minute each
+        hour and the same one on every retry.
+        """
+        h = hashlib.sha256(str(unit.hour_start).encode()).digest()
+        return int.from_bytes(h[:4], "big") / 2**32
+
+    @staticmethod
+    def supported_by(openapi: dict) -> "Optional[str]":
+        """None if the server can serve a window; otherwise why not."""
+        try:
+            for path, ops in openapi["paths"].items():
+                if path.endswith("/segments") and "/labs/scan/" in path:
+                    names = {p["name"] for p in ops.get("get", {}).get("parameters", [])}
+                    return None if {"window", "window_at"} <= names else \
+                        "server predates `window` on list_segments (cilex-vision a6671c5)"
+        except Exception:
+            pass
+        return "could not read list_segments from the server's OpenAPI"
+
+    def analyse_raw(self, chunks, segs, unit):
+        if not segs:
+            return []            # no footage in the window: a real answer, not a failure
+        span = sum(float(s.duration_s or 0.0) for s in segs)
+        # ALWAYS pass span_s: `sustained` counts keyframe intervals (~4 s here), so only
+        # `sustained_s` is comparable across cameras.
+        scores = fdiff.analyse(chunks, span_s=span if span > 0 else None)
+        if scores is None:
+            return None          # segments existed but nothing decoded: cannot measure
+        st, en = _parse(segs[0].start_time), _parse(segs[-1].end_time)
+        if st is None:
+            return None
+        # One observation per window. No object class, count or bbox: this analyser
+        # observes an ACTIVITY LEVEL, not an object. Metrics passed through UNCHANGED.
+        return [{"start_time": _iso(st), "end_time": _iso(en or st),
+                 "metrics": scores.as_metrics()}]

@@ -60,7 +60,8 @@ class FilerClient:
     """Serves real bytes; claims and submits NOTHING."""
     def __init__(self, segs): self.segs, self.bodies = segs, []
     def claim(self, *a): raise AssertionError("smoke test must not claim")
-    def segments(self, u, limit, stream_type): return [s for s, _ in self.segs][:limit]
+    def segments(self, u, limit, stream_type, window=None, window_at=None):
+        return [s for s, _ in self.segs][:window or limit]
     def fetch(self, seg, dest):
         uri = dict((s.segment_id, u) for s, u in self.segs)[seg.segment_id]
         urllib.request.urlretrieve(f"{FILER}/{uri.replace('s3://','',1)}", dest)
@@ -72,7 +73,9 @@ def decode(path, kf, want_chroma):
 
 total_bad = 0
 for plugin, cam, stream, n in ((P.IlluminationPlugin(), "hiwatch-04eecdd45e2d", "main", 2),
-                               (P.ShapePlugin(), "hiwatch-849459c4f13d", "sub", 12)):
+                               (P.ShapePlugin(), "hiwatch-849459c4f13d", "sub", 12),
+                               # REAL vendored analyser, REAL decoder, 4 CONSECUTIVE segments
+                               (P.FrameDifferencePlugin(), "hiwatch-849459c4f13d", "main", 4)):
     segs = pick(cam, stream, n)
     c = FilerClient(segs)
     u = W.ScanUnit(cam, "smoke", plugin.name, None, 0)

@@ -188,8 +188,9 @@ class Segment:
 
 class LabsClient(Protocol):
     def claim(self, analyzer: str, limit: int) -> tuple[list[ScanUnit], int]: ...
-    def segments(self, unit: ScanUnit, limit: int,
-                 stream_type: Optional[str]) -> list[Segment]: ...
+    def segments(self, unit: ScanUnit, limit: int, stream_type: Optional[str],
+                 window: Optional[int] = None,
+                 window_at: Optional[float] = None) -> list[Segment]: ...
     def fetch(self, seg: Segment, dest_path: str) -> int: ...
     def submit(self, unit: ScanUnit, body: dict) -> None: ...
 
@@ -239,10 +240,20 @@ class HttpLabsClient:
                  for u in d.get("units", [])]
         return units, int(d.get("queue_remaining", 0))
 
-    def segments(self, unit, limit, stream_type):
-        q = {"limit": limit}
-        if stream_type:
-            q["stream_type"] = stream_type
+    def segments(self, unit, limit, stream_type, window=None, window_at=None):
+        # `window` asks for CONSECUTIVE segments around `window_at` (0..1 of the hour)
+        # instead of the first `limit`. cilex-vision refuses window with limit, and
+        # window without stream_type (a6671c5), so the two shapes never mix here.
+        if window is not None:
+            if not stream_type:
+                raise ValueError("window requires stream_type (server: window_without_stream_type)")
+            q = {"window": window, "stream_type": stream_type}
+            if window_at is not None:
+                q["window_at"] = f"{window_at:.6f}"
+        else:
+            q = {"limit": limit}
+            if stream_type:
+                q["stream_type"] = stream_type
         d = self._req("GET", _unit_path(unit, "segments") + "?" + urllib.parse.urlencode(q))
         return [Segment(s["segment_id"], s["fetch_url"], s.get("start_time"),
                         s.get("end_time"), s.get("duration_s"), s.get("bytes"),
@@ -396,8 +407,10 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         # The plugin's stream, not None: an unpinned request returns whatever the
         # server picks, and an analyser calibrated on one stream is not calibrated
         # on the other (B1's IR floor was measured on main; A4-A6's cost on sub).
+        win = getattr(plugin, "window", None)
         segs = _retrying(client.segments, unit, plugin.segment_limit,
-                         getattr(plugin, "stream_type", None), sleep=sleep)
+                         getattr(plugin, "stream_type", None), win,
+                         plugin.window_at(unit) if win else None, sleep=sleep)
     except Refusal as r:
         out.action = action_for(r); out.note = str(r)
         return out
@@ -406,6 +419,21 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         state = states.setdefault(unit.camera_id, plugin.new_state())
     else:
         state = None
+
+    win = getattr(plugin, "window", None)
+    if win is not None and len(segs) > win:
+        # The server returned more than the window asked for, so it IGNORED the
+        # parameter -- a server that predates a6671c5. FastAPI drops an unknown
+        # query param without error, so this is the only place it shows. Scoring
+        # 200 segments as though they were a 4-segment window would be a wrong
+        # answer that looked right. The runner checks for window support before it
+        # claims anything; this is the belt to that braces.
+        return _file_failed(client, plugin, unit, out,
+                            f"server_ignored_window: asked {win}, got {len(segs)}",
+                            Action.BUG)
+
+    if getattr(plugin, "wants_raw", False):
+        return _run_raw(client, plugin, unit, segs, out, tmpdir, sleep)
 
     decoded: list[tuple[Segment, list]] = []
     for seg in segs:
@@ -468,6 +496,87 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         if a is Action.BUG:
             # The server refused the body as malformed. Retrying the same body is
             # pointless; abandoning it erases the reason. File it failed, once.
+            return _file_failed(client, plugin, unit, out, f"submit_refused: {r}", a)
+        out.action = a; out.note = f"submit: {r}"
+        return out
+    out.submitted = True
+    out.observations = len(obs)
+    return out
+
+
+def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
+    """For an analyser that decodes FOR ITSELF from raw bytes (frame_difference).
+
+    WHY IT CANNOT SHARE THE DECODE PASS the other plugins use, measured 2026-09-26:
+    frame_difference's threshold (2.0) was calibrated on its own decoder, which does
+    `scale=W:96,format=gray`. The shared decoder hands over native-resolution luma.
+    On the same four consecutive main segments the shared frames gave a median delta
+    of 1.950 against the calibrated decoder's 0.391 -- 4.98x larger. Both happened to
+    score sustained=0 there, because that footage is quiet and 1.95 sat just under
+    2.0; on busier footage the shared frames would cross the threshold almost every
+    interval. So the bytes go to ITS decoder, untouched.
+
+    STREAMED, never buffered: cilex-vision's analyse() taking raw bytes OOM-killed
+    their container at ~450 MB/hour doubled by a join. Each segment is read back in
+    1 MiB chunks, in order, into the analyser's one long-lived ffmpeg.
+    """
+    paths = []
+    try:
+        for seg in segs:
+            fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
+            os.close(fd)
+            paths.append(path)
+            try:
+                _retrying(client.fetch, seg, path, sleep=sleep)
+            except Refusal as r:
+                a = action_for(r)
+                if a is Action.SKIP_SEGMENT:
+                    # A hole in a CONSECUTIVE window is not a skippable segment: the
+                    # score would silently span a gap it cannot see.
+                    return _file_failed(client, plugin, unit, out,
+                                        f"window_has_a_hole: {seg.segment_id} not found", a)
+                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
+                return out
+        out.segments_scanned = len(paths)
+        out.decoder_runs = 1 if paths else 0
+
+        def chunks():
+            for p_ in paths:
+                with open(p_, "rb") as f:
+                    while True:
+                        c = f.read(1 << 20)
+                        if not c:
+                            break
+                        yield c
+        try:
+            obs = plugin.analyse_raw(chunks(), segs, unit)
+        except Exception as e:
+            return _file_failed(client, plugin, unit, out,
+                                f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
+    finally:
+        for p_ in paths:
+            try:
+                os.unlink(p_)
+            except OSError:
+                pass
+
+    if obs is None:
+        # None means the analyser could not MEASURE (no keyframes decoded). Filing an
+        # empty list would say "looked and found nothing" -- a claim about the scene
+        # this worker has no grounds for. So it is a failure, with its cause.
+        return _file_failed(client, plugin, unit, out, "no_keyframes_decoded", Action.BUG)
+    for ob in obs:
+        try:
+            check_metrics(ob.get("metrics"))
+        except MetricsViolation as e:
+            return _file_failed(client, plugin, unit, out, f"metrics_violation: {e}", Action.BUG)
+    body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
+            "segments_scanned": out.segments_scanned, "observations": obs}
+    try:
+        _retrying(client.submit, unit, body, sleep=sleep)   # identical body on retry
+    except Refusal as r:
+        a = action_for(r)
+        if a is Action.BUG:
             return _file_failed(client, plugin, unit, out, f"submit_refused: {r}", a)
         out.action = a; out.note = f"submit: {r}"
         return out
