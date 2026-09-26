@@ -193,7 +193,10 @@ class Frame:
     """
 
     index: int
-    t_offset_s: float  # seconds from the start of the window, monotonic
+    # Seconds from the start of the window, NON-DECREASING. Three cameras open every
+    # segment with two key packets one PTS tick (11 us) apart; frame_source keeps
+    # both, each at its own time, and an identical-PTS pair would share one.
+    t_offset_s: float
     luma: np.ndarray
     # OPT-IN, default None. Added 2026-09-25 by the Linux box so B1 (illumination)
     # can share this decode pass instead of running a second one. ADDITIVE: A4-A6

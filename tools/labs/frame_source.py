@@ -108,6 +108,10 @@ class Probe:
     fps: float | None
     keyframe_gop: int | None = None  # frames between I-frames, measured
     pix_fmt: str | None = None
+    # Each key packet's own PTS, in seconds from the segment's first packet, ascending.
+    # Measured by the same demux pass as keyframe_gop; None when that was not run or
+    # its answer was not believed. See iter_frames, ON TIMESTAMPS.
+    key_times_s: tuple[float, ...] | None = None
 
     @property
     def y_bytes(self) -> int:
@@ -159,32 +163,54 @@ def probe(path: str, ffmpeg: str | None = None, measure_gop: bool = False) -> Pr
     pix_fmt = pm.group("pf") if pm else None
 
     gop = None
+    key_times = None
     if measure_gop:
-        total, keys = _count_packets(ff, path)
-        if not 0 < keys < total:
+        pk = _read_packets(ff, path)
+        total, keys = pk.total, pk.keys
+        if 0 < keys < total:
+            key_times = pk.key_times_s
+        else:
             # Degenerate by the demux's account: nothing read, no keyframe, or EVERY
             # packet a keyframe. The last is also exactly what a change to framecrc's
             # F= convention would look like, so it is re-counted by decoding rather
             # than believed: a wrong GOP silently rescales every keyframe timestamp.
+            # key_times stays None -- a demux answer not believed times nothing either.
             # Never triggered on the 28 -sub files measured here on 2026-09-26.
             total = _count_frames(ff, path, keyframes_only=False)
             keys = _count_frames(ff, path, keyframes_only=True)
         if keys > 0 and total > 0:
             gop = max(1, int(round(total / keys)))
     return Probe(
-        width=w, height=h, codec=codec, fps=fps, keyframe_gop=gop, pix_fmt=pix_fmt
+        width=w, height=h, codec=codec, fps=fps, keyframe_gop=gop, pix_fmt=pix_fmt,
+        key_times_s=key_times,
     )
 
 
-# framecrc writes one line per packet and appends `F=0x..` only when the packet's flags
-# are not exactly AV_PKT_FLAG_KEY (libavformat/framecrcenc.c). So a keyframe is a line
-# with no F=, or one whose F still carries bit 0x1 (a key packet ALSO flagged, e.g.
-# corrupt). Lines starting with '#' are its header.
+# framecrc writes one line per packet --
+#     stream, dts, pts, duration, size, crc[, F=0x..][, S=<side data>]
+# -- and appends `F=0x..` only when the packet's flags are not exactly AV_PKT_FLAG_KEY
+# (libavformat/framecrcenc.c). So a keyframe is a line with no F=, or one whose F still
+# carries bit 0x1 (a key packet ALSO flagged, e.g. corrupt). Lines starting with '#'
+# are its header, among them `#tb 0: num/den`, the time base of dts/pts/duration.
 _FRAMECRC_FLAGS_RE = re.compile(rb",\s*F=0x([0-9A-Fa-f]+)")
+_FRAMECRC_TB_RE = re.compile(rb"#tb\s+0:\s*(\d+)\s*/\s*(\d+)")
+_NOPTS = -(2 ** 63)           # AV_NOPTS_VALUE, as framecrc prints a missing timestamp
 
 
-def _count_packets(ff: str, path: str) -> tuple[int, int]:
-    """(total, key) video packets from ONE demux pass. Nothing is decoded.
+@dataclass(frozen=True)
+class _Packets:
+    total: int
+    keys: int
+    # Each key packet's PTS minus the segment's first PTS, in seconds, ascending.
+    # None when any key packet had no PTS or the time base was missing: then nothing
+    # here is timed, rather than some of it.
+    key_times_s: tuple[float, ...] | None
+    # First PTS to the end of the last packet (its pts + duration), in seconds.
+    span_s: float | None
+
+
+def _read_packets(ff: str, path: str) -> _Packets:
+    """Count and time a segment's video packets from ONE demux pass. Nothing is decoded.
 
     This replaced two DECODES done only to space keyframe timestamps: every frame, then
     every keyframe. The Linux box measured that at ~4.1 of ~5.0 CPU-s per main segment
@@ -205,16 +231,41 @@ def _count_packets(ff: str, path: str) -> tuple[int, int]:
     return _parse_framecrc(p.stdout)
 
 
-def _parse_framecrc(out: bytes) -> tuple[int, int]:
+def _parse_framecrc(out: bytes) -> _Packets:
     total = keys = 0
+    tb = None
+    first = end = None
+    key_pts: list[int] = []
+    timed = True
     for line in out.splitlines():
-        if not line.strip() or line.startswith(b"#"):
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith(b"#"):
+            m = _FRAMECRC_TB_RE.match(s)
+            if m and int(m.group(2)):
+                tb = int(m.group(1)) / int(m.group(2))
             continue
         total += 1
-        m = _FRAMECRC_FLAGS_RE.search(line)
-        if m is None or int(m.group(1), 16) & 0x1:
-            keys += 1
-    return total, keys
+        m = _FRAMECRC_FLAGS_RE.search(s)
+        is_key = m is None or bool(int(m.group(1), 16) & 0x1)
+        keys += is_key
+        try:
+            f = s.split(b",")
+            pts, dur = int(f[2]), int(f[3])
+        except (IndexError, ValueError):
+            pts, dur = _NOPTS, 0
+        if pts == _NOPTS:
+            timed = timed and not is_key
+            continue
+        first = pts if first is None else min(first, pts)
+        end = pts + max(dur, 0) if end is None else max(end, pts + max(dur, 0))
+        if is_key:
+            key_pts.append(pts)
+    if tb is None or first is None or not timed or len(key_pts) != keys:
+        return _Packets(total, keys, None, None)
+    return _Packets(total, keys, tuple(sorted((k - first) * tb for k in key_pts)),
+                    (end - first) * tb)
 
 
 def _count_frames(ff: str, path: str, keyframes_only: bool) -> int:
@@ -292,19 +343,44 @@ def iter_frames(
 ) -> Iterator[Frame]:
     """Yield luma Frames from one segment through one decoder process.
 
-    ON TIMESTAMPS. `t_offset_s` is derived from a measured constant step rather than
-    per-frame PTS, because reading PTS means parsing `showinfo` off stderr while
-    draining rawvideo off stdout, and getting that wrong deadlocks. That is sound on
-    this fleet and its soundness was measured, not assumed: I-frame intervals are
-    exactly fixed -- 59 of 59 gaps identical across two cameras, GOP 50 on 12 of 24
-    sampled and GOP 15 on 9, at 15.1 fps throughout. On variable-rate input this
-    would drift, and an analyser that needs true PTS should pass `step_s` or read
-    them itself.
+    ON TIMESTAMPS. With `keyframes_only` (and no `step_s` forced), each keyframe's
+    `t_offset_s` is t0 plus its OWN packet's PTS, measured from the segment's first
+    packet. The times come from the same framecrc demux pass that measures the GOP, so
+    they cost nothing extra and no PTS is parsed off a decoder's stderr (that is how
+    a reader deadlocks).
+
+    CORRECTED 2026-09-26. This used to be t0 + i * round(total/keys) / fps, and this
+    docstring called that sound because the fleet's I-frame intervals are exactly
+    fixed. The intervals ARE fixed; the per-segment ESTIMATE of them was not. On a
+    15 s segment of a GOP-50 camera, 5 keys in ~227 frames give 45, not 50, and
+    against each key packet's PTS the times were off by up to 1.24-1.28 s (12 of 27
+    -sub files here). GOP-15 cameras were estimated at 14 on 7 files (0.87-0.94 s).
+    Three cameras open every segment with TWO key packets one PTS tick apart (PTS 0
+    and 1 at 90 kHz, 11 us): 38, and 2.53 s. The Linux box, the worker's owner, asked
+    for the fix before the analysers on this path had live rows on the old times.
+
+    KEY PAIRS ARE KEPT, each at its own packet's time: in passthrough the decoder
+    emits both keys of those near-simultaneous pairs. cilex-vision's analysers were
+    calibrated on footage with those pairs, and their own B3 decoder times frames by
+    showinfo's pts_time (labs_foreground_mask.decode_luma; read from their code, not
+    measured), which is the same clock. Dropping a pair here would make the shared
+    pass differ from their calibration (the frame_difference trap). t_offset_s is
+    non-decreasing: a pair at an IDENTICAL PTS, should one appear, would share a time.
+
+    NOT CHANGED: a full decode (keyframes_only=False) still steps by 1/fps from the
+    stream header, which reads 15.0 where these streams run at ~15.1 -- ~0.1 s over a
+    15 s segment. A caller that passes `step_s` gets exactly that constant step.
+    Boundary: timing assumes the decoder emits one frame per key packet, in order --
+    true on all 28 files measured, where the counts are identical. A keyframe the
+    decoder then fails on would shift every later time onto the next key packet's.
     """
     ff = ffmpeg or find_ffmpeg()
     pr = pr or probe(path, ff, measure_gop=keyframes_only)
 
+    times = None
     if step_s is None:
+        if keyframes_only and pr.key_times_s:
+            times = [t0 + t for t in pr.key_times_s]
         if pr.fps and pr.fps > 0:
             step_s = 1.0 / pr.fps
             if keyframes_only:
@@ -313,7 +389,7 @@ def iter_frames(
             step_s = None  # analyser will fall back to a frame count, and say so
 
     yield from _stream(ff, [path], None, pr, keyframes_only, t0, step_s, want_chroma,
-                       want_planes)
+                       want_planes, times=times)
 
 
 def iter_concat(
@@ -336,9 +412,17 @@ def iter_concat(
     ffmpeg's concat demuxer could not read a list file containing this booth's
     Cyrillic profile directory under any PowerShell 5.1 encoding -- that cost a run,
     and it is why this takes the path rather than choosing one.
+
+    Keyframe times are exact within each file, as in iter_frames, and the files are
+    laid end to end: file k starts where file k-1's last packet ends. That is the same
+    back-to-back assumption the old constant step made. A gap between segments is not
+    visible here. If any file cannot be timed, all of them fall back to the step.
     """
     ff = ffmpeg or find_ffmpeg()
     pr = pr or probe(paths[0], ff, measure_gop=keyframes_only)
+    times = None
+    if step_s is None and keyframes_only:
+        times = _concat_key_times(ff, paths)
     if step_s is None and pr.fps and pr.fps > 0:
         step_s = 1.0 / pr.fps
         if keyframes_only:
@@ -349,7 +433,19 @@ def iter_concat(
             fh.write("file '" + p.replace("\\", "/") + "'\n")
 
     yield from _stream(ff, paths, list_path, pr, keyframes_only, 0.0, step_s, want_chroma,
-                       want_planes)
+                       want_planes, times=times)
+
+
+def _concat_key_times(ff: str, paths: Sequence[str]) -> list[float] | None:
+    out: list[float] = []
+    offset = 0.0
+    for p in paths:
+        pk = _read_packets(ff, p)
+        if not 0 < pk.keys < pk.total or pk.key_times_s is None or pk.span_s is None:
+            return None
+        out.extend(offset + t for t in pk.key_times_s)
+        offset += pk.span_s
+    return out
 
 
 def _stream(
@@ -362,6 +458,7 @@ def _stream(
     step_s: float | None,
     want_chroma: bool = False,
     want_planes: bool = False,
+    times: Sequence[float] | None = None,
 ) -> Iterator[Frame]:
     # Plane geometry, checked BEFORE a decoder is started. 4:2:0 subsamples both
     # axes by two, so each chroma plane is (h/2, w/2) and they follow Y as U then V.
@@ -455,9 +552,17 @@ def _stream(
                 # a threshold must know which range that threshold was fitted in.
                 pu = np.frombuffer(buf[ybytes:ybytes + q], dtype=np.uint8).reshape(ch, cw)
                 pv = np.frombuffer(buf[ybytes + q:ybytes + 2 * q], dtype=np.uint8).reshape(ch, cw)
+            if times is not None and idx < len(times):
+                t = times[idx]                  # the key packet's own PTS
+            elif times:
+                # More frames than key packets, which the counts say does not happen.
+                # Carry on from the last exact time so time can only move forward.
+                t = times[-1] + (idx - len(times) + 1) * (step_s or 0.0)
+            else:
+                t = t0 + (idx * step_s if step_s else float(idx))
             frame = Frame(
                 index=idx,
-                t_offset_s=t0 + (idx * step_s if step_s else float(idx)),
+                t_offset_s=t,
                 luma=luma,
                 chroma_energy=ce,
                 u=pu,

@@ -131,17 +131,19 @@ elif [[ "${WT_NO_FS_STDERR_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-
     echo "PASS  frame_source drains stderr while reading (no pipe deadlock)"
 fi
 
-# frame_source measures a segment's GOP from ONE demux pass (framecrc), not two decodes:
-# 1.75 CPU-s against 27.67 on 28 -sub files on the booth, 2026-09-26. Safe only while
-# framecrc still marks non-key packets with F= and packet counts equal decoded counts,
-# so this pins both on a real clip where an ffmpeg works (SKIP otherwise). Same numpy/
-# cv2 probe as above. WT_NO_FS_GOP_PIN=1 skips it.
+# frame_source measures a segment's GOP AND its keyframe times from ONE demux pass
+# (framecrc), not two decodes: 1.75 CPU-s against 27.67 on 28 -sub files on the booth,
+# 2026-09-26. Each keyframe is timed by its own packet's PTS, not a per-segment estimate
+# that was up to 2.5 s off. Safe only while framecrc still marks non-key packets with F=
+# and packet counts equal decoded counts, so this pins both, and the times, on real clips
+# where an ffmpeg works (SKIP otherwise). Same numpy/cv2 probe as above.
+# WT_NO_FS_GOP_PIN=1 skips it.
 if [[ "${WT_NO_FS_GOP_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-gop.py" ]] && ! labs_deps_ok; then
     echo "SKIP  frame_source GOP pin -- numpy/cv2 not installed on this box (not a failure)"
 elif [[ "${WT_NO_FS_GOP_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-gop.py" ]]; then
     "$ROOT/tools/tests/frame-source-gop.py" >/dev/null 2>&1 || {
         "$ROOT/tools/tests/frame-source-gop.py"; exit 1; }
-    echo "PASS  frame_source measures GOP by demux, and it matches the decoders"
+    echo "PASS  frame_source takes GOP and keyframe times from the demux, and they match"
 fi
 
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
