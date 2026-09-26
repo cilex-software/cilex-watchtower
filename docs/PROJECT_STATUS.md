@@ -19,13 +19,29 @@
 > waits for the operator's go-ahead in chat** (proposed first: B1 `illumination`, one camera,
 > one hour).
 >
-> **Plugins built (registered in `run_worker.PLUGINS`):** illumination (B1), blob_geometry
-> (A4–A6), frame_difference (A1/A2; needs `window` on list_segments, CV a6671c5, which CV
-> announces for 2026-09-27 02:17 MSK — until then the worker skips it by itself),
-> audio_energy, optical_flow, perceptual_hash. **Not built:** camera_health (after CV 84b4cd9,
-> same deploy; needs forward-only per-camera state and ONE station), foreground_mask /
-> colour_histogram / track_linking (handed over by the Windows agent, 92e7c1b — operator's
-> call), image_embedding.
+> **Plugins built — ten, registered in `run_worker.PLUGINS`** (updated 2026-09-26 evening,
+> 770719c): illumination (B1), blob_geometry (A4–A6), frame_difference (A1/A2; needs
+> `window` on list_segments, CV a6671c5, announced for 2026-09-27 02:17 MSK — until then
+> the worker skips it by itself), audio_energy, optical_flow, perceptual_hash,
+> camera_health (B2), foreground_mask (B3), colour_histogram (B7), track_linking (B6).
+> Not built: image_embedding. All ten ran on REAL footage through the worker, read-only
+> (`tools/labs/smoke_real_footage.py`): every body passes the live schema and the server's
+> metrics rules. **camera_health: EXACTLY ONE STATION may run it** (cilex-vision's rule —
+> two stations would each teach its per-camera Baseline from alternate hours). Its state
+> persists under `~/.local/state/watchtower-labs/camera_health/`. This box is that station
+> unless the operator says otherwise.
+>
+> **The first live claim (2026-09-26 14:35 MSK) was REFUSED — correctly:** this box has
+> never had a station token of its own. Its row (`8918c7c5…`, auto-registered 07-26)
+> has `token_hash` NULL and its heartbeats pass through the shared bootstrap fallback,
+> which Labs deliberately does not accept (`labs.py:547-553`). CV has been asked to issue
+> one onto the EXISTING row, written straight into `warden.conf` — never through chat.
+>
+> **Cost, measured (smoke run, one camera-hour each):** illumination 13.1 CPU-s,
+> camera_health 22.9 — against cilex-vision's 1.89 for camera_health on its own decoder.
+> ~4.1 of ~5.0 CPU-s per main segment is `frame_source` measuring the keyframe interval by
+> a full decode; a demux-only count gives identical results on 12/12 segments at 0.10
+> CPU-s. Offered to the Windows agent (their module), not yet applied.
 >
 > **Two rules that have already cost something.** (1) Vendored analysers (`labs_*.py`) are
 > cilex-vision's, byte-identical, each pinned by sha256 and source commit in
