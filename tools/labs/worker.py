@@ -47,7 +47,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Iterable, Optional, Protocol
 
-WORKER_VERSION = "worker-0.1"
+# 0.2 (2026-09-26): keyframe times are each key packet's own PTS (frame_source 4f94847),
+# no longer a per-segment constant step that was up to 2.5 s off. Every row says which.
+WORKER_VERSION = "worker-0.2"
 
 
 # ----------------------------------------------------------------------------------
