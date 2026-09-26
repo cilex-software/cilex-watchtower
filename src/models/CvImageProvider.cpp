@@ -5,18 +5,31 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QPointer>
 #include <QQueue>
 #include <QThread>
 #include <QTimer>
 #include <QDir>
+#include <QFileInfo>
+#include <QStandardPaths>
 #include <QMutex>
 
-#include <execinfo.h>
+// The image-response ledger below needs a stack trace, and there is no portable way
+// to take one. `execinfo.h` and `unistd.h` are glibc/POSIX and do not exist under
+// MSVC — unguarded they broke the Windows build outright (C1083, 2026-09-26), so no
+// Windows release could be cut at all while this file was in that state. Windows gets
+// the same diagnostic through CaptureStackBackTrace, which is in kernel32 and needs no
+// extra link.
+#if defined(Q_OS_WIN)
+#  include <windows.h>
+#else
+#  include <execinfo.h>
+#  include <unistd.h>
+#endif
 #include <cstdio>
 #include <cstdlib>
-#include <unistd.h>
 
 // The event-snapshot path 503s for two DIFFERENT reasons, both carrying Retry-After:
 // the memory-pressure governor shedding load, and (measured 2026-08-15)
@@ -77,14 +90,27 @@ static FILE *imgLedgerFile()
     QString path = qEnvironmentVariable("WT_IMG_LEDGER");
     if (path == QLatin1String("0"))
         return nullptr;
-    if (path.isEmpty())
+    if (path.isEmpty()) {
+        // `~/Library/Logs` exists on macOS and nowhere else. On Windows fopen() would
+        // just fail and the ledger would be silently OFF — a P0 diagnostic that writes
+        // nothing on the platform whose releases this station builds. Put it beside the
+        // flight recorder instead, which is where anyone debugging this already looks.
+#if defined(Q_OS_MACOS)
         path = QDir::homePath() + QLatin1String("/Library/Logs/watchtower-imgresp.log");
+#else
+        path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+               + QLatin1String("/watchtower-imgresp.log");
+#endif
+    }
+    QDir().mkpath(QFileInfo(path).absolutePath());   // fopen("a") does NOT create dirs
     f = fopen(path.toLocal8Bit().constData(), "a");
     if (f) {
         setvbuf(f, nullptr, _IOLBF, 0);          // line-buffered: survive a SIGSEGV
-        fprintf(f, "\n=== ledger opened %s pid=%d ===\n",
+        // QCoreApplication::applicationPid() rather than getpid(): same number, and it
+        // does not drag <unistd.h> (POSIX-only) in for one field.
+        fprintf(f, "\n=== ledger opened %s pid=%lld ===\n",
                 qPrintable(QDateTime::currentDateTime().toString(Qt::ISODateWithMs)),
-                (int)getpid());
+                static_cast<long long>(QCoreApplication::applicationPid()));
         fflush(f);
     }
     return f;
@@ -95,6 +121,21 @@ static FILE *imgLedgerFile()
 static QByteArray imgBacktrace(int skip = 2, int want = 12)
 {
     void *frames[32];
+#if defined(Q_OS_WIN)
+    // CaptureStackBackTrace applies `skip` itself, so the walk starts at 0 here.
+    // Addresses only, no symbolisation: resolving them needs dbghelp and a loaded
+    // symbol server, and this ledger has to survive a SIGSEGV on a guard station
+    // that ships no .pdb. An address plus the .pdb we archive per build is enough
+    // to name the frame after the fact, and it costs nothing at crash time.
+    const int cap = qBound(1, qMin(want, 32 - 1), 32);
+    const int n = int(CaptureStackBackTrace(ULONG(skip), ULONG(cap), frames, nullptr));
+    QByteArray out;
+    for (int i = 0; i < n; ++i) {
+        out += "\n        0x";
+        out += QByteArray::number(static_cast<qulonglong>(reinterpret_cast<quintptr>(frames[i])), 16);
+    }
+    return out;
+#else
     const int n = backtrace(frames, qMin(skip + want, 32));
     char **syms = backtrace_symbols(frames, n);
     QByteArray out;
@@ -104,6 +145,7 @@ static QByteArray imgBacktrace(int skip = 2, int want = 12)
     }
     free(syms);
     return out;
+#endif
 }
 
 static void imgLedger(const char *ev, const void *obj, quint64 seq,
@@ -304,8 +346,12 @@ void CvImageResponse::finish()
     if (m_readerThread && m_readerThread != QThread::currentThread()
         && m_readerThread->isRunning())
         moveToThread(m_readerThread);
+    // Both arms spelled as QByteArray: `cond ? "-" : someQByteArray` mixes
+    // `const char[2]` with QByteArray, which GCC resolves and MSVC rejects outright
+    // (C2445, ambiguous conditional). Second Linux-ism in this file to stop the
+    // Windows build on 2026-09-26.
     imgLedger("FINI", this, m_seq,
-              QByteArray("err=") + (m_error.isEmpty() ? "-" : m_error.toLocal8Bit())
+              QByteArray("err=") + (m_error.isEmpty() ? QByteArrayLiteral("-") : m_error.toLocal8Bit())
               + " img=" + QByteArray::number(m_image.width()) + "x"
               + QByteArray::number(m_image.height())
               + " path=" + m_path.right(48).toLocal8Bit());
