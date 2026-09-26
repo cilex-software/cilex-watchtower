@@ -33,7 +33,8 @@ def decode(path, kf, want_chroma):
 
 
 PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin,
-           "frame_difference": P.FrameDifferencePlugin}
+           "frame_difference": P.FrameDifferencePlugin, "audio_energy": P.AudioEnergyPlugin,
+           "optical_flow": P.OpticalFlowPlugin, "perceptual_hash": P.PerceptualHashPlugin}
 
 
 def main():

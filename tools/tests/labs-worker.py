@@ -514,20 +514,44 @@ except W.Refusal as e:
 check("REAL client: a closed port becomes a retryable transport_error",
       r is not None and r.detail == "transport_error" and W.action_for(r) is W.Action.RETRY_LATER, repr(r))
 
-# ---------------------------------------------------------------- frame_difference (A1/A2)
-import hashlib, labs_framediff as FDM
-FD = P.FrameDifferencePlugin()
+# ---------------------------------------------------------------- vendored analysers
+# These modules are cilex-vision's, vendored BYTE-IDENTICAL: each analyser's thresholds
+# are calibrated to its own decoder, and a silent local edit would change what they
+# mean (frame_difference's 2.0 is the case that proved it). Each is pinned twice:
+#   1. by the hash recorded HERE. This runs on EVERY box, so a local edit fails on the
+#      Windows and Mac checkouts too -- they have no cilex-vision source to compare to,
+#      and until 2026-09-26 they checked nothing and printed nothing about it;
+#   2. against cilex-vision's own file where that checkout exists (the Linux box), so
+#      an upstream change fails there until it is re-vendored and its row updated.
+# Re-vendor = copy the file from the named commit, then update its row. Never edit it.
+VENDORED = {   # module: (cilex-vision commit, sha256 of services/query-api/<module>.py)
+    "labs_framediff":       ("65bed72", "9700cc0e21dda06d848146f6f8ba26d4db37e2e56dd39df0d936d8819f4effbd"),
+    "labs_camera_health":   ("468dc90", "732e6decf36eaf267b176c0c90430d37b0d4bbe40d82dbe4a78b0775ae4c5ce9"),
+    "labs_perceptual_hash": ("fde4ab5", "c995830cdf02bd19bdcd21811b7b2e21d527cae4cd731e0390fb165b4fff3e7b"),
+    "labs_optical_flow":    ("631241d", "6fbb3493450f6bed39ec05017b008a2bc54db55dd2a5d491882973bda336115f"),
+    # 071c278: `import resource` moved from module top into _cpu()/_main(); fe28fae's
+    # copy made `import plugins` fail on Windows (see "imports on Windows" below).
+    "labs_audio_energy":    ("071c278", "9cbc67786555d6799e2b8331ebfc4429fe58eb1bfe823bfc2c0e1541b3dd8dea"),
+}
+import hashlib
+_CV = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api")
+_on_disk = {p.stem for p in (ROOT / "tools/labs").glob("labs_*.py")}
+check("every vendored labs_*.py has a pin", _on_disk == set(VENDORED),
+      f"unpinned {sorted(_on_disk - set(VENDORED))}  pinned-but-absent {sorted(set(VENDORED) - _on_disk)}")
+for mod, (commit, pinned) in VENDORED.items():
+    ours = hashlib.sha256((ROOT / f"tools/labs/{mod}.py").read_bytes()).hexdigest()
+    check(f"vendored {mod}.py matches its pin (cilex-vision {commit})", ours == pinned,
+          f"ours {ours[:16]} pinned {pinned[:16]} -- edited locally? re-vendor from {commit}")
+    if (_CV / f"{mod}.py").exists():
+        theirs = hashlib.sha256((_CV / f"{mod}.py").read_bytes()).hexdigest()
+        check(f"...and cilex-vision's {mod}.py has not moved on since {commit}", theirs == pinned,
+              f"theirs {theirs[:16]} -- re-vendor it and update its VENDORED row")
+    else:
+        print(f"SKIP {mod}.py vs cilex-vision's source -- their checkout is not on this box")
 
-# The vendored module must stay BYTE-IDENTICAL to cilex-vision's: its threshold is
-# calibrated to its own decoder, and a silent local edit would change what 2.0 means.
-_cvfd = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api/labs_framediff.py")
-if _cvfd.exists():
-    ours = hashlib.sha256((ROOT / "tools/labs/labs_framediff.py").read_bytes()).hexdigest()
-    theirs = hashlib.sha256(_cvfd.read_bytes()).hexdigest()
-    check("vendored labs_framediff.py is byte-identical to cilex-vision's", ours == theirs,
-          f"ours {ours[:12]} theirs {theirs[:12]} -- re-vendor it")
-else:
-    print("SKIP vendored framediff vs source -- their checkout is not on this box")
+# ---------------------------------------------------------------- frame_difference (A1/A2)
+import labs_framediff as FDM
+FD = P.FrameDifferencePlugin()
 
 u1 = W.ScanUnit("c", "2026-09-26T01:00:00Z", "frame_difference", None, 1)
 u2 = W.ScanUnit("c", "2026-09-26T02:00:00Z", "frame_difference", None, 1)
@@ -629,15 +653,8 @@ check("...and accepts one with it",
             [{"name": "limit"}, {"name": "window"}, {"name": "window_at"}]}}}}) is None)
 
 # ---------------------------------------------------------------- audio / flow / phash
-# The analysers are cilex-vision's (vendored, 49-57 tests each on their side). These pin
-# the WORKER-side rules each plugin depends on, with the analysers stubbed.
-for mod in ("labs_camera_health", "labs_perceptual_hash", "labs_optical_flow", "labs_audio_energy"):
-    _src = pathlib.Path(f"/home/cilex-vision/projects/cilex-vision/services/query-api/{mod}.py")
-    if _src.exists():
-        check(f"vendored {mod}.py is byte-identical to cilex-vision's",
-              hashlib.sha256((ROOT / f"tools/labs/{mod}.py").read_bytes()).digest()
-              == hashlib.sha256(_src.read_bytes()).digest(), "re-vendor it")
-
+# The analysers are cilex-vision's (vendored and pinned above, 49-57 tests each on their
+# side). These pin the WORKER-side rules each plugin depends on, with analysers stubbed.
 def rseg(i, size=100, start="2026-09-26T01:00:00+00:00"):
     return W.Segment(f"r{i}", f"http://x/r{i}", start, "2026-09-26T01:00:30+00:00", 30.0, size,
                      "main", 2560, 1440, "hevc")
@@ -769,6 +786,102 @@ try:
 except Exception as e:
     msg = str(e) + repr(e)
 check("token is not in any exception a failed request raises", "SECRET-TOKEN-XYZ" not in msg, msg[:80])
+
+# ---------------------------------------------------------------- imports on Windows
+# c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,
+# so on Windows `import plugins` failed: no station there could load the worker, and
+# this very test failed in pre-commit and blocked EVERY commit on the booth PC. Nothing
+# run on Linux could see it -- the second such break in two days (execinfo.h, 854cb4c,
+# was the first). Two checks now make this class visible from Linux:
+#   1. static: no tools/labs module imports a Unix-only module when it LOADS;
+#   2. live: the worker really imports with `resource` removed -- the exact failure.
+# Boundary, stated so nobody over-reads a pass: neither catches a Unix-only ATTRIBUTE
+# (os.fork, signal.SIGKILL) or a Unix-only path taken at run time. Only a Windows run
+# sees those.
+import ast, subprocess
+UNIX_ONLY = {"posix", "pwd", "grp", "termios", "tty", "pty", "fcntl", "resource", "syslog",
+             "crypt", "spwd", "nis", "readline", "curses", "_posixsubprocess"}
+_GUARDS = {"ImportError", "ModuleNotFoundError", "Exception", "BaseException"}
+
+def _guarded(t):
+    for h in t.handlers:
+        if h.type is None:
+            return True
+        names = h.type.elts if isinstance(h.type, ast.Tuple) else [h.type]
+        if any(isinstance(n, ast.Name) and n.id in _GUARDS for n in names):
+            return True
+    return False
+
+def load_time_imports(stmts):
+    """(line, top-level package) for every import that runs when the module LOADS:
+    its body, including if/with/for/try blocks and class bodies, but not function
+    bodies (they run when called, if ever). The body of a try that catches ImportError
+    is guarded -- that import is allowed to fail -- so it is not counted."""
+    for st in stmts:
+        if isinstance(st, ast.Import):
+            for a in st.names:
+                yield st.lineno, a.name.split(".")[0]
+        elif isinstance(st, ast.ImportFrom):
+            if st.level == 0 and st.module:
+                yield st.lineno, st.module.split(".")[0]
+        elif isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        else:
+            skip_body = isinstance(st, ast.Try) and _guarded(st)
+            for fname, value in ast.iter_fields(st):
+                if (skip_body and fname == "body") or not isinstance(value, list):
+                    continue
+                for v in value:
+                    if isinstance(v, ast.stmt):
+                        yield from load_time_imports([v])
+                    elif isinstance(v, (ast.ExceptHandler, ast.match_case)):
+                        yield from load_time_imports(v.body)
+
+def unix_only_at_load(src):
+    return [(ln, m) for ln, m in load_time_imports(ast.parse(src).body) if m in UNIX_ONLY]
+
+# Controls first: a checker that cannot fail proves nothing.
+check("control: a top-level `import resource` IS flagged",
+      unix_only_at_load("import json\nimport resource\n") == [(2, "resource")])
+check("control: `from fcntl import ...` inside an `if` at module level IS flagged",
+      unix_only_at_load("import os\nif os.name == 'posix':\n    from fcntl import flock\n") == [(3, "fcntl")])
+check("control: the same import inside a FUNCTION is not (it runs only when called)",
+      unix_only_at_load("def _cpu():\n    import resource\n    return resource\n") == [])
+check("control: a try/except ImportError guard is not flagged",
+      unix_only_at_load("try:\n    import resource\nexcept ImportError:\n    resource = None\n") == [])
+
+_bad = [f"{py.name}:{ln} {m}" for py in sorted((ROOT / "tools/labs").glob("*.py"))
+        for ln, m in unix_only_at_load(py.read_text(encoding="utf-8"))]
+check("no tools/labs module imports a Unix-only module when it loads", not _bad, ", ".join(_bad))
+
+_probe = ("import sys\n"
+          "sys.modules['resource'] = None\n"
+          "try:\n    import resource\n    print('control-not-blocked')\n"
+          "except ImportError:\n    print('control-blocked')\n"
+          "sys.path.insert(0, sys.argv[1])\n"
+          "import plugins, run_worker\n"
+          "print('worker-imported')\n")
+_r = subprocess.run([sys.executable, "-c", _probe, str(ROOT / "tools" / "labs")],
+                    capture_output=True, text=True, timeout=120)
+check("control: in the probe, `import resource` really fails (as on Windows)",
+      "control-blocked" in _r.stdout, _r.stdout.strip())
+_tail = (_r.stderr.strip().splitlines() or [""])[-1]
+check("the worker (plugins + run_worker) imports with `resource` absent",
+      _r.returncode == 0 and "worker-imported" in _r.stdout, _tail)
+
+# ---------------------------------------------------------------- the registry
+# c934dda built three plugins and did not register them: run_worker could not run any
+# of them. A plugin that exists but cannot be selected is a silent no-op.
+import run_worker as RW
+_built = {c.name: c for c in vars(P).values()
+          if isinstance(c, type) and c.__module__ == P.__name__
+          and isinstance(getattr(c, "name", None), str) and hasattr(c, "version")}
+check("every plugin in plugins.py is registered in run_worker",
+      set(_built) == set(RW.PLUGINS),
+      f"unregistered {sorted(set(_built) - set(RW.PLUGINS))}  unknown {sorted(set(RW.PLUGINS) - set(_built))}")
+check("...each under its own analyser name (what --analyzer names is what gets claimed)",
+      all(cls.name == key for key, cls in RW.PLUGINS.items()),
+      str({k: c.name for k, c in RW.PLUGINS.items() if c.name != k}))
 
 print()
 if fails:

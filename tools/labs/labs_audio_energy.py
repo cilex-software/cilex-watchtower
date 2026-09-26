@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 import logging
-import resource
 import subprocess
 import sys
 import threading
@@ -1256,7 +1255,13 @@ def observations_for_unit(result: UnitResult, *, emit: str = "events") -> list[d
 def _cpu() -> tuple[float, float]:
     """(self, children) CPU seconds, user plus system. Children are the ffmpeg
     decoders, counted once each has been waited for (every run is closed and
-    waited in finish(), before the second reading)."""
+    waited in finish(), before the second reading).
+
+    `resource` is imported HERE, not at module top: it is Unix-only, and the
+    Watchtower worker imports this module on Windows stations too, where a
+    top-level import broke the whole plugin registry (2026-09-26). Only this
+    command-line cost measurement needs it; the analysis never does."""
+    import resource
     a = resource.getrusage(resource.RUSAGE_SELF)
     b = resource.getrusage(resource.RUSAGE_CHILDREN)
     return a.ru_utime + a.ru_stime, b.ru_utime + b.ru_stime
@@ -1295,6 +1300,7 @@ def _main(argv: Sequence[str]) -> int:
     cpu_self, cpu_ffmpeg = u1 - u0, s1 - s0
     cpu = cpu_self + cpu_ffmpeg
     footage_s = sum(float(r["duration_s"]) for r in segs)
+    import resource  # Unix-only; see _cpu()
     rss_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     rss_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1024
     print(json.dumps({
