@@ -397,9 +397,12 @@ Item {
             root._smoothMs = player.position;
             root._settling = false;
             settleGuard.stop();
-            if (root._wallT0 > 0) {
+            // Only a frame of the NEW session counts: on a re-open (group pick, camera edit) the
+            // previous stream's last frame lands right after _open() cleared `cells`, and was
+            // logged as "first_frame dt=12ms cells=0" — a switch that took seconds read as instant.
+            if (root._wallT0 > 0 && root.cells && root.cells.length > 0) {
                 console.log("[WALLTIME] first_frame dt=" + (Date.now() - root._wallT0) + "ms cells="
-                            + (root.cells ? root.cells.length : -1));
+                            + root.cells.length);
                 root._wallT0 = -1;
             }
         }
@@ -841,29 +844,6 @@ Item {
             }
         }
     }
-    // WT_WALL_GROUP_TEST=<group name> (verification only): 15 s after start, open the group
-    // switcher (so a screenshot shows the popup); 6 s later pick that group through the same
-    // loadGroup() a click calls.
-    Timer {
-        id: wallGroupTest
-        property int phase: 0
-        interval: 15000
-        running: typeof wtWallGroupTest !== "undefined" && wtWallGroupTest !== ""
-        onTriggered: {
-            if (phase === 0) {
-                console.log("[WALL] group-test: opening the switcher");
-                wallGroupSwitcher.open(); phase = 1; interval = 6000; restart();
-                return;
-            }
-            var opts = root.groupOpts, hit = null;
-            for (var i = 0; i < opts.length; i++) if (opts[i].name === wtWallGroupTest) hit = opts[i];
-            wallGroupSwitcher.close();
-            if (!hit) { console.log("[WALL] group-test: no group named " + wtWallGroupTest); return; }
-            console.log("[WALL] group-test: picking " + hit.name + " (" + hit.count + " cameras)");
-            root.loadGroup(hit.id, hit.name);
-        }
-    }
-
     // [WALL] probe — the first 60 s after an open, every 2 s. Until 2026-09-26 the wall logged
     // NOTHING after its first frame: on the operator's Mac it delivered one frame, then showed a
     // black grid with the transport at ▶ and the playhead frozen at the open, while the log ended
@@ -975,36 +955,6 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-
-        // ---- sub-bar: the camera-group quick filter — the LIVE wall's control, in the live
-        // wall's place, at the live wall's geometry (Theme.subBarHeight, 20 px margins, the
-        // 1 px rule). Operator, 2026-09-26: "exactly the same one from the live wall screen".
-        // It replaces the small GROUP combo that sat in the side panel.
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: Theme.subBarHeight
-            color: Theme.bg
-            Rectangle {
-                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                height: 1; color: Theme.line
-            }
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-                spacing: 12
-                GroupSwitcher {
-                    id: wallGroupSwitcher
-                    options: root.groupOpts
-                    currentId: root.wallGroupLabel !== "" ? root.wallGroupId : "__custom__"
-                    label: root.wallGroupLabel !== "" ? root.wallGroupLabel : qsTr("Custom selection")
-                    cameraModel: root.cameraModel
-                    emptySelectable: false          // zero cameras cannot become a wall
-                    onPicked: (id, name) => root.loadGroup(id, name)
-                }
-                Item { Layout.fillWidth: true }
-            }
-        }
 
         RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
@@ -1272,8 +1222,8 @@ Item {
                                 MouseArea { id: ecMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openPicker() }
                             }
                         }
-                        // (The GROUP combo that lived here moved to the sub-bar above the grid as the
-                        // live wall's own GroupSwitcher — one control, not two.)
+                        // (The GROUP combo that lived here is now the live wall's own GroupSwitcher,
+                        // in the top bar right of the command palette — TopBar.qml.)
                         // The hint line is DELETED (§2.6): its two gestures are now
                         // affordances on the cells themselves (WpCell §2.2e). A
                         // sentence that has to explain the interaction model is a

@@ -17,6 +17,17 @@ Item {
     property string statusFilter: ""   // "online" | "offline" | "notrec" | ""
     property bool showSidePanelToggle: false   // only on the Live wall, where the OpsSidebar applies
     property bool sidePanelOpen: true          // current state of that panel (drives the glyph)
+    // The synchronized PLAYBACK wall is on screen. There the Online/Offline/Not rec strip is
+    // noise — it filters the LIVE wall, not the playback set — and the wall's own camera-group
+    // filter takes its place, right of the command palette (operator, 2026-09-26: "as this is
+    // a playback wall it does not have as many filters"). Main.qml wires these to WallPlayback.
+    property bool playbackWall: false
+    property var wallGroupOptions: []
+    property var wallGroupCurrentId: "__custom__"
+    property string wallGroupLabel: ""
+    signal wallGroupPicked(string id, string name)
+    function openWallGroupSwitcher() { wallGroupSwitcher.open() }     // verification hook
+    function closeWallGroupSwitcher() { wallGroupSwitcher.close() }
 
     signal searchActivated()
     signal statusChipClicked(string which)
@@ -138,8 +149,22 @@ Item {
                 }
             }
 
-            // site status strip
+            // The playback wall's camera-group filter — the live wall's own control
+            // (GroupSwitcher.qml), shown only while the playback wall is on screen.
+            GroupSwitcher {
+                id: wallGroupSwitcher
+                visible: root.playbackWall
+                options: root.wallGroupOptions
+                currentId: root.wallGroupCurrentId
+                label: root.wallGroupLabel
+                cameraModel: root.cameraModel
+                emptySelectable: false          // zero cameras cannot become a wall
+                onPicked: (id, name) => root.wallGroupPicked(id, name)
+            }
+
+            // site status strip — the LIVE wall's filters; hidden on the playback wall
             Rectangle {
+                visible: !root.playbackWall
                 Layout.preferredHeight: 38
                 implicitWidth: strip.implicitWidth
                 color: Theme.panel

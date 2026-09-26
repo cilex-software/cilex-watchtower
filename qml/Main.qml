@@ -1932,6 +1932,29 @@ Window {
         }
     }
 
+    // WT_WALL_GROUP_TEST=<group name> (verification only): 15 s after start, open the playback
+    // wall's group filter in the top bar (so a screenshot shows the popup); 6 s later pick that
+    // group through the same loadGroup() a click calls.
+    Timer {
+        id: wallGroupTest
+        property int phase: 0
+        interval: 15000
+        running: typeof wtWallGroupTest !== "undefined" && wtWallGroupTest !== ""
+        onTriggered: {
+            if (phase === 0) {
+                console.log("[WALL] group-test: opening the switcher");
+                topBar.openWallGroupSwitcher(); phase = 1; interval = 6000; restart();
+                return;
+            }
+            var opts = wallPlayback.groupOpts, hit = null;
+            for (var i = 0; i < opts.length; i++) if (opts[i].name === wtWallGroupTest) hit = opts[i];
+            topBar.closeWallGroupSwitcher();
+            if (!hit) { console.log("[WALL] group-test: no group named " + wtWallGroupTest); return; }
+            console.log("[WALL] group-test: picking " + hit.name + " (" + hit.count + " cameras)");
+            wallPlayback.loadGroup(hit.id, hit.name);
+        }
+    }
+
     // keyboard shortcuts (design §30)
     // F is context-split: on the playback screen it toggles frame-by-frame mode
     // (handled by PlaybackScreen's own key handling — this app-wide shortcut would
@@ -2001,8 +2024,14 @@ Window {
             spacing: 0
 
             TopBar {
+                id: topBar
                 Layout.fillWidth: true
                 visible: !win.fullscreen
+                playbackWall: wallPlayback.visible
+                wallGroupOptions: wallPlayback.groupOpts
+                wallGroupCurrentId: wallPlayback.wallGroupLabel !== "" ? wallPlayback.wallGroupId : "__custom__"
+                wallGroupLabel: wallPlayback.wallGroupLabel !== "" ? wallPlayback.wallGroupLabel : qsTr("Custom selection")
+                onWallGroupPicked: (id, name) => wallPlayback.loadGroup(id, name)
                 cameraModel: cameraModel
                 eventModel: eventModel
                 statusFilter: win.statusFilter
