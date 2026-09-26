@@ -238,6 +238,7 @@ def iter_frames(
     t0: float = 0.0,
     step_s: float | None = None,
     want_chroma: bool = False,
+    want_planes: bool = False,
 ) -> Iterator[Frame]:
     """Yield luma Frames from one segment through one decoder process.
 
@@ -261,7 +262,8 @@ def iter_frames(
         else:
             step_s = None  # analyser will fall back to a frame count, and say so
 
-    yield from _stream(ff, [path], None, pr, keyframes_only, t0, step_s, want_chroma)
+    yield from _stream(ff, [path], None, pr, keyframes_only, t0, step_s, want_chroma,
+                       want_planes)
 
 
 def iter_concat(
@@ -273,6 +275,7 @@ def iter_concat(
     pr: Probe | None = None,
     step_s: float | None = None,
     want_chroma: bool = False,
+    want_planes: bool = False,
 ) -> Iterator[Frame]:
     """Yield frames for MANY segments through ONE decoder process.
 
@@ -295,7 +298,8 @@ def iter_concat(
         for p in paths:
             fh.write("file '" + p.replace("\\", "/") + "'\n")
 
-    yield from _stream(ff, paths, list_path, pr, keyframes_only, 0.0, step_s, want_chroma)
+    yield from _stream(ff, paths, list_path, pr, keyframes_only, 0.0, step_s, want_chroma,
+                       want_planes)
 
 
 def _stream(
@@ -307,7 +311,24 @@ def _stream(
     t0: float,
     step_s: float | None,
     want_chroma: bool = False,
+    want_planes: bool = False,
 ) -> Iterator[Frame]:
+    # Plane geometry, checked BEFORE a decoder is started. 4:2:0 subsamples both
+    # axes by two, so each chroma plane is (h/2, w/2) and they follow Y as U then V.
+    # That arithmetic -- and Probe.frame_bytes, which every consumer already relies
+    # on -- is only exact for EVEN dimensions. Every resolution measured on this
+    # fleet is even (640x360, 640x480, 1280x720), so an odd one is not a case to
+    # handle quietly: slicing it with the even-size formula would hand colour
+    # analysis planes that are off by a row and shifted, which looks like data.
+    cw = ch = q = 0
+    if want_planes:
+        if pr.width % 2 or pr.height % 2:
+            raise ValueError(
+                f"want_planes needs even frame dimensions for 4:2:0; got "
+                f"{pr.width}x{pr.height} (pix_fmt={pr.pix_fmt})"
+            )
+        cw, ch = pr.width // 2, pr.height // 2
+        q = cw * ch
     args = _decode_args(ff, inputs, keyframes_only, concat_list, pr.pix_fmt)
     ybytes, fbytes = pr.y_bytes, pr.frame_bytes
     proc = subprocess.Popen(
@@ -315,6 +336,7 @@ def _stream(
         bufsize=fbytes * 2,
     )
     idx = 0
+    closed_by_consumer = False
     try:
         assert proc.stdout is not None
         while True:
@@ -342,13 +364,38 @@ def _stream(
                 # and this is the mean of the two rather than their sum.
                 uv = np.frombuffer(buf[ybytes:], dtype=np.uint8)
                 ce = float(np.abs(uv.astype(np.int16) - 128).mean()) * 2.0
-            yield Frame(
+            pu = pv = None
+            if want_planes:
+                # Exactly cilex-vision's spec for colour_histogram (f7ecd57):
+                #   u = buf[yb:yb+q], v = buf[yb+q:yb+2q], each (h/2, w/2)
+                # Passthrough, NO range conversion: these cameras deliver yuvj420p
+                # (full range) and _decode_args deliberately does not convert it.
+                # That matters for chroma specifically -- a full->limited conversion
+                # rescales U/V by ~9% (measured by the Linux box, 1859391) -- so the
+                # planes are in the SOURCE's range and a consumer comparing against
+                # a threshold must know which range that threshold was fitted in.
+                pu = np.frombuffer(buf[ybytes:ybytes + q], dtype=np.uint8).reshape(ch, cw)
+                pv = np.frombuffer(buf[ybytes + q:ybytes + 2 * q], dtype=np.uint8).reshape(ch, cw)
+            frame = Frame(
                 index=idx,
                 t_offset_s=t0 + (idx * step_s if step_s else float(idx)),
                 luma=luma,
                 chroma_energy=ce,
+                u=pu,
+                v=pv,
             )
+            # Count the frame as PRODUCED before handing it over, not after. A
+            # consumer that stops early closes this generator, and GeneratorExit is
+            # raised AT the yield -- so an `idx += 1` placed after the yield never
+            # runs, and the no-frames guard below then fired on a decoder that had
+            # delivered a frame perfectly well. Found 2026-09-26 by a test that took
+            # one frame and closed; any real early stop (a worker abandoning a
+            # segment when its lease dies) would have hit the same false error.
             idx += 1
+            yield frame
+    except GeneratorExit:
+        closed_by_consumer = True
+        raise
     finally:
         if proc.stdout:
             proc.stdout.close()
@@ -367,7 +414,11 @@ def _stream(
         # already cost this booth a stale installer: pkg-config existed, could not
         # execute, and every step downstream reported success while rebuilding
         # nothing. Refuse to be quiet about it.
-        if idx == 0:
+        # ...but only when the decoder genuinely produced nothing. A consumer that
+        # closed us is not a decoder fault: ffmpeg then dies of a broken pipe, which
+        # is expected, and raising here would also REPLACE the GeneratorExit the
+        # caller's close() is waiting for.
+        if idx == 0 and not closed_by_consumer:
             raise RuntimeError(
                 "decoder produced no frames"
                 + (f" (exit {proc.returncode}): " + err.decode("utf-8", "replace")[:400]

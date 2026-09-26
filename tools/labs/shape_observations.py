@@ -206,6 +206,14 @@ class Frame:
     # across 220 camera-slot rows). Carried as a float, not the planes, so nothing
     # is retained and no reshape or colour conversion happens.
     chroma_energy: float | None = None
+    # OPT-IN, default None. The U and V PLANES themselves, each (h/2, w/2) uint8,
+    # for colour_histogram (B7, cilex-vision f7ecd57), which needs per-pixel chroma
+    # under a motion mask and cannot work from B1's single scalar. Requested with
+    # frame_source's `want_planes`, separate from `want_chroma` on purpose: B1 keeps
+    # paying for one float per frame rather than for two retained planes it never
+    # reads. In the SOURCE's colour range, never converted — see frame_source.
+    u: np.ndarray | None = None
+    v: np.ndarray | None = None
 
 
 @dataclass
