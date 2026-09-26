@@ -16,6 +16,11 @@ cp "$ROOT/CMakeLists.txt" "$seed/"
 cp "$ROOT/packaging/windows/watchtower.rc" "$ROOT/packaging/windows/installer.nsi" \
    "$ROOT/packaging/windows/app.manifest" "$seed/packaging/windows/"
 g() { git -C "$1" -c user.name=t -c user.email=t@t -c commit.gpgsign=false "${@:2}"; }
+# The printed fix runs as PLAIN git (as a person would run it), so the throwaway repos need
+# an identity that does not come from g(). The booth has no global one, and without this
+# the renumber amend died there: "unable to auto-detect email address" (Windows agent,
+# 2026-09-26; reproduced here with HOME emptied -- the same 3 FAILs).
+export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
 ( cd "$seed" && git init -q -b main . && echo base > notes.txt ) || exit 1
 g "$seed" add -A && g "$seed" commit -q -m seed
 git init -q --bare -b main "$TMP/origin.git"
@@ -47,6 +52,12 @@ check "the hook REFUSES it (exit 1)" '[[ $rc -eq 1 ]]'
 check "...naming the commit and both versions" '[[ "$out" == *"y from B"*"carries $vy; its parent carries $vx"* ]]'
 check "...and printing the fix" '[[ "$out" == *"git rebase -x tools/renumber-version.sh"* ]]'
 check "WT_ALLOW_SAME_VERSION=1 lets it through (the emergency hatch)" 'prepush "$TMP/b" WT_ALLOW_SAME_VERSION=1 >/dev/null 2>&1'
+slow_hatch() {   # a feeder SLOWER than the hook: deterministic, where the race was not
+    ( sleep 0.3; printf 'refs/heads/main %s refs/heads/main %s\n' "$(g "$TMP/b" rev-parse HEAD)" \
+        "$(g "$TMP/b" rev-parse origin/main)" ) |
+        ( cd "$TMP/b" && WT_ALLOW_SAME_VERSION=1 tools/git-hooks/pre-push origin "$TMP/origin.git" )
+}
+check "...and the hatch still drains its input (a slow feeder is not killed by SIGPIPE)" 'slow_hatch >/dev/null 2>&1'
 
 fix=$(printf '%s\n' "$out" | sed -n 's/^  \(git rebase -x .*\)$/\1/p')
 ( cd "$TMP/b" && GIT_EDITOR=true $fix >/dev/null 2>&1 )

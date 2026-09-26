@@ -14,7 +14,11 @@
 # pass: `git rebase -x tools/renumber-version.sh <base>` makes each replayed commit
 # its parent + 1. WT_ALLOW_SAME_VERSION=1 skips the check -- for emergencies only.
 set -uo pipefail
-[[ "${WT_ALLOW_SAME_VERSION:-}" == "1" ]] && exit 0
+# The hatch must still READ what git sends: a hook that exits without draining stdin
+# kills a slower writer with SIGPIPE (status 141). Git tolerates that on a real push,
+# but the pin below feeds the hook itself, and under pipefail it failed on the booth
+# (found by the Windows agent, 2026-09-26; reproduced here 3/3 with a 0.3 s feeder).
+[[ "${WT_ALLOW_SAME_VERSION:-}" == "1" ]] && { cat >/dev/null; exit 0; }
 
 ZERO=0000000000000000000000000000000000000000
 ver_at() {
