@@ -10,6 +10,7 @@ tests (synthetic frames) and a live run (a globally visible write).
 import json, os, subprocess, sys, time, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import worker as W, plugins as P, frame_source
+P.pin_opencv_threads()   # as the worker does, so the CPU-s below compare like for like
 
 API = os.environ.get("WT_API", "http://127.0.0.1:8000")
 FILER = "http://localhost:8888/buckets"

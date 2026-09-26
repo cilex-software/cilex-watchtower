@@ -59,6 +59,7 @@ def main():
     ap.add_argument("--units", type=int, default=1, help="claim this many per analyser (live)")
     a = ap.parse_args()
     names = a.analyzer or ["illumination"]
+    P.pin_opencv_threads()          # before ANY analyser runs; see its docstring
     # The analysers' own WARNINGs (a decoder that failed, and why) go to stderr as
     # they happen; the worker also appends the last one to a failed unit's reason.
     logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(name)s %(levelname)s %(message)s")

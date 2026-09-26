@@ -77,6 +77,25 @@ def ffmpeg_exe() -> str:
     return _FFMPEG
 
 
+
+def pin_opencv_threads() -> int:
+    """ONE OpenCV thread for the whole worker process, set once at its start.
+
+    The setting is PROCESS-GLOBAL, and only optical_flow and track_linking set it
+    (their specs ask for it). So every other analyser's cost depended on which one had
+    run first in the process -- blob_geometry's never set it at all. Measured,
+    identical rows either way:
+      booth (Windows agent, n=10 interleaved, wall running): blob_geometry's own CPU
+        20.16 s at the default 12 threads against 7.17 s at one, to finish ~3 s sooner;
+      here (n=4 interleaved, fresh process each): 3.45-5.61 total CPU-s at one thread
+        against 4.63-8.96 at the default 20.
+    A station's wall keeps its cores, and every analyser's CPU-s compares like for like
+    (tools/labs/measure_cost.py already pinned it for exactly that reason).
+    """
+    import cv2
+    cv2.setNumThreads(1)
+    return cv2.getNumThreads()
+
 # ----------------------------------------------------------------------------------
 class IlluminationPlugin:
     """B1. Stateless; two segments per hour answer it (cost is per-FRAME, so the

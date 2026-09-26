@@ -1279,6 +1279,27 @@ check("...and the analyser's time is net of them, not their sum",
 check("...and the phases fit inside the total",
       sum(v for k, v in tm.items() if k != "total_s") <= tm.get("total_s", 0) + 0.01, str(tm))
 
+# ---------------------------------------------------------------- one OpenCV thread
+# PROCESS-GLOBAL, and only two plugins set it, so blob_geometry's cost depended on which
+# analyser ran first. The worker must pin it before any analyser runs. A fresh process,
+# because the setting would otherwise leak between these tests.
+_pin_probe = ("import sys; sys.path.insert(0, sys.argv[1])\n"
+              "import cv2, plugins as P, run_worker as RW\n"
+              "before = cv2.getNumThreads()\n"
+              "def _none(): raise RuntimeError('no ffmpeg')\n"
+              "P.ffmpeg_exe = _none\n"
+              "sys.argv = ['run_worker.py']\n"
+              "try:\n    RW.main()\nexcept SystemExit:\n    pass\n"
+              "print('THREADS', before, cv2.getNumThreads())\n")
+_pr = subprocess.run([sys.executable, "-c", _pin_probe, str(ROOT / "tools" / "labs")],
+                     capture_output=True, text=True, timeout=120)
+_m = [l.split() for l in _pr.stdout.splitlines() if l.startswith("THREADS")]
+if _m and int(_m[0][1]) <= 1:
+    print("SKIP OpenCV thread pin -- this box already runs OpenCV single-threaded, so it cannot show")
+else:
+    check("run_worker pins OpenCV to ONE thread before any analyser runs (the default was "
+          f"{_m[0][1] if _m else '?'} here)", bool(_m) and _m[0][2] == "1", _pr.stdout.strip() + _pr.stderr[-200:])
+
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,
 # so on Windows `import plugins` failed: no station there could load the worker, and
