@@ -63,6 +63,21 @@ IDLE_S = 120.0           # nothing claimable: look again in two minutes
 UNREACHABLE_S = 60.0     # the server did not answer: try again in a minute
 FATAL_S = 600.0          # this station cannot work (no token, no ffmpeg, token refused)
 RECHECK_S = 900.0        # re-read the server's capabilities (a deploy can add one)
+# cilex-vision 1.0.61 and older hand out the hour STILL IN PROGRESS (routers/labs.py:996,
+# `newest_useful = now`, hours newest-first -- measured on the first live unit,
+# 2026-09-26): a unit claimed a minute into its hour is labelled from that minute and then
+# marked done. Their abccd08 (claim only hours that ended >= 10 min ago) and 84b4cd9
+# (camera_health oldest-first) deploy after 1.0.61. Until the station sees a newer server,
+# the LOOP claims nothing, whatever the pause flag says, and the Labs screen shows every
+# analyser as needing a server update. One-off --live runs are deliberate and unaffected.
+MIN_SERVER = (1, 0, 62)
+
+
+def server_too_old(version) -> bool:
+    try:
+        return tuple(int(x) for x in str(version).split(".")[:3]) < MIN_SERVER
+    except (TypeError, ValueError):
+        return True     # a version this cannot read is not evidence of the fix
 
 
 class Heartbeat:
@@ -176,16 +191,20 @@ def scan_loop(client, supported, *, decode, hb, control=S.read_control,
             hb.update(state=state, note=W.fit(note, 300))
             wait(wait_s, until_paused=True)
         elif claimed == 0 and not control()["paused"]:
-            hb.update(state="idle", note="nothing to claim for the analysers switched on")
+            hb.update(state="idle", note="nothing to claim for the analysers switched on"
+                      if plugins else "no analyser can run against this server yet")
             wait(IDLE_S, until_paused=True)
     return totals
 
 
 def loop_main(a) -> int:
+    all_plugins = [make_plugin(n) for n in (a.analyzer or sorted(PLUGINS))]
     hb = Heartbeat({"state": "starting", "worker_version": W.WORKER_VERSION, "server": a.api,
                     "started_at": S.now_iso(), "totals": {}, "last_unit": None,
-                    "current": None, "note": ""}).start()
-    all_plugins = [make_plugin(n) for n in (a.analyzer or sorted(PLUGINS))]
+                    "current": None, "note": "",
+                    # What this station CAN run (its plugin registry), shown in the Labs
+                    # screen whether or not it is scanning right now.
+                    "registered": [p.name for p in all_plugins]}).start()
     cache = {"t": -1e18, "plugins": [], "version": None}
 
     def supported():
@@ -194,9 +213,12 @@ def loop_main(a) -> int:
         if time.monotonic() - cache["t"] >= RECHECK_S:
             try:
                 oa = json.load(urllib.request.urlopen(f"{a.api}/openapi.json", timeout=10))
-                cache["plugins"] = [p for p in all_plugins
-                                    if not getattr(p, "supported_by", lambda _o: None)(oa)]
                 cache["version"] = oa.get("info", {}).get("version")
+                if server_too_old(cache["version"]):
+                    cache["plugins"] = []
+                else:
+                    cache["plugins"] = [p for p in all_plugins
+                                        if not getattr(p, "supported_by", lambda _o: None)(oa)]
                 hb.update(server_version=cache["version"],
                           skipped=[p.name for p in all_plugins if p not in cache["plugins"]])
             except Exception:

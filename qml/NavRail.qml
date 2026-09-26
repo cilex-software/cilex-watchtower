@@ -52,7 +52,8 @@ Item {
                     { id: "groups", icon: "layers",  label: qsTr("Groups") },
                     { id: "views",  icon: "grid",    label: qsTr("Views") },
                     { id: "events", icon: "bell",    label: qsTr("Events") },
-                    { id: "health", icon: "pulse",   label: qsTr("Health") }
+                    { id: "health", icon: "pulse",   label: qsTr("Health") },
+                    { id: "labs",   icon: "flask",   label: qsTr("Labs") }
                 ]
                 delegate: Item {
                     id: navItem
@@ -86,6 +87,13 @@ Item {
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
+                            // A label wider than the rail shrinks to fit instead of being
+                            // clipped: «ЛАБОРАТОРИЯ» (11 letters) lost its first letter at 9 px
+                            // (RU screenshot, 2026-09-26). Labels that fit are untouched.
+                            width: Math.min(implicitWidth, navItem.width - 6)
+                            horizontalAlignment: Text.AlignHCenter
+                            fontSizeMode: Text.HorizontalFit
+                            minimumPixelSize: 7
                             text: navItem.modelData.label
                             color: navItem.tint
                             font.family: Theme.fontMono

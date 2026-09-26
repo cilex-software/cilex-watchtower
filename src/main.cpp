@@ -704,6 +704,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtStepSpike", qEnvironmentVariableIntValue("WT_STEPSPIKE"));
     // Dev/test: auto-enter frame-by-frame mode once playback renders (screenshots/CI).
     engine.rootContext()->setContextProperty("wtFrameMode", qEnvironmentVariableIsSet("WT_FRAME_MODE"));
+    // WT_LABS_CONFIRM=<slug>: open the Labs screen's real "Switch on?" dialog for that
+    // analyser once the server's answer arrives -- for review screenshots. Nothing is sent.
+    engine.rootContext()->setContextProperty("wtLabsConfirm", qEnvironmentVariable("WT_LABS_CONFIRM"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.

@@ -1393,6 +1393,9 @@ check("loop: a refused station token is shown as FATAL, with the server's reason
       hb.fields.get("state") == "fatal" and "station_token_not_recognised" in (hb.fields.get("note") or "")
       and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
 
+check("loop: a server that hands out the hour IN PROGRESS (1.0.61 and older) gets NO claims from the loop",
+      RW2.server_too_old("1.0.61") and RW2.server_too_old("1.0.9") and not RW2.server_too_old("1.0.62")
+      and not RW2.server_too_old("1.1.0") and RW2.server_too_old(None) and RW2.server_too_old("garbage"))
 _sd3 = tempfile.mkdtemp(prefix="hb-")
 _hb = RW2.Heartbeat({"state": "starting"}, write=lambda d: ST.write_status(d, directory=_sd3), every=0.05).start()
 _s1 = _j.load(open(os.path.join(_sd3, ST.STATUS)))

@@ -72,6 +72,7 @@ Window {
              : sid === "views" ? qsTr("Views")
              : sid === "events" ? qsTr("Events")
              : sid === "health" ? qsTr("Health")
+             : sid === "labs" ? qsTr("Labs")
              : sid === "clips" ? qsTr("Clips")
              : sid === "preferences" ? qsTr("Preferences") : sid;
     }
@@ -729,6 +730,7 @@ Window {
     SavedViewModel { id: savedViewModel }
     SnapshotModel { id: snapshotModel; dir: Artifacts.snapshotDir }
     StorageHealth { id: storageHealth }
+    LabsModel { id: labsModel }
     PlaybackClient { id: playbackClient }
 
     // Admin switched the live-video transport (go2rtc ↔ direct RTSP): re-fetch
@@ -2167,6 +2169,13 @@ Window {
                     onClosed: win.section = "live"
                 }
 
+                LabsScreen {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    visible: win.section === "labs" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
+                    labs: labsModel
+                }
+
                 HealthScreen {
                     id: healthScreen
                     Layout.fillWidth: true
@@ -2269,7 +2278,7 @@ Window {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: ["live", "groups", "preferences", "health", "events", "views", "clips"].indexOf(win.section) < 0 && !win.prefsTabActive
+                    visible: ["live", "groups", "preferences", "health", "labs", "events", "views", "clips"].indexOf(win.section) < 0 && !win.prefsTabActive
                     EmptyState {
                         anchors.centerIn: parent
                         icon: "pulse"
