@@ -625,8 +625,46 @@ Item {
     // onVideoFrameChanged that ends the settle freeze), so the number is what a
     // guard waits, not what the session took. Operator target 2026-09-08: 2 s.
     property double _wallT0: -1
+    // _wallT0 is cleared at the first frame (it stamps ONE interval); _wallOpenT survives it,
+    // so everything after the first frame can still say how long after the open it happened.
+    property double _wallOpenT: -1
+    function _sinceOpen() { return _wallOpenT > 0 ? " t+=" + (Date.now() - _wallOpenT) + "ms" : ""; }
+
+    // ── RETURNING TO A HIDDEN WALL (2026-09-26) ──────────────────────────────────────────
+    // Hiding the wall (the Preferences tab, or a camera opened from it — see the `visible`
+    // binding in Main.qml) STOPS the player and FREES the server composite. That part is
+    // right: an unseen wall must not hold a composite. What was missing is the way back:
+    // onVisibleChanged(true) only took focus, so the operator returned to a wall that was
+    // black, at ▶, playhead at the window start, with no tile overlays (they need a
+    // session). Reproduced on demand with WT_WALL_HIDE_TEST: playing at pos 15349 → hidden
+    // → shown → state=0 pos=0 session=NO for the rest of the run.
+    // So: remember the window and the playhead on hide; on return, reopen and seek back.
+    property var _resumeFrom: null
+    property double _openStartMs: -1
+    property double _openEndMs: -1
+    function _resumeIfHidden() {
+        // Deferred one event-loop turn (Qt.callLater) so that an EXPLICIT open made in the same
+        // turn as the show — Main.qml flips wallMode and calls openFor() back to back — wins
+        // and clears _resumeFrom, instead of two composites being created for one return.
+        if (!visible || !_resumeFrom || sessionId !== "") return;
+        var r = _resumeFrom;
+        _resumeFrom = null;
+        console.log("[WALL] resume after hide: reopening " + new Date(r.startMs).toISOString() + " → "
+                    + new Date(r.endMs).toISOString() + ", playhead back to " + new Date(r.posMs).toISOString());
+        _open(r.startMs, r.endMs);
+        // _open() resets the deferred seek, so set it AFTER; it applies once the new session is
+        // seekable (applyPendingSeek). Mosaic seeks are an open CV issue (2026-09-24 letter): if
+        // the seek does not take, the wall still PLAYS — from the window start — instead of dying.
+        if (r.posMs > r.startMs) _pendingSeekMs = r.posMs;
+    }
+
     function _open(startMs, endMs) {
         _wallT0 = Date.now();
+        _wallOpenT = _wallT0;
+        _openStartMs = startMs;
+        _openEndMs = endMs;
+        _resumeFrom = null;            // any explicit open supersedes a pending return
+        wallProbe.restart();
         console.log("[WALLTIME] open t=" + _wallT0 + " start=" + new Date(startMs).toISOString());
         if (!client || cameras.length === 0) return;
         console.log("WALLOPEN," + new Date(startMs).toISOString() + "," + new Date(endMs).toISOString()
@@ -793,9 +831,34 @@ Item {
             }
         }
     }
+    // [WALL] probe — the first 60 s after an open, every 2 s. Until 2026-09-26 the wall logged
+    // NOTHING after its first frame: on the operator's Mac it delivered one frame, then showed a
+    // black grid with the transport at ▶ and the playhead frozen at the open, while the log ended
+    // on a healthy "first_frame". Whether it had stalled, stopped or been hidden was unknowable.
+    Timer {
+        id: wallProbe
+        interval: 2000; repeat: true
+        property int n: 0
+        onRunningChanged: if (running) n = 0
+        onTriggered: {
+            n += 1;
+            console.log("[WALL] probe" + root._sinceOpen() + " state=" + player.playbackState
+                        + " status=" + player.mediaStatus + " pos=" + player.position
+                        + " buf=" + player.bufferProgress.toFixed(2) + " visible=" + root.visible
+                        + " session=" + (root.sessionId !== "" ? "yes" : "NO")
+                        + " err=" + (root.errorText !== "" ? "yes" : "no"));
+            if (n >= 30) running = false;
+        }
+    }
     focus: true
     onVisibleChanged: {
-        if (visible) { forceActiveFocus(); return; }
+        // Hiding the wall STOPS the player and FREES the composite (below) — the one path that
+        // turns a playing wall into a black, stopped one without an error. Log both directions.
+        console.log("[WALL] visible=" + visible + " session=" + (root.sessionId !== "" ? root.sessionId : "-")
+                    + " state=" + player.playbackState + " pos=" + player.position + root._sinceOpen());
+        if (visible) { forceActiveFocus(); Qt.callLater(root._resumeIfHidden); return; }
+        if (root.sessionId !== "" && root._openStartMs > 0)
+            root._resumeFrom = { startMs: root._openStartMs, endMs: root._openEndMs, posMs: root.playheadMs };
         player.stop();
         if (root.sessionId !== "" && client) {   // B1: free the composite as we leave the wall
             client.disposeMosaicSession(root.sessionId);
@@ -900,8 +963,14 @@ Item {
                     }
                     // [WALLTIME] stage markers between source_set and first_frame — before 2026-09-08
                     // the wall logged nothing in that gap, so a 60 s wait was unattributable.
-                    onMediaStatusChanged: if (root._wallT0 > 0) console.log("[WALLTIME] mediaStatus=" + mediaStatus + " dt=" + (Date.now() - root._wallT0) + "ms")
-                    onPlaybackStateChanged: if (root._wallT0 > 0) console.log("[WALLTIME] playbackState=" + playbackState + " dt=" + (Date.now() - root._wallT0) + "ms")
+                    onMediaStatusChanged: {
+                        if (root._wallT0 > 0) console.log("[WALLTIME] mediaStatus=" + mediaStatus + " dt=" + (Date.now() - root._wallT0) + "ms")
+                        else console.log("[WALL] mediaStatus=" + mediaStatus + " pos=" + position + root._sinceOpen())
+                    }
+                    onPlaybackStateChanged: {
+                        if (root._wallT0 > 0) console.log("[WALLTIME] playbackState=" + playbackState + " dt=" + (Date.now() - root._wallT0) + "ms")
+                        else console.log("[WALL] playbackState=" + playbackState + " pos=" + position + root._sinceOpen())
+                    }
                     onPositionChanged: if (player.position > 0) renderGuard.stop()   // frames flowing → not stalled
                     // Apply the deferred playhead restore (camera re-assign). Must
                     // wait for `seekable` — a position set before the pipeline

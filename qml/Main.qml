@@ -1912,6 +1912,24 @@ Window {
         }
     }
 
+    // WT_WALL_HIDE_TEST=<ms> (verification only): hide the playing wall the way an operator does —
+    // open Preferences — then return to it 2 s later. Reproduces the 2026-09-26 dead wall on demand.
+    Timer {
+        id: wallHideTest
+        property int phase: 0
+        interval: (typeof wtWallHideTest !== "undefined" && wtWallHideTest > 0) ? wtWallHideTest : 1000
+        running: typeof wtWallHideTest !== "undefined" && wtWallHideTest > 0
+        onTriggered: {
+            if (phase === 0) {
+                console.log("[WALL] hide-test: opening Preferences (hides the wall)");
+                win.openPreferences(); phase = 1; interval = 2000; restart();
+            } else {
+                console.log("[WALL] hide-test: back to the wall tab");
+                win.activateTab(0);
+            }
+        }
+    }
+
     // keyboard shortcuts (design §30)
     // F is context-split: on the playback screen it toggles frame-by-frame mode
     // (handled by PlaybackScreen's own key handling — this app-wide shortcut would

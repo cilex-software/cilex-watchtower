@@ -891,6 +891,9 @@ int main(int argc, char *argv[])
     // Optional: open synchronized wall playback on boot over the live page's cameras
     // (dev: WT_WALL_DAY=2026-05-29, or WT_WALL_DAY=live for the last hour).
     engine.rootContext()->setContextProperty("wtWallDay", qEnvironmentVariable("WT_WALL_DAY"));
+    // Verification: WT_WALL_HIDE_TEST=<ms> — that long after start, open the Preferences tab (it
+    // hides the wall exactly as the operator's avatar menu does), and come back 2 s later.
+    engine.rootContext()->setContextProperty("wtWallHideTest", qEnvironmentVariableIntValue("WT_WALL_HIDE_TEST"));
     // Calendar + historic-playback STRESS driver (dev/soak): rotates over the roster,
     // opening a day, scrubbing it, then clicking the next day — exercising the calendar
     // navigation, session load/seek ("awfully slow" under a degraded backend) and the
