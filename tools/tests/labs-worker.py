@@ -537,9 +537,13 @@ VENDORED = {   # module: (cilex-vision commit, sha256 of services/query-api/<mod
     # since one row starting past the hour's end makes the server refuse the unit.
     "labs_audio_energy":    ("21258fd", "20ba1b82eca02e18c6ae88d478cada3d3ac253ae508b871cb06c86a6ab03835f"),
     # Handed over by the Windows agent (92e7c1b), who cannot read cilex-vision's repo.
-    "labs_foreground_mask":  ("fe673cc", "d6b11f75f03f1903823cdb96b988f0cb67e6cbec5f8e4c12a357fa1246551f66"),
+    # dd33367: stream-mode MOG2 history from the median of the first real steps; a
+    # step under 0.01 s (a keyframe pair, 11 us) is a duplicate. Primed mode, which
+    # B3/B7 window scoring uses, is unchanged -- VERSION stays b3-1.
+    "labs_foreground_mask":  ("dd33367", "a84ba8d54c9c38a2727196dff89d98b26614ca98ecaed5a062663173b2f8844b"),
     "labs_colour_histogram": ("f7ecd57", "b94271bd1d8dea49e7fbb7fa95fa2ac7049f89df52d802a0fc593223e94d9fcb"),
-    "labs_track_linking":    ("9ef284f", "bbb690bf73f0b631b818a43a4df34aa0060c42f521cd7df1af095c6d5a42b887"),
+    # dd33367: VERSION b6-1 -> b6-2 (its stream-mode mask changed through fm).
+    "labs_track_linking":    ("dd33367", "09940cbc60f4849c5d39ce894ea18af4e0e64d3ca0440e8c3b9f082cff9bda2d"),
 }
 import hashlib
 _CV = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api")

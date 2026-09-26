@@ -115,7 +115,14 @@ import labs_foreground_mask as fm
 logger = logging.getLogger(__name__)
 
 ANALYZER = "track_linking"
-VERSION = "b6-1"
+#: b6-2 (2026-09-26): the stream-mode mask this analyser runs now sets MOG2
+#: history from the median of a model's first real frame steps, not its second
+#: frame alone (labs_foreground_mask). Output can differ from b6-1 wherever those
+#: first steps are irregular. MEASURED on real hiwatch-849459c4f007 sub footage,
+#: a keyframe-pair camera: identical (history 500, same 2 episodes), because this
+#: decode does not yield the pair as two frames. The version moves anyway, so
+#: rows from before and after can always be told apart.
+VERSION = "b6-2"
 
 #: The edges an episode can enter or leave by. "inside" means it appeared or
 #: vanished away from every edge (a doorway, an occluder, or something that

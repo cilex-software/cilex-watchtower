@@ -174,6 +174,16 @@ class Config:
     #: Used when no timestamps and no frame_step_s are supplied: the MEASURED main
     #: keyframe interval (median 3.997 s on all 42 30-second sample main segments).
     default_frame_step_s: float = 4.0
+    #: A step shorter than this is a DUPLICATE, not a frame interval. Three
+    #: cameras open every -sub segment with two keyframes one 90 kHz tick
+    #: (11 us) apart (measured by the Watchtower Windows agent, 2026-09-26), and
+    #: taken as a step it clamped MOG2 history to history_frames_max. No camera
+    #: here runs faster than 30 fps (33 ms), so 10 ms cannot cut a real one.
+    min_frame_step_s: float = 0.01
+    #: Stream mode sets MOG2 history from the MEDIAN of a model's first this-many
+    #: real steps, not from its second frame alone: an every-Nth selection that
+    #: counts the duplicate starts one interval short (2 frames, not 3).
+    history_steps: int = 5
 
 
 DEFAULT = Config()
@@ -334,7 +344,8 @@ def _check_forward(t: float | None, prev_t: float | None, index: int) -> None:
 
 def history_frames(step_s: float | None, config: Config = DEFAULT) -> int:
     """MOG2 history in FRAMES for a wall-clock memory of config.history_s."""
-    step = step_s if step_s and step_s > 0 else config.default_frame_step_s
+    step = (step_s if step_s and step_s >= config.min_frame_step_s
+            else config.default_frame_step_s)
     n = int(round(config.history_s / step))
     return max(config.history_frames_min, min(config.history_frames_max, n))
 
@@ -490,6 +501,11 @@ def _iter_stream(frames: Iterable[Any], cfg: Config,
     since = 0                      # frames applied to the current model
     t_start: float | None = None
     prev_t: float | None = None
+    steps: list[float] = []        # the current model's first real frame steps
+
+    def real(step: float | None) -> bool:
+        return step is not None and step >= cfg.min_frame_step_s
+
     for index, item in enumerate(frames):
         t, img = _unpack(item)
         if t is None and frame_step_s:
@@ -504,10 +520,15 @@ def _iter_stream(frames: Iterable[Any], cfg: Config,
             step = frame_step_s          # a gap is not a frame step
         if model is None or model.size != wsize or gap:
             model, run, since, t_start = _Model(cfg, wsize, step), run + 1, 0, t
-        elif since == 1 and step and not frame_step_s:
-            # Second frame: the first real step is known now, so the history
-            # can be set in wall-clock terms before MOG2's schedule needs it.
-            model.history = history_frames(step, cfg)
+            steps = [step] if (not frame_step_s and real(step)) else []
+        elif not frame_step_s and real(step) and len(steps) < cfg.history_steps:
+            # Set the history in wall-clock terms as soon as a REAL step is
+            # known, and refine it to the median of the first few. Not simply
+            # the second frame: a keyframe pair made that step 11 us, which
+            # clamped history to history_frames_max, about 1.8 h of memory where
+            # 100 s was meant (Watchtower Windows, 2026-09-26).
+            steps.append(step)
+            model.history = history_frames(float(np.median(steps)), cfg)
             model.bs.setHistory(model.history)
         if since == 0:
             warm = False
@@ -526,6 +547,7 @@ def _iter_stream(frames: Iterable[Any], cfg: Config,
             model = _Model(cfg, wsize, step)
             model.bs.apply(luma)
             run, since, t_start = run + 1, 1, t
+            steps = [step] if (not frame_step_s and real(step)) else []
 
 
 # ---------------------------------------------------------------------------
