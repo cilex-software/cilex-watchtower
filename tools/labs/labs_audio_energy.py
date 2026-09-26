@@ -923,11 +923,18 @@ class AudioEnergySession:
     the normal case ONE per unit, however many segments it holds. A new run
     starts only at a segment with no audio, a gap over MAX_SEAM_S, or a change
     of audio format.
+
+    `hour_end` is the end of the claimed hour, for a Labs unit. With it, no
+    window starts at or after that instant (see `_windows`); without it the
+    grid is plain wall clock, which is right for a research run that spans
+    several hours.
     """
 
     def __init__(self, *, window_s: float = WINDOW_S, ffmpeg: str = "ffmpeg",
-                 decoder_factory: DecoderFactory | None = None) -> None:
+                 decoder_factory: DecoderFactory | None = None,
+                 hour_end: datetime | str | None = None) -> None:
         self.window_s = float(window_s)
+        self.hour_end = None if hour_end is None else _epoch(hour_end)
         self._factory = decoder_factory or (lambda cb: FfmpegPcmDecoder(cb, ffmpeg=ffmpeg))
         self._run: _Run | None = None
         self._done: list[_Run] = []
@@ -1063,6 +1070,19 @@ class AudioEnergySession:
         w = self.window_s
         bins = np.floor(t / w).astype(np.int64)
         on_bin = np.floor(on_t / w).astype(np.int64) if on_i.size else np.zeros(0, np.int64)
+        last = None
+        if self.hour_end is not None:
+            # The hour's last segment runs past the hour, because recorder
+            # segments are not aligned to the clock. On the plain grid its tail
+            # opens a window that STARTS in the next hour, and the server
+            # refuses the whole unit for one such row (routers/labs.py,
+            # observation_outside_claimed_hour, not retryable). So the tail
+            # joins the hour's last window, which then ends where the audio
+            # ends: nothing is dropped and every row starts inside the hour.
+            # labs_perceptual_hash guards the same edge.
+            last = int(np.ceil(self.hour_end / w)) - 1
+            bins = np.minimum(bins, last)
+            on_bin = np.minimum(on_bin, last)
         order = np.argsort(bins, kind="stable")
         cuts = np.flatnonzero(np.diff(bins[order])) + 1
         out: list[WindowStats] = []
@@ -1073,7 +1093,8 @@ class AudioEnergySession:
             b3 = f.band3[sel].sum(axis=0)
             tot = float(b3.sum())
             start = max(b * w, float(t[sel].min()) - half)
-            end = min((b + 1) * w, float(t[sel].max()) + half)
+            cap = np.inf if b == last else (b + 1) * w
+            end = min(cap, float(t[sel].max()) + half)
             m = on_bin == b
             cnt = int(np.count_nonzero(m))
             if cnt:
@@ -1185,12 +1206,29 @@ def segments_from_raw(chunks: Iterable[bytes], segs: Sequence[Any]) -> Iterator[
         raise ValueError("raw stream is longer than the segments' catalogued sizes")
 
 
+def _unit_hour_start(segs: Sequence[Any]) -> float | None:
+    """The claimed hour, from the unit's own segments: the server hands a unit
+    only segments that START in its hour, so the UTC hour of the earliest one
+    is that hour whenever hours are whole hours of UTC (so for any whole-hour
+    zone offset, Moscow's included)."""
+    starts = [_epoch(_field(s, "start_time")) for s in segs]
+    return float(np.floor(min(starts) / 3600.0) * 3600.0) if starts else None
+
+
 def analyse_raw_unit(chunks: Iterable[bytes], segs: Sequence[Any], *,
-                     emit: str = "events") -> list[dict[str, Any]]:
+                     emit: str = "events", hour_start: datetime | str | None = None,
+                     **kw: Any) -> list[dict[str, Any]]:
     """The whole plugin body for the worker's raw path: flat chunks and the
     unit's segments in, ObservationIn dicts out. Raises on a decode failure or
-    a mis-sized stream, so the worker files the unit failed with its reason."""
-    return observations_for_unit(analyse_segments(segments_from_raw(chunks, segs)), emit=emit)
+    a mis-sized stream, so the worker files the unit failed with its reason.
+
+    Every row starts inside the claimed hour: `hour_start` when the caller
+    passes it, else the hour derived from `segs`. `kw` goes to
+    AudioEnergySession (window_s, ffmpeg, decoder_factory)."""
+    hs = _epoch(hour_start) if hour_start is not None else _unit_hour_start(segs)
+    hour_end = None if hs is None else _dt(hs + 3600.0)
+    return observations_for_unit(
+        analyse_segments(segments_from_raw(chunks, segs), hour_end=hour_end, **kw), emit=emit)
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ reachable and the analysers are enabled, and prints what a live run would do.
 The station token is read from the SAME file Warden reads -- warden.conf's
 STATION_TOKEN -- so it exists in one place. Never logged, never printed.
 """
-import argparse, os, sys, time, json, urllib.request
+import argparse, logging, os, sys, time, json, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import worker as W, plugins as P, frame_source
 
@@ -29,7 +29,10 @@ def read_token(path=CONF):
 
 
 def decode(path, kf, want_chroma):
-    return list(frame_source.iter_frames(path, keyframes_only=kf, want_chroma=want_chroma))
+    # ffmpeg named, not searched for: find_ffmpeg() RUNS each candidate to prove it
+    # works, and without this that would be one extra process per segment.
+    return list(frame_source.iter_frames(path, ffmpeg=P.ffmpeg_exe(), keyframes_only=kf,
+                                         want_chroma=want_chroma))
 
 
 PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin,
@@ -47,9 +50,18 @@ def main():
     ap.add_argument("--units", type=int, default=1, help="claim this many per analyser (live)")
     a = ap.parse_args()
     names = a.analyzer or ["illumination"]
+    # The analysers' own WARNINGs (a decoder that failed, and why) go to stderr as
+    # they happen; the worker also appends the last one to a failed unit's reason.
+    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     tok = read_token()
     print(f"station token : {'present' if tok else 'MISSING'} ({CONF})")
+    # A station with no working ffmpeg would file EVERY unit it claims as failed --
+    # three attempts each, on real camera-hours. Refuse before claiming anything.
+    try:
+        print(f"ffmpeg        : {P.ffmpeg_exe()}")
+    except RuntimeError as e:
+        sys.exit(f"FATAL (this station cannot decode; nothing claimed): {e}")
     try:
         oa = json.load(urllib.request.urlopen(f"{a.api}/openapi.json", timeout=10))
         print(f"service       : {a.api}  version {oa['info']['version']}")
@@ -88,6 +100,8 @@ def main():
     for o in rep.outcomes:
         print(f"  {o.unit.analyzer:14s} {o.unit.camera_id:24s} {o.unit.hour_start}  "
               f"segs={o.segments_scanned} obs={o.observations} submitted={o.submitted}"
+              + (f" gone={o.skipped_segments}" if o.skipped_segments else "")
+              + (f" undecodable={o.undecodable_segments}" if o.undecodable_segments else "")
               + (f"  [{o.action.value}: {o.note}]" if o.action else ""))
     if rep.stopped_analysers:
         print("stopped (operator disabled):", ", ".join(rep.stopped_analysers))

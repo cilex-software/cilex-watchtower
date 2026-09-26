@@ -215,7 +215,10 @@ def decode_gray_keyframes(
         "-skip_frame", "nokey",
         "-fflags", "+discardcorrupt",   # a corrupt joint must not become motion
         "-i", "pipe:0",
-        "-vsync", "0",
+        # `-fps_mode passthrough`, not `-vsync 0`: the same meaning, but
+        # current ffmpeg removed `-vsync` and exits before decoding
+        # anything (a Watchtower booth, ffmpeg N-126168, 2026-09-26).
+        "-fps_mode", "passthrough",
         "-vf", f"scale={width}:{height},format=gray",
         "-f", "rawvideo", "pipe:1",
     ]
@@ -240,13 +243,33 @@ def decode_gray_keyframes(
             except OSError:
                 pass
 
+    # stderr is drained WHILE stdout is read, never after it: once a pipe
+    # buffer of stderr sits unread, ffmpeg blocks and never finishes stdout,
+    # and both sides then wait forever. `-loglevel error` keeps healthy footage
+    # quiet, but a corrupt stream can log an error per macroblock. The
+    # Watchtower Windows agent reproduced the hang with 200 KB of stderr
+    # (2026-09-26). The first 4 KB are kept for the log line.
+    err = bytearray()
+
+    def _drain() -> None:
+        try:
+            for line in iter(proc.stderr.readline, b""):
+                if len(err) < 4096:
+                    err.extend(line[:4096 - len(err)])
+        except (OSError, ValueError):
+            pass
+
     feeder = threading.Thread(target=_feed, daemon=True)
+    drainer = threading.Thread(target=_drain, daemon=True)
     feeder.start()
+    drainer.start()
+    frames = 0
     try:
         while True:
             buf = proc.stdout.read(frame_bytes)
             if not buf or len(buf) < frame_bytes:
                 break
+            frames += 1
             yield np.frombuffer(buf, dtype=np.uint8).reshape((height, width))
     finally:
         try:
@@ -258,18 +281,23 @@ def decode_gray_keyframes(
             proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
             proc.kill()
-        err = b""
+            proc.wait()
+        drainer.join(timeout=1.0)
         try:
-            err = proc.stderr.read() or b""
-        except (OSError, ValueError):
+            proc.stderr.close()
+        except OSError:
             pass
-        finally:
-            try:
-                proc.stderr.close()
-            except OSError:
-                pass
-        if err:
-            logger.debug("ffmpeg: %s", err.decode("utf-8", "replace")[:500])
+        text = bytes(err).decode("utf-8", "replace")[:500]
+        if frames == 0 and proc.returncode not in (0, None):
+            # A decoder that FAILED must not pass for footage with no
+            # keyframes. The return value is unchanged (the caller still sees
+            # no frames), but the reason is now visible: on a booth ffmpeg that
+            # rejected `-vsync`, this decoder produced nothing and its only
+            # trace was this line at debug level (2026-09-26).
+            logger.warning("ffmpeg exited %s and decoded no frames: %s",
+                           proc.returncode, text or "(no stderr)")
+        elif text:
+            logger.debug("ffmpeg: %s", text)
 
 
 def analyse(source: Iterable[bytes] | bytes, *,

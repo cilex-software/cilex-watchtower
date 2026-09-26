@@ -525,13 +525,17 @@ check("REAL client: a closed port becomes a retryable transport_error",
 #      an upstream change fails there until it is re-vendored and its row updated.
 # Re-vendor = copy the file from the named commit, then update its row. Never edit it.
 VENDORED = {   # module: (cilex-vision commit, sha256 of services/query-api/<module>.py)
-    "labs_framediff":       ("65bed72", "9700cc0e21dda06d848146f6f8ba26d4db37e2e56dd39df0d936d8819f4effbd"),
-    "labs_camera_health":   ("468dc90", "732e6decf36eaf267b176c0c90430d37b0d4bbe40d82dbe4a78b0775ae4c5ce9"),
+    # 3505b6b: `-vsync 0` -> `-fps_mode passthrough` (a current ffmpeg rejects -vsync
+    # and decoded NOTHING on the booth); stderr drained on a thread (a noisy stream
+    # deadlocked it); a failed zero-frame decode now logs its cause at WARNING.
+    "labs_framediff":       ("3505b6b", "0a62674410778f3af657a46348b5d63ab15d02dcc2a75a8689b6fde94929fb71"),
+    "labs_camera_health":   ("3505b6b", "74925789d9e73dca067c5ef6e26a21daf499e79a005c4cd691b717c4cbf178cc"),
     "labs_perceptual_hash": ("fde4ab5", "c995830cdf02bd19bdcd21811b7b2e21d527cae4cd731e0390fb165b4fff3e7b"),
     "labs_optical_flow":    ("631241d", "6fbb3493450f6bed39ec05017b008a2bc54db55dd2a5d491882973bda336115f"),
-    # 071c278: `import resource` moved from module top into _cpu()/_main(); fe28fae's
-    # copy made `import plugins` fail on Windows (see "imports on Windows" below).
-    "labs_audio_energy":    ("071c278", "9cbc67786555d6799e2b8331ebfc4429fe58eb1bfe823bfc2c0e1541b3dd8dea"),
+    # 071c278 moved `import resource` off module top (fe28fae's copy made `import
+    # plugins` fail on Windows); 21258fd clamps an hour's tail into its last window,
+    # since one row starting past the hour's end makes the server refuse the unit.
+    "labs_audio_energy":    ("21258fd", "20ba1b82eca02e18c6ae88d478cada3d3ac253ae508b871cb06c86a6ab03835f"),
 }
 import hashlib
 _CV = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api")
@@ -663,21 +667,33 @@ class SizedFake(Fake):
     def fetch(self, sg, d):
         self.fetched.append(sg.segment_id); open(d, "wb").write(b"a" * self.sizes[sg.segment_id]); return 1
 
+# Every self-decoding analyser must be NAMED the working ffmpeg: each defaults to a bare
+# `ffmpeg`, which the booth does not have on PATH. A sentinel proves the plugin passes
+# ffmpeg_exe() through, rather than the analyser falling back to its default.
+_real_ffmpeg = P._FFMPEG
+P._FFMPEG = "/sentinel/bin/ffmpeg"
 AU = P.AudioEnergyPlugin()
 _ae = P.ae.analyse_raw_unit
 try:
-    P.ae.analyse_raw_unit = lambda chunks, segs: (b"".join(chunks), [])[1]
+    au_kw = {}
+    def fake_ae(chunks, segs, **k):
+        au_kw.update(k); b"".join(chunks); return []
+    P.ae.analyse_raw_unit = fake_ae
     u = unit(a="audio_energy")
     c = SizedFake({"r1": 100, "r2": 100}, segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]})
     W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
     b = c.submitted[0][1] if c.submitted else {}
     check("audio: [] is a RESULT and is filed empty, not failed", b.get("observations") == [] and not b.get("failed"), str(b))
+    check("audio: the CLAIMED hour is passed, exactly (one row past its end = the whole unit refused)",
+          au_kw.get("hour_start") == P._parse(u.hour_start), str(au_kw.get("hour_start")))
+    check("audio: named the working ffmpeg, not a bare `ffmpeg`",
+          au_kw.get("ffmpeg") == "/sentinel/bin/ffmpeg", str(au_kw.get("ffmpeg")))
     c = SizedFake({"r1": 110, "r2": 90}, segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]})
     W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
     b = c.submitted[0][1] if c.submitted else {}
     check("audio: COMPENSATING size errors (110+90 = 100+100) are caught per file",
           b.get("failed") is True and "fetched_size_mismatch" in (b.get("error") or ""), str(b))
-    P.ae.analyse_raw_unit = lambda chunks, segs: (_ for _ in ()).throw(ValueError("raw stream ended short"))
+    P.ae.analyse_raw_unit = lambda chunks, segs, **k: (_ for _ in ()).throw(ValueError("raw stream ended short"))
     c = SizedFake({"r1": 100}, segs={(u.camera_id, u.hour_start): [rseg(1)]})
     W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
     b = c.submitted[0][1] if c.submitted else {}
@@ -691,12 +707,13 @@ OF = P.OpticalFlowPlugin()
 _ab, _to = P.oflow.analyse_burst, P.oflow.to_observation
 seen_types = []
 try:
-    _calls = {"n": 0}
-    def fake_burst(path):
+    _calls = {"n": 0, "ffmpeg": set()}
+    def fake_burst(path, **k):
         # The FIRST burst fails to decode. (An earlier version keyed this on a path
         # suffix the worker's random temp names never had, so the branch never ran and
         # a mutation reporting a failed decode as "still" survived.)
         _calls["n"] += 1
+        _calls["ffmpeg"].add(k.get("ffmpeg"))
         if _calls["n"] == 1:
             raise P.oflow.DecodeError("undecodable burst")
         return "burst"
@@ -719,7 +736,31 @@ try:
           b.get("observations") == [] and _calls["n"] == 2, f"rows={b.get('observations')} calls={_calls['n']}")
     check("flow: start_time reaches to_observation as a DATETIME, not the wire string",
           seen_types and all(t == "datetime" for t in seen_types), str(seen_types))
+    check("flow: a PARTIAL unit is reported as partial (1 burst undecodable)",
+          o.undecodable_segments == 1, str(o.undecodable_segments))
+    check("flow: named the working ffmpeg on every burst", _calls["ffmpeg"] == {"/sentinel/bin/ffmpeg"},
+          str(_calls["ffmpeg"]))
     check("flow: temp files removed", leftovers() == [], str(leftovers()))
+
+    # NOT ONE burst decodes. [] would file "checked, nothing moved" -- the body a truly
+    # still hour gets (the Windows agent measured 1 MB of junk filing exactly that).
+    def junk_burst(path, **k):
+        raise P.oflow.DecodeError("decoder produced no frames: Invalid data found when processing input")
+    P.oflow.analyse_burst = junk_burst
+    c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]})
+    o = W.run_unit(c, OF, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("flow: NOTHING decodable is filed FAILED in ffmpeg's words, never as 'nothing moved'",
+          b.get("failed") is True and "Invalid data found" in (b.get("error") or ""), str(b))
+    check("...and counts both bursts as undecodable", o.undecodable_segments == 2, str(o.undecodable_segments))
+
+    # Every listed segment GONE: nothing was fetched, so nothing was looked at either.
+    c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]},
+             refuse={("fetch", "r1"): [R(404, "segment_not_found")], ("fetch", "r2"): [R(404, "segment_not_found")]})
+    o = W.run_unit(c, OF, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("flow: every segment GONE is filed FAILED, not 'nothing moved'",
+          b.get("failed") is True and "nothing_looked_at: 2 listed, 2 gone" in (b.get("error") or ""), str(b))
 finally:
     P.oflow.analyse_burst, P.oflow.to_observation = _ab, _to
 
@@ -728,7 +769,7 @@ _pa = P.ph.analyse
 try:
     got = {}
     def fake_ph(chunks, starts, *, hour_start_s=None, per_keyframe=False, **k):
-        got.update(starts=starts, hs=hour_start_s, n=len(b"".join(chunks)))
+        got.update(starts=starts, hs=hour_start_s, n=len(b"".join(chunks)), ffmpeg=k.get("ffmpeg"))
         return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:01:00Z", "metrics": {"rep_hash": "ab"}}]
     P.ph.analyse = fake_ph
     u = unit(hour="2026-09-26T01:00:00Z", a="perceptual_hash")
@@ -740,6 +781,7 @@ try:
           len(got.get("starts", [])) == 2 and got["starts"][1] - got["starts"][0] == 30.0, str(got.get("starts")))
     check("phash: hour_start is passed (windows past the hour end fold back)", got.get("hs") is not None)
     check("phash: rows are tagged with the stream", ob.get("metrics", {}).get("stream") == "sub", str(ob))
+    check("phash: named the working ffmpeg", got.get("ffmpeg") == "/sentinel/bin/ffmpeg", str(got.get("ffmpeg")))
     c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), W.Segment("rX", "http://x/rX", None, None, 30.0, 100,
                                                                      "sub", 1, 1, "h264")]})
     W.run_unit(c, PH, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
@@ -748,6 +790,22 @@ try:
           b.get("failed") is True and "no start_time" in (b.get("error") or ""), str(b))
 finally:
     P.ph.analyse = _pa
+
+_fa = P.fdiff.analyse
+try:
+    fd_kw = {}
+    def fake_fd(chunks, span_s=None, **k):
+        fd_kw.update(k); list(chunks)
+        return FDM.Scores(peak=1.0, sustained=0, ratio=None, frames=8, median_delta=0.1,
+                          sustained_s=0.0, keyframe_interval_s=4.0)
+    P.fdiff.analyse = fake_fd
+    uf = W.ScanUnit("c", "2026-09-26T01:00:00Z", "frame_difference", None, 1)
+    c = Fake(segs={(uf.camera_id, uf.hour_start): [fseg(1)]})
+    W.run_unit(c, FD, uf, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    check("fdiff: named the working ffmpeg", fd_kw.get("ffmpeg") == "/sentinel/bin/ffmpeg", str(fd_kw.get("ffmpeg")))
+finally:
+    P.fdiff.analyse = _fa
+P._FFMPEG = _real_ffmpeg
 
 # the 500-row cap, on EVERY submit path (they now share _finish)
 class Many(Nothing):
@@ -786,6 +844,165 @@ try:
 except Exception as e:
     msg = str(e) + repr(e)
 check("token is not in any exception a failed request raises", "SECRET-TOKEN-XYZ" not in msg, msg[:80])
+
+# ---------------------------------------------------------------- could not look != nothing there
+# frame_source RAISES on a segment it cannot read. The frame path called it with no
+# except, so ONE corrupt segment took down run_once and left every leased unit to
+# expire as 'lease expired' (found reading the code, 2026-09-26, before any live run).
+import logging
+class IdFake(Fake):
+    """Writes each segment's id into its file, so a decoder can fail on chosen ones."""
+    def fetch(self, s, dest):
+        self.fetched.append(s.segment_id); self._pop("fetch", s.segment_id)
+        open(dest, "wb").write(s.segment_id.encode()); return 1
+def decode_failing_on(bad):
+    ok = decode_chroma(11.5)
+    def d(path, kf, want_chroma):
+        if open(path, "rb").read().decode() in bad:
+            raise RuntimeError("decoder produced no frames (exit 1): Invalid data found when processing input")
+        return ok(path, kf, want_chroma)
+    return d
+
+u = unit(); c = IdFake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+try:
+    o = run(c, B1, u, decode=decode_failing_on({"seg-1"})); crashed = None
+except Exception as e:
+    o, crashed = None, e
+b = c.submitted[0][1] if c.submitted else {}
+check("frame path: an UNDECODABLE segment is skipped, never raised out of the loop",
+      crashed is None and o.submitted and not b.get("failed") and len(b.get("observations", [])) == 1,
+      repr(crashed) if crashed else str(b)[:160])
+check("...and the unit reports it as partial", o is not None and o.undecodable_segments == 1,
+      str(o and o.undecodable_segments))
+
+u = unit(); c = IdFake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+o = run(c, B1, u, decode=decode_failing_on({"seg-1", "seg-2"}))
+b = c.submitted[0][1] if c.submitted else {}
+check("frame path: NOTHING decodable is filed FAILED with the decoder's words, not as an empty result",
+      b.get("failed") is True and "nothing_looked_at: 2 listed, 0 gone, 2 undecodable" in (b.get("error") or "")
+      and "Invalid data found" in (b.get("error") or ""), str(b))
+
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]},
+                     refuse={("fetch", "seg-1"): [R(404, "segment_not_found")], ("fetch", "seg-2"): [R(404, "segment_not_found")]})
+o = run(c, B1, u)
+b = c.submitted[0][1] if c.submitted else {}
+check("frame path: every listed segment GONE is filed FAILED, not 'looked, found nothing'",
+      b.get("failed") is True and "nothing_looked_at: 2 listed, 2 gone" in (b.get("error") or ""), str(b))
+
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): []})
+o = run(c, Nothing(), u)
+b = c.submitted[0][1] if c.submitted else {}
+check("control: an hour with NO footage listed is still a real, EMPTY result",
+      o.submitted and b.get("observations") == [] and not b.get("failed"), str(b))
+
+ua, ub = unit(cam="cam-a"), unit(cam="cam-b")
+c = IdFake(units={"illumination": [ua, ub]},
+           segs={(ua.camera_id, ua.hour_start): [seg(1)], (ub.camera_id, ub.hour_start): [seg(2)]})
+try:
+    rep = W.run_once(c, [B1], decode=decode_failing_on({"seg-1"}), states={}, sleep=lambda s: None); crashed = None
+except Exception as e:
+    rep, crashed = None, e
+check("run_once: a unit that cannot be decoded does not stop the batch -- both units are filed",
+      crashed is None and rep.submitted == 2 and rep.fatal is None,
+      repr(crashed) if crashed else f"submitted={rep.submitted} fatal={rep.fatal}")
+
+# A failure names its cause. The analysers log the decoder's own words at WARNING
+# (3505b6b); the worker appends the last such line to a failed unit's reason.
+_fa = P.fdiff.analyse
+_root_handlers = list(logging.getLogger().handlers)
+try:
+    logging.getLogger("labs_framediff").warning("stale warning from BEFORE this unit")
+    def fd_rejects(chunks, span_s=None, **k):
+        list(chunks)
+        logging.getLogger("labs_framediff").warning(
+            "ffmpeg exited 8 and decoded no frames: Unrecognized option 'vsync'.")
+        return None
+    P.fdiff.analyse = fd_rejects
+    uf = W.ScanUnit("c", "2026-09-26T01:00:00Z", "frame_difference", None, 1)
+    c = Fake(segs={(uf.camera_id, uf.hour_start): [fseg(1)]})
+    W.run_unit(c, FD, uf, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    err = c.submitted[0][1].get("error") if c.submitted else ""
+    check("a failed unit carries the analyser's last WARNING (no_keyframes_decoded now says why)",
+          err.startswith("no_keyframes_decoded") and "Unrecognized option 'vsync'" in err, err)
+    check("control: a warning logged BEFORE the unit is not attributed to it", "stale" not in err, err)
+    P.fdiff.analyse = lambda chunks, span_s=None, **k: (list(chunks), None)[1]
+    c = Fake(segs={(uf.camera_id, uf.hour_start): [fseg(1)]})
+    W.run_unit(c, FD, uf, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    err = c.submitted[0][1].get("error") if c.submitted else ""
+    check("control: a unit that logged nothing carries no stale warning from the one before",
+          err == "no_keyframes_decoded", err)
+    check("the capture is removed after every unit (no handler leaks onto the root logger)",
+          logging.getLogger().handlers == _root_handlers, str(logging.getLogger().handlers))
+finally:
+    P.fdiff.analyse = _fa
+
+# No working ffmpeg on the station: refuse BEFORE claiming. Otherwise every unit it
+# claimed would be filed failed, three attempts each, on real camera-hours.
+import run_worker as RW, urllib.request as _ur
+_fe, _uo, _argv = P.ffmpeg_exe, _ur.urlopen, sys.argv
+_opened = []
+try:
+    def _no_ffmpeg():
+        raise RuntimeError("no working ffmpeg found. Tried: ffmpeg")
+    P.ffmpeg_exe = _no_ffmpeg
+    _ur.urlopen = lambda *a, **k: _opened.append(a) or (_ for _ in ()).throw(AssertionError("network"))
+    sys.argv = ["run_worker.py", "--live"]
+    try:
+        RW.main(); exited = ""
+    except SystemExit as e:
+        exited = str(e.code)
+    check("run_worker: no working ffmpeg -> FATAL before anything is claimed",
+          "cannot decode; nothing claimed" in exited and not _opened, f"exit={exited!r} network={len(_opened)}")
+finally:
+    P.ffmpeg_exe, _ur.urlopen, sys.argv = _fe, _uo, _argv
+    for h in logging.getLogger().handlers[:]:
+        if h not in _root_handlers:
+            logging.getLogger().removeHandler(h)
+
+# THE BOOTH'S CONDITION, REPRODUCED HERE: no ffmpeg on PATH at all. Every raw analyser
+# runs through run_unit on a REAL clip, decoded by the real ffmpeg -- which it can only
+# find if the plugin names it. Before 2026-09-26 three of these filed FileNotFoundError.
+import subprocess
+try:
+    _ff = P.ffmpeg_exe()
+except RuntimeError:
+    _ff = None
+_clip = os.path.join(TMP, "clip.ts.src")
+_made = _ff and subprocess.run(
+    [_ff, "-hide_banner", "-loglevel", "error", "-y",
+     "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15",
+     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
+     "-t", "4", "-c:v", "libx264", "-g", "15", "-bf", "0", "-pix_fmt", "yuv420p",
+     "-c:a", "aac", "-b:a", "32k", "-f", "mpegts", _clip],
+    capture_output=True, timeout=60).returncode == 0
+if not _made:
+    print("SKIP no-ffmpeg-on-PATH run -- could not make a test clip "
+          f"({'no working ffmpeg' if not _ff else 'libx264/aac unavailable'})")
+else:
+    _size = os.path.getsize(_clip)
+    class ClipFake(Fake):
+        def fetch(self, s, dest):
+            self.fetched.append(s.segment_id)
+            with open(_clip, "rb") as f_in, open(dest, "wb") as f_out:
+                f_out.write(f_in.read())
+            return _size
+    def clipseg(stream):
+        return W.Segment("clip1", "http://x/clip1", "2026-09-26T01:10:00+00:00",
+                         "2026-09-26T01:10:04+00:00", 4.0, _size, stream, 320, 180, "h264")
+    _path = os.environ.get("PATH", "")
+    _empty = tempfile.mkdtemp(prefix="nopath-")
+    os.environ["PATH"] = _empty
+    try:
+        for plug in (P.FrameDifferencePlugin(), P.AudioEnergyPlugin(),
+                     P.OpticalFlowPlugin(), P.PerceptualHashPlugin()):
+            uc = W.ScanUnit("cam-clip", "2026-09-26T01:00:00Z", plug.name, None, 1)
+            c = ClipFake(segs={(uc.camera_id, uc.hour_start): [clipseg(plug.stream_type)]})
+            o = W.run_unit(c, plug, uc, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+            b = c.submitted[0][1] if c.submitted else {}
+            check(f"no ffmpeg on PATH: {plug.name} still decodes a real clip and files a result",
+                  o.submitted and not b.get("failed"), (b.get("error") or str(b))[:200])
+    finally:
+        os.environ["PATH"] = _path
 
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,

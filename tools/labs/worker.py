@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import logging
 import os
 import tempfile
 import time
@@ -388,6 +389,28 @@ class UnitOutcome:
     action: Optional[Action] = None
     note: str = ""
     decoder_runs: int = 0
+    undecodable_segments: int = 0
+
+
+class _LastWarning(logging.Handler):
+    """Keeps the last WARNING-or-worse line logged while a unit runs, so a unit filed
+    as failed names its cause. Without it, `no_keyframes_decoded` read the same for a
+    decoder that rejected its own command line and for a stream of junk bytes (the
+    Windows agent measured both, 2026-09-26); the difference was only in a log line
+    nobody reads. The analysers now log that line at WARNING (cilex-vision 3505b6b)."""
+
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self.last: Optional[str] = None
+
+    def emit(self, record):
+        try:
+            self.last = record.getMessage()
+        except Exception:
+            pass
+
+
+_heard: Optional[_LastWarning] = None
 
 
 def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
@@ -400,12 +423,31 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     Rules this enforces, each of which has cost somebody a run:
       * EMPTY IS A RESULT. Zero observations is submitted, never skipped: it is what
         lets the server say "checked and found nothing" rather than "nobody looked".
+      * ...AND ONLY WHEN SOMETHING WAS LOOKED AT. If segments were listed and not one
+        could be fetched and decoded, [] would claim "looked, found nothing" with no
+        grounds. That is filed as a failure, with its cause.
+      * A segment that cannot be decoded is skipped, like a missing one, never raised
+        out of the loop: one corrupt segment used to crash the whole worker, leaving
+        every claimed unit to expire as 'lease expired'.
       * A lost lease abandons the unit WITHOUT submitting. Partial results for an
         hour this station no longer holds would be a lie about coverage.
       * Every temp file is removed in a finally, including on exception.
       * Stateful analysers keep ONE state per camera across segments and units;
         they reset only on a real discontinuity, which the analyser itself detects.
     """
+    global _heard
+    heard, prev = _LastWarning(), _heard
+    root = logging.getLogger()
+    root.addHandler(heard)
+    _heard = heard
+    try:
+        return _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep)
+    finally:
+        _heard = prev
+        root.removeHandler(heard)
+
+
+def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     out = UnitOutcome(unit)
     ctx = dict(context or {})
     try:
@@ -443,6 +485,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         return _run_raw(client, plugin, unit, segs, out, tmpdir, sleep)
 
     decoded: list[tuple[Segment, list]] = []
+    last_err: Optional[BaseException] = None
     for seg in segs:
         fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
         os.close(fd)
@@ -456,8 +499,18 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
                     continue
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
-            frames = decode(path, plugin.keyframes_only, plugin.want_chroma)
             out.decoder_runs += 1
+            try:
+                frames = decode(path, plugin.keyframes_only, plugin.want_chroma)
+            except Exception as e:
+                # frame_source RAISES on a segment it cannot read or decode (and must:
+                # a decoder that silently yields nothing is the failure it was written
+                # to refuse). Uncaught here, that one segment took down run_once and
+                # every unit still leased. Skipped like a missing segment instead;
+                # counted, and named if nothing else in the unit could be looked at.
+                out.undecodable_segments += 1
+                last_err = e
+                continue
             decoded.append((seg, frames))
         finally:
             try:
@@ -465,6 +518,9 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
             except OSError:
                 pass
 
+    if segs and not decoded:
+        return _file_failed(client, plugin, unit, out,
+                            _nothing_looked_at(segs, out, last_err), Action.BUG)
     out.segments_scanned = len(decoded)
     try:
         obs = plugin.analyse(decoded, state, unit, ctx)
@@ -590,6 +646,9 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
             fetched.append((seg, path))
+        if segs and not fetched:
+            return _file_failed(client, plugin, unit, out,
+                                _nothing_looked_at(segs, out, None), Action.BUG)
         out.segments_scanned = len(fetched)
         out.decoder_runs = len(fetched)
         try:
@@ -597,6 +656,10 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
         except Exception as e:
             return _file_failed(client, plugin, unit, out,
                                 f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
+        finally:
+            # A plugin that skips bursts it could not decode says how many, so the
+            # outcome can report a partial unit as partial.
+            out.undecodable_segments += int(getattr(plugin, "last_undecodable", 0) or 0)
     finally:
         for _, p_ in fetched:
             try:
@@ -642,6 +705,15 @@ def _finish(client, plugin, unit, out, obs, sleep):
     return out
 
 
+def _nothing_looked_at(segs, out, last_err) -> str:
+    """Why a unit whose hour HAD footage produced no evidence at all."""
+    why = (f"nothing_looked_at: {len(segs)} listed, {out.skipped_segments} gone, "
+           f"{out.undecodable_segments} undecodable")
+    if last_err is not None:
+        why += f"; last: {type(last_err).__name__}: {last_err}"
+    return why
+
+
 def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     """File a unit as FAILED with its real reason, rather than abandon it.
 
@@ -671,6 +743,9 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     They caught it; they will move the branch above those checks with the
     operator's go. Until then this list stays empty, and a test pins it.
     """
+    heard = _heard.last if _heard is not None else None
+    if heard and heard not in reason:
+        reason = f"{reason} | last warning: {heard}"
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned, "observations": [],
             "failed": True, "error": fit(reason, 500)}

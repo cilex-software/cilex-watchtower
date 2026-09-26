@@ -984,9 +984,28 @@ def decode_keyframes(segments: Iterable[Iterable[bytes] | bytes], *,
             except OSError:
                 pass
 
+    # stderr is drained WHILE stdout is read, never after it: once a pipe
+    # buffer of stderr sits unread, ffmpeg blocks and never finishes stdout,
+    # and both sides then wait forever. `-loglevel error` keeps healthy footage
+    # quiet, but a corrupt stream can log an error per macroblock. The
+    # Watchtower Windows agent reproduced the hang with 200 KB of stderr
+    # (2026-09-26). The first 4 KB are kept for the log line.
+    err = bytearray()
+
+    def _drain() -> None:
+        try:
+            for line in iter(proc.stderr.readline, b""):
+                if len(err) < 4096:
+                    err.extend(line[:4096 - len(err)])
+        except (OSError, ValueError):
+            pass
+
     feeder = threading.Thread(target=_feed, daemon=True)
+    drainer = threading.Thread(target=_drain, daemon=True)
     feeder.start()
+    drainer.start()
     idx = 0
+    frames = 0
     try:
         while True:
             buf = proc.stdout.read(fbytes)
@@ -995,6 +1014,7 @@ def decode_keyframes(segments: Iterable[Iterable[bytes] | bytes], *,
             y = np.frombuffer(buf, dtype=np.uint8, count=ybytes).reshape(height, width)
             uv = np.frombuffer(buf, dtype=np.uint8, offset=ybytes)
             seg, t = tab.flat[idx] if idx < len(tab.flat) else (None, None)
+            frames += 1
             yield DecodedKeyframe(y, chroma_energy_of(uv), idx, seg, t)
             idx += 1
     finally:
@@ -1007,18 +1027,23 @@ def decode_keyframes(segments: Iterable[Iterable[bytes] | bytes], *,
             proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
             proc.kill()
-        err = b""
+            proc.wait()
+        drainer.join(timeout=1.0)
         try:
-            err = proc.stderr.read() or b""
-        except (OSError, ValueError):
+            proc.stderr.close()
+        except OSError:
             pass
-        finally:
-            try:
-                proc.stderr.close()
-            except OSError:
-                pass
-        if err:
-            logger.debug("ffmpeg: %s", err.decode("utf-8", "replace")[:500])
+        text = bytes(err).decode("utf-8", "replace")[:500]
+        if frames == 0 and proc.returncode not in (0, None):
+            # A decoder that FAILED must not pass for footage with no
+            # keyframes. The return value is unchanged (the caller still sees
+            # no frames), but the reason is now visible. labs_framediff's
+            # decoder failed on a booth's ffmpeg with its cause logged only at
+            # debug level (2026-09-26); this module had the same blind spot.
+            logger.warning("ffmpeg exited %s and decoded no frames: %s",
+                           proc.returncode, text or "(no stderr)")
+        elif text:
+            logger.debug("ffmpeg: %s", text)
 
 
 @dataclass(frozen=True)

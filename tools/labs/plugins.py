@@ -15,6 +15,7 @@ from typing import Optional
 import hashlib
 
 import b1_illumination as b1
+import frame_source as fs
 import labs_framediff as fdiff
 import labs_audio_energy as ae
 import labs_optical_flow as oflow
@@ -42,6 +43,26 @@ def _parse(ts: Optional[str]) -> Optional[datetime]:
 
 def _iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+_FFMPEG: Optional[str] = None
+
+
+def ffmpeg_exe() -> str:
+    """The ffmpeg that RUNS, found once and named explicitly to every analyser that
+    decodes for itself. Each of them defaults to a bare `ffmpeg`, and on the booth
+    there is none on PATH: three ffmpeg.exe on disk, one of which works, and only
+    frame_source's own search finds it. The Windows agent measured every unit of
+    frame_difference, optical_flow and perceptual_hash failing FileNotFoundError
+    there (2026-09-26). Named per call rather than by editing PATH, so the plugins
+    behave the same under run_worker, the smoke harness and the tests.
+
+    Raises RuntimeError when there is none. run_worker asks BEFORE claiming: a
+    station fault must not spend three attempts on each of the fleet's camera-hours."""
+    global _FFMPEG
+    if _FFMPEG is None:
+        _FFMPEG = fs.find_ffmpeg()
+    return _FFMPEG
 
 
 # ----------------------------------------------------------------------------------
@@ -230,7 +251,7 @@ class FrameDifferencePlugin:
         span = sum(float(s.duration_s or 0.0) for s in segs)
         # ALWAYS pass span_s: `sustained` counts keyframe intervals (~4 s here), so only
         # `sustained_s` is comparable across cameras.
-        scores = fdiff.analyse(chunks, span_s=span if span > 0 else None)
+        scores = fdiff.analyse(chunks, span_s=span if span > 0 else None, ffmpeg=ffmpeg_exe())
         if scores is None:
             return None          # segments existed but nothing decoded: cannot measure
         st, en = _parse(segs[0].start_time), _parse(segs[-1].end_time)
@@ -275,7 +296,13 @@ class AudioEnergyPlugin:
         return None
 
     def analyse_raw(self, chunks, segs, unit):
-        return ae.analyse_raw_unit(chunks, segs)
+        # hour_start, exactly: the server refuses the WHOLE unit (422
+        # observation_outside_claimed_hour, not retryable) if one row starts at or
+        # after the hour's end, and an hour's last segment runs a few seconds past it.
+        # The module clamps that tail into the hour's last window (cilex-vision
+        # 21258fd); given the claimed hour it does not have to derive it.
+        return ae.analyse_raw_unit(chunks, segs, hour_start=_parse(unit.hour_start),
+                                   ffmpeg=ffmpeg_exe())
 
 
 # ----------------------------------------------------------------------------------
@@ -290,7 +317,11 @@ class OpticalFlowPlugin:
 
     A burst that fails to decode is SKIPPED, never reported as "still": a decode
     failure is not evidence that nothing moved. A burst where nothing steady moved
-    returns None and files nothing, so [] for a unit means "checked, nothing moved".
+    returns None and files nothing, so [] for a unit means "checked, nothing moved"
+    -- which is exactly why [] must never be returned when NOTHING decoded. That
+    used to happen: 1 MB of junk and a real quiet capture filed identical bodies
+    (measured by the Windows agent, 2026-09-26). If no burst could be looked at, the
+    last DecodeError is raised, so the unit is filed failed in ffmpeg's own words.
 
     segment_limit=30 is the budget knob: one burst per 2 min, ~19 CPU-s/camera-hour.
     Every segment (120) is ~78; one per hour ~0.7. Setting it is the operator's.
@@ -313,7 +344,8 @@ class OpticalFlowPlugin:
             cv2.setNumThreads(1)     # per cilex-vision: one thread, beside a live wall
         except Exception:
             pass
-        out = []
+        out, looked, last_err = [], 0, None
+        self.last_undecodable = 0
         for seg, path in fetched:
             # A DATETIME, not the string. to_observation is typed `start_time: datetime`
             # and reads .tzinfo; handed the wire string it raised AttributeError on
@@ -324,13 +356,20 @@ class OpticalFlowPlugin:
             if st is None:
                 continue
             try:
-                r = oflow.analyse_burst(path)
-            except oflow.DecodeError:
-                continue             # not "still": we could not look
+                r = oflow.analyse_burst(path, ffmpeg=ffmpeg_exe())
+            except oflow.DecodeError as e:
+                self.last_undecodable += 1
+                last_err = e
+                continue             # not "still": we could not look at THIS burst
+            looked += 1
             ob = oflow.to_observation(r, start_time=st,
                                       segment_id=seg.segment_id, stream_type="sub")
             if ob is not None:
                 out.append(ob)
+        if fetched and not looked:
+            if last_err is not None:
+                raise last_err
+            raise ValueError("no fetched segment had a start_time; nothing was looked at")
         return out
 
 
@@ -379,7 +418,7 @@ class PerceptualHashPlugin:
             starts.append(t.timestamp())
         hs = _parse(unit.hour_start)
         obs = ph.analyse(chunks, starts, hour_start_s=hs.timestamp() if hs else None,
-                         per_keyframe=False)
+                         per_keyframe=False, ffmpeg=ffmpeg_exe())
         for o in obs:
             o.setdefault("metrics", {})["stream"] = "sub"
         return obs
