@@ -5,6 +5,37 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-26 LABS: THE WORKER EXISTS, NOTHING HAS RUN -->
+> **2026-09-26 — LABS: THE STATION WORKER EXISTS; NOTHING HAS EVER RUN.** Labs is cilex-vision's
+> offline-analysis scheme: a station claims one camera-hour ("scan unit"), runs an analyser on
+> its footage, and submits observations. The worker is `tools/labs/` — `worker.py` (claim,
+> lease, fetch, retry, submit), `plugins.py` (analyser adapters), `run_worker.py` (entry point:
+> a DRY RUN unless `--live`; token read from `warden.conf`). Hermetic tests in pre-commit:
+> `tools/tests/labs-worker.py` (151 assertions), `tools/tests/b1-illumination.py` (40).
+>
+> **Measured 2026-09-26 07:20 MSK against the pilot (1.0.61):** `labs_analyzers` has
+> `illumination` and `frame_difference` enabled, the other nine disabled; `labs_scan_units` has
+> **0 rows** — no station has ever claimed a unit. **A live run is a globally visible write and
+> waits for the operator's go-ahead in chat** (proposed first: B1 `illumination`, one camera,
+> one hour).
+>
+> **Plugins built (registered in `run_worker.PLUGINS`):** illumination (B1), blob_geometry
+> (A4–A6), frame_difference (A1/A2; needs `window` on list_segments, CV a6671c5, which CV
+> announces for 2026-09-27 02:17 MSK — until then the worker skips it by itself),
+> audio_energy, optical_flow, perceptual_hash. **Not built:** camera_health (after CV 84b4cd9,
+> same deploy; needs forward-only per-camera state and ONE station), foreground_mask /
+> colour_histogram / track_linking (handed over by the Windows agent, 92e7c1b — operator's
+> call), image_embedding.
+>
+> **Two rules that have already cost something.** (1) Vendored analysers (`labs_*.py`) are
+> cilex-vision's, byte-identical, each pinned by sha256 and source commit in
+> `labs-worker.py`'s `VENDORED` — never edit one; re-vendor from the named commit. (2) The
+> worker must IMPORT ON WINDOWS: c934dda vendored a top-level `import resource`, which broke
+> the worker — and, through pre-commit, every commit — on the booth PC. Fixed in 87674c6,
+> verified here by simulation only (the booth's own run is pending). The test now checks
+> load-time Unix-only imports from Linux; it cannot see Unix-only attributes (`os.fork`) —
+> only a Windows run does.
+
 <!-- 2026-09-20 STATION TOKENS ARE NO LONGER A HUMAN'S JOB -->
 > **2026-09-20 — NOBODY HANDLES A STATION TOKEN ANY MORE, and wt-office-01 needs ONE ADMIN
 > SIGN-IN (not a build).** Operator goal: *"decommission the token, if the user has logged in
