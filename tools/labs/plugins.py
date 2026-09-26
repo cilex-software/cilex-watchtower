@@ -21,6 +21,7 @@ import re
 import time
 
 import b1_illumination as b1
+import station as S
 import frame_source as fs
 import labs_framediff as fdiff
 import labs_audio_energy as ae
@@ -627,12 +628,9 @@ class TrackLinkingPlugin:
 
 # ----------------------------------------------------------------------------------
 def labs_state_dir() -> str:
-    """Where a stateful analyser keeps its per-camera memory between runs."""
-    if os.name == "nt":
-        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    else:
-        base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
-    return os.path.join(base, "watchtower-labs")
+    """Where a stateful analyser keeps its per-camera memory between runs: the ONE
+    station state directory (station.state_dir), which the app computes too."""
+    return S.state_dir()
 
 
 class _HealthState:

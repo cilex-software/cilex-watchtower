@@ -392,6 +392,9 @@ class UnitOutcome:
     note: str = ""
     decoder_runs: int = 0
     undecodable_segments: int = 0
+    # True when what reached the server was a FAILURE report (_file_failed), so a
+    # count of "submitted" cannot pass a failed unit off as a finished one.
+    filed_failed: bool = False
     # Where a unit's wall time went, by phase (list, fetch, decode, analyse, submit,
     # total). The first live unit took 45.6 s wall for ~15 CPU-s, and nothing said why.
     timings: dict = field(default_factory=dict)
@@ -874,6 +877,7 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     try:
         client.submit(unit, body)
         out.submitted = True
+        out.filed_failed = True
     except Refusal as r:
         out.note = f"{reason}; filing it as failed was refused too: {r}"
     finally:

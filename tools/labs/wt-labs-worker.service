@@ -1,0 +1,34 @@
+# Cilex Watchtower — Labs station scanning (Linux, systemd --user).
+#
+# Runs tools/labs/run_worker.py --loop: claims camera-hours from cilex-vision for the
+# analysers switched on there, analyses them on THIS station and submits the results.
+#
+# IT STARTS PAUSED. tools/labs/station.py is default-deny: with no control file (or an
+# unreadable one) nothing is claimed until someone presses Resume in the app's Labs
+# screen, or runs `python3 tools/labs/run_worker.py --resume`. Pause works the same way.
+#
+# Install on a station, once:
+#   mkdir -p ~/.config/systemd/user
+#   cp tools/labs/wt-labs-worker.service ~/.config/systemd/user/
+#   (edit WorkingDirectory if the checkout is not ~/projects/cilex-watchtower,
+#    and add Environment=WT_API=... if cilex-vision is not on this machine)
+#   systemctl --user daemon-reload && systemctl --user enable --now wt-labs-worker
+# Status:  systemctl --user status wt-labs-worker  ·  python3 tools/labs/run_worker.py --status
+[Unit]
+Description=Watchtower Labs worker (station-side analysers)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/cilex-watchtower
+ExecStart=/usr/bin/python3 -u tools/labs/run_worker.py --loop
+Restart=on-failure
+RestartSec=30
+# The station's wall and the pilot's recorder come first: Labs gets only the CPU and
+# disk time nobody else wants. ffmpeg children inherit all three.
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

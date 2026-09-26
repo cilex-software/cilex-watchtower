@@ -1304,6 +1304,107 @@ else:
     check("run_worker pins OpenCV to ONE thread before any analyser runs (the default was "
           f"{_m[0][1] if _m else '?'} here)", bool(_m) and _m[0][2] == "1", _pr.stdout.strip() + _pr.stderr[-200:])
 
+# ---------------------------------------------------------------- station scanning (--loop)
+# The Labs screen pauses and resumes this station through station.py's control file,
+# and shows what it is doing from status.json. Default-deny: scanning spends this
+# station's CPU and writes to the shared pilot, so it starts only when someone says so.
+import station as ST, json as _j
+_sd2 = tempfile.mkdtemp(prefix="station-")
+check("control: NO file means PAUSED (never started here), and says so",
+      ST.read_control(_sd2) == {"paused": True, "camera_health": False, "why": "never started on this station"},
+      str(ST.read_control(_sd2)))
+open(os.path.join(_sd2, ST.CONTROL), "w").write("{not json")
+check("control: an UNREADABLE file means paused", ST.read_control(_sd2)["paused"] is True)
+open(os.path.join(_sd2, ST.CONTROL), "w").write('{"paused": "no"}')
+check("control: anything but a boolean `paused` means paused", ST.read_control(_sd2)["paused"] is True)
+ST.write_control(False, camera_health=True, by="test", directory=_sd2)
+ST.write_control(True, by="test", directory=_sd2)
+_c = ST.read_control(_sd2)
+check("control: pausing KEEPS the station's camera_health opt-in", _c["paused"] is True and _c["camera_health"] is True, str(_c))
+ST.write_control(False, by="test", directory=_sd2)
+check("control: an explicit resume is honoured", ST.read_control(_sd2)["paused"] is False)
+check("control: every write is a whole document (no temp file left behind)",
+      sorted(os.listdir(_sd2)) == [ST.CONTROL], str(os.listdir(_sd2)))
+
+class HbRec:
+    def __init__(self): self.log = []; self.fields = {}
+    def update(self, **kw): self.fields.update(kw); self.log.append(dict(kw))
+class Clock:
+    def __init__(self): self.t = 0.0
+    def now(self): return self.t
+    def sleep(self, s): self.t += max(s, 0.001)
+def ctl_seq(*states):
+    """A control file that reads `paused` from a list, one value per read, last repeats."""
+    st = list(states)
+    def f():
+        v = st.pop(0) if len(st) > 1 else st[0]
+        return {"paused": v["paused"], "camera_health": v.get("ch", False), "why": "paused" if v["paused"] else ""}
+    return f
+class NamedPlug(Nothing):
+    def __init__(self, name): self.name = name
+def loop_world(names, units_per=1):
+    units = {n: [W.ScanUnit(f"cam-{n}-{i}", "2026-09-26T08:00:00Z", n, None, 1) for i in range(units_per)] for n in names}
+    segs = {(u.camera_id, u.hour_start): [seg(1)] for us in units.values() for u in us}
+    return Fake(units=units, segs=segs), [NamedPlug(n) for n in names]
+
+RW2 = RW   # run_worker, imported above for the ffmpeg check
+c, plugs = loop_world(["illumination", "foreground_mask"])
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": True}),
+              sleep=clk.sleep, clock=clk.now, passes=1)
+check("loop: PAUSED claims nothing and says so", c.claims == [] and hb.fields.get("state") == "paused", f"{c.claims} {hb.fields.get('state')}")
+
+c, plugs = loop_world(["illumination", "foreground_mask"])
+hb, clk = HbRec(), Clock()
+tot = RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+                    sleep=clk.sleep, clock=clk.now, passes=2)
+check("loop: running asks for ONE unit of each analyser in turn", c.claims[:2] == ["illumination", "foreground_mask"], str(c.claims))
+check("loop: every unit is counted and the last one is shown",
+      tot == {"claimed": 2, "done": 2, "failed": 0, "abandoned": 0}
+      and (hb.fields.get("last_unit") or {}).get("analyzer") == "foreground_mask", f"{tot} {hb.fields.get('last_unit')}")
+check("loop: a pass with nothing to claim goes IDLE (and waits, rather than spinning)",
+      hb.fields.get("state") == "idle" and clk.t >= RW2.IDLE_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} t={clk.t}")
+
+c, plugs = loop_world(["illumination", "foreground_mask"])
+hb, clk = HbRec(), Clock()
+# reads: pass start (running), before plugin 1 (running), gate (running), before plugin 2 (PAUSED) ...
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb,
+              control=ctl_seq({"paused": False}, {"paused": False}, {"paused": False}, {"paused": True}),
+              sleep=clk.sleep, clock=clk.now, passes=1)
+check("loop: a Pause takes effect at the NEXT claim, not mid-unit", c.claims == ["illumination"], str(c.claims))
+
+c, plugs = loop_world(["illumination", "camera_health"])
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+              sleep=clk.sleep, clock=clk.now, passes=1)
+check("loop: camera_health is NOT run on a station that has not opted in (one station only)",
+      "camera_health" not in c.claims and hb.fields.get("camera_health") is False, str(c.claims))
+c, plugs = loop_world(["illumination", "camera_health"])
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=HbRec(), control=ctl_seq({"paused": False, "ch": True}),
+              sleep=Clock().sleep, clock=Clock().now, passes=1)
+check("...and IS run where the control file opts this station in", "camera_health" in c.claims, str(c.claims))
+
+c, plugs = loop_world(["illumination"])
+c.refuse = {("claim", "illumination"): [R(401, "station_token_not_recognised")]}
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+              sleep=clk.sleep, clock=clk.now, passes=1)
+check("loop: a refused station token is shown as FATAL, with the server's reason, then retried later",
+      hb.fields.get("state") == "fatal" and "station_token_not_recognised" in (hb.fields.get("note") or "")
+      and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
+
+_sd3 = tempfile.mkdtemp(prefix="hb-")
+_hb = RW2.Heartbeat({"state": "starting"}, write=lambda d: ST.write_status(d, directory=_sd3), every=0.05).start()
+_s1 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+_hb.update(state="running", current="illumination")
+_time.sleep(0.25)
+_s2 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+_hb.stop(state="stopped")
+_s3 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+check("status: written at once, kept current, and says when the worker stopped",
+      _s1.get("state") == "starting" and _s2.get("state") == "running" and _s2.get("current") == "illumination"
+      and _s3.get("state") == "stopped" and {"updated_at", "pid", "host"} <= set(_s3), f"{_s1} {_s2} {_s3}")
+
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,
 # so on Windows `import plugins` failed: no station there could load the worker, and
