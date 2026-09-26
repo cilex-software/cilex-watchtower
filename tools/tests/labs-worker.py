@@ -597,7 +597,7 @@ try:
     W.run_unit(c, FD, u1, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
     b = c.submitted[0][1] if c.submitted else {}
     check("a HOLE in a consecutive window is a failure, never silently skipped",
-          b.get("failed") is True and "window_has_a_hole" in (b.get("error") or ""), str(b))
+          b.get("failed") is True and "stream_has_a_hole" in (b.get("error") or ""), str(b))
     check("...and its temp files are removed too", leftovers() == [], str(leftovers()))
 finally:
     P.fdiff.analyse = _real
@@ -627,6 +627,129 @@ check("capability check refuses a server without `window`",
 check("...and accepts one with it",
       FD.supported_by({"paths": {"/labs/scan/{a}/{c}/{h}/segments": {"get": {"parameters":
             [{"name": "limit"}, {"name": "window"}, {"name": "window_at"}]}}}}) is None)
+
+# ---------------------------------------------------------------- audio / flow / phash
+# The analysers are cilex-vision's (vendored, 49-57 tests each on their side). These pin
+# the WORKER-side rules each plugin depends on, with the analysers stubbed.
+for mod in ("labs_camera_health", "labs_perceptual_hash", "labs_optical_flow", "labs_audio_energy"):
+    _src = pathlib.Path(f"/home/cilex-vision/projects/cilex-vision/services/query-api/{mod}.py")
+    if _src.exists():
+        check(f"vendored {mod}.py is byte-identical to cilex-vision's",
+              hashlib.sha256((ROOT / f"tools/labs/{mod}.py").read_bytes()).digest()
+              == hashlib.sha256(_src.read_bytes()).digest(), "re-vendor it")
+
+def rseg(i, size=100, start="2026-09-26T01:00:00+00:00"):
+    return W.Segment(f"r{i}", f"http://x/r{i}", start, "2026-09-26T01:00:30+00:00", 30.0, size,
+                     "main", 2560, 1440, "hevc")
+class SizedFake(Fake):
+    def __init__(self, sizes, **k): super().__init__(**k); self.sizes = sizes
+    def fetch(self, sg, d):
+        self.fetched.append(sg.segment_id); open(d, "wb").write(b"a" * self.sizes[sg.segment_id]); return 1
+
+AU = P.AudioEnergyPlugin()
+_ae = P.ae.analyse_raw_unit
+try:
+    P.ae.analyse_raw_unit = lambda chunks, segs: (b"".join(chunks), [])[1]
+    u = unit(a="audio_energy")
+    c = SizedFake({"r1": 100, "r2": 100}, segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]})
+    W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("audio: [] is a RESULT and is filed empty, not failed", b.get("observations") == [] and not b.get("failed"), str(b))
+    c = SizedFake({"r1": 110, "r2": 90}, segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2)]})
+    W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("audio: COMPENSATING size errors (110+90 = 100+100) are caught per file",
+          b.get("failed") is True and "fetched_size_mismatch" in (b.get("error") or ""), str(b))
+    P.ae.analyse_raw_unit = lambda chunks, segs: (_ for _ in ()).throw(ValueError("raw stream ended short"))
+    c = SizedFake({"r1": 100}, segs={(u.camera_id, u.hour_start): [rseg(1)]})
+    W.run_unit(c, AU, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("audio: a decode/split error is filed FAILED, never as an empty result",
+          b.get("failed") is True and "ValueError" in (b.get("error") or ""), str(b))
+finally:
+    P.ae.analyse_raw_unit = _ae
+check("audio: requests main (sub carries no audio)", AU.stream_type == "main")
+
+OF = P.OpticalFlowPlugin()
+_ab, _to = P.oflow.analyse_burst, P.oflow.to_observation
+seen_types = []
+try:
+    _calls = {"n": 0}
+    def fake_burst(path):
+        # The FIRST burst fails to decode. (An earlier version keyed this on a path
+        # suffix the worker's random temp names never had, so the branch never ran and
+        # a mutation reporting a failed decode as "still" survived.)
+        _calls["n"] += 1
+        if _calls["n"] == 1:
+            raise P.oflow.DecodeError("undecodable burst")
+        return "burst"
+    def fake_to(r, *, start_time, segment_id=None, stream_type=None, **k):
+        seen_types.append(type(start_time).__name__)
+        return None if segment_id == "r2" else {"start_time": "2026-09-26T01:00:00Z",
+                                                "end_time": "2026-09-26T01:00:10Z", "metrics": {"dir_label": "right"}}
+    P.oflow.analyse_burst, P.oflow.to_observation = fake_burst, fake_to
+    u = unit(a="optical_flow")
+    c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2), rseg(3)]},
+             refuse={("fetch", "r3"): [R(404, "segment_not_found")]})
+    o = W.run_unit(c, OF, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("flow: each segment is its own burst, one decoder each", o.decoder_runs == 2, str(o.decoder_runs))
+    check("flow: a MISSING segment is skipped, not a hole (bursts are independent)",
+          o.submitted and o.skipped_segments == 1 and not b.get("failed"), f"{o.skipped_segments} {b}")
+    # r1 fails to decode, r2 is "nothing moved" (None), r3 is missing -> ZERO rows.
+    # A decode failure reported as "still" would make this 1.
+    check("flow: an UNDECODABLE burst is skipped, never reported as 'still'",
+          b.get("observations") == [] and _calls["n"] == 2, f"rows={b.get('observations')} calls={_calls['n']}")
+    check("flow: start_time reaches to_observation as a DATETIME, not the wire string",
+          seen_types and all(t == "datetime" for t in seen_types), str(seen_types))
+    check("flow: temp files removed", leftovers() == [], str(leftovers()))
+finally:
+    P.oflow.analyse_burst, P.oflow.to_observation = _ab, _to
+
+PH = P.PerceptualHashPlugin()
+_pa = P.ph.analyse
+try:
+    got = {}
+    def fake_ph(chunks, starts, *, hour_start_s=None, per_keyframe=False, **k):
+        got.update(starts=starts, hs=hour_start_s, n=len(b"".join(chunks)))
+        return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:01:00Z", "metrics": {"rep_hash": "ab"}}]
+    P.ph.analyse = fake_ph
+    u = unit(hour="2026-09-26T01:00:00Z", a="perceptual_hash")
+    c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), rseg(2, start="2026-09-26T01:00:30+00:00")]})
+    W.run_unit(c, PH, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    ob = c.submitted[0][1]["observations"][0] if c.submitted else {}
+    check("phash: its OWN decoder gets the raw stream, not shared frames", got.get("n") == 200, str(got.get("n")))
+    check("phash: each segment's start is passed so true PTS maps back to its segment",
+          len(got.get("starts", [])) == 2 and got["starts"][1] - got["starts"][0] == 30.0, str(got.get("starts")))
+    check("phash: hour_start is passed (windows past the hour end fold back)", got.get("hs") is not None)
+    check("phash: rows are tagged with the stream", ob.get("metrics", {}).get("stream") == "sub", str(ob))
+    c = Fake(segs={(u.camera_id, u.hour_start): [rseg(1), W.Segment("rX", "http://x/rX", None, None, 30.0, 100,
+                                                                     "sub", 1, 1, "h264")]})
+    W.run_unit(c, PH, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check("phash: a segment with no start time FAILS the unit rather than misattributing",
+          b.get("failed") is True and "no start_time" in (b.get("error") or ""), str(b))
+finally:
+    P.ph.analyse = _pa
+
+# the 500-row cap, on EVERY submit path (they now share _finish)
+class Many(Nothing):
+    def analyse(self, segs, st, u, ctx):
+        return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:00:00Z", "metrics": {}}] * 501
+class ManyRaw:
+    name = "many"; version = "t"; segment_limit = 1; keyframes_only = True
+    want_chroma = False; stateful = False; wants_raw = True
+    def new_state(self): return None
+    def window_at(self, u): return 0.5
+    def analyse_raw(self, chunks, segs, u):
+        list(chunks); return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:00:00Z", "metrics": {}}] * 501
+for label, plug in (("frame path", Many()), ("raw path", ManyRaw())):
+    u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
+    W.run_unit(c, plug, u, decode=decode_chroma(11.5), states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    check(f"501 rows on the {label} are filed FAILED with the cause, never sent to the server",
+          b.get("failed") is True and "too_many_observations" in (b.get("error") or "")
+          and b.get("observations") == [], str(b)[:120])
 
 # ---------------------------------------------------------------- timestamps
 try:

@@ -332,6 +332,11 @@ def _iso(v) -> Optional[str]:
 # source when their checkout exists, so a change on their side breaks our build
 # rather than our worker.
 # ----------------------------------------------------------------------------------
+# Rows per unit. cilex-vision submit_results refuses more at routers/labs.py:1441
+# (MAX_OBSERVATIONS_PER_UNIT, :130) -- and it checks this BEFORE it reads `failed`,
+# so over-cap rows would sink even a failure report. perceptual_hash and
+# audio_energy both approach it by design.
+MAX_OBSERVATIONS_PER_UNIT = 500
 MAX_METRIC_KEYS = 24
 MAX_METRIC_KEY_LEN = 40
 MAX_METRIC_STR_LEN = 120
@@ -432,6 +437,8 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
                             f"server_ignored_window: asked {win}, got {len(segs)}",
                             Action.BUG)
 
+    if getattr(plugin, "wants_raw_per_segment", False):
+        return _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep)
     if getattr(plugin, "wants_raw", False):
         return _run_raw(client, plugin, unit, segs, out, tmpdir, sleep)
 
@@ -470,38 +477,11 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         o.action = None if o.submitted else o.action   # a filed crash is not a stop signal
         return o
 
-    body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
-            "segments_scanned": out.segments_scanned,
-            "observations": obs}
-    # Checked BEFORE submission. A violation is a bug in a plugin -- and it is FILED
-    # as one, with its real reason, rather than raised out of the loop or left to
-    # the lease. See _file_failed for why abandoning it would hide the cause.
-    for ob in obs:
-        try:
-            check_metrics(ob.get("metrics"))
-        except MetricsViolation as e:
-            return _file_failed(client, plugin, unit, out,
-                                f"metrics_violation: {e}", Action.BUG)
-    try:
-        # RETRYING A SUBMISSION IS SAFE ONLY BECAUSE IT IS THE SAME BODY. cilex-vision's
-        # submit_results is not one transaction (routers/labs.py): a version-scoped
-        # DELETE of the unit's rows (:1536), then per-observation inserts (:1558), then
-        # the unit close (:1603). A connection cut between them leaves partial rows with
-        # the unit still claimed. A re-submit heals it, because :1536 clears the partial
-        # rows first -- but ONLY while analyzer_version is unchanged. So the retry sends
-        # this exact `body`, never a rebuilt one, and never across a version change.
-        _retrying(client.submit, unit, body, sleep=sleep)
-    except Refusal as r:
-        a = action_for(r)
-        if a is Action.BUG:
-            # The server refused the body as malformed. Retrying the same body is
-            # pointless; abandoning it erases the reason. File it failed, once.
-            return _file_failed(client, plugin, unit, out, f"submit_refused: {r}", a)
-        out.action = a; out.note = f"submit: {r}"
-        return out
-    out.submitted = True
-    out.observations = len(obs)
-    return out
+    # Every path -- frames, one raw stream, raw per segment -- submits through _finish,
+    # so the row cap, the metrics caps, the identical-body retry and the
+    # file-it-with-its-cause rule exist in exactly one place. This path used to carry
+    # its own copy; two copies of one rule is how they drift.
+    return _finish(client, plugin, unit, out, obs, sleep)
 
 
 def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
@@ -531,12 +511,27 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
             except Refusal as r:
                 a = action_for(r)
                 if a is Action.SKIP_SEGMENT:
-                    # A hole in a CONSECUTIVE window is not a skippable segment: the
-                    # score would silently span a gap it cannot see.
+                    # A raw plugin reads ONE concatenated stream, so a missing segment
+                    # is a hole in it, not a skippable item: frame_difference would
+                    # score across a gap it cannot see, and audio_energy splits the
+                    # stream by each segment's size, so everything after the gap
+                    # would be attributed to the wrong segment.
                     return _file_failed(client, plugin, unit, out,
-                                        f"window_has_a_hole: {seg.segment_id} not found", a)
+                                        f"stream_has_a_hole: {seg.segment_id} not found", a)
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
+        if getattr(plugin, "splits_by_bytes", False):
+            # The analyser splits the flat stream back into segments using each
+            # Segment's catalogued `bytes`. Its own check (labs_audio_energy
+            # segments_from_raw) only catches a TOTAL mismatch -- two sizes wrong in
+            # compensating directions would misattribute one segment's audio to
+            # another with no error. Checking each file makes that impossible.
+            for seg, p_ in zip(segs, paths):
+                got = os.path.getsize(p_)
+                if seg.bytes is not None and got != seg.bytes:
+                    return _file_failed(client, plugin, unit, out,
+                                        f"fetched_size_mismatch: {seg.segment_id} "
+                                        f"catalogued {seg.bytes}, fetched {got}", Action.BUG)
         out.segments_scanned = len(paths)
         out.decoder_runs = 1 if paths else 0
 
@@ -565,6 +560,62 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
         # empty list would say "looked and found nothing" -- a claim about the scene
         # this worker has no grounds for. So it is a failure, with its cause.
         return _file_failed(client, plugin, unit, out, "no_keyframes_decoded", Action.BUG)
+    return _finish(client, plugin, unit, out, obs, sleep)
+
+
+def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
+    """For an analyser that decodes EACH SEGMENT on its own (optical_flow).
+
+    Different from _run_raw in the one way that matters: segments are INDEPENDENT
+    here -- a burst never crosses a segment -- so a missing segment is SKIPPED, not a
+    hole. In a concatenated stream a gap corrupts everything after it; here it costs
+    exactly that one segment. The plugin is handed each file's path in order.
+    """
+    fetched = []
+    try:
+        for seg in segs:
+            fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
+            os.close(fd)
+            try:
+                _retrying(client.fetch, seg, path, sleep=sleep)
+            except Refusal as r:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+                a = action_for(r)
+                if a is Action.SKIP_SEGMENT:
+                    out.skipped_segments += 1
+                    continue
+                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
+                return out
+            fetched.append((seg, path))
+        out.segments_scanned = len(fetched)
+        out.decoder_runs = len(fetched)
+        try:
+            obs = plugin.analyse_raw_segments(fetched, unit)
+        except Exception as e:
+            return _file_failed(client, plugin, unit, out,
+                                f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
+    finally:
+        for _, p_ in fetched:
+            try:
+                os.unlink(p_)
+            except OSError:
+                pass
+    return _finish(client, plugin, unit, out, obs, sleep)
+
+
+def _finish(client, plugin, unit, out, obs, sleep):
+    """Check and submit a unit's observations. The ONE place a result is submitted
+    for the raw paths, so the rules below cannot drift between copies: the row cap and
+    the metrics caps are checked BEFORE submitting (the server checks both before it
+    reads `failed`, so a violation would sink even a failure report), the retry
+    resends the identical body, and a refusal is filed with its real cause."""
+    if len(obs) > MAX_OBSERVATIONS_PER_UNIT:
+        return _file_failed(client, plugin, unit, out,
+                            f"too_many_observations: {len(obs)} > {MAX_OBSERVATIONS_PER_UNIT}",
+                            Action.BUG)
     for ob in obs:
         try:
             check_metrics(ob.get("metrics"))
@@ -573,7 +624,13 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned, "observations": obs}
     try:
-        _retrying(client.submit, unit, body, sleep=sleep)   # identical body on retry
+        # RETRYING A SUBMISSION IS SAFE ONLY BECAUSE IT IS THE SAME BODY. cilex-vision's
+        # submit_results is not one transaction (routers/labs.py): a version-scoped
+        # DELETE of the unit's rows (:1536), then per-observation inserts (:1558), then
+        # the unit close (:1603). A cut between them leaves partial rows with the unit
+        # still claimed; a re-submit heals it because :1536 clears them first -- but
+        # ONLY while analyzer_version is unchanged. So this exact `body` is resent.
+        _retrying(client.submit, unit, body, sleep=sleep)
     except Refusal as r:
         a = action_for(r)
         if a is Action.BUG:

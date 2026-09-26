@@ -16,6 +16,9 @@ import hashlib
 
 import b1_illumination as b1
 import labs_framediff as fdiff
+import labs_audio_energy as ae
+import labs_optical_flow as oflow
+import labs_perceptual_hash as ph
 import worker as W
 import shape_observations as so
 
@@ -237,3 +240,146 @@ class FrameDifferencePlugin:
         # observes an ACTIVITY LEVEL, not an object. Metrics passed through UNCHANGED.
         return [{"start_time": _iso(st), "end_time": _iso(en or st),
                  "metrics": scores.as_metrics()}]
+
+
+# ----------------------------------------------------------------------------------
+class AudioEnergyPlugin:
+    """B8 (cilex-vision, vendored byte-identical as labs_audio_energy.py). Loudness,
+    sharp onsets and band energy, where the footage carries audio.
+
+    RAW, and it needs EVERY segment of the hour: the analyser splits the concatenated
+    stream back into segments by each one's catalogued `bytes`, so the worker checks
+    every fetched file against that size before feeding it (splits_by_bytes).
+
+    [] IS A RESULT -- "checked, no audio event" -- and is filed as such. A stretch with
+    no audio track comes back as a `no_audio` row, not as []. Decode errors raise and
+    are filed as failures with their cause, never as an empty submission.
+
+    SCOPE IS NOT A PLUGIN DECISION, and it matters: only continuous cameras carry audio
+    in the footage, because the motion recorder strips it
+    (recorder-service/motion/prebuffer.py:119, `-map 0:v:0 -an`). On every other camera
+    this fetches a whole main hour -- 192-337 MB -- to answer `no_audio`. That is set by
+    the analyser's scope in the register, which is the operator's.
+    """
+    name = "audio_energy"
+    version = "b8-1"
+    stream_type = "main"             # sub has no audio (measured by cilex-vision)
+    segment_limit = 200              # an hour is ~120 x 30 s; it needs every one
+    keyframes_only = True            # unused on the raw path
+    want_chroma = False
+    stateful = False
+    wants_raw = True
+    splits_by_bytes = True
+
+    def new_state(self):
+        return None
+
+    def analyse_raw(self, chunks, segs, unit):
+        return ae.analyse_raw_unit(chunks, segs)
+
+
+# ----------------------------------------------------------------------------------
+class OpticalFlowPlugin:
+    """cilex-vision's optical_flow, vendored byte-identical. Which way things move, how
+    fast, and whether they move as one body.
+
+    EACH SEGMENT IS ITS OWN BURST (10 s at 5 fps, 320 px), decoded by the analyser's
+    own software ffmpeg -- a burst never crosses a segment, so the list is a SPREAD
+    `limit`, not a consecutive window, and a missing segment is simply skipped.
+    It decodes all frames, not keyframes: motion between frames is the measurement.
+
+    A burst that fails to decode is SKIPPED, never reported as "still": a decode
+    failure is not evidence that nothing moved. A burst where nothing steady moved
+    returns None and files nothing, so [] for a unit means "checked, nothing moved".
+
+    segment_limit=30 is the budget knob: one burst per 2 min, ~19 CPU-s/camera-hour.
+    Every segment (120) is ~78; one per hour ~0.7. Setting it is the operator's.
+    """
+    name = "optical_flow"
+    version = "1"
+    stream_type = "sub"              # equal to main at ~0.4x the CPU (cilex-vision)
+    segment_limit = 30
+    keyframes_only = False
+    want_chroma = False
+    stateful = False
+    wants_raw_per_segment = True
+
+    def new_state(self):
+        return None
+
+    def analyse_raw_segments(self, fetched, unit):
+        try:
+            import cv2
+            cv2.setNumThreads(1)     # per cilex-vision: one thread, beside a live wall
+        except Exception:
+            pass
+        out = []
+        for seg, path in fetched:
+            # A DATETIME, not the string. to_observation is typed `start_time: datetime`
+            # and reads .tzinfo; handed the wire string it raised AttributeError on
+            # every segment -- which is not the DecodeError caught below, so every unit
+            # would have been filed as failed. Caught by reading the signature before
+            # the first real run, not after.
+            st = _parse(seg.start_time)
+            if st is None:
+                continue
+            try:
+                r = oflow.analyse_burst(path)
+            except oflow.DecodeError:
+                continue             # not "still": we could not look
+            ob = oflow.to_observation(r, start_time=st,
+                                      segment_id=seg.segment_id, stream_type="sub")
+            if ob is not None:
+                out.append(ob)
+        return out
+
+
+# ----------------------------------------------------------------------------------
+class PerceptualHashPlugin:
+    """cilex-vision's perceptual_hash, vendored byte-identical. A 64-bit fingerprint per
+    keyframe and runs of no change, so repeats and dead-still hours can be found.
+
+    IT DECODES FOR ITSELF, for TIMING, measured 2026-09-26. The spec's recipe fed it
+    the shared decoder's timestamps, which assume keyframes arrive at a constant
+    interval. On sub they do not: extra IDRs make gaps as short as 0.05 s on busy
+    footage. Against ffprobe's true PTS the constant-step times were wrong by a median
+    0.36-0.43 s and up to 1.33 s on the busy segments -- and 0.07 s on a quiet one. So
+    the error lands exactly where this analyser's 1-second spacing rule operates, and
+    only on the footage where it matters. The spec also says "prefer true PTS"; its own
+    decoder reads it, and analyse() maps each keyframe back to its segment from the
+    segment start times. So: the raw stream plus those starts, and no shared frames.
+
+    Frozen feed = identical_count > 0, NOT distance 0: a featureless frame reads as
+    maximal change. That is the analyser's rule; the worker passes rows through.
+    """
+    name = "perceptual_hash"
+    version = "phash-1"
+    stream_type = "sub"
+    segment_limit = 12
+    keyframes_only = True
+    want_chroma = False
+    stateful = False
+    wants_raw = True
+
+    def new_state(self):
+        return None
+
+    def analyse_raw(self, chunks, segs, unit):
+        if not segs:
+            return []
+        starts = []
+        for sg in segs:
+            t = _parse(sg.start_time)
+            if t is None:
+                # Every segment's bytes are in the stream, so one we cannot place in time
+                # cannot simply be left out: the keyframes after it would be attributed
+                # to the wrong segment. Refuse, with the cause.
+                raise ValueError(f"segment {sg.segment_id} has no start_time; "
+                                 "cannot attribute keyframes in a concatenated stream")
+            starts.append(t.timestamp())
+        hs = _parse(unit.hour_start)
+        obs = ph.analyse(chunks, starts, hour_start_s=hs.timestamp() if hs else None,
+                         per_keyframe=False)
+        for o in obs:
+            o.setdefault("metrics", {})["stream"] = "sub"
+        return obs
