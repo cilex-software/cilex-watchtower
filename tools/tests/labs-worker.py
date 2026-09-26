@@ -536,6 +536,10 @@ VENDORED = {   # module: (cilex-vision commit, sha256 of services/query-api/<mod
     # plugins` fail on Windows); 21258fd clamps an hour's tail into its last window,
     # since one row starting past the hour's end makes the server refuse the unit.
     "labs_audio_energy":    ("21258fd", "20ba1b82eca02e18c6ae88d478cada3d3ac253ae508b871cb06c86a6ab03835f"),
+    # Handed over by the Windows agent (92e7c1b), who cannot read cilex-vision's repo.
+    "labs_foreground_mask":  ("fe673cc", "d6b11f75f03f1903823cdb96b988f0cb67e6cbec5f8e4c12a357fa1246551f66"),
+    "labs_colour_histogram": ("f7ecd57", "b94271bd1d8dea49e7fbb7fa95fa2ac7049f89df52d802a0fc593223e94d9fcb"),
+    "labs_track_linking":    ("9ef284f", "bbb690bf73f0b631b818a43a4df34aa0060c42f521cd7df1af095c6d5a42b887"),
 }
 import hashlib
 _CV = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api")
@@ -911,7 +915,10 @@ check("run_once: a unit that cannot be decoded does not stop the batch -- both u
 _fa = P.fdiff.analyse
 _root_handlers = list(logging.getLogger().handlers)
 try:
+    _nh = logging.NullHandler()        # handled, so Python's last-resort printer stays quiet
+    logging.getLogger("labs_framediff").addHandler(_nh)
     logging.getLogger("labs_framediff").warning("stale warning from BEFORE this unit")
+    logging.getLogger("labs_framediff").removeHandler(_nh)
     def fd_rejects(chunks, span_s=None, **k):
         list(chunks)
         logging.getLogger("labs_framediff").warning(
@@ -968,16 +975,23 @@ try:
 except RuntimeError:
     _ff = None
 _clip = os.path.join(TMP, "clip.ts.src")
-_made = _ff and subprocess.run(
-    [_ff, "-hide_banner", "-loglevel", "error", "-y",
-     "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15",
-     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
-     "-t", "4", "-c:v", "libx264", "-g", "15", "-bf", "0", "-pix_fmt", "yuv420p",
-     "-c:a", "aac", "-b:a", "32k", "-f", "mpegts", _clip],
-    capture_output=True, timeout=60).returncode == 0
+# libx264 first; the booth's ffmpeg is an LGPL build without it, so libopenh264 there
+# (the Windows agent's measurement, 2026-09-26) -- the test then RUNS on the booth
+# instead of skipping.
+_made = False
+for _enc in ("libx264", "libopenh264"):
+    _made = bool(_ff) and subprocess.run(
+        [_ff, "-hide_banner", "-loglevel", "error", "-y",
+         "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15",
+         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
+         "-t", "4", "-c:v", _enc, "-g", "15", "-bf", "0", "-pix_fmt", "yuv420p",
+         "-c:a", "aac", "-b:a", "32k", "-f", "mpegts", _clip],
+        capture_output=True, timeout=60).returncode == 0
+    if _made:
+        break
 if not _made:
     print("SKIP no-ffmpeg-on-PATH run -- could not make a test clip "
-          f"({'no working ffmpeg' if not _ff else 'libx264/aac unavailable'})")
+          f"({'no working ffmpeg' if not _ff else 'neither libx264 nor libopenh264, or no aac'})")
 else:
     _size = os.path.getsize(_clip)
     class ClipFake(Fake):
@@ -994,7 +1008,7 @@ else:
     os.environ["PATH"] = _empty
     try:
         for plug in (P.FrameDifferencePlugin(), P.AudioEnergyPlugin(),
-                     P.OpticalFlowPlugin(), P.PerceptualHashPlugin()):
+                     P.OpticalFlowPlugin(), P.PerceptualHashPlugin(), P.TrackLinkingPlugin()):
             uc = W.ScanUnit("cam-clip", "2026-09-26T01:00:00Z", plug.name, None, 1)
             c = ClipFake(segs={(uc.camera_id, uc.hour_start): [clipseg(plug.stream_type)]})
             o = W.run_unit(c, plug, uc, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
@@ -1003,6 +1017,245 @@ else:
                   o.submitted and not b.get("failed"), (b.get("error") or str(b))[:200])
     finally:
         os.environ["PATH"] = _path
+
+# ---------------------------------------------------------------- the frame path STREAMS
+# It used to decode a whole unit into a list first. One real 30 s -sub segment of a
+# 1280x720 GOP-15 camera is 27.65 MB of luma (measured 2026-09-26), so an hour held
+# ~3.3 GB in the worker on the pilot host.
+import weakref, random
+from datetime import timezone as _tz, timedelta as _td, datetime as _dt
+class FrameList(list):
+    pass                                   # a list subclass can be weakly referenced
+_refs, _alive = [], []
+def decode_tracked(path, kf, want_chroma, **k):
+    fl = FrameList(decode_chroma(11.5)(path, kf, want_chroma)); _refs.append(weakref.ref(fl)); return fl
+class Peek:
+    name = "peek"; version = "t"; segment_limit = 10; keyframes_only = True
+    want_chroma = True; stateful = False
+    def new_state(self): return None
+    def analyse(self, segs, st, u, ctx):
+        for _seg, _frames in segs:
+            _alive.append(sum(1 for r in _refs if r() is not None))
+        return []
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(i) for i in range(8)]})
+run(c, Peek(), u, decode=decode_tracked)
+check("the frame path STREAMS: one segment's frames alive at a time, not the hour's",
+      len(_alive) == 8 and max(_alive) <= 1, str(_alive))
+
+# Two stateful analysers on ONE camera: state used to be keyed by camera alone.
+_got = []
+class StA:
+    name = "st_a"; version = "t"; segment_limit = 1; keyframes_only = True
+    want_chroma = True; stateful = True
+    def new_state(self): return {"owner": self.name}
+    def analyse(self, segs, st, u, ctx):
+        list(segs); _got.append((self.name, st["owner"])); return []
+class StB(StA):
+    name = "st_b"
+ua = W.ScanUnit("cam-x", "2026-09-24T10:00:00Z", "st_a", None, 1)
+ub = W.ScanUnit("cam-x", "2026-09-24T10:00:00Z", "st_b", None, 1)
+c = Fake(units={"st_a": [ua], "st_b": [ub]}, segs={(ua.camera_id, ua.hour_start): [seg(1)]})
+W.run_once(c, [StA(), StB()], decode=decode_chroma(11.5), states={}, sleep=lambda s: None)
+check("two stateful analysers on ONE camera each get their OWN state",
+      _got == [("st_a", "st_a"), ("st_b", "st_b")], str(_got))
+
+# A lost lease mid-stream must abandon the unit even if the analyser catches Exception.
+class Greedy:
+    name = "greedy"; version = "t"; segment_limit = 3; keyframes_only = True
+    want_chroma = True; stateful = False
+    def new_state(self): return None
+    def analyse(self, segs, st, u, ctx):
+        try:
+            for _ in segs:
+                pass
+        except Exception:
+            return [{"start_time": "2026-09-24T10:00:00Z", "end_time": "2026-09-24T10:00:00Z", "metrics": {}}]
+        return []
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]},
+                     refuse={("fetch", "seg-2"): [R(409, "scan_unit_not_claimed")]})
+o = run(c, Greedy(), u)
+check("a lease lost mid-stream abandons the unit, even through an analyser that catches Exception",
+      not c.submitted and o.action is W.Action.RECLAIM, f"submitted={len(c.submitted)} action={o.action}")
+
+# Planes are asked for only by the analyser that needs them (B1 pays for one float).
+_kw = []
+def decode_kw(path, kf, want_chroma, **k):
+    _kw.append(k); return decode_chroma(11.5)(path, kf, want_chroma)
+for plug, expect in ((B1, {}), (P.ColourHistogramPlugin(), {"want_planes": True})):
+    _kw.clear(); u = unit(a=plug.name); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
+    run(c, plug, u, decode=decode_kw)
+    check(f"{plug.name}: the decoder is asked for U/V planes only when the analyser needs them",
+          _kw == [expect], str(_kw))
+
+# tolerates_holes: track_linking handles a gap itself, so the segment leaves BOTH lists.
+_raw = {}
+class HoleOK:
+    name = "hole_ok"; version = "t"; segment_limit = 3; keyframes_only = False
+    want_chroma = False; stateful = False; wants_raw = True; tolerates_holes = True
+    def new_state(self): return None
+    def analyse_raw(self, chunks, segs, u):
+        _raw.update(ids=[s.segment_id for s in segs], n=len(b"".join(chunks))); return []
+class HoleNo(HoleOK):
+    name = "hole_no"; tolerates_holes = False
+for plug in (HoleOK(), HoleNo()):
+    u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2), seg(3)]},
+                         refuse={("fetch", "seg-2"): [R(404, "segment_not_found")]})
+    _raw.clear(); o = run(c, plug, u); b = c.submitted[0][1] if c.submitted else {}
+    if plug.tolerates_holes:
+        check("tolerates_holes: a missing segment leaves the stream AND the list, in step",
+              _raw.get("ids") == ["seg-1", "seg-3"] and _raw.get("n") == 200 and o.skipped_segments == 1
+              and not b.get("failed"), f"{_raw} {b}")
+    else:
+        check("...while any other raw analyser still refuses the hole",
+              b.get("failed") is True and "stream_has_a_hole" in (b.get("error") or ""), str(b))
+
+# windows() is plan_windows, streamed. Pinned against the REAL plan_windows on 300 random
+# hours: seams, gaps either side of 1.5 s, 4 s motion segments, segments with no end.
+import labs_foreground_mask as FMM
+_rng, _mismatch = random.Random(20260926), None
+for trial in range(300):
+    t, rows = _dt(2026, 9, 26, 1, 0, tzinfo=_tz.utc), []
+    for i in range(_rng.randint(0, 14)):
+        st = t + _td(seconds=_rng.choice([0.0, 0.02, 0.08, 1.4, 1.5, 1.6, 7.0]))
+        dur = _rng.choice([30.0, 29.9, 4.0])
+        en = st + _td(seconds=dur)
+        rows.append(W.Segment(f"s{i}", "u", st.isoformat(), None if _rng.random() < 0.05 else en.isoformat(),
+                              dur, 1, "sub", 1, 1, "h264"))
+        t = en
+    ours = [[s.segment_id for s, _ in w] for w in P.windows(((s, None) for s in rows), 4)]
+    theirs = [[s.segment_id for s in w] for w in FMM.plan_windows(rows, run=4)]
+    if ours != theirs:
+        _mismatch = (trial, ours, theirs); break
+check("windows() cuts EXACTLY the windows plan_windows cuts (300 random hours)", _mismatch is None, str(_mismatch)[:240])
+
+# ---------------------------------------------------------------- the new analysers, REAL code
+# Synthetic scenes through the real vendored modules, each with a control that can fail.
+def texture(h, w, seed):
+    r = np.random.default_rng(seed)
+    return (r.integers(40, 200, (h // 8, w // 8), dtype=np.uint8).repeat(8, 0).repeat(8, 1))
+_BG = texture(360, 640, 7)
+def scene(moving, ir=False, n_segs=4, per_seg=8, colour=(90, 200)):
+    """n_segs consecutive 30 s segments of keyframes every 30/per_seg s; a bright square
+    walks across when `moving`. Chroma planes: grey under IR, else coloured where the
+    square is."""
+    segs_, frames_ = [], {}
+    k = 0
+    for s in range(n_segs):
+        st = _dt(2026, 9, 26, 1, 10, tzinfo=_tz.utc) + _td(seconds=30.0 * s)
+        sid = f"seg-{s}"
+        segs_.append(W.Segment(sid, f"http://x/{sid}", st.isoformat(), (st + _td(seconds=30)).isoformat(),
+                               30.0, 1000, "sub", 640, 360, "h264"))
+        fr = []
+        for j in range(per_seg):
+            L = _BG.copy(); U = np.full((180, 320), 128, np.uint8); V = U.copy()
+            if moving:
+                x = 20 + (k * 17) % 560
+                L[150:230, x:x + 60] = 250
+                if not ir:
+                    U[75:115, x // 2:x // 2 + 30] = colour[0]; V[75:115, x // 2:x // 2 + 30] = colour[1]
+            ce = 0.0 if ir else float(np.abs(U.astype(int) - 128).mean() + np.abs(V.astype(int) - 128).mean())
+            fr.append(so.Frame(k, j * 30.0 / per_seg, L, ce, U, V)); k += 1
+        frames_[sid] = fr
+    return segs_, frames_
+class SceneFake(Fake):
+    def fetch(self, s, dest):
+        self.fetched.append(s.segment_id); open(dest, "wb").write(s.segment_id.encode()); return 1
+def scene_decode(frames_):
+    def d(path, kf, want_chroma, **k):
+        return list(frames_[open(path, "rb").read().decode()])
+    return d
+def run_scene(plug, segs_, frames_, hour="2026-09-26T01:00:00Z", states=None, cam="cam-s"):
+    u = W.ScanUnit(cam, hour, plug.name, None, 1)
+    c = SceneFake(segs={(u.camera_id, u.hour_start): segs_})
+    o = W.run_unit(c, plug, u, decode=scene_decode(frames_), states={} if states is None else states,
+                   tmpdir=TMP, sleep=lambda s: None)
+    return o, (c.submitted[0][1] if c.submitted else {})
+def metrics_ok(rows):
+    try:
+        for r in rows: W.check_metrics(r.get("metrics"))
+        return True
+    except W.MetricsViolation:
+        return False
+
+FMP = P.ForegroundMaskPlugin()
+o, b = run_scene(FMP, *scene(moving=True))
+rows = b.get("observations") or []
+check("B3: ONE row per window of four segments, spanning first start to last end",
+      len(rows) == 1 and rows[0]["start_time"].startswith("2026-09-26T01:10:00")
+      and rows[0]["end_time"].startswith("2026-09-26T01:12:00"), str(rows)[:200])
+check("B3: a moving square is SEEN (object_count >= 1)", rows and (rows[0].get("object_count") or 0) >= 1, str(rows)[:200])
+check("B3: rows pass the server's metrics rules", metrics_ok(rows))
+o, b = run_scene(FMP, *scene(moving=False))
+rows0 = b.get("observations") or []
+check("control: B3 on a still scene LOOKS and finds none (object_count 0), not silence",
+      len(rows0) == 1 and rows0[0].get("object_count") == 0, str(rows0)[:200])
+o, b = run_scene(FMP, *scene(moving=True, n_segs=3))
+check("B3: fewer than four consecutive segments is not scored (their rule), filed empty",
+      b.get("observations") == [] and not b.get("failed"), str(b)[:160])
+
+CHP = P.ColourHistogramPlugin()
+o, b = run_scene(CHP, *scene(moving=True))
+rows = b.get("observations") or []
+m = rows[0].get("metrics", {}) if rows else {}
+check("B7: a coloured moving region is NAMED, not gated", len(rows) == 1 and m.get("colour") and not m.get("gate"), str(m)[:200])
+check("B7: rows pass the server's metrics rules", metrics_ok(rows))
+o, b = run_scene(CHP, *scene(moving=True, ir=True))
+m = ((b.get("observations") or [{}])[0]).get("metrics", {})
+check("control: B7 under IR says so (gate=ir) and names no colour", m.get("gate") == "ir" and "colour" not in m, str(m)[:200])
+
+CHM = P.CameraHealthPlugin()
+st = {}
+o, b = run_scene(CHM, *scene(moving=False, n_segs=4, per_seg=8), hour="2026-09-26T01:00:00Z", states=st)
+rows = b.get("observations") or []
+check("B2: at most ONE row per unit, spanning the sampled segments",
+      len(rows) == 1 and rows[0]["start_time"].startswith("2026-09-26T01:10:00")
+      and rows[0]["end_time"].startswith("2026-09-26T01:12:00"), str(rows)[:200])
+check("B2: rows pass the server's metrics rules (<= 24 keys)", metrics_ok(rows) and len(rows[0].get("metrics", {})) <= 24 if rows else False)
+hst = st.get(("camera_health", "cam-s"))
+taught = hst.baseline.windows if hst else None
+run_scene(CHM, *scene(moving=False), hour="2026-09-26T00:00:00Z", states=st)
+check("B2 FORWARD-ONLY: an OLDER hour is scored but does not teach the Baseline",
+      hst is not None and hst.baseline.windows == taught
+      and hst.taught_until == _dt(2026, 9, 26, 1, 0, tzinfo=_tz.utc), f"{taught} -> {hst and hst.baseline.windows}")
+run_scene(CHM, *scene(moving=False), hour="2026-09-26T02:00:00Z", states=st)
+check("...and a NEWER hour does", hst.baseline.windows == (taught or 0) + 1
+      and hst.taught_until == _dt(2026, 9, 26, 2, 0, tzinfo=_tz.utc), str(hst.baseline.windows))
+
+_sd = tempfile.mkdtemp(prefix="chstate-")
+CHP1 = P.CameraHealthPlugin(state_dir=_sd)
+run_scene(CHP1, *scene(moving=False), hour="2026-09-26T03:00:00Z", states={}, cam="cam-p")
+loaded = P.CameraHealthPlugin(state_dir=_sd).load_state("cam-p")
+check("B2 state PERSISTS across worker runs (Baseline and the forward-only mark)",
+      loaded is not None and loaded.baseline.windows == 1
+      and loaded.taught_until == _dt(2026, 9, 26, 3, 0, tzinfo=_tz.utc), str(loaded and loaded.__dict__)[:160])
+open(os.path.join(_sd, "cam-p.json"), "w").write("{not json")
+_lg = logging.getLogger("plugins"); _lvl = _lg.level; _lg.setLevel(logging.CRITICAL)
+try:
+    again = P.CameraHealthPlugin(state_dir=_sd).load_state("cam-p")
+finally:
+    _lg.setLevel(_lvl)
+aside = [f for f in os.listdir(_sd) if ".unreadable-" in f]
+check("B2: an UNREADABLE state file is set aside (never trusted, never deleted), and the camera starts fresh",
+      again is None and len(aside) == 1 and not os.path.exists(os.path.join(_sd, "cam-p.json")), str(os.listdir(_sd)))
+
+TLP = P.TrackLinkingPlugin()
+_ta, _to2 = P.tl.analyse, P.tl.to_observations
+_tk = {}
+try:
+    P.tl.analyse = lambda chunks, segs, **k: (_tk.update(ff=k.get("ffmpeg"), ids=[s.segment_id for s in segs]), list(chunks), "res")[2]
+    def fake_to_obs(res, *, hour_start=None, hour_end=None, **k):
+        _tk.update(hs=hour_start, he=hour_end); return [], {}
+    P.tl.to_observations = fake_to_obs
+    _real_ff = P._FFMPEG; P._FFMPEG = "/sentinel/bin/ffmpeg"
+    u = W.ScanUnit("cam-t", "2026-09-26T01:00:00Z", "track_linking", None, 1)
+    c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+    W.run_unit(c, TLP, u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None)
+    check("B6: episodes are bounded to the CLAIMED hour [start, start+1h)",
+          _tk.get("hs") == _dt(2026, 9, 26, 1, 0, tzinfo=_tz.utc) and _tk.get("he") == _dt(2026, 9, 26, 2, 0, tzinfo=_tz.utc), str(_tk))
+    check("B6: named the working ffmpeg", _tk.get("ff") == "/sentinel/bin/ffmpeg", str(_tk.get("ff")))
+finally:
+    P.tl.analyse, P.tl.to_observations = _ta, _to2
+    P._FFMPEG = _real_ff
 
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,

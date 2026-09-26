@@ -9,19 +9,31 @@ has.
 """
 from __future__ import annotations
 
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import hashlib
+import json
+import logging
+import os
+import re
+import time
 
 import b1_illumination as b1
 import frame_source as fs
 import labs_framediff as fdiff
 import labs_audio_energy as ae
+import labs_camera_health as chm
+import labs_colour_histogram as chist
+import labs_foreground_mask as fm
 import labs_optical_flow as oflow
 import labs_perceptual_hash as ph
+import labs_track_linking as tl
 import worker as W
 import shape_observations as so
+
+log = logging.getLogger(__name__)
 
 # ObservationIn's typed columns, read from the running service's OpenAPI (1.0.57).
 # Anything an analyser produces outside this set goes into `metrics` -- see below.
@@ -153,17 +165,22 @@ class ShapePlugin:
 
     def analyse(self, segs, state, unit, context):
         out = []
-        stream = []
-        for seg, frames in segs:
-            meta = so.SegmentMeta.from_api({
-                "segment_id": seg.segment_id, "camera_id": unit.camera_id,
-                "start_time": seg.start_time, "duration_s": seg.duration_s,
-                "stream_type": seg.stream_type, "width": seg.width,
-                "height": seg.height, "codec": seg.codec})
-            stream.append((meta, frames, seg))
-        for (meta, obs, stats), (_, _, seg) in zip(
-                so.analyse_window(((m, f) for m, f, _ in stream), state, self.cfg),
-                stream):
+        # STREAMED: each segment's frames are released once the model has seen them.
+        # This used to collect the whole hour into a list first -- ~3.3 GB of luma for
+        # an hour of a 1280x720 GOP-15 -sub camera (see worker._run_unit).
+        pulled = deque()
+
+        def stream():
+            for seg, frames in segs:
+                pulled.append(seg)
+                yield so.SegmentMeta.from_api({
+                    "segment_id": seg.segment_id, "camera_id": unit.camera_id,
+                    "start_time": seg.start_time, "duration_s": seg.duration_s,
+                    "stream_type": seg.stream_type, "width": seg.width,
+                    "height": seg.height, "codec": seg.codec}), frames
+
+        for meta, obs, stats in so.analyse_window(stream(), state, self.cfg):
+            seg = pulled.popleft()
             base = _parse(seg.start_time)
             if base is None:
                 continue
@@ -422,3 +439,291 @@ class PerceptualHashPlugin:
         for o in obs:
             o.setdefault("metrics", {})["stream"] = "sub"
         return obs
+
+
+# ----------------------------------------------------------------------------------
+# Windows of consecutive segments, STREAMED (foreground_mask, colour_histogram)
+# ----------------------------------------------------------------------------------
+def windows(pairs, run: int = 4, max_gap_s: float = 1.5):
+    """fm.plan_windows, streamed: yields each window of `run` consecutive
+    (segment, frames) pairs as soon as its last segment arrives, so at most `run`
+    segments' frames are held at once.
+
+    Exactly plan_windows' rule (labs_foreground_mask.py:876-914): a segment continues
+    the run if it starts within `max_gap_s` of the previous one's end; each run is cut
+    into non-overlapping blocks of `run` from its start; a shorter leftover is never
+    scored; a segment with no start_time is dropped. Applied to the segments that
+    actually DECODED, so a missing or undecodable one is a gap and no window spans it.
+    A test pins the equivalence against the real plan_windows.
+    """
+    pending, prev_start, prev_end = [], None, None
+    for seg, frames in pairs:
+        st = _parse(seg.start_time)
+        if st is None:
+            continue
+        if prev_start is not None and st < prev_start:
+            # plan_windows SORTS; a stream cannot. The server lists in time order; if
+            # it ever did not, reordering silently would be worse than refusing.
+            raise ValueError(f"segments out of time order at {seg.segment_id}")
+        if pending and prev_end is not None and (st - prev_end).total_seconds() <= max_gap_s:
+            pending.append((seg, frames))
+        else:
+            pending = [(seg, frames)]
+        prev_start, prev_end = st, _parse(seg.end_time)
+        if len(pending) == run:
+            yield pending
+            pending = []
+
+
+def _window_frames(win, planes: bool):
+    """A window's frames with WINDOW-relative times (the analysers raise on a time
+    that runs backwards, which is what segment-relative offsets would do)."""
+    t0 = _parse(win[0][0].start_time)
+    for seg, frames in win:
+        off = (_parse(seg.start_time) - t0).total_seconds()
+        for f in frames:
+            yield (off + f.t_offset_s, f.luma, f.u, f.v) if planes else (off + f.t_offset_s, f.luma)
+
+
+def _span(win) -> float:
+    return sum(float(seg.duration_s or 0.0) for seg, _ in win)
+
+
+# ----------------------------------------------------------------------------------
+class ForegroundMaskPlugin:
+    """B3 (cilex-vision's, vendored byte-identical as labs_foreground_mask.py). How
+    much of the picture moved, how many blobs, the largest box: one row per WINDOW of
+    four consecutive segments (~2 min), each window priming its own MOG2 model.
+
+    ON THE SHARED DECODE PASS, and measured before choosing it (cilex-vision,
+    2026-09-26): iter_masks downscales native frames to its 320 px working width
+    itself, and native 640 against their own 320 px decode gave identical outputs,
+    every field, on the three windows tried (two busy day, one IR night). The shared
+    pass is also full range, byte-identical to their decoder. Unlike frame_difference,
+    where the same check found a 4.98x difference and forced its own decoder.
+
+    object_count 0 means "looked, found none". A window with too few frames returns
+    None and files NOTHING -- "could not look" is not "quiet".
+    """
+    name = "foreground_mask"
+    version = fm.VERSION             # "b3-1"
+    stream_type = "sub"
+    segment_limit = 120              # the hour; it cuts its own windows
+    keyframes_only = True
+    want_chroma = False
+    stateful = False
+    run = 4
+
+    def new_state(self):
+        return None
+
+    def analyse(self, segs, state, unit, context):
+        out = []
+        for win in windows(segs, self.run):
+            s = fm.score_window(fm.iter_masks(_window_frames(win, planes=False)), span_s=_span(win))
+            if s is not None:
+                out.append(s.as_observation(win[0][0].start_time, win[-1][0].end_time))
+        return out
+
+
+# ----------------------------------------------------------------------------------
+class ColourHistogramPlugin:
+    """B7 (cilex-vision's, vendored byte-identical as labs_colour_histogram.py). The
+    colour of the MOVING region, per window of four consecutive segments, or the gate
+    that stopped it: ir, no_motion, region_too_small, light_cast.
+
+    It needs the U and V PLANES, which the shared decoder keeps on request
+    (want_planes, the Windows agent's 1c75cf8, byte-identical to ffmpeg's
+    extractplanes on 27 segments / 18,903 frames at every -sub resolution the fleet
+    sends). Full range, passthrough: the space B7's thresholds were fitted in
+    (cilex-vision measured their decode byte-identical to it, max |diff| 0 on Y, U, V).
+    A frame without planes raises in the analyser; it is never skipped as "quiet".
+    """
+    name = "colour_histogram"
+    version = chist.VERSION          # "b7-1"
+    stream_type = "sub"
+    segment_limit = 120
+    keyframes_only = True
+    want_chroma = True
+    want_planes = True
+    stateful = False
+    run = 4
+
+    def new_state(self):
+        return None
+
+    def analyse(self, segs, state, unit, context):
+        out = []
+        for win in windows(segs, self.run):
+            s = chist.score_window(_window_frames(win, planes=True), span_s=_span(win))
+            if s is not None:
+                out.append(s.as_observation(win[0][0].start_time, win[-1][0].end_time))
+        return out
+
+
+# ----------------------------------------------------------------------------------
+class TrackLinkingPlugin:
+    """B6 (cilex-vision's, vendored byte-identical as labs_track_linking.py). Episodes:
+    one moving thing followed through the hour, with dwell, entry and exit edges and a
+    path summary.
+
+    RAW, on its own decoder at ~5 fps (every 3rd frame of 15 fps sub): keyframes are
+    3.3-4 s apart and a walking person is somewhere new in each, so linking needs the
+    frames between. One call covers the whole hour.
+
+    A MISSING SEGMENT IS A GAP, NOT A FAILURE, for this analyser alone
+    (tolerates_holes): it ends tracks at the cut and flags those episodes open, and
+    the worker drops the segment from the stream and the list together, as its spec
+    asks. TimelineError (frames cannot be placed on their segments) and RuntimeError
+    (the decoder died) are raised and filed failed -- never a partial list. Episodes
+    starting outside the claimed hour are dropped by to_observations and counted: one
+    such row makes the server refuse the whole unit.
+    """
+    name = "track_linking"
+    version = tl.VERSION             # "b6-1"
+    stream_type = "sub"
+    segment_limit = 200              # the whole hour, no window
+    keyframes_only = False
+    want_chroma = False
+    stateful = False
+    wants_raw = True
+    tolerates_holes = True
+
+    def new_state(self):
+        return None
+
+    def analyse_raw(self, chunks, segs, unit):
+        if not segs:
+            return []                # no footage listed: a real, empty answer
+        try:
+            import cv2
+            cv2.setNumThreads(1)     # 37.6-42.5 vs 219.9 CPU-s per hour (cilex-vision)
+        except Exception:
+            pass
+        res = tl.analyse(chunks, segs, ffmpeg=ffmpeg_exe())
+        hs = _parse(unit.hour_start)
+        rows, _report = tl.to_observations(res, hour_start=hs, hour_end=hs + timedelta(hours=1))
+        return rows
+
+
+# ----------------------------------------------------------------------------------
+def labs_state_dir() -> str:
+    """Where a stateful analyser keeps its per-camera memory between runs."""
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    else:
+        base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+    return os.path.join(base, "watchtower-labs")
+
+
+class _HealthState:
+    """camera_health's memory of one camera: the analyser's own Baseline, plus the
+    newest hour that has TAUGHT it (the forward-only rule, see CameraHealthPlugin)."""
+
+    def __init__(self, baseline=None, taught_until: Optional[datetime] = None):
+        self.baseline = baseline if baseline is not None else chm.Baseline()
+        self.taught_until = taught_until
+
+
+class CameraHealthPlugin:
+    """B2 (cilex-vision's, vendored byte-identical as labs_camera_health.py). A FAULT
+    detector: obscured, defocused, moved, frozen, lights_changed -- each tri-state,
+    None meaning "this window could not answer", never "healthy".
+
+    STATEFUL, and the state must outlive the worker: one Baseline per camera (the edge
+    width of its recent healthy windows, its reference view, its last IR state).
+    Without it, every window after a restart can judge `defocused` and `moved` only
+    from inside itself. Persisted per camera under labs_state_dir()/camera_health with
+    the analyser's own Baseline.to_dict()/from_dict() (~77 KB each), atomically.
+
+    FORWARD-ONLY. Baseline.update() moves last_ir forward only, but overwrites its edge
+    history and reference view with whatever window it is shown. A re-claimed OLDER
+    hour (a failed unit comes back up to three times) would drag the reference view
+    backwards and make the next hour read `moved`. So an hour at or before the newest
+    one already taught is scored against the Baseline but does not teach it
+    (update_baseline=False). cilex-vision's rule; their server claims camera_health
+    oldest-first (84b4cd9), so this is the rare case, not the common one.
+
+    EXACTLY ONE STATION may run it (their other rule): two stations would each teach a
+    Baseline from alternate hours, and neither would describe the camera. That cannot
+    be enforced from one station; it is written in docs/PROJECT_STATUS.md.
+
+    STREAMED: the scorer decimates each keyframe on arrival, so one segment's frames
+    are held at a time. Keyframes only (P-frames repeat tiles and fake `frozen`). One
+    row per unit at most, and no metric key of its own: the analyser's 20-23 leave one
+    under the server's cap of 24.
+    """
+    name = "camera_health"
+    version = "b2-1"
+    segment_limit = 4                # the server spreads them over the hour
+    stream_type = "main"             # calibrated and staged on main only
+    keyframes_only = True
+    want_chroma = True               # IR detection
+    stateful = True
+
+    def __init__(self, state_dir: Optional[str] = None):
+        self.state_dir = state_dir   # None: memory only (tests, smoke)
+
+    def new_state(self):
+        return _HealthState()
+
+    def _path(self, camera_id: str) -> str:
+        safe = camera_id if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", camera_id) else \
+            hashlib.sha256(camera_id.encode()).hexdigest()
+        return os.path.join(self.state_dir, f"{safe}.json")
+
+    def load_state(self, camera_id: str):
+        if not self.state_dir:
+            return None
+        p = self._path(camera_id)
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+            if d.get("v") != 1 or d.get("camera_id") != camera_id:
+                raise ValueError(f"not this camera's v1 state (v={d.get('v')!r})")
+            return _HealthState(chm.Baseline.from_dict(d.get("baseline")),
+                                _parse(d.get("taught_until")))
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            # Unreadable memory is set ASIDE, never deleted and never trusted: the
+            # camera starts from nothing, which its rows then show (baseline_n).
+            aside = f"{p}.unreadable-{int(time.time())}"
+            try:
+                os.replace(p, aside)
+            except OSError:
+                aside = "(could not be moved)"
+            log.warning("camera_health: state for %s unreadable (%s: %s); set aside as %s, "
+                        "starting fresh", camera_id, type(e).__name__, e, aside)
+            return None
+
+    def save_state(self, camera_id: str, st) -> None:
+        if not self.state_dir:
+            return
+        os.makedirs(self.state_dir, exist_ok=True)
+        p = self._path(camera_id)
+        tmp = f"{p}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "camera_id": camera_id,
+                       "taught_until": _iso(st.taught_until) if st.taught_until else None,
+                       "baseline": st.baseline.to_dict()}, f)
+        os.replace(tmp, p)           # atomic: a crash leaves the old state, never half one
+
+    def analyse(self, segs, state, unit, context):
+        starts, durs = [], []
+
+        def keyframes():
+            # score_window reads starts[k] only after pulling segment k, so these
+            # lists grow in step with the stream it consumes (pinned by a test).
+            for seg, frames in segs:
+                starts.append(_parse(seg.start_time))
+                durs.append(seg.duration_s)
+                yield [chm.Keyframe(f.luma, f.chroma_energy, f.t_offset_s) for f in frames]
+
+        hour = _parse(unit.hour_start)
+        teach = state.taught_until is None or (hour is not None and hour > state.taught_until)
+        h = chm.score_window(keyframes(), starts=starts, durations=durs,
+                             baseline=state.baseline, update_baseline=teach)
+        if teach and h is not None:
+            state.taught_until = hour
+        return [] if h is None else [h.as_observation()]

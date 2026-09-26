@@ -28,16 +28,25 @@ def read_token(path=CONF):
     return None
 
 
-def decode(path, kf, want_chroma):
+def decode(path, kf, want_chroma, want_planes=False):
     # ffmpeg named, not searched for: find_ffmpeg() RUNS each candidate to prove it
     # works, and without this that would be one extra process per segment.
     return list(frame_source.iter_frames(path, ffmpeg=P.ffmpeg_exe(), keyframes_only=kf,
-                                         want_chroma=want_chroma))
+                                         want_chroma=want_chroma, want_planes=want_planes))
 
 
 PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin,
            "frame_difference": P.FrameDifferencePlugin, "audio_energy": P.AudioEnergyPlugin,
-           "optical_flow": P.OpticalFlowPlugin, "perceptual_hash": P.PerceptualHashPlugin}
+           "optical_flow": P.OpticalFlowPlugin, "perceptual_hash": P.PerceptualHashPlugin,
+           "camera_health": P.CameraHealthPlugin, "foreground_mask": P.ForegroundMaskPlugin,
+           "colour_histogram": P.ColourHistogramPlugin, "track_linking": P.TrackLinkingPlugin}
+
+
+def make_plugin(name):
+    # camera_health's per-camera Baseline must outlive this process (see its class).
+    if name == "camera_health":
+        return P.CameraHealthPlugin(state_dir=os.path.join(P.labs_state_dir(), "camera_health"))
+    return PLUGINS[name]()
 
 
 def main():
@@ -92,7 +101,7 @@ def main():
         return
 
     client = W.HttpLabsClient(a.api, tok)
-    plugins = [PLUGINS[n]() for n in names]
+    plugins = [make_plugin(n) for n in names]
     t0 = time.time()
     rep = W.run_once(client, plugins, decode=decode, states={}, claim_limit=a.units)
     print(f"claimed {rep.claimed}  submitted {rep.submitted}  abandoned {rep.abandoned}  "
@@ -102,7 +111,7 @@ def main():
               f"segs={o.segments_scanned} obs={o.observations} submitted={o.submitted}"
               + (f" gone={o.skipped_segments}" if o.skipped_segments else "")
               + (f" undecodable={o.undecodable_segments}" if o.undecodable_segments else "")
-              + (f"  [{o.action.value}: {o.note}]" if o.action else ""))
+              + (f"  [{o.action.value}: {o.note}]" if o.action else (f"  [{o.note}]" if o.note else "")))
     if rep.stopped_analysers:
         print("stopped (operator disabled):", ", ".join(rep.stopped_analysers))
     if rep.unreachable:

@@ -413,6 +413,28 @@ class _LastWarning(logging.Handler):
 _heard: Optional[_LastWarning] = None
 
 
+class _Abandon(BaseException):
+    """The unit must be dropped WITHOUT submitting (lease lost, station refused) --
+    raised out of the streaming decoder, through the analyser, to _run_unit.
+    BaseException, not Exception, so no analyser's `except Exception` can swallow it
+    and go on to report an hour this station no longer holds."""
+
+    def __init__(self, action: "Action", note: str):
+        super().__init__(note)
+        self.action, self.note = action, note
+
+
+class _StationFault(BaseException):
+    """A fault of THIS STATION met while fetching (a local disk error, say), carried
+    out of the streaming decoder past the analyser and re-raised as itself. Caught
+    as an analyser crash it would be filed against the unit -- one of its three
+    attempts spent on a problem that is not the footage's."""
+
+    def __init__(self, exc: BaseException):
+        super().__init__(repr(exc))
+        self.exc = exc
+
+
 def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
              decode: Callable[[str, bool, bool], list],
              states: dict, context: Optional[dict] = None,
@@ -463,7 +485,20 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
         return out
 
     if plugin.stateful:
-        state = states.setdefault(unit.camera_id, plugin.new_state())
+        # Keyed by ANALYSER and camera. It used to be the camera alone, so with two
+        # stateful analysers in one run (blob_geometry and camera_health) the second
+        # would have been handed the first one's state object.
+        key = (plugin.name, unit.camera_id)
+        state = states.get(key)
+        if state is None:
+            # A plugin that PERSISTS its state (camera_health's per-camera Baseline)
+            # picks up where the last run left off, instead of relearning every camera
+            # after each restart.
+            load = getattr(plugin, "load_state", None)
+            state = load(unit.camera_id) if load is not None else None
+            if state is None:
+                state = plugin.new_state()
+            states[key] = state
     else:
         state = None
 
@@ -484,46 +519,66 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     if getattr(plugin, "wants_raw", False):
         return _run_raw(client, plugin, unit, segs, out, tmpdir, sleep)
 
-    decoded: list[tuple[Segment, list]] = []
+    # STREAMED, one segment at a time: fetched, decoded, handed over, released. This
+    # used to decode the WHOLE unit into a list before the analyser saw a frame.
+    # Measured 2026-09-26 on one real 30 s -sub segment of hiwatch-083bc14effdc
+    # (1280x720, GOP 15): 30 keyframes, 27.65 MB of luma, 41.47 MB with U/V planes. An
+    # hour is ~120 segments, so blob_geometry would have held ~3.3 GB there, and
+    # colour_histogram ~5 GB (arithmetic, not measured), in one process on the pilot host.
+    planes = {"want_planes": True} if getattr(plugin, "want_planes", False) else {}
     last_err: Optional[BaseException] = None
-    for seg in segs:
-        fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
-        os.close(fd)
-        try:
-            try:
-                _retrying(client.fetch, seg, path, sleep=sleep)
-            except Refusal as r:
-                a = action_for(r)
-                if a is Action.SKIP_SEGMENT:
-                    out.skipped_segments += 1
-                    continue
-                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
-                return out
-            out.decoder_runs += 1
-            try:
-                frames = decode(path, plugin.keyframes_only, plugin.want_chroma)
-            except Exception as e:
-                # frame_source RAISES on a segment it cannot read or decode (and must:
-                # a decoder that silently yields nothing is the failure it was written
-                # to refuse). Uncaught here, that one segment took down run_once and
-                # every unit still leased. Skipped like a missing segment instead;
-                # counted, and named if nothing else in the unit could be looked at.
-                out.undecodable_segments += 1
-                last_err = e
-                continue
-            decoded.append((seg, frames))
-        finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
 
-    if segs and not decoded:
-        return _file_failed(client, plugin, unit, out,
-                            _nothing_looked_at(segs, out, last_err), Action.BUG)
-    out.segments_scanned = len(decoded)
+    def as_decoded():
+        nonlocal last_err
+        for seg in segs:
+            fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
+            os.close(fd)
+            try:
+                try:
+                    _retrying(client.fetch, seg, path, sleep=sleep)
+                except Refusal as r:
+                    a = action_for(r)
+                    if a is Action.SKIP_SEGMENT:
+                        out.skipped_segments += 1
+                        continue
+                    raise _Abandon(a, f"fetch {seg.segment_id}: {r}")
+                except Exception as e:
+                    raise _StationFault(e)
+                out.decoder_runs += 1
+                try:
+                    frames = decode(path, plugin.keyframes_only, plugin.want_chroma, **planes)
+                except Exception as e:
+                    # frame_source RAISES on a segment it cannot read or decode (and
+                    # must: a decoder that silently yields nothing is the failure it was
+                    # written to refuse). Uncaught, that one segment took down run_once
+                    # and every unit still leased. Skipped like a missing segment
+                    # instead; counted, and named if nothing in the unit could be seen.
+                    out.undecodable_segments += 1
+                    last_err = e
+                    continue
+            finally:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
+            out.segments_scanned += 1
+            yield seg, frames
+
+    stream = as_decoded()
     try:
-        obs = plugin.analyse(decoded, state, unit, ctx)
+        try:
+            obs = plugin.analyse(stream, state, unit, ctx)
+            # An analyser that stopped early still leaves the rest of the hour to be
+            # accounted for, so "nothing was looked at" is judged on all of it.
+            for _ in stream:
+                pass
+        finally:
+            stream.close()
+    except _Abandon as a:
+        out.action, out.note = a.action, a.note
+        return out
+    except _StationFault as f:
+        raise f.exc
     except Exception as e:                      # analyser crashed: report, do not hide
         # Through _file_failed like every other failure, so there is ONE place that
         # builds a failure body. This used to build its own -- two copies of the rule
@@ -532,6 +587,18 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                          f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)
         o.action = None if o.submitted else o.action   # a filed crash is not a stop signal
         return o
+
+    if segs and not out.segments_scanned:
+        return _file_failed(client, plugin, unit, out,
+                            _nothing_looked_at(segs, out, last_err), Action.BUG)
+    save = getattr(plugin, "save_state", None)
+    if state is not None and save is not None:
+        try:
+            save(unit.camera_id, state)
+        except Exception as e:
+            # The result is still true; only the memory it taught is lost. Say so,
+            # and submit: throwing away a measured hour would not bring the state back.
+            out.note = f"state not saved: {type(e).__name__}: {e}"
 
     # Every path -- frames, one raw stream, raw per segment -- submits through _finish,
     # so the row cap, the metrics caps, the identical-body retry and the
@@ -556,7 +623,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
     their container at ~450 MB/hour doubled by a join. Each segment is read back in
     1 MiB chunks, in order, into the analyser's one long-lived ffmpeg.
     """
-    paths = []
+    paths, kept, fetched = [], [], []
     try:
         for seg in segs:
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
@@ -566,6 +633,12 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                 _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
                 a = action_for(r)
+                if a is Action.SKIP_SEGMENT and getattr(plugin, "tolerates_holes", False):
+                    # track_linking ends its tracks at a gap and flags the cut episodes
+                    # open, so a missing segment is dropped from BOTH the stream and
+                    # the list handed over -- in step, or its clock refuses the unit.
+                    out.skipped_segments += 1
+                    continue
                 if a is Action.SKIP_SEGMENT:
                     # A raw plugin reads ONE concatenated stream, so a missing segment
                     # is a hole in it, not a skippable item: frame_difference would
@@ -576,23 +649,28 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                                         f"stream_has_a_hole: {seg.segment_id} not found", a)
                 out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
                 return out
+            kept.append(seg)
+            fetched.append(path)
+        if segs and not kept:
+            return _file_failed(client, plugin, unit, out,
+                                _nothing_looked_at(segs, out, None), Action.BUG)
         if getattr(plugin, "splits_by_bytes", False):
             # The analyser splits the flat stream back into segments using each
             # Segment's catalogued `bytes`. Its own check (labs_audio_energy
             # segments_from_raw) only catches a TOTAL mismatch -- two sizes wrong in
             # compensating directions would misattribute one segment's audio to
             # another with no error. Checking each file makes that impossible.
-            for seg, p_ in zip(segs, paths):
+            for seg, p_ in zip(kept, fetched):
                 got = os.path.getsize(p_)
                 if seg.bytes is not None and got != seg.bytes:
                     return _file_failed(client, plugin, unit, out,
                                         f"fetched_size_mismatch: {seg.segment_id} "
                                         f"catalogued {seg.bytes}, fetched {got}", Action.BUG)
-        out.segments_scanned = len(paths)
-        out.decoder_runs = 1 if paths else 0
+        out.segments_scanned = len(kept)
+        out.decoder_runs = 1 if kept else 0
 
         def chunks():
-            for p_ in paths:
+            for p_ in fetched:
                 with open(p_, "rb") as f:
                     while True:
                         c = f.read(1 << 20)
@@ -600,7 +678,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                             break
                         yield c
         try:
-            obs = plugin.analyse_raw(chunks(), segs, unit)
+            obs = plugin.analyse_raw(chunks(), kept, unit)
         except Exception as e:
             return _file_failed(client, plugin, unit, out,
                                 f"analyser_raised: {type(e).__name__}: {e}", Action.BUG)

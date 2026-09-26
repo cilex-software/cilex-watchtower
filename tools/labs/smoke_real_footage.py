@@ -7,7 +7,7 @@ submitted. Every body the worker WOULD send is validated against ObservationIn a
 read from the running service's OpenAPI. This is the bridge between the hermetic
 tests (synthetic frames) and a live run (a globally visible write).
 """
-import json, os, subprocess, sys, urllib.request
+import json, os, subprocess, sys, time, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import worker as W, plugins as P, frame_source
 
@@ -38,11 +38,15 @@ def validate(o):
         bad.append(f"scene_light={o['scene_light']!r} would be 422 unknown_scene_light")
     return bad
 
-def pick(cam, stream, n):
-    sql = (f"select segment_id, storage_uri, start_time, end_time, duration_s, bytes, "
+def pick(cam, stream, n, hour):
+    """Up to n segments of one camera and stream that START inside `hour` (a real
+    claimed-hour shape: the analysers that bound rows to the hour need one)."""
+    sql = (f"SET statement_timeout='10s'; "
+           f"select segment_id, storage_uri, start_time, end_time, duration_s, bytes, "
            f"stream_type, width, height, codec from video_segments "
            f"where camera_id='{cam}' and stream_type='{stream}' and bytes>100000 "
-           f"order by start_time desc limit {n}")
+           f"and start_time >= '{hour}' and start_time < timestamptz '{hour}' + interval '1 hour' "
+           f"order by start_time limit {n}")
     r = subprocess.run(["docker","exec","-i","timescaledb","psql","-U","cilex","-d",
                         "vidanalytics","-At","-F","|"], input=sql, capture_output=True,
                        text=True, timeout=60)
@@ -54,7 +58,7 @@ def pick(cam, stream, n):
         st = st + ":00" if st[-3] in "+-" else st; en = en + ":00" if en[-3] in "+-" else en
         out.append((W.Segment(p[0], p[1], st, en, float(p[4] or 0), int(p[5] or 0),
                               p[6], int(p[7] or 0), int(p[8] or 0), p[9]), p[1]))
-    return list(reversed(out))
+    return out
 
 class FilerClient:
     """Serves real bytes; claims and submits NOTHING."""
@@ -68,27 +72,55 @@ class FilerClient:
         return os.path.getsize(dest)
     def submit(self, u, body): self.bodies.append(body)
 
-def decode(path, kf, want_chroma):
-    return list(frame_source.iter_frames(path, keyframes_only=kf, want_chroma=want_chroma))
+def decode(path, kf, want_chroma, want_planes=False):
+    return list(frame_source.iter_frames(path, ffmpeg=P.ffmpeg_exe(), keyframes_only=kf,
+                                         want_chroma=want_chroma, want_planes=want_planes))
+
+DAY = os.environ.get("WT_SMOKE_DAY", "2026-09-26T10:00:00+00:00")      # 13:00 MSK
+NIGHT = os.environ.get("WT_SMOKE_NIGHT", "2026-09-26T01:00:00+00:00")  # 04:00 MSK
+BUSY, IRCAM, AUDIO = "hiwatch-849459c4f007", "hiwatch-04eecdd45e2d", "hiwatch-04eecdd44de8"
+CASES = (
+    # label, plugin, camera, stream, segments, hour
+    ("illumination",      P.IlluminationPlugin(),    IRCAM, "main", 2, DAY),
+    ("blob_geometry",     P.ShapePlugin(),           "hiwatch-849459c4f13d", "sub", 12, DAY),
+    ("frame_difference",  P.FrameDifferencePlugin(), "hiwatch-849459c4f13d", "main", 4, DAY),
+    # CONTROL PAIR: the one camera recording audio vs one without -- different answers.
+    ("audio_energy",      P.AudioEnergyPlugin(),     AUDIO, "main", 6, DAY),
+    ("audio (no audio)",  P.AudioEnergyPlugin(),     "hiwatch-849459c4f13d", "main", 2, DAY),
+    ("optical_flow",      P.OpticalFlowPlugin(),     BUSY, "sub", 6, DAY),
+    ("perceptual_hash",   P.PerceptualHashPlugin(),  BUSY, "sub", 12, DAY),
+    ("camera_health",     P.CameraHealthPlugin(),    IRCAM, "main", 4, DAY),
+    ("foreground_mask",   P.ForegroundMaskPlugin(),  BUSY, "sub", 8, DAY),
+    # CONTROL PAIR: colour by day, the IR gate by night, on the same kind of camera.
+    ("colour_histogram",  P.ColourHistogramPlugin(), BUSY, "sub", 8, DAY),
+    ("colour (night)",    P.ColourHistogramPlugin(), IRCAM, "sub", 8, NIGHT),
+    ("track_linking",     P.TrackLinkingPlugin(),    BUSY, "sub", 20, DAY),
+)
 
 total_bad = 0
-for plugin, cam, stream, n in ((P.IlluminationPlugin(), "hiwatch-04eecdd45e2d", "main", 2),
-                               (P.ShapePlugin(), "hiwatch-849459c4f13d", "sub", 12),
-                               # REAL vendored analyser, REAL decoder, 4 CONSECUTIVE segments
-                               (P.FrameDifferencePlugin(), "hiwatch-849459c4f13d", "main", 4)):
-    segs = pick(cam, stream, n)
+for label, plugin, cam, stream, n, hour in CASES:
+    segs = pick(cam, stream, n, hour)
     c = FilerClient(segs)
-    u = W.ScanUnit(cam, "smoke", plugin.name, None, 0)
+    u = W.ScanUnit(cam, hour.replace("+00:00", "Z"), plugin.name, None, 0)
+    t0, c0 = time.time(), os.times()
     o = W.run_unit(c, plugin, u, decode=decode, states={})
-    obs = c.bodies[0]["observations"] if c.bodies else []
+    c1 = os.times()
+    cpu = (c1.user + c1.system + c1.children_user + c1.children_system) - \
+          (c0.user + c0.system + c0.children_user + c0.children_system)
+    body = c.bodies[0] if c.bodies else {}
+    obs = body.get("observations") or []
     bad = [b for ob in obs for b in validate(ob)]
     total_bad += len(bad)
-    print(f"{plugin.name:14s} {cam:24s} {stream:4s} segs={o.segments_scanned:2d} "
-          f"decoder_runs={o.decoder_runs:2d} submitted={o.submitted} observations={len(obs):4d} "
-          f"schema_violations={len(bad)}")
-    if obs:
-        s = obs[0]
-        print(f"      first: " + json.dumps({k: s[k] for k in list(s)[:6]}, default=str)[:150])
+    state = "FAILED: " + (body.get("error") or "")[:90] if body.get("failed") else f"{len(obs)} rows"
+    print(f"{label:17s} {cam:21s} {stream:4s} segs={o.segments_scanned:2d}/{len(segs):2d} "
+          f"{time.time()-t0:5.1f}s cpu={cpu:5.1f}s  {state}  schema_violations={len(bad)}")
+    for ob in obs[:2]:
+        typed = {k: v for k, v in ob.items() if k not in ("metrics",)}
+        m = ob.get("metrics") or {}
+        keys = [k for k in ("scene_light", "astro", "colour", "gate", "object_count", "frozen", "moved",
+                            "defocused", "ir", "dir_label", "peak", "sustained_s", "loud_db", "no_audio",
+                            "dwell_s", "identical_count") if k in m or k in typed]
+        print("      " + json.dumps({k: (typed.get(k) if k in typed else m.get(k)) for k in keys}, default=str)[:170])
     for b in bad[:5]: print("      VIOLATION:", b)
 print()
 print("RESULT:", "every body passes BOTH the live ObservationIn schema AND the server's "
