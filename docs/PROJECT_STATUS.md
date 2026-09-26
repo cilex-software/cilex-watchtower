@@ -45,6 +45,20 @@
 > demux pass; identical counts on 12/12 segments here, 28/28 on the booth): illumination
 > now **1.5**, camera_health **3.2**, blob_geometry 14.1 → 4.6, colour_histogram 8.7 → 3.5.
 >
+> **The Labs screen and station scanning (2026-09-26 evening, 34d0416 → 1d0aece).** A
+> **Labs** entry sits in the left menu, **admins only** (as CV's own /admin/labs): per
+> analyser its server ON/OFF switch (PATCH, audited by CV), cost, and "done / waiting"
+> counts from ONE `GET /labs/pipeline` — **at most every 30 min while open, or on
+> Refresh** (CV measured the per-analyser `/labs/scan/status` it replaced at 5.26 s and
+> ~1 GB of page reads per call; don't bring it back — their cached all-analysers coverage
+> call is coming). Above that, THIS station: scanning state and Pause (anyone) / Resume
+> (admins). The scanner is `run_worker.py --loop` as a **systemd --user service
+> `wt-labs-worker`** (Nice 19, CPU+IO class idle), **installed on this box and PAUSED**:
+> default-deny through `~/.local/state/watchtower-labs/control.json`, status in
+> `status.json` (`tools/labs/station.py`; the app mirrors the path in `LabsStation.h`).
+> It also claims nothing from a server older than 1.0.62. Windows/Mac have no packaged
+> scanner yet: their Labs screen says "Scanning is not set up on this station".
+>
 > **First live unit, 2026-09-26 12:01Z** (after CV issued the token): illumination,
 > hiwatch-083bc14f0009, hour 12:00Z — done, 2 rows (`day`, astronomy `day`), en/ru
 > sentences and one event group, all confirmed in the database. **It exposed a server
