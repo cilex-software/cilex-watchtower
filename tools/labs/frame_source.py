@@ -160,13 +160,61 @@ def probe(path: str, ffmpeg: str | None = None, measure_gop: bool = False) -> Pr
 
     gop = None
     if measure_gop:
-        total = _count_frames(ff, path, keyframes_only=False)
-        keys = _count_frames(ff, path, keyframes_only=True)
+        total, keys = _count_packets(ff, path)
+        if not 0 < keys < total:
+            # Degenerate by the demux's account: nothing read, no keyframe, or EVERY
+            # packet a keyframe. The last is also exactly what a change to framecrc's
+            # F= convention would look like, so it is re-counted by decoding rather
+            # than believed: a wrong GOP silently rescales every keyframe timestamp.
+            # Never triggered on the 28 -sub files measured here on 2026-09-26.
+            total = _count_frames(ff, path, keyframes_only=False)
+            keys = _count_frames(ff, path, keyframes_only=True)
         if keys > 0 and total > 0:
             gop = max(1, int(round(total / keys)))
     return Probe(
         width=w, height=h, codec=codec, fps=fps, keyframe_gop=gop, pix_fmt=pix_fmt
     )
+
+
+# framecrc writes one line per packet and appends `F=0x..` only when the packet's flags
+# are not exactly AV_PKT_FLAG_KEY (libavformat/framecrcenc.c). So a keyframe is a line
+# with no F=, or one whose F still carries bit 0x1 (a key packet ALSO flagged, e.g.
+# corrupt). Lines starting with '#' are its header.
+_FRAMECRC_FLAGS_RE = re.compile(rb",\s*F=0x([0-9A-Fa-f]+)")
+
+
+def _count_packets(ff: str, path: str) -> tuple[int, int]:
+    """(total, key) video packets from ONE demux pass. Nothing is decoded.
+
+    This replaced two DECODES done only to space keyframe timestamps: every frame, then
+    every keyframe. The Linux box measured that at ~4.1 of ~5.0 CPU-s per main segment
+    and proposed this (2026-09-26). Measured identical to _count_frames, total AND key,
+    on 28 of 28 -sub files here (ffmpeg N-126168, GOP 15/45/50, three resolutions) and
+    on 12 of 12 main and sub segments there (6.1.1). On those 28 files it costs 1.75
+    CPU-s against 27.67.
+
+    Same input flags as the decode path, so a packet the demuxer flags corrupt is
+    dropped by both. What a demux cannot see is a frame the DECODER then fails on: on a
+    damaged segment the two counts can differ by exactly those frames.
+    """
+    p = subprocess.run(
+        [ff, "-hide_banner", "-loglevel", "error", "-fflags", "+discardcorrupt",
+         "-i", path, "-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"],
+        capture_output=True, timeout=600,
+    )
+    return _parse_framecrc(p.stdout)
+
+
+def _parse_framecrc(out: bytes) -> tuple[int, int]:
+    total = keys = 0
+    for line in out.splitlines():
+        if not line.strip() or line.startswith(b"#"):
+            continue
+        total += 1
+        m = _FRAMECRC_FLAGS_RE.search(line)
+        if m is None or int(m.group(1), 16) & 0x1:
+            keys += 1
+    return total, keys
 
 
 def _count_frames(ff: str, path: str, keyframes_only: bool) -> int:
