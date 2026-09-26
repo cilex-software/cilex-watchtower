@@ -11,11 +11,9 @@
 // files in a directory they both compute the same way. If stateDir() and
 // station.state_dir() ever differ, a running worker is invisible here -- change both.
 //
-// THE SERVER'S ANSWER: GET /labs/scan/status (the operator's session) describes ONE
-// enabled analyser in detail and every analyser briefly (`budget`, `by_analyzer`).
-// mergeStatus() turns that into one row per analyser. It never fills a gap with a guess:
-// a cost nobody has measured stays unknown, and coverage is known only for analysers
-// that are switched on, because only those have a denominator the server will give.
+// THE SERVER'S ANSWER: GET /labs/pipeline (admin session) lists every analyser with its
+// state, cost and counts; mergePipeline() turns it into one row each. It never fills a
+// gap with a guess: a cost nobody has measured stays unknown, never 0.
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -176,53 +174,84 @@ inline QVariant numOrNull(const QJsonValue &v)
     return v.isDouble() ? QVariant(v.toDouble()) : QVariant();
 }
 
-inline QStringList enabledSlugs(const QJsonObject &status)
+// One row per analyser from GET /labs/pipeline, in the server's order (switched-on
+// first). Every analyser is listed, switched-off ones included, and nothing here scans
+// footage except `queue_remaining`, which the server caches for 120 s and computes once
+// per expiry however many screens ask. (The per-analyser /labs/scan/status this used
+// before cost 5.26 s and ~1 GB of page reads per call, measured by cilex-vision with
+// EXPLAIN (ANALYZE, BUFFERS) on 2026-09-26: churn that slows playback opens on the pilot.)
+inline QVariantList mergePipeline(const QJsonObject &pipeline)
 {
-    QStringList out;
-    for (const QJsonValue &v : status.value(QStringLiteral("budget")).toArray()) {
-        const QJsonObject b = v.toObject();
-        if (b.value(QStringLiteral("enabled")).toBool())
-            out << b.value(QStringLiteral("analyzer")).toString();
-    }
-    return out;
-}
-
-// One row per analyser, in the server's order (switched-on first). `seed` is the full
-// answer for one enabled analyser; `detail` holds the answers for the other enabled
-// ones, by slug. An analyser with no detail keeps its coverage unknown.
-inline QVariantList mergeStatus(const QJsonObject &seed, const QHash<QString, QJsonObject> &detail)
-{
-    QHash<QString, QJsonObject> counts;
-    for (const QJsonValue &v : seed.value(QStringLiteral("by_analyzer")).toArray()) {
-        const QJsonObject o = v.toObject();
-        counts.insert(o.value(QStringLiteral("analyzer")).toString(), o);
-    }
-    const QString seedSlug = seed.value(QStringLiteral("analyzer")).toString();
     QVariantList rows;
-    for (const QJsonValue &v : seed.value(QStringLiteral("budget")).toArray()) {
-        const QJsonObject b = v.toObject();
-        const QString slug = b.value(QStringLiteral("analyzer")).toString();
+    for (const QJsonValue &v : pipeline.value(QStringLiteral("analyzers")).toArray()) {
+        const QJsonObject a = v.toObject();
+        const QString slug = a.value(QStringLiteral("analyzer")).toString();
         if (slug.isEmpty())
             continue;
         QVariantMap r;
         r[QStringLiteral("slug")] = slug;
-        r[QStringLiteral("enabled")] = b.value(QStringLiteral("enabled")).toBool();
-        r[QStringLiteral("scope")] = b.value(QStringLiteral("scope")).toString();
-        r[QStringLiteral("sampleRate")] = numOrNull(b.value(QStringLiteral("sample_rate")));
-        r[QStringLiteral("camerasInScope")] = numOrNull(b.value(QStringLiteral("cameras_in_scope")));
-        r[QStringLiteral("costCpuS")] = numOrNull(b.value(QStringLiteral("cost_cpu_s_per_camera_hour")));
-        r[QStringLiteral("projectedCpuHoursPerDay")] = numOrNull(b.value(QStringLiteral("projected_cpu_hours_per_day")));
-        const QJsonObject c = counts.value(slug);
-        r[QStringLiteral("done")] = numOrNull(c.value(QStringLiteral("done")));
-        r[QStringLiteral("inProgress")] = numOrNull(c.value(QStringLiteral("in_progress")));
-        r[QStringLiteral("failed")] = numOrNull(c.value(QStringLiteral("failed")));
-        const QJsonObject d = (slug == seedSlug) ? seed : detail.value(slug);
-        r[QStringLiteral("analysable")] = numOrNull(d.value(QStringLiteral("camera_hours_analysable")));
-        r[QStringLiteral("coveragePct")] = numOrNull(d.value(QStringLiteral("coverage_pct")));
-        r[QStringLiteral("observations")] = numOrNull(d.value(QStringLiteral("observations_total")));
+        r[QStringLiteral("serverTitle")] = a.value(QStringLiteral("title")).toString();
+        r[QStringLiteral("enabled")] = a.value(QStringLiteral("enabled")).toBool();
+        r[QStringLiteral("scope")] = a.value(QStringLiteral("scope")).toString();
+        r[QStringLiteral("sampleRate")] = numOrNull(a.value(QStringLiteral("sample_rate")));
+        r[QStringLiteral("camerasInScope")] = numOrNull(a.value(QStringLiteral("cameras_in_scope")));
+        r[QStringLiteral("costCpuS")] = numOrNull(a.value(QStringLiteral("cost_cpu_s_per_camera_hour")));
+        r[QStringLiteral("cpuHoursPerDay")] = numOrNull(
+            a.value(QStringLiteral("budget")).toObject().value(QStringLiteral("cpu_hours_per_day")));
+        // Unclaimed camera-hours, for switched-ON analysers only (null otherwise). The
+        // server notes it can over-count failed units that will not be handed out again.
+        r[QStringLiteral("waiting")] = numOrNull(a.value(QStringLiteral("queue_remaining")));
+        r[QStringLiteral("done")] = numOrNull(a.value(QStringLiteral("done")));
+        r[QStringLiteral("inProgress")] = numOrNull(a.value(QStringLiteral("claimed")));
+        r[QStringLiteral("failed")] = numOrNull(a.value(QStringLiteral("failed")));
+        r[QStringLiteral("observations")] = numOrNull(a.value(QStringLiteral("observations")));
         rows.append(r);
     }
     return rows;
+}
+
+// The projected load of what is switched on: the server's per-analyser figures summed.
+// `unmeasured` says an enabled analyser had no measured cost, so the sum is a FLOOR.
+struct Load { QVariant cpuHoursPerDay; bool unmeasured = false; int enabled = 0; };
+inline Load projectedLoad(const QVariantList &rows)
+{
+    Load l;
+    double sum = 0;
+    bool any = false;
+    for (const QVariant &v : rows) {
+        const QVariantMap r = v.toMap();
+        if (!r.value(QStringLiteral("enabled")).toBool())
+            continue;
+        ++l.enabled;
+        const QVariant c = r.value(QStringLiteral("cpuHoursPerDay"));
+        if (c.isValid() && !c.isNull()) { sum += c.toDouble(); any = true; }
+        else l.unmeasured = true;
+    }
+    if (any)
+        l.cpuHoursPerDay = sum;
+    return l;
+}
+
+// Fold the PATCH answer (one Analyzer row) into the rows already on screen, so a switch
+// change costs no second request. Fields the PATCH does not carry (counts, queue) stay
+// as they were until the next refresh.
+inline bool applyPatch(QVariantList &rows, const QJsonObject &analyzer)
+{
+    const QString slug = analyzer.value(QStringLiteral("analyzer")).toString();
+    for (QVariant &v : rows) {
+        QVariantMap r = v.toMap();
+        if (r.value(QStringLiteral("slug")).toString() != slug)
+            continue;
+        r[QStringLiteral("enabled")] = analyzer.value(QStringLiteral("enabled")).toBool();
+        r[QStringLiteral("scope")] = analyzer.value(QStringLiteral("scope")).toString();
+        r[QStringLiteral("sampleRate")] = numOrNull(analyzer.value(QStringLiteral("sample_rate")));
+        r[QStringLiteral("costCpuS")] = numOrNull(analyzer.value(QStringLiteral("cost_cpu_s_per_camera_hour")));
+        if (!r.value(QStringLiteral("enabled")).toBool())
+            r[QStringLiteral("waiting")] = QVariant();   // the server counts a queue only while on
+        v = r;
+        return true;
+    }
+    return false;
 }
 
 }   // namespace wtlabs

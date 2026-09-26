@@ -6,8 +6,9 @@
 //     all that anything but an explicit `"paused": false` means PAUSED. So the
 //     agreement is tested ACROSS languages: the app's writes read back through the
 //     worker's own Python, and the worker's writes through the app's C++.
-//   * the server's answer merged into rows: a cost nobody measured stays unknown,
-//     never 0, and coverage exists only where the server gave a denominator.
+//   * the server's answer (GET /labs/pipeline) merged into rows, and a switch's answer
+//     folded in: a cost nobody measured stays unknown, never 0, and a projected load that
+//     leaves one out says it is a floor.
 //
 // Build + run (Qt 6.12):
 //   QT=~/Qt/6.12.0/gcc_64
@@ -138,43 +139,63 @@ int main(int argc, char **argv)
         ok(s.present && !s.stale && s.view == "idle", "the WORKER's own write_status reads back fresh here");
     }
 
-    // ---- the server's answer ------------------------------------------------------------
-    const QJsonObject seed = QJsonDocument::fromJson(R"({
-        "analyzer": "frame_difference", "camera_hours_analysable": 11884, "camera_hours_done": 3,
-        "coverage_pct": 0.0, "observations_total": 3, "projected_cpu_hours_per_day_enabled": 36.1,
-        "generated_at": "2026-09-26T16:45:12.345Z",
-        "budget": [
-          {"analyzer": "frame_difference", "enabled": true, "scope": "outside", "sample_rate": 1.0,
-           "cameras_in_scope": 56, "cost_cpu_s_per_camera_hour": 96.8, "projected_cpu_hours_per_day": 36.1},
-          {"analyzer": "illumination", "enabled": true, "scope": "all", "sample_rate": 1.0,
-           "cameras_in_scope": 133, "cost_cpu_s_per_camera_hour": null, "projected_cpu_hours_per_day": null},
-          {"analyzer": "audio_energy", "enabled": false, "scope": "outside", "sample_rate": 1.0,
-           "cameras_in_scope": 56, "cost_cpu_s_per_camera_hour": null, "projected_cpu_hours_per_day": null}],
-        "by_analyzer": [
-          {"analyzer": "frame_difference", "enabled": true, "done": 3, "in_progress": 0, "failed": 1},
-          {"analyzer": "illumination", "enabled": true, "done": 1, "in_progress": 0, "failed": 0},
-          {"analyzer": "audio_energy", "enabled": false, "done": 0, "in_progress": 0, "failed": 0}]
+    // ---- the server's answer: GET /labs/pipeline ------------------------------------------
+    // Shape copied from a real answer on the pilot (2026-09-26 17:01Z), trimmed to three rows.
+    const QJsonObject pipe = QJsonDocument::fromJson(R"({
+        "generated_at": "2026-09-26T17:01:29.337+00:00",
+        "analyzers": [
+          {"analyzer": "frame_difference", "title": "Keyframe-only frame differencing", "enabled": true,
+           "scope": "outside", "sample_rate": 1.0, "cost_cpu_s_per_camera_hour": 96.8, "cameras_in_scope": 56,
+           "queue_remaining": 11886, "done": 0, "claimed": 0, "failed": 1, "observations": 0,
+           "budget": {"cpu_hours_per_day": 36.1, "gb_per_day_if_all_segments": 804.7}},
+          {"analyzer": "illumination", "title": "Day/night/dusk/IR scene-light state", "enabled": true,
+           "scope": "all", "sample_rate": 1.0, "cost_cpu_s_per_camera_hour": null, "cameras_in_scope": 133,
+           "queue_remaining": 20060, "done": 1, "claimed": 0, "failed": 0, "observations": 2,
+           "budget": {"cpu_hours_per_day": null, "gb_per_day_if_all_segments": 830.4}},
+          {"analyzer": "audio_energy", "title": "RMS envelope", "enabled": false,
+           "scope": "outside", "sample_rate": 1.0, "cost_cpu_s_per_camera_hour": null, "cameras_in_scope": 56,
+           "queue_remaining": null, "done": 0, "claimed": 0, "failed": 0, "observations": 0,
+           "budget": {"cpu_hours_per_day": null, "gb_per_day_if_all_segments": 804.7}}]
     })").object();
-    ok(wtlabs::enabledSlugs(seed) == QStringList({"frame_difference", "illumination"}),
-       "enabledSlugs reads the switched-on ones, in the server's order");
-    QHash<QString, QJsonObject> detail;
-    detail.insert("illumination", QJsonDocument::fromJson(
-        R"({"analyzer":"illumination","camera_hours_analysable":20051,"coverage_pct":0.0,"observations_total":2})").object());
-    const QVariantList rows = wtlabs::mergeStatus(seed, detail);
-    ok(rows.size() == 3, "one row per analyser in the budget");
-    const QVariantMap fd = rows.at(0).toMap(), il = rows.at(1).toMap(), au = rows.at(2).toMap();
+    QVariantList rows = wtlabs::mergePipeline(pipe);
+    ok(rows.size() == 3, "one row per analyser, switched-off ones INCLUDED");
+    QVariantMap fd = rows.at(0).toMap(), il = rows.at(1).toMap(), au = rows.at(2).toMap();
     ok(fd.value("slug") == "frame_difference" && fd.value("costCpuS").toDouble() == 96.8
-       && fd.value("analysable").toDouble() == 11884 && fd.value("failed").toDouble() == 1,
-       "the seed analyser: cost, its own denominator, and its failed count");
-    ok(il.value("analysable").toDouble() == 20051 && il.value("done").toDouble() == 1,
-       "another enabled analyser: coverage from its own answer");
-    ok(!il.value("costCpuS").isValid() && !il.value("projectedCpuHoursPerDay").isValid(),
+       && fd.value("cpuHoursPerDay").toDouble() == 36.1 && fd.value("waiting").toDouble() == 11886
+       && fd.value("failed").toDouble() == 1,
+       "an enabled analyser: cost, projected CPU-h/day, hours waiting, failed");
+    ok(il.value("done").toDouble() == 1 && il.value("observations").toDouble() == 2,
+       "counts come through as the server gave them");
+    ok(!il.value("costCpuS").isValid() && !il.value("cpuHoursPerDay").isValid(),
        "a cost NOBODY MEASURED stays unknown -- never 0");
-    ok(au.value("enabled").toBool() == false && !au.value("analysable").isValid() && !au.value("coveragePct").isValid(),
-       "a switched-off analyser has no coverage figure, rather than 0 %");
-    const QVariantList noDetail = wtlabs::mergeStatus(seed, {});
-    ok(!noDetail.at(1).toMap().value("analysable").isValid(),
-       "an enabled analyser whose own answer failed keeps its coverage UNKNOWN");
+    ok(au.value("enabled").toBool() == false && !au.value("waiting").isValid(),
+       "a switched-off analyser has no queue figure, rather than 0");
+
+    wtlabs::Load l = wtlabs::projectedLoad(rows);
+    ok(l.enabled == 2 && l.cpuHoursPerDay.toDouble() == 36.1 && l.unmeasured,
+       "projected load sums the measured costs and says it is a FLOOR when one is unmeasured");
+    QVariantList measured = wtlabs::mergePipeline(pipe);
+    measured.removeAt(1);   // without the unmeasured enabled one
+    l = wtlabs::projectedLoad(measured);
+    ok(l.enabled == 1 && !l.unmeasured && l.cpuHoursPerDay.toDouble() == 36.1,
+       "...and is exact when every enabled cost is measured");
+    ok(!wtlabs::projectedLoad(QVariantList{au}).cpuHoursPerDay.isValid(),
+       "with nothing measured and switched on, the load is unknown, not 0");
+
+    // The switch answer folds into the rows: no second request.
+    const QJsonObject patched = QJsonDocument::fromJson(R"({"analyzer": "audio_energy", "title": "RMS envelope",
+        "enabled": true, "scope": "outside", "sample_rate": 1.0, "cost_cpu_s_per_camera_hour": null})").object();
+    ok(wtlabs::applyPatch(rows, patched), "a PATCH answer finds its row");
+    au = rows.at(2).toMap();
+    ok(au.value("enabled").toBool() && au.value("done").toDouble() == 0 && !au.value("waiting").isValid(),
+       "...switches it ON from the SERVER's answer, keeps its counts, queue unknown until the next refresh");
+    const QJsonObject off = QJsonDocument::fromJson(R"({"analyzer": "frame_difference", "enabled": false,
+        "scope": "outside", "sample_rate": 1.0, "cost_cpu_s_per_camera_hour": 96.8})").object();
+    wtlabs::applyPatch(rows, off);
+    ok(!rows.at(0).toMap().value("enabled").toBool() && !rows.at(0).toMap().value("waiting").isValid(),
+       "switching one OFF drops its queue figure (the server counts a queue only while on)");
+    ok(!wtlabs::applyPatch(rows, QJsonDocument::fromJson(R"({"analyzer": "nope", "enabled": true})").object()),
+       "an answer for an analyser not on screen changes nothing");
 
     qInfo().noquote() << (fails ? QString("%1 FAILED").arg(fails) : QStringLiteral("all passed"));
     return fails ? 1 : 0;

@@ -27,9 +27,10 @@ Item {
             if (rows[i].slug === wtLabsConfirm) { confirm.row = rows[i]; confirm.visible = true; return; }
     }
     Component.onCompleted: if (visible && labs) labs.refresh()
-    // Server status every 5 minutes: each refresh costs the pilot's database seconds
-    // per analyser (LabsModel::refresh). The local station file is free: every 5 s.
-    Timer { interval: 300000; running: root.visible && root.labs !== null; repeat: true; onTriggered: root.labs.refresh() }
+    // Server status at most every 30 minutes while open, or on Refresh: the work behind it
+    // is not cheap for the pilot's database (LabsModel.h). The local station file is
+    // free: every 5 s.
+    Timer { interval: 1800000; running: root.visible && root.labs !== null; repeat: true; onTriggered: root.labs.refresh() }
     Timer { interval: 5000; running: root.visible && root.labs !== null; repeat: true; onTriggered: root.labs.refreshStation() }
 
     // ---- words -------------------------------------------------------------------
@@ -270,11 +271,7 @@ Item {
                     tip: (root.labs && root.labs.loaded) ? "" : qsTr("No answer from the server yet")
                 }
                 Card {
-                    readonly property bool someUnmeasured: {
-                        for (var i = 0; i < root.rows.length; i++)
-                            if (root.rows[i].enabled && !root.known(root.rows[i].costCpuS)) return true;
-                        return false;
-                    }
+                    readonly property bool someUnmeasured: root.labs ? root.labs.projectedIsFloor : false
                     value: (root.labs && root.labs.loaded && root.known(root.labs.projectedCpuHoursPerDay))
                            ? ((someUnmeasured ? "≥ " : "") + root.num(root.labs.projectedCpuHoursPerDay, 1)) : "—"
                     unit: value === "—" ? "" : qsTr("CPU-h / day")
@@ -313,7 +310,7 @@ Item {
                 if (root.labs.changeError === "admin_only") return qsTr("Only an administrator can switch analysers on or off.");
                 if (root.labs.changeError !== "") return qsTr("The server refused the change: %1").arg(root.labs.changeError);
                 switch (root.labs.errorCode) {
-                case "none_enabled": return qsTr("Every analyser is switched off. The server reports costs and coverage only while at least one is on.");
+                case "admin_only":   return qsTr("Only administrators can see the Labs programme.");
                 case "unreachable":  return qsTr("The server is not answering. Showing what it said at %1.").arg(root.labs.generatedAt || "—");
                 case "refused":      return qsTr("The server refused: %1").arg(root.labs.errorText);
                 }
@@ -352,7 +349,25 @@ Item {
                         ? Qt.formatTime(new Date(root.labs.generatedAt), "HH:mm") : ""
                     text: asOf ? qsTr("On the server · %1").arg(asOf) : qsTr("On the server")
                 }
-                Label10 { Layout.preferredWidth: root.wCover; text: qsTr("Covered") }
+                Item {
+                    Layout.preferredWidth: root.wCover
+                    Layout.fillHeight: true
+                    Label10 { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Covered") }
+                    Text {
+                        id: refreshLink
+                        anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter
+                        visible: root.labs !== null
+                        text: (root.labs && root.labs.loading) ? qsTr("Refreshing…") : qsTr("Refresh")
+                        color: refreshMa.containsMouse && !(root.labs && root.labs.loading) ? Theme.accent : Theme.ink2
+                        font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold
+                        MouseArea { id: refreshMa; anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: if (root.labs && !root.labs.loading) root.labs.refresh(true) }
+                        QC.ToolTip.visible: refreshMa.containsMouse
+                        QC.ToolTip.text: qsTr("Ask the server now. It refreshes on its own every 30 minutes: the counts cost the server real work.")
+                        QC.ToolTip.delay: 300
+                    }
+                }
                 Label10 { Layout.preferredWidth: root.wCost; text: qsTr("Cost") }
                 Label10 { Layout.preferredWidth: root.wHere; text: qsTr("This station") }
             }
@@ -419,27 +434,28 @@ Item {
                         Layout.preferredWidth: root.wCover
                         Layout.alignment: Qt.AlignVCenter
                         spacing: 5
-                        readonly property bool hasCover: row.r.enabled && root.known(row.r.analysable)
+                        // The server's own counts: hours done, and (while switched on) the
+                        // hours still waiting. No percentage: the server gives no
+                        // denominator here, and its waiting count can include failed hours
+                        // that will not be handed out again, so a ratio would overstate
+                        // precision.
                         Text {
-                            text: parent.hasCover
-                                  ? qsTr("%1 of %2 hours").arg(root.num(row.r.done)).arg(root.num(row.r.analysable))
-                                  : (row.r.enabled ? qsTr("coverage unknown")
-                                     : (root.known(row.r.done) && row.r.done > 0 ? qsTr("%1 hours, while it was on").arg(root.num(row.r.done)) : "—"))
-                            color: parent.hasCover ? Theme.ink : Theme.ink3
+                            text: row.r.enabled
+                                  ? (root.known(row.r.done) ? qsTr("done: %1 h").arg(root.num(row.r.done)) : "—")
+                                  : (root.known(row.r.done) && row.r.done > 0 ? qsTr("done while on: %1 h").arg(root.num(row.r.done)) : "—")
+                            color: row.r.enabled && root.known(row.r.done) ? Theme.ink : Theme.ink3
                             font.family: Theme.fontMono; font.pixelSize: 11
                         }
-                        Rectangle {
-                            visible: parent.hasCover
-                            width: root.wCover - 40; height: 4; color: Theme.line2
-                            Rectangle { height: parent.height; color: Theme.accent
-                                        width: root.known(row.r.coveragePct) ? Math.max(row.r.coveragePct > 0 ? 2 : 0, parent.width * Math.min(100, row.r.coveragePct) / 100) : 0 }
+                        Text {
+                            visible: row.r.enabled
+                            text: root.known(row.r.waiting) ? qsTr("waiting: %1").arg(root.num(row.r.waiting))
+                                                            : qsTr("waiting: counted at the next refresh")
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
                         }
                         Text {
-                            visible: parent.hasCover || (root.known(row.r.failed) && row.r.failed > 0)
-                            text: (parent.hasCover ? qsTr("%1% covered").arg(root.num(row.r.coveragePct, 1)) : "")
-                                  + (root.known(row.r.failed) && row.r.failed > 0 ? (parent.hasCover ? "  ·  " : "") + qsTr("%1 failed").arg(root.num(row.r.failed)) : "")
-                            color: (root.known(row.r.failed) && row.r.failed > 0) ? Theme.warn : Theme.ink3
-                            font.family: Theme.fontMono; font.pixelSize: 10
+                            visible: root.known(row.r.failed) && row.r.failed > 0
+                            text: qsTr("%1 failed").arg(root.num(row.r.failed))
+                            color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10
                         }
                     }
 
@@ -454,9 +470,9 @@ Item {
                             font.family: Theme.fontMono; font.pixelSize: 11
                         }
                         Text {
-                            visible: root.known(row.r.projectedCpuHoursPerDay)
-                            text: row.r.enabled ? qsTr("≈ %1 CPU-h per day").arg(root.num(row.r.projectedCpuHoursPerDay, 1))
-                                                : qsTr("≈ %1 CPU-h per day if on").arg(root.num(row.r.projectedCpuHoursPerDay, 1))
+                            visible: root.known(row.r.cpuHoursPerDay)
+                            text: row.r.enabled ? qsTr("≈ %1 CPU-h per day").arg(root.num(row.r.cpuHoursPerDay, 1))
+                                                : qsTr("≈ %1 CPU-h per day if on").arg(root.num(row.r.cpuHoursPerDay, 1))
                             color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
                         }
                     }
@@ -527,8 +543,8 @@ Item {
                 Text {
                     width: parent.width; wrapMode: Text.WordWrap
                     text: !confirm.row ? ""
-                          : root.known(confirm.row.projectedCpuHoursPerDay)
-                            ? qsTr("Projected load: about %1 CPU-hours per day across the stations that scan.").arg(root.num(confirm.row.projectedCpuHoursPerDay, 1))
+                          : root.known(confirm.row.cpuHoursPerDay)
+                            ? qsTr("Projected load: about %1 CPU-hours per day across the stations that scan.").arg(root.num(confirm.row.cpuHoursPerDay, 1))
                             : qsTr("Nobody has measured its cost yet, so its load is unknown.")
                     color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.Medium
                 }

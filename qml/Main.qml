@@ -1991,6 +1991,7 @@ Window {
             visible: !win.fullscreen
             section: win.section
             unackCount: eventModel.unacknowledgedCount
+            isAdmin: AuthController.isAdmin
             onSectionSelected: (sid) => win.goToSection(sid)
         }
 

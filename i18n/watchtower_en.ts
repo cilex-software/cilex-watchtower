@@ -1842,6 +1842,19 @@
     </message>
 </context>
 <context>
+    <name>GroupSwitcher</name>
+    <message>
+        <location filename="../qml/GroupSwitcher.qml" line="96"/>
+        <source>No cameras in this group</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/GroupSwitcher.qml" line="108"/>
+        <source>↻  Sync from server</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>HealthScreen</name>
     <message>
         <location filename="../qml/HealthScreen.qml" line="445"/>
@@ -2171,288 +2184,288 @@
 <context>
     <name>LabsScreen</name>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="38"/>
+        <location filename="../qml/LabsScreen.qml" line="39"/>
         <source>Day / night</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="39"/>
+        <location filename="../qml/LabsScreen.qml" line="40"/>
         <source>Motion intensity</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="40"/>
+        <location filename="../qml/LabsScreen.qml" line="41"/>
         <source>Camera health</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="41"/>
+        <location filename="../qml/LabsScreen.qml" line="42"/>
         <source>Moving area</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="42"/>
+        <location filename="../qml/LabsScreen.qml" line="43"/>
         <source>Shapes of moving things</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="43"/>
+        <location filename="../qml/LabsScreen.qml" line="44"/>
         <source>Colour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="44"/>
+        <location filename="../qml/LabsScreen.qml" line="45"/>
         <source>Direction of movement</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="45"/>
+        <location filename="../qml/LabsScreen.qml" line="46"/>
         <source>Tracks</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="46"/>
+        <location filename="../qml/LabsScreen.qml" line="47"/>
         <source>Change detector</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="47"/>
+        <location filename="../qml/LabsScreen.qml" line="48"/>
         <source>Sound</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="48"/>
+        <location filename="../qml/LabsScreen.qml" line="49"/>
         <source>Image search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="54"/>
+        <location filename="../qml/LabsScreen.qml" line="55"/>
         <source>Whether each hour was daylight, dusk, night or infrared.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="55"/>
+        <location filename="../qml/LabsScreen.qml" line="56"/>
         <source>How violent the movement was, and how long it lasted.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="56"/>
+        <location filename="../qml/LabsScreen.qml" line="57"/>
         <source>Lens covered, out of focus, camera moved, picture frozen, lights changed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="57"/>
+        <location filename="../qml/LabsScreen.qml" line="58"/>
         <source>How much of the picture moved, and how many moving areas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="58"/>
+        <location filename="../qml/LabsScreen.qml" line="59"/>
         <source>Size and shape of whatever moved. It never says what it is.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="59"/>
+        <location filename="../qml/LabsScreen.qml" line="60"/>
         <source>The main colour of whatever moved. Not under infrared.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="60"/>
+        <location filename="../qml/LabsScreen.qml" line="61"/>
         <source>Which way things moved, how fast, and whether together.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="61"/>
+        <location filename="../qml/LabsScreen.qml" line="62"/>
         <source>Follows each moving thing: how long it stayed, where it came and went.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="62"/>
+        <location filename="../qml/LabsScreen.qml" line="63"/>
         <source>Finds hours where nothing changed, and scenes that repeat.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="63"/>
+        <location filename="../qml/LabsScreen.qml" line="64"/>
         <source>Loudness and sudden sounds, on cameras that record audio.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="64"/>
+        <location filename="../qml/LabsScreen.qml" line="65"/>
         <source>Search by picture. Not built yet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="70"/>
+        <location filename="../qml/LabsScreen.qml" line="71"/>
         <source>outdoor cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="71"/>
+        <location filename="../qml/LabsScreen.qml" line="72"/>
         <source>indoor cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="72"/>
+        <location filename="../qml/LabsScreen.qml" line="73"/>
         <source>all cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="73"/>
+        <location filename="../qml/LabsScreen.qml" line="74"/>
         <source>unknown cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="83"/>
+        <location filename="../qml/LabsScreen.qml" line="87"/>
         <source>%1 s ago</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="84"/>
+        <location filename="../qml/LabsScreen.qml" line="88"/>
         <source>%1 min ago</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="85"/>
+        <location filename="../qml/LabsScreen.qml" line="89"/>
         <source>%1 h ago</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="89"/>
+        <location filename="../qml/LabsScreen.qml" line="93"/>
         <location filename="../qml/LabsScreen.qml" line="300"/>
         <source>Scanning is not set up on this station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="90"/>
+        <location filename="../qml/LabsScreen.qml" line="94"/>
         <source>The scanner&apos;s status file cannot be read</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="91"/>
+        <location filename="../qml/LabsScreen.qml" line="95"/>
         <source>Not running — last heard from %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="92"/>
+        <location filename="../qml/LabsScreen.qml" line="96"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="93"/>
+        <location filename="../qml/LabsScreen.qml" line="97"/>
         <source>Starting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="94"/>
+        <location filename="../qml/LabsScreen.qml" line="98"/>
         <source>Paused</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="95"/>
+        <location filename="../qml/LabsScreen.qml" line="99"/>
         <source>Scanning: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="95"/>
+        <location filename="../qml/LabsScreen.qml" line="99"/>
         <source>Scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="96"/>
+        <location filename="../qml/LabsScreen.qml" line="100"/>
         <source>Waiting — nothing to scan right now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="97"/>
+        <location filename="../qml/LabsScreen.qml" line="101"/>
         <source>Cannot reach the server — will retry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="98"/>
+        <location filename="../qml/LabsScreen.qml" line="102"/>
         <source>Cannot work until fixed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="99"/>
+        <location filename="../qml/LabsScreen.qml" line="103"/>
         <source>Status unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="112"/>
+        <location filename="../qml/LabsScreen.qml" line="116"/>
         <source>never started on this station</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsScreen.qml" line="116"/>
+        <location filename="../qml/LabsScreen.qml" line="120"/>
         <source>%n row(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n row</numerusform>
+            <numerusform>%n rows</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="117"/>
+        <location filename="../qml/LabsScreen.qml" line="121"/>
         <source>filed as failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="117"/>
+        <location filename="../qml/LabsScreen.qml" line="121"/>
         <source>given back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="118"/>
+        <location filename="../qml/LabsScreen.qml" line="122"/>
         <source>last: %1 · %2 · %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="120"/>
+        <location filename="../qml/LabsScreen.qml" line="124"/>
         <source>install the Labs worker service on this machine</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="156"/>
+        <location filename="../qml/LabsScreen.qml" line="160"/>
         <source>OFF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="156"/>
+        <location filename="../qml/LabsScreen.qml" line="160"/>
         <source>ON</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="195"/>
-        <location filename="../qml/LabsScreen.qml" line="354"/>
+        <location filename="../qml/LabsScreen.qml" line="199"/>
+        <location filename="../qml/LabsScreen.qml" line="372"/>
         <source>This station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="204"/>
+        <location filename="../qml/LabsScreen.qml" line="208"/>
         <source>could not save: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="212"/>
+        <location filename="../qml/LabsScreen.qml" line="216"/>
         <source>Resume scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="212"/>
+        <location filename="../qml/LabsScreen.qml" line="216"/>
         <source>Pause scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="219"/>
+        <location filename="../qml/LabsScreen.qml" line="223"/>
         <source>Only an administrator can resume scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="266"/>
+        <location filename="../qml/LabsScreen.qml" line="270"/>
         <source>Switched on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="267"/>
-        <location filename="../qml/LabsScreen.qml" line="483"/>
+        <location filename="../qml/LabsScreen.qml" line="271"/>
+        <location filename="../qml/LabsScreen.qml" line="502"/>
         <source>No answer from the server yet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2514,7 +2527,27 @@
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="313"/>
-        <source>Every analyser is switched off. The server reports costs and coverage only while at least one is on.</source>
+        <source>Only administrators can see the Labs programme.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="444"/>
+        <source>done: %1 h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="445"/>
+        <source>done while on: %1 h</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="451"/>
+        <source>waiting: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="452"/>
+        <source>waiting: counted at the next refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2543,123 +2576,118 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="352"/>
+        <location filename="../qml/LabsScreen.qml" line="355"/>
         <source>Covered</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="353"/>
+        <location filename="../qml/LabsScreen.qml" line="360"/>
+        <source>Refreshing…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="360"/>
+        <source>Refresh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="367"/>
+        <source>Ask the server now. It refreshes on its own every 30 minutes: the counts cost the server real work.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="371"/>
         <source>Cost</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="401"/>
+        <location filename="../qml/LabsScreen.qml" line="419"/>
         <source>Only an administrator can switch analysers on or off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="410"/>
+        <location filename="../qml/LabsScreen.qml" line="428"/>
         <source>Changing…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="422"/>
-        <source>%1 of %2 hours</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LabsScreen.qml" line="423"/>
-        <source>coverage unknown</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LabsScreen.qml" line="424"/>
-        <source>%1 hours, while it was on</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LabsScreen.qml" line="436"/>
-        <source>%1% covered</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LabsScreen.qml" line="437"/>
+        <location filename="../qml/LabsScreen.qml" line="457"/>
         <source>%1 failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="449"/>
+        <location filename="../qml/LabsScreen.qml" line="468"/>
         <source>%1 CPU-s per camera-hour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="449"/>
+        <location filename="../qml/LabsScreen.qml" line="468"/>
         <source>not measured</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="455"/>
+        <location filename="../qml/LabsScreen.qml" line="474"/>
         <source>≈ %1 CPU-h per day</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="456"/>
+        <location filename="../qml/LabsScreen.qml" line="475"/>
         <source>≈ %1 CPU-h per day if on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="468"/>
+        <location filename="../qml/LabsScreen.qml" line="487"/>
         <source>Cannot run here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="469"/>
+        <location filename="../qml/LabsScreen.qml" line="488"/>
         <source>Not here (one station only)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="470"/>
+        <location filename="../qml/LabsScreen.qml" line="489"/>
         <source>Needs a server update</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="471"/>
-        <location filename="../qml/LabsScreen.qml" line="473"/>
+        <location filename="../qml/LabsScreen.qml" line="490"/>
+        <location filename="../qml/LabsScreen.qml" line="492"/>
         <source>Runs here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="483"/>
+        <location filename="../qml/LabsScreen.qml" line="502"/>
         <source>Asking the server…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="510"/>
+        <location filename="../qml/LabsScreen.qml" line="529"/>
         <source>Switch on “%1”?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="520"/>
+        <location filename="../qml/LabsScreen.qml" line="539"/>
         <source>Stations that scan will start analysing footage for it (%1). The change is visible to everyone using this system.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="528"/>
+        <location filename="../qml/LabsScreen.qml" line="547"/>
         <source>Projected load: about %1 CPU-hours per day across the stations that scan.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="529"/>
+        <location filename="../qml/LabsScreen.qml" line="548"/>
         <source>Nobody has measured its cost yet, so its load is unknown.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="538"/>
+        <location filename="../qml/LabsScreen.qml" line="557"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="540"/>
+        <location filename="../qml/LabsScreen.qml" line="559"/>
         <source>Switch on</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2803,36 +2831,36 @@
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="698"/>
-        <location filename="../qml/LiveMonitor.qml" line="1190"/>
-        <location filename="../qml/LiveMonitor.qml" line="1320"/>
+        <location filename="../qml/LiveMonitor.qml" line="1120"/>
+        <location filename="../qml/LiveMonitor.qml" line="1250"/>
         <source>Live first</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="698"/>
-        <location filename="../qml/LiveMonitor.qml" line="1191"/>
-        <location filename="../qml/LiveMonitor.qml" line="1320"/>
+        <location filename="../qml/LiveMonitor.qml" line="1121"/>
+        <location filename="../qml/LiveMonitor.qml" line="1250"/>
         <source>IP address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="699"/>
-        <location filename="../qml/LiveMonitor.qml" line="1192"/>
-        <location filename="../qml/LiveMonitor.qml" line="1320"/>
+        <location filename="../qml/LiveMonitor.qml" line="1122"/>
+        <location filename="../qml/LiveMonitor.qml" line="1250"/>
         <source>Stream order</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="699"/>
-        <location filename="../qml/LiveMonitor.qml" line="1193"/>
-        <location filename="../qml/LiveMonitor.qml" line="1321"/>
+        <location filename="../qml/LiveMonitor.qml" line="1123"/>
+        <location filename="../qml/LiveMonitor.qml" line="1251"/>
         <source>Status first</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LiveMonitor.qml" line="700"/>
-        <location filename="../qml/LiveMonitor.qml" line="1194"/>
-        <location filename="../qml/LiveMonitor.qml" line="1321"/>
+        <location filename="../qml/LiveMonitor.qml" line="1124"/>
+        <location filename="../qml/LiveMonitor.qml" line="1251"/>
         <source>Alphabetical</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2847,181 +2875,176 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1002"/>
-        <source>↻  Sync from server</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LiveMonitor.qml" line="1026"/>
+        <location filename="../qml/LiveMonitor.qml" line="956"/>
         <source>Clear selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1038"/>
+        <location filename="../qml/LiveMonitor.qml" line="968"/>
         <source>Favorites</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1046"/>
+        <location filename="../qml/LiveMonitor.qml" line="976"/>
         <source>Online</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1053"/>
+        <location filename="../qml/LiveMonitor.qml" line="983"/>
         <source>Recent events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1058"/>
+        <location filename="../qml/LiveMonitor.qml" line="988"/>
         <source>Issues</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1058"/>
+        <location filename="../qml/LiveMonitor.qml" line="988"/>
         <source>Filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1082"/>
-        <location filename="../qml/LiveMonitor.qml" line="1303"/>
+        <location filename="../qml/LiveMonitor.qml" line="1012"/>
+        <location filename="../qml/LiveMonitor.qml" line="1233"/>
         <source>Go back in time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1104"/>
-        <location filename="../qml/LiveMonitor.qml" line="1305"/>
+        <location filename="../qml/LiveMonitor.qml" line="1034"/>
+        <location filename="../qml/LiveMonitor.qml" line="1235"/>
         <source>Save current view</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1130"/>
-        <location filename="../qml/LiveMonitor.qml" line="1307"/>
+        <location filename="../qml/LiveMonitor.qml" line="1060"/>
+        <location filename="../qml/LiveMonitor.qml" line="1237"/>
         <source>Done arranging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1130"/>
-        <location filename="../qml/LiveMonitor.qml" line="1307"/>
+        <location filename="../qml/LiveMonitor.qml" line="1060"/>
+        <location filename="../qml/LiveMonitor.qml" line="1237"/>
         <source>Arrange</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1147"/>
+        <location filename="../qml/LiveMonitor.qml" line="1077"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1166"/>
+        <location filename="../qml/LiveMonitor.qml" line="1096"/>
         <source>Sort: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1231"/>
+        <location filename="../qml/LiveMonitor.qml" line="1161"/>
         <source>Full-screen monitoring (F)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1310"/>
+        <location filename="../qml/LiveMonitor.qml" line="1240"/>
         <source>Reset arrangement</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1312"/>
+        <location filename="../qml/LiveMonitor.qml" line="1242"/>
         <source>Full-screen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1317"/>
+        <location filename="../qml/LiveMonitor.qml" line="1247"/>
         <source>SORT BY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1563"/>
+        <location filename="../qml/LiveMonitor.qml" line="1493"/>
         <source>CENTER</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1569"/>
+        <location filename="../qml/LiveMonitor.qml" line="1499"/>
         <source>Tap to change</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1708"/>
+        <location filename="../qml/LiveMonitor.qml" line="1638"/>
         <source>Merging isn&apos;t available on this layout</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1709"/>
+        <location filename="../qml/LiveMonitor.qml" line="1639"/>
         <source>Split %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1711"/>
+        <location filename="../qml/LiveMonitor.qml" line="1641"/>
         <source>Merge %1×%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1713"/>
+        <location filename="../qml/LiveMonitor.qml" line="1643"/>
         <source>Shift+drag to select cells to merge</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1768"/>
+        <location filename="../qml/LiveMonitor.qml" line="1698"/>
         <source>Loading cameras…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1799"/>
+        <location filename="../qml/LiveMonitor.qml" line="1729"/>
         <source>Exit full-screen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1826"/>
+        <location filename="../qml/LiveMonitor.qml" line="1756"/>
         <source>%1 · %2 cameras · Page %3 of %4</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1836"/>
+        <location filename="../qml/LiveMonitor.qml" line="1766"/>
         <source>M — merge · Esc — cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1837"/>
+        <location filename="../qml/LiveMonitor.qml" line="1767"/>
         <source>⇧ drag — merge cells</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1876"/>
+        <location filename="../qml/LiveMonitor.qml" line="1806"/>
         <source>Camera for </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1913"/>
+        <location filename="../qml/LiveMonitor.qml" line="1843"/>
         <source>Search cameras…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="1925"/>
+        <location filename="../qml/LiveMonitor.qml" line="1855"/>
         <source>Hide on-wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2061"/>
+        <location filename="../qml/LiveMonitor.qml" line="1991"/>
         <source>ON WALL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2084"/>
+        <location filename="../qml/LiveMonitor.qml" line="2014"/>
         <source>No cameras match.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2084"/>
+        <location filename="../qml/LiveMonitor.qml" line="2014"/>
         <source>No cameras available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LiveMonitor.qml" line="2091"/>
+        <location filename="../qml/LiveMonitor.qml" line="2021"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3223,7 +3246,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="71"/>
-        <location filename="../qml/Main.qml" line="2109"/>
+        <location filename="../qml/Main.qml" line="2110"/>
         <source>Groups</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3234,7 +3257,7 @@
     </message>
     <message>
         <location filename="../qml/Main.qml" line="73"/>
-        <location filename="../qml/Main.qml" line="2219"/>
+        <location filename="../qml/Main.qml" line="2220"/>
         <source>Events</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3325,87 +3348,87 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2285"/>
+        <location filename="../qml/Main.qml" line="2286"/>
         <source>Coming soon</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2394"/>
+        <location filename="../qml/Main.qml" line="2395"/>
         <source>Export started</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2394"/>
+        <location filename="../qml/Main.qml" line="2395"/>
         <source>Preparing clip on cilex-vision…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2404"/>
+        <location filename="../qml/Main.qml" line="2405"/>
         <source>Clip saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2405"/>
+        <location filename="../qml/Main.qml" line="2406"/>
         <source>%1 · Saved to %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2406"/>
+        <location filename="../qml/Main.qml" line="2407"/>
         <source>Saved to %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2407"/>
+        <location filename="../qml/Main.qml" line="2408"/>
         <source>Open folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2414"/>
+        <location filename="../qml/Main.qml" line="2415"/>
         <source>Standard unavailable for this window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2415"/>
+        <location filename="../qml/Main.qml" line="2416"/>
         <source>Export as High instead</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2417"/>
+        <location filename="../qml/Main.qml" line="2418"/>
         <source>Export failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2418"/>
+        <location filename="../qml/Main.qml" line="2419"/>
         <source>The clip could not be exported</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2455"/>
+        <location filename="../qml/Main.qml" line="2456"/>
         <source>Autofocus started — the lens may hunt for up to 40 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2460"/>
+        <location filename="../qml/Main.qml" line="2461"/>
         <source>Autofocus finished</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2474"/>
+        <location filename="../qml/Main.qml" line="2475"/>
         <source>New badge earned: %1 — %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2478"/>
+        <location filename="../qml/Main.qml" line="2479"/>
         <source>The Watch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2495"/>
+        <location filename="../qml/Main.qml" line="2496"/>
         <source>Shared</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/Main.qml" line="2495"/>
+        <location filename="../qml/Main.qml" line="2496"/>
         <source>Mine</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3413,32 +3436,32 @@
 <context>
     <name>NavRail</name>
     <message>
-        <location filename="../qml/NavRail.qml" line="51"/>
+        <location filename="../qml/NavRail.qml" line="55"/>
         <source>Live</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/NavRail.qml" line="52"/>
+        <location filename="../qml/NavRail.qml" line="56"/>
         <source>Groups</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/NavRail.qml" line="53"/>
+        <location filename="../qml/NavRail.qml" line="57"/>
         <source>Views</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/NavRail.qml" line="54"/>
+        <location filename="../qml/NavRail.qml" line="58"/>
         <source>Events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/NavRail.qml" line="55"/>
+        <location filename="../qml/NavRail.qml" line="59"/>
         <source>Health</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/NavRail.qml" line="56"/>
+        <location filename="../qml/NavRail.qml" line="60"/>
         <source>Labs</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5485,267 +5508,267 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="200"/>
+        <location filename="../qml/WallPlayback.qml" line="208"/>
         <source>“%1” has no cameras to play back.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="689"/>
+        <location filename="../qml/WallPlayback.qml" line="699"/>
         <source>Playback is switched off — the synchronized wall is paused. This is an operator setting, not a fault.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1108"/>
+        <location filename="../qml/WallPlayback.qml" line="1171"/>
         <source>Opening wall session…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1108"/>
+        <location filename="../qml/WallPlayback.qml" line="1171"/>
         <source>Compositing…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1126"/>
+        <location filename="../qml/WallPlayback.qml" line="1189"/>
         <source>The server-composited grid stream (E1) isn&apos;t live yet. Live tiles are unaffected — use Return to live.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1191"/>
+        <location filename="../qml/WallPlayback.qml" line="1254"/>
         <source>Every cell is the same instant by construction — one composited stream. Hold T to stamp every cell.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1199"/>
+        <location filename="../qml/WallPlayback.qml" line="1262"/>
         <source>Wall playback</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1207"/>
+        <location filename="../qml/WallPlayback.qml" line="1270"/>
         <source>EDIT CAMERAS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1215"/>
-        <source>GROUP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/WallPlayback.qml" line="1257"/>
-        <source>No cameras in this group</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/WallPlayback.qml" line="1285"/>
+        <location filename="../qml/WallPlayback.qml" line="1298"/>
         <source>CALENDAR DAY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1285"/>
+        <location filename="../qml/WallPlayback.qml" line="1298"/>
         <source>ROLLING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1306"/>
+        <location filename="../qml/WallPlayback.qml" line="1319"/>
         <source>Midnight to midnight, clamped to now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1307"/>
+        <location filename="../qml/WallPlayback.qml" line="1320"/>
         <source>Ends now — the far left is %1 at %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1316"/>
-        <location filename="../qml/WallPlayback.qml" line="1508"/>
+        <location filename="../qml/WallPlayback.qml" line="1329"/>
+        <location filename="../qml/WallPlayback.qml" line="1521"/>
         <source>%1% of the window has footage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1344"/>
+        <location filename="../qml/WallPlayback.qml" line="1357"/>
         <source>ROLL CALL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1391"/>
+        <location filename="../qml/WallPlayback.qml" line="1404"/>
         <source>RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1390"/>
+        <location filename="../qml/WallPlayback.qml" line="1403"/>
         <source>MOTION</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="512"/>
+        <location filename="../qml/WallPlayback.qml" line="124"/>
+        <source>All cameras</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="522"/>
         <source>%1 UNCONFIRMED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="513"/>
+        <location filename="../qml/WallPlayback.qml" line="523"/>
         <source>%1/%2 RECORDING · %3 UNCONFIRMED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="515"/>
+        <location filename="../qml/WallPlayback.qml" line="525"/>
         <source>%1/%2 RECORDING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1184"/>
+        <location filename="../qml/WallPlayback.qml" line="1000"/>
+        <source>Custom selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/WallPlayback.qml" line="1247"/>
         <source>1 STREAM · %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1392"/>
+        <location filename="../qml/WallPlayback.qml" line="1405"/>
         <source>nothing at this instant</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1393"/>
+        <location filename="../qml/WallPlayback.qml" line="1406"/>
         <source>availability unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1493"/>
+        <location filename="../qml/WallPlayback.qml" line="1506"/>
         <source>−10s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1494"/>
+        <location filename="../qml/WallPlayback.qml" line="1507"/>
         <source>+10s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1495"/>
+        <location filename="../qml/WallPlayback.qml" line="1508"/>
         <source>Last hour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1496"/>
+        <location filename="../qml/WallPlayback.qml" line="1509"/>
         <source>Last 15 min</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1514"/>
+        <location filename="../qml/WallPlayback.qml" line="1527"/>
         <source>Rolling window — the last 15 min, ending now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1515"/>
+        <location filename="../qml/WallPlayback.qml" line="1528"/>
         <source>Rolling window — the last 1h, ending now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1516"/>
+        <location filename="../qml/WallPlayback.qml" line="1529"/>
         <source>Rolling window — the last 6h, ending now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1517"/>
+        <location filename="../qml/WallPlayback.qml" line="1530"/>
         <source>Rolling window — the last 12h, ending now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1518"/>
+        <location filename="../qml/WallPlayback.qml" line="1531"/>
         <source>Rolling window — the last 24h, ending now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1520"/>
+        <location filename="../qml/WallPlayback.qml" line="1533"/>
         <source>Drop the custom zoom back to the loaded window</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1522"/>
+        <location filename="../qml/WallPlayback.qml" line="1535"/>
         <source>Events</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1523"/>
+        <location filename="../qml/WallPlayback.qml" line="1536"/>
         <source>Show a motion lane per camera in the scrubber</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1526"/>
+        <location filename="../qml/WallPlayback.qml" line="1539"/>
         <source>Export selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1528"/>
+        <location filename="../qml/WallPlayback.qml" line="1541"/>
         <source>Return to live</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1651"/>
+        <location filename="../qml/WallPlayback.qml" line="1664"/>
         <source>WARMING</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1891"/>
+        <location filename="../qml/WallPlayback.qml" line="1904"/>
         <source>IN </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1893"/>
+        <location filename="../qml/WallPlayback.qml" line="1906"/>
         <source>spans a gap — some cameras have no footage inside it</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1917"/>
+        <location filename="../qml/WallPlayback.qml" line="1930"/>
         <source>Assign cameras</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1918"/>
+        <location filename="../qml/WallPlayback.qml" line="1931"/>
         <source>The wall re-composites at the current moment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1940"/>
-        <location filename="../qml/WallPlayback.qml" line="2066"/>
+        <location filename="../qml/WallPlayback.qml" line="1953"/>
+        <location filename="../qml/WallPlayback.qml" line="2079"/>
         <source>Search name, IP or group…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="1998"/>
+        <location filename="../qml/WallPlayback.qml" line="2011"/>
         <source>Use live wall</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2010"/>
-        <location filename="../qml/WallPlayback.qml" line="2098"/>
+        <location filename="../qml/WallPlayback.qml" line="2023"/>
+        <location filename="../qml/WallPlayback.qml" line="2111"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2018"/>
+        <location filename="../qml/WallPlayback.qml" line="2031"/>
         <source>Apply · </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2045"/>
+        <location filename="../qml/WallPlayback.qml" line="2058"/>
         <source>Choose camera for this tile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2050"/>
+        <location filename="../qml/WallPlayback.qml" line="2063"/>
         <source>Replaces </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2087"/>
+        <location filename="../qml/WallPlayback.qml" line="2100"/>
         <source>ON WALL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2194"/>
-        <location filename="../qml/WallPlayback.qml" line="2201"/>
+        <location filename="../qml/WallPlayback.qml" line="2207"/>
+        <location filename="../qml/WallPlayback.qml" line="2214"/>
         <source>FF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/WallPlayback.qml" line="2195"/>
-        <location filename="../qml/WallPlayback.qml" line="2202"/>
+        <location filename="../qml/WallPlayback.qml" line="2208"/>
+        <location filename="../qml/WallPlayback.qml" line="2215"/>
         <source>RW</source>
         <translation type="unfinished"></translation>
     </message>

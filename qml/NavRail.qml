@@ -8,6 +8,10 @@ Item {
     id: root
 
     property string section: "live"
+    // Labs is an administrator's surface (it hands work to machines and shows per-analyser
+    // cost), as cilex-vision's own /admin/labs is. The scanner itself runs under the
+    // station's token whoever is signed in.
+    property bool isAdmin: false
     property int unackCount: 0
     property bool compact: false   // hidden chrome in full-screen mode
 
@@ -53,8 +57,8 @@ Item {
                     { id: "views",  icon: "grid",    label: qsTr("Views") },
                     { id: "events", icon: "bell",    label: qsTr("Events") },
                     { id: "health", icon: "pulse",   label: qsTr("Health") },
-                    { id: "labs",   icon: "flask",   label: qsTr("Labs") }
-                ]
+                    { id: "labs",   icon: "flask",   label: qsTr("Labs"), adminOnly: true }
+                ].filter(function (it) { return !it.adminOnly || root.isAdmin; })
                 delegate: Item {
                     id: navItem
                     required property var modelData
