@@ -1468,6 +1468,18 @@ RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_s
               sleep=clk.sleep, clock=clk.now, passes=1)
 check("loop: PAUSED claims nothing and says so", c.claims == [] and hb.fields.get("state") == "paused", f"{c.claims} {hb.fields.get('state')}")
 
+# Paused, it still keeps "what this station could run" current: the capability check is a
+# read of the server's OpenAPI, and without it a worker paused since an old server showed
+# "needs a server update" for every analyser however far the server had moved.
+_asked = []
+c, plugs = loop_world(["illumination"])
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: _asked.append(clk.t) or plugs, decode=decode_chroma(11.5), hb=hb,
+              control=ctl_seq({"paused": True}), sleep=clk.sleep, clock=clk.now, passes=3)
+check("loop: PAUSED still re-reads what the server can run, at least every RECHECK_S, and claims nothing",
+      len(_asked) == 3 and c.claims == [] and max(b - a for a, b in zip(_asked, _asked[1:])) <= RW2.RECHECK_S + 1,
+      f"{_asked} {c.claims}")
+
 c, plugs = loop_world(["illumination", "foreground_mask"])
 hb, clk = HbRec(), Clock()
 tot = RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),

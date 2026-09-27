@@ -171,8 +171,15 @@ def scan_loop(client, supported, *, decode, hb, control=S.read_control,
         n += 1
         ctl = control()
         if ctl["paused"]:
+            # Keep what the Labs screen says this station COULD run current while paused.
+            # supported() rate-limits itself (RECHECK_S) and only READS the server's
+            # OpenAPI; nothing is claimed. It used to run only while scanning, so a worker
+            # started against 1.0.61 and paused kept telling the screen "needs a server
+            # update" for all ten analysers long after the server was 1.0.80 (seen
+            # 2026-09-27).
+            supported()
             hb.update(state="paused", note=ctl["why"], current=None)
-            wait(3600.0, until_paused=False)
+            wait(RECHECK_S, until_paused=False)
             continue
         plugins = [p for p in supported()
                    if p.name != "camera_health" or ctl["camera_health"]]
