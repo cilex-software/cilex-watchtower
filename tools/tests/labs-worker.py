@@ -5,7 +5,7 @@ A fake client serves units and segments and can REFUSE on cue with the exact slu
 the running service (1.0.57) returns; a fake decoder hands back synthetic frames.
 Every case below is a rule that has already cost somebody a run.
 """
-import glob, os, sys, tempfile, pathlib
+import glob, os, sys, tempfile, pathlib, threading
 import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -1512,15 +1512,111 @@ check("loop: a server that hands out the hour IN PROGRESS (1.0.61 and older) get
       and not RW2.server_too_old("1.1.0") and RW2.server_too_old(None) and RW2.server_too_old("garbage"))
 _sd3 = tempfile.mkdtemp(prefix="hb-")
 _hb = RW2.Heartbeat({"state": "starting"}, write=lambda d: ST.write_status(d, directory=_sd3), every=0.05).start()
-_s1 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+# Read as the app does -- through the retrying reader. A bare open() here is what crashed
+# this suite on the booth (PermissionError while the heartbeat thread replaced the file).
+_s1 = ST.read_json(os.path.join(_sd3, ST.STATUS))
 _hb.update(state="running", current="illumination")
 _time.sleep(0.25)
-_s2 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+_s2 = ST.read_json(os.path.join(_sd3, ST.STATUS))
 _hb.stop(state="stopped")
-_s3 = _j.load(open(os.path.join(_sd3, ST.STATUS)))
+_s3 = ST.read_json(os.path.join(_sd3, ST.STATUS))
 check("status: written at once, kept current, and says when the worker stopped",
       _s1.get("state") == "starting" and _s2.get("state") == "running" and _s2.get("current") == "illumination"
       and _s3.get("state") == "stopped" and {"updated_at", "pid", "host"} <= set(_s3), f"{_s1} {_s2} {_s3}")
+
+# "stopped" is the LAST word even when a heartbeat write is in flight. Each flush copies
+# the fields and then writes; unserialised, a heartbeat that copied "running" could land
+# after stop() wrote "stopped", and the file said running until it went stale.
+_landed, _in_write = [], threading.Event()
+def _slow_write(d):
+    if threading.current_thread().name == "hb-thread":
+        _in_write.set(); _time.sleep(0.3)        # the write lands AFTER this pause
+    _landed.append(d.get("state"))
+_hb2 = RW2.Heartbeat({"state": "running"}, write=_slow_write, every=0.01)
+_hb2._thread.name = "hb-thread"
+_hb2.start()
+_in_write.wait(2)
+_hb2.stop(state="stopped")
+_hb2._thread.join(2)                  # look only after every write has LANDED
+check("status: 'stopped' is the last write, even with a heartbeat write in flight",
+      _landed[-1:] == ["stopped"], str(_landed))
+
+# The same for ANY update, which pins the write lock on its own (stop() also joins the
+# thread, so the check above holds with either guard). A heartbeat write holding "idle"
+# is in flight; an update to "running" must not be overtaken by it.
+_landed2, _in2, _go2 = [], threading.Event(), threading.Event()
+def _held_write(d):
+    if threading.current_thread().name == "hb-thread-2":
+        _in2.set(); _go2.wait(5)
+    _landed2.append(d.get("state"))
+_hb3 = RW2.Heartbeat({"state": "idle"}, write=_held_write, every=0.01)
+_hb3._thread.name = "hb-thread-2"
+_hb3.start()
+_in2.wait(2)
+_t2 = threading.Thread(target=lambda: _hb3.update(state="running")); _t2.start()
+_time.sleep(0.1)                      # the update runs now: it writes, or it waits its turn
+_go2.set(); _t2.join(5)
+_hb3.stop(state="stopped")
+_hb3._thread.join(2)                  # look only after every write has LANDED
+_first = _landed2.index("running") if "running" in _landed2 else None
+check("status: an update is never overtaken by an older heartbeat write already in flight",
+      _first is not None and "idle" not in _landed2[_first:], str(_landed2))
+
+# ---- Windows: both sides of an atomic replace are refused for a moment (see station.py).
+_sd4 = tempfile.mkdtemp(prefix="win-")
+_real_replace, _calls = os.replace, []
+def _refused(n):
+    def rep(a, b):
+        _calls.append(1)
+        if len(_calls) <= n:
+            raise PermissionError(13, "Access is denied")
+        return _real_replace(a, b)
+    return rep
+try:
+    os.replace = _refused(3)
+    try:
+        ST.write_status({"state": "running"}, directory=_sd4); _wrote = True
+    except PermissionError:
+        _wrote = False
+    check("a replace REFUSED 3 times (Windows, reader holding the file) still writes status.json",
+          _wrote and len(_calls) == 4 and ST.read_json(os.path.join(_sd4, ST.STATUS)).get("state") == "running",
+          f"{_wrote} {len(_calls)}")
+    _calls.clear(); os.replace = _refused(10 ** 6)
+    try:
+        ST.write_status({"state": "idle"}, directory=_sd4); _raised = False
+    except PermissionError:
+        _raised = True
+    check("...refused for good, it RAISES after RETRIES tries (the heartbeat reports it) and leaves no temp file",
+          _raised and len(_calls) == ST.RETRIES
+          and not [f for f in os.listdir(_sd4) if f.startswith(".tmp-")], f"{_raised} {len(_calls)} {os.listdir(_sd4)}")
+finally:
+    os.replace = _real_replace
+
+import builtins as _bi
+_opens = []
+def _flaky_open(n):
+    def op(*a, **k):
+        _opens.append(1)
+        if len(_opens) <= n:
+            raise PermissionError(13, "Access is denied")
+        return _bi.open(*a, **k)
+    return op
+ST.write_control(False, camera_health=True, by="test", directory=_sd4)
+try:
+    _opens.clear(); ST.open = _flaky_open(3)
+    _c = ST.read_control(_sd4)
+    check("control: an open refused mid-replace is RETRIED, not read as a spurious pause",
+          _c["paused"] is False and _c["camera_health"] is True and len(_opens) == 4, f"{_c} {len(_opens)}")
+    _opens.clear(); ST.open = _flaky_open(10 ** 6)
+    try:
+        ST.write_control(True, by="test", directory=_sd4); _raised = False
+    except PermissionError:
+        _raised = True
+finally:
+    del ST.open
+_after = ST.read_json(os.path.join(_sd4, ST.CONTROL))
+check("control: a control.json that will not open is NOT overwritten (the camera_health opt-in survives)",
+      _raised and _after.get("camera_health") is True and _after.get("paused") is False, f"{_raised} {_after}")
 
 # ---------------------------------------------------------------- imports on Windows
 # c934dda vendored a module with `import resource` at its top. `resource` is Unix-only,

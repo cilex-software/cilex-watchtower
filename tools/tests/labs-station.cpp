@@ -17,6 +17,7 @@
 #include "LabsStation.h"
 #include <QCoreApplication>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QProcess>
 #include <QTemporaryDir>
 
@@ -49,9 +50,49 @@ static QString py(const QString &code, const QString &stateHome)
     return QString::fromUtf8(p.readAllStandardOutput()).trimmed();
 }
 
+// THE WINDOWS REPLACE RACE, for a Windows box to run -- Linux never shows it. This app's
+// side flat out against the worker's side flat out in another process
+// (tools/tests/labs-station-stress.py), in a SCRATCH directory:
+//   labsst --stress read-status  <dir> <s>   with   labs-station-stress.py write-status <dir> <s>
+//   labsst --stress write-control <dir> <s>  with   labs-station-stress.py read-control <dir> <s>
+static int stress(const QString &role, const QString &dir, double secs)
+{
+    if (QDir(dir).absolutePath() == QDir(wtlabs::stateDir()).absolutePath()) {
+        qInfo() << "refusing: that is this station's REAL state directory";   // it decides scanning
+        return 2;
+    }
+    QDir().mkpath(dir);
+    QElapsedTimer t;
+    t.start();
+    qint64 n = 0, bad = 0;
+    bool seen = false;
+    while (t.elapsed() < secs * 1000) {
+        if (role == QLatin1String("read-status")) {
+            const auto st = wtlabs::readStation(dir, QDateTime::currentDateTimeUtc());
+            if (st.view == QLatin1String("absent") && !seen)
+                continue;                          // the worker's side has not written yet
+            seen = true;
+            ++n;
+            if (st.view == QLatin1String("unreadable") || st.view == QLatin1String("absent"))
+                ++bad;
+        } else if (role == QLatin1String("write-control")) {
+            ++n;
+            if (!wtlabs::writeControl(dir, n % 2, QStringLiteral("stress")))
+                ++bad;
+        } else {
+            qInfo() << "roles: read-status | write-control";
+            return 2;
+        }
+    }
+    qInfo().noquote() << QStringLiteral("%1: %2 failed of %3").arg(role).arg(bad).arg(n);
+    return bad ? 1 : 0;
+}
+
 int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
+    if (argc >= 5 && QString(argv[1]) == QLatin1String("--stress"))
+        return stress(QString(argv[2]), QString(argv[3]), QString(argv[4]).toDouble());
     QTemporaryDir tmp;
     const QString home = tmp.path();
 
@@ -85,7 +126,8 @@ int main(int argc, char **argv)
 
     // ---- writeControl: keeps the rest, whole document only -------------------------------
     QString err;
-    ok(wtlabs::writeControl(dir, true, "test", &err), "writeControl succeeds: " + err);
+    const bool wrote = wtlabs::writeControl(dir, true, "test", &err);   // before err is printed
+    ok(wrote, "writeControl succeeds" + (err.isEmpty() ? QString() : ": " + err));
     c = wtlabs::readControl(dir);
     ok(c.paused && c.cameraHealth, "pausing KEEPS the station's camera_health opt-in");
     const QStringList left = QDir(dir).entryList(QDir::Files | QDir::Hidden);
@@ -105,6 +147,35 @@ int main(int argc, char **argv)
         ok(py("r = S.read_control(); print(r['paused'], r['why'])", home).startsWith("True"),
            "with no file, the worker too says paused");
     }
+
+    // ---- a file that is THERE but will not open --------------------------------------------
+    // On Windows: for a moment, while the other side replaces it. Here: mode 000. Either
+    // way the read must give up in bounded time, and a Pause must not write a fresh
+    // document over a file it could not read -- that would drop the camera_health opt-in.
+    writeFile(ctl, R"({"paused": false, "camera_health": true})");
+    QFile::setPermissions(ctl, QFileDevice::Permissions());
+    {
+        QFile probe(ctl);
+        if (probe.open(QIODevice::ReadOnly)) {
+            qInfo() << "SKIP unopenable-file checks -- this user can open a mode-000 file (root?)";
+        } else {
+            QElapsedTimer t;
+            t.start();
+            c = wtlabs::readControl(dir);
+            const qint64 ms = t.elapsed();
+            // >= 50 ms proves it RETRIED (19 sleeps of 5 ms cannot take less); < 1 s that it stops.
+            ok(c.paused && c.why == "unreadable" && ms >= 50 && ms < 1000,
+               QStringLiteral("a control file that never opens reads as paused, after BOUNDED retries (%1 ms)").arg(ms));
+            QString e2;
+            const bool refused = !wtlabs::writeControl(dir, true, "test", &e2);   // before e2 is printed
+            ok(refused && e2.contains("nothing changed"),
+               "Pause REFUSES to write over a control.json it could not read: " + e2);
+        }
+    }
+    QFile::setPermissions(ctl, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    c = wtlabs::readControl(dir);
+    ok(!c.paused && c.cameraHealth, "...and that file is exactly as it was, opt-in intact");
+    QFile::remove(ctl);
 
     // ---- status.json: believe it only while it is fresh ----------------------------------
     const QString stp = QDir(dir).filePath("status.json");
@@ -133,10 +204,53 @@ int main(int argc, char **argv)
     writeFile(stp, "garbage");
     s = wtlabs::readStation(dir, now);
     ok(s.view == "unreadable", "an unreadable status file says so");
+    writeFile(stp, R"({"state":"running","updated_at":"2026-09-26T16:59:30Z"})");
+    QFile::setPermissions(stp, QFileDevice::Permissions());
+    {
+        QFile probe(stp);
+        if (!probe.open(QIODevice::ReadOnly)) {
+            QElapsedTimer t;
+            t.start();
+            s = wtlabs::readStation(dir, now);
+            ok(s.view == "unreadable" && t.elapsed() >= 50 && t.elapsed() < 1000,
+               QStringLiteral("a status file that never opens says \"unreadable\", after BOUNDED retries (%1 ms)")
+                   .arg(t.elapsed()));
+        }
+    }
+    QFile::setPermissions(stp, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     if (havePy) {
         py("S.write_status({'state': 'idle'})", home);
         s = wtlabs::readStation(dir, QDateTime::currentDateTimeUtc());
         ok(s.present && !s.stale && s.view == "idle", "the WORKER's own write_status reads back fresh here");
+
+        // Reads DURING the worker's replaces: its own write_status flat out in another
+        // process. The file is always there (atomic rename), so no read may say otherwise.
+        // Qt's member QFile::exists() said "missing" ~1.7% of the time here (measured);
+        // one second of this catches that with thousands of misses to spare.
+        const QString sd = QDir(home).filePath("stress");
+        QProcess w;
+        w.start("python3", {QDir::current().filePath("tools/tests/labs-station-stress.py"), "write-status", sd, "1.6"});
+        QElapsedTimer t;
+        t.start();
+        while (!QFileInfo::exists(QDir(sd).filePath("status.json")) && t.elapsed() < 3000)
+            QThread::msleep(5);
+        if (!QFileInfo::exists(QDir(sd).filePath("status.json"))) {
+            qInfo() << "SKIP reads during replaces -- the worker's writer did not start (run from the repo root)";
+            w.waitForFinished(10000);
+        } else {
+        qint64 n = 0, bad = 0;
+        t.restart();
+        while (t.elapsed() < 1000) {
+            ++n;
+            const QString v = wtlabs::readStation(sd, QDateTime::currentDateTimeUtc()).view;
+            if (v == "absent" || v == "unreadable")
+                ++bad;
+        }
+        w.waitForFinished(10000);
+        ok(n > 1000 && bad == 0,
+           QStringLiteral("no read says absent/unreadable while the worker replaces status.json flat out (%1 of %2)")
+               .arg(bad).arg(n));
+        }
     }
 
     // ---- the server's answer: GET /labs/pipeline ------------------------------------------

@@ -18,6 +18,7 @@ import json
 import os
 import socket
 import tempfile
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -45,6 +46,43 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+#: WINDOWS REFUSES BOTH SIDES OF AN ATOMIC REPLACE FOR A MOMENT. os.replace fails while
+#: another handle has the file open (no FILE_SHARE_DELETE -- neither Python's open nor
+#: Qt's asks for it), and an open fails while the file is being replaced. Linux never
+#: does either. Measured on the booth, 2026-09-27 (Windows agent): a writer and a reader
+#: flat out for 5 s -- the writer failed 3,501 of 5,494 replaces and the reader 3,096 of
+#: 38,163 opens; retrying on ONE side left the other failing (1,059 / 761); retrying on
+#: BOTH, 20 x 5 ms, failed 0 and 0. LabsStation.h retries the same way. Only
+#: PermissionError is retried: a missing file is a real state, a broken one is not
+#: fixed by waiting.
+RETRIES = 20
+RETRY_S = 0.005
+
+
+def _retrying(fn, *args):
+    for attempt in range(RETRIES):
+        try:
+            return fn(*args)
+        except PermissionError:
+            if attempt == RETRIES - 1:
+                raise
+            time.sleep(RETRY_S)
+
+
+def read_text(path: str) -> str:
+    """The file's text. Retries the Windows mid-replace refusal; raises FileNotFoundError
+    for a file that is not there, and PermissionError only if it never opens."""
+    def once():
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    return _retrying(once)
+
+
+def read_json(path: str):
+    """read_text, parsed. ValueError for a file that is not JSON."""
+    return json.loads(read_text(path))
+
+
 def _write_atomic(path: str, doc: dict) -> None:
     """Whole file or nothing: the reader never sees half a document."""
     d = os.path.dirname(path)
@@ -53,7 +91,7 @@ def _write_atomic(path: str, doc: dict) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=1)
-        os.replace(tmp, path)
+        _retrying(os.replace, tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)
@@ -70,8 +108,7 @@ def read_control(directory: Optional[str] = None) -> dict:
     status file can tell the operator why nothing is being scanned."""
     p = os.path.join(directory or state_dir(), CONTROL)
     try:
-        with open(p, encoding="utf-8") as f:
-            d = json.load(f)
+        d = read_json(p)
     except FileNotFoundError:
         return {"paused": True, "camera_health": False, "why": "never started on this station"}
     except Exception as e:
@@ -92,12 +129,14 @@ def write_control(paused: bool, *, camera_health: Optional[bool] = None,
     dirp = directory or state_dir()
     p = os.path.join(dirp, CONTROL)
     try:
-        with open(p, encoding="utf-8") as f:
-            doc = json.load(f)
+        doc = read_json(p)
         if not isinstance(doc, dict):
             doc = {}
-    except Exception:
-        doc = {}
+    except (FileNotFoundError, ValueError):
+        doc = {}          # nothing there, or nothing worth keeping: a fresh document
+    # Any other failure RAISES. A file that exists but will not open still holds the
+    # station's camera_health opt-in; writing a fresh document over it would drop that
+    # opt-in silently. (It used to: `except Exception: doc = {}`.)
     doc.update({"v": 1, "paused": bool(paused), "updated_at": now_iso(), "updated_by": by})
     if camera_health is not None:
         doc["camera_health"] = bool(camera_health)

@@ -88,6 +88,10 @@ class Heartbeat:
     def __init__(self, base: dict, write=S.write_status, every: float = S.HEARTBEAT_S):
         self.fields = dict(base)
         self._lock = threading.Lock()
+        # Writes in ORDER. Each flush copies the fields and then writes; unserialised, a
+        # heartbeat that copied "running" could land after stop() wrote "stopped", and
+        # the file would say running until it went stale.
+        self._wlock = threading.Lock()
         self._write, self._every = write, every
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -104,20 +108,27 @@ class Heartbeat:
         self._flush()
 
     def stop(self, **kw):
-        self.update(**kw)
+        # The heartbeat thread first, THEN the last word. The write lock already keeps
+        # "stopped" from being overtaken (pinned by a test); the join is what leaves no
+        # thread half-way through a write -- a stray .tmp- file -- when the process exits
+        # right after this. That second part no test pins.
         self._stop.set()
+        if self._thread.is_alive() and threading.current_thread() is not self._thread:
+            self._thread.join(timeout=10)
+        self.update(**kw)
 
     def _flush(self):
-        with self._lock:
-            doc = dict(self.fields)
-        try:
-            self._write(doc)
-        except Exception as e:
-            # A status file this station cannot write must not stop the scanning; say
-            # so once, where a person running it would see it.
-            if not self._warned:
-                self._warned = True
-                logging.getLogger("labs.station").warning("cannot write status.json: %s", e)
+        with self._wlock:
+            with self._lock:
+                doc = dict(self.fields)
+            try:
+                self._write(doc)
+            except Exception as e:
+                # A status file this station cannot write must not stop the scanning; say
+                # so once, where a person running it would see it.
+                if not self._warned:
+                    self._warned = True
+                    logging.getLogger("labs.station").warning("cannot write status.json: %s", e)
 
     def _run(self):
         while not self._stop.wait(self._every):
@@ -258,7 +269,7 @@ def control_main(a) -> int:
             p = os.path.join(S.state_dir(), name)
             print(f"== {p}")
             try:
-                print(open(p, encoding="utf-8").read().strip())
+                print(S.read_text(p).strip())
             except FileNotFoundError:
                 print("(absent)")
         return 0

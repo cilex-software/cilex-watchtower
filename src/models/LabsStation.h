@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -24,6 +25,7 @@
 #include <QSaveFile>
 #include <QString>
 #include <QStringList>
+#include <QThread>
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
@@ -45,6 +47,43 @@ inline QString stateDir()
     return QDir(base).filePath(QStringLiteral("watchtower-labs"));
 }
 
+// station.py RETRIES / RETRY_S, for the same reason. ON WINDOWS an open fails while the
+// worker is replacing the file, and the worker's replace fails while this side holds it
+// open (Qt, like Python, opens without FILE_SHARE_DELETE); Linux does neither. Measured
+// on the booth 2026-09-27 (Windows agent): writer and reader flat out for 5 s, 3,501 of
+// 5,494 replaces and 3,096 of 38,163 opens failed; with BOTH sides retrying 20 x 5 ms,
+// none did. A failed read used to show as "unreadable" for a whole 5 s poll -- flicker
+// -- and a failed read inside writeControl() dropped the camera_health opt-in.
+constexpr int kRetries = 20;
+constexpr int kRetryMs = 5;
+
+enum class Read { Ok, Absent, Failed };
+
+// The whole file. Absent returns at once (no worker on this station is the common case,
+// and must not cost a sleep per poll); only a file that is THERE but will not open is
+// retried.
+// QFileInfo::exists(path), NOT QFile(path).exists(): measured on Linux with Qt 6.12 while
+// station.py replaced the file flat out, the member call said "missing" 9,657 times in
+// 576,467 -- the file never was (static QFileInfo::exists and ::stat: 0 misses, and strace
+// shows a plain atomic rename). That read as "absent", i.e. "scanning is not set up here".
+inline Read readRetrying(const QString &path, QByteArray *out, QString *err = nullptr)
+{
+    for (int attempt = 0; attempt < kRetries; ++attempt) {
+        if (!QFileInfo::exists(path))
+            return Read::Absent;
+        QFile f(path);
+        if (f.open(QIODevice::ReadOnly)) {
+            *out = f.readAll();
+            return Read::Ok;
+        }
+        if (err)
+            *err = f.errorString();
+        if (attempt + 1 < kRetries)
+            QThread::msleep(kRetryMs);
+    }
+    return Read::Failed;
+}
+
 // station.py STALE_AFTER_S: four missed 30 s heartbeats. A worker killed without a
 // chance to say "stopped" leaves its last state behind; past this age that state is
 // no longer evidence of anything.
@@ -61,11 +100,14 @@ struct Control {
 inline Control readControl(const QString &dir)
 {
     Control c;
-    QFile f(QDir(dir).filePath(QStringLiteral("control.json")));
-    if (!f.exists()) { c.why = QStringLiteral("absent"); return c; }
-    if (!f.open(QIODevice::ReadOnly)) { c.why = QStringLiteral("unreadable"); return c; }
+    QByteArray bytes;
+    switch (readRetrying(QDir(dir).filePath(QStringLiteral("control.json")), &bytes)) {
+    case Read::Absent: c.why = QStringLiteral("absent"); return c;
+    case Read::Failed: c.why = QStringLiteral("unreadable"); return c;
+    case Read::Ok: break;
+    }
     QJsonParseError pe{};
-    const QJsonDocument d = QJsonDocument::fromJson(f.readAll(), &pe);
+    const QJsonDocument d = QJsonDocument::fromJson(bytes, &pe);
     if (pe.error != QJsonParseError::NoError || !d.isObject()) { c.why = QStringLiteral("unreadable"); return c; }
     const QJsonObject o = d.object();
     const QJsonValue p = o.value(QStringLiteral("paused"));
@@ -84,11 +126,22 @@ inline bool writeControl(const QString &dir, bool paused, const QString &by, QSt
     const QString path = QDir(dir).filePath(QStringLiteral("control.json"));
     QJsonObject o;
     {
-        QFile f(path);
-        if (f.open(QIODevice::ReadOnly)) {
-            const QJsonDocument d = QJsonDocument::fromJson(f.readAll());
+        QByteArray bytes;
+        QString why;
+        switch (readRetrying(path, &bytes, &why)) {
+        case Read::Absent:
+            break;                       // first write on this station: a fresh document
+        case Read::Failed:
+            // THERE but will not open. Writing a fresh document over it would silently
+            // drop what it holds -- above all the camera_health opt-in. It used to.
+            if (err) *err = QStringLiteral("control.json would not open (%1); nothing changed").arg(why);
+            return false;
+        case Read::Ok: {
+            const QJsonDocument d = QJsonDocument::fromJson(bytes);
             if (d.isObject())
-                o = d.object();
+                o = d.object();          // not JSON: nothing in it can be kept
+            break;
+        }
         }
     }
     o.insert(QStringLiteral("v"), 1);
@@ -99,17 +152,23 @@ inline bool writeControl(const QString &dir, bool paused, const QString &by, QSt
         if (err) *err = QStringLiteral("cannot create %1").arg(dir);
         return false;
     }
-    QSaveFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) {
-        if (err) *err = f.errorString();
-        return false;
+    const QByteArray doc = QJsonDocument(o).toJson(QJsonDocument::Indented);
+    QString last;
+    for (int attempt = 0; attempt < kRetries; ++attempt) {
+        // A fresh QSaveFile each time: one that failed to commit cannot commit again. On
+        // Windows the commit's replace is refused while the worker has the file open.
+        QSaveFile f(path);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(doc);
+            if (f.commit())
+                return true;
+        }
+        last = f.errorString();
+        if (attempt + 1 < kRetries)
+            QThread::msleep(kRetryMs);
     }
-    f.write(QJsonDocument(o).toJson(QJsonDocument::Indented));
-    if (!f.commit()) {
-        if (err) *err = f.errorString();
-        return false;
-    }
-    return true;
+    if (err) *err = last;
+    return false;
 }
 
 // What the worker last said, and whether that can still be believed.
@@ -128,10 +187,13 @@ struct Station {
 inline Station readStation(const QString &dir, const QDateTime &nowUtc)
 {
     Station s;
-    QFile f(QDir(dir).filePath(QStringLiteral("status.json")));
-    if (!f.exists()) { s.view = QStringLiteral("absent"); return s; }
-    if (!f.open(QIODevice::ReadOnly)) { s.view = QStringLiteral("unreadable"); return s; }
-    const QJsonDocument d = QJsonDocument::fromJson(f.readAll());
+    QByteArray bytes;
+    switch (readRetrying(QDir(dir).filePath(QStringLiteral("status.json")), &bytes)) {
+    case Read::Absent: s.view = QStringLiteral("absent"); return s;
+    case Read::Failed: s.view = QStringLiteral("unreadable"); return s;
+    case Read::Ok: break;
+    }
+    const QJsonDocument d = QJsonDocument::fromJson(bytes);
     if (!d.isObject()) { s.view = QStringLiteral("unreadable"); return s; }
     const QJsonObject o = d.object();
     s.present = true;
