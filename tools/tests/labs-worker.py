@@ -1397,6 +1397,13 @@ check("...and the analyser's time is net of them, not their sum",
       0 <= tm.get("analyse_s", -1) < 0.05, str(tm))
 check("...and the phases fit inside the total",
       sum(v for k, v in tm.items() if k != "total_s") <= tm.get("total_s", 0) + 0.01, str(tm))
+# One clock for phase times, and a fine one. time.monotonic() is GetTickCount64 on Windows,
+# 15.6 ms steps (measured on the booth): the check above failed there 1 run in 20. On Linux
+# both clocks are CLOCK_MONOTONIC, so only this static pin can catch a revert from here.
+import time as _tm
+_wsrc = (ROOT / "tools" / "labs" / "worker.py").read_text(encoding="utf-8")
+check("the worker times its phases with perf_counter, and nothing in it calls time.monotonic()",
+      W._now is _tm.perf_counter and "time.monotonic(" not in _wsrc)
 
 # ---------------------------------------------------------------- one OpenCV thread
 # PROCESS-GLOBAL, and only two plugins set it, so blob_geometry's cost depended on which

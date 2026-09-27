@@ -431,8 +431,16 @@ class UnitOutcome:
     timings: dict = field(default_factory=dict)
 
 
+# Phase clock: perf_counter, not monotonic. On Windows _now() is GetTickCount64
+# at 15.6 ms resolution (time.get_clock_info, measured on the booth 2026-09-27), so every
+# phase time on a Windows station came out in 15.6 ms steps -- two 30 ms sleeps measured
+# 31-62 ms, which failed a test there. perf_counter is QueryPerformanceCounter (1e-7 s) on
+# Windows and the same CLOCK_MONOTONIC as before on Linux.
+_now = time.perf_counter
+
+
 def _add(out: "UnitOutcome", phase: str, since: float) -> None:
-    out.timings[phase] = round(out.timings.get(phase, 0.0) + time.monotonic() - since, 3)
+    out.timings[phase] = round(out.timings.get(phase, 0.0) + _now() - since, 3)
 
 
 class _LastWarning(logging.Handler):
@@ -505,7 +513,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
     root = logging.getLogger()
     root.addHandler(heard)
     _heard = heard
-    t0 = time.monotonic()
+    t0 = _now()
     try:
         o = _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep)
         _add(o, "total_s", t0)
@@ -518,7 +526,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
 def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     out = UnitOutcome(unit)
     ctx = dict(context or {})
-    t = time.monotonic()
+    t = _now()
     try:
         # The plugin's stream, not None: an unpinned request returns whatever the
         # server picks, and an analyser calibrated on one stream is not calibrated
@@ -601,7 +609,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             try:
-                t = time.monotonic()
+                t = _now()
                 try:
                     _retrying(client.fetch, seg, path, sleep=sleep)
                 except Refusal as r:
@@ -615,7 +623,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                 finally:
                     _add(out, "fetch_s", t)
                 out.decoder_runs += 1
-                t = time.monotonic()
+                t = _now()
                 try:
                     frames = decode(path, plugin.keyframes_only, plugin.want_chroma, **planes)
                 except Exception as e:
@@ -639,7 +647,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
 
     stream = as_decoded()
     pulled = lambda: out.timings.get("fetch_s", 0.0) + out.timings.get("decode_s", 0.0)
-    p0, t = pulled(), time.monotonic()
+    p0, t = pulled(), _now()
     try:
         try:
             obs = plugin.analyse(stream, state, unit, ctx)
@@ -651,7 +659,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
             stream.close()
             # Streamed, so fetch and decode happen INSIDE the analyser's call; its
             # own time is what is left once theirs is taken out.
-            out.timings["analyse_s"] = round(time.monotonic() - t - (pulled() - p0), 3)
+            out.timings["analyse_s"] = round(_now() - t - (pulled() - p0), 3)
     except _Abandon as a:
         out.action, out.note = a.action, a.note
         return out
@@ -707,7 +715,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             paths.append(path)
-            t = time.monotonic()
+            t = _now()
             try:
                 _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
@@ -758,7 +766,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                         if not c:
                             break
                         yield c
-        t = time.monotonic()
+        t = _now()
         try:
             obs = plugin.analyse_raw(chunks(), kept, unit)
         except Exception as e:
@@ -794,7 +802,7 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
         for seg in segs:
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
-            t = time.monotonic()
+            t = _now()
             try:
                 _retrying(client.fetch, seg, path, sleep=sleep)
             except Refusal as r:
@@ -816,7 +824,7 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
                                 _nothing_looked_at(segs, out, None), Action.BUG)
         out.segments_scanned = len(fetched)
         out.decoder_runs = len(fetched)
-        t = time.monotonic()
+        t = _now()
         try:
             obs = plugin.analyse_raw_segments(fetched, unit)
         except Exception as e:
@@ -860,7 +868,7 @@ def _finish(client, plugin, unit, out, obs, sleep):
         # the unit close (:1603). A cut between them leaves partial rows with the unit
         # still claimed; a re-submit heals it because :1536 clears them first -- but
         # ONLY while analyzer_version is unchanged. So this exact `body` is resent.
-        t = time.monotonic()
+        t = _now()
         try:
             _retrying(client.submit, unit, body, sleep=sleep)
         finally:
@@ -922,7 +930,7 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
             "failed": True, "error": fit(reason, 500)}
     out.action = action
     out.note = reason
-    t = time.monotonic()
+    t = _now()
     try:
         client.submit(unit, body)
         out.submitted = True

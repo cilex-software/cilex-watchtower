@@ -10,23 +10,67 @@
 //     folded in: a cost nobody measured stays unknown, never 0, and a projected load that
 //     leaves one out says it is a floor.
 //
-// Build + run (Qt 6.12):
-//   QT=~/Qt/6.12.0/gcc_64
-//   g++ -std=c++17 -fPIC -o /tmp/labsst tools/tests/labs-station.cpp -Isrc/models \
-//       -I$QT/include -I$QT/include/QtCore -L$QT/lib -lQt6Core && LD_LIBRARY_PATH=$QT/lib /tmp/labsst
+// Build + run from the repo root (Qt 6.12):
+//   Linux:   QT=~/Qt/6.12.0/gcc_64
+//            g++ -std=c++17 -fPIC -o /tmp/labsst tools/tests/labs-station.cpp -Isrc/models \
+//                -I$QT/include -I$QT/include/QtCore -L$QT/lib -lQt6Core && LD_LIBRARY_PATH=$QT/lib /tmp/labsst
+//   Windows: call vcvars64.bat && cl /std:c++17 /permissive- /Zc:__cplusplus /EHsc /MD /O2 /utf-8
+//            /I src\models /I %QT%\include /I %QT%\include\QtCore tools\tests\labs-station.cpp
+//            /Fe:labsst.exe /link %QT%\lib\Qt6Core.lib        (%QT%\bin on PATH; the booth's line)
+//
+// IT WRITES control.json AND status.json -- only ever inside its own temporary directory,
+// and it REFUSES to run if the station directory would land anywhere else. On a station
+// whose scanner is running, a stray control.json from this test would pause or RESUME it
+// for real. (The first Windows run wrote into the booth's real %LOCALAPPDATA%: only
+// XDG_STATE_HOME was redirected, and stateDir() reads LOCALAPPDATA there.)
 #include "LabsStation.h"
 #include <QCoreApplication>
-#include <QDebug>
 #include <QElapsedTimer>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <cstdio>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
+// printf, not qInfo: on Windows Qt logs to OutputDebugString when stderr is not a
+// console, so a piped run printed NOTHING and only the exit code spoke.
+static void say(const QString &line)
+{
+    std::printf("%s\n", line.toUtf8().constData());
+    std::fflush(stdout);
+}
 
 int fails = 0;
 static void ok(bool cond, const QString &what)
 {
     if (!cond) ++fails;
-    qInfo().noquote() << (cond ? "PASS" : "FAIL") << what;
+    say(QString::fromLatin1(cond ? "PASS " : "FAIL ") + what);
 }
+
+// A file that is THERE but will not open, as the race makes one on Windows: there, an
+// exclusive handle (share mode 0 -- the real mechanism); elsewhere, mode 000. Released
+// when this goes out of scope. `held()` says whether it took; if not, the checks skip.
+struct Unopenable {
+    QString path;
+#ifdef Q_OS_WIN
+    HANDLE h = INVALID_HANDLE_VALUE;
+    explicit Unopenable(const QString &p) : path(p)
+    {
+        h = CreateFileW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(p).utf16()), GENERIC_READ, 0,
+                        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    }
+    ~Unopenable() { if (h != INVALID_HANDLE_VALUE) CloseHandle(h); }
+#else
+    explicit Unopenable(const QString &p) : path(p) { QFile::setPermissions(p, QFileDevice::Permissions()); }
+    ~Unopenable() { QFile::setPermissions(path, QFileDevice::ReadOwner | QFileDevice::WriteOwner); }
+#endif
+    bool held() const
+    {
+        QFile probe(path);
+        return !probe.open(QIODevice::ReadOnly);   // root can open a mode-000 file
+    }
+};
 
 static void writeFile(const QString &path, const QByteArray &bytes)
 {
@@ -41,8 +85,10 @@ static QString py(const QString &code, const QString &stateHome)
 {
     QProcess p;
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    // BOTH bases, as main() redirects them: station.state_dir() reads LOCALAPPDATA on
+    // Windows. (This used to REMOVE it, so there the worker looked in %USERPROFILE%.)
     env.insert(QStringLiteral("XDG_STATE_HOME"), stateHome);
-    env.remove(QStringLiteral("LOCALAPPDATA"));
+    env.insert(QStringLiteral("LOCALAPPDATA"), stateHome);
     p.setProcessEnvironment(env);
     p.start(QStringLiteral("python3"), {QStringLiteral("-c"),
             QStringLiteral("import sys; sys.path.insert(0, 'tools/labs'); import station as S\n") + code});
@@ -58,7 +104,7 @@ static QString py(const QString &code, const QString &stateHome)
 static int stress(const QString &role, const QString &dir, double secs)
 {
     if (QDir(dir).absolutePath() == QDir(wtlabs::stateDir()).absolutePath()) {
-        qInfo() << "refusing: that is this station's REAL state directory";   // it decides scanning
+        say(QStringLiteral("refusing: that is this station's REAL state directory"));   // it decides scanning
         return 2;
     }
     QDir().mkpath(dir);
@@ -80,11 +126,11 @@ static int stress(const QString &role, const QString &dir, double secs)
             if (!wtlabs::writeControl(dir, n % 2, QStringLiteral("stress")))
                 ++bad;
         } else {
-            qInfo() << "roles: read-status | write-control";
+            say(QStringLiteral("roles: read-status | write-control"));
             return 2;
         }
     }
-    qInfo().noquote() << QStringLiteral("%1: %2 failed of %3").arg(role).arg(bad).arg(n);
+    say(QStringLiteral("%1: %2 failed of %3").arg(role).arg(bad).arg(n));
     return bad ? 1 : 0;
 }
 
@@ -97,17 +143,35 @@ int main(int argc, char **argv)
     const QString home = tmp.path();
 
     // ---- where both sides look -----------------------------------------------------------
+    // ISOLATION FIRST: both platforms' bases point into this test's temporary directory,
+    // and nothing is written unless the station directory really landed there.
     qputenv("XDG_STATE_HOME", home.toUtf8());
+    qputenv("LOCALAPPDATA", home.toUtf8());
     const QString dir = wtlabs::stateDir();
-    ok(dir == QDir(home).filePath("watchtower-labs"), "stateDir honours XDG_STATE_HOME: " + dir);
+    if (!QDir(dir).absolutePath().startsWith(QDir(home).absolutePath() + QLatin1Char('/'))) {
+        say(QStringLiteral("REFUSING TO RUN: the station directory would be %1, outside this test's "
+                           "temporary directory %2 -- a write there could pause or resume a real scanner")
+                .arg(dir, home));
+        return 2;
+    }
+    ok(dir == QDir(home).filePath("watchtower-labs"), "stateDir honours the redirected base: " + dir);
     const bool havePy = !py("print('ok')", home).isEmpty();
     if (havePy)
-        ok(py("print(S.state_dir())", home) == dir, "the worker's station.state_dir() is the SAME directory");
+        ok(QDir(py("print(S.state_dir())", home)).absolutePath() == QDir(dir).absolutePath(),
+           "the worker's station.state_dir() is the SAME directory");
     else
-        qInfo() << "SKIP cross-language checks -- no python3 here";
+        say(QStringLiteral("SKIP cross-language checks -- no python3 here"));
+#ifdef Q_OS_WIN
+    qunsetenv("LOCALAPPDATA");
+    ok(wtlabs::stateDir() == QDir(QDir::homePath()).filePath("watchtower-labs"),
+       "with no LOCALAPPDATA, stateDir falls back to the home directory");
+    qputenv("LOCALAPPDATA", home.toUtf8());
+#else
     qunsetenv("XDG_STATE_HOME");
     ok(wtlabs::stateDir() == QDir::homePath() + "/.local/state/watchtower-labs",
        "stateDir defaults to ~/.local/state/watchtower-labs");
+    qputenv("XDG_STATE_HOME", home.toUtf8());
+#endif
     QDir().mkpath(dir);
 
     // ---- control.json: default-deny, exactly as the worker reads it ---------------------
@@ -149,15 +213,14 @@ int main(int argc, char **argv)
     }
 
     // ---- a file that is THERE but will not open --------------------------------------------
-    // On Windows: for a moment, while the other side replaces it. Here: mode 000. Either
-    // way the read must give up in bounded time, and a Pause must not write a fresh
-    // document over a file it could not read -- that would drop the camera_health opt-in.
+    // On Windows: for a moment, while the other side replaces it. Either way the read must
+    // give up in bounded time, and a Pause must not write a fresh document over a file it
+    // could not read -- that would drop the camera_health opt-in.
     writeFile(ctl, R"({"paused": false, "camera_health": true})");
-    QFile::setPermissions(ctl, QFileDevice::Permissions());
     {
-        QFile probe(ctl);
-        if (probe.open(QIODevice::ReadOnly)) {
-            qInfo() << "SKIP unopenable-file checks -- this user can open a mode-000 file (root?)";
+        Unopenable lock(ctl);
+        if (!lock.held()) {
+            say(QStringLiteral("SKIP unopenable-file checks -- could not make the file unopenable (root?)"));
         } else {
             QElapsedTimer t;
             t.start();
@@ -172,7 +235,6 @@ int main(int argc, char **argv)
                "Pause REFUSES to write over a control.json it could not read: " + e2);
         }
     }
-    QFile::setPermissions(ctl, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     c = wtlabs::readControl(dir);
     ok(!c.paused && c.cameraHealth, "...and that file is exactly as it was, opt-in intact");
     QFile::remove(ctl);
@@ -205,10 +267,9 @@ int main(int argc, char **argv)
     s = wtlabs::readStation(dir, now);
     ok(s.view == "unreadable", "an unreadable status file says so");
     writeFile(stp, R"({"state":"running","updated_at":"2026-09-26T16:59:30Z"})");
-    QFile::setPermissions(stp, QFileDevice::Permissions());
     {
-        QFile probe(stp);
-        if (!probe.open(QIODevice::ReadOnly)) {
+        Unopenable lock(stp);
+        if (lock.held()) {
             QElapsedTimer t;
             t.start();
             s = wtlabs::readStation(dir, now);
@@ -217,7 +278,7 @@ int main(int argc, char **argv)
                    .arg(t.elapsed()));
         }
     }
-    QFile::setPermissions(stp, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+
     if (havePy) {
         py("S.write_status({'state': 'idle'})", home);
         s = wtlabs::readStation(dir, QDateTime::currentDateTimeUtc());
@@ -235,7 +296,7 @@ int main(int argc, char **argv)
         while (!QFileInfo::exists(QDir(sd).filePath("status.json")) && t.elapsed() < 3000)
             QThread::msleep(5);
         if (!QFileInfo::exists(QDir(sd).filePath("status.json"))) {
-            qInfo() << "SKIP reads during replaces -- the worker's writer did not start (run from the repo root)";
+            say(QStringLiteral("SKIP reads during replaces -- the worker's writer did not start (run from the repo root)"));
             w.waitForFinished(10000);
         } else {
         qint64 n = 0, bad = 0;
@@ -311,6 +372,6 @@ int main(int argc, char **argv)
     ok(!wtlabs::applyPatch(rows, QJsonDocument::fromJson(R"({"analyzer": "nope", "enabled": true})").object()),
        "an answer for an analyser not on screen changes nothing");
 
-    qInfo().noquote() << (fails ? QString("%1 FAILED").arg(fails) : QStringLiteral("all passed"));
+    say(fails ? QStringLiteral("%1 FAILED").arg(fails) : QStringLiteral("all passed"));
     return fails ? 1 : 0;
 }
