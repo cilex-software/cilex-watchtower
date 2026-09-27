@@ -66,6 +66,21 @@
 >   until cilex-vision and the operator decide.
 > - **Physical:** something sits near that camera's lens. It's the operator's to check.
 >
+> **Station files are Windows-safe, verified on the booth** (9452c30 → 482f8cc; the Windows agent
+> found the race and ran every fix). Windows briefly refuses both sides of an atomic replace.
+> Unfixed, a flat-out writer failed 64% of its replaces and the reader 8% of its opens. Now both
+> sides retry, 20 × 5 ms: 0 failures in every booth pair, in both directions. Four more defects
+> fell out of that and are fixed:
+> - a Pause could drop the camera_health opt-in;
+> - on Linux, Qt's member `QFile::exists()` reported "missing" for a file that was always there
+>   (~1.7% under a flat-out writer; Windows 0);
+> - a paused worker never re-read the server, so the screen said "needs a server update"
+>   against 1.0.80;
+> - Windows phase times came in 15.6 ms steps.
+>
+> The station test now runs under a non-ASCII temp home (the booth's profile is "Охрана"), refuses
+> to run unless isolated, and passes 40/40 there.
+>
 > **The scanner had been switched on.** `control.json` was set to `paused: false` at
 > 2026-09-26 23:20 MSK by "watchtower app (admin)" (someone pressed Resume on the Labs screen).
 > It claimed nothing, because the worker refuses servers older than 1.0.62. That would have
