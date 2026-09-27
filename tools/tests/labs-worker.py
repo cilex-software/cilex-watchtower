@@ -375,23 +375,26 @@ for pl in (P.IlluminationPlugin(), P.ShapePlugin()):
 
 # PIN THE MIRROR against cilex-vision's source, when their checkout is on this box.
 import re
+# One PASS, FAIL or SKIP line PER CHECK, so a box without their checkout can count what it
+# did not run (the booth once had to infer a missing check from totals: one SKIP line
+# used to stand for five checks).
 cvsrc = pathlib.Path("/home/cilex-vision/projects/cilex-vision/services/query-api/routers/labs.py")
-if cvsrc.exists():
-    t = cvsrc.read_text(encoding="utf-8")
-    m = re.search(r"analyzer_version: str = Field\(min_length=1, max_length=(\d+)\)", t)
-    check(f"analyzer_version cap in cilex-vision's source is still 64 ({m.group(1) if m else None})",
-          m is not None and int(m.group(1)) == 64)
-    for name in ("MAX_METRIC_KEYS", "MAX_METRIC_KEY_LEN", "MAX_METRIC_STR_LEN"):
-        m = re.search(rf"^{name}\s*=\s*(\d+)", t, re.M)
-        theirs = int(m.group(1)) if m else None
-        check(f"{name} matches cilex-vision's source ({theirs})", theirs == getattr(W, name),
-              f"ours {getattr(W, name)}, theirs {theirs}")
-    m = re.search(r'^GROUP_MAX_SPAN_S\s*=\s*float\(os\.environ\.get\("LABS_GROUP_MAX_SPAN_S",\s*"(\d+)"\)\)', t, re.M)
-    theirs = float(m.group(1)) if m else None
-    check(f"GROUP_MAX_SPAN_S matches cilex-vision's source default ({theirs})", theirs == W.GROUP_MAX_SPAN_S,
-          f"ours {W.GROUP_MAX_SPAN_S}, theirs {theirs}")
-else:
-    print("SKIP metrics caps vs cilex-vision source -- their checkout is not on this box")
+_t = cvsrc.read_text(encoding="utf-8") if cvsrc.exists() else None
+_CAPS = [   # (what, pattern in their source, ours, parse)
+    ("analyzer_version max_length", r"analyzer_version: str = Field\(min_length=1, max_length=(\d+)\)", 64, int),
+    ("MAX_METRIC_KEYS", r"^MAX_METRIC_KEYS\s*=\s*(\d+)", W.MAX_METRIC_KEYS, int),
+    ("MAX_METRIC_KEY_LEN", r"^MAX_METRIC_KEY_LEN\s*=\s*(\d+)", W.MAX_METRIC_KEY_LEN, int),
+    ("MAX_METRIC_STR_LEN", r"^MAX_METRIC_STR_LEN\s*=\s*(\d+)", W.MAX_METRIC_STR_LEN, int),
+    ("GROUP_MAX_SPAN_S default",
+     r'^GROUP_MAX_SPAN_S\s*=\s*float\(os\.environ\.get\("LABS_GROUP_MAX_SPAN_S",\s*"(\d+)"\)\)', W.GROUP_MAX_SPAN_S, float),
+]
+for _what, _pat, _ours, _parse in _CAPS:
+    if _t is None:
+        print(f"SKIP {_what} vs cilex-vision's source -- their checkout is not on this box")
+        continue
+    m = re.search(_pat, _t, re.M)
+    theirs = _parse(m.group(1)) if m else None
+    check(f"{_what} matches cilex-vision's source ({theirs})", theirs == _ours, f"ours {_ours}, theirs {theirs}")
 
 # ---------------------------------------------------------------- transport failures
 # The fault the week's measurements predicted and 72 assertions never injected: the

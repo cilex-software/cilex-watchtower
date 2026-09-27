@@ -29,6 +29,7 @@
 #include <QProcess>
 #include <QTemporaryDir>
 #include <cstdio>
+#include <cstdlib>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -39,6 +40,21 @@ static void say(const QString &line)
 {
     std::printf("%s\n", line.toUtf8().constData());
     std::fflush(stdout);
+}
+
+// Point an environment variable at a PATH, exactly. qputenv() takes bytes, and on Windows
+// the CRT reads them in the ANSI code page: the booth's profile is "Охрана", and a UTF-8
+// "C:/Users/Охрана/..." came back from qEnvironmentVariable as "C:/Users/РћС…СЂР°РЅР°/..."
+// -- so the guard in main() refused to run (rightly: that path is not the temp dir).
+// The wide CRT call there; the file-name encoding elsewhere.
+static void putPath(const char *name, const QString &value)
+{
+#ifdef Q_OS_WIN
+    _wputenv_s(reinterpret_cast<const wchar_t *>(QString::fromLatin1(name).utf16()),
+               reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(value).utf16()));
+#else
+    qputenv(name, QFile::encodeName(value));
+#endif
 }
 
 int fails = 0;
@@ -139,14 +155,21 @@ int main(int argc, char **argv)
     QCoreApplication app(argc, argv);
     if (argc >= 5 && QString(argv[1]) == QLatin1String("--stress"))
         return stress(QString(argv[2]), QString(argv[3]), QString(argv[4]).toDouble());
-    QTemporaryDir tmp;
+    // A deliberately NON-ASCII home, Cyrillic and a character outside every Cyrillic code
+    // page, so every run exercises what the booth's "Охрана" profile broke: a path that
+    // only survives the environment round trip if it is set as Unicode.
+    QTemporaryDir tmp(QDir::tempPath() + QString::fromUtf8(u8"/labsst-Охрана-守-XXXXXX"));
+    if (!tmp.isValid()) {
+        say(QStringLiteral("REFUSING TO RUN: could not create the temporary directory: ") + tmp.errorString());
+        return 2;
+    }
     const QString home = tmp.path();
 
     // ---- where both sides look -----------------------------------------------------------
     // ISOLATION FIRST: both platforms' bases point into this test's temporary directory,
     // and nothing is written unless the station directory really landed there.
-    qputenv("XDG_STATE_HOME", home.toUtf8());
-    qputenv("LOCALAPPDATA", home.toUtf8());
+    putPath("XDG_STATE_HOME", home);
+    putPath("LOCALAPPDATA", home);
     const QString dir = wtlabs::stateDir();
     if (!QDir(dir).absolutePath().startsWith(QDir(home).absolutePath() + QLatin1Char('/'))) {
         say(QStringLiteral("REFUSING TO RUN: the station directory would be %1, outside this test's "
@@ -165,12 +188,12 @@ int main(int argc, char **argv)
     qunsetenv("LOCALAPPDATA");
     ok(wtlabs::stateDir() == QDir(QDir::homePath()).filePath("watchtower-labs"),
        "with no LOCALAPPDATA, stateDir falls back to the home directory");
-    qputenv("LOCALAPPDATA", home.toUtf8());
+    putPath("LOCALAPPDATA", home);
 #else
     qunsetenv("XDG_STATE_HOME");
     ok(wtlabs::stateDir() == QDir::homePath() + "/.local/state/watchtower-labs",
        "stateDir defaults to ~/.local/state/watchtower-labs");
-    qputenv("XDG_STATE_HOME", home.toUtf8());
+    putPath("XDG_STATE_HOME", home);
 #endif
     QDir().mkpath(dir);
 
