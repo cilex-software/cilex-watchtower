@@ -15,9 +15,30 @@ import plugins as P                                  # noqa: E402
 import shape_observations as so                      # noqa: E402
 
 fails = []
+_passed = [0]
 def check(name, cond, detail=""):
     print(("PASS " if cond else "FAIL ") + name + (f"   [{detail}]" if detail and not cond else ""))
     if not cond: fails.append(name)
+    else: _passed[0] += 1
+
+def _crashed(t, e, tb):
+    # An uncaught exception ends the run with exit 1 and, until now, NO failure line: the
+    # booth saw "213 PASS, 0 FAIL, exit 1" once (2026-09-27) and the traceback, on
+    # stderr, was not kept. Say it on stdout too, where the result is read.
+    print(f"FAIL the suite CRASHED after {_passed[0]} passing checks: {t.__name__}: {e}")
+    sys.__excepthook__(t, e, tb)
+sys.excepthook = _crashed
+
+def _run(cmd, timeout, **kw):
+    """subprocess.run that cannot crash the suite: a timeout comes back as returncode
+    None with the reason in stderr, so the check that reads it FAILS by name."""
+    import subprocess as _sp
+    try:
+        return _sp.run(cmd, capture_output=True, timeout=timeout, **kw)
+    except _sp.TimeoutExpired:
+        why = f"TIMED OUT after {timeout} s"
+        return _sp.CompletedProcess(cmd, None, "" if kw.get("text") else b"",
+                                    why if kw.get("text") else why.encode())
 
 TMP = tempfile.mkdtemp(prefix="wtest-")
 def leftovers(): return glob.glob(os.path.join(TMP, "*.ts"))
@@ -365,6 +386,10 @@ if cvsrc.exists():
         theirs = int(m.group(1)) if m else None
         check(f"{name} matches cilex-vision's source ({theirs})", theirs == getattr(W, name),
               f"ours {getattr(W, name)}, theirs {theirs}")
+    m = re.search(r'^GROUP_MAX_SPAN_S\s*=\s*float\(os\.environ\.get\("LABS_GROUP_MAX_SPAN_S",\s*"(\d+)"\)\)', t, re.M)
+    theirs = float(m.group(1)) if m else None
+    check(f"GROUP_MAX_SPAN_S matches cilex-vision's source default ({theirs})", theirs == W.GROUP_MAX_SPAN_S,
+          f"ours {W.GROUP_MAX_SPAN_S}, theirs {theirs}")
 else:
     print("SKIP metrics caps vs cilex-vision source -- their checkout is not on this box")
 
@@ -984,13 +1009,13 @@ _clip = os.path.join(TMP, "clip.ts.src")
 # instead of skipping.
 _made = False
 for _enc in ("libx264", "libopenh264"):
-    _made = bool(_ff) and subprocess.run(
+    _made = bool(_ff) and _run(
         [_ff, "-hide_banner", "-loglevel", "error", "-y",
          "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15",
          "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
          "-t", "4", "-c:v", _enc, "-g", "15", "-bf", "0", "-pix_fmt", "yuv420p",
          "-c:a", "aac", "-b:a", "32k", "-f", "mpegts", _clip],
-        capture_output=True, timeout=60).returncode == 0
+        timeout=60).returncode == 0
     if _made:
         break
 if not _made:
@@ -1105,7 +1130,14 @@ class _Ob:
     def __init__(self, sid, t): self.sid, self.t = sid, t
     def as_payload(self):
         return {"segment_id": self.sid, "t_offset_s": self.t, "shape_class": "shape_indeterminate",
-                "object_count": 1}
+                "object_count": 1, "recur_hits": 10, "recur_count": 7, "recur_window_s": 600.0,
+                "recur_folded": True}
+class _ObTimed(_Ob):
+    def as_payload(self):
+        return dict(super().as_payload(), end_time="2026-09-24T10:10:05+00:00")
+def _sets_end_time(stream, state, cfg):
+    for meta, frames in stream:
+        list(frames); yield meta, [_ObTimed(meta.segment_id, 1.0)], None
 def _flush_at_end(stream, state, cfg):
     metas = []
     for meta, frames in stream:
@@ -1125,6 +1157,18 @@ try:
     rows_ = c.submitted[0][1].get("observations") or []
     check("a row flushed at the end of the unit is timed from ITS OWN segment (10:00:05, not 10:02:05)",
           len(rows_) == 1 and rows_[0]["start_time"].startswith("2026-09-24T10:00:05"), str(rows_))
+    # An event group may never span more than GROUP_MAX_SPAN_S, and a longer row can never
+    # join one (cilex-vision: /labs/regroup then retries it forever). A fold's 600 s
+    # window lives in metrics, never in the row's span.
+    check("a FOLDED A4-A6 row is a point in time: end_time == start_time, its window in metrics",
+          len(rows_) == 1 and rows_[0]["end_time"] == rows_[0]["start_time"]
+          and (rows_[0].get("metrics") or {}).get("recur_window_s") == 600.0, str(rows_))
+    P.so.analyse_window = _sets_end_time
+    c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3[:1]})
+    run(c, P.ShapePlugin(), ub_)
+    b_ = c.submitted[0][1]
+    check("an A4-A6 payload that sets its own end_time files the unit FAILED, never a 600 s row",
+          b_.get("failed") is True and "timed here, as points" in (b_.get("error") or ""), str(b_)[:200])
     P.so.analyse_window = _names_elsewhere
     c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3[:1]})
     run(c, P.ShapePlugin(), ub_)
@@ -1366,8 +1410,7 @@ _pin_probe = ("import sys; sys.path.insert(0, sys.argv[1])\n"
               "sys.argv = ['run_worker.py']\n"
               "try:\n    RW.main()\nexcept SystemExit:\n    pass\n"
               "print('THREADS', before, cv2.getNumThreads())\n")
-_pr = subprocess.run([sys.executable, "-c", _pin_probe, str(ROOT / "tools" / "labs")],
-                     capture_output=True, text=True, timeout=120)
+_pr = _run([sys.executable, "-c", _pin_probe, str(ROOT / "tools" / "labs")], timeout=120, text=True)
 _m = [l.split() for l in _pr.stdout.splitlines() if l.startswith("THREADS")]
 if _m and int(_m[0][1]) <= 1:
     print("SKIP OpenCV thread pin -- this box already runs OpenCV single-threaded, so it cannot show")
@@ -1553,8 +1596,7 @@ _probe = ("import sys\n"
           "sys.path.insert(0, sys.argv[1])\n"
           "import plugins, run_worker\n"
           "print('worker-imported')\n")
-_r = subprocess.run([sys.executable, "-c", _probe, str(ROOT / "tools" / "labs")],
-                    capture_output=True, text=True, timeout=120)
+_r = _run([sys.executable, "-c", _probe, str(ROOT / "tools" / "labs")], timeout=120, text=True)
 check("control: in the probe, `import resource` really fails (as on Windows)",
       "control-blocked" in _r.stdout, _r.stdout.strip())
 _tail = (_r.stderr.strip().splitlines() or [""])[-1]

@@ -364,6 +364,13 @@ def _iso(v) -> Optional[str]:
 # so over-cap rows would sink even a failure report. perceptual_hash and
 # audio_energy both approach it by design.
 MAX_OBSERVATIONS_PER_UNIT = 500
+# The longest span one event group may have (cilex-vision routers/labs.py:194, default
+# 300, env-overridable there; CHECK ck_labs_observation_groups_max_span in migration
+# 0089). A ROW longer than this can never join a group, and per cilex-vision /labs/regroup
+# then retries it forever. Not enforced here for every analyser -- camera_health's rows
+# span their sampled hour by design of that module (cilex-vision's open item) -- but
+# blob_geometry's adapter keeps its rows to points in time (plugins.ShapePlugin).
+GROUP_MAX_SPAN_S = 300.0
 MAX_METRIC_KEYS = 24
 MAX_METRIC_KEY_LEN = 40
 MAX_METRIC_STR_LEN = 120

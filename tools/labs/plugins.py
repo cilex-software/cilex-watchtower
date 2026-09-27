@@ -227,6 +227,13 @@ class ShapePlugin:
                 row = {"start_time": _iso(t), "end_time": _iso(t)}
                 extra = {}
                 for k, v in p.items():
+                    if k in ("start_time", "end_time"):
+                        # The adapter times A4-A6 rows, and as POINTS. An event group
+                        # may never span more than W.GROUP_MAX_SPAN_S (300 s); a longer
+                        # row can never join one, and per cilex-vision is then retried
+                        # by /labs/regroup forever. A fold keeps its window in metrics
+                        # (recur_window_s), never in the row's span. Loud, not dropped.
+                        raise ValueError(f"A4-A6 payload sets {k}; its rows are timed here, as points")
                     if k in TYPED:
                         row[k] = v
                     else:
