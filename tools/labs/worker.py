@@ -44,6 +44,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Callable, Iterable, Optional, Protocol
 
@@ -310,6 +311,29 @@ class Plugin(Protocol):
     def analyse(self, segs: list[tuple[Segment, list]], state, unit: ScanUnit,
                 context: dict) -> list[dict]: ...
 
+    # OPTIONAL. A stateful plugin whose state is a picture of the recent past (a
+    # background model) sets `state_is_recent_past = True`: the worker then carries it
+    # only into the camera's NEXT hour and starts fresh otherwise (see _run_unit).
+    # camera_health does not: its Baseline is taught forward-only by the plugin itself.
+
+
+# Where _run_unit notes, per (analyser, camera), the one hour a carried state is for.
+# Kept in the caller's `states` under a key no (analyser, camera) pair can take.
+_NEXT_HOUR = ("next_hour",)
+_ONE_HOUR = timedelta(hours=1)
+
+
+def _hour(s) -> Optional[datetime]:
+    """A unit's hour_start as an aware datetime; None if it does not parse, and then
+    nothing is carried -- fresh is the safe side."""
+    if not isinstance(s, str):
+        return None
+    try:
+        d = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
 
 def _iso(v) -> Optional[str]:
     return v if isinstance(v, str) else None
@@ -508,6 +532,19 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
         # would have been handed the first one's state object.
         key = (plugin.name, unit.camera_id)
         state = states.get(key)
+        recent_past = getattr(plugin, "state_is_recent_past", False)
+        h = _hour(unit.hour_start)
+        if state is not None and recent_past and (h is None or states.get(_NEXT_HOUR + key) != h):
+            # A picture of the RECENT PAST (blob_geometry's background model) is true
+            # only for the hour that follows it. Claims go newest-first, so a camera's
+            # next unit is usually the hour BEFORE: carried, a model that learned the
+            # end of 04:00Z met the start of 03:00Z. Measured 2026-09-27 on
+            # hiwatch-083bc1df39d1, first 10 min of 03:00Z (dawn): the carried model
+            # filed 10 rows in minute 0, where a fresh model files 0 and the contiguous
+            # one (learned at the end of 02:00Z) 1, and 0 rows in minutes 3-6, where
+            # both file 12. At night (22:00Z): 52 rows carried, 53 fresh, 54 contiguous.
+            # Starting fresh costs the warm-up: 1 row in minute 0 on both hours.
+            state = None
         if state is None:
             # A plugin that PERSISTS its state (camera_health's per-camera Baseline)
             # picks up where the last run left off, instead of relearning every camera
@@ -517,6 +554,11 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
             if state is None:
                 state = plugin.new_state()
             states[key] = state
+        if recent_past:
+            # Set before the run, so a unit that dies half-way still counts as seen:
+            # its model then holds part of this hour, which only the next hour may use.
+            # A retry of THIS hour is not that hour, so it starts fresh.
+            states[_NEXT_HOUR + key] = h + _ONE_HOUR if h is not None else None
     else:
         state = None
 

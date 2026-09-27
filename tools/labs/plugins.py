@@ -170,11 +170,18 @@ class ShapePlugin:
     to fetch than main.
     """
     name = "blob_geometry"
-    version = "shape-1"
+    # shape-2: A4-A6 1.1.0 folds a recurring source (a lens streak, a lamp) into one row
+    # per window carrying its tally. cilex-vision's condition: rows from before and after
+    # the fold must always be told apart. Not the module's ANALYSER_VERSION itself: with
+    # "+worker-0.2" it would pass the server's 64-character limit.
+    version = "shape-2"
     segment_limit = 200            # the API's own default ceiling for one hour
     keyframes_only = True
     want_chroma = False
     stateful = True
+    # The model is a picture of the recent past, true only for the hour after it: the
+    # worker carries it into the camera's next hour and starts fresh otherwise.
+    state_is_recent_past = True
     stream_type = "sub"
 
     def __init__(self, cfg: Optional["so.Config"] = None):
@@ -189,10 +196,12 @@ class ShapePlugin:
         # This used to collect the whole hour into a list first -- ~3.3 GB of luma for
         # an hour of a 1280x720 GOP-15 -sub camera (see worker._run_unit).
         pulled = deque()
+        starts = {}
 
         def stream():
             for seg, frames in segs:
                 pulled.append(seg)
+                starts[seg.segment_id] = seg.start_time
                 yield so.SegmentMeta.from_api({
                     "segment_id": seg.segment_id, "camera_id": unit.camera_id,
                     "start_time": seg.start_time, "duration_s": seg.duration_s,
@@ -201,11 +210,19 @@ class ShapePlugin:
 
         for meta, obs, stats in so.analyse_window(stream(), state, self.cfg):
             seg = pulled.popleft()
-            base = _parse(seg.start_time)
-            if base is None:
-                continue
             for ob in obs:
                 p = ob.as_payload()
+                # Each row is timed from ITS OWN segment, not from the one this yield
+                # belongs to. The same thing today; not once A4-A6 folds a recurring
+                # source and flushes the fold at the end of the unit, when the row's
+                # first hit sits many segments back. A segment it was never given is
+                # the analyser's bug: raised, so the unit is filed with that cause.
+                sid = p.get("segment_id")
+                if sid is not None and sid not in starts:
+                    raise ValueError(f"row names segment {sid!r}, which this unit never streamed")
+                base = _parse(starts[sid] if sid is not None else seg.start_time)
+                if base is None:
+                    continue
                 t = base + timedelta(seconds=float(p.get("t_offset_s") or 0.0))
                 row = {"start_time": _iso(t), "end_time": _iso(t)}
                 extra = {}

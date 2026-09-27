@@ -1063,6 +1063,77 @@ W.run_once(c, [StA(), StB()], decode=decode_chroma(11.5), states={}, sleep=lambd
 check("two stateful analysers on ONE camera each get their OWN state",
       _got == [("st_a", "st_a"), ("st_b", "st_b")], str(_got))
 
+# A picture of the RECENT PAST (blob_geometry's background model) is carried only into
+# the camera's NEXT hour. Claims go newest-first, so without this a model that learned
+# the end of 04:00Z met the start of 03:00Z (measured at dawn: 10 rows in minute 0 that
+# a fresh model does not file, and none in minutes 3-6 where it files 12).
+class Recent:
+    name = "recent"; version = "t"; segment_limit = 1; keyframes_only = True
+    want_chroma = True; stateful = True; state_is_recent_past = True
+    seen = []
+    def new_state(self): return object()
+    def analyse(self, segs, st, u, ctx): list(segs); type(self).seen.append(id(st)); return []
+class Keeps(Recent):
+    name = "keeps"; state_is_recent_past = False; seen = []
+def run_hour(plug, hour, states_):
+    uu = unit(cam="cam-r", hour=hour, a=plug.name)
+    run(Fake(segs={(uu.camera_id, uu.hour_start): [seg(1)]}), plug, uu, states=states_)
+st_ = {}
+for hr in ("2026-09-26T04:00:00Z", "2026-09-26T03:00:00Z",
+           "2026-09-26T04:00:00.000+00:00", "2026-09-26T04:00:00Z"):
+    run_hour(Recent(), hr, st_)
+s_ = Recent.seen
+check("recent-past state is NOT carried backwards (04:00Z, then 03:00Z)", s_[1] != s_[0])
+check("... IS carried into the next hour, however the server spells it (03:00Z, then 04:00:00.000+00:00)",
+      s_[2] == s_[1])
+check("... is NOT carried into a second run of the same hour (a retry starts fresh)", s_[3] != s_[2])
+Recent.seen = []; st_ = {}
+run_hour(Recent(), "not-a-time", st_); run_hour(Recent(), "not-a-time", st_)
+check("an hour that will not parse carries nothing", Recent.seen[0] != Recent.seen[1])
+st_ = {}
+run_hour(Keeps(), "2026-09-26T04:00:00Z", st_); run_hour(Keeps(), "2026-09-26T03:00:00Z", st_)
+check("a state that is not a picture of the recent past (camera_health's) is carried as before",
+      Keeps.seen[0] == Keeps.seen[1])
+check("blob_geometry's model is flagged recent-past; camera_health's Baseline is not",
+      getattr(P.ShapePlugin, "state_is_recent_past", False) is True
+      and not getattr(P.CameraHealthPlugin, "state_is_recent_past", False))
+
+# A4-A6 rows are timed from THEIR OWN segment. The same thing as the yield's segment
+# today; not once the analyser folds a recurring source and flushes it at the end of
+# the unit, when the row's first hit sits segments back.
+class _Ob:
+    def __init__(self, sid, t): self.sid, self.t = sid, t
+    def as_payload(self):
+        return {"segment_id": self.sid, "t_offset_s": self.t, "shape_class": "shape_indeterminate",
+                "object_count": 1}
+def _flush_at_end(stream, state, cfg):
+    metas = []
+    for meta, frames in stream:
+        list(frames); metas.append(meta)
+        yield meta, ([_Ob(metas[0].segment_id, 5.0)] if len(metas) == 3 else []), None
+def _names_elsewhere(stream, state, cfg):
+    for meta, frames in stream:
+        list(frames); yield meta, [_Ob("elsewhere", 1.0)], None
+segs3 = [W.Segment(f"s{i}", f"http://x/labs/segments/s{i}", f"2026-09-24T10:0{i}:00+00:00",
+                   f"2026-09-24T10:0{i}:30+00:00", 30.0, 6_000_000, "sub", 64, 48, "h264") for i in range(3)]
+ub_ = unit(hour="2026-09-24T10:00:00Z", a="blob_geometry")
+_orig_window = P.so.analyse_window
+try:
+    P.so.analyse_window = _flush_at_end
+    c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3})
+    run(c, P.ShapePlugin(), ub_)
+    rows_ = c.submitted[0][1].get("observations") or []
+    check("a row flushed at the end of the unit is timed from ITS OWN segment (10:00:05, not 10:02:05)",
+          len(rows_) == 1 and rows_[0]["start_time"].startswith("2026-09-24T10:00:05"), str(rows_))
+    P.so.analyse_window = _names_elsewhere
+    c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3[:1]})
+    run(c, P.ShapePlugin(), ub_)
+    b_ = c.submitted[0][1]
+    check("a row naming a segment the unit never streamed files the unit FAILED, with that cause",
+          b_.get("failed") is True and "never streamed" in (b_.get("error") or ""), str(b_)[:200])
+finally:
+    P.so.analyse_window = _orig_window
+
 # A lost lease mid-stream must abandon the unit even if the analyser catches Exception.
 class Greedy:
     name = "greedy"; version = "t"; segment_limit = 3; keyframes_only = True
