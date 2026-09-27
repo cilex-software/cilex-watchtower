@@ -102,6 +102,15 @@ check("object store down -> retry later",          W.action_for(R(503, "object_s
 check("bad station token -> FATAL",                W.action_for(R(401, "station_token_not_recognised", False)) is W.Action.FATAL)
 check("an UNKNOWN slug is FATAL, never guessed",   W.action_for(R(409, "something_new")) is W.Action.FATAL)
 check("an unknown slug marked retryable retries",  W.action_for(R(500, "something_new", True)) is W.Action.RETRY_LATER)
+# cilex-vision 2026-09-28: a 5xx with no JSON at all (Starlette's plain "Internal Server
+# Error") is the server FAILING -- its claim query over a 30 s database timeout -- not a
+# refusal. It must not be mistaken for an unknown slug, and an unknown slug not for it.
+_bare500 = W._refusal_from(500, b"Internal Server Error")
+check("a bare 500 (no JSON body) is an UNCODED server error",
+      W._uncoded_server_error(_bare500) and _bare500.detail is None and _bare500.retryable is None)
+check("...a CODED 500 is not: its slug decides", not W._uncoded_server_error(R(500, "something_new")))
+check("...nor is a bare 4xx (the no-token 401 carries no code either)",
+      not W._uncoded_server_error(W._refusal_from(401, b"")))
 check("409 alone decides nothing: slug decides",
       len({W.action_for(R(409, s)) for s in ("analyzer_disabled", "scan_unit_not_open")}) == 2)
 
@@ -204,6 +213,21 @@ c = Fake(refuse={("claim", "illumination"): [R(422, None)]})
 slept = []
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
 check("a 422 is NOT retried", rep.fatal is not None and slept == [])
+
+c = Fake(units={"illumination": [unit()]},
+         refuse={("claim", "illumination"): [W._refusal_from(500, b"Internal Server Error")]},
+         segs={("cam-a", "2026-09-24T10:00:00Z"): [seg(1)]})
+slept = []
+rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
+check("a bare 500 at claim is UNREACHABLE (next pass), not FATAL -- and not re-asked in place",
+      rep.unreachable is not None and rep.fatal is None and slept == [] and c.claims == ["illumination"],
+      f"unreachable={rep.unreachable!r} fatal={rep.fatal!r} slept={slept} claims={c.claims}")
+rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
+check("...and the next pass claims and submits as normal", rep.submitted == 1 and rep.fatal is None, str(rep))
+c = Fake(refuse={("claim", "illumination"): [R(500, "something_new")]})
+rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={})
+check("...while a CODED unknown 500 at claim is still FATAL, never guessed at",
+      rep.fatal is not None and rep.unreachable is None)
 
 c = Fake(units={"illumination": [unit()]})
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, gate=lambda: False)
@@ -1528,6 +1552,16 @@ RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_s
 check("loop: a refused station token is shown as FATAL, with the server's reason, then retried later",
       hb.fields.get("state") == "fatal" and "station_token_not_recognised" in (hb.fields.get("note") or "")
       and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
+
+c, plugs = loop_world(["illumination"])
+c.refuse = {("claim", "illumination"): [W._refusal_from(500, b"Internal Server Error")]}
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+              sleep=clk.sleep, clock=clk.now, passes=1)
+check("loop: a bare claim 500 shows as UNREACHABLE, says what happened, and waits a MINUTE, not ten",
+      hb.fields.get("state") == "unreachable" and "no code" in (hb.fields.get("note") or "")
+      and RW2.UNREACHABLE_S - RW2.PAUSED_POLL_S <= clk.t < RW2.FATAL_S - RW2.PAUSED_POLL_S,
+      f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
 
 check("loop: a server that hands out the hour IN PROGRESS (1.0.61 and older) gets NO claims from the loop",
       RW2.server_too_old("1.0.61") and RW2.server_too_old("1.0.9") and not RW2.server_too_old("1.0.62")

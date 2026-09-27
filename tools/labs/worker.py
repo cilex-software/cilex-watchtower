@@ -143,6 +143,14 @@ def _retrying(fn, *a, sleep=time.sleep):
             sleep(BACKOFF_S[i])
 
 
+def _uncoded_server_error(r: Refusal) -> bool:
+    """A 5xx that carries no code at all, e.g. Starlette's plain "Internal Server Error".
+
+    Not an unknown REFUSAL (a coded slug this file has not met is still FATAL, never
+    guessed at): the server did not get as far as refusing anything."""
+    return r.status >= 500 and r.detail is None and r.retryable is None
+
+
 def action_for(r: Refusal) -> Action:
     if r.status == 422:
         return Action.BUG
@@ -956,6 +964,7 @@ class RunReport:
     # `fatal` means THIS STATION is broken (a bad token): retrying changes nothing.
     # `unreachable` means the server did not answer for longer than the backoff
     # covers: a deploy that ran long, an outage. The next pass may simply work.
+    # Also a claim answered with a 5xx and no code: the server failing, not refusing.
     unreachable: Optional[str] = None
     outcomes: list = field(default_factory=list)
 
@@ -985,6 +994,18 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                     rep.stopped_analysers.append(plugin.name); units = []
                 elif a is Action.RETRY_LATER and tries < max_retries:
                     tries += 1; sleep(min(60.0, 2.0 ** tries))
+                elif _uncoded_server_error(r):
+                    # A 5xx with NO code is the server failing, not refusing. At claim it is
+                    # cilex-vision's claim query running over its 30 s database timeout
+                    # (CV, 2026-09-28: 3 of 20 claims that night). FATAL sat each station
+                    # out for FATAL_S = 10 min per hit; the next pass one minute on
+                    # (UNREACHABLE_S) usually just works. Not retried here, so a server at
+                    # its limit gets one claim a minute. A timeout can land after the lease
+                    # is written, and that unit is swept as "lease expired" whichever wait
+                    # follows, so the shorter wait orphans nothing more.
+                    rep.unreachable = (f"claim {plugin.name}: the server answered HTTP {r.status} "
+                                       "with no code (not a refusal) -- trying again in a minute")
+                    return rep
                 elif a is Action.FATAL:
                     rep.fatal = str(r); return rep
                 elif a is Action.RETRY_LATER:
