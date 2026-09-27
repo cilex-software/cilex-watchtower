@@ -137,7 +137,12 @@
 > bounds the claim to ended hours.** Operator decision the same day: after that fix, CV
 > switches the other eight analysers on for one live unit each, then off.
 >
-> **Two rules that have already cost something.** (1) Vendored analysers (`labs_*.py`) are
+> **Three rules that have already cost something.** (0, 2026-09-27) **A test that writes
+> station files must prove it is isolated first.** `labs-station.cpp` redirected only
+> XDG_STATE_HOME. On Windows `stateDir()` reads LOCALAPPDATA, so the test wrote into the booth's
+> REAL `%LOCALAPPDATA%\watchtower-labs`; on a station with a running scanner its control.json
+> writes would pause or resume it. It now refuses to run unless the directory lands inside its
+> own temp dir (c0affd6). The stress tools refuse the real directory too. (1) Vendored analysers (`labs_*.py`) are
 > cilex-vision's, byte-identical, each pinned by sha256 and source commit in
 > `labs-worker.py`'s `VENDORED` — never edit one; re-vendor from the named commit. (2) The
 > worker must IMPORT ON WINDOWS: c934dda vendored a top-level `import resource`, which broke
