@@ -105,7 +105,18 @@ static FILE *imgLedgerFile()
     QDir().mkpath(QFileInfo(path).absolutePath());   // fopen("a") does NOT create dirs
     f = fopen(path.toLocal8Bit().constData(), "a");
     if (f) {
+#if defined(Q_OS_WIN)
+        // MSVC's CRT has no line buffering (_IOLBF means _IOFBF) and REJECTS size 0 for
+        // it: setvbuf(f, nullptr, _IOLBF, 0) fires the invalid-parameter handler, which
+        // FAST-FAILS the whole app (0xC0000409 in ucrtbase!invoke_watson, param 5).
+        // 2026-09-28: 1.1.671 died on the first thumbnail request, ~4 s after every
+        // start, and took the booth's wall down for ~6 min until rolled back. Latent
+        // since 854cb4c gave this ledger a Windows path (before, fopen failed there and
+        // this line never ran). Unbuffered is how Windows makes every line survive.
+        setvbuf(f, nullptr, _IONBF, 0);
+#else
         setvbuf(f, nullptr, _IOLBF, 0);          // line-buffered: survive a SIGSEGV
+#endif
         // QCoreApplication::applicationPid() rather than getpid(): same number, and it
         // does not drag <unistd.h> (POSIX-only) in for one field.
         fprintf(f, "\n=== ledger opened %s pid=%lld ===\n",
