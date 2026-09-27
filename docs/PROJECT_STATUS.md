@@ -5,6 +5,28 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-28 LABS: PLAYBACK EVENTS SETTING -->
+> **2026-09-28 — Labs: the setting for a Playback "Labs events" button exists; the BUTTON does
+> not.** It's the operator's request, built as asked: "just this setting".
+>
+> **What exists.** Preferences → **Labs** (a section only admin sessions see, as with the Labs menu
+> entry) → "Labs events button in Playback (admin)", Off/On. It is stored as `labs/playbackButton`
+> (`Settings.labsPlaybackButton`) and defaults to **Off**. While it is On, the row says in amber
+> that the button is not built yet.
+>
+> **Verified by screenshots** (isolated copies of the settings file):
+> - admin, Off: the section shows, set to Off;
+> - admin, On: On is set, with the amber note;
+> - Russian: renders correctly;
+> - a real non-admin session (the soak account), with the setting forced On: no Labs menu entry and
+>   no Labs section.
+>
+> **The contract for the button, when built** (single-camera Playback only, for now): show it only when
+> `Settings.labsPlaybackButton && AuthController.isAdmin`. The setting lives in QSettings, per OS
+> user on the computer, NOT per Watchtower account; without the admin check, a viewer signing in
+> on the same machine would inherit an admin's choice. When the button lands, remove the
+> "not in use yet" note.
+
 <!-- 2026-09-27 LABS: FIRST LIVE UNIT OF EVERY ANALYSER -->
 > **2026-09-27 — LABS: EVERY ANALYSER HAS RUN ONE LIVE UNIT. All ten done at attempt 1: 0
 > failed, 0 abandoned.** This was the operator-approved plan, run 02:20–02:47 MSK on query-api
