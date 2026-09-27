@@ -232,6 +232,154 @@ check(state.warm_frames == 60, "warm-up accumulated across both segments",
       f"{state.warm_frames}")
 check(all(o.segment_id == "b" for o in o2), "observations attributed to their own segment")
 
+print("=== 12. a RECURRING SOURCE folds; anything that moves does not (1.1.0) ===")
+# Synthetic detections, not frames: what is under test is the folding, and the
+# live case it answers is known exactly -- one streak near the lens at (0.56, 0.15),
+# hit every ~11 s for an hour (hiwatch-083bc1df39d1, 2026-09-26 22:00Z).
+import math
+import shape_observations as so
+
+cfg = Config()
+K, M, SPAN = cfg.recur_min_prior, cfg.recur_window_s, cfg.recur_min_span_s
+
+
+def det(seg, t, cx, cy, area=0.0008, w=0.02, h=0.03, cls="shape_indeterminate"):
+    return Observation(segment_id=seg, frame_index=int(t), t_offset_s=t,
+                       bbox_x=cx - w / 2, bbox_y=cy - h / 2, bbox_w=w, bbox_h=h,
+                       object_count=1, shape_class=cls, shape_confidence=0.6,
+                       aspect=h / w, area_frac=area, fill_ratio=0.24)
+
+
+def feed(hits):
+    r = so._Recurrence(cfg)
+    rows = []
+    for d, t in hits:
+        rows += r.offer(d, t)
+    return rows + r.close_all()
+
+
+streak = [(det("s", float(k), 0.56, 0.15), float(k)) for k in range(0, 3600, 11)]
+rows = feed(streak)
+check(sum(r.recur_count for r in rows) == len(streak),
+      "every detection is counted exactly once (the rows' recur_count sums to the hits)",
+      f"{sum(r.recur_count for r in rows)} vs {len(streak)}")
+check(len(rows) <= math.ceil(SPAN / 11) + 1 + math.ceil(3600 / M) + 1,
+      f"the streak's {len(streak)} hits file as {len(rows)} rows (bounded per source)",
+      f"{len(rows)} rows")
+n_first = next(i for i, r in enumerate(rows) if r.recur_folded)
+first = rows[:n_first]
+check([(r.recur_folded, r.recur_hits, r.recur_count, r.t_offset_s) for r in first]
+      == [(False, i, 1, 11.0 * i) for i in range(math.ceil(SPAN / 11))],
+      "a new source's first MINUTE of detections files on its own, at exact times",
+      f"{[(r.recur_hits, r.t_offset_s) for r in first]}")
+folded = [r for r in rows if r.recur_folded]
+check(bool(folded) and all(r.recur_window_s == M and r.recur_hits >= K and r.recur_count >= 1
+                           for r in folded),
+      "folded rows name themselves: recur_folded, recur_window_s = M, recur_hits >= K")
+starts = [r.t_offset_s for r in folded]
+check(all(b - a >= M for a, b in zip(starts, starts[1:])),
+      "at most one folded row per window, each timed at its OWN first hit", f"{starts}")
+check(len(folded) >= math.floor((3600 - SPAN - 11) / M),
+      "...and a source that persists keeps filing one per window (it is not swallowed "
+      "into a single row for the hour)", f"{len(folded)} folded rows")
+
+walk = [(det("s", float(i), 0.05 + 0.1 * i, 0.5, cls="blob_tall"), float(i)) for i in range(10)]
+rows = feed(walk)
+check(len(rows) == 10 and all(not r.recur_folded and r.recur_hits == 0 for r in rows),
+      "something that MOVES never folds: 10 detections along a path, 10 rows")
+
+# The booth's own case, seen in a crop: two people walking SLOWLY, caught on 1 s
+# keyframes at nearly one spot -- K hits within the radius in a few seconds.
+stroll = [(det("s", float(i), 0.45 + 0.002 * i, 0.24, area=0.0006, cls="blob_tall"), float(i))
+          for i in range(20)]
+rows = feed(stroll)
+check(len(rows) == 20 and not any(r.recur_folded for r in rows)
+      and max(r.recur_hits for r in rows) >= K,
+      "people LINGERING at one spot for 20 s are not a source: K+ hits, but under a "
+      "minute, so all 20 file (the two walkers on the booth's capture)")
+
+car = det("s", 150.5, 0.56, 0.15, area=0.01, w=0.15, h=0.06, cls="blob_wide")
+rows = feed([h for h in streak if h[1] < 300] + [(car, 150.5)])
+mine = [r for r in rows if r.area_frac == 0.01]
+check(len(mine) == 1 and not mine[0].recur_folded and mine[0].t_offset_s == 150.5,
+      "a different-sized blob AT the recurring spot is not folded into it (a car passing "
+      "the cobweb files on its own, at its exact time)", f"{mine}")
+
+sparse = [(det("s", float(k), 0.3, 0.3), float(k)) for k in range(0, 3600, 250)]
+rows = feed(sparse)
+check(len(rows) == len(sparse) and not any(r.recur_folded for r in rows),
+      "a spot hit only every 250 s never folds (fewer than K in any window)")
+
+
+def unit(prefix, hh, mm0=0):
+    """12 x 30 s segments of one camera, a streak hit every 5 s, start_time set."""
+    out = []
+    for i in range(12):
+        s = 60 * mm0 + 30 * i
+        meta = SegmentMeta(segment_id=f"{prefix}{i}", camera_id="c",
+                           start_time=f"2026-09-26T{hh}:{s // 60:02d}:{s % 60:02d}+00:00")
+        out.append((meta, [float(t) for t in range(0, 30, 5)]))
+    return out
+
+
+def fake_segment(frames, meta, state, cfg=None, frame_step_s=None):
+    obs = [det(meta.segment_id, t, 0.56, 0.15) for t in frames]
+    st = so.WindowStats()
+    st.observations = len(obs)
+    return obs, st
+
+
+real_segment = so.analyse_segment
+so.analyse_segment = fake_segment
+try:
+    state = AnalyserState(cfg)
+    u1 = list(so.analyse_window(iter(unit("a", "22")), state, cfg))
+    # Forward, straight after u1 ends (22:06:00): the case where a carried look-back
+    # would bite, because u1's last 10 minutes are still inside it. It must run
+    # DIRECTLY after u1 -- a unit from another hour in between would age the
+    # carried history out and hide exactly the defect this is here to catch.
+    u3 = list(so.analyse_window(iter(unit("c", "22", mm0=6)), state, cfg))
+    u2 = list(so.analyse_window(iter(unit("b", "21")), state, cfg))   # the hour BEFORE: newest-first
+    again = list(so.analyse_window(iter(unit("a", "22")), AnalyserState(cfg), cfg))
+    nostart = list(so.analyse_window(iter([(SegmentMeta(segment_id="n", camera_id="c"),
+                                            [0.0, 5.0, 10.0, 15.0, 20.0])]), AnalyserState(cfg), cfg))
+finally:
+    so.analyse_segment = real_segment
+
+check([m.segment_id for m, _, _ in u1] == [f"a{i}" for i in range(12)],
+      "analyse_window yields exactly once per segment, in order (the adapter pops one per yield)")
+rows1 = [r for _, obs, _ in u1 for r in obs]
+check(sum(r.recur_count for r in rows1) == 12 * 6 and sum(s.observations for _, _, s in u1) == len(rows1),
+      "a whole unit accounts for every detection, and stats count the rows filed")
+tail = [r for r in u1[-1][1] if r.recur_folded]
+# hits every 5 s: the first minute (t 0..55, 12 hits) files on its own; t = 60 s is
+# the first hit whose prior hits reach back a minute -> segment a2, offset 0.0.
+check(len(tail) == 1 and tail[0].segment_id == "a2" and tail[0].t_offset_s == 0.0
+      and tail[0].recur_count == 12 * 6 - 12,
+      "the fold still open at the end rides the LAST yield, naming its own first hit "
+      "(segment a2, 0.0 s), not the last segment", f"{tail}")
+rows2 = [r for _, obs, _ in u2 for r in obs]
+rows3 = [r for _, obs, _ in u3 for r in obs]
+check([(r.recur_folded, r.recur_hits) for r in rows2[:K]] == [(False, i) for i in range(K)]
+      and [(r.recur_folded, r.recur_hits) for r in rows3[:K]] == [(False, i) for i in range(K)],
+      "NOTHING carries into the next unit, even with the same model state -- the hour "
+      "before, or the minutes straight after: its first detections file on their own")
+check([r.measurements() for _, obs, _ in again for r in obs] == [r.measurements() for r in rows1],
+      "deterministic: the same unit folds to the same rows")
+nrows = nostart[0][1]
+check(len(nrows) == 5 and all(r.recur_hits is None and r.recur_folded is None for r in nrows)
+      and any("no start_time" in n for n in nostart[0][2].notes),
+      "no start_time: rows file unfolded, recurrence left UNSET (not 0), and the notes say so")
+
+m = tail[0].measurements()
+extra = {k for k in m if k not in Observation.API_COLUMNS}
+check({"recur_hits", "recur_count", "recur_window_s", "recur_folded"} <= extra
+      and len(extra) <= 24 and all(k == k.lower() and len(k) <= 40 for k in extra),
+      "the recurrence fields reach `metrics`, inside the server's caps (<= 24 keys, "
+      "lowercase, <= 40 chars)", f"{sorted(extra)}")
+check("recur=" in ANALYSER_VERSION, "the version string names the recurrence parameters",
+      ANALYSER_VERSION)
+
 print()
 print(f"=== {CHECKS[0] - len(FAILS)}/{CHECKS[0]} checks passed ===")
 if FAILS:

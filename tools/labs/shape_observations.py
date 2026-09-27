@@ -50,7 +50,8 @@ registry's own notes say so for every class.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, replace
+from datetime import datetime
 from typing import Iterable, Iterator, Sequence
 
 import numpy as np
@@ -58,8 +59,9 @@ import cv2
 
 # One version string per behavioural change. It names the object_count reading on
 # purpose: a stored number whose semantics are only in a letter is a number whose
-# semantics are lost.
-ANALYSER_VERSION = "wt-shape-1.0.0+objcount=per_frame"
+# semantics are lost. 1.1.0 (2026-09-27): a recurring source is folded -- see
+# Config's "recurring sources" and _Recurrence -- with its parameters in the string.
+ANALYSER_VERSION = "wt-shape-1.1.0+objcount=per_frame+recur=r0.05k3m600a2s60"
 
 # The six registered shape classes, verbatim from GET /labs/shape-classes
 # (2026-09-23). Never invent a slug: an unregistered value is refused server-side.
@@ -129,6 +131,29 @@ class Config:
     conf_span: float = 3.0
     conf_min: float = 0.50
     conf_max: float = 0.95
+
+    # --- recurring sources (1.1.0, 2026-09-27) --------------------------------
+    # UNLIKE EVERYTHING ABOVE, THESE WERE FITTED TO DATA -- to ONE camera-hour, so
+    # they are provisional until re-checked on a second camera. The first live unit
+    # (hiwatch-083bc1df39d1, 2026-09-26 22:00Z) filed 312 rows, and the Linux box
+    # measured 182 of its 196 shape_indeterminate rows sitting on ONE out-of-focus
+    # streak near the lens, lit by a street lamp: box centres sd x 0.008, y 0.020,
+    # detected intermittently (gaps median 11.0 s, p75 25.5 s). A size or fill floor
+    # is the wrong fix: on the booth's own footage 2 of 2 small hollow rows were two
+    # distant PEOPLE. Recurrence at one spot is what separates the two.
+    # And it is a correctness issue, not only a flood: a unit over 500 rows is
+    # refused whole (worker MAX_OBSERVATIONS_PER_UNIT), so one lens artefact on a
+    # GOP-15 camera (~3,600 keyframes an hour) could lose the camera-hour.
+    recur_radius: float = 0.05      # same spot: box centres within this, frame fractions
+    recur_area_ratio: float = 2.0   # ...and areas within this factor of each other
+    recur_min_prior: int = 3        # K: prior detections at the spot that make it recurring
+    recur_window_s: float = 600.0   # M: the look-back, and the most one row folds
+    # ...and those prior detections must reach back at least this far. Without it,
+    # the booth's 720p GOP-15 capture folded TWO PEOPLE walking slowly along a path:
+    # keyframes 1 s apart caught them 4 times within 64 px, which is "K hits at one
+    # spot" but is a passer-by, not a source. Seen, not inferred: the crop was
+    # checked. A spot is recurring only once it has kept firing for a minute.
+    recur_min_span_s: float = 60.0
 
 
 @dataclass(frozen=True)
@@ -252,6 +277,17 @@ class Observation:
     area_stability: float | None = None
     motion_coherence: float | None = None
 
+    # Recurrence, set by analyse_window on every row it files (None when it could
+    # not place the row on a clock). See _Recurrence for the exact meanings:
+    #   recur_hits     detections at this spot in the window BEFORE this row's hit
+    #   recur_count    detections this row stands for: 1, or a folded source's tally
+    #   recur_window_s the look-back / fold window M, in seconds
+    #   recur_folded   True when this row stands for a recurring source's detections
+    recur_hits: int | None = None
+    recur_count: int | None = None
+    recur_window_s: float | None = None
+    recur_folded: bool | None = None
+
     # Which of the fields above ObservationIn actually has a column for. The rest
     # are MEASUREMENTS and belong in the `metrics` jsonb, not at the top level.
     # Stated here so a submitter does not have to rediscover it by reading the
@@ -267,8 +303,9 @@ class Observation:
 
         NOT A WIRE PAYLOAD, despite what this used to be called. It is missing
         `start_time` and `end_time`, which ObservationIn REQUIRES and which only the
-        caller can supply (they are the segment's start plus `t_offset_s`, and this
-        module deliberately does not know what a segment's start time is). It also
+        caller can supply (they are the segment's start plus `t_offset_s`; this
+        module reads a segment's start_time only to put a unit's detections on one
+        clock for recurrence, never to time a row). It also
         carries `segment_id`, `frame_index`, `t_offset_s`, `aspect`, `area_frac`,
         `fill_ratio`, `area_stability` and `motion_coherence`, none of which are
         columns — see API_COLUMNS.
@@ -302,7 +339,8 @@ class WindowStats:
     frames_seen: int = 0
     frames_scored: int = 0
     frames_warmup: int = 0
-    observations: int = 0
+    observations: int = 0          # rows FILED with this segment (after folding)
+    folded: int = 0                # detections here that another row stands for
     model_resets: int = 0
     frame_step_s: float | None = None
     history_frames: int | None = None
@@ -705,18 +743,148 @@ def analyse_segment(
     return out, st
 
 
+def _epoch(s: str | None) -> float | None:
+    """A segment's ISO start_time as seconds, or None. Only ever DIFFERENCED, so a
+    naive timestamp (read as local time) is as good as an aware one within a unit."""
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+@dataclass
+class _Bucket:
+    first: Observation      # the first hit: its row carries this hit's own segment and time
+    t0: float               # that hit, on the unit's clock
+    cx: float
+    cy: float
+    area: float
+    prior: int              # detections at the spot in the window before the first hit
+    n: int = 1              # detections this bucket stands for, the first included
+
+
+class _Recurrence:
+    """Fold a RECURRING SOURCE into at most one row per fold window. One per UNIT.
+
+    A detection is at the SAME SPOT as another when their box centres are within
+    recur_radius (frame fractions) and their areas within recur_area_ratio. Then:
+
+      * recur_hits = detections at this spot in the recur_window_s BEFORE this one.
+      * Fewer than recur_min_prior (K), or K or more that do not yet reach back
+        recur_min_span_s: the detection is FILED as its own row, with recur_count 1
+        and recur_folded False. So a new source's first minute -- and anything that
+        moves, or merely lingers, as the two slow walkers on the booth's capture did
+        -- always files with exact timing (cilex-vision's first condition).
+      * K or more reaching back a minute: the spot is a recurring source. The
+        detection opens a bucket (or
+        joins the open one at this spot), and the bucket files ONE row: the FIRST
+        hit's own row, carrying recur_count = every detection it stands for,
+        recur_folded True. A bucket closes when a detection arrives recur_window_s
+        or more after its first hit, or at the end of the unit.
+
+    EXACT ACCOUNTING: every detection is either its own row or counted in exactly one
+    bucket, so the recur_count of a unit's rows sums to its detections.
+    PER UNIT, NOTHING CARRIED (the Linux box's first condition): the worker keeps a
+    camera's state across units, claims newest-first, and would otherwise carry an
+    open fold backwards in time; every row must also start inside its unit's hour.
+    DETERMINISTIC: lists in arrival order, no wall clock, no set iteration.
+    Bounded PER SOURCE -- its first minute's detections, then one row per window,
+    plus one -- not in the number of sources.
+    """
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self._hist: list[tuple[float, float, float, float]] = []  # (t, cx, cy, area)
+        self._open: list[_Bucket] = []
+        self.folded = 0
+
+    def _same_spot(self, cx: float, cy: float, a: float,
+                   cx2: float, cy2: float, a2: float) -> bool:
+        c = self.cfg
+        if (cx - cx2) ** 2 + (cy - cy2) ** 2 > c.recur_radius ** 2:
+            return False
+        lo, hi = (a, a2) if a <= a2 else (a2, a)
+        return lo > 0 and hi / lo <= c.recur_area_ratio
+
+    def _close(self, b: _Bucket) -> Observation:
+        return replace(b.first, recur_hits=b.prior, recur_count=b.n,
+                       recur_window_s=self.cfg.recur_window_s, recur_folded=True)
+
+    def offer(self, ob: Observation, t: float) -> list[Observation]:
+        """The rows to file because of this detection: none, itself, or a bucket it closed."""
+        c = self.cfg
+        m = c.recur_window_s
+        cx, cy, a = ob.bbox_x + ob.bbox_w / 2.0, ob.bbox_y + ob.bbox_h / 2.0, ob.area_frac
+        self._hist = [h for h in self._hist if 0.0 <= t - h[0] < m]
+        hits = [h[0] for h in self._hist if self._same_spot(cx, cy, a, h[1], h[2], h[3])]
+        prior = len(hits)
+        recurring = prior >= c.recur_min_prior and t - min(hits) >= c.recur_min_span_s
+        self._hist.append((t, cx, cy, a))
+        out: list[Observation] = []
+        b = next((b for b in self._open if self._same_spot(cx, cy, a, b.cx, b.cy, b.area)), None)
+        if b is not None:
+            if t - b.t0 < m:
+                b.n += 1
+                self.folded += 1
+                return out
+            self._open.remove(b)
+            out.append(self._close(b))
+        if recurring:
+            self._open.append(_Bucket(ob, t, cx, cy, a, prior))
+        else:
+            out.append(replace(ob, recur_hits=prior, recur_count=1, recur_window_s=m,
+                               recur_folded=False))
+        return out
+
+    def close_all(self) -> list[Observation]:
+        out = [self._close(b) for b in self._open]
+        self._open = []
+        return out
+
+
 def analyse_window(
     stream: Iterable[tuple[SegmentMeta, Iterable[Frame]]],
     state: AnalyserState | None = None,
     cfg: Config | None = None,
 ) -> Iterator[tuple[SegmentMeta, list[Observation], WindowStats]]:
-    """Convenience over consecutive segments of one camera, sharing one model.
+    """Consecutive segments of one camera -- ONE UNIT -- through one model.
 
-    This is the shape a worker wants: it yields per segment, so results can be
-    submitted as each hour's segments complete, while the background model keeps
-    the continuity it needs across them.
+    Yields exactly once per segment, in order, as the worker's adapter expects. The
+    background model is the caller's `state` and carries on; recurrence (see
+    _Recurrence) is per call, so it never outlives the unit.
+
+    ONE SEGMENT OF LOOKAHEAD: segment i is yielded only once segment i+1 has been
+    analysed, so that the LAST yield can carry every fold still open when the unit
+    ends. Frames are never held -- only a finished segment's rows and stats. A folded
+    row may therefore arrive in a later segment's yield than its own; it names its
+    own segment_id and t_offset_s (its first hit's), and the adapter times each row
+    by its own segment. Rows are filed on the clock of each segment's start_time; a
+    segment without one is filed unfolded, with its recurrence fields left unset.
     """
     st = state or AnalyserState(cfg)
+    rec = _Recurrence(cfg or st.cfg)
+    held: tuple[SegmentMeta, list[Observation], WindowStats] | None = None
     for meta, frames in stream:
         obs, stats = analyse_segment(frames, meta, st, cfg)
-        yield meta, obs, stats
+        base = _epoch(meta.start_time)
+        if base is None:
+            if obs:
+                stats.notes.append("no start_time: recurrence not measured, rows filed unfolded")
+            kept = obs
+        else:
+            before = rec.folded
+            kept = []
+            for ob in obs:
+                kept.extend(rec.offer(ob, base + ob.t_offset_s))
+            stats.folded = rec.folded - before
+        stats.observations = len(kept)
+        if held is not None:
+            yield held
+        held = (meta, kept, stats)
+    if held is not None:
+        meta, kept, stats = held
+        kept = kept + rec.close_all()
+        stats.observations = len(kept)
+        yield meta, kept, stats

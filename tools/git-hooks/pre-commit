@@ -146,6 +146,18 @@ elif [[ "${WT_NO_FS_GOP_PIN:-}" != "1" && -x "$ROOT/tools/tests/frame-source-gop
     echo "PASS  frame_source takes GOP and keyframe times from the demux, and they match"
 fi
 
+# The A4-A6 analyser's own self-test: synthetic scenes, no footage, under a second.
+# Among its checks, the recurring-source fold (1.1.0, 2026-09-27): every detection
+# accounted for exactly once, rows bounded per source, nothing carried between units.
+# Same numpy/cv2 probe as above. WT_NO_SHAPE_SELFTEST=1 skips it.
+if [[ "${WT_NO_SHAPE_SELFTEST:-}" != "1" && -f "$ROOT/tools/labs/selftest_shape_observations.py" ]] && ! labs_deps_ok; then
+    echo "SKIP  A4-A6 self-test -- numpy/cv2 not installed on this box (not a failure)"
+elif [[ "${WT_NO_SHAPE_SELFTEST:-}" != "1" && -f "$ROOT/tools/labs/selftest_shape_observations.py" ]]; then
+    shape_out="$(python3 "$ROOT/tools/labs/selftest_shape_observations.py" 2>&1)" || {
+        echo "$shape_out"; exit 1; }
+    echo "PASS  A4-A6 self-test ($(echo "$shape_out" | grep -o '[0-9]*/[0-9]* checks'))"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.
