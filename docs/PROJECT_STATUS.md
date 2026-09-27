@@ -54,7 +54,16 @@
 > - **A4–A6 (blob_geometry)** gets no size or fill floor: on the booth, blobs of the same size
 >   were real people. It gets spatial recurrence suppression instead. That must span minutes,
 >   not consecutive keyframes: the streak re-detects at a median gap of 11 s, and only 15 of
->   181 gaps are one keyframe. This is the Windows agent's to build.
+>   181 gaps are one keyframe. **Built: A4–A6 1.1.0 (4de3ba2, Windows agent)** folds a
+>   recurring source into one counted row. Measured read-only on the same live hour through
+>   `run_unit`: **312 → 98 rows**; every row is an original detection; Σ `recur_count` = 312.
+>   Streak 188 → 21, foliage 77 → 30, and the car still files every detection. 1.0.0 run
+>   the same way reproduced the live 312 rows exactly. Worker side: 642759b stops carrying
+>   the background model backwards across units (measured at dawn: 10 extra rows in minute
+>   0, none in minutes 3–6 where a fresh model files 12), and times each row from its own
+>   segment. 78bbfa2 keeps every A4–A6 row a point in time, since an event group may never
+>   exceed 300 s (cilex-vision `routers/labs.py:194`). blob_geometry stays OFF server-side
+>   until cilex-vision and the operator decide.
 > - **Physical:** something sits near that camera's lens. It's the operator's to check.
 >
 > **The scanner had been switched on.** `control.json` was set to `paused: false` at
