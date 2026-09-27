@@ -6,7 +6,8 @@ import Watchtower
 
 // Preferences (S10 / design §9): personal UI preferences only (no system admin).
 // Sections: Video, Snapshots, Workspace (default landing), Time & language (time
-// format), Alerts (sound + desktop notifications). Light/Dark theme switching is
+// format), Alerts (sound + desktop notifications), and Labs -- administrators only,
+// the same sessions the left menu shows Labs to. Light/Dark theme switching is
 // deferred (Theme is a static singleton — a larger refactor). Left-aligned stack.
 Item {
     id: root
@@ -94,7 +95,10 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            Text { text: parent.parent.label; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.Medium }
+            // Wraps, like the description: a label that could not wrap set the column's
+            // minimum width, and a long translation (the RU Labs row) pushed its control
+            // out past the panel's edge.
+            Text { text: parent.parent.label; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 14; font.weight: Font.Medium; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { visible: parent.parent.desc !== ""; text: parent.parent.desc; color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         }
     }
@@ -395,6 +399,39 @@ Item {
                         border.width: 1; border.color: exMa.containsMouse ? Theme.accent : Theme.line2
                         Text { id: exT; anchors.centerIn: parent; text: qsTr("Change…"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12 }
                         MouseArea { id: exMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: exportDirDialog.open() }
+                    }
+                }
+            }
+
+            // Labs: administrators only, like the Labs entry in the left menu (both read
+            // AuthController.isAdmin). A viewer never sees this section at all.
+            PrefSection {
+                visible: AuthController.isAdmin
+                title: qsTr("Labs")
+                PrefRow {
+                    label: qsTr("Labs events button in Playback (admin)")
+                    desc: qsTr("Offers a button in single-camera Playback that shows or hides, on the timeline, the events the Labs analysers found. Only administrators see this setting.")
+                    ColumnLayout {
+                        spacing: 4
+                        Segmented {
+                            opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
+                            value: Settings.labsPlaybackButton
+                            segW: 56
+                            onPicked: (v) => Settings.labsPlaybackButton = v
+                        }
+                        // Only the SETTING exists so far (operator request 2026-09-28: "build
+                        // just this setting"). Say so while it is on, rather than leave a
+                        // switched-on control quietly doing nothing -- the rule the live-
+                        // transport note above follows.
+                        Text {
+                            visible: Settings.labsPlaybackButton
+                            Layout.maximumWidth: 320
+                            wrapMode: Text.WordWrap
+                            text: qsTr("Not in use yet: the Playback button itself is not built. "
+                                       + "Nothing changes on screen until it is.")
+                            color: Theme.warn
+                            font.family: Theme.fontSans; font.pixelSize: 11
+                        }
                     }
                 }
             }

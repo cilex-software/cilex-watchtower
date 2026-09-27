@@ -36,6 +36,16 @@ Settings::Settings(QObject *parent)
     m_badgeTimers = m_settings.value(QStringLiteral("ui/badgeTimers"), true).toBool();
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
     m_heldEventIds = m_settings.value(QStringLiteral("events/heldEventIds")).toStringList();
+    m_labsPlaybackButton = m_settings.value(QStringLiteral("labs/playbackButton"), false).toBool();
+}
+
+void Settings::setLabsPlaybackButton(bool v)
+{
+    if (m_labsPlaybackButton == v)
+        return;
+    m_labsPlaybackButton = v;
+    m_settings.setValue(QStringLiteral("labs/playbackButton"), v);
+    emit labsPlaybackButtonChanged();
 }
 
 // Retention hold, client half. Append-and-cap, oldest-out. Order is meaningful: the tail

@@ -61,6 +61,14 @@ class Settings : public QObject
     // Event-type keys hidden on the playback scrubber legend ("motion" or a raw
     // event_type). Empty = all shown.
     Q_PROPERTY(QStringList hiddenScrubberEventTypes READ hiddenScrubberEventTypes WRITE setHiddenScrubberEventTypes NOTIFY hiddenScrubberEventTypesChanged)
+    // Labs, admins only (operator request 2026-09-28): whether single-camera Playback
+    // offers the button that shows or hides, on its timeline, the events the Labs
+    // analysers found. Default OFF -- Labs is an admin programme. Only the SETTING exists
+    // so far; the button is not built, and the Preferences row says so while this is on.
+    // QSettings is per OS user on this computer, NOT per Watchtower account: the button,
+    // when built, must also require AuthController.isAdmin, or a viewer signing in here
+    // would inherit an admin's choice.
+    Q_PROPERTY(bool labsPlaybackButton READ labsPlaybackButton WRITE setLabsPlaybackButton NOTIFY labsPlaybackButtonChanged)
     // Retention hold for share-link-opened clips (operator rule 2026-08-28: "if somebody
     // had searched for the clip [it is] important enough to not be deleted"). Read-only
     // from QML — mutated through holdEvent()/releaseEvent() so the cap is enforced in ONE
@@ -127,6 +135,9 @@ public:
     Q_INVOKABLE void releaseEvent(const QString &eventId);
     void setHiddenScrubberEventTypes(const QStringList &v);
 
+    bool labsPlaybackButton() const { return m_labsPlaybackButton; }
+    void setLabsPlaybackButton(bool v);
+
     // Format an epoch-ms timestamp for display, honoring time24h. The QML clock
     // displays call this so the Time-format preference takes effect app-wide.
     Q_INVOKABLE QString clock(double ms, bool seconds = false) const;
@@ -190,6 +201,7 @@ signals:
     void pbPanelWChanged();
     void pbEventsPanelChanged();
     void hiddenScrubberEventTypesChanged();
+    void labsPlaybackButtonChanged();
     void heldEventIdsChanged();
 
 private:
@@ -215,6 +227,7 @@ private:
     bool m_pbEventsPanel = true;
     QStringList m_hiddenScrubberEventTypes;
     QStringList m_heldEventIds;
+    bool m_labsPlaybackButton = false;
     // A guard who works links all day must not grow this without bound; oldest-out at the
     // cap. 2000 is far above any plausible shift and small enough that QSettings stays
     // cheap to write. The cap is a storage guard, NOT a retention decision.
