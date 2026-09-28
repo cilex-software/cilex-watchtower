@@ -5,6 +5,19 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 AUTH: TOKEN SIGN-IN OFF -->
+> **2026-09-29 — «Token» sign-in is off the login screen** (the owner's decision, via Cilex Team:
+> `docs/letters/2026-09-29-watchtower-hide-token-sign-in-keep-the-code-cilex-team.md`; reply
+> beside it). Access must follow team.cilex.ru, and a pasted personal token goes around that.
+> - **Off by ONE constant**, `AuthController::kPersonalTokenSignIn = false`
+>   (`AuthController.h:105`). **Do not delete the code:** the tab, the panel, their strings,
+>   `loginWithToken` and `attemptTokenLogin` all stay, by the owner's request. Turning it back on is
+>   that line and a new build, never a setting.
+> - With it off the login screen has no tab bar, and `loginWithToken` refuses, whoever calls it.
+> - **Untouched:** the workstation key (`WT_STATION_TOKEN` → `loginWithStationToken`), the saved
+>   session, and password sign-in.
+> - `62fdb10`, 1.1.695. Live on the Linux box; Windows and Mac from their next build.
+
 <!-- 2026-09-29 LABS: ONE SET OF ANALYSER NAMES -->
 > **2026-09-29 — Labs analysers have one set of names, the operator's**, shared with cilex-vision
 > (their `labs_names.py`, relayed ~01:35 MSK).
