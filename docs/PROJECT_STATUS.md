@@ -5,27 +5,41 @@
 > history surgery + rotation (operator decisions).
 
 
-<!-- 2026-09-28 LABS: PLAYBACK EVENTS SETTING -->
-> **2026-09-28 — Labs: the setting for a Playback "Labs events" button exists; the BUTTON does
-> not.** It's the operator's request, built as asked: "just this setting".
+<!-- 2026-09-28 LABS: PLAYBACK EVENTS LANE -->
+> **2026-09-28 — Labs on the Playback timeline: the LABS button and its lane exist** (single-camera
+> Playback only; operator requests, same night). Preferences → **Labs** (admins only) → "Labs
+> events button in Playback" (`labs/playbackButton`, default Off) offers a **LABS** cell in the
+> navigator header, beside MOTION. It shows only when that setting is on AND the session is admin
+> (`PlaybackScreen.labsAllowed`); the setting is per computer, not per account. The cell toggles a
+> **Labs lane** (`labs/onScrubber`, persisted, default Off): ten rows, one per analyser
+> (`wtlabs::laneKeys()` = `LabsNames.keys`, pinned equal by `tools/tests/labs-timeline.cpp`).
 >
-> **What exists.** Preferences → **Labs** (a section only admin sessions see, as with the Labs menu
-> entry) → "Labs events button in Playback (admin)", Off/On. It is stored as `labs/playbackButton`
-> (`Settings.labsPlaybackButton`) and defaults to **Off**. While it is On, the row says in amber
-> that the button is not built yet.
+> - **Data:** `GET /labs/observations` (cilex-vision `routers/labs.py:1887`), ONE request per analyser
+>   for the VISIBLE window. It is debounced 350 ms, 3 in flight, and each request is an index scan.
+>   Per analyser because the endpoint returns only the newest ≤2,000 rows of a window.
+> - **Honest states:**
+>   - a row cut at the ceiling says "N+" and hatches the older part it did not load;
+>   - "…" while loading, "ERR" on failure, 0 when nothing was filed;
+>   - lane-wide: loading / no answer / not in scope / "nothing filed — may not have been scanned";
+>   - a camera change clears at once.
+> - **Painting:** `LabsLanesItem` is the app's first C++ painted item: observations merge into
+>   pixel runs, because one camera filed 590 rows in one hour.
+> - **Interaction:** hover shows `LabsCard`, the server's sentence (UI language) plus every typed
+>   field and metric. Click seeks to the observation's start. When the pointer is inside several
+>   observations, the smallest wins.
 >
-> **Verified by screenshots** (isolated copies of the settings file):
-> - admin, Off: the section shows, set to Off;
-> - admin, On: On is set, with the amber note;
-> - Russian: renders correctly;
-> - a real non-admin session (the soak account), with the setting forced On: no Labs menu entry and
->   no Labs section.
+> **Verified by screenshots on real data** (hiwatch-083bc1df39d1):
+> - 27 Sep 01:00–02:00: counts equal the DB (SHAPES 312, TRACKS 202, …);
+> - 1-hour zoom; cards for shapes, tracks, colour and day/night;
+> - Russian;
+> - forced cut (`WT_LABS_LIMIT=40`);
+> - setting off → no cell or lane;
+> - real non-admin session → no cell or lane.
 >
-> **The contract for the button, when built** (single-camera Playback only, for now): show it only when
-> `Settings.labsPlaybackButton && AuthController.isAdmin`. The setting lives in QSettings, per OS
-> user on the computer, NOT per Watchtower account; without the admin check, a viewer signing in
-> on the same machine would inherit an admin's choice. When the button lands, remove the
-> "not in use yet" note.
+> **Not verified:** the refusal, unreachable and not-in-scope states (code only), and a
+> camera_health card (no such rows in these windows). The running wall shows it after its next
+> restart. Dev hooks: `--labs-hover-test=<analyser>`, `--pb-view-test=<minutes>`,
+> `WT_LABS_LIMIT=<n>`.
 
 <!-- 2026-09-27 LABS: FIRST LIVE UNIT OF EVERY ANALYSER -->
 > **2026-09-27 — LABS: EVERY ANALYSER HAS RUN ONE LIVE UNIT. All ten done at attempt 1: 0

@@ -37,6 +37,16 @@ Settings::Settings(QObject *parent)
     m_hiddenScrubberEventTypes = m_settings.value(QStringLiteral("playback/hiddenScrubberEventTypes")).toStringList();
     m_heldEventIds = m_settings.value(QStringLiteral("events/heldEventIds")).toStringList();
     m_labsPlaybackButton = m_settings.value(QStringLiteral("labs/playbackButton"), false).toBool();
+    m_labsOnScrubber = m_settings.value(QStringLiteral("labs/onScrubber"), false).toBool();
+}
+
+void Settings::setLabsOnScrubber(bool v)
+{
+    if (m_labsOnScrubber == v)
+        return;
+    m_labsOnScrubber = v;
+    m_settings.setValue(QStringLiteral("labs/onScrubber"), v);
+    emit labsOnScrubberChanged();
 }
 
 void Settings::setLabsPlaybackButton(bool v)

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.676
+    VERSION 1.1.677
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -112,7 +112,7 @@ endif()
 # Theme.qml and LayoutSpec.qml are QML singletons (design tokens / layout brain).
 # This MUST be set BEFORE qt_add_qml_module so the generated qmldir records them
 # as `singleton`.
-set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml qml/EventsStore.qml qml/ReconnectCoordinator.qml qml/PbFmt.qml PROPERTIES
+set_source_files_properties(qml/Theme.qml qml/LayoutSpec.qml qml/EventStyle.qml qml/EventsStore.qml qml/ReconnectCoordinator.qml qml/PbFmt.qml qml/LabsNames.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(watchtower
@@ -178,6 +178,8 @@ qt_add_qml_module(watchtower
         qml/PbRibbon.qml
         qml/PbNavHeader.qml
         qml/PbLanes.qml
+        qml/LabsNames.qml
+        qml/LabsCard.qml
         qml/PbTransport.qml
         qml/PbEventsPanel.qml
         qml/PbBanner.qml
@@ -244,6 +246,11 @@ qt_add_qml_module(watchtower
         src/models/LabsStation.h
         src/models/LabsModel.h
         src/models/LabsModel.cpp
+        src/models/LabsTimelineData.h
+        src/models/LabsTimeline.h
+        src/models/LabsTimeline.cpp
+        src/models/LabsLanesItem.h
+        src/models/LabsLanesItem.cpp
         src/models/RtspVideoSource.h
         src/models/RtspVideoSource.cpp
         src/models/CvImageProvider.h

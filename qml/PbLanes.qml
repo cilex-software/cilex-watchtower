@@ -27,6 +27,31 @@ Item {
     readonly property int rulerH: 15
     readonly property int labelW: 120
 
+    // LABS lane (admins; PlaybackScreen decides whether it is shown). One row per analyser,
+    // LabsNames.keys order, painted by LabsLanesItem from a LabsTimeline.
+    property bool showLabs: false
+    property int labsRowH: 9
+    readonly property int labsH: showLabs ? (LabsNames.keys.length * labsRowH + 1) : 0
+    property var labsTimeline: null
+    property string labsHoverId: ""
+    property string labsSelId: ""
+    // x/y: the hovered bar's top centre, in THIS item's coordinates (for the card).
+    signal labsHovered(string id, real x, real y)
+    signal labsPicked(string id, double ms)
+    // Where a Labs bar is drawn, in this item's coordinates; null when it is not.
+    function labsBarPos(id) {
+        var r = labsItem.rectOf(id);
+        if (r.x === undefined) return null;
+        return { x: lanes.labelW + r.x + r.w / 2, y: labsLane.y + 1 + r.y };
+    }
+    function _labsHover(mx, my) {
+        var id = labsItem.idAt(mx, my);
+        if (id === lanes.labsHoverId) return;
+        if (id === "") { lanes.labsHovered("", 0, 0); return; }
+        var p = lanes.labsBarPos(id);
+        lanes.labsHovered(id, p ? p.x : lanes.labelW + mx, p ? p.y : labsLane.y + my);
+    }
+
     signal seekRequested(double ms)
     signal hovered(string id)
     signal picked(string id, double ms)
@@ -79,7 +104,7 @@ Item {
     // chip would promise a seek that will not happen.
     property real _hoverX: -1
     readonly property double hoverMs: _hoverX >= 0 ? msOf(_hoverX) : -1
-    readonly property bool _hoverLive: _hoverX >= 0 && _dragMs < 0 && hoverId === ""
+    readonly property bool _hoverLive: _hoverX >= 0 && _dragMs < 0 && hoverId === "" && labsHoverId === ""
     // Dev/verification hook: --pb-hover-test=<trackX> forces the preview on at
     // that x (a WT_SCREENSHOT run cannot move the real pointer without an
     // Accessibility grant). Inert without the argument.
@@ -103,6 +128,40 @@ Item {
                 font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.3; font.weight: Font.DemiBold }
             Text { visible: lanes.showMotion; text: qsTr("MOTION", "playback lane label"); color: Theme.accent
                 font.family: Theme.fontMono; font.pixelSize: 8; font.letterSpacing: 1.3; font.weight: Font.DemiBold }
+        }
+        // One label per Labs row, aligned to the painted rows: the analyser, then what its
+        // row holds -- a count, "2000+" when the answer was cut at the endpoint's ceiling,
+        // "…" while loading, "ERR" when it failed. A row with nothing filed shows 0, not
+        // blank: 0 is an answer, blank would not be.
+        Column {
+            visible: lanes.showLabs
+            y: labsLane.y + 1
+            anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 6 }
+            Repeater {
+                model: lanes.showLabs && lanes.labsTimeline ? lanes.labsTimeline.tracks : []
+                delegate: Item {
+                    required property var modelData
+                    width: parent.width; height: lanes.labsRowH
+                    readonly property string st: modelData.state
+                    Text {
+                        anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                        text: LabsNames.shortName(parent.modelData.key)
+                        color: parent.modelData.count > 0 ? LabsNames.color(parent.modelData.key) : Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 7; font.letterSpacing: 0.8
+                    }
+                    Text {
+                        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                        text: parent.st === "error" ? qsTr("ERR", "labs row failed")
+                            : parent.st === "loading" && parent.modelData.count === 0 ? "…"
+                            : parent.st === "idle" ? ""
+                            : parent.modelData.truncated ? (parent.modelData.count + "+")
+                            : String(parent.modelData.count)
+                        color: parent.st === "error" ? Theme.bad
+                             : parent.modelData.truncated ? Theme.accent : Theme.ink3
+                        font.family: Theme.fontMono; font.pixelSize: 7
+                    }
+                }
+            }
         }
     }
 
@@ -200,6 +259,70 @@ Item {
                         onExited: if (lanes.hoverId === bar.modelData.id) lanes.hovered("")
                         onPressed: (m) => { m.accepted = true; lanes.picked(bar.modelData.id, bar.modelData.ms) }
                     }
+                }
+            }
+        }
+
+        // LABS lane — one painted row per analyser (LabsLanesItem). Above the seek area
+        // (z 1) so a bar can be hovered and picked; a press on empty lane is handed back
+        // (accepted = false) to the seek / mark gesture underneath, so the lane never
+        // costs the timeline its click-to-seek.
+        Item {
+            id: labsLane
+            anchors { left: parent.left; right: parent.right; top: mLane.bottom }
+            height: lanes.labsH
+            visible: lanes.showLabs
+            z: 1
+            Rectangle { anchors { left: parent.left; right: parent.right; top: parent.top }
+                height: 1; color: Qt.rgba(52 / 255, 48 / 255, 42 / 255, 0.7) }
+            LabsLanesItem {
+                id: labsItem
+                anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 1; bottom: parent.bottom }
+                timeline: lanes.labsTimeline
+                winS: lanes.winS
+                winE: lanes.winE
+                rowH: lanes.labsRowH
+                colors: LabsNames.colors
+                hoverId: lanes.labsHoverId
+                selId: lanes.labsSelId
+            }
+            MouseArea {
+                anchors.fill: labsItem
+                enabled: lanes.showLabs
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.PointingHandCursor
+                onPositionChanged: (m) => lanes._labsHover(m.x, m.y)
+                onExited: lanes.labsHovered("", 0, 0)
+                onPressed: (m) => {
+                    var id = labsItem.idAt(m.x, m.y);
+                    if (id === "" || !lanes.labsTimeline) { m.accepted = false; return; }
+                    m.accepted = true;
+                    lanes.labsPicked(id, lanes.labsTimeline.observation(id).startMs);
+                }
+            }
+            // The lane's own honest state, over the rows: nothing asked yet, loading, every
+            // analyser failed, or loaded and empty. Empty is said as what it is -- nothing
+            // FILED for this window -- because Labs may simply not have scanned these hours.
+            Rectangle {
+                readonly property var tl: lanes.labsTimeline
+                readonly property string msg: !tl ? ""
+                    : tl.errorCode === "not_in_scope" ? qsTr("LABS: THIS CAMERA IS NOT IN YOUR SCOPE")
+                    : tl.errorCode !== "" ? qsTr("LABS: NO ANSWER FROM THE SERVER — %1").arg(tl.errorText)
+                    : !tl.loaded && tl.loading ? qsTr("LABS: LOADING…")
+                    : tl.loaded && tl.total === 0 && !tl.loading
+                      ? qsTr("LABS: NOTHING FILED FOR THIS WINDOW — IT MAY NOT HAVE BEEN SCANNED YET")
+                    : ""
+                visible: msg !== ""
+                anchors.centerIn: labsItem
+                width: msgT.implicitWidth + 16; height: msgT.implicitHeight + 6
+                color: Qt.rgba(21 / 255, 20 / 255, 18 / 255, 0.92)
+                border.width: 1; border.color: Theme.line2
+                Text {
+                    id: msgT; anchors.centerIn: parent
+                    text: parent.msg
+                    color: parent.tl && parent.tl.errorCode !== "" ? Theme.bad : Theme.ink3
+                    font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.1
                 }
             }
         }

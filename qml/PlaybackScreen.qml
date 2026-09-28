@@ -69,7 +69,12 @@ Item {
     // video_segments (pg_stat_activity), 13-30 s of serve;dur, and it was dispatched in the
     // same instant as the session create it then competes with. The cache carries every
     // past day (immutable) and today's firstMs; the dots can refresh once the picture is up.
-    onCamIdChanged: if (camId !== "" && client) { _loadCachedCoverage(); _coverageRefresh() }
+    onCamIdChanged: {
+        // Another camera: no Labs card or selection may outlive it (LabsTimeline clears its
+        // own rows on the same change).
+        labsHoverId = ""; labsSelId = "";
+        if (camId !== "" && client) { _loadCachedCoverage(); _coverageRefresh() }
+    }
     property bool _coverageDeferred: false
     function _coverageRefresh() {
         if (!client || camId === "") return;
@@ -2164,6 +2169,79 @@ Item {
         return { n: n, pct: Math.round(tot / (e - s) * 100) };
     }
 
+    // ---- LABS lane (operator request 2026-09-28) ---------------------------
+    // Offered only when Preferences switches the button on AND the session is an admin:
+    // the setting is stored per computer, not per account, so a viewer signing in here must
+    // not inherit it (Settings.h). The lane's own on/off is the LABS cell's, persisted.
+    readonly property bool labsAllowed: Settings.labsPlaybackButton && AuthController.isAdmin
+    readonly property bool showLabsLane: labsAllowed && Settings.labsOnScrubber
+    readonly property int labsRowH: 9
+    readonly property int labsLaneH: showLabsLane ? (LabsNames.keys.length * labsRowH + 1) : 0
+    property string labsHoverId: ""
+    property string labsSelId: ""
+    property real labsCardX: 0          // the hovered bar's top centre, in root coordinates
+    property real labsCardY: 0
+    onShowLabsLaneChanged: if (!showLabsLane) { labsHoverId = ""; labsSelId = ""; }
+    LabsTimeline {
+        id: labsTl
+        cameraId: root.camId
+        // The VIEW, not the loaded window: the endpoint answers the newest 2,000 rows per
+        // analyser, so zooming into an older stretch of a busy day has to ask for THAT
+        // stretch. Debounced inside, so a wheel zoom asks once it settles.
+        startMs: root.viewStartMs
+        endMs: root.viewEndMs
+        active: root.showLabsLane && root.visible
+        lang: Language.language
+    }
+    // Dev/verification hook: --labs-hover-test=<analyser> shows the card for the first
+    // observation of that analyser in view, once the lane has it (a WT_SCREENSHOT run cannot
+    // move the pointer). Inert without the argument.
+    readonly property string _labsHoverTest: {
+        var a = Qt.application.arguments;
+        for (var i = 0; i < a.length; i++)
+            if (a[i].indexOf("--labs-hover-test=") === 0) return a[i].substring(18);
+        return "";
+    }
+    Connections {
+        target: labsTl
+        enabled: root._labsHoverTest !== ""
+        function onRevisionChanged() { labsHoverTestT.restart(); }
+    }
+    Timer {
+        id: labsHoverTestT; interval: 300
+        onTriggered: {
+            if (root.labsHoverId !== "" || !root.showLabsLane) return;
+            var id = labsTl.firstIdOf(root._labsHoverTest, root.viewStartMs, root.viewEndMs);
+            var p = id !== "" ? lanesItem.labsBarPos(id) : null;
+            if (!p) return;
+            var q = lanesItem.mapToItem(root, p.x, p.y);
+            root.labsCardX = q.x; root.labsCardY = q.y; root.labsHoverId = id;
+        }
+    }
+
+    // Dev/verification hook: --pb-view-test=<minutes> zooms the VISIBLE window to that many
+    // minutes around the playhead ONCE, through the same zoomView() the mouse wheel calls,
+    // after the first session is ready (a day opened with WT_PLAYBACK_DAY shows all 24 h).
+    // Inert without the argument.
+    readonly property int _pbViewTest: {
+        var a = Qt.application.arguments;
+        for (var i = 0; i < a.length; i++)
+            if (a[i].indexOf("--pb-view-test=") === 0) return parseInt(a[i].substring(15), 10) || 0;
+        return 0;
+    }
+    // Re-applied whenever the view is wider again: a session re-open resets the view to the
+    // loaded window (resetView), and a hook that fired once could be undone before the shot.
+    Timer {
+        interval: 500; repeat: true
+        running: root._pbViewTest > 0
+        onTriggered: {
+            if (root.frags.length === 0 || !(root.viewEndMs > root.viewStartMs)) return;
+            var want = root._pbViewTest * 60000;
+            if (root.viewEndMs - root.viewStartMs > want * 1.2)
+                root.zoomView(want / (root.viewEndMs - root.viewStartMs), root.playheadMs);
+        }
+    }
+
     // ---- ONE selection model for the lane and the list -------------------
     // Both are built from the same array, so there is no state in which they
     // can disagree (spec §2.6, brief problem 5).
@@ -3050,7 +3128,7 @@ Item {
         Item {
             id: navigator
             Layout.fillWidth: true
-            Layout.preferredHeight: root.fullscreenOn ? 0 : root.navH
+            Layout.preferredHeight: root.fullscreenOn ? 0 : root.navH + root.labsLaneH
             visible: !root.fullscreenOn
 
             Rectangle { anchors.fill: parent; color: Theme.bg }
@@ -3083,6 +3161,9 @@ Item {
                 markMs: root.markMs
                 showMotion: root.showMotionLane
                 showEvents: root.railOpen
+                labsAvailable: root.labsAllowed
+                showLabs: root.showLabsLane
+                onToggleLabs: Settings.labsOnScrubber = !Settings.labsOnScrubber
                 spanMin: root.zoomMin
                 zoomed: root.tlZoomed
                 onJumpLastMotion: root.seekToWall(root.lastMotionMs)
@@ -3097,7 +3178,7 @@ Item {
             PbLanes {
                 id: lanesItem
                 anchors { left: parent.left; right: parent.right; top: navHdr.bottom }
-                height: 15 + root.footageLaneH + root.motionLaneH
+                height: 15 + root.footageLaneH + root.motionLaneH + root.labsLaneH
                 winS: root.viewStartMs
                 winE: root.viewEndMs
                 segs: root.tlFrags
@@ -3123,6 +3204,21 @@ Item {
                 onPanRequested: (deltaMs) => root.panView(deltaMs)
                 onHovered: (id) => root.hoverId = id
                 onPicked: (id, ms) => root.pickItem(id, ms)
+                showLabs: root.showLabsLane
+                labsRowH: root.labsRowH
+                labsTimeline: labsTl
+                labsHoverId: root.labsHoverId
+                labsSelId: root.labsSelId
+                onLabsHovered: (id, x, y) => {
+                    if (id !== "") {
+                        var q = lanesItem.mapToItem(root, x, y);
+                        root.labsCardX = q.x; root.labsCardY = q.y;
+                    }
+                    root.labsHoverId = id;
+                }
+                // A pick SEEKS to the observation's start, like a motion episode's, and
+                // keeps it marked on the lane.
+                onLabsPicked: (id, ms) => { root.labsSelId = id; root.seekToWall(ms); }
             }
 
             // Height grip: straddles the navigator's TOP edge, absolutely
@@ -3512,5 +3608,19 @@ Item {
                 nextAt = tick + 30;          // fixed dwell — bounds even a pathological open
             }
         }
+    }
+
+    // The hovered Labs observation's card: above the navigator, centred on its bar, kept
+    // inside the screen. The revision term re-reads the row when the lane's data changes.
+    LabsCard {
+        id: labsCard
+        z: 60
+        visible: root.showLabsLane && root.labsHoverId !== "" && obs.analyzer !== undefined
+        obs: root.labsHoverId !== "" ? (labsTl.revision, labsTl.observation(root.labsHoverId)) : ({})
+        x: Math.max(8, Math.min(root.width - width - 8, root.labsCardX - width / 2))
+        // Above the WHOLE navigator, over the picture: sitting just above its bar it covered
+        // the ribbon and the FOOTAGE / MOTION lanes of the very timeline being read.
+        // navigator.y / root.height are read so the binding re-runs when the layout moves.
+        y: Math.max(8, (navigator.y, root.height, navigator.mapToItem(root, 0, 0).y) - height - 8)
     }
 }

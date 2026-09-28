@@ -411,27 +411,13 @@ Item {
                 PrefRow {
                     label: qsTr("Labs events button in Playback (admin)")
                     desc: qsTr("Offers a button in single-camera Playback that shows or hides, on the timeline, the events the Labs analysers found. Only administrators see this setting.")
-                    ColumnLayout {
-                        spacing: 4
-                        Segmented {
-                            opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
-                            value: Settings.labsPlaybackButton
-                            segW: 56
-                            onPicked: (v) => Settings.labsPlaybackButton = v
-                        }
-                        // Only the SETTING exists so far (operator request 2026-09-28: "build
-                        // just this setting"). Say so while it is on, rather than leave a
-                        // switched-on control quietly doing nothing -- the rule the live-
-                        // transport note above follows.
-                        Text {
-                            visible: Settings.labsPlaybackButton
-                            Layout.maximumWidth: 320
-                            wrapMode: Text.WordWrap
-                            text: qsTr("Not in use yet: the Playback button itself is not built. "
-                                       + "Nothing changes on screen until it is.")
-                            color: Theme.warn
-                            font.family: Theme.fontSans; font.pixelSize: 11
-                        }
+                    // The button it offers is the LABS cell in single-camera Playback's
+                    // navigator header (PbNavHeader), which shows or hides the Labs lane.
+                    Segmented {
+                        opts: [{ k: qsTr("Off"), v: false }, { k: qsTr("On"), v: true }]
+                        value: Settings.labsPlaybackButton
+                        segW: 56
+                        onPicked: (v) => Settings.labsPlaybackButton = v
                     }
                 }
             }

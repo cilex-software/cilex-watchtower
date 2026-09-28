@@ -26,6 +26,10 @@ Item {
     property double markMs: -1         // marked-range duration, ms; <= 0 = no range
     property bool showMotion: true
     property bool showEvents: true
+    // LABS: offered only to administrators whose Preferences switch it on
+    // (PlaybackScreen.labsAllowed); absent otherwise -- not a disabled cell.
+    property bool labsAvailable: false
+    property bool showLabs: false
     property int spanMin: 60           // 15 / 60 / 360 / 720 / 1440
     signal pageRequested(int dir)      // -1 back, +1 forward, by one whole span
     // The same abbreviation the span chips use, so "< 1H" and the active "1H" chip
@@ -46,6 +50,7 @@ Item {
     signal clearMark()
     signal toggleMotion()
     signal toggleEvents()
+    signal toggleLabs()
     signal spanPicked(int minutes)
     signal fitRequested()
 
@@ -173,6 +178,14 @@ Item {
             label: qsTr("MOTION", "navigator toggle")
             tip: qsTr("Show or hide the motion lane")
             onActivated: hdr.toggleMotion()
+        }
+        Cell {
+            visible: hdr.labsAvailable
+            interactive: true; ghost: true; active: hdr.showLabs
+            labelColor: hdr.showLabs ? Theme.accent : Theme.ink3
+            label: qsTr("LABS", "navigator toggle")
+            tip: qsTr("Show or hide what the Labs analysers found on this camera (administrators only)")
+            onActivated: hdr.toggleLabs()
         }
         Cell {
             interactive: true; ghost: true; active: hdr.showEvents
