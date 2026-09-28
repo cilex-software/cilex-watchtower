@@ -46,22 +46,8 @@ Item {
     Timer { interval: 5000; running: root.visible && root.labs !== null; repeat: true; onTriggered: root.labs.refreshStation() }
 
     // ---- words -------------------------------------------------------------------
-    function title(slug) {
-        switch (slug) {
-        case "illumination":     return qsTr("Day / night");
-        case "frame_difference": return qsTr("Motion intensity");
-        case "camera_health":    return qsTr("Camera health");
-        case "foreground_mask":  return qsTr("Moving area");
-        case "blob_geometry":    return qsTr("Shapes of moving things");
-        case "colour_histogram": return qsTr("Colour");
-        case "optical_flow":     return qsTr("Direction of movement");
-        case "track_linking":    return qsTr("Tracks");
-        case "perceptual_hash":  return qsTr("Change detector");
-        case "audio_energy":     return qsTr("Sound");
-        case "image_embedding":  return qsTr("Image search");
-        default:                 return slug;
-        }
-    }
+    // One name per analyser, everywhere: LabsNames (the operator's names, 2026-09-29).
+    function title(slug) { return LabsNames.title(slug) }
     function blurb(slug) {
         switch (slug) {
         case "illumination":     return qsTr("Whether each hour was daylight, dusk, night or infrared.");

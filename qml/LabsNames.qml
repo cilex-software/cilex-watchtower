@@ -1,9 +1,12 @@
 pragma Singleton
 import QtQuick
 
-// The Labs analysers' names and colours on the Playback timeline: the Labs lane's row labels
-// and the observation card. Titles are the Labs screen's own (LabsScreen.title) so an
-// analyser is called ONE thing everywhere; the short forms fit the lane's 120-px label block.
+// The Labs analysers' names and colours: the Labs screen, its Statistics view, and the Playback
+// timeline's Labs lane and observation card all read them HERE, so an analyser is called ONE
+// thing everywhere. The names are the operator's (approved 2026-09-29, one set for Watchtower and
+// cilex-vision, whose services/query-api/labs_names.py carries the same table -- their letter
+// of that day); the short forms fit the lane's 120-px label block. Labels only: the slug is the
+// key everywhere, and nothing branches on a name.
 //
 // `keys` is the lane's ROW ORDER and must equal wtlabs::laneKeys() in
 // src/models/LabsTimelineData.h -- the painter draws row i from that list, and this file
@@ -35,13 +38,16 @@ QtObject {
         case "illumination":     return qsTr("Day / night");
         case "frame_difference": return qsTr("Motion intensity");
         case "camera_health":    return qsTr("Camera health");
-        case "foreground_mask":  return qsTr("Moving area");
-        case "blob_geometry":    return qsTr("Shapes of moving things");
+        case "foreground_mask":  return qsTr("Objects in view");
+        case "blob_geometry":    return qsTr("Object shapes");
         case "colour_histogram": return qsTr("Colour");
         case "optical_flow":     return qsTr("Direction of movement");
-        case "track_linking":    return qsTr("Tracks");
-        case "perceptual_hash":  return qsTr("Change detector");
+        case "track_linking":    return qsTr("Paths");
+        // It finds a FROZEN feed (frames identical bit for bit); "Change detector" said the
+        // opposite of what it finds (the operator's reason for the rename, 2026-09-29).
+        case "perceptual_hash":  return qsTr("Frozen picture");
         case "audio_energy":     return qsTr("Sound");
+        case "image_embedding":  return qsTr("Similar pictures");
         default:                 return k;
         }
     }
@@ -51,13 +57,14 @@ QtObject {
         case "illumination":     return qsTr("DAY / NIGHT", "labs lane label");
         case "frame_difference": return qsTr("INTENSITY", "labs lane label");
         case "camera_health":    return qsTr("HEALTH", "labs lane label");
-        case "foreground_mask":  return qsTr("MOVING AREA", "labs lane label");
+        case "foreground_mask":  return qsTr("OBJECTS", "labs lane label");
         case "blob_geometry":    return qsTr("SHAPES", "labs lane label");
         case "colour_histogram": return qsTr("COLOUR", "labs lane label");
         case "optical_flow":     return qsTr("DIRECTION", "labs lane label");
-        case "track_linking":    return qsTr("TRACKS", "labs lane label");
-        case "perceptual_hash":  return qsTr("CHANGE", "labs lane label");
+        case "track_linking":    return qsTr("PATHS", "labs lane label");
+        case "perceptual_hash":  return qsTr("FROZEN", "labs lane label");
         case "audio_energy":     return qsTr("SOUND", "labs lane label");
+        case "image_embedding":  return qsTr("SIMILAR", "labs lane label");
         default:                 return k.toUpperCase();
         }
     }

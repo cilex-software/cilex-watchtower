@@ -5,6 +5,23 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: ONE SET OF ANALYSER NAMES -->
+> **2026-09-29 — Labs analysers have one set of names, the operator's**, shared with cilex-vision
+> (their `labs_names.py`, relayed ~01:35 MSK).
+> - **Renamed:** Moving area → **Objects in view** (Объекты в кадре); Shapes of moving things →
+>   **Object shapes** (Формы объектов); Tracks → **Paths** (Маршруты); Change detector → **Frozen
+>   picture** (Зависший кадр; it finds a frozen feed, the opposite of "change"). Image search →
+>   **Similar pictures** (Похожие кадры).
+> - **Lane labels:** OBJECTS / PATHS / FROZEN / SIMILAR (ОБЪЕКТЫ / МАРШРУТЫ / ЗАВИСАНИЕ / ПОХОЖИЕ).
+>   Screenshotted: every label fits the 120-px block in EN and RU.
+> - **`qml/LabsNames.qml` is now the ONLY place a name lives.** The Labs screen's duplicate list is
+>   gone (`LabsScreen.title()` asks `LabsNames`). The slug stays the key; nothing branches on a name.
+> - The server's new `name`/`short_name` fields (with v17) carry the same table; the app keeps its
+>   own copy, because the Playback lane has no analyser data from the server.
+> - **Office live:** worker-0.3.2 since 01:40 MSK, its wall guard started first (01:38:48), psutil
+>   installed. Per the Windows agent: governed, running, no report error. The booth still waits
+>   for the operator's go.
+
 <!-- 2026-09-28 LABS: STATISTICS VIEW -->
 > **2026-09-28 — The Labs screen has a Statistics view** (operator request, same day). An
 > **Analysers | Statistics** switch sits above the table. Statistics shows, per analyser, a stacked
