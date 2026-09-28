@@ -18,9 +18,9 @@
 >   Start on the machine itself). No install starts scanning by itself.
 > - **Labs gets only CPU that nobody else is using**, as the Linux unit already does (`Nice=19`,
 >   CPU and IO scheduling class `idle`). Every platform matches that.
-> - **A machine with no worker is an incomplete install, not "not a station".** The Labs screen's
->   `absent` line ("install the Labs worker service on this machine") now names an installer
->   fault, not an errand for the operator.
+> - **A machine with no worker is an incomplete install, not "not a station".** When the Labs
+>   screen says "No Labs scanner has run on this computer", that is an installer fault, not an
+>   errand for the operator.
 >
 > **Per machine, as recorded in this file on 2026-09-28:**
 >
@@ -52,10 +52,20 @@
 > - **cilex-vision:** confirm that a station the server has never heard from starts **stopped**,
 >   and does not inherit a Start given at a higher level. Otherwise "dormant until the operator
 >   says" does not hold for a fresh install.
-> - **Linux agent, Labs screen:** where no worker runs, the station button is still offered.
->   `LabsScreen.qml:229` shows it whenever `labs` exists; ungoverned, it calls
->   `setStationPaused(false)`, which writes `control.json` and flips the button to "Pause scanning",
->   with nothing there to read it. Hide it there, and reword `absent` as above.
+> - **Labs screen: FIXED the same day by the macOS agent** (the operator: "this is a bug and has to
+>   be fixed"). It was listed here for the Linux agent. Where no worker ran, the station button was
+>   still offered; ungoverned, it wrote `control.json` for nobody and flipped to "Pause scanning".
+>   Now the button shows only while a scanner that can work runs here (`LabsStation.h`
+>   `Station::switchable`: a fresh status, not `stopped`, `unreadable` or `fatal`), or to release
+>   a hold. `absent` reads "No Labs scanner has run on this computer · Start and Pause appear here
+>   once the scanner runs".
+>   - Verified: `labs-station.cpp` 46 → 55 checks, and six mutants of the rule, every one killed.
+>     The strip was rendered in eight states, EN and RU, from the real `LabsScreen.qml` with a
+>     stub model (the `qml` tool, offscreen).
+>   - Not run: the full app, because the operator's soak instance was live. On macOS a second
+>     instance shares its QSettings through cfprefsd; `HOME` and `CFFIXED_USER_HOME` do not
+>     isolate it (measured: a probe key written that way landed in the real
+>     `~/Library/Preferences`). Also not run: the Linux and Windows builds.
 > - **macOS agent:** proposed default for a laptop: claim nothing while on battery. Not built yet.
 
 <!-- 2026-09-28 LABS: worker-0.3.1 -->

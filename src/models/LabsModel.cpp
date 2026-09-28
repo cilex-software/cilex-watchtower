@@ -182,6 +182,7 @@ void LabsModel::refreshStation()
     m[QStringLiteral("controlWhy")] = c.why;
     m[QStringLiteral("cameraHealth")] = c.cameraHealth;
     m[QStringLiteral("governed")] = s.governed && !s.stale;
+    m[QStringLiteral("switchable")] = s.switchable;
     m[QStringLiteral("serverMode")] = s.serverMode;
     m[QStringLiteral("serverLevel")] = s.serverLevel;
     m[QStringLiteral("serverAt")] = s.serverAt;

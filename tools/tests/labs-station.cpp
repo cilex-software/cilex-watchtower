@@ -286,12 +286,14 @@ int main(int argc, char **argv)
     const QDateTime now = QDateTime::fromString("2026-09-26T17:00:00Z", Qt::ISODate);
     auto s = wtlabs::readStation(dir, now);
     ok(!s.present && s.view == "absent", "no status file: \"absent\" (scanning not set up here)");
+    ok(!s.switchable, "...and NOT switchable: no Start / Pause where no scanner has run (operator 2026-09-28)");
     writeFile(stp, R"({"state":"running","updated_at":"2026-09-26T16:59:30Z","current":"illumination",
                       "registered":["illumination","camera_health"],"skipped":["frame_difference"],
                       "totals":{"done":3},"last_unit":{"analyzer":"illumination","outcome":"done"}})");
     s = wtlabs::readStation(dir, now);
     ok(s.present && !s.stale && s.ageS == 30 && s.view == "running" && s.current == "illumination",
        "a 30 s old `running` is believed");
+    ok(s.switchable, "...and a scanner running here can be switched");
     ok(s.registered.size() == 2 && s.skipped == QStringList{"frame_difference"}
        && s.totals.value("done").toInt() == 3 && s.lastUnit.value("outcome") == "done",
        "registered, skipped, totals and the last unit come through");
@@ -299,15 +301,28 @@ int main(int argc, char **argv)
     s = wtlabs::readStation(dir, now);
     ok(s.stale && s.view == "not_running" && s.ageS == 121,
        "121 s without a heartbeat: \"not_running\", whatever it last claimed");
+    ok(!s.switchable, "...and is not switchable: nothing here is listening");
     writeFile(stp, R"({"state":"stopped","updated_at":"2026-09-20T00:00:00Z"})");
     s = wtlabs::readStation(dir, now);
     ok(s.view == "stopped", "a worker that SAID it stopped stays \"stopped\", however old");
+    ok(!s.switchable, "...and a stopped scanner is not switchable");
+    writeFile(stp, R"({"state":"stopped","updated_at":"2026-09-26T16:59:50Z"})");
+    s = wtlabs::readStation(dir, now);
+    ok(!s.stale && !s.switchable, "...not even a FRESH `stopped`: the process has ended");
+    writeFile(stp, R"({"state":"fatal","updated_at":"2026-09-26T16:59:30Z","note":"no STATION_TOKEN"})");
+    s = wtlabs::readStation(dir, now);
+    ok(s.view == "fatal" && !s.stale && !s.switchable,
+       "a fresh `fatal` is running but NOT switchable: it cannot scan until its note is fixed");
+    writeFile(stp, R"({"updated_at":"2026-09-26T16:59:30Z"})");
+    s = wtlabs::readStation(dir, now);
+    ok(s.present && s.view == "unreadable" && !s.switchable, "a fresh status with no state: unreadable, not switchable");
     writeFile(stp, R"({"state":"running"})");
     s = wtlabs::readStation(dir, now);
     ok(s.stale && s.view == "not_running", "a status with no readable time vouches for nothing");
     writeFile(stp, "garbage");
     s = wtlabs::readStation(dir, now);
     ok(s.view == "unreadable", "an unreadable status file says so");
+    ok(!s.switchable, "...and is not switchable");
     writeFile(stp, R"({"state":"stopped_by_server","updated_at":"2026-09-26T16:59:30Z","governed":true,
                       "server_mode":"stopped","server_level":"all","server_at":"2026-09-26T16:00:00Z",
                       "lanes":{"illumination":"running","blob_geometry":"paused"},
@@ -316,6 +331,7 @@ int main(int argc, char **argv)
     ok(s.governed && s.serverMode == "stopped" && s.serverLevel == "all" && s.view == "stopped_by_server"
        && s.lanes.value("blob_geometry").toString() == "paused" && s.hold.value("why").toString() == "stall 3 s",
        "a GOVERNED status reads through: the server's mode, level and lanes, and the hold");
+    ok(s.switchable, "a fresh governed scanner the SERVER stopped is switchable: Start asks the server");
     writeFile(stp, R"({"state":"running","updated_at":"2026-09-26T16:59:30Z"})");
     {
         Unopenable lock(stp);

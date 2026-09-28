@@ -7,7 +7,7 @@ _Durable implementation reference. Pairs with [PROJECT_STATUS.md](PROJECT_STATUS
 - **UI**: Qt **6.12** (primary) / **6.8.3 LTS** (fallback) + Qt Quick / QML (GPU scene-graph compositing). Ubuntu 24.04's system Qt **6.4.2 is BANNED** — the CMake floor is 6.8, so it can't even configure (it has a QtMultimedia libsoup-SIGSEGV on playback seeks, a VideoOutput memory leak, and a GridLayout SIGSEGV — see Build and Gotchas). The React prototype in `designs/` is recreated **visually** in QML — JSX is not reused.
 - **Core**: C++17.
 - **Video**: QtMultimedia `MediaPlayer` + `VideoOutput` (QML) on Qt's **FFmpeg** media backend (default ≥6.5; FFmpeg 7.1.x), **VA-API HW decode** (confirmed on Intel Alder Lake-S iGPU, iHD driver). The opt-in low-latency LIVE path (`RtspVideoSource`) drives a custom GStreamer pipeline; recorded PLAYBACK uses the FFmpeg backend. See "qml6glsink" gotcha below.
-- **Persistence**: two stores — `QSettings` (INI) for small operator state (prefs, event acks, saved views), and **SQLite** via `CameraStore` for the local camera inventory at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`. Groups, events, and footage are not persisted locally — they come live from cilex-vision.
+- **Persistence**: two stores — `QSettings` (the native format, since nothing in `src/` sets another: an INI file on Linux, a CFPreferences plist `com.cilex-vision.Watchtower` on macOS, the registry on Windows) for small operator state (prefs, event acks, saved views), and **SQLite** via `CameraStore` for the local camera inventory at `<AppDataLocation>/Cilex Vision/Watchtower/watchtower.db`. Groups, events, and footage are not persisted locally — they come live from cilex-vision.
 - **Network**: `QNetworkAccessManager` (Qt6::Network) for cilex-vision auth + APIs.
 - **Build**: CMake + Ninja.
 
@@ -467,6 +467,19 @@ Next.js browser proxy prefix — backend routes are unprefixed (`/review/…`, `
   Caught by cilex-vision asking me to re-derive my own figure, having quoted it without
   checking. Re-running my query would have reproduced it perfectly; what caught it was
   computing the denominator a different way.
+- **On macOS a second Watchtower instance shares the running one's settings.** There,
+  `QSettings` is a CFPreferences plist served by `cfprefsd`, and neither `HOME=` nor
+  `CFFIXED_USER_HOME=` redirects it. Measured 2026-09-28 on macOS 26: a probe key written with
+  `CFFIXED_USER_HOME` set landed in the real `~/Library/Preferences`. So a test instance started
+  beside the operator's (with `WT_TEST_QML`, say) reads the operator's session and can write
+  into the live app's settings. For a screen that needs only this module's QML, render it with
+  Qt's `qml` tool and a stub model instead:
+  - a scratch `qmldir` naming what the screen imports (`singleton Theme 1.0 Theme.qml`, the screen);
+  - `QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software qml -I <dir> harness.qml`, the harness
+    saving `grabToImage` and quitting;
+  - `--translation build-macos/watchtower_ru.qm` for Russian.
+  The Labs station strip was verified this way (2026-09-28, `LabsStation.h` `switchable`).
+
 ## `motion_events` is 79.1 % of the database — and which denominator, exactly
 
 Three denominators are defensible-looking and one is not. Measured 2026-09-23:

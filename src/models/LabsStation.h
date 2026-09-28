@@ -220,6 +220,14 @@ struct Station {
     bool governed = false;
     QString serverMode, serverLevel, serverAt, reportError;
     QVariantMap lanes, hold;
+    // Whether Start / Resume / Pause can change what THIS computer does. It needs a worker
+    // running here now, a fresh status in a live state, that is able to work. With none, the
+    // button changed a file (or a server mode) that nothing on this computer acts on, and
+    // flipped to "Pause scanning" anyway: operator 2026-09-28, "this is a bug and has to be
+    // fixed". `fatal` runs but cannot scan until the fault in its note is fixed, whatever the
+    // switch says. Releasing a HOLD is not gated on this: the hold is in the control file,
+    // and the screen shows it gone at once.
+    bool switchable = false;
 };
 
 inline Station readStation(const QString &dir, const QDateTime &nowUtc)
@@ -272,6 +280,8 @@ inline Station readStation(const QString &dir, const QDateTime &nowUtc)
         s.view = QStringLiteral("not_running");
     else
         s.view = s.state.isEmpty() ? QStringLiteral("unreadable") : s.state;
+    s.switchable = !s.stale && s.view != QLatin1String("stopped")
+                   && s.view != QLatin1String("unreadable") && s.view != QLatin1String("fatal");
     return s;
 }
 

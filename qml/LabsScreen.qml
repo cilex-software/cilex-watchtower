@@ -90,7 +90,7 @@ Item {
     }
     function stationText() {
         switch (st.view) {
-        case "absent":      return qsTr("Scanning is not set up on this station");
+        case "absent":      return qsTr("No Labs scanner has run on this computer");
         case "unreadable":  return qsTr("The scanner's status file cannot be read");
         case "not_running": return qsTr("Not running — last heard from %1").arg(ago(st.ageS));
         case "stopped":     return qsTr("Stopped");
@@ -132,7 +132,10 @@ Item {
                      : lu.outcome === "failed" ? qsTr("filed as failed") : qsTr("given back");
             bits.push(qsTr("last: %1 · %2 · %3").arg(title(lu.analyzer)).arg(lu.camera_id || "").arg(what));
         }
-        if (st.view === "absent") bits.push(qsTr("install the Labs worker service on this machine"));
+        // Why the Start / Pause button is missing (st.switchable): nothing here would act on it.
+        if (st.view === "absent") bits.push(qsTr("Start and Pause appear here once the scanner runs"));
+        else if (st.view === "stopped" || st.view === "not_running")
+            bits.push(qsTr("Start and Pause appear here once the scanner runs again"));
         return bits.join("  ·  ");
     }
 
@@ -225,8 +228,11 @@ Item {
                 //    SERVER, for this workstation: Start / Pause, admin, audited there;
                 //  * otherwise the local flag, as before: Pause for anyone (always safe),
                 //    Resume for administrators (it spends this station's CPU).
+                // Start / Resume / Pause only while a scanner that can work runs HERE
+                // (st.switchable, LabsStation.h). Without one, the button wrote control.json
+                // for nobody and flipped to "Pause scanning" (operator 2026-09-28: a bug).
                 Btn {
-                    visible: root.labs !== null
+                    visible: root.labs !== null && (held || root.st.switchable === true)
                     readonly property bool held: !!(root.st.hold && root.st.hold.why)
                     readonly property bool gov: root.st.governed === true
                     readonly property bool paused: gov ? root.st.serverMode !== "running" : root.st.paused !== false
@@ -320,7 +326,7 @@ Item {
                     value: (root.st.present && t && root.known(t.done)) ? root.num(t.done) : "—"
                     unit: (root.st.present && t && root.known(t.failed) && t.failed > 0) ? qsTr("+%1 failed").arg(t.failed) : ""
                     label: qsTr("Done by this station")
-                    tip: root.st.present ? qsTr("Since the scanner last started") : qsTr("Scanning is not set up on this station")
+                    tip: root.st.present ? qsTr("Since the scanner last started") : root.stationText()
                 }
             }
         }
