@@ -219,15 +219,16 @@ c = Fake(units={"illumination": [unit()]},
          segs={("cam-a", "2026-09-24T10:00:00Z"): [seg(1)]})
 slept = []
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
-check("a bare 500 at claim is UNREACHABLE (next pass), not FATAL -- and not re-asked in place",
-      rep.unreachable is not None and rep.fatal is None and slept == [] and c.claims == ["illumination"],
-      f"unreachable={rep.unreachable!r} fatal={rep.fatal!r} slept={slept} claims={c.claims}")
+check("a bare 500 at claim is BUSY (it answered; next pass) -- not FATAL, not 'unreachable', not re-asked in place",
+      rep.busy is not None and rep.unreachable is None and rep.fatal is None and slept == []
+      and c.claims == ["illumination"],
+      f"busy={rep.busy!r} unreachable={rep.unreachable!r} fatal={rep.fatal!r} slept={slept} claims={c.claims}")
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=slept.append)
 check("...and the next pass claims and submits as normal", rep.submitted == 1 and rep.fatal is None, str(rep))
 c = Fake(refuse={("claim", "illumination"): [R(500, "something_new")]})
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={})
 check("...while a CODED unknown 500 at claim is still FATAL, never guessed at",
-      rep.fatal is not None and rep.unreachable is None)
+      rep.fatal is not None and rep.unreachable is None and rep.busy is None)
 
 c = Fake(units={"illumination": [unit()]})
 rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, gate=lambda: False)
@@ -1349,6 +1350,91 @@ o, b = run_scene(CHP, *scene(moving=True, ir=True))
 m = ((b.get("observations") or [{}])[0]).get("metrics", {})
 check("control: B7 under IR says so (gate=ir) and names no colour", m.get("gate") == "ir" and "colour" not in m, str(m)[:200])
 
+# A JOIN THAT RUNS BACK BY A SECOND OR LESS IS THE CATALOGUE'S ROUNDING (2026-09-28).
+# start_time is the recorder's whole-second file name, so a segment can be catalogued
+# before its predecessor's last frame. The office's colour_histogram unit
+# (hiwatch-083bc1df39e9, 02:00Z) failed on exactly that, every retry: "frame 100: t_s
+# 89.000 is before the previous frame's 89.126". Reproduced on the real footage here.
+def _seg_at(sid, start_s, dur=30.0):
+    st = _dt(2026, 9, 28, 2, 7, tzinfo=_tz.utc) + _td(seconds=start_s)
+    return W.Segment(sid, f"http://x/{sid}", st.isoformat(), (st + _td(seconds=dur)).isoformat(),
+                     dur, 1000, "sub", 640, 360, "h264")
+class _At:                                  # a frame: offset from ITS segment's first frame
+    def __init__(self, t): self.t_offset_s, self.luma, self.u, self.v = t, None, None, None
+def _times(win, moved=None):
+    """The window's times -- or, if it raised, the error as a string (so a regression
+    FAILS its check by name instead of crashing the suite)."""
+    try:
+        return [t for t, _ in P._window_frames(win, planes=False, moved=moved)]
+    except ValueError as e:
+        return f"raised: {e}"
+def _near(a, b):
+    return isinstance(a, list) and len(a) == len(b) and all(abs(x - y) < 1e-9 for x, y in zip(a, b))
+
+# The office's numbers: the third segment's last frame is 60 + 29.126 = 89.126, and the
+# fourth is catalogued at +89 s, so its first frame reads 89.000.
+_mv = []
+_ts = _times([(_seg_at("a", 0), [_At(0.0), _At(29.0)]), (_seg_at("b", 30), [_At(0.0), _At(29.0)]),
+              (_seg_at("c", 60), [_At(0.0), _At(29.126)]),
+              (_seg_at("d", 89), [_At(0.0), _At(1.0), _At(29.5)])], _mv)
+check("join: the office's case -- a segment catalogued 0.126 s before the previous frame is moved "
+      "later WHOLE: its first frame level with that frame, its own spacing kept",
+      _near(_ts[6:], [89.126, 90.126, 118.626]) and len(_mv) == 1 and _mv[0][0] == "d"
+      and abs(_mv[0][1] - 0.126) < 1e-9, f"{_ts} {_mv}")
+check("join: segments that do not run back are NOT moved (start + offset, exactly)",
+      _near(_ts[:6], [0.0, 29.0, 30.0, 59.0, 60.0, 89.126]), str(_ts))
+_mv = []
+_ts = _times([(_seg_at("a", 0), [_At(0.0), _At(29.95)]), (_seg_at("b", 30), [_At(0.0), _At(1.0)])], _mv)
+check("join: a join that steps FORWARD, however little (0.05 s), is left alone",
+      _near(_ts, [0.0, 29.95, 30.0, 31.0]) and _mv == [], f"{_ts} {_mv}")
+_mv = []
+_ts = _times([(_seg_at("a", 0), [_At(0.0), _At(29.4)]), (_seg_at("b", 29), [_At(0.0), _At(29.4)]),
+              (_seg_at("c", 58), [_At(0.0), _At(29.4)])], _mv)
+check("join: a chain -- the next segment runs back behind a MOVED one, and is moved by what IT needs",
+      _near(_ts, [0.0, 29.4, 29.4, 58.8, 58.8, 88.2])
+      and [s for s, _ in _mv] == ["b", "c"] and _near([b for _, b in _mv], [0.4, 0.8]), f"{_ts} {_mv}")
+_mv = []
+_ts = _times([(_seg_at("a", 0), [_At(0.0), _At(30.0)]), (_seg_at("b", 29), [_At(0.0)])], _mv)
+check("join: exactly one second back is still the rounding (cilex-vision's bound: <= 1 s)",
+      _near(_ts, [0.0, 30.0, 30.0]) and len(_mv) == 1, f"{_ts} {_mv}")
+_why = _times([(_seg_at("a", 0), [_At(0.0), _At(29.5)]), (_seg_at("e", 28), [_At(0.0)])])
+check("join: MORE than a second back is not the rounding -- refused, naming the segment",
+      isinstance(_why, str) and "segment e starts 1.500 s before" in _why, str(_why))
+_ts = _times([(_seg_at("a", 0), [_At(0.0), _At(5.0), _At(4.0)])])
+_lum = np.zeros((36, 64), np.uint8)
+try:
+    list(FMM.iter_masks(((t, _lum) for t in _ts)))
+    _why = None
+except ValueError as e:
+    _why = str(e)
+check("join: a step back INSIDE a segment is not touched -- it is the decoder's, and B3 still refuses it",
+      _near(_ts, [0.0, 5.0, 4.0]) and _why is not None and "before the previous frame" in _why,
+      f"{_ts} {_why}")
+
+def _early(segs_, early):
+    """The scene's segments with some catalogued `early` seconds before their true
+    start -- what whole-second rounding does -- and end_time = start + duration, as the
+    recorder writes it (recorder-service main.py:607)."""
+    out = []
+    for s in segs_:
+        d = early.get(s.segment_id, 0.0)
+        st = _dt.fromisoformat(s.start_time) - _td(seconds=d)
+        out.append(W.Segment(s.segment_id, s.fetch_url, st.isoformat(),
+                             (st + _td(seconds=s.duration_s)).isoformat(), s.duration_s,
+                             s.bytes, s.stream_type, s.width, s.height, s.codec))
+    return out
+# 32 keyframes per 30 s segment: the last one 29.0625 s in, so a segment catalogued a
+# second early reads 0.0625 s behind its predecessor's last frame.
+_sg, _fr = scene(moving=True, per_seg=32)
+_sg = _early(_sg, {"seg-1": 1.0, "seg-3": 1.0})
+for _plug, _label in ((FMP, "B3"), (CHP, "B7")):
+    o, b = run_scene(_plug, _sg, _fr)
+    _rows = b.get("observations") or []
+    check(f"join: {_label} files its window when joins run back by the rounding (it FAILED, every retry)",
+          not b.get("failed") and len(_rows) == 1 and o.segments_scanned == 4
+          and _rows[0]["start_time"].startswith("2026-09-26T01:10:00"),
+          f"failed={b.get('failed')} {str(b.get('error'))[:160]} rows={len(_rows)}")
+
 CHM = P.CameraHealthPlugin()
 st = {}
 o, b = run_scene(CHM, *scene(moving=False, n_segs=4, per_seg=8), hour="2026-09-26T01:00:00Z", states=st)
@@ -1559,8 +1645,8 @@ c.refuse = {("claim", "illumination"): [W._refusal_from(500, b"Internal Server E
 hb, clk = HbRec(), Clock()
 RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
               sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: a bare claim 500 shows as UNREACHABLE, says what happened, and waits a MINUTE, not ten",
-      hb.fields.get("state") == "unreachable" and "no code" in (hb.fields.get("note") or "")
+check("loop: a bare claim 500 shows as BUSY (the server answered), says what happened, and waits a MINUTE, not ten",
+      hb.fields.get("state") == "busy" and "no code" in (hb.fields.get("note") or "")
       and RW2.UNREACHABLE_S - RW2.PAUSED_POLL_S <= clk.t < RW2.FATAL_S - RW2.PAUSED_POLL_S,
       f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
 
@@ -1810,9 +1896,9 @@ check("claim: a lane that is not running is SKIPPED this pass (not fatal, not re
       rep.not_running == ["illumination"] and not rep.fatal and not rep.unreachable and c.claims == ["illumination"],
       f"{rep.not_running} {rep.fatal} {c.claims}")
 c, rep = _claim_refused(R(503, "labs_busy", True))
-check("claim: labs_busy ends the pass for a minute -- asked ONCE, never re-asked in place",
-      rep.unreachable and "busy" in rep.unreachable and not rep.fatal and c.claims == ["illumination"],
-      f"{rep.unreachable} {c.claims}")
+check("claim: labs_busy ends the pass for a minute as BUSY, not 'unreachable' -- asked ONCE, never re-asked in place",
+      rep.busy and "busy" in rep.busy and not rep.unreachable and not rep.fatal and c.claims == ["illumination"],
+      f"busy={rep.busy} unreachable={rep.unreachable} {c.claims}")
 c, rep = _claim_refused(R(409, "labs_worker_not_reporting"))
 check("claim: 'not reporting' is said as such (report, then retry soon), not as a fault",
       rep.not_reporting and not rep.fatal and c.claims == ["illumination"], f"{rep.not_reporting} {rep.fatal}")
@@ -2000,6 +2086,37 @@ RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambd
               sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
 check("governed: camera_health still needs THIS station's opt-in (one station only; the server does not enforce it)",
       c.claims == ["illumination"], str(c.claims))
+
+# A NEW REASON NOT TO CLAIM IS SHOWN AT ONCE. Measured on the pilot at the 2026-09-28
+# deploy: the server governed and said "stopped", while the status file -- and the reports
+# -- still said the old local "paused". The wait woke only when claiming became ALLOWED,
+# so a change from one "not allowed" to another waited out RECHECK_S (15 min).
+class _Flip(_Gov):
+    """Not governed until the clock reaches `at_s` (the deploy); then stopped by the server."""
+    def __init__(self, clk, at_s):
+        super().__init__("stopped", {"illumination": "stopped"}, level="station", at="2026-09-28T05:46:57Z")
+        self.clk, self.at_s = clk, at_s
+    def governed(self): return self.clk.t >= self.at_s
+class _HbT(HbRec):
+    def __init__(self, clk): super().__init__(); self.clk = clk; self.when = []
+    def update(self, **kw):
+        super().update(**kw)
+        if "state" in kw: self.when.append((self.clk.t, kw["state"]))
+c, plugs = loop_world(["illumination"])
+clk = Clock(); g = _Flip(clk, 10.0); hb = _HbT(clk)
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
+              sleep=clk.sleep, clock=clk.now, passes=2, reporter=g)
+_first = next((t for t, w in hb.when if w == "stopped_by_server"), None)
+check("paused locally, then the server governs with 'stopped': the status says so within one poll, not 15 min later",
+      c.claims == [] and _first is not None and _first < 10.0 + RW2.PAUSED_POLL_S + RW2.GOVERNED_POLL_S
+      and "stopped" in g.states[g.states.index("paused"):], f"{hb.when} {g.states}")
+c, plugs = loop_world(["illumination"])
+clk = Clock(); hb = _HbT(clk)
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
+              sleep=clk.sleep, clock=clk.now, passes=2)
+check("control: an UNCHANGED reason still waits the full recheck -- no busy loop",
+      [w for _, w in hb.when] == ["paused", "paused"] and hb.when[1][0] >= RW2.RECHECK_S - RW2.PAUSED_POLL_S,
+      str(hb.when))
 
 # ---- the CLI --------------------------------------------------------------------------------
 import argparse as _ap

@@ -5,6 +5,45 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-28 LABS: worker-0.3.1 -->
+> **2026-09-28 — worker-0.3.1: segment joins, "busy", and a stale state word.**
+>
+> - **foreground_mask and colour_histogram failed some hours on every retry.** The office
+>   reported colour_histogram on hiwatch-083bc1df39e9, 02:00Z: `frame 100: t_s 89.000 is before
+>   the previous frame's 89.126`. Cause, confirmed by cilex-vision: `start_time` is the recorder's
+>   whole-second file name (recorder-service `main.py:255`, parsed at `:545-553`), and `end_time`
+>   is that start plus the measured duration (`:607`). So each segment sits early by its own
+>   fraction of a second, and a join can run back by under one.
+>   **Rule** (`plugins._window_frames`, `JOIN_SLACK_S = 1.0`): a segment whose first frame falls
+>   ≤ 1 s behind the previous frame is moved later **whole**, its own spacing kept, until that frame
+>   is level with the previous one. B3 reads that zero step as a duplicate, not an interval. Further
+>   back than 1 s is refused, with the segment named. A step back **inside** a segment is not
+>   touched (B3 still refuses it).
+> - **Measured on the real hour, read-only on this box** (catalogue SELECT, filer GETs, fake
+>   client; nothing claimed or submitted):
+>   - old code, both analysers: failed after 72 of 120 segments, with the office's exact message;
+>   - new code: 120/120 segments and 30 rows each, 2 segments moved, by at most 0.126 s;
+>   - CPU for that hour: colour 129.5 s, fm 105.6 s (nice 19).
+> - **The other analysers** (read, not run): track_linking already shifts such segments in its own
+>   clock (`labs_track_linking.SegmentClock`). perceptual_hash starts a new chain on a step back.
+>   It does not fail, but a no-change run is cut at such a join (inferred, not measured; it is
+>   cilex-vision's code). The rest do not compare times across a join.
+> - **"busy" is its own state.** A claim answered 503 `labs_busy`, or a 5xx with no code, used to
+>   show "Cannot reach the server" on the Labs screen, though the server had replied. Now:
+>   "The server is busy — will retry" / «Сервер занят — повторим попытку». Same one-minute wait.
+>   Screenshotted in EN and RU.
+> - **The status word followed the server late.** Measured on the pilot at 08:49:59 MSK, after the
+>   deploy: governed, `server_mode: "stopped"`, `report_error: null`, but the state still said
+>   the old local "paused", and so did its reports to the server. The wait woke only when claiming
+>   became *allowed*, so a new *reason* not to claim waited out `RECHECK_S` (15 min). It now wakes
+>   on either.
+> - **Verified:**
+>   - `labs-worker.py`: 298 checks, 11 new; 14 mutants, every one killed;
+>   - `build` and `build68` compile.
+>
+> **Not yet verified:** 0.3.1 running as the live worker (a restart picks it up); the
+> control-plane live test (Start → claim → Stop) waits on the operator.
+
 <!-- 2026-09-28 LABS: THE SERVER'S CONTROL PLANE (worker-0.3) -->
 > **2026-09-28 — worker-0.3: cilex-vision's Labs control plane, station side.** The server deploys
 > after 08:45 MSK. The worker **reports itself every ~2 s** (`POST /labs/station/report`: state,

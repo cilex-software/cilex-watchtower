@@ -208,7 +208,8 @@ struct Station {
     bool present = false;
     bool stale = false;
     qint64 ageS = -1;
-    QString state;   // the worker's own: starting|paused|running|idle|unreachable|fatal|stopped
+    QString state;   // the worker's own: starting|paused|running|idle|unreachable|busy|fatal|stopped
+                     // | governed (2026-09-28): stopped_by_server|waiting|held
     QString view;    // what the screen shows: absent|unreadable|not_running|stopped|<state>
     QString note, current, updatedAt, startedAt, host, workerVersion, serverVersion;
     QVariantMap lastUnit, totals;

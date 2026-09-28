@@ -50,7 +50,10 @@ from typing import Callable, Iterable, Optional, Protocol
 
 # 0.2 (2026-09-26): keyframe times are each key packet's own PTS (frame_source 4f94847),
 # no longer a per-segment constant step that was up to 2.5 s off. Every row says which.
-WORKER_VERSION = "worker-0.3"
+# 0.3 (2026-09-28): the station side of cilex-vision's Labs control plane.
+# 0.3.1 (2026-09-28): foreground_mask and colour_histogram no longer fail an hour whose
+# segment joins run back by the catalogue's whole-second rounding (plugins.JOIN_SLACK_S).
+WORKER_VERSION = "worker-0.3.1"
 
 
 # ----------------------------------------------------------------------------------
@@ -1044,8 +1047,12 @@ class RunReport:
     # `fatal` means THIS STATION is broken (a bad token): retrying changes nothing.
     # `unreachable` means the server did not answer for longer than the backoff
     # covers: a deploy that ran long, an outage. The next pass may simply work.
-    # Also a claim answered with a 5xx and no code: the server failing, not refusing.
     unreachable: Optional[str] = None
+    # The server ANSWERED but could not serve the claim now: 503 labs_busy (its claim scan
+    # timed out) or a 5xx with no code (the server failing, not refusing). Kept apart from
+    # `unreachable` because the Labs screen shows it: "cannot reach the server" is not true
+    # of a server that has just replied. Same wait (the next pass, a minute on).
+    busy: Optional[str] = None
     outcomes: list = field(default_factory=list)
     # The control plane (2026-09-28): lanes the server says are not running, a claim refused
     # because this station's reports are not arriving, and units taken back mid-run.
@@ -1082,7 +1089,7 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                 elif a is Action.NOT_RUNNING:
                     rep.not_running.append(plugin.name); units = []
                 elif a is Action.SERVER_BUSY:
-                    rep.unreachable = f"claim {plugin.name}: the server is busy ({r}) -- trying again in a minute"
+                    rep.busy = f"claim {plugin.name}: the server is busy ({r}) -- trying again in a minute"
                     return rep
                 elif a is Action.NOT_REPORTING:
                     rep.not_reporting = True
@@ -1099,8 +1106,8 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                     # its limit gets one claim a minute. A timeout can land after the lease
                     # is written, and that unit is swept as "lease expired" whichever wait
                     # follows, so the shorter wait orphans nothing more.
-                    rep.unreachable = (f"claim {plugin.name}: the server answered HTTP {r.status} "
-                                       "with no code (not a refusal) -- trying again in a minute")
+                    rep.busy = (f"claim {plugin.name}: the server answered HTTP {r.status} "
+                                "with no code (not a refusal) -- trying again in a minute")
                     return rep
                 elif a is Action.FATAL:
                     rep.fatal = str(r); return rep

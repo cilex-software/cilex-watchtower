@@ -238,7 +238,11 @@ def scan_loop(client, supported, *, decode, hb, control=S.read_control,
             supported()
             say(word)
             hb.update(state=word, note=W.fit(note, 300), current=None)
-            wait(RECHECK_S, until=lambda: allowed()[0])
+            # Wake when claiming is allowed -- OR when the REASON it is not changes. Waking
+            # only on the first let a local "paused" stand for up to RECHECK_S after the
+            # server's orders took over (measured on the pilot at the 2026-09-28 deploy:
+            # governed, server_mode "stopped", and still telling the server "paused").
+            wait(RECHECK_S, until=lambda: (lambda r: r[0] or r[1:] != (word, note))(allowed()))
             continue
         say("idle")
         plugins = [p for p in supported() if lane_ok(p.name, ctl)]
@@ -274,6 +278,10 @@ def scan_loop(client, supported, *, decode, hb, control=S.read_control,
                     reporter.kick()
                 stop = ("waiting", rep.unreachable or "the server has no recent report from this station",
                         NOT_REPORTING_WAIT_S)
+                break
+            if rep.busy:
+                # It answered: say so. "Cannot reach the server" would be false.
+                stop = ("busy", rep.busy, UNREACHABLE_S)
                 break
             if rep.unreachable:
                 stop = ("unreachable", rep.unreachable, UNREACHABLE_S)
@@ -493,6 +501,8 @@ def main():
             print("      " + "  ".join(f"{k[:-2]} {v:.2f}s" for k, v in o.timings.items()))
     if rep.stopped_analysers:
         print("stopped (operator disabled):", ", ".join(rep.stopped_analysers))
+    if rep.busy:
+        sys.exit(f"BUSY (the server answered but could not serve the claim; try again later): {rep.busy}")
     if rep.unreachable:
         sys.exit(f"UNREACHABLE (the server did not answer; try again later): {rep.unreachable}")
     if rep.fatal:

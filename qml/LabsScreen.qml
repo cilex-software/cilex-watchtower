@@ -102,6 +102,8 @@ Item {
         case "running":     return st.current ? qsTr("Scanning: %1").arg(title(st.current)) : qsTr("Scanning");
         case "idle":        return qsTr("Waiting — nothing to scan right now");
         case "unreachable": return qsTr("Cannot reach the server — will retry");
+        // It ANSWERED (503 labs_busy, or a 5xx with no code): "cannot reach" would be false.
+        case "busy":        return qsTr("The server is busy — will retry");
         case "fatal":       return qsTr("Cannot work until fixed");
         default:            return qsTr("Status unknown");
         }
@@ -109,7 +111,7 @@ Item {
     function stationColor() {
         switch (st.view) {
         case "running": case "idle": return Theme.good;
-        case "paused": case "unreachable": case "starting": case "waiting": case "held": return Theme.warn;
+        case "paused": case "unreachable": case "busy": case "starting": case "waiting": case "held": return Theme.warn;
         case "not_running": case "fatal": case "unreadable": return Theme.bad;
         default: return Theme.ink3;
         }
@@ -117,7 +119,7 @@ Item {
     function stationDetail() {
         var bits = [];
         if (st.view === "paused" && st.controlWhy === "absent") bits.push(qsTr("never started on this station"));
-        if ((st.view === "fatal" || st.view === "unreachable") && st.note) bits.push(st.note);
+        if ((st.view === "fatal" || st.view === "unreachable" || st.view === "busy") && st.note) bits.push(st.note);
         // The control plane: WHY this station is not scanning, in the server's words or the
         // safety check's. A hold names who set it and when.
         var h = st.hold;

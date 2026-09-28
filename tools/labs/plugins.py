@@ -519,14 +519,64 @@ def windows(pairs, run: int = 4, max_gap_s: float = 1.5):
             pending = []
 
 
-def _window_frames(win, planes: bool):
+#: How far back a join may run and still be the catalogue's rounding, not the footage.
+#: start_time is the recorder's FILE NAME, whole seconds (recorder-service main.py:255
+#: names segments seg-%Y%m%d-%H%M%S.ts; :545-553 parses that name back), and end_time
+#: is that start plus the measured duration. So every segment sits early by its own
+#: fraction of a second, a different one each, and a join can run back by under one.
+JOIN_SLACK_S = 1.0
+
+
+def _window_frames(win, planes: bool, moved: Optional[list] = None):
     """A window's frames with WINDOW-relative times (the analysers raise on a time
-    that runs backwards, which is what segment-relative offsets would do)."""
+    that runs backwards, which is what segment-relative offsets would do).
+
+    A JOIN THAT RUNS BACK BY A SECOND OR LESS IS THE CATALOGUE, NOT THE FOOTAGE
+    (JOIN_SLACK_S). It sank colour_histogram on the office station (2026-09-28,
+    hiwatch-083bc1df39e9 02:00Z: "t_s 89.000 is before the previous frame's 89.126"),
+    and 26 of that hour's 120 segments overlap their predecessor, by up to 0.925 s
+    (measured on the catalogue). Such a segment is moved later WHOLE, its own frame
+    spacing kept, until its first frame is level with the previous frame: a zero step,
+    which B3 reads as a duplicate (min_frame_step_s), not an interval, so nothing
+    invented reaches its history. It is the smallest move that restores order, and never
+    the wrong way: a segment's true start is LATER than its catalogued one, so a moved
+    segment still sits no later than it really was. track_linking meets the same
+    artefact in its own clock (labs_track_linking.SegmentClock). Only the first frame of
+    a segment is looked at: a step back INSIDE a segment is the decoder's, and B3 still
+    refuses it. A join further back than JOIN_SLACK_S cannot be the rounding; it is
+    refused here, with the segment named.
+
+    `moved`, if given, receives (segment_id, seconds moved) for every moved segment.
+    """
     t0 = _parse(win[0][0].start_time)
+    last = None                          # the previous frame's time, as yielded
     for seg, frames in win:
         off = (_parse(seg.start_time) - t0).total_seconds()
+        first = True
         for f in frames:
-            yield (off + f.t_offset_s, f.luma, f.u, f.v) if planes else (off + f.t_offset_s, f.luma)
+            t = off + f.t_offset_s
+            if first:
+                first = False
+                if last is not None and t < last:
+                    back = last - t
+                    if back > JOIN_SLACK_S:
+                        raise ValueError(
+                            f"segment {seg.segment_id} starts {back:.3f} s before the previous "
+                            f"segment's last frame; whole-second start_time explains at most "
+                            f"{JOIN_SLACK_S:g} s")
+                    off += back
+                    t = last
+                    if moved is not None:
+                        moved.append((seg.segment_id, back))
+            last = t
+            yield (t, f.luma, f.u, f.v) if planes else (t, f.luma)
+
+
+def _log_moved(plugin: str, unit, moved: list) -> None:
+    if moved:
+        log.info("%s %s %s: %d segment(s) moved later at a join, by at most %.3f s "
+                 "(start_time is whole seconds)", plugin, unit.camera_id, unit.hour_start,
+                 len(moved), max(b for _, b in moved))
 
 
 def _span(win) -> float:
@@ -562,11 +612,13 @@ class ForegroundMaskPlugin:
         return None
 
     def analyse(self, segs, state, unit, context):
-        out = []
+        out, moved = [], []
         for win in windows(segs, self.run):
-            s = fm.score_window(fm.iter_masks(_window_frames(win, planes=False)), span_s=_span(win))
+            s = fm.score_window(fm.iter_masks(_window_frames(win, planes=False, moved=moved)),
+                                span_s=_span(win))
             if s is not None:
                 out.append(s.as_observation(win[0][0].start_time, win[-1][0].end_time))
+        _log_moved(self.name, unit, moved)
         return out
 
 
@@ -597,11 +649,12 @@ class ColourHistogramPlugin:
         return None
 
     def analyse(self, segs, state, unit, context):
-        out = []
+        out, moved = [], []
         for win in windows(segs, self.run):
-            s = chist.score_window(_window_frames(win, planes=True), span_s=_span(win))
+            s = chist.score_window(_window_frames(win, planes=True, moved=moved), span_s=_span(win))
             if s is not None:
                 out.append(s.as_observation(win[0][0].start_time, win[-1][0].end_time))
+        _log_moved(self.name, unit, moved)
         return out
 
 
