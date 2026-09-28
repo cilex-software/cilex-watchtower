@@ -41,8 +41,21 @@
 >   - `labs-worker.py`: 298 checks, 11 new; 14 mutants, every one killed;
 >   - `build` and `build68` compile.
 >
-> **Not yet verified:** 0.3.1 running as the live worker (a restart picks it up); the
-> control-plane live test (Start → claim → Stop) waits on the operator.
+> **Rollout:**
+> - **Pilot:** 0.3.1 has been the live worker since its restart at 08:58:16 MSK. Its status.json
+>   read `worker-0.3.1`, governed, `stopped_by_server` from 08:58:32 on.
+> - **Booth, per the Windows agent's run at `1eea50d`:**
+>   - Python suite: 285 pass / 0 fail / 13 skip. The skips are the named vendored-source pins.
+>   - The C++ station and timeline tests compiled but could **not run**. Smart App Control refused
+>     every fresh build (09:01–09:12 MSK), though the same tests ran at 08:45 at `ca65299`.
+>   - While SAC is in that phase no freshly built native binary runs on the booth, so the app half
+>     of 0.3.1 (the "busy" wording) cannot reach its wall. The durable fix is code signing
+>     (`packaging/windows/SIGNING.md`). The Python worker is unaffected.
+> - **Office:** 0.3.1 is staged in `C:\wt-labs`. The visit needs `pip install psutil`.
+>
+> **Not yet verified:**
+> - a unit claimed under 0.3.1 (the server has every station stopped);
+> - the control-plane live test (Start → claim → Stop), which waits on the operator.
 
 <!-- 2026-09-28 LABS: THE SERVER'S CONTROL PLANE (worker-0.3) -->
 > **2026-09-28 — worker-0.3: cilex-vision's Labs control plane, station side.** The server deploys
