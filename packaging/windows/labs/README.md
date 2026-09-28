@@ -36,5 +36,17 @@ worker's PATH. Running it twice is refused. Since 2026-09-29 01:47 the office gu
 itself; before that, a booth-side `-Office` guard watched it over `C$` and left it
 unguarded whenever the booth rebooted.
 
-Not yet decided by the operator: starting the launcher at logon (a scheduled task), so
-Labs and its guard survive a reboot. Until then it is started by hand.
+**Restarting it remotely (2026-09-29).** The booth cannot start a process in the office
+user's session directly. A one-shot SYSTEM job can register an on-demand scheduled task
+for the console user (`wt-labs-start`: LogonType Interactive, RunLevel Limited, **no
+trigger**, no time limit), whose action is `wscript //B //NoLogo
+C:\wt-labs\start-labs.vbs` (`start-labs-office.vbs` here). wscript has no console, so
+nothing flashes on screen; it runs the guard hidden and waits, so the task stays Running
+with it. Order matters: stop the old worker FIRST, then release any hold, then start the
+task. A broken worker released from a hold would claim again. That is how the office
+got off worker-0.3.2 after its Stop killed the worker's own console host (0xC0000142 on
+every later ffmpeg): the guard now launches workers through `cmd start /low /b`, so the
+console belongs to cmd, and worker-0.3.3 kills decoders only.
+
+Not yet decided by the operator: starting the launcher at logon (a trigger on that task),
+so Labs and its guard survive a reboot. Until then it is started on demand.
