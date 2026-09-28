@@ -170,7 +170,15 @@
 >   - While SAC is in that phase no freshly built native binary runs on the booth, so the app half
 >     of 0.3.1 (the "busy" wording) cannot reach its wall. The durable fix is code signing
 >     (`packaging/windows/SIGNING.md`). The Python worker is unaffected.
-> - **Office:** 0.3.1 is staged in `C:\wt-labs`. The visit needs `pip install psutil`.
+> - **Office:** 0.3.2 is staged in `C:\wt-labs`, hash-verified by the Windows agent (23:00 MSK). The visit
+>   needs `pip install psutil`.
+>   - ⚠ **The server has the office set to RUNNING** (station control by "admin", 15:28:25 MSK, pilot
+>     DB). No worker runs there, so nothing claims yet: both Windows workers last beat at 08:30,
+>     per the Windows agent.
+>   - **The moment the office worker is started, it claims at once, so its wall guard (guard3
+>     -Office) must start with it.** Or stop the office on the server before the visit.
+> - **worker-0.3.2 on Windows** (the Windows agent's run at `3b5e4da`): 295 pass / 0 fail / 13 skip,
+>   the same named pins. Every new "revoked" race passes. The booth's checkout is at `3b5e4da`.
 >
 > **The control-plane live test ran on the pilot, 2026-09-28 ~20:11 MSK** (operator-approved; driven
 > by cilex-vision; the worker side watched read-only here). Measured:
