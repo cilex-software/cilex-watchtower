@@ -5,6 +5,34 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: worker-0.3.3 — THE KILL TOOK THE CONSOLE HOST -->
+> **2026-09-29 — worker-0.3.3: a Stop kills decoders ONLY; a station that cannot start its decoder
+> stops claiming.** An incident found by the Windows agent on the office.
+>
+> **What happened:**
+> - At 02:13:36 MSK a revoke's kill (`vitals.kill_children`, which killed EVERY descendant)
+>   took the worker's own `conhost.exe`. On Windows that is a console process's CHILD.
+> - After that every ffmpeg died at DLL init: exit 3221225794 = 0xC0000142. Each unit was
+>   filed failed as the footage's fault: ~25 failures by 02:25, when the Windows agent held
+>   the office.
+> - Measured here in the ledger (read-only): 9 units, all hour 2026-09-28T22:00Z, lost their
+>   attempts. 7 are exhausted at 3, 1 is failed at 2, 1 was revoked at 3. Newest-first claiming
+>   kept handing the same fresh hour back to a broken station.
+>
+> **Fix:**
+> - `vitals.is_decoder`: kill only processes named ffmpeg/ffprobe (with `.exe` or a build
+>   suffix). This holds on the psutil and `/proc` paths.
+> - `run_worker.decoder_start_fault` (`ffmpeg -version`) is asked in two places:
+>   - before any unit is filed failed (`worker.STATION_CHECK`). If the decoder cannot start, the
+>     unit is filed as `station_fault: …` and the pass ends as fatal;
+>   - before each pass's claims. While broken, nothing is claimed; the station shows "fatal"
+>     with the reason and waits `FATAL_S`.
+>
+> **Verified:** 324 checks, including a REAL ffmpeg killed while a non-decoder child survives,
+> on both paths. 7 mutants all killed, one of them the old kill-everything.
+>
+> **Asked of cilex-vision:** return those 9 units' attempts.
+
 <!-- 2026-09-29 AUTH: TOKEN SIGN-IN OFF -->
 > **2026-09-29 — «Token» sign-in is off the login screen** (the owner's decision, via Cilex Team:
 > `docs/letters/2026-09-29-watchtower-hide-token-sign-in-keep-the-code-cilex-team.md`; reply

@@ -2023,6 +2023,64 @@ RW2.stop_decoders(unit(), "taken back", kill=lambda: None, log=_Log())
 check("...and says so when this station cannot count them (Windows without psutil)",
       "unknown number" in _logged[-1], str(_logged[-1:]))
 
+# A STATION THAT CANNOT START ITS DECODER (worker-0.3.3). On the office, 2026-09-29 02:14-02:25
+# MSK, every ffmpeg exited 3221225794 after the console host was killed, and ~25 units were
+# filed failed as the footage's fault (Windows agent). Now: the cause is named, the unit is
+# filed under it, the pass ends, and the loop claims nothing until the decoder starts again.
+class _Rc:
+    def __init__(self, rc): self.returncode = rc
+_f = RW2.decoder_start_fault(exe="ffmpeg", run=lambda *a, **k: _Rc(3221225794))
+check("decoder check: the office's exit 3221225794 is named -- 0xC0000142 STATUS_DLL_INIT_FAILED",
+      bool(_f) and "0xC0000142 STATUS_DLL_INIT_FAILED" in _f, str(_f))
+def _nf(*a, **k): raise FileNotFoundError("nope")
+check("decoder check: a missing decoder is 'not installed'",
+      "not installed" in (RW2.decoder_start_fault(exe="nope", run=_nf) or ""))
+check("decoder check: a decoder that starts is fine (None)",
+      RW2.decoder_start_fault(exe="ffmpeg", run=lambda *a, **k: _Rc(0)) is None)
+_real = RW2.decoder_start_fault()
+if _real is not None and "not installed" in _real:
+    print(f"SKIP decoder check on this station: {_real}")
+else:
+    check("decoder check on THIS station: its decoder starts", _real is None, str(_real))
+
+_FAULT = "the decoder could not start (ffmpeg): exit 3221225794 = 0xC0000142 STATUS_DLL_INIT_FAILED"
+def _no_start(*a, **k): raise RuntimeError("ffmpeg exited 3221225794 and decoded no frames")
+_old_sc = W.STATION_CHECK
+W.STATION_CHECK = lambda: _FAULT
+try:
+    _u1, _u2 = unit(cam="cam-x"), unit(cam="cam-y", a="blob_geometry")
+    c = Fake(units={"illumination": [_u1], "blob_geometry": [_u2]},
+             segs={(_u1.camera_id, _u1.hour_start): [seg(1)], (_u2.camera_id, _u2.hour_start): [seg(1)]})
+    rep = W.run_once(c, [B1, NamedPlug("blob_geometry")], decode=_no_start, states={}, sleep=lambda s: None, claim_limit=1)
+    _body = c.submitted[0][1] if c.submitted else {}
+    check("station fault: the unit is filed under THE STATION's cause, not the footage's",
+          _body.get("failed") and str(_body.get("error", "")).startswith("station_fault:")
+          and "0xC0000142" in _body.get("error", ""), str(_body)[:220])
+    check("station fault: the pass ENDS as fatal -- the next analyser is not claimed",
+          rep.fatal and "cannot start its decoder" in rep.fatal and c.claims == ["illumination"],
+          f"fatal={rep.fatal!r} claims={c.claims}")
+finally:
+    W.STATION_CHECK = _old_sc
+c = Fake(units={"illumination": [unit()]}, segs={(unit().camera_id, unit().hour_start): [seg(1)]})
+rep = W.run_once(c, [B1], decode=_no_start, states={}, sleep=lambda s: None, claim_limit=1)
+_body = c.submitted[0][1] if c.submitted else {}
+check("control: with no station check (or a station that starts its decoder) the failure is the unit's own",
+      _body.get("failed") and not str(_body.get("error", "")).startswith("station_fault:") and not rep.fatal,
+      str(_body)[:160])
+
+c, plugs = loop_world(["illumination"])
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+              sleep=clk.sleep, clock=clk.now, passes=1, station_check=lambda: _FAULT)
+check("loop: a station that cannot start its decoder claims NOTHING, says why, and waits the fatal pause",
+      c.claims == [] and hb.fields.get("state") == "fatal" and "0xC0000142" in (hb.fields.get("note") or "")
+      and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{c.claims} {hb.fields.get('state')} t={clk.t}")
+c, plugs = loop_world(["illumination"])
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
+              sleep=clk.sleep, clock=clk.now, passes=1, station_check=lambda: None)
+check("control: a station whose decoder starts claims as before", c.claims == ["illumination"], str(c.claims))
+
 # ---- the reporter --------------------------------------------------------------------------
 class _RepClient:
     def __init__(self, replies): self.replies, self.bodies = list(replies), []
@@ -2244,18 +2302,55 @@ check("vitals: the first sample has no percentages (no previous); the second has
 check(f"vitals: this station measures its own tree ({VT.source()})",
       _s2["labs_rss_bytes"] is None or _s2["labs_rss_bytes"] > 0, str(_s2))
 import subprocess as _sp
-_child = _sp.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
-_time.sleep(0.3)
-_killed = VT.kill_children()
-try:
-    _rc = _child.wait(timeout=5)
-except Exception:
-    _child.kill(); _rc = "still running"
-if _killed is None:
-    print("SKIP vitals: kill_children -- this station cannot walk its process tree (no psutil, not Linux)")
-else:
-    check("vitals: kill_children stops the worker's children (a Stop's decoders)", _killed >= 1 and _rc != "still running",
-          f"killed={_killed} rc={_rc}")
+# A Stop kills DECODERS and nothing else (worker-0.3.3). The Python child stands in for all
+# the worker owns that is not a decoder -- on Windows, its console host, which the old kill
+# took down on the office (2026-09-29 02:13:36 MSK): every later ffmpeg died at DLL init.
+def _kill_round(label):
+    other = _sp.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    dec = None
+    try:
+        dec = _sp.Popen([P.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                         "-i", "anullsrc", "-f", "null", "-"],
+                        stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+    except OSError:
+        pass
+    _time.sleep(0.5)
+    killed = VT.kill_children()
+    def _rc(pr):
+        try:
+            return pr.wait(timeout=5)
+        except Exception:
+            pr.kill(); return "still running"
+    dec_rc = _rc(dec) if dec is not None else None
+    other_alive = other.poll() is None
+    other.kill(); other.wait(timeout=5)
+    if killed is None:
+        print(f"SKIP vitals ({label}): kill_children -- this station cannot walk its process tree")
+    elif dec is None:
+        print(f"SKIP vitals ({label}): no decoder can be started here ({P.ffmpeg_exe()})")
+    else:
+        check(f"vitals ({label}): a Stop kills the worker's DECODER", killed >= 1 and dec_rc != "still running",
+              f"killed={killed} rc={dec_rc}")
+        check(f"vitals ({label}): ...and spares what is not a decoder (on Windows, its console host)",
+              other_alive, "the non-decoder child was killed")
+_kill_round("psutil" if VT.psutil is not None else "this station's own path")
+if VT.psutil is not None and sys.platform.startswith("linux"):
+    _ps, VT.psutil = VT.psutil, None             # the /proc path too, where psutil is missing
+    try:
+        _kill_round("/proc")
+    finally:
+        VT.psutil = _ps
+class _Pr:
+    def __init__(self, n): self.n, self.killed = n, False
+    def name(self): return self.n
+    def kill(self): self.killed = True
+_tree = [_Pr("conhost.exe"), _Pr("ffmpeg.exe"), _Pr("python.exe"), _Pr("ffprobe.exe"), _Pr("cmd.exe")]
+_nk = VT.kill_children(procs=_tree)
+check("vitals: the Windows tree the office had -- only ffmpeg.exe and ffprobe.exe are killed, conhost.exe lives",
+      _nk == 2 and [x.killed for x in _tree] == [False, True, False, True, False], str([(x.n, x.killed) for x in _tree]))
+check("vitals: the allow-list -- decoders by name, with or without .exe or a build suffix; nothing else",
+      all(VT.is_decoder(n) for n in ("ffmpeg", "ffmpeg.exe", "FFMPEG.EXE", "ffprobe.exe", "ffmpeg-v1144.exe"))
+      and not any(VT.is_decoder(n) for n in ("conhost.exe", "python.exe", "cmd.exe", "sleep", "", None)))
 
 print()
 if fails:

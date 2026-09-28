@@ -164,8 +164,39 @@ def unit_summary(o) -> dict:
             "at": S.now_iso()}
 
 
+# Windows NTSTATUS exits that mean a process could not START (not that it failed on input).
+_START_FAILURES = {0xC0000142: "STATUS_DLL_INIT_FAILED", 0xC0000135: "STATUS_DLL_NOT_FOUND",
+                   0xC000007B: "STATUS_INVALID_IMAGE_FORMAT", 0xC0000022: "STATUS_ACCESS_DENIED"}
+
+
+def decoder_start_fault(exe=None, run=None, timeout_s: float = 15.0):
+    """None when this station can START its decoder; otherwise why not, in words.
+
+    `ffmpeg -version`: no input, no footage, ~50 ms. A decoder that cannot even start is the
+    STATION's fault, never the footage's. Measured on the office, 2026-09-29 02:14-02:25 MSK
+    (Windows agent): after the worker's console host was killed, every ffmpeg exited
+    3221225794 (0xC0000142 STATUS_DLL_INIT_FAILED), and each unit was filed as if its footage
+    were bad."""
+    import subprocess
+    exe = exe or P.ffmpeg_exe()
+    run = run or subprocess.run
+    try:
+        r = run([exe, "-hide_banner", "-version"], capture_output=True, timeout=timeout_s)
+    except FileNotFoundError:
+        return f"the decoder is not installed here ({exe})"
+    except Exception as e:                           # OSError, a timeout: it did not start
+        return f"the decoder could not start ({exe}): {type(e).__name__}: {e}"
+    if r.returncode != 0:
+        code = r.returncode & 0xFFFFFFFF
+        name = _START_FAILURES.get(code)
+        return (f"the decoder could not start ({exe}): exit {r.returncode}"
+                + (f" = 0x{code:08X} {name}" if name else ""))
+    return None
+
+
 def scan_loop(client, supported, *, decode, hb, control=S.read_control,
-              sleep=time.sleep, clock=time.monotonic, passes=None, reporter=None) -> dict:
+              sleep=time.sleep, clock=time.monotonic, passes=None, reporter=None,
+              station_check=None) -> dict:
     """Scan until stopped (or for `passes` passes, in tests).
 
     One pass asks for ONE unit per analyser this station runs, in turn. Before every
@@ -258,6 +289,15 @@ def scan_loop(client, supported, *, decode, hb, control=S.read_control,
             # server's orders took over (measured on the pilot at the 2026-09-28 deploy:
             # governed, server_mode "stopped", and still telling the server "paused").
             wait(RECHECK_S, until=lambda: (lambda r: r[0] or r[1:] != (word, note))(allowed()))
+            continue
+        # A station that cannot start its decoder claims NOTHING: every unit it took would
+        # fail the same way and spend one of its three attempts (the office, 2026-09-29).
+        fault = station_check() if station_check is not None else None
+        if fault:
+            say("idle")
+            hb.update(state="fatal", note=W.fit(f"this station cannot start its decoder: {fault}", 300),
+                      current=None)
+            wait(FATAL_S, until=lambda: not allowed()[0])
             continue
         say("idle")
         plugins = [p for p in supported() if lane_ok(p.name, ctl)]
@@ -374,7 +414,9 @@ def loop_main(a) -> int:
                     on_abort=stop_decoders,
                     on_change=lambda snap: hb.update(**snap)).start()
                 hb.update(vitals_source=V.source())
-            scan_loop(client, supported, decode=decode, hb=hb, passes=None, reporter=reporter)
+            W.STATION_CHECK = decoder_start_fault
+            scan_loop(client, supported, decode=decode, hb=hb, passes=None, reporter=reporter,
+                      station_check=decoder_start_fault)
     except KeyboardInterrupt:
         pass
     finally:

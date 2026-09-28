@@ -19,6 +19,7 @@ The first sample has no "previous", so both percentages are None on it.
 from __future__ import annotations
 
 import os
+import re
 import signal
 import sys
 import time
@@ -186,27 +187,54 @@ def tree(pid: Optional[int] = None) -> Optional[_Tree]:
     return None                                    # Windows without psutil: cannot walk it
 
 
-def kill_children(pid: Optional[int] = None) -> Optional[int]:
-    """Kill every descendant of the worker -- its decoders -- and say how many. None when
-    this station cannot find them (Windows without psutil): the unit then drops at its
-    next checkpoint instead of at once."""
+#: What kill_children may kill: the worker's DECODERS, by name, and nothing else. It used to
+#: kill every descendant. On Windows a console process owns its conhost.exe as a CHILD, so a
+#: Stop on the office killed the worker's own console host (worker-0.3.2, 2026-09-29 02:13:36
+#: MSK, measured by the Windows agent). After that every ffmpeg it started died at DLL init
+#: (exit 0xC0000142), and about 25 units were filed failed.
+_DECODER_NAME = re.compile(r"^(ffmpeg|ffprobe)[\w.-]*$", re.IGNORECASE)
+
+
+def is_decoder(name: Optional[str]) -> bool:
+    """ffmpeg / ffprobe, with or without .exe, and builds named after them (ffmpeg-v1144.exe)."""
+    return bool(name) and bool(_DECODER_NAME.match(name.strip()))
+
+
+def _proc_name(pid: int) -> str:
+    try:
+        with open(f"/proc/{pid}/comm", encoding="utf-8", errors="replace") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def kill_children(pid: Optional[int] = None, procs=None) -> Optional[int]:
+    """Kill the worker's DECODERS (is_decoder) -- never anything else it owns, above all not
+    a console host -- and say how many. None when this station cannot find them (Windows
+    without psutil): the unit then drops at its next checkpoint instead of at once.
+    `procs` (tests): psutil-like objects with .name() and .kill(), in place of the tree."""
     pid = pid or os.getpid()
-    if psutil is not None:
+    if procs is not None or psutil is not None:
         n = 0
-        try:
-            kids = psutil.Process(pid).children(recursive=True)
-        except psutil.Error:
-            return 0
-        for c in kids:
+        if procs is None:
             try:
+                procs = psutil.Process(pid).children(recursive=True)
+            except psutil.Error:
+                return 0
+        for c in procs:
+            try:
+                if not is_decoder(c.name()):
+                    continue
                 c.kill()
                 n += 1
-            except psutil.Error:
+            except Exception:           # psutil.Error: it exited, or cannot be touched
                 pass
         return n
     if sys.platform.startswith("linux"):
         n = 0
         for c in _children_proc(pid):
+            if not is_decoder(_proc_name(c)):
+                continue
             try:
                 os.kill(c, signal.SIGKILL)
                 n += 1

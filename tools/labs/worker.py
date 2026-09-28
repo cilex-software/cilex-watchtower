@@ -55,7 +55,9 @@ from typing import Callable, Iterable, Optional, Protocol
 # segment joins run back by the catalogue's whole-second rounding (plugins.JOIN_SLACK_S).
 # 0.3.2 (2026-09-28): a lease-lost refusal of a unit the server has already named revoked is
 # recorded "revoked", not "abandoned" (_taken_back); a Stop's kill logs how many decoders.
-WORKER_VERSION = "worker-0.3.2"
+# 0.3.3 (2026-09-29): a Stop kills DECODERS only -- never the console host (vitals.is_decoder);
+# a station that cannot start its decoder files the unit under that cause and stops claiming.
+WORKER_VERSION = "worker-0.3.3"
 
 
 # ----------------------------------------------------------------------------------
@@ -466,6 +468,9 @@ class UnitOutcome:
     # True when what reached the server was a FAILURE report (_file_failed), so a
     # count of "submitted" cannot pass a failed unit off as a finished one.
     filed_failed: bool = False
+    # Set when the unit failed because THIS STATION cannot start its decoder (STATION_CHECK):
+    # the failure is filed under that cause, and the pass ends as fatal -- no more claims.
+    station_fault: Optional[str] = None
     # Where a unit's wall time went, by phase (list, fetch, decode, analyse, submit,
     # total). The first live unit took 45.6 s wall for ~15 CPU-s, and nothing said why.
     timings: dict = field(default_factory=dict)
@@ -509,6 +514,13 @@ _heard: Optional[_LastWarning] = None
 # duration; asked at every checkpoint -- each segment, and before anything is submitted.
 # The reporter also kills the unit's decoders, so a checkpoint comes within a segment.
 _abort_check: Optional[Callable[[], Optional[str]]] = None
+
+# Can THIS STATION start its decoder at all? None when it can, else why not. Set by the loop
+# (run_worker.decoder_start_fault); asked before any unit is filed as failed. WHY: on the
+# office (2026-09-29 02:14-02:25 MSK) every ffmpeg died at DLL init after the worker's own
+# console host was killed, and about 25 units were filed failed as if their footage were bad
+# (Windows agent). A station that cannot start ffmpeg must say so, and stop claiming.
+STATION_CHECK: Optional[Callable[[], Optional[str]]] = None
 
 
 def _abort_reason() -> Optional[str]:
@@ -1035,6 +1047,17 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     heard = _heard.last if _heard is not None else None
     if heard and heard not in reason:
         reason = f"{reason} | last warning: {heard}"
+    # Before blaming the footage, ask whether this station can start its decoder at all. If
+    # not, the failure is filed under THAT cause -- the attempt was spent at the claim either
+    # way, and a lapsed lease would be labelled "lease expired", which says even less -- and
+    # the pass ends as fatal (run_once), so no further unit is claimed and failed the same way.
+    try:
+        fault = STATION_CHECK() if STATION_CHECK is not None else None
+    except Exception as e:                       # the check itself must never file a unit
+        fault = f"the decoder check itself failed: {type(e).__name__}: {e}"
+    if fault:
+        out.station_fault = fault
+        reason = f"station_fault: {fault} -- not the footage (the unit's own error: {reason})"
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned, "observations": [],
             "failed": True, "error": fit(reason, 500)}
@@ -1153,6 +1176,9 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                 rep.revoked += 1
             if o.action is Action.FATAL:
                 rep.fatal = o.note; return rep
+            if o.station_fault:
+                rep.fatal = f"this station cannot start its decoder: {o.station_fault}"
+                return rep
             if o.action is Action.STOP_ANALYSER:
                 rep.stopped_analysers.append(plugin.name); break
     return rep
