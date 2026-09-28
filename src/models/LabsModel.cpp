@@ -181,11 +181,70 @@ void LabsModel::refreshStation()
     m[QStringLiteral("paused")] = c.paused;
     m[QStringLiteral("controlWhy")] = c.why;
     m[QStringLiteral("cameraHealth")] = c.cameraHealth;
+    m[QStringLiteral("governed")] = s.governed && !s.stale;
+    m[QStringLiteral("serverMode")] = s.serverMode;
+    m[QStringLiteral("serverLevel")] = s.serverLevel;
+    m[QStringLiteral("serverAt")] = s.serverAt;
+    m[QStringLiteral("lanes")] = s.lanes;
+    // The hold as the control file says NOW (the worker's copy can be a heartbeat old).
+    m[QStringLiteral("hold")] = c.hold;
     m[QStringLiteral("dir")] = dir;
     if (m != m_station) {
         m_station = m;
         emit stationChanged();
     }
+}
+
+void LabsModel::setStationRunning(bool run)
+{
+    const bool governed = m_station.value(QStringLiteral("governed")).toBool();
+    const QString host = m_station.value(QStringLiteral("host")).toString();
+    if (!governed || host.isEmpty()) {
+        setStationPaused(!run);          // no control plane yet: the local flag governs
+        return;
+    }
+    if (m_stationBusy)
+        return;                          // one change at a time, never overlapping
+    m_stationBusy = true;
+    m_stationError.clear();
+    emit stationChanged();
+    QNetworkRequest req(QUrl(m_baseUrl + QStringLiteral("/labs/control")));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    const QByteArray body = QJsonDocument(QJsonObject{
+        {QStringLiteral("station"), host},
+        {QStringLiteral("action"), run ? QStringLiteral("start") : QStringLiteral("pause")}}).toJson(QJsonDocument::Compact);
+    QNetworkReply *reply = m_nam->post(req, body);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        m_stationBusy = false;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray b = reply->readAll();
+        if (code == 401)
+            AuthController::instance()->noteUnauthorized();
+        if (code == 200)
+            m_stationError.clear();      // the worker hears it within a report (~2 s)
+        else if (code == 403)
+            m_stationError = tr("only an administrator can start or pause scanning");
+        else
+            m_stationError = code == 0 ? reply->errorString()
+                                       : QStringLiteral("HTTP %1 %2").arg(code).arg(wt::serverMessage(b));
+        refreshStation();
+        emit stationChanged();
+    });
+}
+
+void LabsModel::releaseHold()
+{
+    QString err;
+    const QString who = AuthController::instance()->username();
+    if (!wtlabs::clearHold(wtlabs::stateDir(),
+                           QStringLiteral("watchtower app") + (who.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(who)),
+                           &err))
+        m_stationError = err;
+    else
+        m_stationError.clear();
+    refreshStation();
+    emit stationChanged();
 }
 
 void LabsModel::setStationPaused(bool paused)

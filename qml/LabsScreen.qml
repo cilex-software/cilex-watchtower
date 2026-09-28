@@ -95,7 +95,10 @@ Item {
         case "not_running": return qsTr("Not running — last heard from %1").arg(ago(st.ageS));
         case "stopped":     return qsTr("Stopped");
         case "starting":    return qsTr("Starting");
-        case "paused":      return qsTr("Paused");
+        case "paused":      return st.governed ? qsTr("Paused by the server") : qsTr("Paused");
+        case "stopped_by_server": return qsTr("Stopped by the server");
+        case "waiting":     return qsTr("Waiting for the server's orders");
+        case "held":        return qsTr("Held on this station");
         case "running":     return st.current ? qsTr("Scanning: %1").arg(title(st.current)) : qsTr("Scanning");
         case "idle":        return qsTr("Waiting — nothing to scan right now");
         case "unreachable": return qsTr("Cannot reach the server — will retry");
@@ -106,7 +109,7 @@ Item {
     function stationColor() {
         switch (st.view) {
         case "running": case "idle": return Theme.good;
-        case "paused": case "unreachable": case "starting": return Theme.warn;
+        case "paused": case "unreachable": case "starting": case "waiting": case "held": return Theme.warn;
         case "not_running": case "fatal": case "unreadable": return Theme.bad;
         default: return Theme.ink3;
         }
@@ -115,6 +118,12 @@ Item {
         var bits = [];
         if (st.view === "paused" && st.controlWhy === "absent") bits.push(qsTr("never started on this station"));
         if ((st.view === "fatal" || st.view === "unreachable") && st.note) bits.push(st.note);
+        // The control plane: WHY this station is not scanning, in the server's words or the
+        // safety check's. A hold names who set it and when.
+        var h = st.hold;
+        if (h && h.why) bits.push(qsTr("%1 · by %2").arg(h.why).arg(h.by || "?") + (h.at ? " · " + h.at : ""));
+        else if (st.governed && (st.view === "paused" || st.view === "stopped_by_server" || st.view === "waiting") && st.note)
+            bits.push(st.note);
         var lu = st.lastUnit;
         if (lu && lu.analyzer) {
             var what = lu.outcome === "done" ? qsTr("%n row(s)", "", lu.observations || 0)
@@ -208,19 +217,31 @@ Item {
                     text: root.labs ? qsTr("could not save: %1").arg(root.labs.stationError) : ""
                     color: Theme.bad; font.family: Theme.fontMono; font.pixelSize: 11
                 }
-                // Pausing is always safe, so anyone signed in may. Resuming spends this
-                // station's CPU and writes to the shared system: administrators only.
+                // WHO the button asks follows who governs (operator decisions 2026-09-28):
+                //  * a HOLD (the wall's safety check) -> Release, here, admins;
+                //  * GOVERNED (the worker reports to cilex-vision's control plane) -> the
+                //    SERVER, for this workstation: Start / Pause, admin, audited there;
+                //  * otherwise the local flag, as before: Pause for anyone (always safe),
+                //    Resume for administrators (it spends this station's CPU).
                 Btn {
                     visible: root.labs !== null
-                    readonly property bool paused: root.st.paused !== false
-                    label: paused ? qsTr("Resume scanning") : qsTr("Pause scanning")
-                    enabledLook: !paused || root.admin
+                    readonly property bool held: !!(root.st.hold && root.st.hold.why)
+                    readonly property bool gov: root.st.governed === true
+                    readonly property bool paused: gov ? root.st.serverMode !== "running" : root.st.paused !== false
+                    readonly property bool busy: root.labs !== null && root.labs.stationBusy
+                    label: held ? qsTr("Release hold")
+                         : busy ? qsTr("Asking the server…")
+                         : paused ? (gov ? qsTr("Start scanning") : qsTr("Resume scanning")) : qsTr("Pause scanning")
+                    enabledLook: !busy && (held || gov ? root.admin : (!paused || root.admin))
                     onClicked: {
-                        if (paused && !root.admin) return;
-                        root.labs.setStationPaused(!paused);
+                        if (!enabledLook) return;
+                        if (held) root.labs.releaseHold();
+                        else if (gov) root.labs.setStationRunning(paused);
+                        else root.labs.setStationPaused(!paused);
                     }
-                    QC.ToolTip.visible: paused && !root.admin && hovered2.containsMouse
-                    QC.ToolTip.text: qsTr("Only an administrator can resume scanning")
+                    QC.ToolTip.visible: !enabledLook && !busy && hovered2.containsMouse
+                    QC.ToolTip.text: held ? qsTr("Only an administrator can release the hold")
+                                          : qsTr("Only an administrator can start or pause scanning")
                     MouseArea { id: hovered2; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
                 }
             }

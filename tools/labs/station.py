@@ -110,17 +110,63 @@ def read_control(directory: Optional[str] = None) -> dict:
     try:
         d = read_json(p)
     except FileNotFoundError:
-        return {"paused": True, "camera_health": False, "why": "never started on this station"}
+        return {"paused": True, "camera_health": False, "why": "never started on this station", "hold": None}
     except Exception as e:
         return {"paused": True, "camera_health": False,
-                "why": f"control file unreadable ({type(e).__name__})"}
+                "why": f"control file unreadable ({type(e).__name__})", "hold": None}
+    hold = _hold_of(d) if isinstance(d, dict) else None
     if not isinstance(d, dict) or not isinstance(d.get("paused"), bool):
-        return {"paused": True, "camera_health": False, "why": "control file has no paused flag"}
+        return {"paused": True, "camera_health": False, "why": "control file has no paused flag", "hold": hold}
     return {"paused": d["paused"],
             # camera_health: EXACTLY ONE station may run it (cilex-vision's rule), so it
             # is opt-in per station, never on by default.
             "camera_health": d.get("camera_health") is True,
-            "why": "paused" if d["paused"] else ""}
+            "why": "paused" if d["paused"] else "",
+            "hold": hold}
+
+
+# ---------------------------------------------------------------- the local HOLD
+# Operator decision 2026-09-28. Once cilex-vision's control plane governs (Start / Pause /
+# Stop, answered to every report), the `paused` flag above no longer does -- one switch,
+# the server's. The HOLD is the exception, kept on purpose: the wall's automatic safety
+# check sets it the moment the guards' wall degrades, and it keeps Labs off on THIS
+# computer even when the server says Start, across restarts, until it is released here.
+# It is never hidden: the worker sends it with its reason in every report, so the admin
+# page says why this station is not scanning. Guards never see any of it (Labs is a
+# background, admins-only programme).
+def _hold_of(d: dict) -> Optional[dict]:
+    h = d.get("hold")
+    if not isinstance(h, dict) or not isinstance(h.get("why"), str) or not h.get("why"):
+        return None
+    return {"by": str(h.get("by") or "?")[:40], "why": h["why"][:120], "at": str(h.get("at") or "")[:40]}
+
+
+def write_hold(why: str, *, by: str = "cli", directory: Optional[str] = None) -> dict:
+    """Hold Labs off on this computer, with the reason. Keeps the rest of the file."""
+    return _edit_control(lambda doc: doc.update(
+        {"hold": {"by": by[:40], "why": (why or "held")[:120], "at": now_iso()}}), by, directory)
+
+
+def clear_hold(*, by: str = "cli", directory: Optional[str] = None) -> dict:
+    """Release the hold. Keeps the rest of the file."""
+    return _edit_control(lambda doc: doc.pop("hold", None), by, directory)
+
+
+def _edit_control(change, by: str, directory: Optional[str]) -> dict:
+    p = os.path.join(directory or state_dir(), CONTROL)
+    try:
+        doc = read_json(p)
+        if not isinstance(doc, dict):
+            doc = {}
+    except (FileNotFoundError, ValueError):
+        doc = {}
+    # Anything else RAISES rather than writing a fresh document over a file that will
+    # not open -- that would drop its camera_health opt-in (see write_control).
+    change(doc)
+    doc.update({"v": 1, "updated_at": now_iso(), "updated_by": by})
+    doc.setdefault("paused", True)            # default-deny stays the default
+    _write_atomic(p, doc)
+    return doc
 
 
 def write_control(paused: bool, *, camera_health: Optional[bool] = None,

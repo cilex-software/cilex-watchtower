@@ -29,6 +29,7 @@
 #include <QVariant>
 #include <QVariantList>
 #include <QVariantMap>
+#include <functional>
 
 namespace wtlabs {   // not `labs`: that is <cstdlib>'s labs(), which Qt pulls in
 
@@ -95,7 +96,21 @@ struct Control {
     bool paused = true;
     bool cameraHealth = false;
     QString why;   // "absent" | "unreadable" | "no_flag" | "" (the file said so)
+    // The wall's safety check can HOLD Labs off on this computer (station.write_hold):
+    // {by, why, at}; empty when there is none. It beats a server Start and is reported.
+    QVariantMap hold;
 };
+
+inline QVariantMap holdOf(const QJsonObject &o)
+{
+    const QJsonObject h = o.value(QStringLiteral("hold")).toObject();
+    const QString why = h.value(QStringLiteral("why")).toString();
+    if (why.isEmpty())
+        return {};
+    return {{QStringLiteral("by"), h.value(QStringLiteral("by")).toString()},
+            {QStringLiteral("why"), why},
+            {QStringLiteral("at"), h.value(QStringLiteral("at")).toString()}};
+}
 
 inline Control readControl(const QString &dir)
 {
@@ -110,6 +125,7 @@ inline Control readControl(const QString &dir)
     const QJsonDocument d = QJsonDocument::fromJson(bytes, &pe);
     if (pe.error != QJsonParseError::NoError || !d.isObject()) { c.why = QStringLiteral("unreadable"); return c; }
     const QJsonObject o = d.object();
+    c.hold = holdOf(o);
     const QJsonValue p = o.value(QStringLiteral("paused"));
     if (!p.isBool()) { c.why = QStringLiteral("no_flag"); return c; }
     c.paused = p.toBool();
@@ -117,11 +133,12 @@ inline Control readControl(const QString &dir)
     return c;
 }
 
-// Pause or resume, keeping everything else the file says -- above all the station's
+// Change the control file, keeping everything else it says -- above all the station's
 // camera_health opt-in, which only one station may hold. Atomic like the worker's own
-// writes: QSaveFile commits the whole document or nothing, so the worker never reads
-// half a file (and half a file would read as PAUSED anyway).
-inline bool writeControl(const QString &dir, bool paused, const QString &by, QString *err = nullptr)
+// writes: QSaveFile commits the whole document or nothing, so the worker never reads half
+// a file (and half a file would read as PAUSED anyway).
+inline bool editControl(const QString &dir, const QString &by, const std::function<void(QJsonObject &)> &change,
+                        QString *err = nullptr)
 {
     const QString path = QDir(dir).filePath(QStringLiteral("control.json"));
     QJsonObject o;
@@ -144,8 +161,10 @@ inline bool writeControl(const QString &dir, bool paused, const QString &by, QSt
         }
         }
     }
+    change(o);
     o.insert(QStringLiteral("v"), 1);
-    o.insert(QStringLiteral("paused"), paused);
+    if (!o.contains(QStringLiteral("paused")))
+        o.insert(QStringLiteral("paused"), true);        // default-deny stays the default
     o.insert(QStringLiteral("updated_at"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     o.insert(QStringLiteral("updated_by"), by);
     if (!QDir().mkpath(dir)) {
@@ -171,6 +190,19 @@ inline bool writeControl(const QString &dir, bool paused, const QString &by, QSt
     return false;
 }
 
+// Pause or resume by the LOCAL flag -- which governs only while the server has no Labs
+// control plane (a worker that says `governed` takes its orders from the server instead).
+inline bool writeControl(const QString &dir, bool paused, const QString &by, QString *err = nullptr)
+{
+    return editControl(dir, by, [paused](QJsonObject &o) { o.insert(QStringLiteral("paused"), paused); }, err);
+}
+
+// Release the wall safety check's hold on this computer.
+inline bool clearHold(const QString &dir, const QString &by, QString *err = nullptr)
+{
+    return editControl(dir, by, [](QJsonObject &o) { o.remove(QStringLiteral("hold")); }, err);
+}
+
 // What the worker last said, and whether that can still be believed.
 struct Station {
     bool present = false;
@@ -182,6 +214,11 @@ struct Station {
     QVariantMap lastUnit, totals;
     QStringList runs, registered, skipped;
     bool cameraHealth = false;
+    // cilex-vision's control plane (2026-09-28): whether the SERVER governs this station,
+    // and what it last said -- station mode and level, when it was set, each lane's mode.
+    bool governed = false;
+    QString serverMode, serverLevel, serverAt, reportError;
+    QVariantMap lanes, hold;
 };
 
 inline Station readStation(const QString &dir, const QDateTime &nowUtc)
@@ -214,6 +251,13 @@ inline Station readStation(const QString &dir, const QDateTime &nowUtc)
     for (const QJsonValue &v : o.value(QStringLiteral("skipped")).toArray())
         s.skipped << v.toString();
     s.cameraHealth = o.value(QStringLiteral("camera_health")) == QJsonValue(true);
+    s.governed = o.value(QStringLiteral("governed")) == QJsonValue(true);
+    s.serverMode = o.value(QStringLiteral("server_mode")).toString();
+    s.serverLevel = o.value(QStringLiteral("server_level")).toString();
+    s.serverAt = o.value(QStringLiteral("server_at")).toString();
+    s.reportError = o.value(QStringLiteral("report_error")).toString();
+    s.lanes = o.value(QStringLiteral("lanes")).toObject().toVariantMap();
+    s.hold = holdOf(o);
     const QDateTime at = QDateTime::fromString(s.updatedAt, Qt::ISODate);
     if (at.isValid()) {
         s.ageS = at.secsTo(nowUtc);

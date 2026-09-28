@@ -50,7 +50,7 @@ from typing import Callable, Iterable, Optional, Protocol
 
 # 0.2 (2026-09-26): keyframe times are each key packet's own PTS (frame_source 4f94847),
 # no longer a per-segment constant step that was up to 2.5 s off. Every row says which.
-WORKER_VERSION = "worker-0.2"
+WORKER_VERSION = "worker-0.3"
 
 
 # ----------------------------------------------------------------------------------
@@ -64,6 +64,13 @@ class Action(Enum):
     SKIP_SEGMENT = "skip_segment"     # one segment is gone; the rest of the unit is fine
     FATAL = "fatal"                   # this station cannot work at all (bad token)
     BUG = "bug"                       # the request was malformed: this file is wrong
+    # cilex-vision's Labs control plane (2026-09-28 deploy; CONTRACT.md "Changed responses"):
+    REVOKED = "revoked"               # the server took the unit back (Stop, or its lease went
+                                      # elsewhere) -- or this station holds Labs off: drop it,
+                                      # submit NOTHING, not a failure
+    NOT_RUNNING = "not_running"       # this analyser's lane is paused/stopped: skip it this pass
+    SERVER_BUSY = "server_busy"       # the claim's scan timed out server-side: end the pass
+    NOT_REPORTING = "not_reporting"   # the server has no report from us in 30 s: report, retry
 
 
 # Slug -> action. Anything absent falls through to `retryable`, then to FATAL: an
@@ -79,6 +86,12 @@ _BY_SLUG = {
     "object_storage_unavailable": Action.RETRY_LATER,
     "station_token_not_recognised": Action.FATAL,
     "transport_error": Action.RETRY_LATER,       # no answer at all: a deploy, a blip
+    "labs_lane_not_running": Action.NOT_RUNNING,
+    "labs_worker_not_reporting": Action.NOT_REPORTING,
+    # Retryable, but NOT retried in place: the claim that timed out at 30 s would time out
+    # again, and a server at its limit should get at most one claim a minute per station.
+    "labs_busy": Action.SERVER_BUSY,
+    "scan_unit_revoked": Action.REVOKED,
 }
 
 
@@ -250,7 +263,16 @@ class HttpLabsClient:
         units = [ScanUnit(u["camera_id"], u["hour_start"], u["analyzer"],
                           u.get("lease_expires_at"), int(u.get("attempts", 0)))
                  for u in d.get("units", [])]
-        return units, int(d.get("queue_remaining", 0))
+        # null since the 2026-09-28 deploy: the count is best-effort and can no longer fail a
+        # claim after its lease was written. int(None) used to crash every claim here.
+        q = d.get("queue_remaining")
+        return units, (int(q) if isinstance(q, (int, float)) and not isinstance(q, bool) else None)
+
+    def report(self, body):
+        """POST /labs/station/report: this station's state and vitals; the reply is the
+        server's orders (station mode, lane modes, units taken back). 404 = a server
+        from before the control plane."""
+        return self._req("POST", "/labs/station/report", body=body)
 
     def segments(self, unit, limit, stream_type, window=None, window_at=None):
         # `window` asks for CONSECUTIVE segments around `window_at` (0..1 of the hour)
@@ -301,6 +323,11 @@ def _refusal_from(status: int, body: bytes) -> Refusal:
     det = d.get("detail")
     if not isinstance(det, str):     # FastAPI 422 puts a LIST here
         det = None
+    # cilex-vision's CodedError carries `code` too; a site whose legacy `detail` was a
+    # sentence gains `code` beside it, so the slug is `code` when `detail` is not one.
+    code = d.get("code")
+    if isinstance(code, str) and code and (det is None or " " in det):
+        det = code
     return Refusal(status, det, d.get("retryable"), str(d.get("message", ""))[:200])
 
 
@@ -471,6 +498,26 @@ class _LastWarning(logging.Handler):
 
 _heard: Optional[_LastWarning] = None
 
+# The unit in hand can be TAKEN BACK while it runs: the server revoked it (a Stop, or its
+# lease went to another station -- cilex-vision lists both in the report's `revoked`), or
+# this computer holds Labs off (the wall's safety check). Set by run_unit for the unit's
+# duration; asked at every checkpoint -- each segment, and before anything is submitted.
+# The reporter also kills the unit's decoders, so a checkpoint comes within a segment.
+_abort_check: Optional[Callable[[], Optional[str]]] = None
+
+
+def _abort_reason() -> Optional[str]:
+    try:
+        return _abort_check() if _abort_check is not None else None
+    except Exception:
+        return None
+
+
+def _checkpoint() -> None:
+    why = _abort_reason()
+    if why:
+        raise _Abandon(Action.REVOKED, why)
+
 
 class _Abandon(BaseException):
     """The unit must be dropped WITHOUT submitting (lease lost, station refused) --
@@ -498,7 +545,8 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
              decode: Callable[[str, bool, bool], list],
              states: dict, context: Optional[dict] = None,
              tmpdir: Optional[str] = None,
-             sleep: Callable[[float], None] = time.sleep) -> UnitOutcome:
+             sleep: Callable[[float], None] = time.sleep,
+             abort_check: Optional[Callable[[], Optional[str]]] = None) -> UnitOutcome:
     """Claimed unit -> list -> fetch -> decode -> analyse -> submit.
 
     Rules this enforces, each of which has cost somebody a run:
@@ -516,11 +564,13 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
       * Stateful analysers keep ONE state per camera across segments and units;
         they reset only on a real discontinuity, which the analyser itself detects.
     """
-    global _heard
+    global _heard, _abort_check
     heard, prev = _LastWarning(), _heard
+    prev_abort = _abort_check
     root = logging.getLogger()
     root.addHandler(heard)
     _heard = heard
+    _abort_check = abort_check
     t0 = _now()
     try:
         o = _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep)
@@ -528,6 +578,7 @@ def run_unit(client: LabsClient, plugin, unit: ScanUnit, *,
         return o
     finally:
         _heard = prev
+        _abort_check = prev_abort
         root.removeHandler(heard)
 
 
@@ -614,6 +665,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     def as_decoded():
         nonlocal last_err
         for seg in segs:
+            _checkpoint()
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             try:
@@ -650,6 +702,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                     os.unlink(path)
                 except OSError:
                     pass
+            _checkpoint()                    # never hand a taken-back unit's frames over
             out.segments_scanned += 1
             yield seg, frames
 
@@ -720,6 +773,10 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
     paths, kept, fetched = [], [], []
     try:
         for seg in segs:
+            why = _abort_reason()
+            if why:
+                out.action, out.note = Action.REVOKED, why
+                return out
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             paths.append(path)
@@ -765,6 +822,10 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                                         f"catalogued {seg.bytes}, fetched {got}", Action.BUG)
         out.segments_scanned = len(kept)
         out.decoder_runs = 1 if kept else 0
+        why = _abort_reason()
+        if why:
+            out.action, out.note = Action.REVOKED, why
+            return out
 
         def chunks():
             for p_ in fetched:
@@ -808,6 +869,10 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
     fetched = []
     try:
         for seg in segs:
+            why = _abort_reason()
+            if why:
+                out.action, out.note = Action.REVOKED, why
+                return out
             fd, path = tempfile.mkstemp(suffix=".ts", dir=tmpdir)
             os.close(fd)
             t = _now()
@@ -832,6 +897,10 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
                                 _nothing_looked_at(segs, out, None), Action.BUG)
         out.segments_scanned = len(fetched)
         out.decoder_runs = len(fetched)
+        why = _abort_reason()
+        if why:
+            out.action, out.note = Action.REVOKED, why
+            return out
         t = _now()
         try:
             obs = plugin.analyse_raw_segments(fetched, unit)
@@ -858,6 +927,10 @@ def _finish(client, plugin, unit, out, obs, sleep):
     the metrics caps are checked BEFORE submitting (the server checks both before it
     reads `failed`, so a violation would sink even a failure report), the retry
     resends the identical body, and a refusal is filed with its real cause."""
+    why = _abort_reason()
+    if why:                                   # taken back: its rows are no longer this
+        out.action, out.note = Action.REVOKED, why   # station's to file (CONTRACT: "do NOT submit")
+        return out
     if len(obs) > MAX_OBSERVATIONS_PER_UNIT:
         return _file_failed(client, plugin, unit, out,
                             f"too_many_observations: {len(obs)} > {MAX_OBSERVATIONS_PER_UNIT}",
@@ -930,6 +1003,13 @@ def _file_failed(client, plugin, unit, out, reason: str, action: "Action"):
     They caught it; they will move the branch above those checks with the
     operator's go. Until then this list stays empty, and a test pins it.
     """
+    why = _abort_reason()
+    if why:
+        # Taken back mid-unit. Whatever failed next -- above all the decoder the reporter
+        # killed -- is the stop's doing, not the footage's: filing it would spend one of
+        # the unit's three attempts on a lie.
+        out.action, out.note = Action.REVOKED, f"{why} (not filed: {reason})"[:500]
+        return out
     heard = _heard.last if _heard is not None else None
     if heard and heard not in reason:
         reason = f"{reason} | last warning: {heard}"
@@ -967,13 +1047,20 @@ class RunReport:
     # Also a claim answered with a 5xx and no code: the server failing, not refusing.
     unreachable: Optional[str] = None
     outcomes: list = field(default_factory=list)
+    # The control plane (2026-09-28): lanes the server says are not running, a claim refused
+    # because this station's reports are not arriving, and units taken back mid-run.
+    not_running: list = field(default_factory=list)
+    not_reporting: bool = False
+    revoked: int = 0
 
 
 def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
              gate: Callable[[], bool] = lambda: True, claim_limit: int = 4,
              context_for: Callable[[ScanUnit], dict] = lambda u: {},
              sleep: Callable[[float], None] = time.sleep,
-             max_retries: int = 5) -> RunReport:
+             max_retries: int = 5,
+             holding: Callable[[Optional[ScanUnit]], None] = lambda u: None,
+             revoked: Callable[[ScanUnit], Optional[str]] = lambda u: None) -> RunReport:
     """One pass over the given analysers. The caller decides how often to call it.
 
     `gate` is checked before every CLAIM, never mid-unit: abandoning a leased unit
@@ -992,6 +1079,15 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                 a = action_for(r)
                 if a is Action.STOP_ANALYSER:
                     rep.stopped_analysers.append(plugin.name); units = []
+                elif a is Action.NOT_RUNNING:
+                    rep.not_running.append(plugin.name); units = []
+                elif a is Action.SERVER_BUSY:
+                    rep.unreachable = f"claim {plugin.name}: the server is busy ({r}) -- trying again in a minute"
+                    return rep
+                elif a is Action.NOT_REPORTING:
+                    rep.not_reporting = True
+                    rep.unreachable = f"claim {plugin.name}: the server has no recent report from this station ({r})"
+                    return rep
                 elif a is Action.RETRY_LATER and tries < max_retries:
                     tries += 1; sleep(min(60.0, 2.0 ** tries))
                 elif _uncoded_server_error(r):
@@ -1015,13 +1111,20 @@ def run_once(client: LabsClient, plugins: Iterable, *, decode, states: dict,
                     rep.fatal = f"claim {plugin.name}: {r} -> {a.value}"; return rep
         rep.claimed += len(units)
         for unit in units:
-            o = run_unit(client, plugin, unit, decode=decode, states=states,
-                         context=context_for(unit), sleep=sleep)
+            holding(unit)
+            try:
+                o = run_unit(client, plugin, unit, decode=decode, states=states,
+                             context=context_for(unit), sleep=sleep,
+                             abort_check=lambda u=unit: revoked(u))
+            finally:
+                holding(None)
             rep.outcomes.append(o)
             if o.submitted:
                 rep.submitted += 1
             else:
                 rep.abandoned += 1
+            if o.action is Action.REVOKED:
+                rep.revoked += 1
             if o.action is Action.FATAL:
                 rep.fatal = o.note; return rep
             if o.action is Action.STOP_ANALYSER:

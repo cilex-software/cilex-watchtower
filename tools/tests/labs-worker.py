@@ -1459,7 +1459,8 @@ else:
 import station as ST, json as _j
 _sd2 = tempfile.mkdtemp(prefix="station-")
 check("control: NO file means PAUSED (never started here), and says so",
-      ST.read_control(_sd2) == {"paused": True, "camera_health": False, "why": "never started on this station"},
+      ST.read_control(_sd2) == {"paused": True, "camera_health": False, "why": "never started on this station",
+                                "hold": None},
       str(ST.read_control(_sd2)))
 open(os.path.join(_sd2, ST.CONTROL), "w").write("{not json")
 check("control: an UNREADABLE file means paused", ST.read_control(_sd2)["paused"] is True)
@@ -1520,7 +1521,7 @@ tot = RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control
                     sleep=clk.sleep, clock=clk.now, passes=2)
 check("loop: running asks for ONE unit of each analyser in turn", c.claims[:2] == ["illumination", "foreground_mask"], str(c.claims))
 check("loop: every unit is counted and the last one is shown",
-      tot == {"claimed": 2, "done": 2, "failed": 0, "abandoned": 0}
+      tot == {"claimed": 2, "done": 2, "failed": 0, "abandoned": 0, "revoked": 0}
       and (hb.fields.get("last_unit") or {}).get("analyzer") == "foreground_mask", f"{tot} {hb.fields.get('last_unit')}")
 check("loop: a pass with nothing to claim goes IDLE (and waits, rather than spinning)",
       hb.fields.get("state") == "idle" and clk.t >= RW2.IDLE_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} t={clk.t}")
@@ -1768,6 +1769,285 @@ check("every plugin in plugins.py is registered in run_worker",
 check("...each under its own analyser name (what --analyzer names is what gets claimed)",
       all(cls.name == key for key, cls in RW.PLUGINS.items()),
       str({k: c.name for k, c in RW.PLUGINS.items() if c.name != k}))
+
+# ================================================================ the Labs CONTROL PLANE
+# cilex-vision, deployed 2026-09-28 (CONTRACT.md, "Station side"): the worker reports itself
+# every ~2 s and takes its orders -- station and lane modes, units taken back -- from the
+# reply. Operator decisions the same night: the SERVER is the switch once it answers (the
+# local `paused` flag no longer governs), and the wall's safety check can HOLD Labs off on
+# its computer, reported with its reason.
+import reporter as RPT, vitals as VT
+
+# ---- the changed refusals ---------------------------------------------------------------
+check("claim refusals of the control plane map to their own actions, never FATAL",
+      W.action_for(R(409, "labs_lane_not_running", True)) is W.Action.NOT_RUNNING
+      and W.action_for(R(409, "labs_worker_not_reporting")) is W.Action.NOT_REPORTING
+      and W.action_for(R(503, "labs_busy", True)) is W.Action.SERVER_BUSY
+      and W.action_for(R(409, "scan_unit_revoked", False)) is W.Action.REVOKED)
+_rf = W._refusal_from(503, b'{"detail": "The claim took too long", "code": "labs_busy", "retryable": true}')
+check("a coded error whose `detail` is a sentence is read by its `code` (cilex-vision's CodedError)",
+      _rf.detail == "labs_busy" and W.action_for(_rf) is W.Action.SERVER_BUSY, str(_rf))
+
+class _NullQueue(W.HttpLabsClient):
+    def _req(self, method, path, body=None, raw_to=None):
+        return {"units": [{"camera_id": "c", "hour_start": "2026-09-28T01:00:00+00:00", "analyzer": "a"}],
+                "queue_remaining": None}
+try:
+    _us, _qr = _NullQueue("http://x", "tok").claim("a", 1); _ok = True
+except Exception as e:
+    _us, _qr, _ok = [], "?", e
+check("queue_remaining: null no longer crashes a claim (it did: int(None))",
+      _ok is True and len(_us) == 1 and _qr is None, f"{_ok} {_qr}")
+
+def _claim_refused(r):
+    u = unit(a="illumination")
+    c = Fake(units={"illumination": [u]}, segs={(u.camera_id, u.hour_start): [seg(1)]},
+             refuse={("claim", "illumination"): [r, r, r, r, r, r, r]})
+    rep = W.run_once(c, [B1], decode=decode_chroma(11.5), states={}, sleep=lambda s: None)
+    return c, rep
+c, rep = _claim_refused(R(409, "labs_lane_not_running", True))
+check("claim: a lane that is not running is SKIPPED this pass (not fatal, not retried in place)",
+      rep.not_running == ["illumination"] and not rep.fatal and not rep.unreachable and c.claims == ["illumination"],
+      f"{rep.not_running} {rep.fatal} {c.claims}")
+c, rep = _claim_refused(R(503, "labs_busy", True))
+check("claim: labs_busy ends the pass for a minute -- asked ONCE, never re-asked in place",
+      rep.unreachable and "busy" in rep.unreachable and not rep.fatal and c.claims == ["illumination"],
+      f"{rep.unreachable} {c.claims}")
+c, rep = _claim_refused(R(409, "labs_worker_not_reporting"))
+check("claim: 'not reporting' is said as such (report, then retry soon), not as a fault",
+      rep.not_reporting and not rep.fatal and c.claims == ["illumination"], f"{rep.not_reporting} {rep.fatal}")
+
+# ---- a unit TAKEN BACK while it runs: dropped, nothing submitted, nothing filed ------------
+class _Counting(Nothing):
+    got = 0
+    def analyse(self, segs, st, u, ctx):
+        for _s, _f in segs:
+            type(self).got += 1                # frames HANDED OVER to the analyser
+        return []
+_seen = {"n": 0}
+def _decode_then_revoke(path, kf, want_chroma, **k):
+    _seen["n"] += 1
+    return decode_chroma(11.5)(path, kf, want_chroma)
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(i) for i in range(4)]})
+o = W.run_unit(c, _Counting(), u, decode=_decode_then_revoke, states={}, tmpdir=TMP, sleep=lambda s: None,
+               abort_check=lambda: "taken back by the server" if _seen["n"] >= 1 else None)
+check("frame path: a unit taken back mid-hour is DROPPED -- nothing submitted, not filed as failed",
+      not o.submitted and not c.submitted and o.action is W.Action.REVOKED and _seen["n"] == 1,
+      f"{o.action} {c.submitted} decoded={_seen['n']}")
+check("...and the frames decoded after the Stop are never handed to the analyser",
+      _Counting.got == 0, f"handed over: {_Counting.got}")
+check("...and it leaves no temp file behind", leftovers() == [], str(leftovers()))
+
+class _RawKilled:
+    name = "frame_difference"; version = "t"; segment_limit = 4; keyframes_only = True
+    want_chroma = False; stateful = False; wants_raw = True
+    def new_state(self): return None
+    def analyse_raw(self, chunks, segs, unit):
+        list(chunks)
+        raise RuntimeError("ffmpeg: killed")   # what a decoder killed under it looks like
+u = unit(a="frame_difference"); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+_rev = {"on": False}
+class _RawKilledLate(_RawKilled):
+    def analyse_raw(self, chunks, segs, unit):
+        list(chunks); _rev["on"] = True        # the Stop lands while its decoder runs
+        raise RuntimeError("ffmpeg: killed")
+o = W.run_unit(c, _RawKilledLate(), u, decode=lambda *a: [], states={}, tmpdir=TMP, sleep=lambda s: None,
+               abort_check=lambda: "taken back by the server" if _rev["on"] else None)
+check("raw path: the decoder a Stop killed is NOT filed as the footage's failure (no attempt spent)",
+      not c.submitted and o.action is W.Action.REVOKED and "not filed" in o.note, f"{c.submitted} {o.action} {o.note}")
+
+u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]},
+                     refuse={("submit", u.camera_id): [R(409, "scan_unit_revoked", False)] * 5})
+_n_sub = {"n": 0}
+_orig_submit = c.submit
+def _count_submit(uu, body):
+    _n_sub["n"] += 1; return _orig_submit(uu, body)
+c.submit = _count_submit
+o = run(c, Nothing(), u)
+check("submit refused 409 scan_unit_revoked: dropped, NOT retried, not filed as failed",
+      not o.submitted and o.action is W.Action.REVOKED and _n_sub["n"] == 1, f"{o.action} submits={_n_sub['n']}")
+
+# ---- the reporter --------------------------------------------------------------------------
+class _RepClient:
+    def __init__(self, replies): self.replies, self.bodies = list(replies), []
+    def report(self, body):
+        self.bodies.append(body)
+        r = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
+        if isinstance(r, Exception): raise r
+        return r
+class _Vit:
+    def sample(self): return {"cores": 4, "mem_total_bytes": 8, "mem_used_bytes": 2,
+                              "cpu_pct": 12.5, "labs_cpu_pct": None, "labs_rss_bytes": 7}
+_ctl_box = {"c": {"paused": True, "camera_health": False, "why": "", "hold": None}}
+_t = {"now": 0.0}
+_aborts, _changes = [], []
+def _mk(replies):
+    return RPT.Reporter(_RepClient(replies), vitals=_Vit(), worker_version="worker-0.3",
+                        control=lambda: _ctl_box["c"], clock=lambda: _t["now"],
+                        on_abort=lambda un, why: _aborts.append(why), on_change=_changes.append)
+_ORD = {"generated_at": "2026-09-28T09:00:00Z", "report_every_s": 2,
+        "station": {"mode": "running", "level": None, "at": "2026-09-28T09:00:00Z"},
+        "lanes": {"illumination": "running", "blob_geometry": "paused"}, "revoked": []}
+
+rp = _mk([R(404, "Not Found", None)])
+rp.tick(); rp.report_once()
+check("reporter: a server WITHOUT the endpoint (404) is not governing; the local file still decides",
+      rp.governed() is False and rp.station_mode() is None and rp._next == RPT.LEGACY_PROBE_S,
+      f"{rp.governed()} next={rp._next}")
+
+rp = _mk([_ORD]); rp.tick(); rp.report_once()
+check("reporter: once the server answers, it governs -- station and lane modes come from its reply",
+      rp.governed() and rp.station_mode() == "running" and rp.lane_mode("illumination") == "running"
+      and rp.lane_mode("blob_geometry") == "paused" and rp.lane_mode("track_linking") is None)
+_b = rp.client.bodies[-1]
+check("reporter: the body carries the contract's fields, vitals included, null where unmeasured",
+      _b["worker_version"] == "worker-0.3" and _b["state"] == "idle" and _b["slots"] == 1 and _b["holding"] == []
+      and _b["cpu_pct"] == 12.5 and _b["labs_cpu_pct"] is None and "hold" not in _b, str(_b))
+_t["now"] = 31.0
+check("reporter: orders older than 30 s are UNKNOWN -- and unknown claims nothing new",
+      rp.station_mode() is None and rp.lane_mode("illumination") is None and rp.governed())
+_t["now"] = 0.0
+
+_u = W.ScanUnit("cam-9", "2026-09-28T01:00:00.000+00:00", "illumination", None, 1)
+rp = _mk([_ORD, dict(_ORD, revoked=[{"analyzer": "illumination", "camera_id": "cam-9",
+                                     "hour_start": "2026-09-28T01:00:00Z"}])])
+rp.set_holding(_u); rp.report_once()
+_b = rp.client.bodies[-1]
+check("reporter: while a unit is in hand the state is 'running' and the unit is listed, hour with its offset",
+      _b["state"] == "running" and _b["holding"] == [{"analyzer": "illumination", "camera_id": "cam-9",
+                                                    "hour_start": "2026-09-28T01:00:00.000+00:00"}], str(_b))
+_aborts.clear(); rp.report_once(); rp.report_once()
+check("reporter: a unit the server takes back is dropped ONCE (its decoders killed), however the hour is spelled",
+      rp.abort_reason(_u) and len(_aborts) == 1, f"{rp.abort_reason(_u)} aborts={_aborts}")
+rp.set_holding(None)
+
+_ctl_box["c"] = dict(_ctl_box["c"], hold={"by": "wall-guard", "why": "dark tiles for 4 s", "at": "2026-09-28T09:01:00Z"})
+rp = _mk([_ORD]); _aborts.clear()
+rp.set_holding(_u); rp.tick()
+check("reporter: a local HOLD drops the unit in hand at once, with its reason",
+      rp.abort_reason(_u) == "held on this station: dark tiles for 4 s" and _aborts == ["held on this station: dark tiles for 4 s"],
+      f"{rp.abort_reason(_u)} {_aborts}")
+rp.report_once(); _b = rp.client.bodies[-1]
+check("reporter: a held station reports 'paused' AND the hold -- never a hidden switch",
+      _b["state"] == "paused" and _b.get("hold", {}).get("why") == "dark tiles for 4 s", str(_b))
+_ctl_box["c"] = dict(_ctl_box["c"], hold=None)
+
+rp = _mk([_ORD]); _changes.clear()
+_real_now_iso, _ticks = RPT.S.now_iso, iter(range(100))
+RPT.S.now_iso = lambda: f"2026-09-28T09:00:{next(_ticks):02d}Z"   # every report a new time
+try:
+    for _i in range(5):
+        _t["now"] = _i * 2.0; rp.report_once(); rp.tick()
+finally:
+    RPT.S.now_iso = _real_now_iso
+_t["now"] = 0.0
+check("reporter: the status file is told when what it says CHANGES, not on every 2-s report",
+      len(_changes) == 1 and _changes[0]["governed"] and _changes[0]["server_mode"] == "running", str(len(_changes)))
+
+# ---- the loop, governed -----------------------------------------------------------------------
+class _Gov:
+    def __init__(self, mode, lanes, level=None, at="2026-09-28T09:00:00Z"):
+        self.mode, self.lanes, self.level, self.at = mode, lanes, level, at
+        self.kicks, self.states, self.held = 0, [], []
+    def governed(self): return True
+    def station(self): return None if self.mode is None else {"mode": self.mode, "level": self.level, "at": self.at}
+    def lane_mode(self, n): return self.lanes.get(n)
+    def set_state(self, s): self.states.append(s)
+    def set_holding(self, u): self.held.append(u)
+    def abort_reason(self, u): return None
+    def kick(self): self.kicks += 1
+    def snapshot(self): return {"lanes": dict(self.lanes)}
+_LOCAL_PAUSED = {"paused": True, "camera_health": False, "why": "paused", "hold": None}
+_LOCAL_RUN = {"paused": False, "camera_health": False, "why": "", "hold": None}
+
+c, plugs = loop_world(["illumination", "blob_geometry"])
+g = _Gov("running", {"illumination": "running", "blob_geometry": "paused"})
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
+              sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+check("governed: the SERVER decides -- a local `paused` flag no longer stops claims (operator decision)",
+      c.claims == ["illumination"], str(c.claims))
+check("governed: only lanes whose mode is `running` are claimed", "blob_geometry" not in c.claims)
+check("governed: the unit in hand is announced to the reporter, and a report follows each unit",
+      len(g.held) >= 2 and g.held[0] is not None and g.held[1] is None and g.kicks >= 1, f"{g.held} kicks={g.kicks}")
+
+for _mode, _level, _at, _word, _says in (("paused", "station", "2026-09-28T09:05:00Z", "paused", "this workstation, since 2026-09-28T09:05:00Z"),
+                                         ("stopped", None, None, "stopped_by_server", "never started"),
+                                         (None, None, None, "waiting", "no fresh orders")):
+    c, plugs = loop_world(["illumination"])
+    g = _Gov(_mode, {"illumination": "running"}, level=_level, at=_at)
+    hb, clk = HbRec(), Clock()
+    RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_RUN,
+                  sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+    check(f"governed, station mode {_mode}: claims nothing, and the status says so ('{_says}')",
+          c.claims == [] and hb.fields.get("state") == _word and _says in (hb.fields.get("note") or ""),
+          f"{c.claims} {hb.fields.get('state')} {hb.fields.get('note')}")
+
+_HELD = dict(_LOCAL_RUN, hold={"by": "wall-guard", "why": "stall 3 s", "at": ""})
+for _g in (_Gov("running", {"illumination": "running"}), None):
+    c, plugs = loop_world(["illumination"])
+    hb, clk = HbRec(), Clock()
+    RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _HELD,
+                  sleep=clk.sleep, clock=clk.now, passes=1, reporter=_g)
+    check(f"a local HOLD beats {'a server Start' if _g else 'the local flag'}: nothing claimed, the reason shown",
+          c.claims == [] and hb.fields.get("state") == "held" and "stall 3 s" in (hb.fields.get("note") or ""),
+          f"{c.claims} {hb.fields.get('state')} {hb.fields.get('note')}")
+
+c, plugs = loop_world(["camera_health", "illumination"])
+g = _Gov("running", {"camera_health": "running", "illumination": "running"})
+hb, clk = HbRec(), Clock()
+RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_RUN,
+              sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+check("governed: camera_health still needs THIS station's opt-in (one station only; the server does not enforce it)",
+      c.claims == ["illumination"], str(c.claims))
+
+# ---- the CLI --------------------------------------------------------------------------------
+import argparse as _ap
+_sd5 = tempfile.mkdtemp(prefix="gov-")
+_old_env = {k: os.environ.get(k) for k in ("XDG_STATE_HOME", "LOCALAPPDATA")}
+os.environ["XDG_STATE_HOME"] = _sd5; os.environ["LOCALAPPDATA"] = _sd5
+try:
+    ST.write_control(False, by="test")
+    ST.write_status({"state": "idle", "governed": True})
+    _args = _ap.Namespace(status=False, pause=True, camera_health=None, hold=None, release=False)
+    import io, contextlib
+    with contextlib.redirect_stderr(io.StringIO()) as _err:
+        _rc = RW2.control_main(_args)
+    check("CLI --pause while the server governs: REFUSED with where the switch is, nothing written",
+          _rc == 2 and ST.read_control()["paused"] is False and "server" in _err.getvalue(), f"rc={_rc}")
+    with contextlib.redirect_stdout(io.StringIO()):
+        RW2.control_main(_ap.Namespace(status=False, pause=None, camera_health=None, hold="wall degraded", release=False))
+        _h = ST.read_control()["hold"]
+        RW2.control_main(_ap.Namespace(status=False, pause=None, camera_health=None, hold=None, release=True))
+    check("CLI --hold / --release set and clear this computer's hold",
+          _h and _h["why"] == "wall degraded" and ST.read_control()["hold"] is None, str(_h))
+finally:
+    for k, v in _old_env.items():
+        if v is None: os.environ.pop(k, None)
+        else: os.environ[k] = v
+
+# ---- vitals --------------------------------------------------------------------------------
+_v = VT.Vitals()
+_s1 = _v.sample(); _time.sleep(0.2); _s2 = _v.sample()
+check("vitals: the first sample has no percentages (no previous); the second has them, in range",
+      _s1["cpu_pct"] is None and _s1["labs_cpu_pct"] is None
+      and (_s2["cpu_pct"] is None or 0.0 <= _s2["cpu_pct"] <= 100.0)
+      and (_s2["mem_used_bytes"] is None or 0 < _s2["mem_used_bytes"] <= _s2["mem_total_bytes"]), f"{_s1} {_s2}")
+check(f"vitals: this station measures its own tree ({VT.source()})",
+      _s2["labs_rss_bytes"] is None or _s2["labs_rss_bytes"] > 0, str(_s2))
+import subprocess as _sp
+_child = _sp.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+_time.sleep(0.3)
+_killed = VT.kill_children()
+try:
+    _rc = _child.wait(timeout=5)
+except Exception:
+    _child.kill(); _rc = "still running"
+if _killed is None:
+    print("SKIP vitals: kill_children -- this station cannot walk its process tree (no psutil, not Linux)")
+else:
+    check("vitals: kill_children stops the worker's children (a Stop's decoders)", _killed >= 1 and _rc != "still running",
+          f"killed={_killed} rc={_rc}")
 
 print()
 if fails:

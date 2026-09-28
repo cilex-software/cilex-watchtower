@@ -47,6 +47,8 @@ class LabsModel : public QObject
     Q_PROPERTY(QString changeError READ changeError NOTIFY changed)
     Q_PROPERTY(QVariantMap station READ station NOTIFY stationChanged)
     Q_PROPERTY(QString stationError READ stationError NOTIFY stationChanged)
+    // A Start / Pause for this workstation is in flight at the server.
+    Q_PROPERTY(bool stationBusy READ stationBusy NOTIFY stationChanged)
 
 public:
     explicit LabsModel(QObject *parent = nullptr);
@@ -68,12 +70,20 @@ public:
     QString changeError() const { return m_changeError; }
     QVariantMap station() const { return m_station; }
     QString stationError() const { return m_stationError; }
+    bool stationBusy() const { return m_stationBusy; }
 
     // `force`: the operator pressed Refresh -- ask now, whatever the age of the answer.
     Q_INVOKABLE void refresh(bool force = false);
     Q_INVOKABLE void refreshStation();
     Q_INVOKABLE void setAnalyzerEnabled(const QString &slug, bool on);
     Q_INVOKABLE void setStationPaused(bool paused);
+    // THIS workstation. Once its worker says the server governs (cilex-vision's control
+    // plane, 2026-09-28), this is POST /labs/control {station: <host>, action: start|pause}
+    // -- admin, audited there; the local flag no longer governs (operator decision). Before
+    // that it is the local flag, as it always was.
+    Q_INVOKABLE void setStationRunning(bool run);
+    // Release the wall safety check's hold on this computer (local; admin screen only).
+    Q_INVOKABLE void releaseHold();
 
 signals:
     void changed();
@@ -100,4 +110,5 @@ private:
 
     QVariantMap m_station;
     QString m_stationError;
+    bool m_stationBusy = false;
 };

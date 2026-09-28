@@ -235,6 +235,25 @@ int main(int argc, char **argv)
            "with no file, the worker too says paused");
     }
 
+    // ---- the wall safety check's HOLD (operator decision 2026-09-28) ------------------------
+    writeFile(ctl, R"({"paused": false, "camera_health": true,
+                       "hold": {"by": "wall-guard", "why": "dark tiles for 4 s", "at": "2026-09-28T09:01:00Z"}})");
+    c = wtlabs::readControl(dir);
+    ok(c.hold.value("why").toString() == "dark tiles for 4 s" && c.hold.value("by").toString() == "wall-guard",
+       "a hold in the control file is read, with who set it and why");
+    QString eh;
+    ok(wtlabs::clearHold(dir, "app", &eh) && wtlabs::readControl(dir).hold.isEmpty(), "Release clears the hold" + eh);
+    c = wtlabs::readControl(dir);
+    ok(!c.paused && c.cameraHealth, "...and keeps everything else, above all the camera_health opt-in");
+    if (havePy) {
+        py("S.write_hold('stall 3 s', by='wall-guard')", home);
+        ok(wtlabs::readControl(dir).hold.value("why").toString() == "stall 3 s",
+           "the APP reads a hold the WORKER's station.write_hold wrote");
+        wtlabs::clearHold(dir, "app");
+        ok(py("print(S.read_control()['hold'])", home) == "None", "the WORKER reads the app's Release");
+    }
+    QFile::remove(ctl);
+
     // ---- a file that is THERE but will not open --------------------------------------------
     // On Windows: for a moment, while the other side replaces it. Either way the read must
     // give up in bounded time, and a Pause must not write a fresh document over a file it
@@ -289,6 +308,14 @@ int main(int argc, char **argv)
     writeFile(stp, "garbage");
     s = wtlabs::readStation(dir, now);
     ok(s.view == "unreadable", "an unreadable status file says so");
+    writeFile(stp, R"({"state":"stopped_by_server","updated_at":"2026-09-26T16:59:30Z","governed":true,
+                      "server_mode":"stopped","server_level":"all","server_at":"2026-09-26T16:00:00Z",
+                      "lanes":{"illumination":"running","blob_geometry":"paused"},
+                      "hold":{"by":"wall-guard","why":"stall 3 s","at":""}})");
+    s = wtlabs::readStation(dir, now);
+    ok(s.governed && s.serverMode == "stopped" && s.serverLevel == "all" && s.view == "stopped_by_server"
+       && s.lanes.value("blob_geometry").toString() == "paused" && s.hold.value("why").toString() == "stall 3 s",
+       "a GOVERNED status reads through: the server's mode, level and lanes, and the hold");
     writeFile(stp, R"({"state":"running","updated_at":"2026-09-26T16:59:30Z"})");
     {
         Unopenable lock(stp);

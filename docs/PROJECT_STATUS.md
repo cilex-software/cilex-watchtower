@@ -5,6 +5,45 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-28 LABS: THE SERVER'S CONTROL PLANE (worker-0.3) -->
+> **2026-09-28 — worker-0.3: cilex-vision's Labs control plane, station side.** The server deploys
+> after 08:45 MSK. The worker **reports itself every ~2 s** (`POST /labs/station/report`: state,
+> the unit in hand, the machine's and its own CPU/memory). The reply is its **orders**: station
+> and lane modes, plus units the server took back. A taken-back unit is dropped at once: its
+> decoders are killed, nothing is submitted, and it is not filed as a failure. Before the deploy
+> (the endpoint answers 404) the local file governs exactly as before. The worker switches over by
+> itself: it probes every 60 s, and at once on 409 `labs_worker_not_reporting`.
+>
+> **Operator decisions (2026-09-28, in this session):**
+> - **The server is the only switch** once it answers. The local `paused` flag no longer
+>   governs. The Labs screen's button calls `POST /labs/control` for this host (admin).
+>   `run_worker.py --pause` refuses, and says where the switch is.
+> - **The wall's safety check can HOLD Labs off on its computer.** `control.json` `hold`, set by
+>   `station.write_hold` / `--hold "why"`. It beats a server Start, survives restarts, drops the
+>   unit in hand, and is **sent in every report**, so it is never hidden. cilex-vision shows it
+>   on the admin page. It is released locally (`--release`, or the Labs screen's
+>   "Release hold").
+> - **Nothing about Labs is shown to non-admins.** The safety check is silent on the wall
+>   (verified on the booth: 0 visible windows).
+>
+> **Also handled:**
+> - Changed refusals: `labs_lane_not_running` skips that lane; `labs_busy` ends the pass for 60 s
+>   and is never retried in place; `scan_unit_revoked` is dropped.
+> - `queue_remaining: null` (which would have crashed every claim).
+> - `camera_health` still needs this station's local opt-in; the server doesn't enforce one
+>   station.
+> - Vitals come from psutil or `/proc`, and are null when unmeasurable. The booth has psutil. The
+>   office does not: install it on the operator's visit. Until then its Labs figures are null and
+>   a Stop can't kill a running decoder early.
+>
+> **Verified:**
+> - `labs-worker.py`: 287 checks, 34 new, each new one killed by its mutant.
+> - Station tests: the hold, read across languages.
+> - Live probe at 04:47 MSK: 404, the legacy path.
+> - Labs-screen strip screenshots: stopped by the server, and held.
+>
+> **Not yet verified:** against the deployed server (cilex-vision's live test after the deploy).
+
 <!-- 2026-09-28 LABS: PLAYBACK EVENTS LANE -->
 > **2026-09-28 — Labs on the Playback timeline: the LABS button and its lane exist** (single-camera
 > Playback only; operator requests, same night). Preferences → **Labs** (admins only) → "Labs

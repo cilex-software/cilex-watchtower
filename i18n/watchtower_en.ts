@@ -2200,6 +2200,14 @@
     </message>
 </context>
 <context>
+    <name>LabsModel</name>
+    <message>
+        <location filename="../src/models/LabsModel.cpp" line="227"/>
+        <source>only an administrator can start or pause scanning</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LabsNames</name>
     <message>
         <location filename="../qml/LabsNames.qml" line="35"/>
@@ -2461,7 +2469,7 @@
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="93"/>
-        <location filename="../qml/LabsScreen.qml" line="300"/>
+        <location filename="../qml/LabsScreen.qml" line="321"/>
         <source>Scanning is not set up on this station</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2491,42 +2499,67 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="99"/>
-        <source>Scanning: %1</source>
+        <location filename="../qml/LabsScreen.qml" line="98"/>
+        <source>Paused by the server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="99"/>
-        <source>Scanning</source>
+        <source>Stopped by the server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="100"/>
-        <source>Waiting — nothing to scan right now</source>
+        <source>Waiting for the server&apos;s orders</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="101"/>
-        <source>Cannot reach the server — will retry</source>
+        <source>Held on this station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="102"/>
-        <source>Cannot work until fixed</source>
+        <source>Scanning: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="102"/>
+        <source>Scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../qml/LabsScreen.qml" line="103"/>
+        <source>Waiting — nothing to scan right now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="104"/>
+        <source>Cannot reach the server — will retry</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="105"/>
+        <source>Cannot work until fixed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="106"/>
         <source>Status unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="116"/>
+        <location filename="../qml/LabsScreen.qml" line="119"/>
         <source>never started on this station</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="124"/>
+        <source>%1 · by %2</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location filename="../qml/LabsScreen.qml" line="120"/>
+        <location filename="../qml/LabsScreen.qml" line="129"/>
         <source>%n row(s)</source>
         <translation>
             <numerusform>%n row</numerusform>
@@ -2534,291 +2567,307 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="121"/>
+        <location filename="../qml/LabsScreen.qml" line="130"/>
         <source>filed as failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="121"/>
+        <location filename="../qml/LabsScreen.qml" line="130"/>
         <source>given back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="122"/>
+        <location filename="../qml/LabsScreen.qml" line="131"/>
         <source>last: %1 · %2 · %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="124"/>
+        <location filename="../qml/LabsScreen.qml" line="133"/>
         <source>install the Labs worker service on this machine</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="160"/>
+        <location filename="../qml/LabsScreen.qml" line="169"/>
         <source>OFF</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="160"/>
+        <location filename="../qml/LabsScreen.qml" line="169"/>
         <source>ON</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="199"/>
-        <location filename="../qml/LabsScreen.qml" line="372"/>
+        <location filename="../qml/LabsScreen.qml" line="208"/>
+        <location filename="../qml/LabsScreen.qml" line="393"/>
         <source>This station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="208"/>
+        <location filename="../qml/LabsScreen.qml" line="217"/>
         <source>could not save: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="216"/>
+        <location filename="../qml/LabsScreen.qml" line="232"/>
+        <source>Release hold</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="234"/>
         <source>Resume scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="216"/>
+        <location filename="../qml/LabsScreen.qml" line="234"/>
         <source>Pause scanning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="223"/>
-        <source>Only an administrator can resume scanning</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../qml/LabsScreen.qml" line="270"/>
+        <location filename="../qml/LabsScreen.qml" line="291"/>
         <source>Switched on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="271"/>
-        <location filename="../qml/LabsScreen.qml" line="502"/>
+        <location filename="../qml/LabsScreen.qml" line="292"/>
+        <location filename="../qml/LabsScreen.qml" line="523"/>
         <source>No answer from the server yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="277"/>
+        <location filename="../qml/LabsScreen.qml" line="298"/>
         <source>CPU-h / day</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="278"/>
+        <location filename="../qml/LabsScreen.qml" line="299"/>
         <source>Projected load</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="279"/>
+        <location filename="../qml/LabsScreen.qml" line="300"/>
         <source>At least this much: an analyser that is switched on has no measured cost yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="280"/>
+        <location filename="../qml/LabsScreen.qml" line="301"/>
         <source>CPU time per day across the stations that scan, for the analysers switched on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="291"/>
+        <location filename="../qml/LabsScreen.qml" line="312"/>
         <source>Camera-hours analysed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="292"/>
+        <location filename="../qml/LabsScreen.qml" line="313"/>
         <source>Every analyser counted separately, since Labs started</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="298"/>
+        <location filename="../qml/LabsScreen.qml" line="319"/>
         <source>+%1 failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="299"/>
+        <location filename="../qml/LabsScreen.qml" line="320"/>
         <source>Done by this station</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="300"/>
+        <location filename="../qml/LabsScreen.qml" line="321"/>
         <source>Since the scanner last started</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="310"/>
-        <location filename="../qml/LabsScreen.qml" line="317"/>
+        <location filename="../qml/LabsScreen.qml" line="331"/>
+        <location filename="../qml/LabsScreen.qml" line="338"/>
         <source>Only an administrator can switch analysers on or off.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="311"/>
+        <location filename="../qml/LabsScreen.qml" line="332"/>
         <source>The server refused the change: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="313"/>
+        <location filename="../qml/LabsScreen.qml" line="334"/>
         <source>Only administrators can see the Labs programme.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="444"/>
+        <location filename="../qml/LabsScreen.qml" line="465"/>
         <source>done: %1 h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="445"/>
+        <location filename="../qml/LabsScreen.qml" line="466"/>
         <source>done while on: %1 h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="451"/>
+        <location filename="../qml/LabsScreen.qml" line="472"/>
         <source>waiting: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="452"/>
+        <location filename="../qml/LabsScreen.qml" line="473"/>
         <source>waiting: counted at the next refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="314"/>
+        <location filename="../qml/LabsScreen.qml" line="335"/>
         <source>The server is not answering. Showing what it said at %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="315"/>
+        <location filename="../qml/LabsScreen.qml" line="234"/>
+        <source>Start scanning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="243"/>
+        <source>Only an administrator can release the hold</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="244"/>
+        <source>Only an administrator can start or pause scanning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsScreen.qml" line="336"/>
         <source>The server refused: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="343"/>
+        <location filename="../qml/LabsScreen.qml" line="364"/>
         <source>Analyser</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="350"/>
+        <location filename="../qml/LabsScreen.qml" line="371"/>
         <source>On the server · %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="350"/>
+        <location filename="../qml/LabsScreen.qml" line="371"/>
         <source>On the server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="355"/>
+        <location filename="../qml/LabsScreen.qml" line="376"/>
         <source>Covered</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="360"/>
+        <location filename="../qml/LabsScreen.qml" line="381"/>
         <source>Refreshing…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="360"/>
+        <location filename="../qml/LabsScreen.qml" line="381"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="367"/>
+        <location filename="../qml/LabsScreen.qml" line="388"/>
         <source>Ask the server now. It refreshes on its own every 30 minutes: the counts cost the server real work.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="371"/>
+        <location filename="../qml/LabsScreen.qml" line="392"/>
         <source>Cost</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="419"/>
+        <location filename="../qml/LabsScreen.qml" line="440"/>
         <source>Only an administrator can switch analysers on or off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="428"/>
+        <location filename="../qml/LabsScreen.qml" line="449"/>
         <source>Changing…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="457"/>
+        <location filename="../qml/LabsScreen.qml" line="478"/>
         <source>%1 failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="468"/>
+        <location filename="../qml/LabsScreen.qml" line="489"/>
         <source>%1 CPU-s per camera-hour</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="468"/>
+        <location filename="../qml/LabsScreen.qml" line="489"/>
         <source>not measured</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="474"/>
+        <location filename="../qml/LabsScreen.qml" line="495"/>
         <source>≈ %1 CPU-h per day</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="475"/>
+        <location filename="../qml/LabsScreen.qml" line="496"/>
         <source>≈ %1 CPU-h per day if on</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="487"/>
+        <location filename="../qml/LabsScreen.qml" line="508"/>
         <source>Cannot run here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="488"/>
+        <location filename="../qml/LabsScreen.qml" line="509"/>
         <source>Not here (one station only)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="489"/>
+        <location filename="../qml/LabsScreen.qml" line="510"/>
         <source>Needs a server update</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="490"/>
-        <location filename="../qml/LabsScreen.qml" line="492"/>
+        <location filename="../qml/LabsScreen.qml" line="511"/>
+        <location filename="../qml/LabsScreen.qml" line="513"/>
         <source>Runs here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="502"/>
+        <location filename="../qml/LabsScreen.qml" line="233"/>
+        <location filename="../qml/LabsScreen.qml" line="523"/>
         <source>Asking the server…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="529"/>
+        <location filename="../qml/LabsScreen.qml" line="550"/>
         <source>Switch on “%1”?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="539"/>
+        <location filename="../qml/LabsScreen.qml" line="560"/>
         <source>Stations that scan will start analysing footage for it (%1). The change is visible to everyone using this system.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="547"/>
+        <location filename="../qml/LabsScreen.qml" line="568"/>
         <source>Projected load: about %1 CPU-hours per day across the stations that scan.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="548"/>
+        <location filename="../qml/LabsScreen.qml" line="569"/>
         <source>Nobody has measured its cost yet, so its load is unknown.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="557"/>
+        <location filename="../qml/LabsScreen.qml" line="578"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="559"/>
+        <location filename="../qml/LabsScreen.qml" line="580"/>
         <source>Switch on</source>
         <translation type="unfinished"></translation>
     </message>
