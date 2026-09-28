@@ -2340,6 +2340,12 @@ if VT.psutil is not None and sys.platform.startswith("linux"):
         _kill_round("/proc")
     finally:
         VT.psutil = _ps
+else:
+    # Named, so a count on another platform reconciles (Windows ran 322 where Linux ran 324,
+    # 2026-09-29: these two checks). Every skip says so by name (482f8cc).
+    print("SKIP vitals (/proc): a Stop kills the DECODER / spares the rest -- 2 checks; "
+          + ("no /proc on this platform" if not sys.platform.startswith("linux")
+             else "psutil is missing, so the round above already took the /proc path"))
 class _Pr:
     def __init__(self, n): self.n, self.killed = n, False
     def name(self): return self.n
