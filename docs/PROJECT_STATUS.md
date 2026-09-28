@@ -179,6 +179,20 @@
 >     -Office) must start with it.** Or stop the office on the server before the visit.
 > - **worker-0.3.2 on Windows** (the Windows agent's run at `3b5e4da`): 295 pass / 0 fail / 13 skip,
 >   the same named pins. Every new "revoked" race passes. The booth's checkout is at `3b5e4da`.
+> - **Coming from cilex-vision:**
+>   - **Tonight 02:00 MSK:** query-api 1.0.89. The Stop is scoped to its target, the claim drops
+>     its post-lease count, and the segment list and fetch answer `scan_unit_revoked`. Expect an
+>     API gap of about 7-16 s.
+>   - **Later, the v17 admin page** (`5aefa39`, 1.0.90, not deployed, no date). A workstation ×
+>     analyser pair runs only once an admin "connects its hose", default off, existing stations
+>     included. Until then its lane reads `stopped`; claims get 409 `labs_lane_not_running` with
+>     new `never_connected` / `unplugged` keys. **Unplugging is gentle:** units in hand stay
+>     leased and are finished. **The worker needs no change.** Lanes gate claims only
+>     (`run_worker.py:263-277`, `worker.py:1098`, and nothing between units at `:1139-1157`);
+>     only `revoked` or a hold drops a unit (`reporter.py:113-120`, `:217-229`). Two new checks
+>     pin both behaviours, each killed by its mutant; 310 checks.
+>   - **So after v17 the office claims nothing** until someone connects a hose there, even with
+>     its station row set to running.
 >
 > **The control-plane live test ran on the pilot, 2026-09-28 ~20:11 MSK** (operator-approved; driven
 > by cilex-vision; the worker side watched read-only here). Measured:

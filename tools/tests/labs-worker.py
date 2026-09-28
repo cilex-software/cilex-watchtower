@@ -2184,6 +2184,27 @@ c, plugs = loop_world(["illumination"])
 clk = Clock(); hb = _HbT(clk)
 RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
               sleep=clk.sleep, clock=clk.now, passes=2)
+# UNPLUG IS GENTLE (cilex-vision's v17 semantics, 5aefa39, 2026-09-28): when an admin unplugs a
+# workstation x analyser "hose", the lane reads "stopped" but units in hand stay leased and are
+# NOT listed in `revoked` -- the station finishes and submits them. Only a Stop revokes. The
+# worker must drop nothing on a lane flip alone: lanes gate CLAIMS, never a unit in hand.
+_cU, _plugsU = loop_world(["illumination"])
+_gU = _Gov("running", {"illumination": "running"})
+_dec = decode_chroma(11.5)
+def _unplug_mid_unit(path, kf, want_chroma, **k):
+    _gU.lanes["illumination"] = "stopped"      # the hose is unplugged while this unit decodes
+    return _dec(path, kf, want_chroma)
+_clkU = Clock()
+_tot = RW2.scan_loop(_cU, lambda: _plugsU, decode=_unplug_mid_unit, hb=HbRec(), control=lambda: _LOCAL_RUN,
+                     sleep=_clkU.sleep, clock=_clkU.now, passes=1, reporter=_gU)
+check("unplug mid-unit (lane -> stopped, nothing revoked): the unit in hand is FINISHED and submitted",
+      len(_cU.submitted) == 1 and _tot.get("done") == 1 and _tot.get("abandoned", 0) == 0, f"{_cU.submitted} {_tot}")
+_rf = W._refusal_from(409, b'{"detail": "labs_lane_not_running", "code": "labs_lane_not_running", '
+                           b'"retryable": true, "mode": "stopped", "level": "lane", "never_started": false, '
+                           b'"never_connected": true, "unplugged": false}')
+check("v17's claim refusal with its two NEW keys (never_connected, unplugged) is still 'skip this lane'",
+      W.action_for(_rf) is W.Action.NOT_RUNNING, str(_rf))
+
 check("control: an UNCHANGED reason still waits the full recheck -- no busy loop",
       [w for _, w in hb.when] == ["paused", "paused"] and hb.when[1][0] >= RW2.RECHECK_S - RW2.PAUSED_POLL_S,
       str(hb.when))
