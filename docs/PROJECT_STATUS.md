@@ -40,7 +40,23 @@
 > - Screenshots against a **local stub** for `/labs/stats`: real read-only counts, and **test
 >   values** for 24 h / 7 d waiting and for findings. Those previews are layout checks, not data.
 >
-> **Not yet verified:** a real `/labs/stats` answer (CV has not built it).
+> **Server side: BUILT by cilex-vision, NOT DEPLOYED** (their reply, same day:
+> `docs/letters/2026-09-28-labs-statistics-by-period.reply-cilex-vision.md`; their `2c9da8e`,
+> 1.0.85, and `9876f16`, 1.0.86).
+> - It follows our contract, with six refinements. Records and findings are counted by
+>   `hour_start`. Only ended-and-settled hours are counted. The bar adds up by construction. In
+>   `all`, the bar covers stored footage while the counts cover everything. Switched-off
+>   analysers get `null` bar totals. Findings are `null` only where no rule exists.
+> - Finding rules are theirs, per analyser, in `services/query-api/labs_findings.py`. E.g.
+>   foreground_mask needs `largest_blob_frac >= 0.01`, not a count; illumination needs a real light
+>   change within the camera-hour.
+> - Their code's response shape was read here (`routers/labs.py:3255-3345`, route at `:3363`) and
+>   pinned by `tools/tests/labs-stats.cpp` using their measured figures: now 32 checks.
+> - **The app needs no change; it switches over when the endpoint answers.**
+> - A query-api restart blanks guard walls for ~7-16 s (their figure), so **the operator picks the
+>   window.**
+>
+> **Not yet verified:** the view against the deployed endpoint (after their DEPLOYED line).
 
 <!-- 2026-09-28 LABS: EVERY INSTALL IS A STATION (operator decision) -->
 > **2026-09-28 — Operator decision: every machine with Watchtower installed is a Labs station.**

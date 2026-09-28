@@ -87,6 +87,75 @@ int main(int argc, char **argv)
     ok(wtlabs::parseStats(obj(R"({"generated_at": "x"})")).value("windows").toMap().isEmpty(),
        "an answer with no analysers has no periods at all");
 
+    // ---- cilex-vision's own answer, as they built it (2c9da8e / 9876f16) ------------------------
+    // The shape is copied from their code (routers/labs.py:3255-3345, the stats route at
+    // :3363). The 24 h and "all" figures are theirs: reply §3 (measured against the pilot
+    // database at 14:29Z on 2026-09-28) and §2's per-analyser row counts
+    // (docs/letters/2026-09-28-labs-statistics-by-period.reply-cilex-vision.md); "all"
+    // waiting is camera_hours - checked, by their invariant. NOT theirs: every 7 d figure
+    // (the reply gives none; copied from a neighbouring period to fill the shape) and
+    // segments_scanned (not in the reply; their code always emits an integer there).
+    const QJsonObject cv = obj(R"({
+      "generated_at": "2026-09-28T14:29:05.123+00:00", "computed_at": "2026-09-28T14:29:00.000+00:00",
+      "windows": {"24h": {"from": "2026-09-27T14:29:00.000+00:00", "to": "2026-09-28T14:29:00.000+00:00"},
+                  "7d":  {"from": "2026-09-21T14:29:00.000+00:00", "to": "2026-09-28T14:29:00.000+00:00"},
+                  "all": {"from": "2026-09-17T12:00:00.000+00:00", "to": "2026-09-28T14:29:00.000+00:00"}},
+      "analyzers": [
+        {"analyzer": "frame_difference", "enabled": true, "windows": {
+          "24h": {"camera_hours": 1283, "checked": 11, "in_progress": 0, "waiting": 1272, "given_up": 0,
+                  "segments_scanned": 0, "records": 11, "findings": 0},
+          "7d":  {"camera_hours": 1283, "checked": 11, "in_progress": 0, "waiting": 1272, "given_up": 0,
+                  "segments_scanned": 0, "records": 11, "findings": 0},
+          "all": {"camera_hours": 14393, "checked": 12, "in_progress": 0, "waiting": 14381, "given_up": 0,
+                  "segments_scanned": 0, "records": 12, "findings": 1, "checked_ever": 12}}},
+        {"analyzer": "illumination", "enabled": true, "windows": {
+          "24h": {"camera_hours": 2055, "checked": 11, "in_progress": 0, "waiting": 2044, "given_up": 0,
+                  "segments_scanned": 0, "records": 22, "findings": 0},
+          "7d":  {"camera_hours": 2055, "checked": 11, "in_progress": 0, "waiting": 2044, "given_up": 0,
+                  "segments_scanned": 0, "records": 22, "findings": 0},
+          "all": {"camera_hours": 24073, "checked": 12, "in_progress": 0, "waiting": 24061, "given_up": 0,
+                  "segments_scanned": 0, "records": 26, "findings": 0, "checked_ever": 12}}},
+        {"analyzer": "blob_geometry", "enabled": false, "windows": {
+          "24h": {"camera_hours": null, "waiting": null, "checked": 21, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 599, "findings": 576},
+          "7d":  {"camera_hours": null, "waiting": null, "checked": 22, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 911, "findings": 888},
+          "all": {"camera_hours": null, "waiting": null, "checked": 22, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 911, "findings": 888, "checked_ever": 22}}},
+        {"analyzer": "image_embedding", "enabled": false, "windows": {
+          "24h": {"camera_hours": null, "waiting": null, "checked": 0, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 0, "findings": null},
+          "7d":  {"camera_hours": null, "waiting": null, "checked": 0, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 0, "findings": null},
+          "all": {"camera_hours": null, "waiting": null, "checked": 0, "in_progress": 0, "given_up": 0,
+                  "segments_scanned": 0, "records": 0, "findings": null, "checked_ever": 0}}}
+      ]})");
+    const QVariantMap c = wtlabs::parseStats(cv);
+    ok(c.value("windows").toMap().keys() == QStringList({"24h", "7d", "all"}),
+       "cilex-vision's answer (2c9da8e): all three periods are read");
+    bool adds = true;
+    for (const QString &p : wtlabs::statsWindows())
+        for (const char *slug : {"frame_difference", "illumination"}) {
+            const QVariantMap r = rowOf(c, p, slug);
+            adds = adds && r.value("checked").toDouble() + r.value("inProgress").toDouble() + r.value("waiting").toDouble()
+                               + r.value("givenUp").toDouble() == r.value("cameraHours").toDouble();
+        }
+    ok(adds, "their figures read back so the bar adds up for both enabled analysers in every period, as they measured");
+    const QVariantMap fdc = rowOf(c, "24h", "frame_difference"), blc = rowOf(c, "24h", "blob_geometry");
+    ok(fdc.value("cameraHours").toDouble() == 1283 && fdc.value("waiting").toDouble() == 1272
+       && !absent(fdc.value("findings")) && fdc.value("findings").toDouble() == 0 && fdc.value("records").toDouble() == 11,
+       "frame_difference, 24 h: 1,283 camera-hours, 1,272 waiting, 0 findings in 11 records -- their §3");
+    ok(absent(blc.value("cameraHours")) && absent(blc.value("waiting"))
+       && blc.value("findings").toDouble() == 576 && blc.value("records").toDouble() == 599,
+       "switched off (blob_geometry): no bar total or waiting, but its 576 findings in 599 records are kept");
+    ok(absent(rowOf(c, "all", "image_embedding").value("findings")),
+       "an analyser with no finding rule (image_embedding) has findings ABSENT, not 0");
+    ok(rowOf(c, "all", "blob_geometry").value("checkedEver").toDouble() == 22,
+       "'checked ever' comes through in 'all'");
+    ok(!wtlabs::barWidthsVariant({fdc.value("checked"), fdc.value("inProgress"), fdc.value("waiting"), fdc.value("givenUp")}, 1000, 3).isEmpty()
+       && wtlabs::barWidthsVariant({blc.value("checked"), blc.value("inProgress"), blc.value("waiting"), blc.value("givenUp")}, 1000, 3).isEmpty(),
+       "an enabled analyser gets a bar; a switched-off one (waiting not counted) gets none");
+
     // ---- live leases -------------------------------------------------------------------------
     const QJsonObject pipeline = obj(R"({
       "generated_at": "2026-09-28T13:40:00.000Z", "queue_computed_at": "2026-09-28T13:38:30.000Z",
