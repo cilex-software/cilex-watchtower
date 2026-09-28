@@ -5,6 +5,59 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-28 LABS: EVERY INSTALL IS A STATION (operator decision) -->
+> **2026-09-28 — Operator decision: every machine with Watchtower installed is a Labs station.**
+> Verbatim: *"all machines where Cilex Watchtower is installed are lab stations, period. I decide
+> which ones are activated and which ones are dormant. Compute is very expensive these days so we
+> must use it on machines which sit idle."* It replaces the macOS agent's recommendation made
+> earlier that day ("only the Linux box").
+>
+> **What follows from it, for every agent:**
+> - **Installing Watchtower installs the Labs worker, dormant.** Only the operator activates a
+>   station, through the server's control plane (cilex-vision's admin page, or the Labs screen's
+>   Start on the machine itself). No install starts scanning by itself.
+> - **Labs gets only CPU that nobody else is using**, as the Linux unit already does (`Nice=19`,
+>   CPU and IO scheduling class `idle`). Every platform matches that.
+> - **A machine with no worker is an incomplete install, not "not a station".** The Labs screen's
+>   `absent` line ("install the Labs worker service on this machine") now names an installer
+>   fault, not an errand for the operator.
+>
+> **Per machine, as recorded in this file on 2026-09-28:**
+>
+> | machine | worker today | missing before it is a dormant station |
+> |---|---|---|
+> | Linux box (pilot) | 0.3.1, `systemd --user`, governed, stopped by the server | nothing |
+> | Office (Windows) | 0.3.1 staged in `C:\wt-labs`; has run real units | Windows agent: psutil on the visit (known); record how it runs (service or by hand) |
+> | Booth (Windows) | Python suite passes on it (285 / 0 / 13 skip); no installed worker recorded | Windows agent: an installed worker, dormant, at idle priority |
+> | Operator's MacBook | none | macOS agent: see below |
+>
+> **The MacBook needs three things, in this order** (measured on it, 2026-09-28):
+> 1. **A station token, which on macOS can only come through Warden.** The app enrols a station
+>    only under Warden (`StationEnrolment.h` `enrolmentWanted()`: `WT_UNDER_WARDEN`, and
+>    `WT_WARDEN_TOKEN` missing), and Warden has no macOS port (`warden/` has Linux and Windows
+>    installers only; `~/.config/watchtower-warden/` does not exist on the Mac). That is M3, which
+>    has been **waiting on the operator's E2** (when the app hangs, does Warden kill and restart
+>    it, or wait and log?).
+> 2. **A stable machine identity.** `warden.py` `machine_id_hash()` reads `/etc/machine-id` or
+>    `/var/lib/dbus/machine-id`, and macOS has neither, so it returns `""` and CV would key the Mac
+>    on `host:<hostname>`. On the Mac that hostname is `macbook-pro.tail42029d.ts.net` today. No
+>    `HostName` is set, so macOS derives the name from the network, and it is expected to change
+>    as the laptop roams (expected, not measured). A macOS branch should hash the
+>    `IOPlatformUUID` instead (present on the Mac).
+> 3. **The worker itself**: a LaunchAgent at the lowest priority, like the Linux unit, with
+>    `WT_API` taken from the app's saved server. It also needs numpy, OpenCV and psutil, none of
+>    which the Mac's python.org Python 3.13 has.
+>
+> **Open, by owner:**
+> - **cilex-vision:** confirm that a station the server has never heard from starts **stopped**,
+>   and does not inherit a Start given at a higher level. Otherwise "dormant until the operator
+>   says" does not hold for a fresh install.
+> - **Linux agent, Labs screen:** where no worker runs, the station button is still offered.
+>   `LabsScreen.qml:229` shows it whenever `labs` exists; ungoverned, it calls
+>   `setStationPaused(false)`, which writes `control.json` and flips the button to "Pause scanning",
+>   with nothing there to read it. Hide it there, and reword `absent` as above.
+> - **macOS agent:** proposed default for a laptop: claim nothing while on battery. Not built yet.
+
 <!-- 2026-09-28 LABS: worker-0.3.1 -->
 > **2026-09-28 — worker-0.3.1: segment joins, "busy", and a stale state word.**
 >
