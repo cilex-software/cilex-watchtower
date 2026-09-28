@@ -61,6 +61,11 @@ caveats:
   `WT_SCREENSHOT=/tmp/x.png WT_SCREENSHOT_MS=1500 QT_QPA_PLATFORM=offscreen timeout 12 ./build68/watchtower`
   — renders the window then quits; read the PNG back. The standard visual-verification path. On a real
   Wayland session (`WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000`) the 6.12 `build/` renders fine.
+  **Always add `WT_NO_SCHEME_REG=1` to a test run.** Every instance registers the `cilex://` link handler
+  for ITSELF at start: `DeepLink.cpp` rewrites `~/.local/share/applications/cilex-watchtower-url.desktop`
+  under `QDir::homePath()`, so `XDG_DATA_HOME` does not stop it. That repoints the operator's links at the
+  test binary. Measured 2026-09-28: Labs screenshot runs left it on `build68/watchtower`, which was
+  restored to the live app's `build/watchtower`.
 
 ## Versioning — automatic, one version per commit
 
@@ -143,6 +148,8 @@ with a version already pushed."
 | `WT_TEST_IP=<ip>` | Restrict live streaming to one camera during dev (avoid hammering cameras — see lockout caveat). |
 | `WT_CAMERAS=<provisioning.json>` | One-time bootstrap import into an empty camera store. |
 | `WT_SCREENSHOT=<path>`, `WT_SCREENSHOT_MS=<ms>` | Screenshot hook (above). |
+| `WT_NO_SCHEME_REG=1` | Do not register the `cilex://` link handler. Set it on EVERY test/screenshot run (see above). |
+| `WT_LABS_VIEW=stats[:24h\|7d\|all]` | Open the Labs screen on its Statistics view, for that period. Review screenshots; it only picks what is shown. |
 | `WT_CV_URL`, `WT_CV_USER`, `WT_CV_PASS` | cilex-vision backend base URL + credentials (dev defaults baked in source; override via env). |
 
 ## Architecture

@@ -5,6 +5,43 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-28 LABS: STATISTICS VIEW -->
+> **2026-09-28 — The Labs screen has a Statistics view** (operator request, same day). An
+> **Analysers | Statistics** switch sits above the table. Statistics shows, per analyser, a stacked
+> bar (checked · in progress · waiting · given up) in the analyser's own colour, the same as on the
+> Playback lane (`LabsNames`). Beside each bar is its **findings**. Totals sit at the top.
+> Periods: **24 hours · 7 days · All**. Code: `qml/LabsStats.qml`, `src/models/LabsStatsData.h`,
+> `LabsModel` `stats` / `fetchStats`.
+>
+> **Operator decisions:**
+> - **A period = footage recorded in it**, so each bar is a true progress bar.
+> - **An event = a finding**, a record where the analyser found something. Routine readings don't
+>   count, and which records are findings is cilex-vision's rule.
+>
+> **Data:**
+> - `GET /labs/stats`, asked of cilex-vision today:
+>   `docs/letters/2026-09-28-labs-statistics-by-period-cilex-watchtower-linux.md`.
+> - Until it exists (404), **All** comes from `/labs/pipeline`: checked = `done`, waiting =
+>   `queue_remaining`, in progress = only leases still live.
+> - **24 h / 7 d** say "The server does not count by period yet", and **findings** say "waiting for
+>   the server". No app update is needed when the endpoint lands.
+> - Fetched with the pipeline: at most every 30 min or on Refresh, one request at a time.
+>   Switching the period asks nothing.
+>
+> **Honest states:** absent = "—" with the reason, never 0. A bar with an uncounted segment is not
+> drawn, not drawn as 0. A non-zero sliver stays ≥ 3 px. "At least" (≥) marks a total with uncounted
+> parts.
+>
+> **Verified:**
+> - `tools/tests/labs-stats.cpp`: 25 checks, including 2,000 random bars; 6 mutants, every one
+>   killed. `labs-station.cpp` and `labs-timeline.cpp` still pass.
+> - `build` and `build68` compile.
+> - Screenshots in EN + RU against the real server (All + the waiting panel).
+> - Screenshots against a **local stub** for `/labs/stats`: real read-only counts, and **test
+>   values** for 24 h / 7 d waiting and for findings. Those previews are layout checks, not data.
+>
+> **Not yet verified:** a real `/labs/stats` answer (CV has not built it).
+
 <!-- 2026-09-28 LABS: EVERY INSTALL IS A STATION (operator decision) -->
 > **2026-09-28 — Operator decision: every machine with Watchtower installed is a Labs station.**
 > Verbatim: *"all machines where Cilex Watchtower is installed are lab stations, period. I decide

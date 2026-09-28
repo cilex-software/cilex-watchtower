@@ -1,6 +1,7 @@
 #include "LabsModel.h"
 #include "AuthController.h"
 #include "LabsStation.h"
+#include "LabsStatsData.h"
 #include "ServerMessage.h"
 
 #include <QDateTime>
@@ -33,6 +34,9 @@ LabsModel::LabsModel(QObject *parent)
         if (!auth->authenticated()) {       // signed out: forget what the server said
             m_loaded = false;
             m_rows.clear();
+            m_stats.clear();
+            m_statsState.clear();
+            m_statsError.clear();
             m_errorCode.clear();
             m_errorText.clear();
             m_lastAskMs = 0;
@@ -73,11 +77,12 @@ void LabsModel::refresh(bool force)
     QNetworkReply *reply = m_nam->get(QNetworkRequest(QUrl(m_baseUrl + QStringLiteral("/labs/pipeline"))));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
-        m_loading = false;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray body = reply->readAll();
         if (code == 401)
             AuthController::instance()->noteUnauthorized();
+        if (code != 200)
+            m_loading = false;
         if (code == 403) {
             fail(QStringLiteral("admin_only"), wt::serverMessage(body));
             return;
@@ -95,7 +100,51 @@ void LabsModel::refresh(bool force)
         m_loaded = true;
         recount();
         emit changed();
+        fetchStats(o);                       // still "loading": one request at a time
     });
+}
+
+// GET /labs/stats, right after the pipeline and only then: the same 30-minute floor, the
+// same Refresh, never a second request in parallel. Switching the period on screen asks
+// nothing: every window arrives in this one answer.
+void LabsModel::fetchStats(const QJsonObject &pipeline)
+{
+    QNetworkReply *reply = m_nam->get(QNetworkRequest(QUrl(m_baseUrl + QStringLiteral("/labs/stats"))));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, pipeline]() {
+        reply->deleteLater();
+        m_loading = false;
+        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray body = reply->readAll();
+        if (code == 401)
+            AuthController::instance()->noteUnauthorized();
+        const QVariantMap parsed = code == 200 ? wtlabs::parseStats(QJsonDocument::fromJson(body).object())
+                                               : QVariantMap();
+        if (code == 200 && !parsed.value(QStringLiteral("windows")).toMap().isEmpty()) {
+            m_stats = parsed;
+            m_statsState = QStringLiteral("server");
+            m_statsError.clear();
+        } else if (code == 404 || m_statsState != QStringLiteral("server")) {
+            // No /labs/stats on this server (404), or it failed before it ever answered:
+            // "all" from the pipeline just read, the periods waiting for the server.
+            m_stats = wtlabs::statsFromPipeline(m_rows, pipeline, QDateTime::currentDateTimeUtc());
+            m_statsState = QStringLiteral("pipeline");
+            m_statsError = code == 404 ? QString()
+                         : code == 200 ? tr("the server's statistics could not be read")
+                         : code == 0 ? reply->errorString()
+                                     : QStringLiteral("HTTP %1 %2").arg(code).arg(wt::serverMessage(body));
+        } else {
+            // It answered before and fails now: its last answer stays, with its time and
+            // the reason (Stability beats flicker).
+            m_statsError = code == 0 ? reply->errorString()
+                                     : QStringLiteral("HTTP %1 %2").arg(code).arg(wt::serverMessage(body));
+        }
+        emit changed();
+    });
+}
+
+QVariantList LabsModel::barWidths(const QVariantList &values, double width, double minPx) const
+{
+    return wtlabs::barWidthsVariant(values, width, minPx);
 }
 
 void LabsModel::recount()

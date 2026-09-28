@@ -6,6 +6,7 @@
 #include <QtQml/qqmlregistration.h>
 
 class QNetworkAccessManager;
+class QJsonObject;
 
 // Labs screen (operator decision 2026-09-26: "status and switches" first). Admin-only,
 // like cilex-vision's own /admin/labs: the programme hands work to machines and shows
@@ -49,6 +50,15 @@ class LabsModel : public QObject
     Q_PROPERTY(QString stationError READ stationError NOTIFY stationChanged)
     // A Start / Pause for this workstation is in flight at the server.
     Q_PROPERTY(bool stationBusy READ stationBusy NOTIFY stationChanged)
+    // Statistics by period (operator request 2026-09-28; LabsStatsData.h): per analyser and
+    // window ("24h", "7d", "all"), camera-hours checked / in progress / waiting / given up,
+    // and findings. Fetched with the pipeline -- same cadence, one request at a time.
+    //   statsState: "" (not asked yet) | "server" (GET /labs/stats answered)
+    //             | "pipeline" (the server has no /labs/stats yet: "all" only, from the
+    //               pipeline; the periods wait for the server)
+    Q_PROPERTY(QVariantMap stats READ stats NOTIFY changed)
+    Q_PROPERTY(QString statsState READ statsState NOTIFY changed)
+    Q_PROPERTY(QString statsError READ statsError NOTIFY changed)
 
 public:
     explicit LabsModel(QObject *parent = nullptr);
@@ -71,6 +81,12 @@ public:
     QVariantMap station() const { return m_station; }
     QString stationError() const { return m_stationError; }
     bool stationBusy() const { return m_stationBusy; }
+    QVariantMap stats() const { return m_stats; }
+    QString statsState() const { return m_statsState; }
+    QString statsError() const { return m_statsError; }
+    // A stacked bar's segment widths (wtlabs::barWidths): a non-zero segment never thinner
+    // than minPx, the widths summing to `width`. Empty when there is nothing to draw.
+    Q_INVOKABLE QVariantList barWidths(const QVariantList &values, double width, double minPx = 3) const;
 
     // `force`: the operator pressed Refresh -- ask now, whatever the age of the answer.
     Q_INVOKABLE void refresh(bool force = false);
@@ -92,6 +108,7 @@ signals:
 private:
     void fail(const QString &code, const QString &text);
     void recount();
+    void fetchStats(const QJsonObject &pipeline);
 
     QNetworkAccessManager *m_nam = nullptr;
     QString m_baseUrl;
@@ -111,4 +128,7 @@ private:
     QVariantMap m_station;
     QString m_stationError;
     bool m_stationBusy = false;
+
+    QVariantMap m_stats;
+    QString m_statsState, m_statsError;
 };
