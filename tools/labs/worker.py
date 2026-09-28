@@ -53,7 +53,9 @@ from typing import Callable, Iterable, Optional, Protocol
 # 0.3 (2026-09-28): the station side of cilex-vision's Labs control plane.
 # 0.3.1 (2026-09-28): foreground_mask and colour_histogram no longer fail an hour whose
 # segment joins run back by the catalogue's whole-second rounding (plugins.JOIN_SLACK_S).
-WORKER_VERSION = "worker-0.3.1"
+# 0.3.2 (2026-09-28): a lease-lost refusal of a unit the server has already named revoked is
+# recorded "revoked", not "abandoned" (_taken_back); a Stop's kill logs how many decoders.
+WORKER_VERSION = "worker-0.3.2"
 
 
 # ----------------------------------------------------------------------------------
@@ -522,6 +524,23 @@ def _checkpoint() -> None:
         raise _Abandon(Action.REVOKED, why)
 
 
+def _taken_back(a: "Action", note: str) -> "tuple[Action, str]":
+    """A refusal that ends the unit, read against what this station ALREADY knows.
+
+    If a report reply has already named this unit revoked (or a hold is on), that is what
+    happened; the refusal is the server saying it again to a request that was in flight
+    when we heard. Measured on the pilot, 2026-09-28 (cilex-vision's second live test): the
+    report named the unit at 22:52:39.014 MSK, the segment fetch already in flight came
+    back 403 segment_outside_lease at 22:52:40.127, and the unit was recorded "abandoned"
+    -- true to that refusal, false to what had happened. Only a lease-lost refusal
+    (RECLAIM) is re-read: a station fault, a transient or a malformed request stays exactly
+    what it is."""
+    why = _abort_reason()
+    if why and a is Action.RECLAIM:
+        return Action.REVOKED, f"{why} -- {note}"
+    return a, note
+
+
 class _Abandon(BaseException):
     """The unit must be dropped WITHOUT submitting (lease lost, station refused) --
     raised out of the streaming decoder, through the analyser, to _run_unit.
@@ -598,7 +617,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                          getattr(plugin, "stream_type", None), win,
                          plugin.window_at(unit) if win else None, sleep=sleep)
     except Refusal as r:
-        out.action = action_for(r); out.note = str(r)
+        out.action, out.note = _taken_back(action_for(r), str(r))
         return out
     finally:
         _add(out, "list_s", t)
@@ -680,7 +699,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
                     if a is Action.SKIP_SEGMENT:
                         out.skipped_segments += 1
                         continue
-                    raise _Abandon(a, f"fetch {seg.segment_id}: {r}")
+                    raise _Abandon(*_taken_back(a, f"fetch {seg.segment_id}: {r}"))
                 except Exception as e:
                     raise _StationFault(e)
                 finally:
@@ -802,7 +821,7 @@ def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
                     # would be attributed to the wrong segment.
                     return _file_failed(client, plugin, unit, out,
                                         f"stream_has_a_hole: {seg.segment_id} not found", a)
-                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
+                out.action, out.note = _taken_back(a, f"fetch {seg.segment_id}: {r}")
                 return out
             finally:
                 _add(out, "fetch_s", t)
@@ -891,7 +910,7 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
                 if a is Action.SKIP_SEGMENT:
                     out.skipped_segments += 1
                     continue
-                out.action = a; out.note = f"fetch {seg.segment_id}: {r}"
+                out.action, out.note = _taken_back(a, f"fetch {seg.segment_id}: {r}")
                 return out
             _add(out, "fetch_s", t)
             fetched.append((seg, path))
@@ -961,7 +980,7 @@ def _finish(client, plugin, unit, out, obs, sleep):
         a = action_for(r)
         if a is Action.BUG:
             return _file_failed(client, plugin, unit, out, f"submit_refused: {r}", a)
-        out.action = a; out.note = f"submit: {r}"
+        out.action, out.note = _taken_back(a, f"submit: {r}")
         return out
     out.submitted = True
     out.observations = len(obs)

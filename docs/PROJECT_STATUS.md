@@ -191,7 +191,23 @@
 >   2. For segment calls they should return their existing `scan_unit_revoked` code, not
 >      `scan_unit_not_open` with the state only in the sentence. Until then the station records
 >      such a unit as "abandoned" (the behaviour is right; only the word is wrong).
-> - A re-run should Stop when the station REPORTS holding the unit, after its first fetch.
+> - **Second run, 22:52 MSK** (operator-approved in this session). cilex-vision triggered the Stop on
+>   the worker's first segment fetch. Its "armed" reached them 2.5 h late, and this box's
+>   process monitor had ended, so the worker side is from its journal and status.json:
+>   - 22:52:37.471: first fetch. 22:52:37.527: Stop.
+>   - **22:52:39.014: the report reply named the unit revoked, and the worker logged "dropping …
+>     taken back by the server" and ran its kill.** The revoked path works.
+>   - 22:52:40.127: the second fetch, already in flight, was refused 403 and ended the unit,
+>     recorded "abandoned". Nothing was submitted or filed; frame_difference was restored at
+>     22:52:49.
+>   - **Whether a decoder was running, and was killed, is unknown:** the kill count was not
+>     logged.
+> - **worker-0.3.2 fixes both:**
+>   - A lease-lost refusal of a unit the server has already named revoked is recorded
+>     "revoked" (`worker._taken_back`, at the list, all three fetch paths and submit).
+>   - The kill logs how many decoders it stopped (`run_worker.stop_decoders`).
+>   - 308 checks, 10 new; 8 mutants, all killed.
+>   - cilex-vision will also answer `scan_unit_revoked` on segment calls, in tonight's batch.
 >
 > **Not yet verified:** a unit decoded and submitted under 0.3.1, and the `revoked` → kill path
 > (above).

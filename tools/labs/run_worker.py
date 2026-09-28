@@ -138,6 +138,21 @@ class Heartbeat:
             self._flush()
 
 
+def stop_decoders(unit, why, kill=None, log=None):
+    """The reporter's on_abort: kill the unit's decoders at once, and SAY how many.
+    cilex-vision's second live test (2026-09-28) could not tell whether a decoder was
+    running when its Stop landed, because this count went unlogged."""
+    if kill is None:
+        import vitals as V
+        kill = V.kill_children
+    n = kill()
+    (log or logging.getLogger("labs.report")).warning(
+        "labs: %s decoder process(es) stopped for %s %s %s",
+        "an unknown number of (this station cannot list them)" if n is None else n,
+        unit.analyzer, unit.camera_id, unit.hour_start)
+    return n
+
+
 def unit_summary(o) -> dict:
     """One unit, as the Labs screen shows it."""
     outcome = (("failed" if o.filed_failed else "done") if o.submitted
@@ -356,7 +371,7 @@ def loop_main(a) -> int:
             if reporter is None:
                 reporter = RP.Reporter(
                     client, vitals=V.Vitals(), worker_version=W.WORKER_VERSION, slots=1,
-                    on_abort=lambda unit, why: V.kill_children(),
+                    on_abort=stop_decoders,
                     on_change=lambda snap: hb.update(**snap)).start()
                 hb.update(vitals_source=V.source())
             scan_loop(client, supported, decode=decode, hb=hb, passes=None, reporter=reporter)

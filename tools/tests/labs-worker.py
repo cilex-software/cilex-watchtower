@@ -1953,6 +1953,76 @@ o = run(c, Nothing(), u)
 check("submit refused 409 scan_unit_revoked: dropped, NOT retried, not filed as failed",
       not o.submitted and o.action is W.Action.REVOKED and _n_sub["n"] == 1, f"{o.action} submits={_n_sub['n']}")
 
+# THE RACE THE SECOND LIVE TEST FOUND (cilex-vision, 2026-09-28 22:52 MSK): the report reply
+# named the unit revoked (22:52:39.014) while a segment fetch was already in flight, and that
+# fetch came back 403 segment_outside_lease (22:52:40.127). The unit was recorded "abandoned".
+# A lease-lost refusal the station ALREADY knows the reason for is recorded as what happened.
+_race = {"on": False, "seg": None, "err": None}
+def _race_abort():
+    return "taken back by the server" if _race["on"] else None
+class _RaceFake(Fake):
+    """The revocation arrives WHILE a call is in flight; then the call is refused."""
+    def fetch(self, s, dest):
+        if s.segment_id == _race["seg"]:
+            self.fetched.append(s.segment_id); _race["on"] = True
+            raise _race["err"]
+        return super().fetch(s, dest)
+    def segments(self, u, limit, stream_type, window=None, window_at=None):
+        if _race["seg"] == "LIST":
+            _race["on"] = True; raise _race["err"]
+        return super().segments(u, limit, stream_type, window, window_at)
+    def submit(self, u, body):
+        if _race["seg"] == "SUBMIT":
+            _race["on"] = True; raise _race["err"]
+        return super().submit(u, body)
+def _race_run(plug, where, err, abort=_race_abort, a="illumination"):
+    u = unit(a=a); c = _RaceFake(segs={(u.camera_id, u.hour_start): [seg(1), seg(2)]})
+    _race.update(on=False, seg=where, err=err)
+    return run(c, plug, u, decode=decode_chroma(11.5), sleep=lambda s: None, abort_check=abort), c
+
+o, c = _race_run(B1, "seg-2", R(403, "segment_outside_lease", True))
+check("race: a fetch refused 403 AFTER the report named the unit revoked is recorded REVOKED, not abandoned",
+      o.action is W.Action.REVOKED and not c.submitted and "segment_outside_lease" in (o.note or "")
+      and "taken back" in (o.note or ""), f"{o.action} {o.note}")
+o, c = _race_run(B1, "seg-2", R(403, "segment_outside_lease", True), abort=lambda: None)
+check("control: the same 403 with no revocation known stays a LOST LEASE (reclaim)",
+      o.action is W.Action.RECLAIM, f"{o.action} {o.note}")
+o, c = _race_run(B1, "seg-2", R(401, "station_token_not_recognised", False))
+check("...but a station fault stays FATAL even when a revocation is known",
+      o.action is W.Action.FATAL, f"{o.action}")
+o, c = _race_run(B1, "LIST", R(409, "scan_unit_not_open", True))
+check("race on the segment LIST: revoked when the station already knows",
+      o.action is W.Action.REVOKED and not c.submitted, f"{o.action} {o.note}")
+o, c = _race_run(B1, "LIST", R(409, "scan_unit_not_open", True), abort=lambda: None)
+check("control: the first live test's case -- revoked before the station knew it held the unit -- stays reclaim",
+      o.action is W.Action.RECLAIM, f"{o.action}")
+o, c = _race_run(_RawKilled(), "seg-2", R(403, "segment_outside_lease", True), a="frame_difference")
+check("race on the RAW path's fetch: revoked, nothing submitted",
+      o.action is W.Action.REVOKED and not c.submitted, f"{o.action} {o.note}")
+class _PerSeg:
+    name = "optical_flow"; version = "t"; segment_limit = 4; keyframes_only = False
+    want_chroma = False; stateful = False; wants_raw_per_segment = True
+    def new_state(self): return None
+    def analyse_raw_segments(self, fetched, unit): return []
+o, c = _race_run(_PerSeg(), "seg-2", R(403, "segment_outside_lease", True), a="optical_flow")
+check("race on the PER-SEGMENT raw path's fetch: revoked, nothing submitted",
+      o.action is W.Action.REVOKED and not c.submitted, f"{o.action} {o.note}")
+o, c = _race_run(B1, "SUBMIT", R(404, "scan_unit_not_claimed", True))
+check("race on SUBMIT: a lease-lost refusal after the report named the unit is revoked",
+      o.action is W.Action.REVOKED, f"{o.action} {o.note}")
+
+# The kill a Stop makes is COUNTED in the log: the second live test could not tell whether
+# a decoder had been running, because this count went unlogged.
+_logged = []
+class _Log:
+    def warning(self, fmt, *a): _logged.append(fmt % a)
+_n = RW2.stop_decoders(unit(), "taken back", kill=lambda: 2, log=_Log())
+check("a Stop's kill SAYS how many decoder processes it stopped",
+      _n == 2 and "2 decoder process(es) stopped for illumination cam-a" in _logged[-1], str(_logged[-1:]))
+RW2.stop_decoders(unit(), "taken back", kill=lambda: None, log=_Log())
+check("...and says so when this station cannot count them (Windows without psutil)",
+      "unknown number" in _logged[-1], str(_logged[-1:]))
+
 # ---- the reporter --------------------------------------------------------------------------
 class _RepClient:
     def __init__(self, replies): self.replies, self.bodies = list(replies), []
