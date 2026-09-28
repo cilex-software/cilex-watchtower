@@ -294,7 +294,11 @@ Item {
                                 if (!st.known(r.givenUp) && st.known(r.failed) && r.failed > 0) bits.push(qsTr("%1 failed").arg(st.num(r.failed)))
                                 if (st.known(r.cameraHours) && r.cameraHours > 0 && st.known(r.checked)) {
                                     var pct = 100 * r.checked / r.cameraHours
-                                    bits.push(qsTr("%1 % checked").arg(st.num(pct, pct > 0 && pct < 10 ? 1 : 0)))
+                                    // A share too small to show at one decimal is "< 0.1", never "0.0":
+                                    // 12 hours checked must not read as none (seen live, 2026-09-28).
+                                    var shown = (pct > 0 && pct < 0.1) ? "< " + st.num(0.1, 1)
+                                              : st.num(pct, pct > 0 && pct < 10 ? 1 : 0)
+                                    bits.push(qsTr("%1 % checked").arg(shown))
                                 }
                                 if (st.window === "all" && st.known(r.checkedEver) && st.known(r.checked) && r.checkedEver > r.checked)
                                     bits.push(qsTr("%1 h checked in all, footage since deleted included").arg(st.num(r.checkedEver)))

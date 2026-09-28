@@ -56,7 +56,10 @@
 > - A query-api restart blanks guard walls for ~7-16 s (their figure), so **the operator picks the
 >   window.**
 >
-> **Not yet verified:** the view against the deployed endpoint (after their DEPLOYED line).
+> **Verified against the deployed endpoint** (cilex-vision 1.0.87, live 20:07 MSK). Between 20:14 and
+> 20:18 the app made six `GET /labs/stats`, all answered 200 (query-api log; the one 401 there is
+> cilex-vision's own no-session check). They were rendered in 24 h, 7 days and All, EN and RU. Totals add up: at 20:14 the 24 h view showed 660 findings = 576 + 25 + 8 + 4 + 47 per analyser.
+> Fixed on sight: a share under 0.1 % read "0.0 % checked" (12 of 24,388 h) and now reads "< 0.1 %".
 
 <!-- 2026-09-28 LABS: EVERY INSTALL IS A STATION (operator decision) -->
 > **2026-09-28 — Operator decision: every machine with Watchtower installed is a Labs station.**
@@ -169,9 +172,29 @@
 >     (`packaging/windows/SIGNING.md`). The Python worker is unaffected.
 > - **Office:** 0.3.1 is staged in `C:\wt-labs`. The visit needs `pip install psutil`.
 >
-> **Not yet verified:**
-> - a unit claimed under 0.3.1 (the server has every station stopped);
-> - the control-plane live test (Start → claim → Stop), which waits on the operator.
+> **The control-plane live test ran on the pilot, 2026-09-28 ~20:11 MSK** (operator-approved; driven
+> by cilex-vision; the worker side watched read-only here). Measured:
+> - **Timeline (MSK):**
+>   - 20:11:39.101: lease written (ledger).
+>   - 20:11:52.885: Stop, and the unit is revoked at .892 with attempts unchanged.
+>   - 20:11:52.935: the worker's status shows server mode `stopped` (50 ms after the Stop).
+>   - 20:12:06.187: the claim finally answers, **27 s after its lease**, behind the post-lease
+>     queue count (query-api log).
+>   - 20:12:06.4: the worker's first segment call gets `409 scan_unit_not_open` ("That unit is
+>     'revoked'") and it drops the unit.
+> - **Held:** nothing submitted, nothing filed as failed, 0 segments, no decoder ever started, and
+>   the station ended `stopped_by_server`.
+> - **NOT exercised:** the report reply's `revoked` list and the decoder kill. The worker did not
+>   know it held the unit until after the Stop, so its reports said `holding=[]`.
+> - **Two findings, sent to cilex-vision:**
+>   1. The claim should answer before its best-effort count, or use the cached one.
+>   2. For segment calls they should return their existing `scan_unit_revoked` code, not
+>      `scan_unit_not_open` with the state only in the sentence. Until then the station records
+>      such a unit as "abandoned" (the behaviour is right; only the word is wrong).
+> - A re-run should Stop when the station REPORTS holding the unit, after its first fetch.
+>
+> **Not yet verified:** a unit decoded and submitted under 0.3.1, and the `revoked` → kill path
+> (above).
 
 <!-- 2026-09-28 LABS: THE SERVER'S CONTROL PLANE (worker-0.3) -->
 > **2026-09-28 — worker-0.3: cilex-vision's Labs control plane, station side.** The server deploys
