@@ -88,12 +88,19 @@ function Start-Worker {
     }
     $script:gaveUp = $false
     try {
-        $p = Start-Process -FilePath $Python -ArgumentList ('-u "{0}" --loop --api {1}' -f (Join-Path $labs 'run_worker.py'), $Api) `
-               -WorkingDirectory $labs -WindowStyle Hidden -PassThru -ErrorAction Stop `
-               -RedirectStandardOutput (Join-Path $labs 'worker.out.log') -RedirectStandardError (Join-Path $labs 'worker.log')
-        $p.PriorityClass = 'Idle'
+        # Through cmd `start /low /b`: the hidden console, and its conhost.exe, then belong to
+        # cmd -- not to the worker -- so a kill of the worker's children can never take the
+        # console away. 2026-09-29 02:13 on wt-office-01: worker-0.3.2's Stop killed its own
+        # conhost, and every ffmpeg after that died at start (0xC0000142), filing ~25 units
+        # failed. /low starts it at Idle from the first instruction; its children inherit it.
+        $cmdline = '/c start "" /low /b "{0}" -u "{1}" --loop --api {2} >> "{3}" 2>&1' -f `
+                   $Python, (Join-Path $labs 'run_worker.py'), $Api, (Join-Path $labs 'worker.log')
+        Start-Process -FilePath cmd.exe -ArgumentList $cmdline -WorkingDirectory $labs -WindowStyle Hidden -ErrorAction Stop
         $workerStarts.Add((Get-Date))
-        L "worker started by the guard: pid $($p.Id), priority Idle"
+        Start-Sleep -Seconds 3
+        $w = @(Worker)
+        if ($w.Count) { L ("worker started by the guard: pid {0}, priority {1}, console owned by cmd" -f $w[0].ProcessId, (Get-Process -Id $w[0].ProcessId -ErrorAction SilentlyContinue).PriorityClass) }
+        else { L "worker start: no worker process 3 s after launching it" }
     } catch {
         $workerStarts.Add((Get-Date))
         L "worker start FAILED: $($_.Exception.Message)"
