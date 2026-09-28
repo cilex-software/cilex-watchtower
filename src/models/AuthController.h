@@ -39,6 +39,8 @@ class AuthController : public QObject
     // screen uses that to say "trying to reach server" instead of guessing.
     Q_PROPERTY(int loginAttempt READ loginAttempt NOTIFY loginAttemptChanged)
     Q_PROPERTY(int loginAttemptsMax READ loginAttemptsMax CONSTANT)
+    // Whether the login screen offers «Token» sign-in. CONSTANT: kPersonalTokenSignIn below.
+    Q_PROPERTY(bool tokenSignIn READ tokenSignIn CONSTANT)
     Q_PROPERTY(QString errorString READ errorString NOTIFY errorChanged)
     // Servers that have ACCEPTED a login (most recent first), each with an
     // operator-assigned nickname — the login screen's saved-servers dropdown.
@@ -90,6 +92,19 @@ public:
     Q_INVOKABLE void loginWithPassword(const QString &baseUrl,
                                        const QString &username,
                                        const QString &password);
+    // «Token» sign-in -- pasting a personal token issued on a Cilex Vision server -- is OFF, by
+    // the owner's decision of 2026-09-29, relayed by Cilex Team (their letter, committed here:
+    // docs/letters/2026-09-29-watchtower-hide-token-sign-in-keep-the-code-cilex-team.md). Access
+    // must follow team.cilex.ru, where blocking a person is meant to be enough; a pasted personal
+    // token goes around that. ALL the code is kept for when the question comes back: the login
+    // screen's tab and panel, their strings, loginWithToken and attemptTokenLogin. Turning it on
+    // again is this ONE line and a new build -- deliberately not a setting, file or environment
+    // variable a workstation could flip. NOT affected: the workstation's own key
+    // (WT_STATION_TOKEN -> loginWithStationToken, which identifies a machine, not a person),
+    // restoring the saved session (restoreSession), and password sign-in.
+    static constexpr bool kPersonalTokenSignIn = false;
+    bool tokenSignIn() const { return kPersonalTokenSignIn; }
+    // Refuses, with a reason, while kPersonalTokenSignIn is off -- whoever calls it.
     Q_INVOKABLE void loginWithToken(const QString &baseUrl, const QString &token);
     Q_INVOKABLE void logout();
     Q_INVOKABLE void clearError() { setError(QString()); }

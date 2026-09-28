@@ -3,10 +3,15 @@ import QtQuick.Layouts
 import QtQuick.Controls.Basic as C
 import Watchtower
 
-// Login gate. Two tabs: Password (username+password -> /auth/login) and Token
-// (paste a JWT -> validated via /auth/me). Both yield a session held by
-// AuthController; the app shell stays hidden until authenticated. Orthogonal,
-// dark, Theme-driven — no new colors, no decoration beyond the spec.
+// Login gate. Password (username+password -> /auth/login) and Token (paste a JWT ->
+// validated via /auth/me), each yielding a session held by AuthController; the app shell
+// stays hidden until authenticated. Orthogonal, dark, Theme-driven — no new colors, no
+// decoration beyond the spec.
+//
+// TOKEN IS OFF (the owner, 2026-09-29): AuthController.tokenSignIn, one constant in C++
+// (kPersonalTokenSignIn). While it is off the tab bar is not shown at all -- one way in
+// needs no tabs -- and the token panel cannot be reached by mouse or keyboard: a hidden
+// item takes neither clicks nor focus. The panel, the tab and their strings are KEPT.
 Item {
     id: root
     property string tab: "password"   // "password" | "token"
@@ -21,7 +26,7 @@ Item {
             AuthController.loginWithPassword(serverField.text.trim(),
                                              userField.text.trim(),
                                              passField.text);
-        else
+        else if (AuthController.tokenSignIn)   // off by the owner's decision, 2026-09-29
             AuthController.loginWithToken(serverField.text.trim(), tokenEdit.text);
     }
 
@@ -128,8 +133,9 @@ Item {
                 }
             }
 
-            // tab switch
+            // tab switch -- only while token sign-in is on (the owner turned it off, 2026-09-29)
             RowLayout {
+                visible: AuthController.tokenSignIn
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.s8
                 spacing: 0
@@ -316,11 +322,11 @@ Item {
                 }
             }
 
-            // token tab
+            // token tab (kept; unreachable while AuthController.tokenSignIn is off)
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
-                visible: root.tab === "token"
+                visible: root.tab === "token" && AuthController.tokenSignIn
                 Text {
                     text: qsTr("TOKEN"); color: Theme.ink2; font.family: Theme.fontMono
                     font.pixelSize: Theme.fsLabel; font.capitalization: Font.AllUppercase

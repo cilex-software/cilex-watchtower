@@ -43,27 +43,32 @@
     </message>
     <message>
         <location filename="../src/models/AuthController.cpp" line="496"/>
-        <location filename="../src/models/AuthController.cpp" line="561"/>
+        <location filename="../src/models/AuthController.cpp" line="568"/>
         <source>Could not reach the server</source>
         <translation>Сервер недоступен</translation>
     </message>
     <message>
-        <location filename="../src/models/AuthController.cpp" line="513"/>
+        <location filename="../src/models/AuthController.cpp" line="512"/>
+        <source>Signing in with a token is switched off</source>
+        <translation>Вход по токену отключён</translation>
+    </message>
+    <message>
+        <location filename="../src/models/AuthController.cpp" line="520"/>
         <source>Enter a token</source>
         <translation>Введите токен</translation>
     </message>
     <message>
-        <location filename="../src/models/AuthController.cpp" line="521"/>
+        <location filename="../src/models/AuthController.cpp" line="528"/>
         <source>That does not look like a valid token</source>
         <translation>Это не похоже на действительный токен</translation>
     </message>
     <message>
-        <location filename="../src/models/AuthController.cpp" line="549"/>
+        <location filename="../src/models/AuthController.cpp" line="556"/>
         <source>Token rejected or expired</source>
         <translation>Токен отклонён или истёк</translation>
     </message>
     <message>
-        <location filename="../src/models/AuthController.cpp" line="589"/>
+        <location filename="../src/models/AuthController.cpp" line="596"/>
         <source>Station credential rejected</source>
         <translation>Учётные данные станции отклонены</translation>
     </message>
@@ -3670,98 +3675,98 @@
 <context>
     <name>LoginScreen</name>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="79"/>
+        <location filename="../qml/LoginScreen.qml" line="84"/>
         <source>Saved servers</source>
         <translation>Сохранённые серверы</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="92"/>
+        <location filename="../qml/LoginScreen.qml" line="97"/>
         <source>build </source>
         <translation>сборка </translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="116"/>
+        <location filename="../qml/LoginScreen.qml" line="121"/>
         <source>CILEX VISION</source>
         <translation>CILEX VISION</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="126"/>
+        <location filename="../qml/LoginScreen.qml" line="131"/>
         <source>Sign in to the surveillance backend</source>
         <translation>Вход в систему видеонаблюдения</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="137"/>
-        <location filename="../qml/LoginScreen.qml" line="307"/>
+        <location filename="../qml/LoginScreen.qml" line="143"/>
+        <location filename="../qml/LoginScreen.qml" line="313"/>
         <source>Password</source>
         <translation>Пароль</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="137"/>
+        <location filename="../qml/LoginScreen.qml" line="143"/>
         <source>Token</source>
         <translation>Токен</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="177"/>
+        <location filename="../qml/LoginScreen.qml" line="183"/>
         <source>Server</source>
         <translation>Сервер</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="264"/>
+        <location filename="../qml/LoginScreen.qml" line="270"/>
         <source>Nickname</source>
         <translation>Псевдоним</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="276"/>
+        <location filename="../qml/LoginScreen.qml" line="282"/>
         <source>Save nickname</source>
         <translation>Сохранить псевдоним</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="276"/>
+        <location filename="../qml/LoginScreen.qml" line="282"/>
         <source>Set a nickname</source>
         <translation>Задать псевдоним</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="290"/>
+        <location filename="../qml/LoginScreen.qml" line="296"/>
         <source>Forget this server</source>
         <translation>Забыть этот сервер</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="306"/>
+        <location filename="../qml/LoginScreen.qml" line="312"/>
         <source>Username</source>
         <translation>Имя пользователя</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="306"/>
+        <location filename="../qml/LoginScreen.qml" line="312"/>
         <source>operator</source>
         <translation>оператор</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="325"/>
+        <location filename="../qml/LoginScreen.qml" line="331"/>
         <source>TOKEN</source>
         <translation>ТОКЕН</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="355"/>
+        <location filename="../qml/LoginScreen.qml" line="361"/>
         <source>Paste a token issued by Cilex Vision.</source>
         <translation>Вставьте токен, выданный Cilex Vision.</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="384"/>
+        <location filename="../qml/LoginScreen.qml" line="390"/>
         <source>Trying to reach server… attempt %1 of %2</source>
         <translation>Подключаемся к серверу… попытка %1 из %2</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="387"/>
+        <location filename="../qml/LoginScreen.qml" line="393"/>
         <source>Connecting to server…</source>
         <translation>Подключение к серверу…</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="420"/>
+        <location filename="../qml/LoginScreen.qml" line="426"/>
         <source>Signing in…</source>
         <translation>Вход…</translation>
     </message>
     <message>
-        <location filename="../qml/LoginScreen.qml" line="420"/>
+        <location filename="../qml/LoginScreen.qml" line="426"/>
         <source>Sign in</source>
         <translation>Войти</translation>
     </message>

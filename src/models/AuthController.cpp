@@ -506,6 +506,13 @@ void AuthController::attemptPasswordLogin()
 
 void AuthController::loginWithToken(const QString &baseUrl, const QString &token)
 {
+    // Off by the owner's decision (kPersonalTokenSignIn, AuthController.h). The login screen no
+    // longer offers it; this refuses anyone else who calls it. Nothing below is removed.
+    if (!kPersonalTokenSignIn) {
+        setError(tr("Signing in with a token is switched off"));
+        emit loginFailed(m_errorString);
+        return;
+    }
     setError(QString());
     setBaseUrl(baseUrl);
     const QString tok = token.trimmed();
