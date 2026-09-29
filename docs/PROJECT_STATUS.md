@@ -35,11 +35,21 @@
 >     exit; labs-timeline pins the overlap rule.
 >
 > **"No frame at event time" for minutes, then it plays:**
-> - The server's own timing lines (query-api `[SESSIONTIME]`): the 45 review sessions opened
->   18:30-19:05 MSK took a median **39.6 s** (p90 97.3 s, max 663 s), mostly `t_index`.
-> - Hourly medians: 14.1 s at 16:00-17:00 MSK, with the stations mostly off, then 50.6, 38.1 and
->   45.6 s once they scanned again. That is a correlation, not a proven cause. It is cilex-vision's
->   to fix; they have been sent a letter.
+> - **CORRECTED 20:12 MSK, the same evening. I had this wrong.** I read query-api's `[SESSIONTIME]`
+>   figures as seconds and wrote that sessions took a median 39.6 s (p90 97.3 s, max 663 s), mostly
+>   `t_index`. They are **milliseconds**: `routers/review.py:622/662/731` multiply by 1000 (read after
+>   cilex-vision said so). Sessions opened in a median **39.6 ms**, so `t_index` explains nothing the
+>   operator saw. Owned in
+>   `docs/letters/2026-09-29-review-sessions-take-40-s-to-open.reply2-cilex-watchtower-linux.md`.
+> - **The real cause, per cilex-vision's reply** (`…take-40-s-to-open.reply-cilex-vision.md`, not
+>   verified by me): a server bug.
+>   - Short clips got an HEVC main fragment stacked on subs that already covered them.
+>   - With `hevc_capable=false`, which the Mac forces (`PlaybackClient.cpp:431-440`), each one was a
+>     full 1440p transcode.
+>   - These ran on the one transcode slot that every session's first piece also needs; five ran in
+>     the operator's minutes.
+>   - Fixed and deployed in cilex-vision 1.0.99 (ae8775d), 20:08 MSK. Since then, playback's log
+>     holds no plays, so nothing is measured yet.
 > - The poster covers the player until the first frame, and a Labs finding has no event still, so it
 >   read "no frame" all that time.
 > - The app made it worse, and now doesn't:
