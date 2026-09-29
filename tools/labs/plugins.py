@@ -174,7 +174,9 @@ class ShapePlugin:
     # per window carrying its tally. cilex-vision's condition: rows from before and after
     # the fold must always be told apart. Not the module's ANALYSER_VERSION itself: with
     # "+worker-0.2" it would pass the server's 64-character limit.
-    version = "shape-2"
+    # shape-3 (2026-09-29): A4-A6 1.2.0 -- one row per PASSAGE, with its span, and at most
+    # Config.row_budget rows per unit (shape_observations: _Passages, _within_budget).
+    version = "shape-3"
     segment_limit = 200            # the API's own default ceiling for one hour
     keyframes_only = True
     want_chroma = False
@@ -224,15 +226,24 @@ class ShapePlugin:
                 if base is None:
                     continue
                 t = base + timedelta(seconds=float(p.get("t_offset_s") or 0.0))
-                row = {"start_time": _iso(t), "end_time": _iso(t)}
+                # A PASSAGE (1.2.0) lasts from its first detection to its last: span_s.
+                # Anything else is a point. A span at or past the longest an event group
+                # may span can never join one (cilex-vision: /labs/regroup then retries
+                # it forever), and the analyser caps passages well under it -- so one
+                # here is the analyser's bug: raised, and the unit filed with that cause.
+                span = float(p.get("span_s") or 0.0)
+                if not 0.0 <= span < W.GROUP_MAX_SPAN_S:
+                    raise ValueError(f"A4-A6 row spans {span} s; a row must stay under "
+                                     f"{W.GROUP_MAX_SPAN_S:.0f} s to join an event group")
+                row = {"start_time": _iso(t), "end_time": _iso(t + timedelta(seconds=span))}
                 extra = {}
                 for k, v in p.items():
                     if k in ("start_time", "end_time"):
-                        # The adapter times A4-A6 rows, and as POINTS. An event group
-                        # may never span more than W.GROUP_MAX_SPAN_S (300 s); a longer
-                        # row can never join one, and per cilex-vision is then retried
-                        # by /labs/regroup forever. A fold keeps its window in metrics
-                        # (recur_window_s), never in the row's span. Loud, not dropped.
+                        # The adapter times A4-A6 rows: from their segment, and for a
+                        # passage from its span_s (above), never from the payload. An
+                        # event group may never span more than W.GROUP_MAX_SPAN_S (300 s);
+                        # a fold keeps its window in metrics (recur_window_s), never in
+                        # the row's span. Loud, not dropped.
                         raise ValueError(f"A4-A6 payload sets {k}; its rows are timed here, as points")
                     if k in TYPED:
                         row[k] = v

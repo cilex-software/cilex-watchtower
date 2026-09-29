@@ -61,7 +61,10 @@ import cv2
 # purpose: a stored number whose semantics are only in a letter is a number whose
 # semantics are lost. 1.1.0 (2026-09-27): a recurring source is folded -- see
 # Config's "recurring sources" and _Recurrence -- with its parameters in the string.
-ANALYSER_VERSION = "wt-shape-1.1.0+objcount=per_frame+recur=r0.05k3m600a2s60"
+# 1.2.0 (2026-09-29): one row per PASSAGE, and a row budget per unit -- see Config's
+# "passages" and "row budget", _Passages and _within_budget.
+ANALYSER_VERSION = ("wt-shape-1.2.0+objcount=per_frame+recur=r0.05k3m600a2s60"
+                    "+pass=g2.5d3n0.06k1.5s240+budget=450")
 
 # The six registered shape classes, verbatim from GET /labs/shape-classes
 # (2026-09-23). Never invent a slug: an unregistered value is refused server-side.
@@ -154,6 +157,37 @@ class Config:
     # spot" but is a passer-by, not a source. Seen, not inferred: the crop was
     # checked. A spot is recurring only once it has kept firing for a minute.
     recur_min_span_s: float = 60.0
+
+    # --- passages (1.2.0, 2026-09-29) -------------------------------------------------
+    # One row per PASSAGE: consecutive keyframe detections of one moving blob become
+    # ONE row with its span, instead of a row per keyframe. Why, both measured:
+    #   * the operator opened a "Wide" finding, 5 Улица 7 2026-09-29 15:57:58, read
+    #     "car, truck, bus", and found a crow. It had filed 19 rows in 19 s, one per
+    #     1 s keyframe, relabelled compact / wide / tall / indeterminate / multi as its
+    #     outline changed, each 0.05-0.08 % of the picture (labs_observations, and the
+    #     frames with the boxes drawn on them);
+    #   * busy hours passed the server's 500-row cap and were lost WHOLE:
+    #     hiwatch-083bc17adca6 12:00Z, 525 then 530 rows, failed twice (the Windows
+    #     agent; cilex-vision's letter of the same day).
+    # Linked: at most passage_gap_steps frame steps apart (the step is MEASURED per
+    # segment; passage_gap_default_s when it is not), and the next box centre within
+    # passage_near_min or passage_near_k times the larger box side, whichever is more,
+    # for each second between them. A passage longer than passage_max_span_s files as
+    # consecutive rows: a row longer than 300 s can never join an event group (worker
+    # GROUP_MAX_SPAN_S). A recurring SOURCE is still folded first (above); only what the
+    # fold files as its own detections is linked here.
+    passage_gap_steps: float = 2.5
+    passage_gap_default_s: float = 3.0
+    passage_near_min: float = 0.06
+    passage_near_k: float = 1.5
+    passage_max_span_s: float = 240.0
+    # --- row budget (1.2.0) ------------------------------------------------------------
+    # However busy the hour, a unit files at most this many rows: the server refuses a
+    # unit over 500 (the worker's MAX_OBSERVATIONS_PER_UNIT) and the hour is lost whole.
+    # Past it, rows merge per shape class per time bin -- 60 s first, coarser until they
+    # fit -- each merged row counting what it stands for (recur_count, rows_merged).
+    row_budget: int = 450
+    budget_bins_s: tuple = (60.0, 120.0, 300.0, 600.0, 1200.0, 3600.0)
 
 
 @dataclass(frozen=True)
@@ -288,6 +322,23 @@ class Observation:
     recur_window_s: float | None = None
     recur_folded: bool | None = None
 
+    # A PASSAGE (1.2.0): set on a row that stands for consecutive detections of one blob.
+    # The row is timed at the FIRST detection (segment_id, frame_index, t_offset_s) and
+    # lasts span_s; the bbox and the measurements beside it are those of the LARGEST
+    # detection, bbox_at_s after the start; path_* are the box centres at the first and
+    # last detection; shape_votes the classes its keyframes were given, most first. Its
+    # shape_class is the most frequent of them. recur_count counts its detections.
+    span_s: float | None = None
+    bbox_at_s: float | None = None
+    path_x0: float | None = None
+    path_y0: float | None = None
+    path_x1: float | None = None
+    path_y1: float | None = None
+    shape_votes: str | None = None
+    # Set on a row that merges several rows because the unit reached row_budget (1.2.0).
+    coarse_bin_s: float | None = None
+    rows_merged: int | None = None
+
     # Which of the fields above ObservationIn actually has a column for. The rest
     # are MEASUREMENTS and belong in the `metrics` jsonb, not at the top level.
     # Stated here so a submitter does not have to rediscover it by reading the
@@ -341,6 +392,7 @@ class WindowStats:
     frames_warmup: int = 0
     observations: int = 0          # rows FILED with this segment (after folding)
     folded: int = 0                # detections here that another row stands for
+    budget_bin_s: float | None = None  # the bin rows were merged into to stay in budget (1.2.0)
     model_resets: int = 0
     frame_step_s: float | None = None
     history_frames: int | None = None
@@ -844,6 +896,156 @@ class _Recurrence:
         return out
 
 
+def _centre(ob: Observation) -> tuple[float, float]:
+    return ob.bbox_x + ob.bbox_w / 2.0, ob.bbox_y + ob.bbox_h / 2.0
+
+
+def _votes(members: Sequence[Observation]) -> list[tuple[str, int]]:
+    """Each class's detections, most first; ties in the registry's own order. A member
+    that is itself a passage brings its own votes (a merged row, at the budget)."""
+    n: dict[str, int] = {}
+    for ob in members:
+        if ob.shape_votes:
+            for part in ob.shape_votes.split(","):
+                c, _, k = part.partition(":")
+                n[c] = n.get(c, 0) + int(k or 0)
+        else:
+            n[ob.shape_class] = n.get(ob.shape_class, 0) + (ob.recur_count or 1)
+    order = {c: i for i, c in enumerate(SHAPE_CLASSES)}
+    return sorted(n.items(), key=lambda kv: (-kv[1], order.get(kv[0], len(order))))
+
+
+def _merge(members: Sequence[Observation], times: Sequence[float], cfg: Config,
+           shape_class: str | None = None, **extra) -> Observation:
+    """ONE row for several: timed at the first, measured at the largest, counting all."""
+    if len(members) == 1 and not extra:
+        return members[0]
+    first = members[0]
+    ends = [t + (ob.span_s or 0.0) for ob, t in zip(members, times)]
+    i_big = max(range(len(members)), key=lambda i: (members[i].area_frac, -i))
+    big = members[i_big]
+    votes = _votes(members)
+    cls = shape_class or votes[0][0]
+    confs = [ob.shape_confidence for ob in members if ob.shape_class == cls] or [big.shape_confidence]
+    x0, y0 = (first.path_x0, first.path_y0) if first.path_x0 is not None else _centre(first)
+    i_last = max(range(len(members)), key=lambda i: (ends[i], i))
+    last = members[i_last]
+    x1, y1 = (last.path_x1, last.path_y1) if last.path_x1 is not None else _centre(last)
+    areas = [ob.area_frac for ob in members]
+    return replace(
+        big,
+        segment_id=first.segment_id, frame_index=first.frame_index, t_offset_s=first.t_offset_s,
+        object_count=max(ob.object_count for ob in members),
+        shape_class=cls, shape_confidence=round(sum(confs) / len(confs), 4),
+        area_stability=_stability(areas) if len(members) >= 3 else big.area_stability,
+        recur_hits=first.recur_hits,
+        recur_count=sum(ob.recur_count or 1 for ob in members),
+        recur_window_s=first.recur_window_s,
+        recur_folded=first.recur_folded,
+        span_s=round(min(max(ends) - times[0], cfg.passage_max_span_s), 3),
+        bbox_at_s=round(times[i_big] - times[0], 3),
+        path_x0=round(x0, 4), path_y0=round(y0, 4), path_x1=round(x1, 4), path_y1=round(y1, 4),
+        shape_votes=",".join(f"{c}:{k}" for c, k in votes),
+        **extra,
+    )
+
+
+@dataclass
+class _Passage:
+    members: list
+    times: list
+
+
+class _Passages:
+    """Link consecutive detections of one moving blob into ONE row (1.2.0). One per UNIT.
+
+    A detection continues the open passage whose last detection is nearest, if that one
+    is at most the gap back (passage_gap_steps frame steps) and its box centre within
+    `near` for each second between them; otherwise it opens a passage. Several may be
+    open at once: a keyframe carries only its DOMINANT blob, so two things in view take
+    turns being filed. A passage closes when nothing continues it within the gap, when
+    it would pass passage_max_span_s, or at the end of the unit.
+
+    EXACT ACCOUNTING, as the fold's: every detection is in exactly one row, and a row's
+    recur_count counts them. DETERMINISTIC: lists in arrival order, no wall clock."""
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.step: float | None = None
+        self._open: list[_Passage] = []
+
+    def gap_s(self) -> float:
+        c = self.cfg
+        return c.passage_gap_steps * self.step if self.step else c.passage_gap_default_s
+
+    def _near(self, a: Observation, b: Observation, dt: float) -> float:
+        c = self.cfg
+        side = max(a.bbox_w, a.bbox_h, b.bbox_w, b.bbox_h)
+        return max(c.passage_near_min, c.passage_near_k * side) * max(1.0, dt)
+
+    def _close(self, p: _Passage) -> tuple[Observation, float]:
+        return _merge(p.members, p.times, self.cfg), p.times[0]
+
+    def offer(self, ob: Observation, t: float) -> list[tuple[Observation, float]]:
+        out: list[tuple[Observation, float]] = []
+        gap = self.gap_s()
+        still = []
+        for p in self._open:
+            (still if t - p.times[-1] <= gap else out).append(p)
+        out = [self._close(p) for p in out]
+        self._open = still
+        cx, cy = _centre(ob)
+        best, best_d = None, None
+        for p in self._open:
+            last = p.members[-1]
+            dt = t - p.times[-1]
+            lx, ly = _centre(last)
+            d = math.hypot(cx - lx, cy - ly)
+            if d <= self._near(last, ob, dt) and (best_d is None or d < best_d):
+                best, best_d = p, d
+        if best is not None and t - best.times[0] <= self.cfg.passage_max_span_s:
+            best.members.append(ob)
+            best.times.append(t)
+            return out
+        if best is not None:
+            self._open.remove(best)
+            out.append(self._close(best))
+        self._open.append(_Passage([ob], [t]))
+        return out
+
+    def close_all(self) -> list[tuple[Observation, float]]:
+        out = [self._close(p) for p in self._open]
+        self._open = []
+        return out
+
+
+def _within_budget(rows: list[tuple[Observation, float | None]], cfg: Config
+                   ) -> tuple[list[Observation], float | None]:
+    """At most cfg.row_budget rows, however busy the hour (1.2.0).
+
+    Over it, rows merge per (time bin, folded or not, shape class): 60 s bins first,
+    coarser until they fit. The largest bin, an hour, leaves at most 2 x 6 rows, so the
+    budget always holds. A folded source is never merged with passages: the findings
+    rule counts the one and not the other. Rows with no clock merge per class."""
+    if len(rows) <= cfg.row_budget:
+        return [r for r, _ in rows], None
+    for b in cfg.budget_bins_s:
+        groups: dict = {}
+        for ob, t in rows:
+            key = (None if t is None else math.floor(t / b), bool(ob.recur_folded), ob.shape_class)
+            groups.setdefault(key, []).append((ob, t))
+        if len(groups) <= cfg.row_budget or b == cfg.budget_bins_s[-1]:
+            out = []
+            for key, grp in groups.items():
+                grp.sort(key=lambda r: (r[1] if r[1] is not None else 0.0))
+                obs = [ob for ob, _ in grp]
+                ts = [t if t is not None else 0.0 for _, t in grp]
+                out.append(_merge(obs, ts, cfg, shape_class=key[2],
+                                  coarse_bin_s=b, rows_merged=len(obs)))
+            return out, b
+    return [r for r, _ in rows], None          # unreachable: the last bin always returns
+
+
 def analyse_window(
     stream: Iterable[tuple[SegmentMeta, Iterable[Frame]]],
     state: AnalyserState | None = None,
@@ -853,38 +1055,63 @@ def analyse_window(
 
     Yields exactly once per segment, in order, as the worker's adapter expects. The
     background model is the caller's `state` and carries on; recurrence (see
-    _Recurrence) is per call, so it never outlives the unit.
+    _Recurrence) and passages (see _Passages) are per call, so they never outlive the
+    unit.
 
-    ONE SEGMENT OF LOOKAHEAD: segment i is yielded only once segment i+1 has been
-    analysed, so that the LAST yield can carry every fold still open when the unit
-    ends. Frames are never held -- only a finished segment's rows and stats. A folded
-    row may therefore arrive in a later segment's yield than its own; it names its
-    own segment_id and t_offset_s (its first hit's), and the adapter times each row
-    by its own segment. Rows are filed on the clock of each segment's start_time; a
-    segment without one is filed unfolded, with its recurrence fields left unset.
+    EVERY ROW RIDES THE LAST YIELD (1.2.0). A passage can run across segments, and the
+    row budget can only be kept once the whole unit is known, so the rows are held
+    until the unit ends -- rows, never frames: a few hundred small records at most.
+    Each row names its own segment_id and t_offset_s (its first detection's), and the
+    adapter times it by its own segment. Rows are placed on the clock of each segment's
+    start_time; a segment without one is filed unfolded and unlinked, its recurrence
+    fields left unset.
     """
     st = state or AnalyserState(cfg)
-    rec = _Recurrence(cfg or st.cfg)
-    held: tuple[SegmentMeta, list[Observation], WindowStats] | None = None
+    c = cfg or st.cfg
+    rec = _Recurrence(c)
+    pas = _Passages(c)
+    base_of: dict[str, float] = {}
+    done: list[tuple[Observation, float | None]] = []
+
+    def when(r: Observation) -> float | None:
+        b = base_of.get(r.segment_id)
+        return None if b is None else b + r.t_offset_s
+
+    held: tuple[SegmentMeta, WindowStats] | None = None
     for meta, frames in stream:
         obs, stats = analyse_segment(frames, meta, st, cfg)
+        if stats.frame_step_s:
+            pas.step = stats.frame_step_s
         base = _epoch(meta.start_time)
         if base is None:
             if obs:
                 stats.notes.append("no start_time: recurrence not measured, rows filed unfolded")
-            kept = obs
+            done.extend((ob, None) for ob in obs)
         else:
+            base_of[meta.segment_id] = base
             before = rec.folded
-            kept = []
             for ob in obs:
-                kept.extend(rec.offer(ob, base + ob.t_offset_s))
+                for r in rec.offer(ob, base + ob.t_offset_s):
+                    t = when(r)
+                    if r.recur_folded or t is None:
+                        done.append((r, t))
+                    else:
+                        done.extend(pas.offer(r, t))
             stats.folded = rec.folded - before
-        stats.observations = len(kept)
+        stats.observations = 0
         if held is not None:
-            yield held
-        held = (meta, kept, stats)
-    if held is not None:
-        meta, kept, stats = held
-        kept = kept + rec.close_all()
-        stats.observations = len(kept)
-        yield meta, kept, stats
+            yield held[0], [], held[1]
+        held = (meta, stats)
+    if held is None:
+        return
+    for r in rec.close_all():
+        done.append((r, when(r)))
+    done.extend(pas.close_all())
+    rows, bin_s = _within_budget(done, c)
+    meta, stats = held
+    stats.observations = len(rows)
+    if bin_s is not None:
+        stats.budget_bin_s = bin_s
+        stats.notes.append(f"row budget: {len(done)} rows > {c.row_budget}; merged per {int(bin_s)} s "
+                           f"and shape class into {len(rows)}")
+    yield meta, rows, stats

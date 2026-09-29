@@ -1232,6 +1232,32 @@ try:
     b_ = c.submitted[0][1]
     check("a row naming a segment the unit never streamed files the unit FAILED, with that cause",
           b_.get("failed") is True and "never streamed" in (b_.get("error") or ""), str(b_)[:200])
+    # A PASSAGE (A4-A6 1.2.0): one row from a moving blob's first detection to its last.
+    class _Pass:
+        def __init__(self, sid, span): self.sid, self.span = sid, span
+        def as_payload(self):
+            return {"segment_id": self.sid, "t_offset_s": 16.986, "shape_class": "blob_compact",
+                    "object_count": 1, "recur_count": 19, "recur_folded": False, "span_s": self.span,
+                    "shape_votes": "blob_compact:11,blob_wide:4"}
+    def _passage(span):
+        def w(stream, state, cfg):
+            for meta, frames in stream:
+                list(frames); yield meta, [_Pass(meta.segment_id, span)], None
+        return w
+    P.so.analyse_window = _passage(18.01)
+    c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3[:1]})
+    run(c, P.ShapePlugin(), ub_)
+    rows_ = c.submitted[0][1].get("observations") or []
+    check("a PASSAGE row lasts its span: from its first detection (10:00:16.986) to its last (10:00:34.996)",
+          len(rows_) == 1 and rows_[0]["start_time"].startswith("2026-09-24T10:00:16.986")
+          and rows_[0]["end_time"].startswith("2026-09-24T10:00:34.996")
+          and (rows_[0].get("metrics") or {}).get("recur_count") == 19, str(rows_))
+    P.so.analyse_window = _passage(300.0)
+    c = Fake(segs={(ub_.camera_id, ub_.hour_start): segs3[:1]})
+    run(c, P.ShapePlugin(), ub_)
+    b_ = c.submitted[0][1]
+    check("...and one at the 300 s group limit files the unit FAILED, never a row no group can hold",
+          b_.get("failed") is True and "under 300 s" in (b_.get("error") or ""), str(b_)[:200])
 finally:
     P.so.analyse_window = _orig_window
 
@@ -1835,6 +1861,20 @@ _ill = claims_of(c, "illumination")
 check("lanes: a unit that stopped making progress is dropped and ITS lane rests (rest_s); the other lane finishes",
       len(_ill) >= 2 and _ill[1] - _ill[0] >= T.rest_s and done_by(c, "foreground_mask") == 3
       and tot["abandoned"] >= 1, f"illumination at {_ill} {tot}")
+class _StallFiled(LN.InProcessRunner):
+    def run(self, unit, plugin):
+        if unit.analyzer == "illumination":
+            o = W.UnitOutcome(unit, note="stalled: no checkpoint for 10 min, its process was killed")
+            o.stalled = o.submitted = o.filed_failed = True
+            return o
+        return super().run(unit, plugin)
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}),
+              runner=_StallFiled(c, decode=decode_chroma(11.5), tmpdir=TMP, sleep=lambda s: None))
+tot = s.run(until=lambda: clk.t >= 30)
+check("...and one filed failed for it counts as FAILED, and its lane rests just the same",
+      tot["failed"] == 1 and s.lanes["illumination"].state == "rest" and len(claims_of(c, "illumination")) == 1,
+      f"{tot} {s.lanes['illumination'].state}")
 
 c, plugs = loop_world(["illumination"], units_per=2); clk = Clock()
 s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
@@ -2645,6 +2685,34 @@ check("unit process: one that makes NO progress is dropped after stall_s and KIL
       "could not be; its lane rests",
       not _o.submitted and _o.stalled and "no progress" in _o.note and "killed" in _o.note and _time.time() - _t0 < 15,
       f"{_o.note} {_time.time() - _t0:.1f}s")
+
+# FILED, NOT LEFT TO LAPSE (cilex-vision, 2026-09-29): a unit this worker dropped -- no
+# progress, or its process died -- is filed failed with why, so the hour is free at once
+# and the ledger says what happened. A unit the server took back is never filed.
+_filed = []
+def _spy_file(u, plug, why):
+    _filed.append((u.camera_id, why))
+    o = W.UnitOutcome(u, note=why); o.submitted = o.filed_failed = True
+    return o
+_prf = UP.ProcessRunner(_SPEC, stall_s=1.0, grace_s=1.0, watch_s=0.05, file_failed=_spy_file)
+_o = _prf.run(W.ScanUnit("hang-2", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+check("unit process: one dropped for NO PROGRESS is filed failed, saying so -- not left to lapse as 'lease expired'",
+      _filed[-1:] == [("hang-2", "stalled: no checkpoint for 1 s, its process was killed")]
+      and _o.filed_failed and _o.stalled, f"{_filed} {_o.note}")
+_o = _prf.run(W.ScanUnit("crash-2", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+check("unit process: one whose process DIED is filed failed with its exit",
+      _filed[-1][0] == "crash-2" and _filed[-1][1].startswith("unit_process_died:") and "exit 7" in _filed[-1][1]
+      and _o.filed_failed and _o.stalled, str(_filed[-1:]))
+_prr = UP.ProcessRunner(_SPEC, stall_s=100.0, grace_s=1.0, watch_s=0.05, file_failed=_spy_file)
+_ur = W.ScanUnit("hang-3", "2026-09-24T10:00:00Z", "illumination", None, 1)
+_resr, _n_filed = {}, len(_filed)
+_tr = threading.Thread(target=lambda: _resr.update(o=_prr.run(_ur, NamedPlug("illumination"))), daemon=True)
+_tr.start(); _time.sleep(1.5)
+_prr.abort(_ur, "taken back by the server (test)")
+_tr.join(30)
+check("...while a unit the SERVER took back is never filed, even when it had to be killed",
+      _resr.get("o") is not None and _resr["o"].action is W.Action.REVOKED and len(_filed) == _n_filed,
+      f"{_resr.get('o')} filed={_filed[_n_filed:]}")
 
 if _FF is None:
     print("SKIP unit process: the per-unit decoder kill and the orphan checks -- 3 checks; no ffmpeg on this station")

@@ -380,6 +380,187 @@ check({"recur_hits", "recur_count", "recur_window_s", "recur_folded"} <= extra
 check("recur=" in ANALYSER_VERSION, "the version string names the recurrence parameters",
       ANALYSER_VERSION)
 
+
+# ---------------------------------------------------------------------------
+# PASSAGES and the ROW BUDGET (1.2.0, 2026-09-29)
+# ---------------------------------------------------------------------------
+# THE OPERATOR'S CROW, replayed from its stored rows (labs_observations,
+# hiwatch-083bc1df39fa, 2026-09-29 12:57:40-58Z, read-only): one bird walking along a
+# bike lane, filed as 19 rows in 19 s, relabelled as its outline changed, 0.05-0.08 %
+# of the picture each. Segment 10bb678c starts 12:57:24, 8527ffad at 12:57:54.
+CROW = [  # segment, t_offset_s, x, y, w, h, area_frac, class
+    ("10bb678c", 16.986, 0.7664, 0.7944, 0.0242, 0.0431, 0.000524, "blob_compact"),
+    ("10bb678c", 17.985, 0.7680, 0.8042, 0.0328, 0.0444, 0.000773, "blob_compact"),
+    ("10bb678c", 18.984, 0.7797, 0.8083, 0.0359, 0.0431, 0.000816, "blob_wide"),
+    ("10bb678c", 19.984, 0.8109, 0.8194, 0.0305, 0.0472, 0.000775, "blob_compact"),
+    ("10bb678c", 20.983, 0.8344, 0.8403, 0.0297, 0.0458, 0.000751, "blob_compact"),
+    ("10bb678c", 21.982, 0.8633, 0.8597, 0.0289, 0.0458, 0.000742, "blob_compact"),
+    ("10bb678c", 22.981, 0.8844, 0.8847, 0.0234, 0.0486, 0.000523, "blob_compact"),
+    ("10bb678c", 23.980, 0.8844, 0.8847, 0.0266, 0.0500, 0.000583, "shape_indeterminate"),
+    ("10bb678c", 24.979, 0.8828, 0.8847, 0.0273, 0.0486, 0.000584, "shape_indeterminate"),
+    ("10bb678c", 25.979, 0.8938, 0.9056, 0.0258, 0.0458, 0.000645, "blob_compact"),
+    ("10bb678c", 26.978, 0.9070, 0.9167, 0.0234, 0.0583, 0.000773, "blob_tall"),
+    ("10bb678c", 27.977, 0.9133, 0.9375, 0.0273, 0.0472, 0.000729, "blob_compact"),
+    ("10bb678c", 28.976, 0.9234, 0.9514, 0.0359, 0.0486, 0.000829, "blob_multi"),
+    ("8527ffad", 0.000, 0.9445, 0.9569, 0.0336, 0.0431, 0.000793, "blob_compact"),
+    ("8527ffad", 0.999, 0.9492, 0.9556, 0.0297, 0.0403, 0.000735, "blob_compact"),
+    ("8527ffad", 1.999, 0.9477, 0.9514, 0.0406, 0.0444, 0.000822, "blob_wide"),
+    ("8527ffad", 2.998, 0.9492, 0.9542, 0.0289, 0.0431, 0.000652, "blob_compact"),
+    ("8527ffad", 3.997, 0.9703, 0.9486, 0.0273, 0.0319, 0.000552, "blob_wide"),
+    ("8527ffad", 4.996, 0.9727, 0.9514, 0.0273, 0.0319, 0.000576, "blob_wide"),
+]
+SEG_START = {"10bb678c": "2026-09-29T12:57:24+00:00", "8527ffad": "2026-09-29T12:57:54+00:00"}
+
+
+def rows_of(per_seg: dict, starts: dict, step=1.0, c=None):
+    """Run analyse_window over preset detections per segment (no frames, no model)."""
+    def fake(frames, meta, state, cfg=None, frame_step_s=None):
+        st_ = so.WindowStats()
+        st_.frame_step_s = step
+        obs_ = list(per_seg.get(meta.segment_id, []))
+        st_.observations = len(obs_)
+        return obs_, st_
+    real = so.analyse_segment
+    so.analyse_segment = fake
+    try:
+        metas = [(SegmentMeta(segment_id=k, camera_id="c", start_time=v), []) for k, v in starts.items()]
+        out = list(so.analyse_window(iter(metas), AnalyserState(c or cfg), c or cfg))
+    finally:
+        so.analyse_segment = real
+    return out
+
+
+def ob(seg, t, x, y, w, h, area, cls, conf=0.6):
+    return Observation(segment_id=seg, frame_index=int(t), t_offset_s=t, bbox_x=x, bbox_y=y,
+                       bbox_w=w, bbox_h=h, object_count=2 if cls == "blob_multi" else 1,
+                       shape_class=cls, shape_confidence=conf, aspect=h / w, area_frac=area,
+                       fill_ratio=0.6)
+
+
+crow = {}
+for r_ in CROW:
+    crow.setdefault(r_[0], []).append(ob(*r_))
+out = rows_of(crow, SEG_START)
+rows = [r for _, o, _ in out for r in o]
+check([m.segment_id for m, _, _ in out] == ["10bb678c", "8527ffad"],
+      "passages: still exactly one yield per segment, in order")
+check(len(rows) == 1, "THE CROW: 19 keyframe detections of one bird are ONE row, not 19",
+      f"{len(rows)} rows: {[(r.shape_class, r.t_offset_s) for r in rows]}")
+r0 = rows[0]
+check(r0.recur_count == 19 and r0.segment_id == "10bb678c" and r0.t_offset_s == 16.986
+      and abs(r0.span_s - 18.01) < 0.01,
+      "...timed at its first detection, lasting to its last (18.01 s), counting all 19",
+      f"count={r0.recur_count} seg={r0.segment_id} t={r0.t_offset_s} span={r0.span_s}")
+check(r0.shape_class == "blob_compact"
+      and r0.shape_votes == "blob_compact:11,blob_wide:4,shape_indeterminate:2,blob_tall:1,blob_multi:1",
+      "...its class is the one most of its keyframes were given, and every vote is kept",
+      f"{r0.shape_class} {r0.shape_votes}")
+check((r0.bbox_x, r0.bbox_y, r0.bbox_w, r0.bbox_h) == (0.9234, 0.9514, 0.0359, 0.0486)
+      and r0.area_frac == 0.000829 and abs(r0.bbox_at_s - 11.99) < 0.01,
+      "...its box is the LARGEST the bird was, and says when (11.99 s in)",
+      f"{(r0.bbox_x, r0.bbox_y, r0.bbox_w, r0.bbox_h)} at {r0.bbox_at_s}")
+check((r0.path_x0, r0.path_y0) == (round(0.7664 + 0.0242 / 2, 4), round(0.7944 + 0.0431 / 2, 4))
+      and (r0.path_x1, r0.path_y1) == (round(0.9727 + 0.0273 / 2, 4), round(0.9514 + 0.0319 / 2, 4))
+      and r0.recur_folded is False,
+      "...with the path it walked, and it is not a folded source (a finding counts it once)")
+m_ = r0.measurements()
+extra = {k for k in m_ if k not in Observation.API_COLUMNS}
+check(len(extra) <= 24 and all(k == k.lower() and len(k) <= 40 for k in extra)
+      and all(len(str(v)) <= 120 for v in m_.values()),
+      "a passage row's metrics stay inside the server's caps (<= 24 keys, <= 40 chars, "
+      "strings <= 120)", f"{len(extra)} keys: {sorted(extra)}")
+
+two = {"s": []}
+for i in range(20):   # two birds far apart, taking turns being the frame's dominant blob
+    two["s"].append(ob("s", float(i), 0.1 + 0.003 * i, 0.2, 0.03, 0.03, 0.0007, "blob_compact")
+                    if i % 2 == 0 else ob("s", float(i), 0.8, 0.8 - 0.003 * i, 0.03, 0.03, 0.0007, "blob_compact"))
+rows = [r for _, o, _ in rows_of(two, {"s": "2026-09-29T12:00:00+00:00"}) for r in o]
+check(len(rows) == 2 and sorted(r.recur_count for r in rows) == [10, 10],
+      "two things in view taking turns as the dominant blob are two passages, 10 detections each",
+      f"{[(r.recur_count, r.path_x0) for r in rows]}")
+
+long_ = {"s": [ob("s", float(i), 0.1 + 0.001 * i, 0.5, 0.05, 0.1, 0.004, "blob_tall") for i in range(600)]}
+rows = [r for _, o, _ in rows_of(long_, {"s": "2026-09-29T12:00:00+00:00"}) for r in o]
+check(len(rows) == 3 and all(r.span_s <= cfg.passage_max_span_s for r in rows)
+      and sum(r.recur_count for r in rows) == 600,
+      "a passage longer than passage_max_span_s files as consecutive rows (no row may pass "
+      "the server's 300 s group span)", f"{[(r.span_s, r.recur_count) for r in rows]}")
+
+gone = {"s": [ob("s", float(i), 0.5, 0.5, 0.05, 0.1, 0.004, "blob_tall") for i in list(range(5)) + list(range(10, 15))]}
+rows = [r for _, o, _ in rows_of(gone, {"s": "2026-09-29T12:00:00+00:00"}) for r in o]
+check(len(rows) == 2, "unseen for 5 s at a 1 s keyframe step: two passages, not one", f"{len(rows)}")
+slow = {"s": [ob("s", 3.3 * i, 0.2 + 0.02 * i, 0.5, 0.05, 0.1, 0.004, "blob_tall") for i in range(8)]}
+rows_gop50 = [r for _, o, _ in rows_of(slow, {"s": "2026-09-29T12:00:00+00:00"}, step=3.3) for r in o]
+rows_nostep = [r for _, o, _ in rows_of(slow, {"s": "2026-09-29T12:00:00+00:00"}, step=None) for r in o]
+check(len(rows_gop50) == 1 and len(rows_nostep) == 8,
+      "the gap follows the MEASURED keyframe step: 3.3 s apart links on a GOP-50 camera, and "
+      "does not when the step is unknown (3 s default)", f"{len(rows_gop50)} vs {len(rows_nostep)}")
+
+# THE BUDGET: hiwatch-083bc17adca6 12:00Z filed 525, then 530 rows and was lost whole.
+import random as _random
+rng = _random.Random(7)
+busy = {}
+starts_b = {}
+# 10 unrelated passers-by per 30 s segment, 3 s apart (never linked at a 1 s step), each
+# on its own cell of a 15 x 15 grid: a cell comes round again only after 225 detections,
+# 675 s, past the fold's 600 s look-back -- scattered at random instead, ~1 % of the
+# picture around a spot collects 3 hits in 10 min at this density, and the recurrence
+# fold (1.1.0) would take some of them for a source.
+cells = [(0.05 + 0.06 * (i % 15), 0.05 + 0.06 * (i // 15)) for i in range(225)]
+n_ = 0
+for k in range(120):                      # an hour of 30 s segments
+    sid = f"b{k:03d}"
+    starts_b[sid] = f"2026-09-29T12:{(30 * k) // 60:02d}:{(30 * k) % 60:02d}+00:00"
+    for j in range(10):
+        x_, y_ = cells[n_ % 225]
+        n_ += 1
+        busy.setdefault(sid, []).append(ob(sid, 3.0 * j, x_, y_, 0.03, 0.06, 0.001,
+                                           SHAPE_CLASSES[rng.randrange(6)]))
+out = rows_of(busy, starts_b)
+rows = [r for _, o, _ in out for r in o]
+check(len(rows) <= cfg.row_budget < 500,
+      f"a busy hour (1,200 detections, none linked) files at most row_budget rows ({len(rows)})")
+check(sum(r.recur_count for r in rows) == 1200 and sum(r.rows_merged or 1 for r in rows) == 1200
+      and all(r.coarse_bin_s == 60.0 for r in rows),
+      "...merged per 60 s and shape class, and every detection is still counted exactly once",
+      f"{sum(r.recur_count for r in rows)} {sum(r.rows_merged or 1 for r in rows)} "
+      f"{set(r.coarse_bin_s for r in rows)}")
+check(out[-1][2].budget_bin_s == 60.0 and any("row budget" in n for n in out[-1][2].notes),
+      "...and the unit's stats say so", f"{out[-1][2].notes[-1:]}")
+check(all(r.span_s <= cfg.passage_max_span_s for r in rows),
+      "...no merged row passes the 300 s group span either")
+flood = {}
+for k in range(120):
+    sid = f"f{k:03d}"
+    flood[sid] = [ob(sid, 0.5 * j, rng.uniform(0.05, 0.9), rng.uniform(0.05, 0.9), 0.03, 0.06, 0.001,
+                     SHAPE_CLASSES[rng.randrange(6)]) for j in range(60)]
+rows = [r for _, o, _ in rows_of(flood, {k: v.replace("b", "f") for k, v in
+                                          zip(flood, starts_b.values())}) for r in o]
+check(len(rows) <= cfg.row_budget and sum(r.recur_count for r in rows) == 7200,
+      f"...and a flood (7,200 detections) still keeps the budget ({len(rows)} rows), counted exactly",
+      f"{len(rows)}")
+# A recurring SOURCE (a lens streak, every 5 s at one spot) in the same busy hour: under
+# the budget its folded rows are merged only with each other, never with passages -- the
+# findings rule counts the one and not the other.
+# The streak sits clear of the passers-by's grid (centre 0.97, 0.045; the nearest cell is
+# 0.074 away, past the fold's 0.05), so exactly its own hits are its: the first minute (12,
+# t = 1..56 s) files on its own, the other 708 fold.
+mixed = {k: list(v) + [ob(k, float(t), 0.96, 0.03, 0.02, 0.03, 0.0008, "shape_indeterminate")
+                       for t in range(1, 30, 5)] for k, v in busy.items()}
+rows = [r for _, o, _ in rows_of(mixed, starts_b) for r in o]
+fold_rows = [r for r in rows if r.recur_folded]
+rest = [r for r in rows if not r.recur_folded]
+check(len(rows) <= cfg.row_budget and fold_rows
+      and sum(r.recur_count for r in fold_rows) == 120 * 6 - 12
+      and sum(r.recur_count for r in rest) == 1200 + 12,
+      "...a recurring source's folded rows stay apart from passages under the budget: they "
+      "count exactly its 708 folded hits, the rest exactly the 1,212 others",
+      f"{len(rows)} rows: folded {sum(r.recur_count for r in fold_rows)}, rest {sum(r.recur_count for r in rest)}")
+again_ = [r.measurements() for _, o, _ in rows_of(busy, starts_b) for r in o]
+check(again_ == [r.measurements() for _, o, _ in out for r in o], "deterministic: the same hour, the same rows")
+check("pass=" in ANALYSER_VERSION and "budget=" in ANALYSER_VERSION,
+      "the version string names the passage and budget parameters", ANALYSER_VERSION)
+
 print()
 print(f"=== {CHECKS[0] - len(FAILS)}/{CHECKS[0]} checks passed ===")
 if FAILS:

@@ -202,6 +202,7 @@ class _Child:
     stalled: bool = False
     acked: bool = False
     killed: bool = False
+    killed_proc: bool = False
     send_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -225,9 +226,10 @@ class ProcessRunner:
     def __init__(self, spec: dict, *, abort_reason: Callable[[W.ScanUnit], Optional[str]] = lambda u: None,
                  kill: Optional[Callable[[int], Optional[int]]] = None,
                  say_killed: Callable[[W.ScanUnit, str, Optional[int]], None] = _say_killed,
+                 file_failed: Optional[Callable[[W.ScanUnit, object, str], W.UnitOutcome]] = None,
                  stall_s: float = STALL_S, grace_s: float = GRACE_S, watch_s: float = WATCH_S,
                  clock: Callable[[], float] = time.monotonic):
-        self.spec, self.abort_reason = spec, abort_reason
+        self.spec, self.abort_reason, self.file_failed = spec, abort_reason, file_failed
         if kill is None:
             import vitals as V
             kill = V.kill_children
@@ -253,7 +255,8 @@ class ProcessRunner:
             shutil.rmtree(tmp, ignore_errors=True)
             o = W.UnitOutcome(unit, note=W.fit(f"its process could not be started: {type(e).__name__}: {e}", 200))
             o.stalled = True
-            return o
+            return self._file(unit, plugin, o, f"station_fault: the unit's process could not be started "
+                                               f"({type(e).__name__}: {e}) -- not the footage")
         # Only the child holds these ends now: when it exits, its pipe reads as closed.
         up_send.close()
         down_recv.close()
@@ -262,7 +265,7 @@ class ProcessRunner:
         with self._lock:
             self._children[k] = c
         try:
-            return self._watch(c)
+            return self._settle(c, plugin, self._watch(c))
         finally:
             with self._lock:
                 if self._children.get(k) is c:
@@ -339,6 +342,40 @@ class ProcessRunner:
                 return self._dropped(c, f"{c.abort_why} -- it did not stop within {int(self.grace_s)} s, "
                                         "so its process was killed")
 
+    def _settle(self, c: _Child, plugin, o: W.UnitOutcome) -> W.UnitOutcome:
+        """A unit this worker had to drop is FILED as failed, with why (cilex-vision,
+        2026-09-29): left to lapse, its lease held the hour for up to 20 min and the ledger
+        read "lease expired". A unit the SERVER took back, or a hold, is never filed: that
+        stop is not the hour's doing."""
+        if o.submitted:
+            return o
+        if c.stalled:
+            # Stopped for making no progress: ours, not the server's -- even when the unit
+            # answered the stop itself and came back "revoked".
+            o.stalled = True
+            if o.action is W.Action.REVOKED:
+                o.action = None
+            mins = self.stall_s / 60.0
+            dur = f"{mins:g} min" if mins >= 1 else f"{self.stall_s:g} s"
+            return self._file(c.unit, plugin, o, f"stalled: no checkpoint for {dur}, "
+                                                 + ("its process was killed" if c.killed_proc else "stopped"))
+        if o.stalled and o.action is None and c.abort_why is None:
+            return self._file(c.unit, plugin, o, f"unit_process_died: {o.note}")
+        return o
+
+    def _file(self, unit: W.ScanUnit, plugin, o: W.UnitOutcome, reason: str) -> W.UnitOutcome:
+        if self.file_failed is None:
+            return o
+        try:
+            f = self.file_failed(unit, plugin, reason)
+        except Exception as e:                # filing is best effort; the lease still lapses
+            log.warning("labs: could not file %s %s %s as failed: %r", unit.analyzer, unit.camera_id,
+                        unit.hour_start, e)
+            return o
+        f.stalled = True                      # its lane rests either way
+        f.timings = o.timings or f.timings
+        return f
+
     def _dropped(self, c: _Child, note: str) -> W.UnitOutcome:
         o = W.UnitOutcome(c.unit, note=W.fit(note, 200))
         if c.stalled:
@@ -355,6 +392,7 @@ class ProcessRunner:
             n = self.kill(c.proc.pid)         # its decoders first: they would outlive it
         with contextlib.suppress(Exception):
             c.proc.kill()
+            c.killed_proc = True
         return n
 
     def abort(self, unit: W.ScanUnit, why: str, stalled: bool = False) -> bool:

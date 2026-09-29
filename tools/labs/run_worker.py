@@ -249,14 +249,18 @@ def loop_main(a) -> int:
             import reporter as RP
             import unit_proc as U
             ask = lambda u: reporter.abort_reason(u) if reporter is not None else None
+            # Also asked by _file_failed in THIS process, when a unit it dropped is filed.
+            W.STATION_CHECK = decoder_start_fault
             if a.in_process:
                 # worker-0.3.4's way, kept for a station that cannot start unit processes:
                 # one unit at a time, in this process.
-                W.STATION_CHECK = decoder_start_fault
                 runner = L.InProcessRunner(client, decode=decode, abort_reason=ask)
             else:
-                runner = U.ProcessRunner(U.production_spec(a.api, tok), abort_reason=ask,
-                                         say_killed=lambda unit, why, n: stop_decoders(unit, why, kill=lambda: n))
+                runner = U.ProcessRunner(
+                    U.production_spec(a.api, tok), abort_reason=ask,
+                    say_killed=lambda unit, why, n: stop_decoders(unit, why, kill=lambda: n),
+                    file_failed=lambda unit, plugin, why: W._file_failed(
+                        client, plugin, unit, W.UnitOutcome(unit), why, W.Action.BUG))
             slots = 1 if getattr(runner, "single_slot", False) else max(1, a.slots)
             if reporter is None:
                 reporter = RP.Reporter(

@@ -5,6 +5,56 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: A4-A6 1.2.0 PASSAGES + worker-0.3.6 -->
+> **2026-09-29 — Object shapes (blob_geometry) files one row per PASSAGE, within a row budget; worker-0.3.6**
+>
+> **Why, both measured today:**
+> - **The operator's crow:** they opened a "Wide" finding on 5 Улица 7 (15:57:58) and read "car, truck, bus".
+>   It was a crow: 19 rows in 19 s, relabelled every second, each 0.05-0.08 % of the picture. Checked
+>   read-only in `labs_observations` and on the frames, with the stored boxes drawn on them.
+>   - "car, truck, bus" is `labs_shape_classes.suggests`, cilex-vision's advisory lookup per shape
+>     (migration 0086), which the server joins onto every row. My Labs card printed it as a field
+>     (fa79062); f1a897e removed it from the card.
+> - **The 500-row cap:** busy hours pass it and are lost whole. hiwatch-083bc17adca6 12:00Z failed
+>   twice (525, 530). cilex-vision's letter
+>   `docs/letters/2026-09-29-blob-geometry-busy-hours-and-the-500-row-cap-cilex-vision.md` asks for
+>   a row budget the analyser cannot pass.
+>
+> **A4-A6 1.2.0 (`tools/labs/shape_observations.py`; plugin version `shape-3`):**
+> - **Passages:** consecutive keyframe detections of one moving blob become ONE row with a span.
+>   - Timed at the first detection and lasting to the last.
+>   - The class is the one most keyframes gave; every vote is kept in `shape_votes`.
+>   - The box is the largest the blob was (`bbox_at_s` says when); `path_*` holds the first and
+>     last centres; `recur_count` counts the detections.
+>   - Linking: at most 2.5 measured keyframe steps apart (3 s if the step is unknown), near
+>     enough. Passages are cut at 240 s, under the 300 s event-group span.
+> - **Row budget 450:** past it, rows merge per shape class per 60 s bin, coarser until they fit.
+>   Folded sources never merge with passages, and every detection is still counted exactly once.
+> - **The recurrence fold (1.1.0) is unchanged** and runs first.
+> - **The adapter** times a passage row from its `span_s` and refuses any span of 300 s or more.
+>
+> **worker-0.3.6:**
+> - A unit dropped for making no progress, or whose process died, is **filed failed with why**
+>   (cilex-vision's reply2 on the lanes): "stalled: no checkpoint for 10 min, its process was
+>   killed" / "unit_process_died: …". Left to lapse, the ledger said "lease expired".
+> - A unit the server took back is never filed.
+>
+> **Verified:**
+> - A4-A6 self-test: 79 checks, 19 new. They include the crow replayed from its stored rows (one
+>   row), a busy hour (1,200 detections → 349 rows) and a flood (7,200 → 372).
+> - `labs-worker.py`: 364 checks.
+> - 12 planted bugs, all caught.
+> - **Real footage, read-only, same frames, 1.1.0 → 1.2.0:**
+>   - 5 Улица 7 12:00Z: 401 → 131 rows (findings 331 → 61, detections 597 → 597). The crow's walk:
+>     29 rows → 1 (12:57:24-59, compact, 36 detections).
+>   - hiwatch-083bc17adca6 12:00Z: **FAILED 530 > 500 → 220 rows**, 966 detections, 0 schema
+>     violations.
+> - **What the operator will see:** Statistics for Object shapes counts passages, so the numbers
+>   drop (cilex-vision: "reads better for an operator").
+> - **Also seen, not changed:** the 1.1.0 recurrence fold can take dense unrelated traffic at one
+>   spot for a "source". In a synthetic test, about 1 % of the picture around a spot collected 3
+>   hits in 10 min at 1,200 detections an hour. Its effect on real walkways is not measured.
+
 <!-- 2026-09-29 LABS: worker-0.3.5 — ONE LANE PER ANALYSER -->
 > **2026-09-29 — worker-0.3.5: each analyser runs on its own** (the operator's requirement:
 > *"other analyser must run in separate threads and if one analyser is stuck it should not affect

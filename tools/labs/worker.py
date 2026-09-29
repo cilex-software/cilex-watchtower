@@ -62,7 +62,9 @@ from typing import Callable, Iterable, Optional, Protocol
 # 0.3.5 (2026-09-29): each analyser is a LANE of its own (lanes.py), and each unit runs in a
 # process of its own (unit_proc.py): a busy, refused or stuck analyser no longer holds up the
 # others (the operator's requirement, via cilex-vision's letter of the same day).
-WORKER_VERSION = "worker-0.3.5"
+# 0.3.6 (2026-09-29): a unit dropped for making no progress, or whose process died, is FILED
+# failed with why (cilex-vision); blob_geometry files one row per passage, within a row budget.
+WORKER_VERSION = "worker-0.3.6"
 
 
 # ----------------------------------------------------------------------------------
