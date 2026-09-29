@@ -38,8 +38,15 @@
 > - Windows Time steps the booth clock +3.75..3.93 s every night between 00:03 and 00:34.
 > - The app's stall detector measured with the wall clock, so each step read as a GUI stall.
 > - On 00:11 that made the guard hand back 7 units.
-> - Fixed in fe8fc6f: the stall gap and the event-poll timing now use a monotonic clock. The Windows
->   agent is also making the guard discount steps.
+> - Fixed in fe8fc6f: the stall gap and the event-poll timing now use a monotonic clock. The
+>   Windows agent's guard also discounts steps (3580112).
+> - **The stall detector is ON BY DEFAULT on Linux and Windows walls** (55f08b8, 1.1.752). The
+>   office ran without WT_TRACE, so since 09-17 its guard had no freeze signal. On the Mac it stays
+>   behind WT_TRACE; `WT_NO_STALL_WATCH=1` turns it off.
+> - **Measured on the booth's logs** (the Windows agent, 09-26 to 09-30):
+>   - 33-71 lines a day, about 3-6 KB, against the flight recorder's 15.2 MB a day;
+>   - no real stall of 1 s or more: the only four were the nightly clock steps.
+> - The office reaches it with its next app rollout.
 >
 > **The Vehicles pilot's first unit** (10 Улица 4, 19:00Z, 23:52 MSK): done, 36 rows, 36 thumbnails,
 > none missing.
