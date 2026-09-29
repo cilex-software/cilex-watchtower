@@ -41,13 +41,13 @@ def _key(analyzer, camera_id, hour_start):
 
 class Reporter:
     def __init__(self, client, *, vitals=None, worker_version: str = W.WORKER_VERSION,
-                 slots: int = 1, control: Callable[[], dict] = S.read_control,
+                 control: Callable[[], dict] = S.read_control,
                  on_abort: Optional[Callable[[W.ScanUnit, str], None]] = None,
                  on_change: Optional[Callable[[dict], None]] = None,
                  clock: Callable[[], float] = time.monotonic,
                  log: Optional[logging.Logger] = None):
         self.client, self.vitals = client, vitals
-        self.worker_version, self.slots = worker_version, slots
+        self.worker_version = worker_version
         self.control, self.on_abort, self.on_change = control, on_abort, on_change
         self.clock = clock
         self.log = log or logging.getLogger("labs.report")
@@ -184,7 +184,9 @@ class Reporter:
         with self._lock:
             units, hold = list(self._holding.values()), (dict(self._hold) if self._hold else None)
             state = "paused" if hold else ("running" if units else self._state)
-        body = {"worker_version": self.worker_version, "state": state, "slots": self.slots,
+        # `slots` is null: since worker-0.3.8 there is no station-wide cap -- every connected
+        # lane runs its unit at once (the operator's rule). The server takes null (0..64 or null).
+        body = {"worker_version": self.worker_version, "state": state, "slots": None,
                 "holding": [{"analyzer": u.analyzer, "camera_id": u.camera_id, "hour_start": u.hour_start}
                             for u in units]}
         if self.vitals is not None:

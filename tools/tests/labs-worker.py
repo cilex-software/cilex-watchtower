@@ -1774,7 +1774,8 @@ _n3 = ["optical_flow", "blob_geometry", "track_linking"]
 c, plugs = lane_world(_n3, units_per=2); clk = Clock(); timed(c, clk)
 s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), order=_n3)
 s.run(until=lambda: clk.t >= 5)
-check("lanes: with one slot the lanes take TURNS -- a lane that has just had its unit queues behind the others",
+check("lanes: with the in-process runner (one unit at a time) the lanes take TURNS -- a lane that has just had "
+      "its unit queues behind the others",
       [a for _t, a in c.times[:6]] == _n3 + _n3, str(c.times[:6]))
 
 _firsts = []
@@ -1787,25 +1788,29 @@ check("lanes: no analyser is always first -- the first order is shuffled at ever
       None not in _firsts and len(set(_firsts)) >= 5 and _firsts.count("audio_energy") < len(_firsts), str(_firsts))
 
 class _Blocking:
-    """Units that take a moment, on real threads: how many run at once?"""
+    """Units that take a moment, on real threads: how many run at once, in all and per lane?"""
     single_slot = False
-    def __init__(self): self.lock, self.now, self.peak, self.ran = threading.Lock(), 0, 0, []
+    def __init__(self):
+        self.lock, self.now, self.peak, self.ran = threading.Lock(), 0, 0, []
+        self.per, self.per_peak = {}, 0
     def run(self, unit, plugin):
         with self.lock:
             self.now += 1; self.peak = max(self.peak, self.now); self.ran.append(unit.analyzer)
+            self.per[unit.analyzer] = self.per.get(unit.analyzer, 0) + 1
+            self.per_peak = max(self.per_peak, self.per[unit.analyzer])
         _time.sleep(0.05)
         with self.lock:
-            self.now -= 1
+            self.now -= 1; self.per[unit.analyzer] -= 1
         o = W.UnitOutcome(unit); o.submitted = True
         return o
     def abort(self, u, why): return False
     def abort_all(self, why): pass
-def _slots_run(n):
+def _lanes_run(one_at_a_time=False):
     names = ["illumination", "foreground_mask", "colour_histogram", "optical_flow"]
     c, plugs = lane_world(names, units_per=3)
-    r = _Blocking()
+    r = _Blocking(); r.single_slot = one_at_a_time
     s = LN.Scheduler(c, lambda: plugs, runner=r, hb=HbRec(), names=names, control=ctl_seq({"paused": False}),
-                     slots=n, executor=_TPE(max_workers=8),
+                     executor=_TPE(max_workers=8),
                      timing=LN.Timing(poll_s=0.01, legacy_poll_s=0.01, idle_s=0.2))
     th = threading.Thread(target=s.run, daemon=True); th.start()
     end = _time.time() + 20
@@ -1813,11 +1818,15 @@ def _slots_run(n):
         _time.sleep(0.02)
     s.stop(); th.join(5)
     return r
-_r2, _r1 = _slots_run(2), _slots_run(1)
-check("lanes: `slots` bounds how many units run at once across ALL lanes -- with 2, never 3, and it does use both",
-      len(_r2.ran) == 12 and _r2.peak == 2, f"ran={len(_r2.ran)} peak={_r2.peak}")
-check("...and one slot is one unit at a time (the booth's bound)", len(_r1.ran) == 12 and _r1.peak == 1,
-      f"ran={len(_r1.ran)} peak={_r1.peak}")
+_rall, _rone = _lanes_run(), _lanes_run(one_at_a_time=True)
+# worker-0.3.8, the operator (2026-09-29): "i define how many analysers run in parallel - that is
+# defined by how many hoses are connected to the machine". No station-wide cap.
+check("lanes: EVERY connected lane runs its unit AT ONCE -- 4 lanes, 3 units each: all 4 in flight together, "
+      "and never two units of one lane (hoses decide, no station-wide cap)",
+      len(_rall.ran) == 12 and _rall.peak == 4 and _rall.per_peak == 1,
+      f"ran={len(_rall.ran)} peak={_rall.peak} per-lane peak={_rall.per_peak}")
+check("...and the in-process runner (a station that cannot start unit processes) still runs one unit at a time",
+      len(_rone.ran) == 12 and _rone.peak == 1, f"ran={len(_rone.ran)} peak={_rone.peak}")
 
 c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
 c.refuse = {("claim", "illumination"): [R(409, "labs_lane_not_running", True)]}
@@ -2354,7 +2363,7 @@ check("reporter: once the server answers, it governs -- station and lane modes c
       and rp.lane_mode("blob_geometry") == "paused" and rp.lane_mode("track_linking") is None)
 _b = rp.client.bodies[-1]
 check("reporter: the body carries the contract's fields, vitals included, null where unmeasured",
-      _b["worker_version"] == "worker-0.3" and _b["state"] == "idle" and _b["slots"] == 1 and _b["holding"] == []
+      _b["worker_version"] == "worker-0.3" and _b["state"] == "idle" and _b["slots"] is None and _b["holding"] == []
       and _b["cpu_pct"] == 12.5 and _b["labs_cpu_pct"] is None and "hold" not in _b, str(_b))
 _t["now"] = 31.0
 check("reporter: orders older than 30 s are UNKNOWN -- and unknown claims nothing new",
@@ -2403,12 +2412,12 @@ _ub = W.ScanUnit("cam-7", "2026-09-28T02:00:00.000+00:00", "audio_energy", None,
 _dropped = []
 rp = RPT.Reporter(_RepClient([_ORD, dict(_ORD, revoked=[{"analyzer": "illumination", "camera_id": "cam-9",
                                                          "hour_start": "2026-09-28T01:00:00Z"}])]),
-                  vitals=_Vit(), worker_version="worker-0.3.5", slots=2, control=lambda: _ctl_box["c"],
+                  vitals=_Vit(), worker_version="worker-0.3.5", control=lambda: _ctl_box["c"],
                   clock=lambda: _t["now"], on_abort=lambda un, why: _dropped.append((un.analyzer, why)))
 rp.add_holding(_ua); rp.add_holding(_ub); rp.report_once()
 _b = rp.client.bodies[-1]
-check("reporter: ONE holding list covers every lane's units in hand, and the slots are reported",
-      _b["state"] == "running" and _b["slots"] == 2
+check("reporter: ONE holding list covers every lane's units in hand; `slots` is null (no station-wide cap)",
+      _b["state"] == "running" and _b["slots"] is None
       and sorted(h["analyzer"] for h in _b["holding"]) == ["audio_energy", "illumination"], str(_b))
 rp.report_once(); rp.report_once()
 check("reporter: a unit taken back is dropped ONCE, and ONLY that one -- the other lane's unit keeps running",
@@ -2903,9 +2912,9 @@ _o = W.run_unit(_c, _OPP, _uo, decode=_op_decode, states={}, tmpdir=TMP, sleep=l
 _b = _c.submitted[0][1] if _c.submitted else {}
 _rows = _b.get("observations") or []
 _named = [(r.get("metrics") or {}).get("thumb") for r in _rows]
-check("object_profile: a unit of a moving red box is SUBMITTED with rows, as op-2+worker-0.3.7",
-      _o.submitted and len(_rows) >= 1 and _b.get("analyzer_version") == f"op-2+{W.WORKER_VERSION}"
-      and W.WORKER_VERSION == "worker-0.3.7", str((_o.note, _b.get("analyzer_version"), len(_rows))))
+check("object_profile: a unit of a moving red box is SUBMITTED with rows, as op-2+<the worker's version>",
+      _o.submitted and len(_rows) >= 1 and _b.get("analyzer_version") == f"op-2+{W.WORKER_VERSION}",
+      str((_o.note, _b.get("analyzer_version"), len(_rows))))
 check("object_profile: EVERY thumbnail is PUT before the results, and only those the rows name",
       _c.log and _c.log[-1] == ("submit",) and all(e[0] == "thumb" for e in _c.log[:-1])
       and sorted(k for _, k in _c.log[:-1]) == sorted(_named) and _o.thumbs_uploaded == len(_named),

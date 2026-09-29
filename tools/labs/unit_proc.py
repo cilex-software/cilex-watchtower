@@ -1,8 +1,8 @@
 """Each unit in a process of its own (worker-0.3.5).
 
 WHY A PROCESS, NOT A THREAD. A thread cannot be stopped from outside, so an analyser that
-hangs would keep its slot for good, and with the booth's one slot every other lane with
-it. A process can be killed. It also gives each unit its own copy of what worker.py and the
+hangs would keep its lane busy for good (and, while stations ran one unit at a time until
+worker-0.3.8, every other lane with it). A process can be killed. It also gives each unit its own copy of what worker.py and the
 analysers keep per PROCESS:
   * the revoked/held check the checkpoints ask (worker._abort_check), and the last warning
     a failed unit is filed with (worker._heard, a handler on the ROOT logger) -- in one

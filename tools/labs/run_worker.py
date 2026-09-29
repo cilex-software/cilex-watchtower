@@ -17,7 +17,9 @@ in the app's Labs screen (or runs --resume). It reports through status.json, kep
 fresh by a heartbeat thread, which is what the Labs screen shows.
 
 Since worker-0.3.5 each analyser is a lane of its own (lanes.py) and each unit runs in a
-process of its own (unit_proc.py); --slots says how many may be in flight at once (1).
+process of its own (unit_proc.py). Since worker-0.3.8 every connected lane runs its unit at
+the same time, one per lane, with no station-wide cap: how many run at once is how many
+hoses the operator connects (their rule, 2026-09-29). --slots / WT_LABS_SLOTS are ignored.
 """
 import argparse, logging, os, sys, threading, time, json, urllib.request
 from datetime import datetime, timezone
@@ -187,6 +189,12 @@ def decoder_start_fault(exe=None, run=None, timeout_s: float = 15.0):
 
 
 def loop_main(a) -> int:
+    if a.slots is not None or os.environ.get("WT_LABS_SLOTS"):
+        # Said once, where the station's log reads it: a station still set to "2" (or "1")
+        # runs every connected lane at once all the same.
+        logging.getLogger("labs.station").warning(
+            "labs: --slots / WT_LABS_SLOTS are ignored since worker-0.3.8 -- every connected lane "
+            "runs its unit at once, one per lane; unplug a hose to run fewer")
     all_plugins = [make_plugin(n) for n in (a.analyzer or sorted(PLUGINS))]
     hb = Heartbeat({"state": "starting", "worker_version": W.WORKER_VERSION, "server": a.api,
                     "started_at": S.now_iso(), "totals": {}, "last_unit": None,
@@ -262,15 +270,14 @@ def loop_main(a) -> int:
                     say_killed=lambda unit, why, n: stop_decoders(unit, why, kill=lambda: n),
                     file_failed=lambda unit, plugin, why: W._file_failed(
                         client, plugin, unit, W.UnitOutcome(unit), why, W.Action.BUG))
-            slots = 1 if getattr(runner, "single_slot", False) else max(1, a.slots)
             if reporter is None:
                 reporter = RP.Reporter(
-                    client, vitals=V.Vitals(), worker_version=W.WORKER_VERSION, slots=slots,
+                    client, vitals=V.Vitals(), worker_version=W.WORKER_VERSION,
                     on_abort=lambda unit, why: sched.abort(unit, why) if sched is not None else None,
                     on_change=lambda snap: hb.update(**snap)).start()
                 hb.update(vitals_source=V.source())
             sched = L.Scheduler(client, supported, runner=runner, hb=hb, names=[p.name for p in all_plugins],
-                                reporter=reporter, station_check=decoder_start_fault, slots=slots)
+                                reporter=reporter, station_check=decoder_start_fault)
             sched.run()
     except KeyboardInterrupt:
         pass
@@ -351,9 +358,10 @@ def main():
                     help="hold Labs OFF on this computer whatever the server says, until --release "
                          "(the wall's safety check uses this); reported to the server with WHY")
     ap.add_argument("--release", action="store_true", help="release this computer's hold")
-    ap.add_argument("--slots", type=int, default=int(os.environ.get("WT_LABS_SLOTS") or 1),
-                    help="--loop: how many claims and units may be in flight at once, across all "
-                         "analysers (default 1, or WT_LABS_SLOTS). Each analyser is its own lane.")
+    # Kept so a launcher that still passes it does not stop the worker from starting.
+    ap.add_argument("--slots", type=int, default=None,
+                    help="IGNORED since worker-0.3.8: every connected lane runs its unit at once, "
+                         "one per lane, with no station-wide cap (the operator's rule)")
     ap.add_argument("--in-process", action="store_true",
                     help="--loop: run units in this process, one at a time (worker-0.3.4's way), "
                          "for a station that cannot start unit processes")

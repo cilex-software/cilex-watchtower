@@ -13,12 +13,21 @@ Now:
     claim, and its own unit. A lane that is refused, busy or stuck waits by itself; the
     others keep claiming.
   * The rules that are the STATION's stay in one place, decided here: the local hold, the
-    server's orders (or the local flag on a server without them), a station that cannot
-    start its decoder or whose token is refused, and SLOTS -- how many claims and units
-    may be in flight at once.
-  * Slots go first come, first served. A lane that has just had its turn queues behind
-    the lanes that were waiting, and the first order is shuffled at every start, so no
-    analyser is always first (the letter's point 4).
+    server's orders (or the local flag on a server without them), and a station that cannot
+    start its decoder or whose token is refused.
+  * NO STATION-WIDE CAP (worker-0.3.8, the operator, 2026-09-29: "i define how many analysers
+    run in parallel - that is defined by how many hoses are connected to the machine, each
+    analyser inside Cilex Watchtower runs in a separate thread and is prioritised by the
+    operating system"). Every connected, playing lane runs its own unit at the same time as
+    the others, ONE PER LANE; to run fewer, the operator unplugs hoses. The protection is the
+    operating system's priority -- the service runs at idle CPU and IO priority, and the
+    unit processes and their decoders inherit it -- and the wall guard's hold. Until 0.3.8 a
+    `slots` count (1 on every station) made the lanes take turns; the operator never asked
+    for it. ONE EXCEPTION: the in-process runner (a station that cannot start unit
+    processes) shares this process's per-unit state, so it still runs one unit at a time.
+  * Lanes start in queue order: a lane that has just had its turn queues behind the lanes
+    that were waiting, and the first order is shuffled at every start, so no analyser is
+    always first (the letter's point 4).
   * Every decision is made on ONE thread, by tick(). Claims and units run elsewhere, on
     an executor: threads in production, with each unit in a process of its own
     (unit_proc.ProcessRunner); in the tests the executor runs each one at once, on the
@@ -42,7 +51,7 @@ import worker as W
 log = logging.getLogger("labs.lanes")
 
 # A claim refused RETRY_LATER is asked again after 2, 4, 8, 16 and 32 s -- by its lane
-# alone, which gives its slot back meanwhile -- then waits the lane's `busy_s`.
+# alone, the other lanes going on meanwhile -- then waits the lane's `busy_s`.
 MAX_CLAIM_RETRIES = 5
 # The station check (can this station START its decoder?) runs before claims, at most
 # this often: it is a real `ffmpeg -version`.
@@ -92,7 +101,7 @@ class SyncExecutor:
 class InProcessRunner:
     """Runs a unit in THIS process, as worker-0.3.4 did. For the tests, and for a station
     that cannot start unit processes (--in-process). It shares worker.py's per-process
-    state (`_abort_check`, `_heard`), so the scheduler gives it ONE slot, never more."""
+    state (`_abort_check`, `_heard`), so the scheduler runs ONE of its units at a time."""
 
     single_slot = True
 
@@ -137,7 +146,7 @@ class Scheduler:
 
     def __init__(self, client, supported: Callable[[], list], *, runner, hb, names: list,
                  control: Callable[[], dict] = S.read_control, reporter=None,
-                 station_check: Optional[Callable[[], Optional[str]]] = None, slots: int = 1,
+                 station_check: Optional[Callable[[], Optional[str]]] = None,
                  executor=None, clock: Callable[[], float] = time.monotonic,
                  sleep: Optional[Callable[[float], None]] = None, timing: Optional[Timing] = None,
                  order: Optional[list] = None, rng: Optional[random.Random] = None):
@@ -147,8 +156,9 @@ class Scheduler:
                                                        thread_name_prefix="labs-lane")
         self.clock, self._sleep = clock, sleep
         self.t = timing or Timing()
-        # A runner that shares this process's per-unit state runs one unit at a time.
-        self.slots = 1 if getattr(runner, "single_slot", False) else max(1, int(slots))
+        # A runner that shares this process's per-unit state runs one unit at a time; every
+        # other runner runs one unit per connected lane, all at once (no station-wide cap).
+        self._one_at_a_time = bool(getattr(runner, "single_slot", False))
         self.lanes = {n: Lane(n) for n in names}
         first = list(order) if order else list(names)
         if not order:
@@ -238,7 +248,9 @@ class Scheduler:
             lane.plugin = by_name.get(lane.name)
             if lane.plugin is not None and self.lane_ok(lane.name, ctl):
                 runs.append(lane.name)
-        free = self.slots - sum(1 for x in self.lanes.values() if x.op is not None)
+        busy = sum(1 for x in self.lanes.values() if x.op is not None)
+        # One per lane is the only bound (a lane with work in hand is skipped below).
+        free = (1 - busy) if self._one_at_a_time else len(self.lanes)
         sig = None
         for lane in list(self.queue):
             if free <= 0:
@@ -330,7 +342,7 @@ class Scheduler:
                 for u in val:                 # all of them are this station's now
                     self.reporter.add_holding(u)
             lane.backlog = list(val[1:])
-            self._start_unit(lane, val[0])    # the lane keeps its slot for its unit
+            self._start_unit(lane, val[0])    # the lane keeps its turn for its unit
             return
         self.queue.append(lane)               # its turn is over: to the back
         name = lane.name
@@ -481,11 +493,11 @@ class Scheduler:
                 note = ("nothing to claim for the analysers switched on" if runs
                         else "no analyser can run on this station right now")
         fields = {"state": word, "note": W.fit(note or "", 300),
-                  # The Labs screen names ONE analyser (a string); with one slot there is only one.
+                  # The Labs screen names ONE analyser (a string): the latest started; `units`
+                  # lists every unit in hand, one per lane.
                   "current": running[-1].name if running else None,
                   "units": [{"analyzer": x.unit.analyzer, "camera_id": x.unit.camera_id,
                              "hour_start": x.unit.hour_start} for x in running],
-                  "slots": self.slots,
                   "lane_states": {x.name: {"state": x.state, "note": x.note, "until": x.until_iso}
                                   for x in self.lanes.values()}}
         if runs is not None:
