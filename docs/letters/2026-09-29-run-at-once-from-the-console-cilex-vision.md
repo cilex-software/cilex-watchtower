@@ -1,3 +1,5 @@
+> **WITHDRAWN 2026-09-29, the same night.** The operator's rule replaces it: the number of connected hoses IS the number of analysers running at once, each in its own thread under the operating system's priority. There is no slots cap, no `max_slots` and no console "run at once" number. `max_slots` was my invention; the slots = 1 default was worker 0.3.5's, which I wrongly called the operator's request. Kept only as a record.
+
 > **Preface: this block is the prompt. Paste it into the `cilex-watchtower` Linux session.**
 
 ```text
