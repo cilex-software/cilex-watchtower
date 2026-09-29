@@ -54,7 +54,7 @@ Item {
         active: fv.shown
         // The first finding plays as soon as a list arrives; an emptied list plays nothing.
         onStateChanged: {
-            if (fm.count === 0) fv.current = -1
+            if (fm.count === 0) { fv.current = -1; fv.playing = -1 }
             else if (fv.current < 0 || fv.current >= fm.count) fv.current = 0
             fv.fitRows(false)
         }
@@ -82,13 +82,24 @@ Item {
         return c ? c.name : (item && item.camera_name ? item.camera_name : (item ? item.camera_id : ""))
     }
 
-    readonly property var currentItem: (current >= 0 && current < fm.count) ? fm.get(current) : null
-    readonly property var currentEv: currentItem ? fm.asEvent(current, camLookup[currentItem.camera_id] || ({})) : null
+    // The player and the card follow the selection once it has RESTED. Every row the player is
+    // given opens a review session at once (EvHeroPlayer's prefetch), and the server finishes
+    // each one: stepping through rows with the keys queued a session per row, 12 in 9 s, while
+    // one took a median 39.6 s to open (query-api [SESSIONTIME], 2026-09-29 18:30-19:05 MSK).
+    property int playing: -1
+    Timer { id: settle; interval: 450; onTriggered: fv.playing = fv.current }
+    onCurrentChanged: { if (current < 0) { settle.stop(); playing = -1 } else settle.restart() }
+    readonly property var currentItem: (playing >= 0 && playing < fm.count) ? fm.get(playing) : null
+    readonly property var currentEv: currentItem ? fm.asEvent(playing, camLookup[currentItem.camera_id] || ({})) : null
 
     // The row's second line: what THIS finding found, from its own metrics -- the server's
     // sentence often only repeats the camera and the time already on the row. Each figure is
     // the server's value as filed (nothing inferred); one the row does not carry is left out,
     // and with nothing to say the server's sentence is shown instead.
+    // A Paths row's heading is the direction of its NET movement IN THE PICTURE: "N" is toward
+    // the top of the frame, not the compass (labs_track_linking.py, HEADINGS). Shown as the arrow
+    // it is; the path on the picture shows the route itself.
+    readonly property var arrows: ({ E: "→", NE: "↗", N: "↑", NW: "↖", W: "←", SW: "↙", S: "↓", SE: "↘" })
     function pct(v) { if (!known(v)) return ""; var x = v * 100; return num(x, x < 10 ? 1 : 0) + " %" }
     // A metric VALUE by the server's own name for it, where the analyser's filters are one
     // per value (a colour, a shape class, a direction): "Чёрный", not "black". The names are
@@ -114,7 +125,10 @@ Item {
             if (known(it.object_count)) bits.push(qsTr("%n object(s)", "", it.object_count))
             break
         case "blob_geometry":    if (it.shape_class) bits.push(valueLabel(it.shape_class)); break
-        case "track_linking":    if (known(m.dwell_s)) bits.push(qsTr("stayed %1 s").arg(Math.round(m.dwell_s))); break
+        case "track_linking":
+            if (known(m.dwell_s)) bits.push(qsTr("stayed %1 s").arg(Math.round(m.dwell_s)))
+            if (m.heading && arrows[m.heading]) bits.push(arrows[m.heading])
+            break
         case "frame_difference":
             if (known(m.peak)) bits.push(qsTr("peak %1").arg(num(m.peak, 1)))
             if (known(m.sustained_s)) bits.push(qsTr("%1 s sustained").arg(Math.round(m.sustained_s)))
@@ -164,6 +178,130 @@ Item {
         fitListW = Math.ceil(_fitMax) + rowPad
     }
     onCamLookupChanged: fitRows(true)
+
+    // ---- THE PATH ON THE PICTURE (operator request, 2026-09-29) --------------------------------
+    // "I want to see the path and its direction ... so I can check you've drawn the right
+    // conclusion". A toggle draws, over the video, exactly what the row claims:
+    //   Paths (track_linking): its `path` -- equal-time points of the tracked region's centre --
+    //     as a line with an arrowhead, a ring where it was first seen, and a dot where it is at
+    //     the frame on screen (only when the points are equal-time: `path_step_s`);
+    //   Object shapes (blob_geometry): the largest box, and a passage's arrow from its first
+    //     centre to its last.
+    // With it, every row of the same analyser on that camera during the clip, dimmer: one line
+    // per tracked region. A group walking together is ONE region to the analyser (its own
+    // definition), so it is one line, whatever the picture shows.
+    property bool pathOn: false
+    readonly property bool drawable: analyzer === "track_linking" || analyzer === "blob_geometry"
+    LabsTimeline {
+        id: clipRows
+        cameraId: fv.currentItem ? fv.currentItem.camera_id : ""
+        startMs: heroPlayer.tlStartMs
+        endMs: heroPlayer.tlEndMs
+        active: fv.shown && fv.pathOn && fv.drawable && fv.currentItem !== null
+        lang: fm.lang
+    }
+    function shapeOf(r, mine) {
+        var m = r.metrics || ({})
+        var sh = { mine: mine, pts: [], step: null, startMs: r.startMs, bbox: null }
+        if (analyzer === "track_linking") {
+            sh.pts = m.path ? fm.decodePath(String(m.path)) : []
+            if (known(m.path_step_s) && m.path_step_s > 0) sh.step = m.path_step_s
+        } else if (known(r.bbox_x) && known(r.bbox_w)) {
+            sh.bbox = { x: r.bbox_x, y: r.bbox_y, w: r.bbox_w, h: r.bbox_h }
+            if (known(m.path_x0) && known(m.path_x1))
+                sh.pts = [{ x: m.path_x0, y: m.path_y0 }, { x: m.path_x1, y: m.path_y1 }]
+        }
+        return sh
+    }
+    readonly property var clipShapes: {
+        var rev = clipRows.revision                 // re-read when the camera's rows arrive
+        if (!pathOn || !drawable || !currentItem) return []
+        var rows = clipRows.rowsOf(analyzer, heroPlayer.tlStartMs, heroPlayer.tlEndMs)
+        var out = [], seen = false
+        for (var i = 0; i < rows.length; i++) {
+            var mine = rows[i].observation_id === currentItem.observation_id
+            seen = seen || mine
+            if (!mine) out.push(shapeOf(rows[i], false))
+        }
+        out.push(shapeOf(currentItem, true))      // the selected row always, and drawn last (on top)
+        return out
+    }
+    readonly property int otherShapes: Math.max(0, clipShapes.length - 1)
+    // Where a path's tracked region is at `wallMs`, or null (before or after it, or points that
+    // are not equal-time).
+    function posAt(sh, wallMs) {
+        if (!sh.step || sh.pts.length < 2) return null
+        var t = (wallMs - sh.startMs) / 1000
+        if (t < 0 || t > sh.step * (sh.pts.length - 1)) return null
+        var f = t / sh.step, i = Math.min(sh.pts.length - 2, Math.floor(f)), u = f - i
+        return { x: sh.pts[i].x + (sh.pts[i + 1].x - sh.pts[i].x) * u,
+                 y: sh.pts[i].y + (sh.pts[i + 1].y - sh.pts[i].y) * u }
+    }
+    function drawShape(c, sh, W, H) {
+        var col = sh.mine ? String(Theme.accent) : "rgba(255,255,255,0.8)"
+        var lw = sh.mine ? 3 : 2
+        c.lineJoin = "round"; c.lineCap = "round"
+        function stroke(w, style) { c.lineWidth = w; c.strokeStyle = style; c.stroke() }
+        if (sh.bbox) {
+            c.beginPath(); c.rect(sh.bbox.x * W, sh.bbox.y * H, sh.bbox.w * W, sh.bbox.h * H)
+            stroke(lw + 2, "rgba(0,0,0,0.6)"); stroke(lw, col)
+        }
+        var p = sh.pts
+        if (!p || p.length === 0) return
+        var x0 = p[0].x * W, y0 = p[0].y * H
+        if (p.length >= 2) {
+            c.beginPath(); c.moveTo(x0, y0)
+            for (var i = 1; i < p.length; i++) c.lineTo(p[i].x * W, p[i].y * H)
+            stroke(lw + 3, "rgba(0,0,0,0.6)"); stroke(lw, col)
+            // the arrowhead, along the last movement longer than a few pixels
+            var bx = p[p.length - 1].x * W, by = p[p.length - 1].y * H, ax = null, ay = null
+            for (var j = p.length - 2; j >= 0; j--) {
+                if (Math.hypot(bx - p[j].x * W, by - p[j].y * H) > 8) { ax = p[j].x * W; ay = p[j].y * H; break }
+            }
+            if (ax !== null) {
+                var ang = Math.atan2(by - ay, bx - ax), L = sh.mine ? 16 : 12
+                c.beginPath(); c.moveTo(bx, by)
+                c.lineTo(bx - L * Math.cos(ang - 0.45), by - L * Math.sin(ang - 0.45))
+                c.lineTo(bx - L * Math.cos(ang + 0.45), by - L * Math.sin(ang + 0.45))
+                c.closePath()
+                c.lineWidth = 2; c.strokeStyle = "rgba(0,0,0,0.6)"; c.stroke()
+                c.fillStyle = col; c.fill()
+            }
+        }
+        c.beginPath(); c.arc(x0, y0, sh.mine ? 6 : 4, 0, 2 * Math.PI)
+        stroke(lw + 2, "rgba(0,0,0,0.6)"); stroke(lw, col)
+    }
+    Component {
+        id: pathOverlay
+        Item {
+            id: ov
+            Canvas {
+                anchors.fill: parent
+                property var shapes: fv.clipShapes
+                onShapesChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onPaint: {
+                    var c = getContext("2d")
+                    c.reset()
+                    for (var i = 0; i < shapes.length; i++) fv.drawShape(c, shapes[i], width, height)
+                }
+            }
+            Repeater {                              // where each tracked region is, at this frame
+                model: fv.clipShapes
+                delegate: Rectangle {
+                    required property var modelData
+                    readonly property var at: fv.posAt(modelData, heroPlayer.playheadWallMs)
+                    visible: at !== null
+                    width: modelData.mine ? 14 : 10; height: width; radius: width / 2
+                    x: (at ? at.x * ov.width : 0) - width / 2
+                    y: (at ? at.y * ov.height : 0) - height / 2
+                    color: modelData.mine ? Theme.accent : "#ffffff"
+                    border.width: 2; border.color: "#000000"
+                }
+            }
+        }
+    }
 
     function select(i) {
         if (i < 0 || i >= fm.count) return
@@ -439,12 +577,39 @@ Item {
                     spacing: 12
                     visible: fv.currentEv !== null
                     EvHeroPlayer {
+                        id: heroPlayer
                         Layout.fillWidth: true
                         Layout.preferredHeight: Math.round(parent.height * 0.64)
                         ev: fv.currentEv
                         playbackClient: findingsClient
                         surfaced: fv.shown
                         fillStage: true
+                        overlay: fv.pathOn && fv.drawable ? pathOverlay : null
+                    }
+                    RowLayout {
+                        visible: fv.drawable
+                        Layout.fillWidth: true
+                        spacing: 12
+                        Chip {
+                            label: fv.analyzer === "track_linking" ? qsTr("Path on the picture") : qsTr("Box and path on the picture")
+                            on: fv.pathOn
+                            onPicked: fv.pathOn = !fv.pathOn
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: fv.pathOn
+                            elide: Text.ElideRight
+                            text: {
+                                var legend = fv.analyzer === "track_linking"
+                                    ? qsTr("ring: first seen · arrow: where it went · dot: where it is at this frame")
+                                    : qsTr("box: the largest it was · arrow: from where it was first seen to where it was last")
+                                var more = clipRows.loading ? qsTr("looking for the camera's other rows in this clip…")
+                                         : clipRows.errorText !== "" ? qsTr("the camera's other rows could not be read: %1").arg(clipRows.errorText)
+                                         : qsTr("%n more on this camera in this clip, dimmer", "", fv.otherShapes)
+                                return legend + "  ·  " + more
+                            }
+                            color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11
+                        }
                     }
                     Flickable {
                         Layout.fillWidth: true

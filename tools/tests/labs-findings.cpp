@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <cmath>
 #include <cstdio>
 
 static int fails = 0;
@@ -107,6 +108,26 @@ int main(int argc, char **argv)
     const QVariantMap ev3 = wtlabs::findingAsEvent(r1, QVariantMap());
     ok(ev3.value("cam").toMap().value("name").toString() == "10 Улица 13",
        "...and by the server's camera_name when it sends one");
+
+    // ---- a Paths row's path, decoded (cilex-vision's labs_track_linking.py encoding) --------------
+    // Two real rows the operator opened on 2026-09-29, their `path` as stored (labs_observations,
+    // be1d6721 and the 10 Улица 4 row of 14:58:42Z), with the entry and exit the same rows state:
+    //   10 Улица 2 17:57:47, right to left: entry (0.9924, 0.5557), exit (0.0068, 0.6226)
+    //   10 Улица 4 17:58:42, left to right: entry (0.006, 0.3243),  exit (0.9457, 0.7927)
+    // Quantised to 64 levels, a decoded point is within half a level (1/128) of the measured one.
+    auto near = [](const QVariant &p, double x, double y) {
+        const QVariantMap m = p.toMap();
+        return std::abs(m.value("x").toDouble() - x) <= 1.0 / 128 + 1e-9
+            && std::abs(m.value("y").toDouble() - y) <= 1.0 / 128 + 1e-9;
+    };
+    const QVariantList w = wtlabs::decodePath("_j_g9g7i5j2jzjvjslnmkmfnamXmTmPkMlJlGlEkCkAjAnAn");
+    ok(w.size() == 24 && near(w.first(), 0.9924, 0.5557) && near(w.last(), 0.0068, 0.6226),
+       "a real path decodes to 24 points that start at the row's entry and end at its exit (right to left)");
+    const QVariantList e = wtlabs::decodePath("AUAUAUAVAVAVAWBWBXCXCXDYEZGaIbKcNeRhXjfnosyx508y");
+    ok(e.size() == 24 && near(e.first(), 0.006, 0.3243) && near(e.last(), 0.9457, 0.7927),
+       "...and another, left to right");
+    ok(wtlabs::decodePath("AUA").isEmpty() && wtlabs::decodePath("AU!U").isEmpty() && wtlabs::decodePath("").isEmpty(),
+       "an odd length or a character outside the alphabet is not a path: nothing, never a guessed one");
 
     // ---- the screen offers exactly these periods ------------------------------------------------
     QFile f("qml/LabsFindings.qml");

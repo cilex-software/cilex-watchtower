@@ -139,6 +139,17 @@ inline QVector<Run> runs(const QVector<Obs> &v, double winS, double winE, double
 }
 
 // The request for one analyser and window. UTC with milliseconds; lang is the UI language.
+// The rows (indices, in their start order) that overlap [fromMs, toMs]: a point row inside it,
+// or a span that starts before its end and ends after its start.
+inline QVector<int> overlapping(const QVector<Obs> &rows, qint64 fromMs, qint64 toMs)
+{
+    QVector<int> out;
+    for (int i = 0; i < rows.size(); ++i)
+        if (rows.at(i).startMs <= toMs && rows.at(i).endMs >= fromMs)
+            out << i;
+    return out;
+}
+
 inline QUrl observationsUrl(const QString &base, const QString &cameraId, qint64 startMs, qint64 endMs,
                             const QString &analyzer, const QString &lang, int limit = kPageLimit)
 {

@@ -495,11 +495,21 @@ Item {
     property var _pre: null              // { evId, tag, sid, dur, fragments, meta, bornMs }
     property int _preGen: 0
     property string _preTag: ""
+    // The prefetch is still on its way, and for which episode. A play tap meanwhile JOINS it
+    // (_joinPre) instead of asking the server for the same window a second time: measured
+    // 2026-09-29 18:30-19:05 MSK, the server took a median 39.6 s (p90 97 s) to open a review
+    // session, so a tap a few seconds after selecting queued a duplicate behind the prefetch,
+    // the 25 s deadline fired, and every "tap to retry" queued another ([SESSIONTIME] lines).
+    property bool _preInFlight: false
+    property string _preEvId: ""
+    property bool _joinPre: false
     function _prefetch() {
         if (!ev || !ev.id || !playbackClient) return;
         _preGen++;
         _preTag = _uid + ":pre" + _preGen;
         _pre = null;
+        _preInFlight = true;
+        _preEvId = String(ev.id);
         var w = EventsStore.episodeWindow(ev);
         playbackClient.ensureReady();
         playbackClient.openSession(ev.cam.id,
@@ -535,7 +545,7 @@ Item {
         hp._evId = nid;
         hp._zeroFragRetries = 0; zeroFragRetry.stop();
         hp._extGen = 0; hp._extMs = 0; hp._extInPlaceMs = 0; hp._extResumeWall = -1; hp._extending = false; hp._endFinal = false;
-        hp._reset(); hp._pre = null; hp._preTag = "";
+        hp._reset(); hp._pre = null; hp._preTag = ""; hp._preInFlight = false;
         // The timeline is knowable from event data alone — set it NOW so the scrubber has real
         // geometry and the transport shows the true duration before the first play-tap (it read
         // 00:00/00:00 pre-play, and a pre-play scrubber click had no span to map the X into).
@@ -555,6 +565,30 @@ Item {
     }
     Component.onDestruction: { player.stop(); player.source = ""; }
 
+    // A host may draw on the PICTURE (the Labs Findings view draws a Paths row's route):
+    // `overlay` is loaded over the video's own rectangle (PreserveAspectFit), shown only while a
+    // frame of this clip is on screen; `playheadWallMs` is that frame's wall time.
+    property Component overlay: null
+    readonly property double playheadWallMs: _playheadWallMs
+    readonly property bool picture: _lit && !_loading && _error === ""
+    // A Labs finding is not an event: there is no event still, so the poster says what the
+    // player is doing -- the server preparing the recording, for how long -- never "no frame".
+    readonly property bool _labsEv: !!ev && typeof ev.rawType === "string" && ev.rawType.indexOf("labs:") === 0
+    readonly property bool _preparing: _loading || _joinPre || (_preInFlight && !_started)
+    property double _waitFromMs: 0
+    property int _waitS: 0
+    on_PreparingChanged: if (_preparing) { _waitFromMs = Date.now(); _waitS = 0; }
+    Timer {
+        interval: 1000; repeat: true
+        running: hp._labsEv && hp._preparing
+        onTriggered: hp._waitS = Math.round((Date.now() - hp._waitFromMs) / 1000)
+    }
+    readonly property string _labsPoster: !_labsEv || _error !== "" ? ""
+        : _preparing ? qsTr("PREPARING THE RECORDING ON THE SERVER · %1 S").arg(_waitS)
+        : !_started ? (_pre ? qsTr("RECORDING READY · PRESS PLAY") : qsTr("PRESS PLAY TO WATCH"))
+        : !_lit ? qsTr("WAITING FOR THE FIRST FRAME")
+        : ""
+
     // Views are kept alive (StackLayout), so pause the recording when Triage isn't the shown tab.
     property bool surfaced: true
     onSurfacedChanged: if (!surfaced && player.playbackState === MediaPlayer.PlayingState) player.pause()
@@ -562,6 +596,7 @@ Item {
     function _reset() {
         heroStepper.invalidate();   // cached frames belong to the torn-down clip
         _started = false; _loading = false; _error = ""; _sid = ""; _frags = []; _armed = false; _lit = false;
+        _joinPre = false;
         mkMeasuredMs = -1; mkMeasuredEndMs = -1; _mktDone = false; MotionScan.reset();
         if (typeof MemTel !== "undefined") MemTel.trimNow();   // return retained decode arenas at teardown
         _pendingSeekMs = -1; _smoothMs = 0; _seekingToWall = -1; _continuous = false;
@@ -609,6 +644,12 @@ Item {
             openDeadline.stop();
             var pre = _pre; _pre = null;
             _applySession(pre.sid, pre.dur, pre.fragments, pre.meta);
+            return;
+        }
+        // The session this tap needs is already being prepared: wait for it (onSessionReady
+        // adopts it and plays), never ask the server for the same window twice.
+        if (!_extending && _preInFlight && _pre === null && ev && _preEvId === String(ev.id)) {
+            _joinPre = true;
             return;
         }
         playbackClient.ensureReady();
@@ -902,9 +943,11 @@ Item {
         enabled: hp.playbackClient !== null
         function onSessionReady(sid, dur, fragments, meta, tag) {
             if (tag === hp._preTag) {                    // background prefetch landed: HOLD, no decode
+                hp._preInFlight = false;
                 hp._pre = { evId: (hp.ev ? hp.ev.id : ""), sid: sid, dur: dur,
                             fragments: fragments, meta: meta, bornMs: Date.now() };
                 if (hp._htOn) console.log("[HT] PRE ready ev=" + (hp.ev ? hp.ev.id : "?") + " t=" + Date.now());
+                if (hp._joinPre) { hp._joinPre = false; hp._open(); }   // a tap was waiting for it: adopt, play
                 return;
             }
             if (tag !== hp._curTag) return;              // foreign consumer's session, or our own stale re-open
@@ -912,7 +955,11 @@ Item {
             hp._applySession(sid, dur, fragments, meta);
         }
         function onSessionFailed(err, tag) {
-            if (tag === hp._preTag) { hp._preTag = ""; return; }   // speculation dies silently
+            if (tag === hp._preTag) {                    // speculation dies silently...
+                hp._preTag = ""; hp._preInFlight = false;
+                if (hp._joinPre) { hp._joinPre = false; hp._open(); }   // ...unless a tap was waiting: open for it
+                return;
+            }
             if (tag !== hp._curTag) return;
             openDeadline.stop();
             hp._loading = false; hp._error = err;
@@ -987,6 +1034,18 @@ Item {
                 cache: false
                 visible: heroStepper.veiled && status === Image.Ready
             }
+            // The host's drawing on the picture (see `overlay`): exactly over the video's rectangle,
+            // and only while the video item HAS a frame. Between a clip's re-opens and after its end
+            // the item holds none (sourceRect 0x0) and contentRect falls back to the whole stage --
+            // measured on the vnc platform: (250, 0, 768, 432) with a 2560x1440 frame, (0, 0, 1268,
+            // 432) without -- so a drawing kept up then would sit over the black bars.
+            Loader {
+                x: vout.contentRect.x; y: vout.contentRect.y
+                width: vout.contentRect.width; height: vout.contentRect.height
+                active: hp.overlay !== null
+                visible: hp.picture && vout.sourceRect.width > 0
+                sourceComponent: hp.overlay
+            }
             MediaPlayer {
                 id: player
                 videoOutput: vout
@@ -1029,6 +1088,8 @@ Item {
                 // poster (and its "● LIVE" fallback chip) covering a playing recording forever.
                 visible: hp._loading || hp._error !== "" || !hp._lit
                 ev: hp.ev; showOsd: true; showIdent: false; showPlayhead: false; fitMode: true
+                placeholder: hp._labsPoster
+                noFrameText: !hp._labsEv || hp._error === ""
                 probeTag: hp._htOn ? "hero" : ""            // P4 poster-honesty telemetry (soak only)
             }
             // on-demand affordance: tap the poster to load + play (recordings are NOT auto-loaded — see _reset)

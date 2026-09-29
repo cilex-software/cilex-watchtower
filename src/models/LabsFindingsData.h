@@ -131,4 +131,29 @@ inline QVariantMap findingAsEvent(const QVariantMap &item, const QVariantMap &kn
     return ev;
 }
 
+// A Paths (track_linking) row's `path`, as points in the picture: the analyser writes its
+// trajectory as equal-time points, two characters each (x, then y), every coordinate one
+// character of the base64url alphabet, quantised to 64 levels of its axis and decoded as
+// (index + 0.5) / 64 -- cilex-vision's labs_track_linking.py, PATH_ALPHABET and
+// Episode.path_string. A string with an odd length or a character outside the alphabet is
+// not a path: nothing is returned rather than a guessed one.
+inline QVariantList decodePath(const QString &path)
+{
+    static const QString alphabet =
+        QStringLiteral("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_");
+    QVariantList out;
+    if (path.isEmpty() || path.size() % 2 != 0)
+        return out;
+    for (int i = 0; i + 1 < path.size(); i += 2) {
+        const int ix = alphabet.indexOf(path.at(i)), iy = alphabet.indexOf(path.at(i + 1));
+        if (ix < 0 || iy < 0)
+            return {};
+        QVariantMap p;
+        p[QStringLiteral("x")] = (ix + 0.5) / 64.0;
+        p[QStringLiteral("y")] = (iy + 0.5) / 64.0;
+        out << p;
+    }
+    return out;
+}
+
 }   // namespace wtlabs

@@ -113,6 +113,19 @@ int main(int argc, char **argv)
        && QUrlQuery(wtlabs::observationsUrl("h", "c", 0, 1, "a", "en", 50)).queryItemValue("limit") == "50",
        "a language the server does not render falls back to en; the limit never exceeds the ceiling");
 
+    // ---- the rows a clip window overlaps (the Findings view's path overlay) ----------------------
+    {
+        QVector<wtlabs::Obs> rs;
+        auto add = [&rs](const char *id, qint64 s, qint64 e) { wtlabs::Obs o; o.id = id; o.startMs = s; o.endMs = e; rs << o; };
+        add("span-in", 0, 10); add("point-before", 5, 5); add("span-after", 20, 30); add("point-at-end", 22, 22);
+        add("later", 23, 40);
+        const QVector<int> got = wtlabs::overlapping(rs, 8, 22);
+        ok(got == QVector<int>({0, 2, 3}),
+           "a clip window [8, 22] overlaps the span that runs into it, the one that starts in it and a point "
+           "at its very end -- never a point before it or a row after it");
+        ok(wtlabs::overlapping(rs, 100, 200).isEmpty(), "...and nothing at all outside every row");
+    }
+
     std::printf("%s\n", fails ? QStringLiteral("%1 FAILED").arg(fails).toUtf8().constData() : "all passed");
     return fails ? 1 : 0;
 }

@@ -78,6 +78,8 @@ public:
     // Row `row` as the Events player takes an event (wtlabs::findingAsEvent); `knownCam` is
     // that camera's entry from the app's camera list, or {} when the app does not know it.
     Q_INVOKABLE QVariantMap asEvent(int row, const QVariantMap &knownCam) const;
+    // A Paths row's `path` metric as [{x, y}] in picture fractions (wtlabs::decodePath).
+    Q_INVOKABLE QVariantList decodePath(const QString &path) const;
 
 signals:
     void inputsChanged();

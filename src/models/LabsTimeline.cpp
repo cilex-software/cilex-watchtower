@@ -291,3 +291,16 @@ QString LabsTimeline::firstIdOf(const QString &key, double fromMs, double toMs) 
             return o.id;
     return {};
 }
+
+QVariantList LabsTimeline::rowsOf(const QString &key, double fromMs, double toMs) const
+{
+    QVariantList out;
+    for (int i : wtlabs::overlapping(m_tracks.value(key).obs, qint64(fromMs), qint64(toMs))) {
+        const wtlabs::Obs &o = m_tracks.value(key).obs.at(i);
+        QVariantMap m = o.row;
+        m[QStringLiteral("startMs")] = double(o.startMs);
+        m[QStringLiteral("endMs")] = double(o.endMs);
+        out << m;
+    }
+    return out;
+}

@@ -79,6 +79,9 @@ public:
     // For QML: the card's content, and the dev hook's pick.
     Q_INVOKABLE QVariantMap observation(const QString &id) const;
     Q_INVOKABLE QString firstIdOf(const QString &key, double fromMs, double toMs) const;
+    // Every row of lane `key` that overlaps [fromMs, toMs], whole (with startMs/endMs), in
+    // start order: the Findings view draws all of a camera's paths during a clip.
+    Q_INVOKABLE QVariantList rowsOf(const QString &key, double fromMs, double toMs) const;
 
 signals:
     void inputsChanged();

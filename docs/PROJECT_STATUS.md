@@ -5,6 +5,53 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: THE PATH ON THE PICTURE + "NO FRAME" -->
+> **2026-09-29 — Findings: the path on the picture; and why clips said "No frame at event time" for minutes**
+>
+> **The path on the picture** (operator request: "I want to see the path and direction … so I can
+> check you've done a right conclusion"):
+> - Under the player, a toggle: "Path on the picture" (Paths) or "Box and path" (Object shapes).
+> - It draws what the row claims:
+>   - **Paths:** the decoded `path` (24 equal-time points; `wtlabs::decodePath`), an arrowhead, a ring
+>     where it was first seen, and a dot where it is at the frame on screen. The dot shows only when
+>     the points are equal-time (`path_step_s`).
+>   - **Object shapes:** the largest box and the passage's arrow.
+>   - **The camera's other rows** of that analyser during the clip, dimmer (`LabsTimeline.rowsOf`).
+>     One line per tracked region; a group walking together is one region to the analyser.
+> - Paths rows now show their heading as an arrow (↖ etc.): the NET direction **in the picture**,
+>   "N" toward the top of the frame (labs_track_linking.py says so itself), not the compass.
+> - **Verified:**
+>   - On the operator's two examples, the decoded path drawn on the real frames (read-only) with
+>     the same interpolation: 10 Улица 2 17:57:47 runs right to left along the walkway, the dot on
+>     the walker at +5.3 s and +10.5 s. It trails her by up to ~80 px (<1 s); I have not measured why.
+>   - 1 Улица 5 17:55:16 ("NW"): the pair's walk recedes up and to the LEFT in the picture, about
+>     140 px left for 180 px up, so NW is the correct 8-way reading of the picture.
+>   - In the app, on the vnc platform against the live endpoint: the overlay drew the selected row
+>     plus "3 more on this camera"; drawn pixels at x 576-1274, inside the picture's rectangle
+>     568-1336.
+>   - A fix found on the way: without a frame the video item's rectangle falls back to the whole
+>     stage (measured), so the overlay shows only while it has one.
+>   - Tests: labs-findings has two real paths decoded to within 1/128 of their stored entry and
+>     exit; labs-timeline pins the overlap rule.
+>
+> **"No frame at event time" for minutes, then it plays:**
+> - The server's own timing lines (query-api `[SESSIONTIME]`): the 45 review sessions opened
+>   18:30-19:05 MSK took a median **39.6 s** (p90 97.3 s, max 663 s), mostly `t_index`.
+> - Hourly medians: 14.1 s at 16:00-17:00 MSK, with the stations mostly off, then 50.6, 38.1 and
+>   45.6 s once they scanned again. That is a correlation, not a proven cause. It is cilex-vision's
+>   to fix; they have been sent a letter.
+> - The poster covers the player until the first frame, and a Labs finding has no event still, so it
+>   read "no frame" all that time.
+> - The app made it worse, and now doesn't:
+>   - **Selection rests 450 ms** before the player takes it. Stepping through rows had opened a
+>     session per row: 12 in 9 s, each served in full.
+>   - **A play tap JOINS the session already being prepared** instead of asking again. Before, a
+>     tap during the prefetch queued a duplicate; the 25 s deadline fired, and each "tap to retry"
+>     queued another.
+>   - **A Labs row's poster says what the player is doing:** "PREPARING THE RECORDING ON THE
+>     SERVER · N S", "RECORDING READY · PRESS PLAY" or "WAITING FOR THE FIRST FRAME". It no longer
+>     asks the server for an event still that cannot exist.
+
 <!-- 2026-09-29 LABS: A4-A6 1.2.0 PASSAGES + worker-0.3.6 -->
 > **2026-09-29 — Object shapes (blob_geometry) files one row per PASSAGE, within a row budget; worker-0.3.6**
 >

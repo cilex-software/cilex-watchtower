@@ -629,82 +629,102 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="847"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="587"/>
+        <source>PREPARING THE RECORDING ON THE SERVER · %1 S</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="588"/>
+        <source>RECORDING READY · PRESS PLAY</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="588"/>
+        <source>PRESS PLAY TO WATCH</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="589"/>
+        <source>WAITING FOR THE FIRST FRAME</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/EvHeroPlayer.qml" line="888"/>
         <source>The recording backend did not answer in 25 s — tap play to retry.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="945"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="992"/>
         <source>Recording in progress — waiting for the first footage…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="948"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="995"/>
         <source>No footage recorded around this moment.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1049"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1110"/>
         <source>Loading recording…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1132"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1193"/>
         <source>Previous frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1143"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1204"/>
         <source>Pause</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1143"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1204"/>
         <source>Play</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1147"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1208"/>
         <source>Next frame</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1149"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1210"/>
         <source>Back 10 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1150"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1211"/>
         <source>Forward 10 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1184"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1245"/>
         <source>Playback speed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1185"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1246"/>
         <source>Copy share link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1186"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1247"/>
         <source>Export clip</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1187"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1248"/>
         <source>Assign to operator</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1189"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1250"/>
         <source>Remove bookmark</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvHeroPlayer.qml" line="1189"/>
+        <location filename="../qml/EvHeroPlayer.qml" line="1250"/>
         <source>Bookmark</source>
         <translation type="unfinished"></translation>
     </message>
@@ -812,27 +832,27 @@
 <context>
     <name>EvSnapshot</name>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="180"/>
+        <location filename="../qml/EvSnapshot.qml" line="186"/>
         <source>NO FRAME AT EVENT TIME</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="259"/>
+        <location filename="../qml/EvSnapshot.qml" line="265"/>
         <source>OBJECT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="272"/>
+        <location filename="../qml/EvSnapshot.qml" line="278"/>
         <source>VIEW OBSTRUCTED</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="280"/>
+        <location filename="../qml/EvSnapshot.qml" line="286"/>
         <source>SIGNAL LOST</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/EvSnapshot.qml" line="305"/>
+        <location filename="../qml/EvSnapshot.qml" line="311"/>
         <source>● LIVE now — event frame unavailable</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2199,7 +2219,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsCard.qml" line="111"/>
+        <location filename="../qml/LabsCard.qml" line="115"/>
         <source>analyser build %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2222,17 +2242,17 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="109"/>
+        <location filename="../qml/LabsFindings.qml" line="120"/>
         <source>then %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="113"/>
+        <location filename="../qml/LabsFindings.qml" line="124"/>
         <source>largest %1 of the picture</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="114"/>
+        <location filename="../qml/LabsFindings.qml" line="125"/>
         <source>%n object(s)</source>
         <translation>
             <numerusform>%n object</numerusform>
@@ -2240,27 +2260,27 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="117"/>
+        <location filename="../qml/LabsFindings.qml" line="129"/>
         <source>stayed %1 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="119"/>
+        <location filename="../qml/LabsFindings.qml" line="133"/>
         <source>peak %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="120"/>
+        <location filename="../qml/LabsFindings.qml" line="134"/>
         <source>%1 s sustained</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="122"/>
+        <location filename="../qml/LabsFindings.qml" line="136"/>
         <source>%1 dB</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="123"/>
+        <location filename="../qml/LabsFindings.qml" line="137"/>
         <source>%n identical frame(s)</source>
         <translation>
             <numerusform>%n identical frame</numerusform>
@@ -2268,12 +2288,12 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="224"/>
+        <location filename="../qml/LabsFindings.qml" line="362"/>
         <source>‹ Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="238"/>
+        <location filename="../qml/LabsFindings.qml" line="376"/>
         <source>%n finding(s)</source>
         <translation>
             <numerusform>%n finding</numerusform>
@@ -2281,53 +2301,53 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="238"/>
+        <location filename="../qml/LabsFindings.qml" line="376"/>
         <source>findings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="240"/>
+        <location filename="../qml/LabsFindings.qml" line="378"/>
         <source>filtered</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="245"/>
+        <location filename="../qml/LabsFindings.qml" line="383"/>
         <source>24 hours</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="245"/>
+        <location filename="../qml/LabsFindings.qml" line="383"/>
         <source>7 days</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="245"/>
+        <location filename="../qml/LabsFindings.qml" line="383"/>
         <source>All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="249"/>
+        <location filename="../qml/LabsFindings.qml" line="387"/>
         <source>Refreshing…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="249"/>
+        <location filename="../qml/LabsFindings.qml" line="387"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="265"/>
+        <location filename="../qml/LabsFindings.qml" line="403"/>
         <source>All</source>
         <comment>findings filter: no filter</comment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="347"/>
+        <location filename="../qml/LabsFindings.qml" line="485"/>
         <source>Loading more…</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="348"/>
+        <location filename="../qml/LabsFindings.qml" line="486"/>
         <source>That is all: %n finding(s)</source>
         <translation>
             <numerusform>That is all: %n finding</numerusform>
@@ -2335,58 +2355,96 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="355"/>
+        <location filename="../qml/LabsFindings.qml" line="493"/>
         <source>Could not load more: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="358"/>
-        <location filename="../qml/LabsFindings.qml" line="391"/>
+        <location filename="../qml/LabsFindings.qml" line="496"/>
+        <location filename="../qml/LabsFindings.qml" line="529"/>
         <source>Try again</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="371"/>
+        <location filename="../qml/LabsFindings.qml" line="509"/>
         <source>The server does not list findings yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="372"/>
+        <location filename="../qml/LabsFindings.qml" line="510"/>
         <source>Only administrators can see Labs findings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="373"/>
+        <location filename="../qml/LabsFindings.qml" line="511"/>
         <source>The server could not list them</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="374"/>
+        <location filename="../qml/LabsFindings.qml" line="512"/>
         <source>Asking the server…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="375"/>
+        <location filename="../qml/LabsFindings.qml" line="513"/>
         <source>No findings of this kind %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="382"/>
+        <location filename="../qml/LabsFindings.qml" line="520"/>
         <source>Listing every finding of one analyser across all cameras is a query only cilex-vision can make. It was asked for on 29 September, and this list fills in as soon as the server has it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="384"/>
+        <location filename="../qml/LabsFindings.qml" line="522"/>
         <source>A longer period may have some.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="426"/>
+        <location filename="../qml/LabsFindings.qml" line="564"/>
         <source>Drag to resize · double-click to fit the list to its rows</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="461"/>
+        <location filename="../qml/LabsFindings.qml" line="594"/>
+        <source>Path on the picture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="594"/>
+        <source>Box and path on the picture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="604"/>
+        <source>ring: first seen · arrow: where it went · dot: where it is at this frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="605"/>
+        <source>box: the largest it was · arrow: from where it was first seen to where it was last</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="606"/>
+        <source>looking for the camera&apos;s other rows in this clip…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="607"/>
+        <source>the camera&apos;s other rows could not be read: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/LabsFindings.qml" line="608"/>
+        <source>%n more on this camera in this clip, dimmer</source>
+        <translation>
+            <numerusform>%n more on this camera in this clip, dimmer</numerusform>
+            <numerusform>%n more on this camera in this clip, dimmer</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="626"/>
         <source>Pick a finding to play it</source>
         <translation type="unfinished"></translation>
     </message>

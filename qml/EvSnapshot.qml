@@ -22,6 +22,10 @@ Item {
     // only), log which state this poster resolved to — real event frame vs live-now
     // fallback — so the run can COUNT both instead of anecdote them. Inert when "".
     property string probeTag: ""
+    // The host's words for the no-frame state (EvHeroPlayer, for a Labs finding), in place of
+    // "NO FRAME AT EVENT TIME"; noFrameText false shows neither (the host says it itself).
+    property string placeholder: ""
+    property bool noFrameText: true
     on_ShowingLiveChanged: if (probeTag !== "" && _showingLive && ev)
                                console.log("[P4] " + probeTag + " ev=" + ev.id + " state=liveFallback")
     clip: true
@@ -93,10 +97,12 @@ Item {
     // footage covers that moment and the extraction should succeed. Only a row with
     // neither a recording link nor a finished span is the cheap negative this gate was
     // built for.
+    // A LABS FINDING is not an event: /events/{id}/snapshot knows only events, so a still is
+    // never asked for (it was, once per selected finding, for a certain 404).
+    readonly property bool _labs: !!root.ev && typeof root.ev.rawType === "string"
+                                  && root.ev.rawType.indexOf("labs:") === 0
     readonly property bool _noEpisode: root._real && !!root.ev
-                                       && !root.ev.recordingId
-                                       && !(root.ev.durationSec > 0)
-                                       && !(root.ev.durationSec > 0)
+                                       && (root._labs || (!root.ev.recordingId && !(root.ev.durationSec > 0)))
 
     // "The still is not coming." Skipping the request leaves evImg at status Null, NOT Error
     // — so every consumer below must test THIS, not `evImg.status === Image.Error`, or the
@@ -174,10 +180,10 @@ Item {
         // honest "no frame" only when neither the still nor the live frame loaded
         Item {
             anchors.fill: parent
-            visible: root._stillUnavailable && liveImg.status !== Image.Ready
+            visible: root._stillUnavailable && liveImg.status !== Image.Ready && root.noFrameText
             Column { anchors.centerIn: parent; spacing: 5
                 EvIcon { visible: !root.mini; anchors.horizontalCenter: parent.horizontalCenter; name: "clock"; size: 18; color: Theme.ink3 }
-                Text { visible: !root.mini; text: qsTr("NO FRAME AT EVENT TIME"); color: Theme.ink3
+                Text { visible: !root.mini; text: root.placeholder !== "" ? root.placeholder : qsTr("NO FRAME AT EVENT TIME"); color: Theme.ink3
                     font.family: Theme.fontMono; font.pixelSize: 9; font.letterSpacing: 1.0 } }
         }
     }

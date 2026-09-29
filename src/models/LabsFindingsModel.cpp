@@ -218,3 +218,8 @@ QVariantMap LabsFindingsModel::asEvent(int row, const QVariantMap &knownCam) con
         return {};
     return wtlabs::findingAsEvent(m_items.at(row).toMap(), knownCam);
 }
+
+QVariantList LabsFindingsModel::decodePath(const QString &path) const
+{
+    return wtlabs::decodePath(path);
+}
