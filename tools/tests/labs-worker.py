@@ -324,7 +324,7 @@ check("check_metrics accepts None, bool, number, and a 120-char string", True)
 
 class Oversize(Nothing):
     def analyse(self, segs, st, u, ctx):
-        return [{"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+        return [{"start_time": "2026-09-24T10:15:00Z", "end_time": "2026-09-24T10:15:00Z",
                  "metrics": {"note": "z" * 500}}]
 # A plugin bug is FILED as failed with its real reason -- not raised out of the loop
 # (which would kill the worker), and not abandoned to the lease (which cilex-vision's
@@ -367,9 +367,9 @@ check("a LOST lease is still never filed -- the unit is not ours to report on",
 # DID produce observations, so a leak would be visible rather than vacuously absent.
 class ProducesThenBad(Nothing):
     def analyse(self, segs, st, u, ctx):
-        return [{"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+        return [{"start_time": "2026-09-24T10:15:00Z", "end_time": "2026-09-24T10:15:00Z",
                  "metrics": {"fine": 1}},
-                {"start_time": "2026-09-24T15:00:00Z", "end_time": "2026-09-24T15:00:00Z",
+                {"start_time": "2026-09-24T10:15:00Z", "end_time": "2026-09-24T10:15:00Z",
                  "metrics": {"bad": "z" * 500}}]
 class ProducesThenCrash(Nothing):
     def analyse(self, segs, st, u, ctx):
@@ -871,14 +871,14 @@ P._FFMPEG = _real_ffmpeg
 # the 500-row cap, on EVERY submit path (they now share _finish)
 class Many(Nothing):
     def analyse(self, segs, st, u, ctx):
-        return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:00:00Z", "metrics": {}}] * 501
+        return [{"start_time": "2026-09-24T10:00:00Z", "end_time": "2026-09-24T10:00:00Z", "metrics": {}}] * 501
 class ManyRaw:
     name = "many"; version = "t"; segment_limit = 1; keyframes_only = True
     want_chroma = False; stateful = False; wants_raw = True
     def new_state(self): return None
     def window_at(self, u): return 0.5
     def analyse_raw(self, chunks, segs, u):
-        list(chunks); return [{"start_time": "2026-09-26T01:00:00Z", "end_time": "2026-09-26T01:00:00Z", "metrics": {}}] * 501
+        list(chunks); return [{"start_time": "2026-09-24T10:00:00Z", "end_time": "2026-09-24T10:00:00Z", "metrics": {}}] * 501
 for label, plug in (("frame path", Many()), ("raw path", ManyRaw())):
     u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
     W.run_unit(c, plug, u, decode=decode_chroma(11.5), states={}, tmpdir=TMP, sleep=lambda s: None)
@@ -886,6 +886,35 @@ for label, plug in (("frame path", Many()), ("raw path", ManyRaw())):
     check(f"501 rows on the {label} are filed FAILED with the cause, never sent to the server",
           b.get("failed") is True and "too_many_observations" in (b.get("error") or "")
           and b.get("observations") == [], str(b)[:120])
+
+# EVERY ROW MUST START INSIDE THE CLAIMED HOUR (worker-0.3.4). One that did not sank the whole
+# unit: 422 observation_outside_claimed_hour, filed failed -- 16 blob_geometry units on
+# 2026-09-28/29, some to their third attempt (Windows agent). The hour's last segment runs
+# past the hour, and a shape seen in its tail was timed there. Dropped and counted, never moved.
+_ROWS = [{"start_time": "2026-09-24T10:00:00Z", "end_time": "2026-09-24T10:00:00Z", "metrics": {}},     # the hour's first instant
+         {"start_time": "2026-09-24T10:59:59.500Z", "end_time": "2026-09-24T10:59:59.500Z", "metrics": {}},
+         {"start_time": "2026-09-24T11:00:00Z", "end_time": "2026-09-24T11:00:00Z", "metrics": {}},     # the NEXT hour's start
+         {"start_time": "2026-09-24T11:00:17.250Z", "end_time": "2026-09-24T11:00:17.250Z", "metrics": {}}, # the last segment's tail
+         {"start_time": "2026-09-24T09:59:59Z", "end_time": "2026-09-24T09:59:59Z", "metrics": {}}]       # before the hour
+class _Tail(Nothing):
+    def analyse(self, segs, st, u, ctx):
+        for _ in segs: pass
+        return [dict(r) for r in _ROWS]
+class _TailRaw(ManyRaw):
+    def analyse_raw(self, chunks, segs, u):
+        list(chunks); return [dict(r) for r in _ROWS]
+for label, plug in (("frame path", _Tail()), ("raw path", _TailRaw())):
+    u = unit(); c = Fake(segs={(u.camera_id, u.hour_start): [seg(1)]})
+    o = W.run_unit(c, plug, u, decode=decode_chroma(11.5), states={}, tmpdir=TMP, sleep=lambda s: None)
+    b = c.submitted[0][1] if c.submitted else {}
+    starts = [r["start_time"] for r in b.get("observations") or []]
+    check(f"{label}: rows starting outside the claimed hour are DROPPED before submitting -- the unit is filed, not refused",
+          o.submitted and not b.get("failed") and starts == ["2026-09-24T10:00:00Z", "2026-09-24T10:59:59.500Z"],
+          f"submitted={o.submitted} failed={b.get('failed')} starts={starts}")
+    check(f"{label}: ...and COUNTED, in the unit's note (3: the next hour's first instant, the tail, and one before)",
+          o.rows_outside_hour == 3 and "3 row(s) outside the claimed hour" in (o.note or ""), f"{o.rows_outside_hour} {o.note!r}")
+_k, _d = W._within_hour([{"start_time": "not a time"}, {"no": "start"}], unit())
+check("a row whose start cannot be read is KEPT -- the server judges it, not a guess here", len(_k) == 2 and _d == 0)
 
 # ---------------------------------------------------------------- timestamps
 try:

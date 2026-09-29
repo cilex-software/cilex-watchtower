@@ -5,6 +5,20 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: worker-0.3.4 — ROWS OUTSIDE THE CLAIMED HOUR -->
+> **2026-09-29 — worker-0.3.4: rows starting outside the claimed hour are dropped before submitting.**
+> - **The bug:** the server refuses a WHOLE submission (422 `observation_outside_claimed_hour`, not
+>   retryable) for one such row. The Windows agent measured 16 blob_geometry units refused on
+>   2026-09-28/29, some to their third attempt.
+> - **The cause** (read in `plugins.ShapePlugin`): each row is timed from its own segment's start
+>   plus the frame's offset, and an hour's last segment runs up to ~30 s past the hour. So a
+>   shape seen in that tail was timed in the next hour. It is NOT the 0.3.1 join fix, which only
+>   the window analysers use. track_linking already drops such rows, and audio_energy clamps
+>   them.
+> - **Fix:** `worker._within_hour` in `_finish`, the one submit path. Such rows are dropped for
+>   every analyser, never moved, and counted in the unit's note and the log.
+> - **Verified:** 329 checks; 3 mutants, all killed.
+
 <!-- 2026-09-29 MAC: THE BUNDLE NEVER SAID WHAT IT WAS -->
 > **2026-09-29 — Every Mac build until 1.1.701 shipped an EMPTY version, build number, executable
 > name and bundle identifier.** Found while verifying the launch banner's version (bbdf97b, the Linux

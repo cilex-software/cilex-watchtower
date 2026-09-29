@@ -57,7 +57,9 @@ from typing import Callable, Iterable, Optional, Protocol
 # recorded "revoked", not "abandoned" (_taken_back); a Stop's kill logs how many decoders.
 # 0.3.3 (2026-09-29): a Stop kills DECODERS only -- never the console host (vitals.is_decoder);
 # a station that cannot start its decoder files the unit under that cause and stops claiming.
-WORKER_VERSION = "worker-0.3.3"
+# 0.3.4 (2026-09-29): rows starting outside the claimed hour are dropped before submitting,
+# every analyser (_within_hour) -- one used to sink a whole blob_geometry unit with a 422.
+WORKER_VERSION = "worker-0.3.4"
 
 
 # ----------------------------------------------------------------------------------
@@ -471,6 +473,8 @@ class UnitOutcome:
     # Set when the unit failed because THIS STATION cannot start its decoder (STATION_CHECK):
     # the failure is filed under that cause, and the pass ends as fatal -- no more claims.
     station_fault: Optional[str] = None
+    # Rows dropped before submitting because they start outside the claimed hour (_within_hour).
+    rows_outside_hour: int = 0
     # Where a unit's wall time went, by phase (list, fetch, decode, analyse, submit,
     # total). The first live unit took 45.6 s wall for ~15 CPU-s, and nothing said why.
     timings: dict = field(default_factory=dict)
@@ -955,6 +959,23 @@ def _run_raw_per_segment(client, plugin, unit, segs, out, tmpdir, sleep):
     return _finish(client, plugin, unit, out, obs, sleep)
 
 
+def _within_hour(obs, unit):
+    """(rows starting inside the claimed hour [hour_start, hour_start + 1 h), how many did not).
+    A row whose start cannot be read is kept: the server judges it, not this guess."""
+    hs = _hour(unit.hour_start)
+    if hs is None:
+        return obs, 0
+    he = hs + timedelta(hours=1)
+    kept, dropped = [], 0
+    for ob in obs:
+        st = _hour(ob.get("start_time")) if isinstance(ob, dict) else None
+        if st is not None and not (hs <= st < he):
+            dropped += 1
+            continue
+        kept.append(ob)
+    return kept, dropped
+
+
 def _finish(client, plugin, unit, out, obs, sleep):
     """Check and submit a unit's observations. The ONE place a result is submitted
     for the raw paths, so the rules below cannot drift between copies: the row cap and
@@ -965,6 +986,19 @@ def _finish(client, plugin, unit, out, obs, sleep):
     if why:                                   # taken back: its rows are no longer this
         out.action, out.note = Action.REVOKED, why   # station's to file (CONTRACT: "do NOT submit")
         return out
+    # EVERY ROW MUST START INSIDE THE CLAIMED HOUR. The server refuses the WHOLE submission
+    # (422 observation_outside_claimed_hour, not retryable) for one that does not, and the
+    # unit is lost with it. Measured 2026-09-28/29 by the Windows agent: 16 blob_geometry
+    # units refused, some to their third attempt. An hour's last segment runs up to ~30 s
+    # past the hour, and a shape seen in that tail was timed there. Such rows are DROPPED
+    # here, for every analyser, and counted -- never moved: a clamped row would name a
+    # moment at which it was not seen.
+    obs, outside = _within_hour(obs, unit)
+    if outside:
+        out.rows_outside_hour = outside
+        logging.getLogger("labs.worker").warning(
+            "labs: %s %s %s: %d row(s) outside the claimed hour dropped before submitting",
+            unit.analyzer, unit.camera_id, unit.hour_start, outside)
     if len(obs) > MAX_OBSERVATIONS_PER_UNIT:
         return _file_failed(client, plugin, unit, out,
                             f"too_many_observations: {len(obs)} > {MAX_OBSERVATIONS_PER_UNIT}",
@@ -996,6 +1030,8 @@ def _finish(client, plugin, unit, out, obs, sleep):
         return out
     out.submitted = True
     out.observations = len(obs)
+    if out.rows_outside_hour:
+        out.note = f"{out.rows_outside_hour} row(s) outside the claimed hour dropped (the last segment's tail)"
     return out
 
 
