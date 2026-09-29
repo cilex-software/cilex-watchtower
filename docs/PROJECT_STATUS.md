@@ -27,9 +27,15 @@
 > **The fix and what's left:**
 > - The app now asks only on H.264 sessions (the Mac). Linux and Windows pay the whole first
 >   segment again at open.
-> - **The booth's running build still asks.** cilex-vision was told that setting head_split main to
->   off in /admin/broadcasting would fix every running client (their call). The Windows agent's next
->   build carries 09b39f1.
+> - **The server side is fixed too, not deployed yet.** cilex-vision confirmed it as their bug:
+>   `build_manifest`'s head_eligible never checked the codec. Their fix splits only a fragment
+>   delivered as H.264. It is built and tested, and deploys with their next query-api restart
+>   tonight, on the operator's word.
+> - Once live, it covers every running client whatever it asks, the booth's build included. The
+>   admin setting stays `auto`.
+> - **Still open:** an HEVC session that falls back to the sub where main has a hole mixes codecs
+>   the same way. Not measured on a real hole; a discontinuity marker did not help our player at
+>   tonight's joint. Options are sent to cilex-vision.
 
 <!-- 2026-09-29 LABS: V1 object_profile READ-ONLY TRIAL -->
 > **2026-09-29 — Vehicle search V1 (colour of each passage + thumbnail): read-only trial done; V1 as specified does NOT pass**
