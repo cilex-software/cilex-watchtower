@@ -40,7 +40,11 @@ Rectangle {
         function add(k, v) { if (v !== null && v !== undefined && v !== "") out.push({ k: k, v: card.fmt(v) }); }
         add("shape_class", o.shape_class);
         add("shape_confidence", o.shape_confidence);
-        if (o.shape_suggests && o.shape_suggests.length) add("shape_suggests", o.shape_suggests);
+        // NOT shape_suggests. It is no part of what the analyser measured: the server looks it
+        // up per shape class (labs_shape_classes, cilex-vision 0086), so EVERY wide blob reads
+        // "car, truck, bus" -- on 2026-09-29 a 35 x 23 px crow on 5 Улица 7 (15:57:58) did, on
+        // this card, beside real measurements, where it read as a detection. Nothing here
+        // recognises objects; object_class, below, would say so if anything did.
         add("object_class", o.object_class);
         add("confidence", o.confidence);
         add("object_count", o.object_count);
