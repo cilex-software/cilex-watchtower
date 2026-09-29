@@ -23,8 +23,23 @@
 > - the booth: `start /low`, with its unit processes at Idle, per the Windows agent;
 > - plus the wall guard's hold.
 >
-> **Rollout:** through the Windows agent, with someone awake to watch. The stations stay on 0.3.7 at
-> one at a time until then. Letter: `docs/letters/2026-09-29-run-at-once-from-the-console.reply-cilex-watchtower-linux.md`.
+> **Rollout:** through the Windows agent, with someone awake to watch. Both stations were on 0.3.8
+> by 00:10 MSK. Letter: `docs/letters/2026-09-29-run-at-once-from-the-console.reply-cilex-watchtower-linux.md`.
+>
+> **Measured on the booth, all lanes (the Windows agent, monotonic clock, 00:04-00:11):**
+> - frames in 510.0/s against 0.3.7's 525.8/s (-3.0 %);
+> - frames shown 402.6/s against 427.1/s (-5.7 %), worst 30 s 370.0/s;
+> - with Labs held afterwards it was back at 525.9/434.8.
+>
+> The office wall stayed flat through its 10 lanes. The booth is held until the operator picks its
+> hoses.
+>
+> **CORRECTED 00:4x: the "3.8 s wall freeze" I reported was the booth's clock being stepped.**
+> - Windows Time steps the booth clock +3.75..3.93 s every night between 00:03 and 00:34.
+> - The app's stall detector measured with the wall clock, so each step read as a GUI stall.
+> - On 00:11 that made the guard hand back 7 units.
+> - Fixed in fe8fc6f: the stall gap and the event-poll timing now use a monotonic clock. The Windows
+>   agent is also making the guard discount steps.
 >
 > **The Vehicles pilot's first unit** (10 Улица 4, 19:00Z, 23:52 MSK): done, 36 rows, 36 thumbnails,
 > none missing.
