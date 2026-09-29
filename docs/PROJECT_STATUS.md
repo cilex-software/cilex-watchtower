@@ -70,7 +70,20 @@
 > **Data:** `GET /labs/findings`, asked of cilex-vision:
 > `docs/letters/2026-09-29-labs-findings-list-cilex-watchtower-linux.md`. It is findings only, by
 > the footage's hour, with a keyset cursor and the analyser's filters served by the server.
-> **Until it exists the view says "The server does not list findings yet".**
+> **LIVE since query-api 1.0.98 (16:09:51 MSK), to the contract as written**
+> (`...labs-findings-list.reply-cilex-vision.md`). Measured on the pilot, read-only, ~16:40 MSK:
+> - colour_histogram, 24 h: total 338, 40 rows a page; page 2 by its cursor has 0 rows in
+>   common with page 1 and continues newest-first.
+> - Filters come with RU/EN labels and counts. An unknown filter gets `400 unknown_facet`.
+> - blob_geometry, 7 d: 8,250 findings. image_embedding: total null, no rows, no filters.
+> - **Under a filter the server's `total` stays the whole period's** (colour "black": total 338,
+>   the black button's count 216, every row black). So the header counts the chosen filter's own
+>   rows and names it ("216 findings … · Black").
+> - Rows now name colours, shape classes and directions by the server's labels (Чёрный · 56 % ·
+>   затем Синий), not the raw values; a value the server has no label for is shown as filed.
+> - Screenshots in RU and EN against the live endpoint.
+> - **Paging, live:** real Down-key presses over VNC walked past row 40, and query-api's access
+>   log shows the second request carrying the cursor.
 >
 > **Verified:**
 > - `tools/tests/labs-findings.cpp`: 20 checks; 3 mutants killed. The test also caught a real

@@ -31,6 +31,15 @@ Item {
     onFacetChanged: current = -1
 
     function known(v) { return screen ? screen.known(v) : (v !== undefined && v !== null) }
+    // The chosen filter as the server lists it ({id, label, count}), or null. Filtered, the
+    // header counts the FILTER's rows: the server's `total` stays the whole period's
+    // (measured 2026-09-29 on the pilot: colour_histogram 24 h, filter "black" -> total 338,
+    // the black button's count 216, and every row black).
+    function facetInfo() {
+        for (var i = 0; i < fm.facets.length; i++)
+            if (fm.facets[i].id === fm.facet) return fm.facets[i]
+        return null
+    }
     function num(v, d) { return screen ? screen.num(v, d) : String(v) }
     readonly property string periodText: period === "24h" ? qsTr("in the last 24 hours")
                                        : period === "7d" ? qsTr("in the last 7 days")
@@ -81,21 +90,30 @@ Item {
     // the server's value as filed (nothing inferred); one the row does not carry is left out,
     // and with nothing to say the server's sentence is shown instead.
     function pct(v) { if (!known(v)) return ""; var x = v * 100; return num(x, x < 10 ? 1 : 0) + " %" }
+    // A metric VALUE by the server's own name for it, where the analyser's filters are one
+    // per value (a colour, a shape class, a direction): "Чёрный", not "black". The names are
+    // served in the UI's language (cilex-vision 1.0.98), never kept here; a value the server
+    // has no button for is shown as filed.
+    function valueLabel(v) {
+        for (var i = 0; i < fm.facets.length; i++)
+            if (fm.facets[i].id === v && fm.facets[i].label) return fm.facets[i].label
+        return String(v).replace(/_/g, " ")
+    }
     function headline(it) {
         if (!it) return ""
         var m = it.metrics || ({}), bits = []
         switch (analyzer) {
         case "colour_histogram":
-            if (m.colour) bits.push(m.colour)
+            if (m.colour) bits.push(valueLabel(m.colour))
             if (known(m.colour_share)) bits.push(pct(m.colour_share))
-            if (m.runner_up) bits.push(qsTr("then %1").arg(m.runner_up))
+            if (m.runner_up) bits.push(qsTr("then %1").arg(valueLabel(m.runner_up)))
             break
-        case "optical_flow":     if (m.dir_label) bits.push(String(m.dir_label).replace(/_/g, " ")); break
+        case "optical_flow":     if (m.dir_label) bits.push(valueLabel(m.dir_label)); break
         case "foreground_mask":
             if (known(m.largest_blob_frac)) bits.push(qsTr("largest %1 of the picture").arg(pct(m.largest_blob_frac)))
             if (known(it.object_count)) bits.push(qsTr("%n object(s)", "", it.object_count))
             break
-        case "blob_geometry":    if (it.shape_class) bits.push(String(it.shape_class).replace(/_/g, " ")); break
+        case "blob_geometry":    if (it.shape_class) bits.push(valueLabel(it.shape_class)); break
         case "track_linking":    if (known(m.dwell_s)) bits.push(qsTr("stayed %1 s").arg(Math.round(m.dwell_s))); break
         case "frame_difference":
             if (known(m.peak)) bits.push(qsTr("peak %1").arg(num(m.peak, 1)))
@@ -215,8 +233,11 @@ Item {
                     elide: Text.ElideRight
                     text: {
                         if (fm.state !== "ok") return ""
-                        var n = fv.known(fm.total) ? qsTr("%n finding(s)", "", fm.total) : qsTr("findings")
-                        return n + " " + fv.periodText + (fm.facet !== "" ? "  ·  " + qsTr("filtered") : "")
+                        var f = fv.facetInfo()
+                        var total = fm.facet === "" ? fm.total : (f ? f.count : undefined)
+                        var n = fv.known(total) ? qsTr("%n finding(s)", "", total) : qsTr("findings")
+                        return n + " " + fv.periodText
+                               + (fm.facet !== "" ? "  ·  " + (f && f.label ? f.label : qsTr("filtered")) : "")
                     }
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11
                 }

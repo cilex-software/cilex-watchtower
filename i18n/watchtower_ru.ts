@@ -2228,32 +2228,32 @@
 <context>
     <name>LabsFindings</name>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="35"/>
+        <location filename="../qml/LabsFindings.qml" line="44"/>
         <source>in the last 24 hours</source>
         <translation>за последние 24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="36"/>
+        <location filename="../qml/LabsFindings.qml" line="45"/>
         <source>in the last 7 days</source>
         <translation>за последние 7 дней</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="37"/>
+        <location filename="../qml/LabsFindings.qml" line="46"/>
         <source>in all footage</source>
         <translation>во всех записях</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="91"/>
+        <location filename="../qml/LabsFindings.qml" line="109"/>
         <source>then %1</source>
         <translation>затем %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="95"/>
+        <location filename="../qml/LabsFindings.qml" line="113"/>
         <source>largest %1 of the picture</source>
         <translation>крупнейший — %1 кадра</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="96"/>
+        <location filename="../qml/LabsFindings.qml" line="114"/>
         <source>%n object(s)</source>
         <translation>
             <numerusform>%n объект</numerusform>
@@ -2262,27 +2262,27 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="99"/>
+        <location filename="../qml/LabsFindings.qml" line="117"/>
         <source>stayed %1 s</source>
         <translation>в кадре %1 с</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="101"/>
+        <location filename="../qml/LabsFindings.qml" line="119"/>
         <source>peak %1</source>
         <translation>пик %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="102"/>
+        <location filename="../qml/LabsFindings.qml" line="120"/>
         <source>%1 s sustained</source>
         <translation>длилось %1 с</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="104"/>
+        <location filename="../qml/LabsFindings.qml" line="122"/>
         <source>%1 dB</source>
         <translation>%1 дБ</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="105"/>
+        <location filename="../qml/LabsFindings.qml" line="123"/>
         <source>%n identical frame(s)</source>
         <translation>
             <numerusform>%n одинаковый кадр</numerusform>
@@ -2291,12 +2291,12 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="206"/>
+        <location filename="../qml/LabsFindings.qml" line="224"/>
         <source>‹ Statistics</source>
         <translation>‹ Статистика</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="218"/>
+        <location filename="../qml/LabsFindings.qml" line="238"/>
         <source>%n finding(s)</source>
         <translation>
             <numerusform>%n обнаружение</numerusform>
@@ -2305,53 +2305,53 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="218"/>
+        <location filename="../qml/LabsFindings.qml" line="238"/>
         <source>findings</source>
         <translation>обнаружения</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="219"/>
+        <location filename="../qml/LabsFindings.qml" line="240"/>
         <source>filtered</source>
         <translation>с фильтром</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="224"/>
+        <location filename="../qml/LabsFindings.qml" line="245"/>
         <source>24 hours</source>
         <translation>24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="224"/>
+        <location filename="../qml/LabsFindings.qml" line="245"/>
         <source>7 days</source>
         <translation>7 дней</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="224"/>
+        <location filename="../qml/LabsFindings.qml" line="245"/>
         <source>All</source>
         <translation>Всё время</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="228"/>
+        <location filename="../qml/LabsFindings.qml" line="249"/>
         <source>Refreshing…</source>
         <translation>Обновляется…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="228"/>
+        <location filename="../qml/LabsFindings.qml" line="249"/>
         <source>Refresh</source>
         <translation>Обновить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="244"/>
+        <location filename="../qml/LabsFindings.qml" line="265"/>
         <source>All</source>
         <comment>findings filter: no filter</comment>
         <translation>Все</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="326"/>
+        <location filename="../qml/LabsFindings.qml" line="347"/>
         <source>Loading more…</source>
         <translation>Загружаем ещё…</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="327"/>
+        <location filename="../qml/LabsFindings.qml" line="348"/>
         <source>That is all: %n finding(s)</source>
         <translation>
             <numerusform>Это всё: %n обнаружение</numerusform>
@@ -2360,58 +2360,58 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="334"/>
+        <location filename="../qml/LabsFindings.qml" line="355"/>
         <source>Could not load more: %1</source>
         <translation>Не удалось загрузить ещё: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="337"/>
-        <location filename="../qml/LabsFindings.qml" line="370"/>
+        <location filename="../qml/LabsFindings.qml" line="358"/>
+        <location filename="../qml/LabsFindings.qml" line="391"/>
         <source>Try again</source>
         <translation>Повторить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="350"/>
+        <location filename="../qml/LabsFindings.qml" line="371"/>
         <source>The server does not list findings yet</source>
         <translation>Сервер пока не выдаёт список обнаружений</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="351"/>
+        <location filename="../qml/LabsFindings.qml" line="372"/>
         <source>Only administrators can see Labs findings</source>
         <translation>Обнаружения Лаборатории видят только администраторы</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="352"/>
+        <location filename="../qml/LabsFindings.qml" line="373"/>
         <source>The server could not list them</source>
         <translation>Сервер не смог выдать список</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="353"/>
+        <location filename="../qml/LabsFindings.qml" line="374"/>
         <source>Asking the server…</source>
         <translation>Запрашиваем сервер…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="354"/>
+        <location filename="../qml/LabsFindings.qml" line="375"/>
         <source>No findings of this kind %1</source>
         <translation>Таких обнаружений нет %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="361"/>
+        <location filename="../qml/LabsFindings.qml" line="382"/>
         <source>Listing every finding of one analyser across all cameras is a query only cilex-vision can make. It was asked for on 29 September, and this list fills in as soon as the server has it.</source>
         <translation>Список всех обнаружений одного анализатора по всем камерам может выдать только cilex-vision. Запрос отправлен 29 сентября; список заполнится, как только сервер это поддержит.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="363"/>
+        <location filename="../qml/LabsFindings.qml" line="384"/>
         <source>A longer period may have some.</source>
         <translation>За более длинный период они могут быть.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="405"/>
+        <location filename="../qml/LabsFindings.qml" line="426"/>
         <source>Drag to resize · double-click to fit the list to its rows</source>
         <translation>Перетащите, чтобы изменить ширину · двойной щелчок — по ширине строк</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="440"/>
+        <location filename="../qml/LabsFindings.qml" line="461"/>
         <source>Pick a finding to play it</source>
         <translation>Выберите обнаружение, чтобы его посмотреть</translation>
     </message>
