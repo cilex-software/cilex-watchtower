@@ -146,13 +146,29 @@ if [ -t 1 ]; then
 else
   g=; w=; d=; r=
 fi
+# The version of the app about to start, read from ITS OWN bundle -- the build writes it
+# (CMakeLists.txt MACOSX_BUNDLE_SHORT_VERSION_STRING) -- never from the source tree, which
+# can be ahead of the last build. Shown on the banner so a launch says at a glance what
+# it runs (operator request, 2026-09-29). Unknown says "version unknown", never a guess.
+PLIST="${BIN%/MacOS/watchtower}/Info.plist"
+VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null)
+[ -n "$VER" ] || VER=$(sed -n \
+  -e 's/.*<key>CFBundleShortVersionString<\/key>[[:space:]]*<string>\([^<]*\)<\/string>.*/\1/p' \
+  -e '/<key>CFBundleShortVersionString<\/key>[[:space:]]*$/{n;s/.*<string>\([^<]*\)<\/string>.*/\1/p;}' \
+  "$PLIST" 2>/dev/null | head -n 1)
+if [ "$(uname)" = Darwin ]; then
+  BUILT=$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$BIN" 2>/dev/null)
+else
+  BUILT=$(date -r "$BIN" '+%Y-%m-%d %H:%M' 2>/dev/null)
+fi
+if [ -n "$VER" ]; then VERSION_TEXT="v$VER${BUILT:+  ·  built $BUILT}"; else VERSION_TEXT="version unknown"; fi
 printf '%s\n' \
 "${g}    ▟▙▟▙" \
 "${g}   ▐████▌  ${w}█   █ ▄▀▀▀▄ ▀▀█▀▀ ▄▀▀▀▀ █   █ ▀▀█▀▀ ▄▀▀▀▄ █   █ █▀▀▀▀ █▀▀▀▄" \
 "${g}   ▐█  █▌  ${w}█ █ █ █▀▀▀█   █   █     █▀▀▀█   █   █   █ █ █ █ █▀▀   █▀▀▄" \
 "${g}   ▐████▌  ${w}▀▄▀▄▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀   ▀   ▀   ▀▀▀▀▀ ▀▄▀▄▀ ▀▀▀▀▀ ▀  ▀▄" \
 "${g}   ▐█  █▌" \
-"${g}  ▟██████▙ ${d} C I L E X   ·   V I S I O N${r}" \
+"${g}  ▟██████▙ ${d} C I L E X   ·   V I S I O N   ${w}${VERSION_TEXT}${r}" \
 "" \
 "${d}   \"Night gathers, and now my watch begins.\"${r}" \
 ""
