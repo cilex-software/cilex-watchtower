@@ -5,9 +5,49 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-30 LABS: worker-0.3.10, FILL (OPT-IN) -->
+> **2026-09-30 03:1x — worker-0.3.10 (2e67821, 1.1.756): FILL, opt-in per station.** On main, NOT
+> on any station yet. The rollout is the Windows agent's, with the operator's go.
+>
+> **The operator's order** (relayed by cilex-vision, about 02:30): "ok do office PC only to run
+> analyser for vehicles but use full capacity of this PC to the limit". CV unplugged the office's
+> other 9 hoses; the booth stays held.
+>
+> **What fill does** (`--fill` or `WT_LABS_FILL=1`; the office's launcher sets the variable):
+> - A lane with work in hand in every slot takes ONE more unit, at most every 30 s, while this
+>   machine measures room for it:
+>   - an idle logical CPU over the last 15 s;
+>   - free memory for 2x its analyser's largest unit so far;
+>   - no unit in hand past 3/4 of its lease;
+>   - fewer claims and units in hand than logical CPUs, and than the 32 a report may list.
+> - An extra slot goes back when its claim finds nothing, when its unit used more than 3/4 of its
+>   lease, when memory runs short, and on any hold, pause or stop.
+> - The pacing and margins are ours (30 s, 15 s, 2x, 3/4); the ceiling is the machine's CPU count.
+>
+> **Leases** (cilex-vision, 2026-09-30): 20 min from the claim, never renewed, so a unit that runs
+> longer is thrown away. CV proposes renewing the lease of every unit a station lists in
+> `holding`; it needs the operator's go and a query-api deploy. I asked for it.
+>
+> **Tests:** labs-worker 403, no footage decoded on this box. They include three REAL unit
+> processes of one analyser at once, which no station had ever run. Nine planted bugs each fail
+> their test.
+>
+> **Expected, NOT measured:** the Windows agent estimates one Vehicles unit at about 0.6 logical
+> CPUs on the office (16 threads). If that holds, the 16-unit ceiling stops fill before the CPU
+> does. Lifting it toward 32 is the operator's call, once CV has seen the host cope.
+
 <!-- 2026-09-30 LABS: worker-0.3.9, NO SPIN ON A RUN-OUT REST -->
 > **2026-09-30 01:44 — worker-0.3.9 (ed3408b, 1.1.754): a held or blocked worker no longer spins
-> at a full core.** On main; NOT on any station yet.
+> at a full core.** On both stations since 02:40-02:41 MSK (the Windows agent, with the operator's
+> direct go; whole-folder copies, hash-verified).
+>
+> **Measured after, by the Windows agent, on the office in the very state that spun** (9 lanes
+> unplugged, their rests run out, nothing in hand), as the Labs process tree's CPU:
+> - 0.3.8, 02:35-02:38: 5.4 % of the machine, 0.86 of 16 logical CPUs;
+> - 0.3.9, 02:40-02:50: 0.0 %, p90 0.1 %. The machine's average fell from 11.9 % to 6.1 %.
+>
+> That confirms my inference below that the office's 0.3.8 could spin too.
+> The Windows run of d33b6b3 on the booth: labs-worker 365 passed, 14 skipped (CV's checkout, /proc).
 >
 > **Found by the Windows agent on the booth:** the held 0.3.8 worker (Idle priority) used 9.58 CPU-s
 > in 10 s, 96 % of one core, while doing nothing. That was probably from the 00:11 hold on. The wall
@@ -31,7 +71,7 @@
 > **This box:** its worker is 0.3.6, inferred from its start 56 s after that commit. It is
 > server-stopped and measured not spinning: 0.16 CPU-s in 10 s at 01:48 MSK.
 >
-> **Rollout: waits for the operator's word.**
+> **Rollout** (done at 02:40-02:41, above; what was settled before it):
 > - **Correction:** my commit message says "Rollout is the Windows agent's procedure". The Windows
 >   agent had written "the deploy procedure is yours" (the Linux agent's). What replaces it: when to
 >   roll out is mine to put to the operator.
@@ -46,7 +86,7 @@
 >   7. a 15-minute watch.
 > - They run 0.3.9's Windows tests after the booth's lanes test (0.3.8, about 01:53-02:08 MSK)
 >   ends, so that no test load lands on a box being measured.
-> - Until the rollout, the booth's held 0.3.8 worker keeps spinning at Idle priority.
+> - Until the rollout, the booth's held 0.3.8 worker kept spinning at Idle priority.
 > - My commit message says a restart would also stop it. That is read from the code and NOT tested:
 >   a restarted worker that comes up held gets no rests.
 
