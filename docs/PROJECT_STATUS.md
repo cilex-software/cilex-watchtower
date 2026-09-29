@@ -36,6 +36,27 @@
 >     the cursor, rows continuing), and the player opening a review session (server log: POST
 >     /review/sessions 200, playlist 200).
 > - **Not verified:** a video frame on screen. Offscreen rendering draws none.
+>
+> **The list column** (same day; the operator asked for it "resizable and by default fit to width"):
+> - **Fit:** each loaded row's time, camera and headline is measured in the row's own fonts. Only
+>   rows new to the list are measured as pages arrive. While a list reloads the column keeps its
+>   width, so a period or filter change moves it once.
+> - **Resize:** drag the divider; double-click it to go back to the fit. A drag holds for the
+>   session (switching analysers or screens keeps it); a restart begins fitted.
+> - **Bounds:** never under 200 px; a drag stops where the player keeps 460 px; the fit alone takes
+>   at most half the view.
+> - **Verified** with the app on Qt's `vnc` platform and real pointer events from a small RFB
+>   client. The divider's x was measured in each screenshot (rows y=600 and y=900):
+>   - fitted: 293; dragged +300: 593; dragged, then double-clicked: 293;
+>   - dragged to x=1550: 1143 (the player keeps 460 px); dragged to x=100: 275 (the 200 px floor).
+>   - Hover: a MouseArea's `containsMouse` stayed false after a drag that outran the divider,
+>     even after a 1 px move; the highlight now comes from a `HoverHandler` (amber after a drag,
+>     measured). The tooltip sits beside the pointer, not above the divider's top.
+>   - Offscreen screenshots of the fit: Colour and Object shapes (~220 px, time + camera);
+>     Objects in view, RU, All (~290 px, the widest headline); Paths in a 1100×800 window.
+> - **Also fixed, shipped wrong in `48031d8`:** the eight row-headline strings were missing from
+>   the translations (RU showed "then"), and the EN plurals were unfilled (the header read
+>   "264 finding(s)").
 
 <!-- 2026-09-29 LABS: worker-0.3.4 — ROWS OUTSIDE THE CLAIMED HOUR -->
 > **2026-09-29 — worker-0.3.4: rows starting outside the claimed hour are dropped before submitting.**

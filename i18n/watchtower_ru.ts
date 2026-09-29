@@ -2243,12 +2243,60 @@
         <translation>во всех записях</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="134"/>
+        <location filename="../qml/LabsFindings.qml" line="91"/>
+        <source>then %1</source>
+        <translation>затем %1</translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="95"/>
+        <source>largest %1 of the picture</source>
+        <translation>крупнейший — %1 кадра</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/LabsFindings.qml" line="96"/>
+        <source>%n object(s)</source>
+        <translation>
+            <numerusform>%n объект</numerusform>
+            <numerusform>%n объекта</numerusform>
+            <numerusform>%n объектов</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="99"/>
+        <source>stayed %1 s</source>
+        <translation>в кадре %1 с</translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="101"/>
+        <source>peak %1</source>
+        <translation>пик %1</translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="102"/>
+        <source>%1 s sustained</source>
+        <translation>длилось %1 с</translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="104"/>
+        <source>%1 dB</source>
+        <translation>%1 дБ</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../qml/LabsFindings.qml" line="105"/>
+        <source>%n identical frame(s)</source>
+        <translation>
+            <numerusform>%n одинаковый кадр</numerusform>
+            <numerusform>%n одинаковых кадра</numerusform>
+            <numerusform>%n одинаковых кадров</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="206"/>
         <source>‹ Statistics</source>
         <translation>‹ Статистика</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="146"/>
+        <location filename="../qml/LabsFindings.qml" line="218"/>
         <source>%n finding(s)</source>
         <translation>
             <numerusform>%n обнаружение</numerusform>
@@ -2257,53 +2305,53 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="146"/>
+        <location filename="../qml/LabsFindings.qml" line="218"/>
         <source>findings</source>
         <translation>обнаружения</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="147"/>
+        <location filename="../qml/LabsFindings.qml" line="219"/>
         <source>filtered</source>
         <translation>с фильтром</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="152"/>
+        <location filename="../qml/LabsFindings.qml" line="224"/>
         <source>24 hours</source>
         <translation>24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="152"/>
+        <location filename="../qml/LabsFindings.qml" line="224"/>
         <source>7 days</source>
         <translation>7 дней</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="152"/>
+        <location filename="../qml/LabsFindings.qml" line="224"/>
         <source>All</source>
         <translation>Всё время</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="156"/>
+        <location filename="../qml/LabsFindings.qml" line="228"/>
         <source>Refreshing…</source>
         <translation>Обновляется…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="156"/>
+        <location filename="../qml/LabsFindings.qml" line="228"/>
         <source>Refresh</source>
         <translation>Обновить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="172"/>
+        <location filename="../qml/LabsFindings.qml" line="244"/>
         <source>All</source>
         <comment>findings filter: no filter</comment>
         <translation>Все</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="254"/>
+        <location filename="../qml/LabsFindings.qml" line="326"/>
         <source>Loading more…</source>
         <translation>Загружаем ещё…</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsFindings.qml" line="255"/>
+        <location filename="../qml/LabsFindings.qml" line="327"/>
         <source>That is all: %n finding(s)</source>
         <translation>
             <numerusform>Это всё: %n обнаружение</numerusform>
@@ -2312,53 +2360,58 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="262"/>
+        <location filename="../qml/LabsFindings.qml" line="334"/>
         <source>Could not load more: %1</source>
         <translation>Не удалось загрузить ещё: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="264"/>
-        <location filename="../qml/LabsFindings.qml" line="297"/>
+        <location filename="../qml/LabsFindings.qml" line="337"/>
+        <location filename="../qml/LabsFindings.qml" line="370"/>
         <source>Try again</source>
         <translation>Повторить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="277"/>
+        <location filename="../qml/LabsFindings.qml" line="350"/>
         <source>The server does not list findings yet</source>
         <translation>Сервер пока не выдаёт список обнаружений</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="278"/>
+        <location filename="../qml/LabsFindings.qml" line="351"/>
         <source>Only administrators can see Labs findings</source>
         <translation>Обнаружения Лаборатории видят только администраторы</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="279"/>
+        <location filename="../qml/LabsFindings.qml" line="352"/>
         <source>The server could not list them</source>
         <translation>Сервер не смог выдать список</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="280"/>
+        <location filename="../qml/LabsFindings.qml" line="353"/>
         <source>Asking the server…</source>
         <translation>Запрашиваем сервер…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="281"/>
+        <location filename="../qml/LabsFindings.qml" line="354"/>
         <source>No findings of this kind %1</source>
         <translation>Таких обнаружений нет %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="288"/>
+        <location filename="../qml/LabsFindings.qml" line="361"/>
         <source>Listing every finding of one analyser across all cameras is a query only cilex-vision can make. It was asked for on 29 September, and this list fills in as soon as the server has it.</source>
         <translation>Список всех обнаружений одного анализатора по всем камерам может выдать только cilex-vision. Запрос отправлен 29 сентября; список заполнится, как только сервер это поддержит.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="290"/>
+        <location filename="../qml/LabsFindings.qml" line="363"/>
         <source>A longer period may have some.</source>
         <translation>За более длинный период они могут быть.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsFindings.qml" line="332"/>
+        <location filename="../qml/LabsFindings.qml" line="405"/>
+        <source>Drag to resize · double-click to fit the list to its rows</source>
+        <translation>Перетащите, чтобы изменить ширину · двойной щелчок — по ширине строк</translation>
+    </message>
+    <message>
+        <location filename="../qml/LabsFindings.qml" line="440"/>
         <source>Pick a finding to play it</source>
         <translation>Выберите обнаружение, чтобы его посмотреть</translation>
     </message>
@@ -2578,92 +2631,92 @@
         <translation type="vanished">Поиск по изображению</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="63"/>
+        <location filename="../qml/LabsScreen.qml" line="64"/>
         <source>Whether each hour was daylight, dusk, night or infrared.</source>
         <translation>Был ли каждый час днём, сумерками, ночью или в ИК-режиме.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="64"/>
+        <location filename="../qml/LabsScreen.qml" line="65"/>
         <source>How violent the movement was, and how long it lasted.</source>
         <translation>Насколько резким было движение и сколько оно длилось.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="65"/>
+        <location filename="../qml/LabsScreen.qml" line="66"/>
         <source>Lens covered, out of focus, camera moved, picture frozen, lights changed.</source>
         <translation>Объектив закрыт, нет фокуса, камеру сдвинули, изображение застыло, изменилось освещение.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="66"/>
+        <location filename="../qml/LabsScreen.qml" line="67"/>
         <source>How much of the picture moved, and how many moving areas.</source>
         <translation>Какая часть кадра двигалась и сколько было движущихся областей.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="67"/>
+        <location filename="../qml/LabsScreen.qml" line="68"/>
         <source>Size and shape of whatever moved. It never says what it is.</source>
         <translation>Размер и форма того, что двигалось. Что это было, не определяет.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="68"/>
+        <location filename="../qml/LabsScreen.qml" line="69"/>
         <source>The main colour of whatever moved. Not under infrared.</source>
         <translation>Основной цвет того, что двигалось. Не в ИК-режиме.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="69"/>
+        <location filename="../qml/LabsScreen.qml" line="70"/>
         <source>Which way things moved, how fast, and whether together.</source>
         <translation>Куда и как быстро двигались объекты и двигались ли вместе.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="70"/>
+        <location filename="../qml/LabsScreen.qml" line="71"/>
         <source>Follows each moving thing: how long it stayed, where it came and went.</source>
         <translation>Следит за каждым движущимся объектом: сколько пробыл, откуда пришёл и куда ушёл.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="71"/>
+        <location filename="../qml/LabsScreen.qml" line="72"/>
         <source>Finds hours where nothing changed, and scenes that repeat.</source>
         <translation>Находит часы, когда ничего не менялось, и повторяющиеся сцены.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="72"/>
+        <location filename="../qml/LabsScreen.qml" line="73"/>
         <source>Loudness and sudden sounds, on cameras that record audio.</source>
         <translation>Громкость и резкие звуки — на камерах, которые пишут звук.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="73"/>
+        <location filename="../qml/LabsScreen.qml" line="74"/>
         <source>Search by picture. Not built yet.</source>
         <translation>Поиск по картинке. Ещё не создан.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="79"/>
+        <location filename="../qml/LabsScreen.qml" line="80"/>
         <source>outdoor cameras</source>
         <translation>уличные камеры</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="80"/>
+        <location filename="../qml/LabsScreen.qml" line="81"/>
         <source>indoor cameras</source>
         <translation>камеры в помещениях</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="81"/>
+        <location filename="../qml/LabsScreen.qml" line="82"/>
         <source>all cameras</source>
         <translation>все камеры</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="82"/>
+        <location filename="../qml/LabsScreen.qml" line="83"/>
         <source>unknown cameras</source>
         <translation>камеры неизвестны</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="95"/>
+        <location filename="../qml/LabsScreen.qml" line="96"/>
         <source>%1 s ago</source>
         <translation>%1 с назад</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="96"/>
+        <location filename="../qml/LabsScreen.qml" line="97"/>
         <source>%1 min ago</source>
         <translation>%1 мин назад</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="97"/>
+        <location filename="../qml/LabsScreen.qml" line="98"/>
         <source>%1 h ago</source>
         <translation>%1 ч назад</translation>
     </message>
@@ -2672,97 +2725,97 @@
         <translation type="vanished">На этой станции сканирование не настроено</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="102"/>
+        <location filename="../qml/LabsScreen.qml" line="103"/>
         <source>The scanner&apos;s status file cannot be read</source>
         <translation>Файл состояния сканера не читается</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="103"/>
+        <location filename="../qml/LabsScreen.qml" line="104"/>
         <source>Not running — last heard from %1</source>
         <translation>Не работает — последний сигнал %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="104"/>
+        <location filename="../qml/LabsScreen.qml" line="105"/>
         <source>Stopped</source>
         <translation>Остановлено</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="105"/>
+        <location filename="../qml/LabsScreen.qml" line="106"/>
         <source>Starting</source>
         <translation>Запускается</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="106"/>
+        <location filename="../qml/LabsScreen.qml" line="107"/>
         <source>Paused</source>
         <translation>На паузе</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="106"/>
+        <location filename="../qml/LabsScreen.qml" line="107"/>
         <source>Paused by the server</source>
         <translation>Приостановлено сервером</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="107"/>
+        <location filename="../qml/LabsScreen.qml" line="108"/>
         <source>Stopped by the server</source>
         <translation>Остановлено сервером</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="108"/>
+        <location filename="../qml/LabsScreen.qml" line="109"/>
         <source>Waiting for the server&apos;s orders</source>
         <translation>Ожидание указаний сервера</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="109"/>
+        <location filename="../qml/LabsScreen.qml" line="110"/>
         <source>Held on this station</source>
         <translation>Удерживается на этой станции</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="110"/>
+        <location filename="../qml/LabsScreen.qml" line="111"/>
         <source>Scanning: %1</source>
         <translation>Сканирование: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="110"/>
+        <location filename="../qml/LabsScreen.qml" line="111"/>
         <source>Scanning</source>
         <translation>Сканирование</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="111"/>
+        <location filename="../qml/LabsScreen.qml" line="112"/>
         <source>Waiting — nothing to scan right now</source>
         <translation>Ожидание — сейчас нечего сканировать</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="112"/>
+        <location filename="../qml/LabsScreen.qml" line="113"/>
         <source>Cannot reach the server — will retry</source>
         <translation>Сервер недоступен — повторим попытку</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="114"/>
+        <location filename="../qml/LabsScreen.qml" line="115"/>
         <source>The server is busy — will retry</source>
         <translation>Сервер занят — повторим попытку</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="115"/>
+        <location filename="../qml/LabsScreen.qml" line="116"/>
         <source>Cannot work until fixed</source>
         <translation>Не может работать, пока не исправят</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="116"/>
+        <location filename="../qml/LabsScreen.qml" line="117"/>
         <source>Status unknown</source>
         <translation>Состояние неизвестно</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="129"/>
+        <location filename="../qml/LabsScreen.qml" line="130"/>
         <source>never started on this station</source>
         <translation>на этой станции ещё не запускалось</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="134"/>
+        <location filename="../qml/LabsScreen.qml" line="135"/>
         <source>%1 · by %2</source>
         <translation>%1 · кем: %2</translation>
     </message>
     <message numerus="yes">
-        <location filename="../qml/LabsScreen.qml" line="139"/>
+        <location filename="../qml/LabsScreen.qml" line="140"/>
         <source>%n row(s)</source>
         <translation>
             <numerusform>%n строка</numerusform>
@@ -2771,17 +2824,17 @@
         </translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="140"/>
+        <location filename="../qml/LabsScreen.qml" line="141"/>
         <source>filed as failed</source>
         <translation>записан как сбой</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="140"/>
+        <location filename="../qml/LabsScreen.qml" line="141"/>
         <source>given back</source>
         <translation>возвращён</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="141"/>
+        <location filename="../qml/LabsScreen.qml" line="142"/>
         <source>last: %1 · %2 · %3</source>
         <translation>последний: %1 · %2 · %3</translation>
     </message>
@@ -2790,38 +2843,38 @@
         <translation type="vanished">установите на этом компьютере службу сканера Лаборатории</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="182"/>
+        <location filename="../qml/LabsScreen.qml" line="183"/>
         <source>OFF</source>
         <translation>ВЫКЛ</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="182"/>
+        <location filename="../qml/LabsScreen.qml" line="183"/>
         <source>ON</source>
         <translation>ВКЛ</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="221"/>
-        <location filename="../qml/LabsScreen.qml" line="473"/>
+        <location filename="../qml/LabsScreen.qml" line="222"/>
+        <location filename="../qml/LabsScreen.qml" line="474"/>
         <source>This station</source>
         <translation>Эта станция</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="230"/>
+        <location filename="../qml/LabsScreen.qml" line="231"/>
         <source>could not save: %1</source>
         <translation>не удалось сохранить: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="248"/>
+        <location filename="../qml/LabsScreen.qml" line="249"/>
         <source>Release hold</source>
         <translation>Снять удержание</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="250"/>
+        <location filename="../qml/LabsScreen.qml" line="251"/>
         <source>Resume scanning</source>
         <translation>Возобновить сканирование</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="250"/>
+        <location filename="../qml/LabsScreen.qml" line="251"/>
         <source>Pause scanning</source>
         <translation>Приостановить сканирование</translation>
     </message>
@@ -2830,114 +2883,114 @@
         <translation type="vanished">Возобновить сканирование может только администратор</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="308"/>
+        <location filename="../qml/LabsScreen.qml" line="309"/>
         <source>Switched on</source>
         <translation>Включено</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="309"/>
-        <location filename="../qml/LabsScreen.qml" line="604"/>
+        <location filename="../qml/LabsScreen.qml" line="310"/>
+        <location filename="../qml/LabsScreen.qml" line="605"/>
         <source>No answer from the server yet</source>
         <translation>Сервер пока не ответил</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="315"/>
+        <location filename="../qml/LabsScreen.qml" line="316"/>
         <source>CPU-h / day</source>
         <translation>ч ЦП / сутки</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="316"/>
+        <location filename="../qml/LabsScreen.qml" line="317"/>
         <source>Projected load</source>
         <translation>Ожидаемая нагрузка</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="317"/>
+        <location filename="../qml/LabsScreen.qml" line="318"/>
         <source>At least this much: an analyser that is switched on has no measured cost yet</source>
         <translation>Не меньше: у одного из включённых анализаторов стоимость ещё не измерена</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="318"/>
+        <location filename="../qml/LabsScreen.qml" line="319"/>
         <source>CPU time per day across the stations that scan, for the analysers switched on</source>
         <translation>Процессорное время в сутки на всех сканирующих станциях для включённых анализаторов</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="329"/>
+        <location filename="../qml/LabsScreen.qml" line="330"/>
         <source>Camera-hours analysed</source>
         <translation>Проанализировано камеро-часов</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="330"/>
+        <location filename="../qml/LabsScreen.qml" line="331"/>
         <source>Every analyser counted separately, since Labs started</source>
         <translation>Каждый анализатор считается отдельно, с начала работы Лаборатории</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="336"/>
+        <location filename="../qml/LabsScreen.qml" line="337"/>
         <source>+%1 failed</source>
         <translation>+%1 сбоев</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="337"/>
+        <location filename="../qml/LabsScreen.qml" line="338"/>
         <source>Done by this station</source>
         <translation>Сделано этой станцией</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="338"/>
+        <location filename="../qml/LabsScreen.qml" line="339"/>
         <source>Since the scanner last started</source>
         <translation>С последнего запуска сканера</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="348"/>
-        <location filename="../qml/LabsScreen.qml" line="355"/>
+        <location filename="../qml/LabsScreen.qml" line="349"/>
+        <location filename="../qml/LabsScreen.qml" line="356"/>
         <source>Only an administrator can switch analysers on or off.</source>
         <translation>Включать и выключать анализаторы может только администратор.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="349"/>
+        <location filename="../qml/LabsScreen.qml" line="350"/>
         <source>The server refused the change: %1</source>
         <translation>Сервер отклонил изменение: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="351"/>
+        <location filename="../qml/LabsScreen.qml" line="352"/>
         <source>Only administrators can see the Labs programme.</source>
         <translation>Программу Лаборатории видят только администраторы.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="383"/>
+        <location filename="../qml/LabsScreen.qml" line="384"/>
         <source>Analysers</source>
         <translation>Анализаторы</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="383"/>
+        <location filename="../qml/LabsScreen.qml" line="384"/>
         <source>Statistics</source>
         <translation>Статистика</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="390"/>
+        <location filename="../qml/LabsScreen.qml" line="391"/>
         <source>24 hours</source>
         <translation>24 часа</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="390"/>
+        <location filename="../qml/LabsScreen.qml" line="391"/>
         <source>7 days</source>
         <translation>7 дней</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="390"/>
+        <location filename="../qml/LabsScreen.qml" line="391"/>
         <source>All</source>
         <translation>Всё время</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="546"/>
+        <location filename="../qml/LabsScreen.qml" line="547"/>
         <source>done: %1 h</source>
         <translation>сделано: %1 ч</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="547"/>
+        <location filename="../qml/LabsScreen.qml" line="548"/>
         <source>done while on: %1 h</source>
         <translation>сделано, пока был включён: %1 ч</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="553"/>
+        <location filename="../qml/LabsScreen.qml" line="554"/>
         <source>waiting: %1</source>
         <translation>ждут: %1</translation>
     </message>
@@ -2950,7 +3003,7 @@
         <translation type="vanished">ждут: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="554"/>
+        <location filename="../qml/LabsScreen.qml" line="555"/>
         <source>waiting: counted at the next refresh</source>
         <translation>ожидание: посчитается при следующем обновлении</translation>
     </message>
@@ -2959,65 +3012,65 @@
         <translation type="vanished">Все анализаторы выключены. Сервер сообщает стоимость и охват, только пока включён хотя бы один.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="352"/>
+        <location filename="../qml/LabsScreen.qml" line="353"/>
         <source>The server is not answering. Showing what it said at %1.</source>
         <translation>Сервер не отвечает. Показаны данные на %1.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="353"/>
+        <location filename="../qml/LabsScreen.qml" line="354"/>
         <source>The server refused: %1</source>
         <translation>Сервер отказал: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="444"/>
+        <location filename="../qml/LabsScreen.qml" line="445"/>
         <source>Analyser</source>
         <translation>Анализатор</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="451"/>
+        <location filename="../qml/LabsScreen.qml" line="452"/>
         <source>On the server · %1</source>
         <translation>На сервере · %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="451"/>
+        <location filename="../qml/LabsScreen.qml" line="452"/>
         <source>On the server</source>
         <translation>На сервере</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="456"/>
+        <location filename="../qml/LabsScreen.qml" line="457"/>
         <source>Covered</source>
         <translation>Охват</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="396"/>
-        <location filename="../qml/LabsScreen.qml" line="461"/>
+        <location filename="../qml/LabsScreen.qml" line="397"/>
+        <location filename="../qml/LabsScreen.qml" line="462"/>
         <source>Refreshing…</source>
         <translation>Обновляется…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="396"/>
-        <location filename="../qml/LabsScreen.qml" line="461"/>
+        <location filename="../qml/LabsScreen.qml" line="397"/>
+        <location filename="../qml/LabsScreen.qml" line="462"/>
         <source>Refresh</source>
         <translation>Обновить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="403"/>
-        <location filename="../qml/LabsScreen.qml" line="468"/>
+        <location filename="../qml/LabsScreen.qml" line="404"/>
+        <location filename="../qml/LabsScreen.qml" line="469"/>
         <source>Ask the server now. It refreshes on its own every 30 minutes: the counts cost the server real work.</source>
         <translation>Запросить сервер сейчас. Сам экран обновляется раз в 30 минут: эти подсчёты стоят серверу заметной работы.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="472"/>
+        <location filename="../qml/LabsScreen.qml" line="473"/>
         <source>Cost</source>
         <translation>Стоимость</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="521"/>
+        <location filename="../qml/LabsScreen.qml" line="522"/>
         <source>Only an administrator can switch analysers on or off</source>
         <translation>Включать и выключать анализаторы может только администратор</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="530"/>
+        <location filename="../qml/LabsScreen.qml" line="531"/>
         <source>Changing…</source>
         <translation>Изменяется…</translation>
     </message>
@@ -3038,114 +3091,114 @@
         <translation type="vanished">охвачено %1%</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="559"/>
+        <location filename="../qml/LabsScreen.qml" line="560"/>
         <source>%1 failed</source>
         <translation>сбоев: %1</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="570"/>
+        <location filename="../qml/LabsScreen.qml" line="571"/>
         <source>%1 CPU-s per camera-hour</source>
         <translation>%1 с ЦП на камеро-час</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="570"/>
+        <location filename="../qml/LabsScreen.qml" line="571"/>
         <source>not measured</source>
         <translation>не измерено</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="576"/>
+        <location filename="../qml/LabsScreen.qml" line="577"/>
         <source>≈ %1 CPU-h per day</source>
         <translation>≈ %1 ч ЦП в сутки</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="577"/>
+        <location filename="../qml/LabsScreen.qml" line="578"/>
         <source>≈ %1 CPU-h per day if on</source>
         <translation>≈ %1 ч ЦП в сутки, если включить</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="589"/>
+        <location filename="../qml/LabsScreen.qml" line="590"/>
         <source>Cannot run here</source>
         <translation>Здесь не запускается</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="590"/>
+        <location filename="../qml/LabsScreen.qml" line="591"/>
         <source>Not here (one station only)</source>
         <translation>Не здесь (только одна станция)</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="591"/>
+        <location filename="../qml/LabsScreen.qml" line="592"/>
         <source>Needs a server update</source>
         <translation>Нужно обновление сервера</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="592"/>
-        <location filename="../qml/LabsScreen.qml" line="594"/>
+        <location filename="../qml/LabsScreen.qml" line="593"/>
+        <location filename="../qml/LabsScreen.qml" line="595"/>
         <source>Runs here</source>
         <translation>Работает здесь</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="249"/>
-        <location filename="../qml/LabsScreen.qml" line="604"/>
+        <location filename="../qml/LabsScreen.qml" line="250"/>
+        <location filename="../qml/LabsScreen.qml" line="605"/>
         <source>Asking the server…</source>
         <translation>Запрашиваем сервер…</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="101"/>
+        <location filename="../qml/LabsScreen.qml" line="102"/>
         <source>No Labs scanner has run on this computer</source>
         <translation>Сканер Лаборатории на этом компьютере ещё не запускался</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="144"/>
+        <location filename="../qml/LabsScreen.qml" line="145"/>
         <source>Start and Pause appear here once the scanner runs</source>
         <translation>запуск и пауза появятся здесь, когда сканер заработает</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="146"/>
+        <location filename="../qml/LabsScreen.qml" line="147"/>
         <source>Start and Pause appear here once the scanner runs again</source>
         <translation>запуск и пауза появятся здесь, когда сканер снова заработает</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="250"/>
+        <location filename="../qml/LabsScreen.qml" line="251"/>
         <source>Start scanning</source>
         <translation>Запустить сканирование</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="259"/>
+        <location filename="../qml/LabsScreen.qml" line="260"/>
         <source>Only an administrator can release the hold</source>
         <translation>Снять удержание может только администратор</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="260"/>
+        <location filename="../qml/LabsScreen.qml" line="261"/>
         <source>Only an administrator can start or pause scanning</source>
         <translation>Запускать и приостанавливать сканирование может только администратор</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="631"/>
+        <location filename="../qml/LabsScreen.qml" line="632"/>
         <source>Switch on “%1”?</source>
         <translation>Включить «%1»?</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="641"/>
+        <location filename="../qml/LabsScreen.qml" line="642"/>
         <source>Stations that scan will start analysing footage for it (%1). The change is visible to everyone using this system.</source>
         <translation>Сканирующие станции начнут анализировать для него записи (%1). Изменение увидят все пользователи системы.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="649"/>
+        <location filename="../qml/LabsScreen.qml" line="650"/>
         <source>Projected load: about %1 CPU-hours per day across the stations that scan.</source>
         <translation>Ожидаемая нагрузка: около %1 ч процессорного времени в сутки на сканирующих станциях.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="650"/>
+        <location filename="../qml/LabsScreen.qml" line="651"/>
         <source>Nobody has measured its cost yet, so its load is unknown.</source>
         <translation>Его стоимость ещё никто не измерял, поэтому нагрузка неизвестна.</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="659"/>
+        <location filename="../qml/LabsScreen.qml" line="660"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
     <message>
-        <location filename="../qml/LabsScreen.qml" line="661"/>
+        <location filename="../qml/LabsScreen.qml" line="662"/>
         <source>Switch on</source>
         <translation>Включить</translation>
     </message>

@@ -47,6 +47,7 @@ Item {
         onStateChanged: {
             if (fm.count === 0) fv.current = -1
             else if (fv.current < 0 || fv.current >= fm.count) fv.current = 0
+            fv.fitRows(false)
         }
     }
     PlaybackClient { id: findingsClient }
@@ -110,6 +111,41 @@ Item {
         }
         return bits.join("  ·  ")
     }
+
+    // ---- the list column's width: FITTED to its rows by default, then wherever the operator
+    // drags the divider (operator request 2026-09-29). Measured, not guessed: each loaded row's
+    // time, camera and headline, through the fonts the rows use (the Events area's own
+    // measured-fit method, EventsArea.qml "Measured fit"). Only rows new to the list are
+    // measured as pages arrive, and while a list reloads the column keeps its width, so a
+    // changed period or filter moves it once, when the rows land, not twice. A drag lasts for
+    // this session (switching analysers or screens keeps it); a double-click on the divider
+    // returns to the fit. Never narrower than listMinW; a drag stops where the player keeps
+    // playerMinW, and the fit alone never takes more than half the view.
+    FontMetrics { id: fmTime; font.family: Theme.fontMono; font.pixelSize: 11 }
+    FontMetrics { id: fmName; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
+    FontMetrics { id: fmLine; font.family: Theme.fontSans; font.pixelSize: 12 }
+    readonly property int listMinW: 200               // a row's time and a short camera name
+    readonly property int playerMinW: 460
+    readonly property int rowPad: 18 + 14 + 12          // row margins, and the scrollbar's room
+    property real userListW: -1                         // dragged; -1 = fit to the rows
+    property real fitListW: 420                         // before any row was measured
+    readonly property real listW: Math.max(listMinW, userListW > 0 ? Math.min(width - playerMinW, userListW)
+                                                                   : Math.min(width / 2, fitListW))
+    function timeText(it) { return Qt.formatDateTime(new Date(it.startMs), "dd.MM  HH:mm:ss") }
+    property int _fitRows: 0                            // rows of THIS list measured so far
+    property real _fitMax: 0
+    function fitRows(again) {
+        if (again || fm.count < _fitRows) { _fitRows = 0; _fitMax = 0 }   // another list, or new names
+        if (fm.count === _fitRows) return                                  // nothing new: keep the width
+        for (var i = _fitRows; i < fm.count; i++) {
+            var it = fm.get(i)
+            _fitMax = Math.max(_fitMax, fmTime.advanceWidth(timeText(it)) + 10 + fmName.advanceWidth(camName(it)),
+                                        fmLine.advanceWidth(headline(it) || (it.text ? it.text : "")))
+        }
+        _fitRows = fm.count
+        fitListW = Math.ceil(_fitMax) + rowPad
+    }
+    onCamLookupChanged: fitRows(true)
 
     function select(i) {
         if (i < 0 || i >= fm.count) return
@@ -227,14 +263,12 @@ Item {
             spacing: 0
 
             Item {
-                Layout.preferredWidth: Math.max(360, Math.round(fv.width * 0.40))
+                Layout.preferredWidth: fv.listW
                 Layout.fillHeight: true
-                Rectangle { anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 1; color: Theme.line }
 
                 ListView {
                     id: list
                     anchors.fill: parent
-                    anchors.rightMargin: 1
                     clip: true
                     model: fm
                     focus: fv.shown
@@ -263,9 +297,10 @@ Item {
                             spacing: 4
                             Row {
                                 spacing: 10
-                                Text { text: Qt.formatDateTime(new Date(row.item.startMs), "dd.MM  HH:mm:ss")
+                                Text { id: timeT; text: fv.timeText(row.item)
                                        color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11 }
                                 Text { text: fv.camName(row.item); color: Theme.ink
+                                       width: Math.max(0, row.width - 18 - 14 - timeT.width - 10); elide: Text.ElideRight
                                        font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold }
                             }
                             Text {
@@ -281,6 +316,7 @@ Item {
                     }
 
                     footer: Item {
+                        id: foot
                         width: ListView.view ? ListView.view.width : 0
                         height: fm.count > 0 ? 48 : 0
                         visible: fm.count > 0
@@ -296,8 +332,9 @@ Item {
                             visible: fm.errorText !== ""
                             spacing: 10
                             Text { text: qsTr("Could not load more: %1").arg(fm.errorText); color: Theme.warn
+                                   width: Math.min(implicitWidth, foot.width - 24 - 10 - tryMore.width); elide: Text.ElideRight
                                    font.family: Theme.fontMono; font.pixelSize: 11 }
-                            Link { text: qsTr("Try again"); onClicked: fm.loadMore() }
+                            Link { id: tryMore; text: qsTr("Try again"); onClicked: fm.loadMore() }
                         }
                     }
                 }
@@ -333,6 +370,41 @@ Item {
                         text: qsTr("Try again")
                         onClicked: fm.reload()
                     }
+                }
+            }
+
+            // ----- the divider: drag to resize the list; double-click to fit it to its rows -----
+            Item {
+                Layout.preferredWidth: 7
+                Layout.fillHeight: true
+                Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 1; height: parent.height
+                            color: (splitHover.hovered || splitMa.pressed) ? Theme.accent : Theme.line }
+                // Hover from a HoverHandler, which re-checks the pointer on every move: a MouseArea's
+                // containsMouse stays false after a drag that outran the divider, until the pointer
+                // leaves and comes back (seen on the vnc platform, 2026-09-29).
+                HoverHandler { id: splitHover; cursorShape: Qt.SplitHCursor }
+                MouseArea {
+                    id: splitMa
+                    anchors.fill: parent
+                    cursorShape: Qt.SplitHCursor
+                    property real startX: 0
+                    property real startW: 0
+                    onPressed: (m) => { startX = mapToItem(fv, m.x, 0).x; startW = fv.listW }
+                    onPositionChanged: (m) => {
+                        if (pressed)
+                            fv.userListW = Math.max(fv.listMinW, Math.min(fv.width - fv.playerMinW,
+                                                                          startW + mapToItem(fv, m.x, 0).x - startX))
+                    }
+                    onDoubleClicked: fv.userListW = -1
+                }
+                // Beside the pointer: the attached ToolTip would sit above the divider's top, a full
+                // list's height away from where the operator is pointing.
+                QC.ToolTip {
+                    visible: splitHover.hovered && !splitMa.pressed
+                    delay: 800
+                    text: qsTr("Drag to resize · double-click to fit the list to its rows")
+                    x: parent.width + 6
+                    y: Math.round(splitHover.point.position.y) + 14
                 }
             }
 
