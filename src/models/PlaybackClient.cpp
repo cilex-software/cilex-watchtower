@@ -512,7 +512,22 @@ void PlaybackClient::requestSession(const QString &cameraId, const QString &wall
     // WT_PB_NO_HEAD_SPLIT=1 reverts. If historic playback ever dies with repeated 503s
     // on seg/0.ts, that is this: set it in the booth's warden.conf APP_ENV and restart
     // Warden. The live wall does not use review sessions and is unaffected either way.
-    if (!qEnvironmentVariableIsSet("WT_PB_NO_HEAD_SPLIT"))
+    //
+    // ...AND NEVER ON AN HEVC SESSION (2026-09-29, the operator's Colour clip on 10 Улица 4:
+    // "about 13 seconds in the video fast forwards to the end ... turning absolutely black").
+    // What the measurement above missed -- it timed segment 0 and never played across the
+    // joint after it: the server cuts BOTH head pieces with libx264 (playback-service
+    // cache.py, since 2026-07-18, built for mobile's H.264), while an hevc_capable session's
+    // other fragments are the HEVC main, stream-copied. The codec changes at the joint with
+    // no marker, and the libav HLS demuxer our player uses cannot cross it. Measured on that
+    // clip, read-only (session 2a76f220, 17:56:18-17:58:27Z): pieces 0-1 h264, 2-5 hevc;
+    // ffmpeg decoded 224 frames (14.75 s) and then refused all 1,768 HEVC packets --
+    // with an EXT-X-DISCONTINUITY inserted too. The same window WITHOUT head_split: all 5
+    // fragments hevc, 2,280 frames, 0 errors. So the first frame costs the whole first
+    // segment again on Linux and Windows; a clip that stops at 15 s cost far more. The Mac
+    // asks for H.264 (hevcCapable is false there, above), so its pieces match and it keeps
+    // the split.
+    if (!qEnvironmentVariableIsSet("WT_PB_NO_HEAD_SPLIT") && !hevcCapable)
         body["head_split"] = true;
     if (pbTime) {
         auto *sharedNam = AuthController::instance()->nam();
