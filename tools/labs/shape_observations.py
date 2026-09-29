@@ -50,7 +50,7 @@ registry's own notes say so for every class.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, asdict, replace
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime
 from typing import Iterable, Iterator, Sequence
 
@@ -338,6 +338,11 @@ class Observation:
     # Set on a row that merges several rows because the unit reached row_budget (1.2.0).
     coarse_bin_s: float | None = None
     rows_merged: int | None = None
+    # What an OBSERVER (object_profile) kept of this detection's frame -- its crop, its mask --
+    # for work done after the passage is known. Never a measurement, never sent: measurements()
+    # leaves it out. A passage keeps only its largest detection's (_Passages), so memory is
+    # one view per open passage. None unless an observer is given.
+    view: object = field(default=None, repr=False, compare=False)
 
     # Which of the fields above ObservationIn actually has a column for. The rest
     # are MEASUREMENTS and belong in the `metrics` jsonb, not at the top level.
@@ -374,8 +379,8 @@ class Observation:
         `metrics` — lives in the worker (tools/labs/plugins.py), which is the half
         that is allowed to know Labs exists.
         """
-        d = asdict(self)
-        return {k: v for k, v in d.items() if v is not None}
+        return {f.name: getattr(self, f.name) for f in fields(self)
+                if f.name != "view" and getattr(self, f.name) is not None}
 
     #: Deprecated name. Kept because the Linux worker calls it and renaming across
     #: boxes mid-flight is how two agents break one file. New callers: use
@@ -630,6 +635,7 @@ def analyse_segment(
     state: AnalyserState,
     cfg: Config | None = None,
     frame_step_s: float | None = None,
+    observer=None,
 ) -> tuple[list[Observation], WindowStats]:
     """Turn luma frames into observations. No I/O of any kind.
 
@@ -715,6 +721,10 @@ def analyse_segment(
 
         mask = state._bs.apply(luma)
         state._warm += 1
+        if observer is not None:
+            # Every frame the model sees, warm-up included: an observer keeps its own
+            # running background, which should be full by the first detection.
+            observer.frame(fr)
 
         if not state.is_warm:
             st.frames_warmup += 1
@@ -724,7 +734,7 @@ def analyse_segment(
         if cfg.morph_open_px >= 3:
             binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
 
-        n_lab, _, stats, centroids = cv2.connectedComponentsWithStats(binary, 8)
+        n_lab, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, 8)
         keep = [
             i for i in range(1, n_lab) if float(stats[i, cv2.CC_STAT_AREA]) >= min_area_px
         ]
@@ -769,8 +779,11 @@ def analyse_segment(
             state._recent_areas.pop(0)
 
         cls, conf = classify(aspect, area_frac, fill, len(keep), coh, cfg)
+        view = (observer.detection(fr, meta, labels, dom, (x, y, bw, bh))
+                if observer is not None else None)
         out.append(
             Observation(
+                view=view,
                 segment_id=meta.segment_id,
                 frame_index=fr.index,
                 t_offset_s=round(float(fr.t_offset_s), 3),
@@ -1004,6 +1017,12 @@ class _Passages:
             if d <= self._near(last, ob, dt) and (best_d is None or d < best_d):
                 best, best_d = p, d
         if best is not None and t - best.times[0] <= self.cfg.passage_max_span_s:
+            # Only the largest detection's view is kept (the row's bbox comes from it too).
+            top = max(best.members, key=lambda o: o.area_frac)
+            if ob.area_frac > top.area_frac:
+                top.view = None
+            else:
+                ob.view = None
             best.members.append(ob)
             best.times.append(t)
             return out
@@ -1050,6 +1069,7 @@ def analyse_window(
     stream: Iterable[tuple[SegmentMeta, Iterable[Frame]]],
     state: AnalyserState | None = None,
     cfg: Config | None = None,
+    observer=None,
 ) -> Iterator[tuple[SegmentMeta, list[Observation], WindowStats]]:
     """Consecutive segments of one camera -- ONE UNIT -- through one model.
 
@@ -1079,7 +1099,11 @@ def analyse_window(
 
     held: tuple[SegmentMeta, WindowStats] | None = None
     for meta, frames in stream:
-        obs, stats = analyse_segment(frames, meta, st, cfg)
+        # Called exactly as before when there is no observer (blob_geometry's own path).
+        if observer is None:
+            obs, stats = analyse_segment(frames, meta, st, cfg)
+        else:
+            obs, stats = analyse_segment(frames, meta, st, cfg, observer=observer)
         if stats.frame_step_s:
             pas.step = stats.frame_step_s
         base = _epoch(meta.start_time)

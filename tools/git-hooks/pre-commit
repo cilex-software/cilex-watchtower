@@ -158,6 +158,18 @@ elif [[ "${WT_NO_SHAPE_SELFTEST:-}" != "1" && -f "$ROOT/tools/labs/selftest_shap
     echo "PASS  A4-A6 self-test ($(echo "$shape_out" | grep -o '[0-9]*/[0-9]* checks'))"
 fi
 
+# V1 object_profile (2026-09-29): the colour of each passage's own pixels, and its
+# thumbnail. Hand-built views pin the colour rule (bands, shadows, every gate); synthetic
+# 4:2:0 frames pin the wiring, including that blob_geometry's rows are IDENTICAL with and
+# without its observer. Same numpy/cv2 probe. WT_NO_PROFILE_SELFTEST=1 skips it.
+if [[ "${WT_NO_PROFILE_SELFTEST:-}" != "1" && -f "$ROOT/tools/labs/selftest_object_profile.py" ]] && ! labs_deps_ok; then
+    echo "SKIP  object_profile self-test -- numpy/cv2 not installed on this box (not a failure)"
+elif [[ "${WT_NO_PROFILE_SELFTEST:-}" != "1" && -f "$ROOT/tools/labs/selftest_object_profile.py" ]]; then
+    profile_out="$(python3 "$ROOT/tools/labs/selftest_object_profile.py" 2>&1)" || {
+        echo "$profile_out"; exit 1; }
+    echo "PASS  object_profile self-test ($(echo "$profile_out" | grep -o '[0-9]*/[0-9]* checks'))"
+fi
+
 # A letter that ARRIVED from another agent gets its own commit, so its arrival is
 # findable in the log. Peers write straight into this checkout's docs/letters/, and
 # a blanket `git add -A` has twice buried one inside an unrelated commit.
