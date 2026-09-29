@@ -582,7 +582,15 @@ int main(int argc, char *argv[])
     if (const int expS = qEnvironmentVariableIntValue("WT_AUTH_EXPIRE_S"); expS > 0)
         QTimer::singleShot(expS * 1000, auth, &AuthController::corruptTokenForTest);
 
-    // [LIVETIME] GUI-thread stall detector (WT_TRACE only): a 20 ms timer that reports any gap > 150 ms.
+    // [LIVETIME] GUI-thread stall detector: a 20 ms timer that reports any gap > 150 ms.
+    //
+    // ON BY DEFAULT on Linux and Windows walls since 2026-09-30, not only under WT_TRACE: the wall
+    // guard (warden guard3) holds Labs off on these lines, and that hold is one of the two
+    // protections the operator's rule rests on ("each analyser ... is prioritised by the operating
+    // system"). A safety signal must not hang on a debug flag: the office ran without WT_TRACE, so
+    // its guard had no freeze signal at all since 09-17 (the Windows agent's find).
+    // WT_NO_STALL_WATCH=1 turns it off. On macOS (a personal laptop, no guard) it stays behind
+    // WT_TRACE: a 50 Hz timer is a battery cost there.
     //
     // The GAP is measured on a MONOTONIC clock. It was the wall clock until 2026-09-30, and the
     // booth's clock is stepped +3.75..3.93 s by Windows Time every night between 00:03 and 00:34:
@@ -590,7 +598,12 @@ int main(int argc, char *argv[])
     // a freeze that never happened (the Windows agent's find: the app's 2 s timer shifted phase
     // without firing late, and every gui_stall >= 2 s in the kept logs sits on a step). `t=` stays
     // wall-clock epoch: it is a LABEL to line logs up by, not a duration.
-    if (qEnvironmentVariableIsSet("WT_TRACE")) {
+#if defined(Q_OS_MACOS)
+    const bool stallWatch = qEnvironmentVariableIsSet("WT_TRACE");
+#else
+    const bool stallWatch = !qEnvironmentVariableIsSet("WT_NO_STALL_WATCH");
+#endif
+    if (stallWatch) {
         auto *stallTimer = new QTimer(&app);
         stallTimer->setTimerType(Qt::PreciseTimer);
         stallTimer->setInterval(20);
