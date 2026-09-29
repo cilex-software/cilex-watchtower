@@ -5,6 +5,39 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: V1 object_profile READ-ONLY TRIAL -->
+> **2026-09-29 — Vehicle search V1 (colour of each passage + thumbnail): read-only trial done; V1 as specified does NOT pass**
+>
+> cilex-vision's specs V1-V4 (`docs/letters/2026-09-29-vehicle-search-without-ai-task-specs-cilex-vision.md`,
+> no AI). The report: `docs/letters/2026-09-29-vehicle-search-without-ai-task-specs.reply-cilex-watchtower-linux.md`.
+> - **Code** (54b5541, not wired into the worker):
+>   - `tools/labs/object_profile.py` (`op-1`);
+>   - an opt-in observer in `shape_observations.py`. blob_geometry's rows are identical with and
+>     without it, measured on a real hour;
+>   - `selftest_object_profile.py`, 31 checks, in pre-commit. 14 of 14 planted bugs were caught.
+> - **Measured** (104 of 120 camera-hours of 2026-09-28, 5 cameras, sub, checked blind by eye):
+>   - **Colour's light-cast measure is over its cut on 78 % of daytime passages.** These scenes are
+>     colourful by day, and Colour's own module agrees on the same footage.
+>   - **With that gate limited to dusk and night:** red 10 of 10, white 10 of 12, black 10 of 18,
+>     blue 4 of 16.
+>   - **White vehicles read "blue":** sky reflected in glossy paint, seen from above.
+>   - **The second colour** is right 9 of 103 times.
+>   - **Main vs sub:** the same accuracy, so sub is enough.
+> - **Proposed, for the operator:**
+>   - the cast gate only at dusk and night;
+>   - a saturation floor for "blue" (fixed 7 of the labelled rows and broke none);
+>   - `colour_2` off;
+>   - sub, not main;
+>   - then a second trial ON A STATION.
+> - **Rule, from cilex-vision (amended spec):** trials NEVER run on the pilot host. It records every
+>   camera.
+>   - This trial ran up to 9 decodes at once there, which took it to load 33.8 with 1.25 GB
+>     available (CV's figures).
+>   - From 20:42 it ran one process at a time, at nice 19 and ionice idle.
+>   - At ~21:56 the Claude Code harness stopped it on low memory. It was not restarted.
+> - **Contact sheet** (local only, people and vehicles, never commit):
+>   `/home/cilex-vision/labs-trials/v1-2026-09-28/index.html`.
+
 <!-- 2026-09-29 LABS: THE PATH ON THE PICTURE + "NO FRAME" -->
 > **2026-09-29 — Findings: the path on the picture; and why clips said "No frame at event time" for minutes**
 >
