@@ -58,10 +58,16 @@
 >     byte-identical before and after.
 >   - **Observed** on 6 real unit processes: 0 matched the guard's `Worker()` filter, all 6 ran at
 >     Idle priority (inherited from `/low`), and there were 0 visible windows.
->   - **Not yet:** the units' warnings in worker.log end to end, and the booth's load with a live
->     0.3.6 worker. Both need a live station: the operator's go, which the Windows agent is asking
->     for (drain via cilex-vision, swap, restart through the guard, reconnect, one station at a
->     time).
+>   - **LIVE on the booth** since the operator's go (relayed by cilex-vision, 18:18). Clean over
+>     15 min, 18:24:28-18:39:33 MSK: 6 units claimed, 6 done, 0 failed. 7 unit processes observed,
+>     all Idle, 0 matched by the guard, 0 visible windows.
+>   - **Load at slots=1, under the wall:** the Labs process tree used CPU p50 1.2 %, p90 2.1 %,
+>     max 4.7 % of 12 logical CPUs, and RSS at most 295 MB. That is a lower bound: 15 s samples
+>     miss ffmpeg children that live between them. The wall is the real measure: 427.7 frames/s
+>     displayed during against 426.6 in the 30 min before, and no guard hold.
+>   - **Not yet exercised live:** a unit's warning forwarded into worker.log. No unit logged one in
+>     the window. The pipe half passed the suite on Windows.
+>   - **Next:** the office, the same way.
 > - **Also seen, not changed:** the 1.1.0 recurrence fold can take dense unrelated traffic at one
 >   spot for a "source". In a synthetic test, about 1 % of the picture around a spot collected 3
 >   hits in 10 min at 1,200 detections an hour. Its effect on real walkways is not measured.
