@@ -76,7 +76,7 @@ def car(w=120, h=60, body=(200, 30, 30), windows=(25, 25, 30), wheels=(15, 15, 1
 
 print("=== 0. Colour's thresholds, used unchanged ===")
 check(op.DEFAULT.colour is C.DEFAULT, "object_profile's colour config IS Colour's default, not a copy")
-check(op.VERSION == "op-1" and op.ANALYZER == "object_profile", "slug and version")
+check(op.VERSION == "op-2" and op.ANALYZER == "object_profile", "slug and version")
 
 print("=== 1. the colour rule ===")
 img, m = car()
@@ -128,10 +128,35 @@ van[:] = (235, 235, 235)
 van[36:56] = (30, 60, 200)
 vm = np.ones((80, 160), bool)
 r = op.colour_of(view(van, vm, bg_rgb=(90, 90, 90)))
+check(r.get("colour_1") == "white" and "colour_2" not in r and "colour_2_share" not in r,
+      "colour_2 is OFF by default (the operator's call): the van is white, and no second key at all",
+      str({k: r.get(k) for k in ("shares", "colour_1", "colour_2")}))
+r = op.colour_of(view(van, vm, bg_rgb=(90, 90, 90)), second_share=0.20)
 check(r.get("colour_1") == "white" and r.get("colour_2") == "blue",
-      "a white van with a blue stripe: white, then blue", str({k: r.get(k) for k in ("shares", "colour_1", "colour_2")}))
+      "asked for (research), the same van gives white, then blue", str({k: r.get(k) for k in ("shares", "colour_1", "colour_2")}))
 r = op.colour_of(view(van, vm, bg_rgb=(90, 90, 90)), second_share=0.6)
-check("colour_2" not in r, "no second colour below second_share")
+check("colour_2" not in r, "no second colour below the share asked for")
+
+print("=== 1b. proposal B: classify's pale 'blue' is white paint reflecting the sky ===")
+pale = np.empty((60, 120, 3), np.uint8)
+pale[:] = (205, 215, 240)                # bright, bluish, HSV saturation 0.15
+r_b = op.colour_of(view(pale, np.ones((60, 120), bool)))
+r_nob = op.colour_of(view(pale, np.ones((60, 120), bool)), op.Config(blue_sat_floor=None))
+check(r_nob.get("colour_1") == "blue", "Colour's classify alone names bright bluish white 'blue' (the V1 trial's miss)",
+      str(r_nob.get("shares")))
+check(r_b.get("colour_1") == "white" and r_b.get("blue_renamed_px", 0) > 0,
+      "with B it is white, and the renamed pixels are counted", str({k: r_b.get(k) for k in ("shares", "blue_renamed_px")}))
+for rgb, what in (((40, 80, 200), "saturated blue paint"), ((90, 160, 230), "light but saturated sky-blue paint")):
+    solid = np.empty((60, 120, 3), np.uint8)
+    solid[:] = rgb
+    r = op.colour_of(view(solid, np.ones((60, 120), bool)))
+    check(r.get("colour_1") == "blue" and r.get("blue_renamed_px", 1) == 0, f"B leaves {what} blue", str(r.get("shares")))
+greyish = np.empty((60, 120, 3), np.uint8)
+greyish[:] = (130, 138, 158)             # mid luma, pale blue (S 0.18): silver by Colour's luma cuts
+r = op.colour_of(view(greyish, np.ones((60, 120), bool), bg_rgb=(60, 60, 60)))
+r0 = op.colour_of(view(greyish, np.ones((60, 120), bool), bg_rgb=(60, 60, 60)), op.Config(blue_sat_floor=None))
+check(r0.get("colour_1") == "blue" and r.get("colour_1") == "silver",
+      "a pale blue between the luma cuts: blue without B, silver with it", str((r0.get("shares"), r.get("shares"))))
 
 print("=== 2. gates ===")
 img, m = car()
@@ -141,7 +166,13 @@ r = op.colour_of(view(img, m, scene_chroma=C.DEFAULT.ir_chroma_max + 0.01))
 check(r.get("colour_gate") is None, "just above the IR cut: not gated")
 r = op.colour_of(view(img, m, bg_chroma=C.DEFAULT.cast_chroma_min))
 check(r.get("colour_gate") == "light_cast" and "colour_1" not in r and "colour_1_share" not in r,
-      "background lit chroma at the cast cut: gate light_cast, no colour and no share", str(r))
+      "background lit chroma at the cast cut, sky UNKNOWN: gate light_cast, no colour and no share", str(r))
+for sky in ("night", "dusk"):
+    r = op.colour_of(view(img, m, bg_chroma=12.0), sky=sky)
+    check(r.get("colour_gate") == "light_cast", f"at {sky}, a cast background gates light_cast", str(r.get("colour_gate")))
+r = op.colour_of(view(img, m, bg_chroma=12.0), sky="day")
+check(r.get("colour_gate") is None and r.get("colour_1") == "red",
+      "by DAY the same background does not gate: the colour is named (the operator's call)", str(r.get("colour_gate")))
 check("chroma_mean" in r and "shares" in r, "a cast-gated row keeps its evidence")
 small, sm = car(w=24, h=12)
 r = op.colour_of(view(small, sm, frame=(1280, 720)))

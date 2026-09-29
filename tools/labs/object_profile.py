@@ -32,11 +32,25 @@ THE COLOUR OF A VIEW (`colour_of`), in order:
        no_body_pixels  nothing left after steps 1-3;
        too_small       fewer body pixels than min_region_frac of the frame, counted at chroma
                        resolution (the same fraction of the picture as Colour's 144 px at 320x180);
-       light_cast      the median background's lit chroma >= cast_chroma_min (street light).
-  5. NAMES by Colour's `classify`, thresholds unchanged. colour_1 is the named colour with the
-     largest share of the counted pixels if it reaches min_share (0.30, the taxonomy's rule), else
-     "unknown". colour_2 is the next named colour, only beside a named colour_1 and only if its
-     share reaches `second_share` (the trial sets it).
+       light_cast      the median background's lit chroma >= cast_chroma_min (street light) --
+                       ONLY when the sky is dusk or night (the segment's scene_light_astronomical,
+                       the server's labs_scene_light_at). By day on these cameras Colour's measure
+                       reads over its cut on 78 % of passages -- lawn, brick, autumn trees, not
+                       street light -- and Colour's own module gates the same footage. An UNKNOWN
+                       sky keeps Colour's gate as it is. (The operator's call, 2026-09-29 22:10.)
+  5. NAMES by Colour's `classify`, thresholds unchanged, then ONE rule of this module's own
+     (proposal B, the operator's call): a pixel classify names BLUE whose HSV saturation is under
+     `blue_sat_floor` (0.20) is achromatic, named by Colour's own luma cuts (white >= white_y,
+     black < grey_black_y, else silver). White paint seen from above reflects the sky: measured,
+     bright white cars' "blue" pixels sit at median saturation 0.18-0.19, navy jackets' at
+     0.53-0.62. Colour's module stays byte-identical; its own analyser does not change.
+     colour_1 is the named colour with the largest share of the counted pixels if it reaches
+     min_share (0.30, the taxonomy's rule), else "unknown".
+     colour_2 is OFF (`second_share` None): a pixel-share second colour was right 9 times in 103
+     in the V1 trial. Research may pass a share to see it; a row never carries it.
+
+THE TRIAL THAT SET THESE: docs/letters/2026-09-29-vehicle-search-without-ai-task-specs.reply-
+cilex-watchtower-linux.md (read-only, 104 camera-hours, blind by eye) and cilex-vision's reply2.
 
 THE THUMBNAIL (`thumbnail`): the crop with its margin, BT.709 full range to RGB (Colour's own
 conversion), longest side at most 320 px, JPEG at the highest quality from a fixed ladder that
@@ -54,7 +68,7 @@ import labs_colour_histogram as C
 
 ANALYZER = "object_profile"
 #: Bump on any change that moves a number.
-VERSION = "op-1"
+VERSION = "op-2"
 
 GATE_IR = "ir"
 GATE_CAST = "light_cast"
@@ -74,7 +88,8 @@ class Config:
     margin_min_px: int = 4
     #: Frames in the running median background, and the fewest it needs to be believed. Colour
     #: takes the median over its window of four segments; this is the last `ring` frames the
-    #: model saw (keyframes, ~3.3-4 s apart on this fleet), so the thing's own past is not in it.
+    #: model saw -- keyframes, 1 s apart on the 720p sub cameras measured (3,608 an hour), up to
+    #: 4 s on a GOP-60 stream -- so the thing's own past is not in it.
     ring: int = 24
     ring_min: int = 6
     #: The light-cast gate reads the background at 1/cast_scale of chroma resolution, and at
@@ -86,8 +101,11 @@ class Config:
     #: Bands left out, as fractions of the remaining body's height (step 3). Trial-set.
     top_band: float = 0.20
     bottom_band: float = 0.20
-    #: The second colour's least share (step 5). Trial-set.
-    second_share: float = 0.20
+    #: The second colour's least share (step 5). None = OFF, the operator's call: a pixel-share
+    #: second colour was right 9 times in 103 (V1 trial). Research passes a number to see it.
+    second_share: float | None = None
+    #: Proposal B (step 5): classify's "blue" under this HSV saturation is achromatic. None = off.
+    blue_sat_floor: float | None = 0.20
     #: Thumbnail limits (the server's): longest side, bytes; and the JPEG quality ladder.
     thumb_side: int = 320
     thumb_bytes: int = 32 * 1024
@@ -214,17 +232,24 @@ class Observer:
             bg_chroma=bg_chroma, bg_luma=bg_luma, full_range=self.full_range)
 
 
-def colour_of(v: View, cfg: Config = DEFAULT, *, top_band: float | None = None,
-              bottom_band: float | None = None, second_share: float | None = None,
-              size_gate: bool = True, cast_gate: bool = True) -> dict:
+_SKY_CAST = ("dusk", "night")
+_BLUE, _WHITE, _BLACK, _SILVER = (C.NAMES.index(k) for k in ("blue", "white", "black", "silver"))
+_UNSET = object()
+
+
+def colour_of(v: View, cfg: Config = DEFAULT, *, sky: str | None = None,
+              top_band: float | None = None, bottom_band: float | None = None,
+              second_share: Any = _UNSET, size_gate: bool = True, cast_gate: bool = True) -> dict:
     """The colour of one view, or the gate that refused it, with the evidence either way.
 
-    `size_gate` and `cast_gate` exist to MEASURE those gates (the trial names what they refused);
-    a row that is sent never turns them off."""
+    `sky` is the view's segment's scene_light_astronomical ("day", "dusk", "night"; None when the
+    server has none): the light-cast gate applies at dusk and night, and when the sky is unknown.
+    `second_share` overrides the config's (None = off). `size_gate` and `cast_gate` exist to
+    MEASURE those gates (a trial names what they refused); a row that is sent never turns them off."""
     c, cc = cfg, cfg.colour
     tb = c.top_band if top_band is None else top_band
     bb = c.bottom_band if bottom_band is None else bottom_band
-    s2 = c.second_share if second_share is None else second_share
+    s2 = c.second_share if second_share is _UNSET else second_share
     out: dict[str, Any] = {"scene_chroma": round(v.scene_chroma, 2), "bg_frames": v.bg_frames}
     if v.bg_chroma is not None:
         out["bg_chroma"] = round(v.bg_chroma, 2)
@@ -261,21 +286,34 @@ def colour_of(v: View, cfg: Config = DEFAULT, *, top_band: float | None = None,
         return {**out, "colour_gate": GATE_NO_BODY}
     if size_gate and body_px < cc.min_region_frac * (v.frame_w // 2) * (v.frame_h // 2):
         return {**out, "colour_gate": GATE_TOO_SMALL}
-    names = C.classify(yh[body], u[body], vv[body], cc, v.full_range)
+    yb, ub, vb = yh[body], u[body], vv[body]
+    names = C.classify(yb, ub, vb, cc, v.full_range)
+    if c.blue_sat_floor is not None:
+        # Proposal B: classify's "blue" at low saturation is bright paint reflecting the sky.
+        _, sat, _ = C.rgb_to_hsv(C.ycbcr_to_rgb(yb, ub, vb, v.full_range))
+        low = (names == _BLUE) & (sat < c.blue_sat_floor)
+        out["blue_renamed_px"] = int(low.sum())
+        if low.any():
+            y_eff = yb if v.full_range else (yb - 16.0) * (255.0 / 219.0)
+            names = names.copy()
+            names[low & (y_eff >= cc.white_y)] = _WHITE
+            names[low & (y_eff < cc.grey_black_y)] = _BLACK
+            names[low & (y_eff >= cc.grey_black_y) & (y_eff < cc.white_y)] = _SILVER
     counts = np.bincount(names, minlength=len(C.NAMES)).astype(np.float64)
     shares = counts / counts.sum()
     out["shares"] = {C.NAMES[i]: round(float(shares[i]), 4) for i in range(len(C.NAMES)) if shares[i] > 0}
     out["achromatic_share"] = round(float(sum(shares[C.NAMES.index(k)] for k in ("white", "black", "silver"))), 4)
     out["other_share"] = round(float(shares[C.NAMES.index(C.OTHER)]), 4)
-    out["chroma_mean"] = round(float(C.chroma(u[body], vv[body]).mean()), 2)
-    out["luma_mean"] = round(float(yh[body].mean()), 2)
-    if cast_gate and v.bg_chroma is not None and v.bg_chroma >= cc.cast_chroma_min:
+    out["chroma_mean"] = round(float(C.chroma(ub, vb).mean()), 2)
+    out["luma_mean"] = round(float(yb.mean()), 2)
+    if (cast_gate and (sky is None or sky in _SKY_CAST)
+            and v.bg_chroma is not None and v.bg_chroma >= cc.cast_chroma_min):
         return {**out, "colour_gate": GATE_CAST}
     named = np.argsort(-shares[:len(C.COLOURS)], kind="stable")
     top, second = int(named[0]), int(named[1])
     if shares[top] >= cc.min_share:
         out["colour_1"], out["colour_1_share"] = C.COLOURS[top], round(float(shares[top]), 4)
-        if shares[second] > 0 and shares[second] >= s2:
+        if s2 is not None and shares[second] > 0 and shares[second] >= s2:
             out["colour_2"], out["colour_2_share"] = C.COLOURS[second], round(float(shares[second]), 4)
     else:
         out["colour_1"], out["colour_1_share"] = UNKNOWN, round(float(shares[top]), 4)
