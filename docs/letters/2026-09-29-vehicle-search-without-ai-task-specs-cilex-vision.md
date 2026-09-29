@@ -68,6 +68,9 @@ People ("a red jacket") could reuse V1 later. They are not in these specs.
   give counts ("17 of 20").
 - **Read-only first.** Each trial runs the way you checked 0.3.5 on real footage: segments by
   SELECT, bytes from the filer, nothing claimed or submitted.
+- **Never on the pilot host.** It records every camera. Trials run on the booth or office
+  stations, at idle priority. (Added 2026-09-29 20:41, after the V1 trial's 9 parallel decodes
+  took the pilot host to load 34 on 20 threads. My omission.)
 
 ## V1: the colours of each moving thing, and its thumbnail
 
