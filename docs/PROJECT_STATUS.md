@@ -65,9 +65,20 @@
 >     max 4.7 % of 12 logical CPUs, and RSS at most 295 MB. That is a lower bound: 15 s samples
 >     miss ffmpeg children that live between them. The wall is the real measure: 427.7 frames/s
 >     displayed during against 426.6 in the 30 min before, and no guard hold.
->   - **Not yet exercised live:** a unit's warning forwarded into worker.log. No unit logged one in
->     the window. The pipe half passed the suite on Windows.
->   - **Next:** the office, the same way.
+>   - **A unit's warning into worker.log:** the mechanism is proven in two halves.
+>     1. Unit to worker, over the pipe: the suite passed on Windows.
+>     2. Worker to the file: a stand-in script in the guard's EXACT launch shape
+>        (`cmd /c start "" /low /b "python" -u "<script>" >> "<log>" 2>&1`) logged a WARNING, and
+>        the file held that line.
+>
+>     There was no real worker warning to point at: the booth's worker.log was still 0 bytes, with
+>     nothing warned since 16:52. The first real forwarded "[analyser camera hour]" line is still to
+>     be pointed at.
+>   - **The office:** 0.3.6 since 18:43:34 (the whole folder copied, restarted through the
+>     wt-labs-start task), reconnected 18:44:32 with blob_geometry. By then the booth had done 8 of
+>     8 units. **Both stations run 0.3.6;** the pilot box does too, held by cilex-vision's station
+>     Stop.
+>   - cilex-vision is watching hiwatch-083bc17adca6 12:00Z's rescan.
 > - **Also seen, not changed:** the 1.1.0 recurrence fold can take dense unrelated traffic at one
 >   spot for a "source". In a synthetic test, about 1 % of the picture around a spot collected 3
 >   hits in 10 min at 1,200 detections an hour. Its effect on real walkways is not measured.
