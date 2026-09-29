@@ -35,7 +35,15 @@
 >   admin setting stays `auto`.
 > - **Still open:** an HEVC session that falls back to the sub where main has a hole mixes codecs
 >   the same way. Not measured on a real hole; a discontinuity marker did not help our player at
->   tonight's joint. Options are sent to cilex-vision.
+>   tonight's joint.
+> - **Agreed with cilex-vision, not built:** ONE CODEC PER SESSION, chosen by the server.
+>   - A window touching a main hole is served whole from sub.
+>   - The session will say `delivered: "main" | "sub"`, with `because: "main_hole" | "no_main" | ...`
+>     when it is sub.
+>   - **The app's part when it lands:** `ExportDrawer.qml` (`retentionKnowable`, :208) must treat
+>     sub-because-of-a-hole as "can't tell". It offers High and lets the export endpoint
+>     adjudicate, as on the Mac. Otherwise it would call the whole selection aged out.
+>   - Their letter comes after the pilot, with a real main-hole camera-hour to decode read-only.
 
 <!-- 2026-09-29 LABS: V1 object_profile READ-ONLY TRIAL -->
 > **2026-09-29 — Vehicle search V1 (colour of each passage + thumbnail): read-only trial done; V1 as specified does NOT pass**
