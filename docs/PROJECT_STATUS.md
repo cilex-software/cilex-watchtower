@@ -51,6 +51,17 @@
 >     violations.
 > - **What the operator will see:** Statistics for Object shapes counts passages, so the numbers
 >   drop (cilex-vision: "reads better for an operator").
+> - **Windows, per the Windows agent (1cb00ba, on the booth, launched as its guard launches the
+>   worker; not measured here):**
+>   - `labs-worker.py`: 349 pass, 0 fail; the 14 SKIP lines cover the 13 named pins and the /proc
+>     pair, 15 checks, so 364 in all. A4-A6 self-test 79/79. The booth's real control.json was
+>     byte-identical before and after.
+>   - **Observed** on 6 real unit processes: 0 matched the guard's `Worker()` filter, all 6 ran at
+>     Idle priority (inherited from `/low`), and there were 0 visible windows.
+>   - **Not yet:** the units' warnings in worker.log end to end, and the booth's load with a live
+>     0.3.6 worker. Both need a live station: the operator's go, which the Windows agent is asking
+>     for (drain via cilex-vision, swap, restart through the guard, reconnect, one station at a
+>     time).
 > - **Also seen, not changed:** the 1.1.0 recurrence fold can take dense unrelated traffic at one
 >   spot for a "source". In a synthetic test, about 1 % of the picture around a spot collected 3
 >   hits in 10 min at 1,200 detections an hour. Its effect on real walkways is not measured.
@@ -99,7 +110,8 @@
 >   list, nothing claimed or submitted on the server): 5 units done, 0 failed, 5 unit PIDs, peak
 >   2 on 2 slots, 0 schema violations.
 > - **Not verified:** Windows (spawn, the guard's process filter, the booth's load). That is
->   the Windows agent's run.
+>   the Windows agent's run. **Update:** run on 0.3.6. Spawn, the filter and the priority were
+>   observed; the load was not yet. See the 0.3.6 block above.
 
 <!-- 2026-09-29 LABS: FINDINGS VIEW -->
 > **2026-09-29 — Labs Statistics rows open a Findings view, to WATCH what an analyser found**
