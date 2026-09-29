@@ -5,6 +5,38 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: FINDINGS VIEW -->
+> **2026-09-29 — Labs Statistics rows open a Findings view, to WATCH what an analyser found**
+> (operator request, same day). Click an analyser in Statistics and you get:
+> - **Header:** its findings for the period (24 hours · 7 days · All, starting on Statistics' own).
+> - **Filters:** the analyser's own one-button filters from the server, one at a time.
+> - **List:** newest first, a page (40) at a time, asked for only as the list nears its end.
+>   "All" is a period, never "load everything".
+> - **Player:** the selected finding plays with the Events screen's own inline player
+>   (`EvHeroPlayer`, on a `PlaybackClient` of this view's own; each camera's pre/post roll).
+>   `LabsCard` sits under it with every field and metric.
+> - **Row headline:** the finding's own measurement (e.g. "black · 63 % · then blue"), from its
+>   metrics.
+>
+> **Code:** `qml/LabsFindings.qml`, `src/models/LabsFindingsModel.*`, `src/models/LabsFindingsData.h`;
+> `qml/LabsSeg.qml` (the segmented control, now shared).
+>
+> **Data:** `GET /labs/findings`, asked of cilex-vision:
+> `docs/letters/2026-09-29-labs-findings-list-cilex-watchtower-linux.md`. It is findings only, by
+> the footage's hour, with a keyset cursor and the analyser's filters served by the server.
+> **Until it exists the view says "The server does not list findings yet".**
+>
+> **Verified:**
+> - `tools/tests/labs-findings.cpp`: 20 checks; 3 mutants killed. The test also caught a real
+>   bug before it shipped: a cursor's '+' was sent unencoded, and the server reads '+' as a space.
+> - Screenshots in EN and RU:
+>   - against the real server (the pending message);
+>   - against a local stub serving the real DB read-only, with stand-in finding rules. They
+>     showed the list, the chips, a filter ("Red": 6, one request), paging (a second request with
+>     the cursor, rows continuing), and the player opening a review session (server log: POST
+>     /review/sessions 200, playlist 200).
+> - **Not verified:** a video frame on screen. Offscreen rendering draws none.
+
 <!-- 2026-09-29 LABS: worker-0.3.4 — ROWS OUTSIDE THE CLAIMED HOUR -->
 > **2026-09-29 — worker-0.3.4: rows starting outside the claimed hour are dropped before submitting.**
 > - **The bug:** the server refuses a WHOLE submission (422 `observation_outside_claimed_hour`, not

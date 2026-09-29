@@ -22,6 +22,10 @@ Item {
     // (LabsStats.qml, operator request 2026-09-28), for the period in statsWindow.
     property string view: "table"
     property string statsWindow: "24h"
+    // An analyser's findings, opened from Statistics (LabsFindings); "" = not open.
+    property string findingsSlug: ""
+    property var cameraModel: null
+    function openFindings(slug) { findings.period = root.statsWindow; root.findingsSlug = slug }
 
     onVisibleChanged: if (visible && labs) { labs.refresh(); labs.refreshStation() }
     // WT_LABS_CONFIRM (main.cpp): open the real dialog for review screenshots.
@@ -37,6 +41,13 @@ Item {
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
             if (p[0] === "stats") { view = "stats"; if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1] }
+            // "findings:<analyser>[:<period>[:<filter>]]" opens that analyser's findings.
+            if (p[0] === "findings" && p.length > 1) {
+                view = "stats"
+                if (p.length > 2 && ["24h", "7d", "all"].indexOf(p[2]) >= 0) statsWindow = p[2]
+                openFindings(p[1])
+                if (p.length > 3) findings.facet = p[3]
+            }
         }
     }
     // Server status at most every 30 minutes while open, or on Refresh: the work behind it
@@ -188,35 +199,6 @@ Item {
         }
     }
 
-    // Preferences' segmented control, with any number of choices.
-    component Seg: Rectangle {
-        id: seg
-        property var choices: []             // [{k: label, v: value}]
-        property string value: ""
-        signal picked(string v)
-        implicitWidth: segRow.implicitWidth + 2; implicitHeight: 28
-        color: Theme.bg; border.width: 1; border.color: Theme.line2
-        Row {
-            id: segRow
-            x: 1; y: 1
-            Repeater {
-                model: seg.choices
-                delegate: Rectangle {
-                    required property var modelData
-                    readonly property bool on: seg.value === modelData.v
-                    width: segText.implicitWidth + 28; height: 26
-                    color: on ? Theme.accent : (segMa.containsMouse ? Theme.panel : "transparent")
-                    Text { id: segText; anchors.centerIn: parent; text: modelData.k
-                           color: parent.on ? Theme.bg : Theme.ink2
-                           font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.DemiBold
-                           font.capitalization: Font.AllUppercase; font.letterSpacing: 0.8 }
-                    MouseArea { id: segMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onClicked: if (!parent.on) seg.picked(modelData.v) }
-                }
-            }
-        }
-    }
-
     // column widths (header and rows share them; the analyser column fills the rest)
     readonly property int wSwitch: 200
     readonly property int wCover: 250
@@ -284,6 +266,7 @@ Item {
 
         // ===== stat cards =====
         Rectangle {
+            visible: root.findingsSlug === ""
             Layout.fillWidth: true
             Layout.preferredHeight: 84
             color: Theme.bg
@@ -389,6 +372,7 @@ Item {
 
         // ===== which view, and (statistics) which period =====
         Rectangle {
+            visible: root.findingsSlug === ""
             Layout.fillWidth: true
             Layout.preferredHeight: 46
             color: Theme.bg
@@ -396,13 +380,13 @@ Item {
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
-                Seg {
+                LabsSeg {
                     choices: [ { k: qsTr("Analysers"), v: "table" }, { k: qsTr("Statistics"), v: "stats" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
                 Item { Layout.fillWidth: true }
-                Seg {
+                LabsSeg {
                     visible: root.view === "stats"
                     choices: [ { k: qsTr("24 hours"), v: "24h" }, { k: qsTr("7 days"), v: "7d" }, { k: qsTr("All"), v: "all" } ]
                     value: root.statsWindow
@@ -425,13 +409,27 @@ Item {
 
         // ===== statistics =====
         LabsStats {
-            visible: root.view === "stats"
+            visible: root.view === "stats" && root.findingsSlug === ""
             Layout.fillWidth: true
             Layout.fillHeight: true
             labs: root.labs
             screen: root
             window: root.statsWindow
             onPickWindow: (w) => root.statsWindow = w
+            onOpenFindings: (slug) => root.openFindings(slug)
+        }
+
+        // ===== one analyser's findings, to watch =====
+        LabsFindings {
+            id: findings
+            visible: root.findingsSlug !== ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            screen: root
+            cameraModel: root.cameraModel
+            analyzer: root.findingsSlug
+            onPeriodChanged: root.statsWindow = period      // the same period back in Statistics
+            onBack: root.findingsSlug = ""
         }
 
         // ===== table header =====

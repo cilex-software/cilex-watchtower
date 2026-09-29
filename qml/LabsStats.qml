@@ -24,6 +24,8 @@ Item {
     property var screen: null                // LabsScreen: title(), num(), known()
     property string window: "24h"
     signal pickWindow(string w)
+    // An analyser clicked: open the list of its findings, to watch (LabsFindings).
+    signal openFindings(string slug)
 
     readonly property var sdata: labs ? labs.stats : ({})
     readonly property string source: labs ? labs.statsState : ""
@@ -213,7 +215,14 @@ Item {
                 height: 60
                 color: rowMa.containsMouse ? Theme.panel : "transparent"
                 Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
-                MouseArea { id: rowMa; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+                MouseArea {
+                    id: rowMa; anchors.fill: parent; hoverEnabled: true
+                    cursorShape: row.isBuilt ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: if (row.isBuilt) st.openFindings(row.r.slug)
+                }
+                QC.ToolTip.visible: row.isBuilt && rowMa.containsMouse
+                QC.ToolTip.text: qsTr("Open its findings, to watch them")
+                QC.ToolTip.delay: 600
 
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18

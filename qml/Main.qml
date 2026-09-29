@@ -2204,6 +2204,7 @@ Window {
                     Layout.fillHeight: true
                     visible: win.section === "labs" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     labs: labsModel
+                    cameraModel: cameraModel
                 }
 
                 HealthScreen {

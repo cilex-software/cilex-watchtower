@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.704
+    VERSION 1.1.705
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -193,6 +193,8 @@ qt_add_qml_module(watchtower
         qml/HealthScreen.qml
         qml/LabsScreen.qml
         qml/LabsStats.qml
+        qml/LabsSeg.qml
+        qml/LabsFindings.qml
         qml/EventsScreen.qml
         qml/SavedViewsScreen.qml
         qml/SaveViewModal.qml
@@ -246,6 +248,9 @@ qt_add_qml_module(watchtower
         src/models/StorageHealth.cpp
         src/models/LabsStation.h
         src/models/LabsStatsData.h
+        src/models/LabsFindingsData.h
+        src/models/LabsFindingsModel.h
+        src/models/LabsFindingsModel.cpp
         src/models/LabsModel.h
         src/models/LabsModel.cpp
         src/models/LabsTimelineData.h
