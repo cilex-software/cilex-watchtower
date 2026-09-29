@@ -50,6 +50,23 @@
 >
 > Not run end-to-end: `./run-macos.sh` itself. The operator's Watchtower was running from the same
 > bundle, and the script renames the `run-last.log` it writes to.
+>
+> **Who answers `cilex://` on the operator's Mac, measured read-only with `lsregister -dump` (13:23):**
+> 12 LaunchServices records claim the scheme, and the user's LaunchServices prefs set no default
+> handler for it.
+> - **9 Watchtower bundles, none with an identifier.** One is the live `build-macos/watchtower.app`,
+>   registered at the 12:57 launch, before the fix. Eight are old `build-macos/dist/` packages
+>   (1.1.328–1.1.528), and seven of those no longer exist on disk.
+> - **3 Cilex Pro iOS-simulator apps from Xcode DerivedData, WITH identifiers.** The mobile app
+>   claims the same scheme. Only a Mac with Xcode builds has these.
+>
+> So on this Mac, a link has nine anonymous claimants, some of them dangling. That fits the
+> 2026-08-22 `kLSApplicationNotFoundErr`, without proving it. **If a `cilex://` link fails here:**
+> - `lsregister -u` each gone `dist/` path;
+> - remove or unregister the surviving 1.1.528 package;
+> - `lsregister -f` the current bundle, which the next `run-macos.sh` start also does, now with an
+>   identifier.
+> Nothing was changed in LaunchServices.
 
 <!-- 2026-09-29 LABS: worker-0.3.3 — THE KILL TOOK THE CONSOLE HOST -->
 > **2026-09-29 — worker-0.3.3: a Stop kills decoders ONLY; a station that cannot start its decoder
