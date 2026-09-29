@@ -23,12 +23,21 @@
 >   - **White vehicles read "blue":** sky reflected in glossy paint, seen from above.
 >   - **The second colour** is right 9 of 103 times.
 >   - **Main vs sub:** the same accuracy, so sub is enough.
-> - **Proposed, for the operator:**
->   - the cast gate only at dusk and night;
->   - a saturation floor for "blue" (fixed 7 of the labelled rows and broke none);
+> - **The operator's calls (22:10 MSK), all as proposed; done in `op-2` (72688ab):**
+>   - the cast gate only at dusk and night (an unknown sky keeps Colour's gate);
+>   - B, a saturation floor for "blue", in object_profile only (Colour byte-identical);
 >   - `colour_2` off;
->   - sub, not main;
->   - then a second trial ON A STATION.
+>   - sub only.
+>   - Self-test 40/40; 21 of 21 planted bugs caught.
+> - **The second-colour search has started** (reply 3). Numbers are on development rows, so they are
+>   optimistic:
+>   - A white car's windscreen mirrors the sky as a solid blue region. It is the commonest FALSE
+>     "white and blue".
+>   - Reading the second colour only from the side-panel band (M3) cuts false seconds from 93 of 132
+>     one-coloured things to 2. But it finds only 3 of 21 real ones: second colours barely reach the
+>     counted pixels.
+> - **BLOCKED:** the second trial (a station, another day). A station can only read LEASED hours
+>   (`labs.py:1457/1673`), so CV is asked how a read-only trial reads.
 > - **Rule, from cilex-vision (amended spec):** trials NEVER run on the pilot host. It records every
 >   camera.
 >   - This trial ran up to 9 decodes at once there, which took it to load 33.8 with 1.25 GB
