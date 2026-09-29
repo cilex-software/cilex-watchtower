@@ -606,11 +606,20 @@ bool EventModel::motionActive(const QString &cameraId) const
     return QDateTime::currentMSecsSinceEpoch() - started < 10 * 60 * 1000;
 }
 
+// Poll timing is a DURATION, so it is measured on a monotonic clock. It was the wall clock until
+// 2026-09-30: the booth's nightly Windows Time step (+3.75..3.93 s) read as "[EVPOLL] motion
+// answered in 4838 ms", and the gate then backed the motion poll off to 3x that answer.
+static qint64 pollClockMs()
+{
+    static QElapsedTimer clock = [] { QElapsedTimer t; t.start(); return t; }();
+    return clock.elapsed();
+}
+
 bool EventModel::pollBegin(const char *kind)
 {
     static const bool trace = qEnvironmentVariableIsSet("WT_TRACE");
     PollGate &g = m_pollGates[QByteArray(kind)];
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 now = pollClockMs();
     if (g.inflight) {
         if (trace) qInfo("[EVPOLL] %s skipped: previous still in flight (%lld ms so far)", kind, (long long)(now - g.startedMs));
         return false;
@@ -629,7 +638,7 @@ void EventModel::pollEnd(const char *kind)
 {
     PollGate &g = m_pollGates[QByteArray(kind)];
     g.inflight = false;
-    g.lastMs = QDateTime::currentMSecsSinceEpoch() - g.startedMs;
+    g.lastMs = pollClockMs() - g.startedMs;
     if (g.lastMs > 2000)
         qInfo("[EVPOLL] %s answered in %lld ms — this client backs off to one poll per %lld ms",
               kind, (long long)g.lastMs, (long long)qMin<qint64>(3 * g.lastMs, 120000));

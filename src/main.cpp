@@ -1,4 +1,5 @@
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -582,16 +583,24 @@ int main(int argc, char *argv[])
         QTimer::singleShot(expS * 1000, auth, &AuthController::corruptTokenForTest);
 
     // [LIVETIME] GUI-thread stall detector (WT_TRACE only): a 20 ms timer that reports any gap > 150 ms.
+    //
+    // The GAP is measured on a MONOTONIC clock. It was the wall clock until 2026-09-30, and the
+    // booth's clock is stepped +3.75..3.93 s by Windows Time every night between 00:03 and 00:34:
+    // each step read as a "gui_stall ~3.8 s", and on 09-30 00:11 the wall guard held Labs off for
+    // a freeze that never happened (the Windows agent's find: the app's 2 s timer shifted phase
+    // without firing late, and every gui_stall >= 2 s in the kept logs sits on a step). `t=` stays
+    // wall-clock epoch: it is a LABEL to line logs up by, not a duration.
     if (qEnvironmentVariableIsSet("WT_TRACE")) {
         auto *stallTimer = new QTimer(&app);
         stallTimer->setTimerType(Qt::PreciseTimer);
         stallTimer->setInterval(20);
-        auto *lastTick = new qint64(QDateTime::currentMSecsSinceEpoch());
-        QObject::connect(stallTimer, &QTimer::timeout, [lastTick] {
-            const qint64 now = QDateTime::currentMSecsSinceEpoch();
-            if (now - *lastTick > 150)
-                qInfo("[LIVETIME] gui_stall %lld ms ended t=%lld", (long long)(now - *lastTick), (long long)now);
-            *lastTick = now;
+        auto *sinceTick = new QElapsedTimer;
+        sinceTick->start();
+        QObject::connect(stallTimer, &QTimer::timeout, [sinceTick] {
+            const qint64 gapMs = sinceTick->restart();
+            if (gapMs > 150)
+                qInfo("[LIVETIME] gui_stall %lld ms ended t=%lld", (long long)gapMs,
+                      (long long)QDateTime::currentMSecsSinceEpoch());
         });
         stallTimer->start();
     }
