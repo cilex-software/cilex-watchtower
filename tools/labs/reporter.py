@@ -1,8 +1,9 @@
 """This station's side of cilex-vision's Labs control plane (deployed 2026-09-28).
 
-Every ~2 s the worker reports itself -- its state, the unit it holds, the machine's and
-its own CPU and memory -- and the reply is the server's orders: the station's mode, each
-analyser lane's mode, and the units it has taken back (CONTRACT.md, "Station side").
+Every ~2 s the worker reports itself -- its state, the units it holds (one per lane at
+most, worker-0.3.5), the machine's and its own CPU and memory -- and the reply is the
+server's orders: the station's mode, each analyser lane's mode, and the units it has taken
+back (CONTRACT.md, "Station side").
 
   * The SERVER is the switch (operator decision 2026-09-28): Start / Pause / Stop at four
     levels. The local control file's `paused` flag no longer governs once the server
@@ -52,14 +53,14 @@ class Reporter:
         self.log = log or logging.getLogger("labs.report")
         self._lock = threading.Lock()
         self._state = "idle"                  # the loop's own word when holding nothing
-        self._holding: Optional[W.ScanUnit] = None
+        self._holding: dict = {}              # key -> ScanUnit: every lane's units in hand
         self._hold: Optional[dict] = None
         self._orders: Optional[dict] = None
         self._orders_at: Optional[float] = None
         self._legacy: Optional[bool] = None   # None: not asked yet; True: no endpoint (404)
         self._every = 2.0
         self._revoked: set = set()
-        self._aborted: Optional[tuple] = None # the unit in hand this has already acted on
+        self._aborted: set = set()            # the units in hand this has already acted on
         self._last_error = ""
         self._last_ok_iso: Optional[str] = None
         self._next = 0.0
@@ -74,10 +75,25 @@ class Reporter:
             self._state = state
 
     def set_holding(self, unit: Optional[W.ScanUnit]) -> None:
+        """ONE unit in hand, or none (worker.run_once: the one-off --live run)."""
         with self._lock:
-            self._holding = unit
-            if unit is None:
-                self._aborted = None
+            self._holding = {} if unit is None else {_key(unit.analyzer, unit.camera_id, unit.hour_start): unit}
+            self._aborted &= set(self._holding)
+
+    def add_holding(self, unit: W.ScanUnit) -> None:
+        """A lane has a unit in hand (lanes.Scheduler): it joins the report's `holding` list."""
+        with self._lock:
+            self._holding[_key(unit.analyzer, unit.camera_id, unit.hour_start)] = unit
+
+    def remove_holding(self, unit: W.ScanUnit) -> None:
+        with self._lock:
+            k = _key(unit.analyzer, unit.camera_id, unit.hour_start)
+            self._holding.pop(k, None)
+            self._aborted.discard(k)
+
+    def holding(self) -> list:
+        with self._lock:
+            return list(self._holding.values())
 
     def kick(self) -> None:
         """Report now: a unit just ended, or the server said it has not heard from us."""
@@ -166,11 +182,11 @@ class Reporter:
 
     def report_once(self) -> bool:
         with self._lock:
-            unit, hold = self._holding, (dict(self._hold) if self._hold else None)
-            state = "paused" if hold else ("running" if unit is not None else self._state)
+            units, hold = list(self._holding.values()), (dict(self._hold) if self._hold else None)
+            state = "paused" if hold else ("running" if units else self._state)
         body = {"worker_version": self.worker_version, "state": state, "slots": self.slots,
-                "holding": ([{"analyzer": unit.analyzer, "camera_id": unit.camera_id,
-                              "hour_start": unit.hour_start}] if unit is not None else [])}
+                "holding": [{"analyzer": u.analyzer, "camera_id": u.camera_id, "hour_start": u.hour_start}
+                            for u in units]}
         if self.vitals is not None:
             try:
                 body.update(self.vitals.sample())
@@ -215,22 +231,24 @@ class Reporter:
         return True
 
     def _act_on_hand(self) -> None:
+        """Each unit in hand that the server took back -- or every one, under a hold -- is
+        dropped ONCE. Each on its own: a Stop on one lane's unit leaves the others running."""
+        todo = []
         with self._lock:
-            unit = self._holding
-            if unit is None:
-                return
-            k = _key(unit.analyzer, unit.camera_id, unit.hour_start)
-            why = ("taken back by the server" if k in self._revoked
-                   else f"held on this station: {self._hold.get('why')}" if self._hold else None)
-            if why is None or self._aborted == k:
-                return
-            self._aborted = k
-        self.log.warning("labs: dropping %s %s %s -- %s", unit.analyzer, unit.camera_id, unit.hour_start, why)
-        if self.on_abort is not None:
-            try:
-                self.on_abort(unit, why)
-            except Exception as e:
-                self.log.warning("labs: could not stop the unit's decoders: %s", e)
+            for k, unit in self._holding.items():
+                why = ("taken back by the server" if k in self._revoked
+                       else f"held on this station: {self._hold.get('why')}" if self._hold else None)
+                if why is None or k in self._aborted:
+                    continue
+                self._aborted.add(k)
+                todo.append((unit, why))
+        for unit, why in todo:
+            self.log.warning("labs: dropping %s %s %s -- %s", unit.analyzer, unit.camera_id, unit.hour_start, why)
+            if self.on_abort is not None:
+                try:
+                    self.on_abort(unit, why)
+                except Exception as e:
+                    self.log.warning("labs: could not stop the unit's decoders: %s", e)
 
     def _publish(self) -> None:
         if self.on_change is None:

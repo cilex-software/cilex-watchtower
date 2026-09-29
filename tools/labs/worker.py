@@ -59,7 +59,10 @@ from typing import Callable, Iterable, Optional, Protocol
 # a station that cannot start its decoder files the unit under that cause and stops claiming.
 # 0.3.4 (2026-09-29): rows starting outside the claimed hour are dropped before submitting,
 # every analyser (_within_hour) -- one used to sink a whole blob_geometry unit with a 422.
-WORKER_VERSION = "worker-0.3.4"
+# 0.3.5 (2026-09-29): each analyser is a LANE of its own (lanes.py), and each unit runs in a
+# process of its own (unit_proc.py): a busy, refused or stuck analyser no longer holds up the
+# others (the operator's requirement, via cilex-vision's letter of the same day).
+WORKER_VERSION = "worker-0.3.5"
 
 
 # ----------------------------------------------------------------------------------
@@ -475,6 +478,9 @@ class UnitOutcome:
     station_fault: Optional[str] = None
     # Rows dropped before submitting because they start outside the claimed hour (_within_hour).
     rows_outside_hour: int = 0
+    # True when the unit was DROPPED because it stopped making progress, or because the
+    # worker could not run it at all (worker-0.3.5, lanes.py): its lane rests, the others go on.
+    stalled: bool = False
     # Where a unit's wall time went, by phase (list, fetch, decode, analyse, submit,
     # total). The first live unit took 45.6 s wall for ~15 CPU-s, and nothing said why.
     timings: dict = field(default_factory=dict)

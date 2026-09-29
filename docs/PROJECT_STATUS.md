@@ -5,6 +5,52 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: worker-0.3.5 — ONE LANE PER ANALYSER -->
+> **2026-09-29 — worker-0.3.5: each analyser runs on its own** (the operator's requirement:
+> *"other analyser must run in separate threads and if one analyser is stuck it should not affect
+> others"*, relayed in `docs/letters/2026-09-29-each-analyser-runs-on-its-own-cilex-vision.md`).
+>
+> **What was wrong (the worker half; CV fixed the server half, 6a1e731):** one pass over the analysers
+> in alphabetical order (`run_worker.py:359` at 2fd1b54), and the first busy claim ended the pass
+> for a minute (`:337-340`, `:345-348`). CV measured, after the v17 reconnect, 11 claims in 8 min,
+> 10 of them audio_energy, 9 timed out.
+>
+> **Now (`tools/labs/lanes.py`, `tools/labs/unit_proc.py`):**
+> - **One lane per analyser:** its own claim, its own wait after a busy or refused claim, its own
+>   unit. Busy: that lane waits `busy_s` (60 s). Retry-later: 2, 4, 8, 16, 32 s, then 60 s. An
+>   unknown refusal: that lane rests. Only the station's own faults stop every lane: a refused
+>   token, a decoder that will not start.
+> - **Slots, first come first served:** a lane that just had its turn queues behind the others,
+>   and the first order is shuffled at every start. `--slots N` (or `WT_LABS_SLOTS`), default 1,
+>   the same one-unit-at-a-time load as 0.3.4.
+> - **Each unit in a process of its own** (spawn). A stuck unit (no checkpoint for 10 min) is
+>   told to stop, and killed 30 s later; its lane rests 15 min. A Stop kills that unit's
+>   decoders only, and only after the unit has acknowledged why. The BLAS/OpenMP pools are held
+>   to one thread per unit process. Measured here: 0.12-0.29 s and 56 MB per unit start with the
+>   cap, 2.3-3.2 CPU-s without it.
+> - **Reporter:** one `holding` list with every lane's units; each unit is dropped once, on its
+>   own.
+> - **status.json:** `current` is still one analyser (what the Labs screen shows). New keys:
+>   `units`, `slots`, `lane_states` (each lane's state, note and until). They are not shown in
+>   the app yet.
+> - **Cost:** blob_geometry no longer carries its model into the next hour of the same camera
+>   (every unit starts fresh). Claims go newest-first, so the carry rarely applied; a fresh model
+>   costs its warm-up (1 row in minute 0, measured 2026-09-27). camera_health keeps its baselines
+>   on disk, as before.
+>
+> **Verified (Linux, this box):**
+> - `tools/tests/labs-worker.py`: 358 checks, all pass, in 12.8 s (10.4 s before).
+> - The old loop tests were ported to the lanes, and new ones cover the letter's case,
+>   turns, the shuffle, slots (2 → peak 2, 1 → peak 1), and a stuck lane resting.
+> - Real unit processes: outcome round-trip; a Stop kills that unit's ffmpeg and not the other
+>   lane's; a hang is killed; a crash is reported; an orphaned unit stops.
+> - 17 planted bugs, all caught.
+> - A read-only run on real footage (the production analysers and decoder, claims from a local
+>   list, nothing claimed or submitted on the server): 5 units done, 0 failed, 5 unit PIDs, peak
+>   2 on 2 slots, 0 schema violations.
+> - **Not verified:** Windows (spawn, the guard's process filter, the booth's load). That is
+>   the Windows agent's run.
+
 <!-- 2026-09-29 LABS: FINDINGS VIEW -->
 > **2026-09-29 — Labs Statistics rows open a Findings view, to WATCH what an analyser found**
 > (operator request, same day). Click an analyser in Statistics and you get:

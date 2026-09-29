@@ -1612,72 +1612,235 @@ def loop_world(names, units_per=1):
     return Fake(units=units, segs=segs), [NamedPlug(n) for n in names]
 
 RW2 = RW   # run_worker, imported above for the ffmpeg check
+import lanes as LN, random as _rnd
+from concurrent.futures import ThreadPoolExecutor as _TPE
+
+# ---- station scanning: one LANE per analyser (worker-0.3.5) --------------------------------
+# The operator's requirement (2026-09-29, via cilex-vision's letter): each analyser runs on
+# its own, so a busy or stuck one cannot stop the others. Until 0.3.4 one busy claim ended
+# the whole alphabetical pass for a minute. The scheduler runs here on a fake clock with an
+# executor that does each claim and unit at once, so every order below is exact.
+T = LN.Timing()
+def timed(c, clk):
+    """Record when each claim was made, on the fake clock."""
+    c.times, orig = [], c.claim
+    def claim(a, limit):
+        c.times.append((round(clk.t, 3), a)); return orig(a, limit)
+    c.claim = claim
+    return c
+class LimitFake(Fake):
+    """A server that honours `limit` (Fake hands over every unit it has at once)."""
+    def claim(self, analyzer, limit):
+        self.claims.append(analyzer); self._pop("claim", analyzer)
+        q = self.units.get(analyzer, []); u, self.units[analyzer] = q[:limit], q[limit:]
+        return u, len(self.units[analyzer])
+def lane_world(names, units_per=1, cls=LimitFake):
+    units = {n: [W.ScanUnit(f"cam-{n}-{i}", "2026-09-26T08:00:00Z", n, None, 1) for i in range(units_per)] for n in names}
+    segs = {(u.camera_id, u.hour_start): [seg(1)] for us in units.values() for u in us}
+    return cls(units=units, segs=segs), [NamedPlug(n) for n in names]
+def sched(c, plugs, clk, control, *, reporter=None, station_check=None, order=None, runner=None,
+          decode=None, supported=None, rng=None, hb=None):
+    hb = hb if hb is not None else HbRec()
+    names = [p.name for p in plugs]
+    ask = reporter.abort_reason if reporter is not None else (lambda u: None)
+    runner = runner or LN.InProcessRunner(c, decode=decode or decode_chroma(11.5), abort_reason=ask,
+                                          tmpdir=TMP, sleep=lambda s: None)
+    s = LN.Scheduler(c, supported or (lambda: plugs), runner=runner, hb=hb, names=names, control=control,
+                     reporter=reporter, station_check=station_check, executor=LN.SyncExecutor(),
+                     clock=clk.now, sleep=clk.sleep, order=None if rng is not None else (order or names), rng=rng)
+    return s, hb
+def done_by(c, name): return sum(1 for u, b in c.submitted if u.analyzer == name and not b.get("failed"))
+def claims_of(c, name): return [t for t, a in c.times if a == name]
+
 c, plugs = loop_world(["illumination", "foreground_mask"])
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": True}),
-              sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: PAUSED claims nothing and says so", c.claims == [] and hb.fields.get("state") == "paused", f"{c.claims} {hb.fields.get('state')}")
+clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": True}))
+s.run(until=lambda: clk.t >= 60)
+check("lanes: PAUSED claims nothing and says so", c.claims == [] and hb.fields.get("state") == "paused",
+      f"{c.claims} {hb.fields.get('state')}")
 
 # Paused, it still keeps "what this station could run" current: the capability check is a
 # read of the server's OpenAPI, and without it a worker paused since an old server showed
 # "needs a server update" for every analyser however far the server had moved.
 _asked = []
-c, plugs = loop_world(["illumination"])
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: _asked.append(clk.t) or plugs, decode=decode_chroma(11.5), hb=hb,
-              control=ctl_seq({"paused": True}), sleep=clk.sleep, clock=clk.now, passes=3)
-check("loop: PAUSED still re-reads what the server can run, at least every RECHECK_S, and claims nothing",
-      len(_asked) == 3 and c.claims == [] and max(b - a for a, b in zip(_asked, _asked[1:])) <= RW2.RECHECK_S + 1,
+c, plugs = loop_world(["illumination"]); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": True}), supported=lambda: _asked.append(clk.t) or plugs)
+s.run(until=lambda: clk.t >= 3 * T.legacy_poll_s)
+check("lanes: PAUSED still asks what the server can run at every tick (supported() rate-limits its own reads), "
+      "and claims nothing",
+      len(_asked) >= 3 and c.claims == [] and max(b - a for a, b in zip(_asked, _asked[1:])) <= T.legacy_poll_s + 0.01,
       f"{_asked} {c.claims}")
 
-c, plugs = loop_world(["illumination", "foreground_mask"])
-hb, clk = HbRec(), Clock()
-tot = RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-                    sleep=clk.sleep, clock=clk.now, passes=2)
-check("loop: running asks for ONE unit of each analyser in turn", c.claims[:2] == ["illumination", "foreground_mask"], str(c.claims))
-check("loop: every unit is counted and the last one is shown",
+c, plugs = loop_world(["illumination", "foreground_mask"]); clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+tot = s.run(until=lambda: clk.t >= T.idle_s + 10)
+check("lanes: each lane claims ONE unit when its turn comes, in the queue's order",
+      c.claims[:2] == ["illumination", "foreground_mask"], str(c.claims))
+check("lanes: every unit is counted and the last one is shown",
       tot == {"claimed": 2, "done": 2, "failed": 0, "abandoned": 0, "revoked": 0}
       and (hb.fields.get("last_unit") or {}).get("analyzer") == "foreground_mask", f"{tot} {hb.fields.get('last_unit')}")
-check("loop: a pass with nothing to claim goes IDLE (and waits, rather than spinning)",
-      hb.fields.get("state") == "idle" and clk.t >= RW2.IDLE_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} t={clk.t}")
+check("lanes: a lane with nothing to claim goes IDLE, and asks again only after idle_s -- no spinning",
+      hb.fields.get("state") == "idle" and len(c.times) == 6 and all(t < 1 for t, _a in c.times[:4])
+      and all(t >= T.idle_s for t, _a in c.times[4:]), f"{hb.fields.get('state')} {c.times}")
 
-c, plugs = loop_world(["illumination", "foreground_mask"])
-hb, clk = HbRec(), Clock()
-# reads: pass start (running), before plugin 1 (running), gate (running), before plugin 2 (PAUSED) ...
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb,
-              control=ctl_seq({"paused": False}, {"paused": False}, {"paused": False}, {"paused": True}),
-              sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: a Pause takes effect at the NEXT claim, not mid-unit", c.claims == ["illumination"], str(c.claims))
+_box = {"paused": False, "camera_health": False, "why": "", "hold": None}
+_dec = decode_chroma(11.5)
+def _pause_mid_unit(path, kf, wc, **k):
+    _box.update(paused=True, why="paused"); return _dec(path, kf, wc)
+c, plugs = loop_world(["illumination", "foreground_mask"]); clk = Clock()
+s, hb = sched(c, plugs, clk, lambda: dict(_box), decode=_pause_mid_unit)
+tot = s.run(until=lambda: clk.t >= 30)
+check("lanes: a Pause lands at the NEXT claim -- the unit in hand is finished and submitted, nothing more is claimed",
+      c.claims == ["illumination"] and len(c.submitted) == 1 and tot["done"] == 1 and hb.fields.get("state") == "paused",
+      f"{c.claims} {tot} {hb.fields.get('state')}")
 
-c, plugs = loop_world(["illumination", "camera_health"])
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-              sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: camera_health is NOT run on a station that has not opted in (one station only)",
-      "camera_health" not in c.claims and hb.fields.get("camera_health") is False, str(c.claims))
-c, plugs = loop_world(["illumination", "camera_health"])
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=HbRec(), control=ctl_seq({"paused": False, "ch": True}),
-              sleep=Clock().sleep, clock=Clock().now, passes=1)
+c, plugs = loop_world(["illumination", "camera_health"]); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= 10)
+check("lanes: camera_health is NOT run on a station that has not opted in (one station only)",
+      "camera_health" not in c.claims and "illumination" in c.claims and hb.fields.get("camera_health") is False,
+      str(c.claims))
+c, plugs = loop_world(["illumination", "camera_health"]); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False, "ch": True}))
+s.run(until=lambda: clk.t >= 10)
 check("...and IS run where the control file opts this station in", "camera_health" in c.claims, str(c.claims))
 
-c, plugs = loop_world(["illumination"])
+c, plugs = loop_world(["illumination", "foreground_mask"]); clk = Clock(); timed(c, clk)
 c.refuse = {("claim", "illumination"): [R(401, "station_token_not_recognised")]}
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-              sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: a refused station token is shown as FATAL, with the server's reason, then retried later",
-      hb.fields.get("state") == "fatal" and "station_token_not_recognised" in (hb.fields.get("note") or "")
-      and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= T.fatal_s + 5)
+_fat = [e for e in hb.log if e.get("state") == "fatal"]
+check("lanes: a refused station token is the STATION's fault -- FATAL with the server's reason, and NO lane "
+      "claims until the fatal pause is over",
+      _fat and "station_token_not_recognised" in (_fat[0].get("note") or "") and c.times[0][1] == "illumination"
+      and len(c.times) >= 2 and all(t >= T.fatal_s for t, _a in c.times[1:]), f"{c.times} {_fat[:1]}")
 
-c, plugs = loop_world(["illumination"])
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=3); clk = Clock(); timed(c, clk)
 c.refuse = {("claim", "illumination"): [W._refusal_from(500, b"Internal Server Error")]}
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-              sleep=clk.sleep, clock=clk.now, passes=1)
-check("loop: a bare claim 500 shows as BUSY (the server answered), says what happened, and waits a MINUTE, not ten",
-      hb.fields.get("state") == "busy" and "no code" in (hb.fields.get("note") or "")
-      and RW2.UNREACHABLE_S - RW2.PAUSED_POLL_S <= clk.t < RW2.FATAL_S - RW2.PAUSED_POLL_S,
-      f"{hb.fields.get('state')} {hb.fields.get('note')} t={clk.t}")
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= T.busy_s + 5)
+_ill = claims_of(c, "illumination")
+_busy = [e for e in hb.log if e.get("state") == "busy"]
+check("lanes: a bare claim 500 is BUSY for THAT lane only -- a minute, not ten -- and says what happened",
+      len(_ill) >= 2 and T.busy_s <= _ill[1] - _ill[0] < T.fatal_s and _busy and "no code" in (_busy[0].get("note") or ""),
+      f"illumination at {_ill} busy={_busy[:1]}")
+check("...while the other lane claims and finishes all its units meanwhile",
+      done_by(c, "foreground_mask") == 3 and all(t < 1 for t in claims_of(c, "foreground_mask")[:3]),
+      f"foreground_mask at {claims_of(c, 'foreground_mask')}")
+
+# THE LETTER'S CASE (cilex-vision, 2026-09-29): after the v17 reconnect 10 of 11 claims in
+# 8 minutes were audio_energy -- first in the alphabet -- and 9 timed out, while the other
+# analysers waited behind it.
+_names = ["audio_energy", "colour_histogram", "illumination"]
+c, plugs = lane_world(_names, units_per=4); clk = Clock(); timed(c, clk)
+c.refuse = {("claim", "audio_energy"): [R(503, "labs_busy", True)] * 50}
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), order=_names)     # audio first, as the alphabet had it
+s.run(until=lambda: clk.t >= 2 * T.busy_s + 5)
+_a = claims_of(c, "audio_energy")
+check("lanes: the letter's case -- audio_energy's claims come back busy, and ONLY its lane waits: the other two "
+      "finish all their units at once",
+      done_by(c, "colour_histogram") == 4 and done_by(c, "illumination") == 4
+      and all(t < 1 for n in _names[1:] for t in claims_of(c, n)[:5]), f"{c.times[:14]}")
+check("...and audio_energy asks again once a minute (busy_s), never in a tight loop",
+      len(_a) == 3 and all(b - x >= T.busy_s for x, b in zip(_a, _a[1:])), str(_a))
+
+_n3 = ["optical_flow", "blob_geometry", "track_linking"]
+c, plugs = lane_world(_n3, units_per=2); clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), order=_n3)
+s.run(until=lambda: clk.t >= 5)
+check("lanes: with one slot the lanes take TURNS -- a lane that has just had its unit queues behind the others",
+      [a for _t, a in c.times[:6]] == _n3 + _n3, str(c.times[:6]))
+
+_firsts = []
+for _seed in range(20):
+    c, plugs = lane_world(sorted(RW2.PLUGINS)); clk = Clock()
+    s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), rng=_rnd.Random(_seed))
+    s.run(max_ticks=1)
+    _firsts.append(c.claims[0] if c.claims else None)
+check("lanes: no analyser is always first -- the first order is shuffled at every start",
+      None not in _firsts and len(set(_firsts)) >= 5 and _firsts.count("audio_energy") < len(_firsts), str(_firsts))
+
+class _Blocking:
+    """Units that take a moment, on real threads: how many run at once?"""
+    single_slot = False
+    def __init__(self): self.lock, self.now, self.peak, self.ran = threading.Lock(), 0, 0, []
+    def run(self, unit, plugin):
+        with self.lock:
+            self.now += 1; self.peak = max(self.peak, self.now); self.ran.append(unit.analyzer)
+        _time.sleep(0.05)
+        with self.lock:
+            self.now -= 1
+        o = W.UnitOutcome(unit); o.submitted = True
+        return o
+    def abort(self, u, why): return False
+    def abort_all(self, why): pass
+def _slots_run(n):
+    names = ["illumination", "foreground_mask", "colour_histogram", "optical_flow"]
+    c, plugs = lane_world(names, units_per=3)
+    r = _Blocking()
+    s = LN.Scheduler(c, lambda: plugs, runner=r, hb=HbRec(), names=names, control=ctl_seq({"paused": False}),
+                     slots=n, executor=_TPE(max_workers=8),
+                     timing=LN.Timing(poll_s=0.01, legacy_poll_s=0.01, idle_s=0.2))
+    th = threading.Thread(target=s.run, daemon=True); th.start()
+    end = _time.time() + 20
+    while len(r.ran) < 12 and _time.time() < end:
+        _time.sleep(0.02)
+    s.stop(); th.join(5)
+    return r
+_r2, _r1 = _slots_run(2), _slots_run(1)
+check("lanes: `slots` bounds how many units run at once across ALL lanes -- with 2, never 3, and it does use both",
+      len(_r2.ran) == 12 and _r2.peak == 2, f"ran={len(_r2.ran)} peak={_r2.peak}")
+check("...and one slot is one unit at a time (the booth's bound)", len(_r1.ran) == 12 and _r1.peak == 1,
+      f"ran={len(_r1.ran)} peak={_r1.peak}")
+
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
+c.refuse = {("claim", "illumination"): [R(409, "labs_lane_not_running", True)]}
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= 10)
+check("lanes: a lane the server says is not running waits by itself; the other claims and finishes its units",
+      len(claims_of(c, "illumination")) == 1 and done_by(c, "foreground_mask") == 2
+      and s.lanes["illumination"].state == "not_running", f"{c.times} {s.lanes['illumination'].state}")
+
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
+c.refuse = {("claim", "illumination"): [R(409, "a_slug_nobody_knows", False)]}
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= 30)
+check("lanes: a refusal nobody expected stops THAT lane (never guessed at), not the station",
+      len(claims_of(c, "illumination")) == 1 and done_by(c, "foreground_mask") == 2
+      and not any(e.get("state") == "fatal" for e in hb.log) and "a_slug_nobody_knows" in s.lanes["illumination"].note,
+      f"{c.times} {s.lanes['illumination'].note}")
+
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
+c.refuse = {("claim", "illumination"): [R(503, "object_storage_unavailable", True)] * 10}
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+s.run(until=lambda: clk.t >= 125)
+_ill = claims_of(c, "illumination")
+_gaps = [round(b - x) for x, b in zip(_ill, _ill[1:])]
+check("lanes: a claim refused 'retry later' is asked again by its lane alone, after 2, 4, 8, 16 and 32 s, then "
+      "a minute -- and the slot goes to the others meanwhile",
+      _gaps[:6] == [2, 4, 8, 16, 32, 60] and done_by(c, "foreground_mask") == 2
+      and all(t < 1 for t in claims_of(c, "foreground_mask")[:2]), f"gaps={_gaps} {c.times[:6]}")
+
+class _StallIllumination(LN.InProcessRunner):
+    def run(self, unit, plugin):
+        if unit.analyzer == "illumination":
+            o = W.UnitOutcome(unit, note="it made no progress for 600 s"); o.stalled = True
+            return o
+        return super().run(unit, plugin)
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=3); clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}),
+              runner=_StallIllumination(c, decode=decode_chroma(11.5), tmpdir=TMP, sleep=lambda s: None))
+tot = s.run(until=lambda: clk.t >= T.rest_s + 5)
+_ill = claims_of(c, "illumination")
+check("lanes: a unit that stopped making progress is dropped and ITS lane rests (rest_s); the other lane finishes",
+      len(_ill) >= 2 and _ill[1] - _ill[0] >= T.rest_s and done_by(c, "foreground_mask") == 3
+      and tot["abandoned"] >= 1, f"illumination at {_ill} {tot}")
+
+c, plugs = loop_world(["illumination"], units_per=2); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
+tot = s.run(until=lambda: clk.t >= 5)
+check("lanes: a claim that returns more units than asked runs them all -- they are this station's already",
+      tot["claimed"] == 2 and tot["done"] == 2 and len(c.submitted) == 2, str(tot))
 
 check("loop: a server that hands out the hour IN PROGRESS (1.0.61 and older) gets NO claims from the loop",
       RW2.server_too_old("1.0.61") and RW2.server_too_old("1.0.9") and not RW2.server_too_old("1.0.62")
@@ -2097,18 +2260,25 @@ check("control: with no station check (or a station that starts its decoder) the
       _body.get("failed") and not str(_body.get("error", "")).startswith("station_fault:") and not rep.fatal,
       str(_body)[:160])
 
-c, plugs = loop_world(["illumination"])
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-              sleep=clk.sleep, clock=clk.now, passes=1, station_check=lambda: _FAULT)
-check("loop: a station that cannot start its decoder claims NOTHING, says why, and waits the fatal pause",
-      c.claims == [] and hb.fields.get("state") == "fatal" and "0xC0000142" in (hb.fields.get("note") or "")
-      and clk.t >= RW2.FATAL_S - RW2.PAUSED_POLL_S, f"{c.claims} {hb.fields.get('state')} t={clk.t}")
-c, plugs = loop_world(["illumination"])
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=ctl_seq({"paused": False}),
-              sleep=clk.sleep, clock=clk.now, passes=1, station_check=lambda: None)
-check("control: a station whose decoder starts claims as before", c.claims == ["illumination"], str(c.claims))
+c, plugs = loop_world(["illumination", "foreground_mask"]); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), station_check=lambda: _FAULT)
+s.run(until=lambda: clk.t >= T.fatal_s - 1)
+check("lanes: a station that cannot start its decoder claims NOTHING on ANY lane, says why, and waits the fatal pause",
+      c.claims == [] and hb.fields.get("state") == "fatal" and "0xC0000142" in (hb.fields.get("note") or ""),
+      f"{c.claims} {hb.fields.get('state')} t={clk.t}")
+_fixed = {"n": 0}
+def _fixed_later():
+    _fixed["n"] += 1
+    return _FAULT if _fixed["n"] == 1 else None
+c, plugs = loop_world(["illumination"]); clk = Clock(); timed(c, clk)
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), station_check=_fixed_later)
+s.run(until=lambda: clk.t >= T.fatal_s + 5)
+check("...and asks again after the pause: once the decoder starts, the lanes claim",
+      c.times and all(t >= T.fatal_s for t, _a in c.times) and done_by(c, "illumination") == 1, str(c.times))
+c, plugs = loop_world(["illumination"]); clk = Clock()
+s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}), station_check=lambda: None)
+s.run(until=lambda: clk.t >= 5)
+check("control: a station whose decoder starts claims as before", c.claims[:1] == ["illumination"], str(c.claims))
 
 # ---- the reporter --------------------------------------------------------------------------
 class _RepClient:
@@ -2187,16 +2357,43 @@ _t["now"] = 0.0
 check("reporter: the status file is told when what it says CHANGES, not on every 2-s report",
       len(_changes) == 1 and _changes[0]["governed"] and _changes[0]["server_mode"] == "running", str(len(_changes)))
 
-# ---- the loop, governed -----------------------------------------------------------------------
+# ---- one holding list for every lane's units (worker-0.3.5) -----------------------------------
+_ua = W.ScanUnit("cam-9", "2026-09-28T01:00:00.000+00:00", "illumination", None, 1)
+_ub = W.ScanUnit("cam-7", "2026-09-28T02:00:00.000+00:00", "audio_energy", None, 1)
+_dropped = []
+rp = RPT.Reporter(_RepClient([_ORD, dict(_ORD, revoked=[{"analyzer": "illumination", "camera_id": "cam-9",
+                                                         "hour_start": "2026-09-28T01:00:00Z"}])]),
+                  vitals=_Vit(), worker_version="worker-0.3.5", slots=2, control=lambda: _ctl_box["c"],
+                  clock=lambda: _t["now"], on_abort=lambda un, why: _dropped.append((un.analyzer, why)))
+rp.add_holding(_ua); rp.add_holding(_ub); rp.report_once()
+_b = rp.client.bodies[-1]
+check("reporter: ONE holding list covers every lane's units in hand, and the slots are reported",
+      _b["state"] == "running" and _b["slots"] == 2
+      and sorted(h["analyzer"] for h in _b["holding"]) == ["audio_energy", "illumination"], str(_b))
+rp.report_once(); rp.report_once()
+check("reporter: a unit taken back is dropped ONCE, and ONLY that one -- the other lane's unit keeps running",
+      [a for a, _w in _dropped] == ["illumination"] and rp.abort_reason(_ua) and rp.abort_reason(_ub) is None,
+      str(_dropped))
+rp.remove_holding(_ua); rp.report_once()
+check("reporter: a unit handed back leaves the list; the others stay",
+      [h["analyzer"] for h in rp.client.bodies[-1]["holding"]] == ["audio_energy"], str(rp.client.bodies[-1]["holding"]))
+_ctl_box["c"] = dict(_ctl_box["c"], hold={"by": "wall-guard", "why": "dark tiles for 4 s", "at": "2026-09-28T09:01:00Z"})
+_dropped.clear(); rp.add_holding(_ua); rp.tick(); rp.tick()
+check("reporter: a local HOLD drops EVERY unit in hand, each once",
+      sorted(a for a, _w in _dropped) == ["audio_energy", "illumination"], str(_dropped))
+_ctl_box["c"] = dict(_ctl_box["c"], hold=None)
+
+# ---- the lanes, governed ------------------------------------------------------------------------
 class _Gov:
     def __init__(self, mode, lanes, level=None, at="2026-09-28T09:00:00Z"):
         self.mode, self.lanes, self.level, self.at = mode, lanes, level, at
-        self.kicks, self.states, self.held = 0, [], []
+        self.kicks, self.states, self.events = 0, [], []
     def governed(self): return True
     def station(self): return None if self.mode is None else {"mode": self.mode, "level": self.level, "at": self.at}
     def lane_mode(self, n): return self.lanes.get(n)
     def set_state(self, s): self.states.append(s)
-    def set_holding(self, u): self.held.append(u)
+    def add_holding(self, u): self.events.append(("in hand", u.analyzer))
+    def remove_holding(self, u): self.events.append(("handed back", u.analyzer))
     def abort_reason(self, u): return None
     def kick(self): self.kicks += 1
     def snapshot(self): return {"lanes": dict(self.lanes)}
@@ -2205,23 +2402,24 @@ _LOCAL_RUN = {"paused": False, "camera_health": False, "why": "", "hold": None}
 
 c, plugs = loop_world(["illumination", "blob_geometry"])
 g = _Gov("running", {"illumination": "running", "blob_geometry": "paused"})
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
-              sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+clk = Clock()
+s, hb = sched(c, plugs, clk, lambda: _LOCAL_PAUSED, reporter=g)
+s.run(until=lambda: clk.t >= 10)
 check("governed: the SERVER decides -- a local `paused` flag no longer stops claims (operator decision)",
-      c.claims == ["illumination"], str(c.claims))
-check("governed: only lanes whose mode is `running` are claimed", "blob_geometry" not in c.claims)
-check("governed: the unit in hand is announced to the reporter, and a report follows each unit",
-      len(g.held) >= 2 and g.held[0] is not None and g.held[1] is None and g.kicks >= 1, f"{g.held} kicks={g.kicks}")
+      c.claims[:1] == ["illumination"], str(c.claims))
+check("governed: only lanes whose mode is `running` are claimed", "blob_geometry" not in c.claims, str(c.claims))
+check("governed: the unit in hand is announced to the reporter and handed back, and a report follows each unit",
+      g.events == [("in hand", "illumination"), ("handed back", "illumination")] and g.kicks >= 1,
+      f"{g.events} kicks={g.kicks}")
 
 for _mode, _level, _at, _word, _says in (("paused", "station", "2026-09-28T09:05:00Z", "paused", "this workstation, since 2026-09-28T09:05:00Z"),
                                          ("stopped", None, None, "stopped_by_server", "never started"),
                                          (None, None, None, "waiting", "no fresh orders")):
     c, plugs = loop_world(["illumination"])
     g = _Gov(_mode, {"illumination": "running"}, level=_level, at=_at)
-    hb, clk = HbRec(), Clock()
-    RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_RUN,
-                  sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+    clk = Clock()
+    s, hb = sched(c, plugs, clk, lambda: _LOCAL_RUN, reporter=g)
+    s.run(until=lambda: clk.t >= 10)
     check(f"governed, station mode {_mode}: claims nothing, and the status says so ('{_says}')",
           c.claims == [] and hb.fields.get("state") == _word and _says in (hb.fields.get("note") or ""),
           f"{c.claims} {hb.fields.get('state')} {hb.fields.get('note')}")
@@ -2229,25 +2427,24 @@ for _mode, _level, _at, _word, _says in (("paused", "station", "2026-09-28T09:05
 _HELD = dict(_LOCAL_RUN, hold={"by": "wall-guard", "why": "stall 3 s", "at": ""})
 for _g in (_Gov("running", {"illumination": "running"}), None):
     c, plugs = loop_world(["illumination"])
-    hb, clk = HbRec(), Clock()
-    RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _HELD,
-                  sleep=clk.sleep, clock=clk.now, passes=1, reporter=_g)
+    clk = Clock()
+    s, hb = sched(c, plugs, clk, lambda: _HELD, reporter=_g)
+    s.run(until=lambda: clk.t >= 10)
     check(f"a local HOLD beats {'a server Start' if _g else 'the local flag'}: nothing claimed, the reason shown",
           c.claims == [] and hb.fields.get("state") == "held" and "stall 3 s" in (hb.fields.get("note") or ""),
           f"{c.claims} {hb.fields.get('state')} {hb.fields.get('note')}")
 
 c, plugs = loop_world(["camera_health", "illumination"])
 g = _Gov("running", {"camera_health": "running", "illumination": "running"})
-hb, clk = HbRec(), Clock()
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_RUN,
-              sleep=clk.sleep, clock=clk.now, passes=1, reporter=g)
+clk = Clock()
+s, hb = sched(c, plugs, clk, lambda: _LOCAL_RUN, reporter=g)
+s.run(until=lambda: clk.t >= 10)
 check("governed: camera_health still needs THIS station's opt-in (one station only; the server does not enforce it)",
-      c.claims == ["illumination"], str(c.claims))
+      "camera_health" not in c.claims and "illumination" in c.claims, str(c.claims))
 
 # A NEW REASON NOT TO CLAIM IS SHOWN AT ONCE. Measured on the pilot at the 2026-09-28
 # deploy: the server governed and said "stopped", while the status file -- and the reports
-# -- still said the old local "paused". The wait woke only when claiming became ALLOWED,
-# so a change from one "not allowed" to another waited out RECHECK_S (15 min).
+# -- still said the old local "paused" for up to RECHECK_S (15 min).
 class _Flip(_Gov):
     """Not governed until the clock reaches `at_s` (the deploy); then stopped by the server."""
     def __init__(self, clk, at_s):
@@ -2261,16 +2458,19 @@ class _HbT(HbRec):
         if "state" in kw: self.when.append((self.clk.t, kw["state"]))
 c, plugs = loop_world(["illumination"])
 clk = Clock(); g = _Flip(clk, 10.0); hb = _HbT(clk)
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
-              sleep=clk.sleep, clock=clk.now, passes=2, reporter=g)
+s, _hb = sched(c, plugs, clk, lambda: _LOCAL_PAUSED, reporter=g, hb=hb)
+s.run(until=lambda: clk.t >= 20)
 _first = next((t for t, w in hb.when if w == "stopped_by_server"), None)
-check("paused locally, then the server governs with 'stopped': the status says so within one poll, not 15 min later",
-      c.claims == [] and _first is not None and _first < 10.0 + RW2.PAUSED_POLL_S + RW2.GOVERNED_POLL_S
-      and "stopped" in g.states[g.states.index("paused"):], f"{hb.when} {g.states}")
+check("paused locally, then the server governs with 'stopped': the status says so within one tick, not 15 min later",
+      c.claims == [] and _first is not None and _first < 10.0 + T.legacy_poll_s + T.poll_s
+      and "stopped" in g.states[g.states.index("paused"):], f"{hb.when} {g.states[:3]}")
 c, plugs = loop_world(["illumination"])
 clk = Clock(); hb = _HbT(clk)
-RW2.scan_loop(c, lambda: plugs, decode=decode_chroma(11.5), hb=hb, control=lambda: _LOCAL_PAUSED,
-              sleep=clk.sleep, clock=clk.now, passes=2)
+s, _hb = sched(c, plugs, clk, lambda: _LOCAL_PAUSED, hb=hb)
+s.run(until=lambda: clk.t >= 2 * RW2.RECHECK_S)
+check("control: an UNCHANGED reason writes the status once -- no churn while nothing changes",
+      [w for _, w in hb.when] == ["paused"], str(hb.when))
+
 # UNPLUG IS GENTLE (cilex-vision's v17 semantics, 5aefa39, 2026-09-28): when an admin unplugs a
 # workstation x analyser "hose", the lane reads "stopped" but units in hand stay leased and are
 # NOT listed in `revoked` -- the station finishes and submits them. Only a Stop revokes. The
@@ -2282,8 +2482,8 @@ def _unplug_mid_unit(path, kf, want_chroma, **k):
     _gU.lanes["illumination"] = "stopped"      # the hose is unplugged while this unit decodes
     return _dec(path, kf, want_chroma)
 _clkU = Clock()
-_tot = RW2.scan_loop(_cU, lambda: _plugsU, decode=_unplug_mid_unit, hb=HbRec(), control=lambda: _LOCAL_RUN,
-                     sleep=_clkU.sleep, clock=_clkU.now, passes=1, reporter=_gU)
+_sU, _hbU = sched(_cU, _plugsU, _clkU, lambda: _LOCAL_RUN, reporter=_gU, decode=_unplug_mid_unit)
+_tot = _sU.run(until=lambda: _clkU.t >= 10)
 check("unplug mid-unit (lane -> stopped, nothing revoked): the unit in hand is FINISHED and submitted",
       len(_cU.submitted) == 1 and _tot.get("done") == 1 and _tot.get("abandoned", 0) == 0, f"{_cU.submitted} {_tot}")
 _rf = W._refusal_from(409, b'{"detail": "labs_lane_not_running", "code": "labs_lane_not_running", '
@@ -2292,9 +2492,201 @@ _rf = W._refusal_from(409, b'{"detail": "labs_lane_not_running", "code": "labs_l
 check("v17's claim refusal with its two NEW keys (never_connected, unplugged) is still 'skip this lane'",
       W.action_for(_rf) is W.Action.NOT_RUNNING, str(_rf))
 
-check("control: an UNCHANGED reason still waits the full recheck -- no busy loop",
-      [w for _, w in hb.when] == ["paused", "paused"] and hb.when[1][0] >= RW2.RECHECK_S - RW2.PAUSED_POLL_S,
-      str(hb.when))
+# An admin's Start on a lane must not wait out the idle pause: a change in the server's lane
+# modes ends every idle lane's wait.
+c, plugs = lane_world(["illumination", "foreground_mask"], units_per=0); clk = Clock(); timed(c, clk)
+g = _Gov("running", {"illumination": "running", "foreground_mask": "paused"})
+s, hb = sched(c, plugs, clk, lambda: _LOCAL_RUN, reporter=g)
+s.run(until=lambda: clk.t >= 10)
+g.lanes["foreground_mask"] = "running"
+c.units["illumination"] = [W.ScanUnit("cam-late", "2026-09-26T08:00:00Z", "illumination", None, 1)]
+c.segs[("cam-late", "2026-09-26T08:00:00Z")] = [seg(1)]
+s.run(until=lambda: clk.t >= 20)
+_ill = claims_of(c, "illumination")
+check("governed: a change in the server's lane modes ends an idle lane's wait at once, not two minutes later",
+      len(_ill) >= 2 and _ill[1] < 10 + T.poll_s + 1 and done_by(c, "illumination") == 1, str(c.times))
+
+# ---- units in processes of their own (unit_proc.py, worker-0.3.5) -------------------------------
+# Real processes: a unit's result comes back, a Stop kills ITS decoders and no other lane's,
+# a unit that hangs is killed, one that dies is reported, and one whose worker is gone stops.
+import textwrap as _tw, json as _json2
+import unit_proc as UP
+_CH = tempfile.mkdtemp(prefix="wt-child-")
+_CH_OUT, _CH_PIDS = os.path.join(_CH, "submitted.jsonl"), os.path.join(_CH, "decoders.txt")
+try:
+    _FF = P.ffmpeg_exe()
+except Exception:
+    _FF = None
+open(os.path.join(_CH, "labs_test_child.py"), "w", encoding="utf-8").write(_tw.dedent(f'''
+    """Test doubles for unit processes (tools/tests/labs-worker.py). Written by the tests; not shipped."""
+    import json, logging, os, subprocess, time
+    import worker as W
+    OUT, PIDS, FFMPEG = {_CH_OUT!r}, {_CH_PIDS!r}, {_FF!r}
+    class FileClient:
+        def segments(self, u, limit, stream_type, window=None, window_at=None):
+            return [W.Segment(f"seg-{{i}}", f"http://x/labs/segments/seg-{{i}}", "2026-09-24T10:00:00+00:00",
+                              "2026-09-24T10:00:30+00:00", 30.0, 100, "main", 64, 48, "h264") for i in range(2)]
+        def fetch(self, s, dest):
+            open(dest, "wb").write(b"x" * 100)
+            return 100
+        def submit(self, u, body):
+            with open(OUT, "a", encoding="utf-8") as f:
+                f.write(json.dumps({{"camera_id": u.camera_id, "failed": bool(body.get("failed")),
+                                    "blas": os.environ.get("OPENBLAS_NUM_THREADS"), "pid": os.getpid()}}) + "\\n")
+    def client(spec): return FileClient()
+    def decode(path, kf, want_chroma, **k): return [None]
+    class Plug:
+        version = "t"; segment_limit = 2; keyframes_only = True; want_chroma = False; stateful = False
+        def __init__(self, name): self.name = name
+        def new_state(self): return None
+        def analyse(self, stream, st, u, ctx):
+            mode = u.camera_id.split("-")[0]
+            if mode == "hang":
+                time.sleep(60)      # bounded: a stall detector that failed must FAIL the check, not hang the suite
+            if mode == "crash":
+                os._exit(7)
+            if mode == "warn":
+                logging.getLogger("labs.test").warning("a warning from inside the unit process")
+            if mode == "decoder":
+                p = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc",
+                                      "-f", "null", "-"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL)
+                with open(PIDS, "a", encoding="utf-8") as f:
+                    f.write(f"{{u.camera_id}} {{p.pid}}\\n")
+                p.wait()
+                raise RuntimeError(f"ffmpeg exited {{p.returncode}}")   # what a killed decoder looks like
+            for _ in stream:
+                pass
+            return []
+    def plugin(name): return Plug(name)
+'''))
+sys.path.insert(0, _CH)
+_SPEC = {"client": "labs_test_child:client", "plugin": "labs_test_child:plugin", "decode": "labs_test_child:decode",
+         "station_check": None}
+def _rows():
+    try:
+        return [_json2.loads(x) for x in open(_CH_OUT, encoding="utf-8")]
+    except FileNotFoundError:
+        return []
+def _pid_of(cam):
+    try:
+        for line in open(_CH_PIDS, encoding="utf-8"):
+            k, v = line.split()
+            if k == cam:
+                return int(v)
+    except FileNotFoundError:
+        pass
+    return None
+def _alive(pid):
+    if VT.psutil is not None:
+        try:
+            return VT.psutil.Process(pid).status() != VT.psutil.STATUS_ZOMBIE
+        except VT.psutil.Error:
+            return False
+    if sys.platform.startswith("linux"):
+        try:
+            return open(f"/proc/{pid}/stat").read().split(")")[-1].split()[0] != "Z"
+        except OSError:
+            return False
+    return None
+_units_before = set(glob.glob(os.path.join(tempfile.gettempdir(), "wt-labs-unit-*")))
+_logged2 = []
+class _Cap(logging.Handler):
+    def emit(self, r): _logged2.append(r.getMessage())
+_cap = _Cap(); logging.getLogger("labs.test").addHandler(_cap)
+
+_pr = UP.ProcessRunner(_SPEC, watch_s=0.05)
+_o = _pr.run(W.ScanUnit("ok-1", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+_r = [x for x in _rows() if x["camera_id"] == "ok-1"]
+check("unit process: a unit runs in a process of its own, and its outcome comes back to the worker",
+      _o.submitted and _o.segments_scanned == 2 and len(_r) == 1 and _r[0]["pid"] != os.getpid(), f"{_o} {_r}")
+check("unit process: its BLAS/OpenMP pools are held to one thread (2.3-3.2 CPU-s per unit start without)",
+      _r and _r[0]["blas"] == os.environ.get("OPENBLAS_NUM_THREADS", "1"), str(_r))
+
+_o = _pr.run(W.ScanUnit("warn-1", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+check("unit process: its warnings reach the worker's log (on Windows it does not inherit the worker's stderr)",
+      _o.submitted and any("a warning from inside the unit process" in m and "warn-1" in m for m in _logged2),
+      str(_logged2[-2:]))
+
+_o = _pr.run(W.ScanUnit("crash-1", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+check("unit process: one that DIES is reported as such (exit 7), nothing filed, and its lane rests",
+      not _o.submitted and _o.stalled and "exit 7" in _o.note and not [x for x in _rows() if x["camera_id"] == "crash-1"],
+      f"{_o.note} stalled={_o.stalled}")
+
+# THE ORDER OF A STOP. The unit is told why FIRST; its decoders die only once it has answered
+# (or ACK_WAIT_S passes). A killed decoder makes the analyser fail, and worker._file_failed
+# records REVOKED instead of filing that failure only if the reason is already known: killed
+# first, a Stop could spend one of the unit's three attempts. Real processes rarely lose that
+# race on an idle machine, so the order itself is pinned here.
+class _SpyConn:
+    def __init__(self, ev): self.ev = ev
+    def send(self, msg): self.ev.append(("told", msg[0]))
+    def close(self): pass
+class _SpyProc:
+    pid = 424242
+_ev = []
+_sp = UP.ProcessRunner(_SPEC, kill=lambda pid: _ev.append(("killed decoders of", pid)) or 1,
+                       say_killed=lambda u, why, n: None)
+_uo = W.ScanUnit("order-1", "2026-09-24T10:00:00Z", "illumination", None, 1)
+_co = UP._Child(unit=_uo, proc=_SpyProc(), recv=None, send=_SpyConn(_ev), progress=0.0)
+_sp._children[UP._key(_uo)] = _co
+_sp.abort(_uo, "taken back by the server (test)")
+_after_abort = list(_ev)
+_sp._kill_decoders(_co)                     # what the watcher does when the unit answers ("ack",)
+check("unit process: a Stop TELLS the unit why first, and kills its decoders only after it has answered",
+      _after_abort == [("told", "abort")] and _ev == [("told", "abort"), ("killed decoders of", 424242)], str(_ev))
+_sp._kill_decoders(_co)
+check("...and kills them once", _ev.count(("killed decoders of", 424242)) == 1, str(_ev))
+
+_prs = UP.ProcessRunner(_SPEC, stall_s=1.0, grace_s=1.0, watch_s=0.05)
+_t0 = _time.time()
+_o = _prs.run(W.ScanUnit("hang-1", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+check("unit process: one that makes NO progress is dropped after stall_s and KILLED after grace_s -- a thread "
+      "could not be; its lane rests",
+      not _o.submitted and _o.stalled and "no progress" in _o.note and "killed" in _o.note and _time.time() - _t0 < 15,
+      f"{_o.note} {_time.time() - _t0:.1f}s")
+
+if _FF is None:
+    print("SKIP unit process: the per-unit decoder kill and the orphan checks -- 3 checks; no ffmpeg on this station")
+elif _alive(os.getpid()) is None:
+    print("SKIP unit process: the per-unit decoder kill and the orphan checks -- 3 checks; this station cannot "
+          "see whether a process is alive (no psutil, no /proc)")
+else:
+    _res = {}
+    _ua2 = W.ScanUnit("decoder-a", "2026-09-24T10:00:00Z", "illumination", None, 1)
+    _ub2 = W.ScanUnit("decoder-b", "2026-09-24T11:00:00Z", "audio_energy", None, 1)
+    _ta = threading.Thread(target=lambda: _res.update(a=_pr.run(_ua2, NamedPlug("illumination"))), daemon=True)
+    _tb = threading.Thread(target=lambda: _res.update(b=_pr.run(_ub2, NamedPlug("audio_energy"))), daemon=True)
+    _ta.start(); _tb.start()
+    _end = _time.time() + 30
+    while (_pid_of("decoder-a") is None or _pid_of("decoder-b") is None) and _time.time() < _end:
+        _time.sleep(0.05)
+    _pa, _pb = _pid_of("decoder-a"), _pid_of("decoder-b")
+    _pr.abort(_ua2, "taken back by the server (test)")
+    _ta.join(20)
+    _b_alive = _pb is not None and _alive(_pb)
+    _oa = _res.get("a")
+    check("unit process: a Stop on ONE unit kills ITS decoder and drops it as REVOKED -- not filed as a failure",
+          _oa is not None and _oa.action is W.Action.REVOKED and not _oa.submitted and "not filed" in _oa.note
+          and _pa is not None and _alive(_pa) is False and not [x for x in _rows() if x["camera_id"] == "decoder-a"],
+          f"{_oa} a={_pa} alive={_pa and _alive(_pa)}")
+    check("...while the OTHER lane's unit and its decoder keep running", _b_alive and _tb.is_alive(),
+          f"b={_pb} alive={_b_alive} thread={_tb.is_alive()}")
+    # The worker dies: its end of the unit's inbox closes. The unit must drop its work.
+    with _pr._lock:
+        _cb = next((x for x in _pr._children.values() if x.unit is _ub2), None)
+    if _cb is not None:
+        _cb.send.close()
+    _tb.join(40)
+    _ob = _res.get("b")
+    check("unit process: when its worker is gone the unit stops its decoder and drops the unit (nothing filed)",
+          _ob is not None and _ob.action is W.Action.REVOKED and "worker process ended" in _ob.note
+          and _alive(_pb) is False and not [x for x in _rows() if x["camera_id"] == "decoder-b"],
+          f"{_ob} b={_pb} alive={_alive(_pb)}")
+check("unit process: no unit leaves its temporary directory behind",
+      set(glob.glob(os.path.join(tempfile.gettempdir(), "wt-labs-unit-*"))) <= _units_before,
+      str(set(glob.glob(os.path.join(tempfile.gettempdir(), "wt-labs-unit-*"))) - _units_before))
+logging.getLogger("labs.test").removeHandler(_cap)
 
 # ---- the CLI --------------------------------------------------------------------------------
 import argparse as _ap
