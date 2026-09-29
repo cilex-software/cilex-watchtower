@@ -12,6 +12,13 @@
   never by what is on screen. A guard opening one camera parks the wall's tiles, and
   returning from it rebuilds 9-13 streams by itself; neither is harm (measured
   2026-09-28, see the script header).
+- **A clock step is not a freeze** (2026-09-30). Windows Time steps the booth's clock
+  forward about 3.8 s every night (00:03-00:34, System log Kernel-General event 1), and
+  apps before 1.1.749 timed `gui_stall` on the wall clock, so every step read as a
+  3.8 s freeze; at 00:11 that night one held Labs. The guard subtracts any forward step
+  the System log recorded inside a stall before judging it. The freeze signal exists only
+  where the app runs with `WT_TRACE` (the booth). The office app logs no `gui_stall` at
+  all, so its guard has no freeze signal there.
 - **Release** only after 15 min with no harm, and only a hold whose `by` is `wall-guard`
   at that moment; an admin's hold is never touched.
 - **`-StartWorker`**: the guard also starts the worker when none is running (hidden, Idle

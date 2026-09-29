@@ -17,7 +17,9 @@
 #   err > 0 for 3 samples; lit < livePipes for 3 samples;
 #   swd rises, or recon rises >= 3 in 10 min, on a STEADY full wall (this sample and the two
 #   before; returning from a single camera rebuilds 9-13 pipelines by itself);
-#   gui_stall >= 2000 ms, or 3 stalls >= 1 s in 10 min;
+#   gui_stall >= 2000 ms, or 3 stalls >= 1 s in 10 min -- LESS any forward step of the system
+#   clock the System log recorded inside it (see ClockStepMs: apps before 1.1.749 timed stalls
+#   on the wall clock, and Windows Time steps the booth's +3.8 s every night);
 #   the wall app restarted or is not running;
 #   full-wall displayed rate < 70% of BaseRate for 3 samples (full wall to full wall only).
 # RELEASE (clear_hold): only a hold THIS guard set (by = "wall-guard", including one left
@@ -140,6 +142,32 @@ function Clear-Hold($why) {
     L "HOLD RELEASED: $why"
     foreach ($o in $out) { L "  release: $o" }
 }
+# Up to 1.1.748 the app's stall detector (src/main.cpp, runs only when WT_TRACE is set) measured
+# on the WALL clock, so a forward step of the system clock read as a freeze of the same length;
+# fe8fc6f (1.1.749) moved it to a monotonic clock, and this stays for walls not yet on it (and
+# costs nothing after: a monotonic stall has no step inside it to subtract). Windows Time steps
+# the booth's clock +3.75..+3.93 s every night between 00:03 and 00:34 (System log,
+# Kernel-General event 1; 16 steps 09-15..09-30), and every gui_stall >= 2 s the booth logged
+# 09-26..09-30 sits on one of them to the second; 2026-09-30 00:11:13 "gui_stall 3770 ms"
+# (step +3.754 s) set a hold while the app's 2 s timer never missed a tick. So subtract every
+# forward step whose event falls inside the stall ($end is the line's own time, which is when
+# the stall ended). Returns 0 when there is none, AND when the log cannot be read: an
+# unreadable log must never hide a real freeze.
+function ClockStepMs([datetime]$end, [int]$ms) {
+    try {
+        $ev = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-General'; Id = 1;
+                                                 StartTime = $end.AddMilliseconds(-$ms - 1000); EndTime = $end.AddSeconds(2) } -ErrorAction Stop)
+    } catch { return 0 }
+    $sum = 0.0
+    foreach ($e in $ev) {
+        try {
+            $d = @{}; foreach ($x in ([xml]$e.ToXml()).Event.EventData.Data) { $d[$x.Name] = $x.'#text' }
+            $s = ([datetime]::Parse($d['NewTime']) - [datetime]::Parse($d['OldTime'])).TotalMilliseconds
+            if ($s -gt 0) { $sum += $s }
+        } catch {}
+    }
+    return [int][Math]::Round($sum)
+}
 
 # ---------------------------------------------------------------------------------------
 if ($BaseRate -le 0 -or $BasePipes -le 0) { L "START ABORTED: -BaseRate and -BasePipes (pre-worker full-wall values) are required"; exit 1 }
@@ -229,10 +257,24 @@ while ($true) {
                     $lastFrames = $null; $lastSwd = $null; $lastRecon = $null; $full1 = $false; $full2 = $false; $recons.Clear()
                     continue
                 }
-                $m = [regex]::Match($line, 'gui_stall (\d+) ms')
+                $m = [regex]::Match($line, '^(\S+) .*gui_stall (\d+) ms')
                 if ($m.Success) {
-                    $ms = [int]$m.Groups[1].Value
-                    Csv ("{0},,,,{1}" -f $now.ToString('s'), $ms)
+                    $ms = [int]$m.Groups[2].Value
+                    if ($ms -ge 1000) {
+                        $ts = $m.Groups[1].Value; if ($ts.Length -gt 23) { $ts = $ts.Substring(0, 23) }
+                        $end = [datetime]::MinValue
+                        if ([datetime]::TryParseExact($ts, 'yyyy-MM-ddTHH:mm:ss.fff', [Globalization.CultureInfo]::InvariantCulture,
+                                                      [Globalization.DateTimeStyles]::None, [ref]$end)) {
+                            $step = ClockStepMs $end $ms
+                            if ($step -gt 0) {
+                                $real = [Math]::Max(0, $ms - $step)
+                                L ("gui_stall {0} ms at {1} is the system clock moving +{2} ms (Windows Time, System log Kernel-General 1), not a freeze: counted as {3} ms" -f `
+                                   $ms, $ts.Substring(11, 8), $step, $real)
+                                $ms = $real
+                            }
+                        }
+                    }
+                    if ($ms -gt 150) { Csv ("{0},,,,{1}" -f $now.ToString('s'), $ms) }
                     if ($ms -ge 1000) { $stalls.Add($now); $lastHarm = $now; L "gui_stall $ms ms" }
                     if ($ms -ge 2000) { Harm "the wall's screen froze for $ms ms" }
                 }
