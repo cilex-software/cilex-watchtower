@@ -36,8 +36,16 @@
 >   - Reading the second colour only from the side-panel band (M3) cuts false seconds from 93 of 132
 >     one-coloured things to 2. But it finds only 3 of 21 real ones: second colours barely reach the
 >     counted pixels.
-> - **BLOCKED:** the second trial (a station, another day). A station can only read LEASED hours
->   (`labs.py:1457/1673`), so CV is asked how a read-only trial reads.
+> - **The second trial is a PILOT of the real analyser** (the operator, 22:45 MSK; CV's reply 4):
+>   - one station (office suggested), the five cameras only, rows admin-only, deleted by
+>     `analyzer_version` if it fails;
+>   - **worker-0.3.7 (8db9ce1) has the `object_profile` lane.** Thumbnails are PUT under the lease
+>     before the results that name them. It claims only once the server's OpenAPI has the
+>     thumbnail PUT;
+>   - the app names it Vehicles / Транспорт.
+>   - **Waiting for:** CV's DEPLOYED line, then the Windows agent takes 0.3.7 to the chosen station.
+>     This host stays on 0.3.6, server-stopped.
+>   - Two contract questions are in reply 5: "unknown" as a finding, and thumbnails for gated rows.
 > - **Rule, from cilex-vision (amended spec):** trials NEVER run on the pilot host. It records every
 >   camera.
 >   - This trial ran up to 9 decodes at once there, which took it to load 33.8 with 1.25 GB
