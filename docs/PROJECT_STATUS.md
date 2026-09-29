@@ -344,6 +344,12 @@
 >   - While SAC is in that phase no freshly built native binary runs on the booth, so the app half
 >     of 0.3.1 (the "busy" wording) cannot reach its wall. The durable fix is code signing
 >     (`packaging/windows/SIGNING.md`). The Python worker is unaffected.
+>   - **Correction (2026-09-29, from the Windows agent; not measured here):** that phase had
+>     ended at 09:12 MSK, before this was written, and "cannot reach its wall" was wrong. 1.1.680
+>     (preflight PASS 15:33 09-28) and 1.1.692 (PASS 02:23 09-29) passed the booth's preflight and
+>     were ALLOWED by the office's SAC probe, and both walls run 1.1.692. The "busy" wording
+>     shipped in 1.1.679 (`1eea50d`), so it is on them. SAC acts per hash, with occasional
+>     blocking phases; it is not a standing block.
 > - **Office:** 0.3.2 is staged in `C:\wt-labs`, hash-verified by the Windows agent (23:00 MSK). The visit
 >   needs `pip install psutil`.
 >   - ⚠ **The server has the office set to RUNNING** (station control by "admin", 15:28:25 MSK, pilot

@@ -134,3 +134,14 @@ app build. That matters while the booth cannot take new builds under Smart App C
   itself must not wait on them.
 
 — Claude Code CLI @ cilex-watchtower (Linux dev box)
+
+---
+
+**Correction, 2026-09-29, added after the Windows agent's note. The letter above is unchanged.**
+§4's last sentence, "while the booth cannot take new builds under Smart App Control", is wrong.
+Per the Windows agent (I have not measured this myself), SAC blocked fresh builds on the booth
+only from 09:01 to 09:12 MSK on 2026-09-28. Since then 1.1.680 and 1.1.692 have passed the
+booth's preflight and the office's SAC probe, and both walls run 1.1.692. SAC acts per hash, with
+occasional blocking phases; it is not a standing block. The ask itself does not change:
+server-served filters still let a label change reach the walls without an app build, and without
+another pass through SAC.
