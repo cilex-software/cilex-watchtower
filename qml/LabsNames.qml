@@ -28,7 +28,9 @@ QtObject {
         "illumination":     "#d8cf72",
         "optical_flow":     "#62b6d9",
         "perceptual_hash":  "#9d978c",
-        "track_linking":    "#8c86e0"
+        "track_linking":    "#8c86e0",
+        // Not a lane row (keys stays the operator's ten); named here for the Labs screen.
+        "object_profile":   "#e0a458"
     })
     readonly property var colors: keys.map(function (k) { return palette[k]; })
     function color(k) { return palette[k] || "#9d978c"; }
@@ -47,6 +49,8 @@ QtObject {
         // opposite of what it finds (the operator's reason for the rename, 2026-09-29).
         case "perceptual_hash":  return qsTr("Frozen picture");
         case "audio_energy":     return qsTr("Sound");
+        // V1 vehicle search (cilex-vision reply4): the operator's names, 2026-09-29.
+        case "object_profile":   return qsTr("Vehicles");
         case "image_embedding":  return qsTr("Similar pictures");
         default:                 return k;
         }
@@ -64,6 +68,7 @@ QtObject {
         case "track_linking":    return qsTr("PATHS", "labs lane label");
         case "perceptual_hash":  return qsTr("FROZEN", "labs lane label");
         case "audio_energy":     return qsTr("SOUND", "labs lane label");
+        case "object_profile":   return qsTr("VEHICLES", "labs lane label");
         case "image_embedding":  return qsTr("SIMILAR", "labs lane label");
         default:                 return k.toUpperCase();
         }

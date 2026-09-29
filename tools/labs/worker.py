@@ -64,7 +64,7 @@ from typing import Callable, Iterable, Optional, Protocol
 # others (the operator's requirement, via cilex-vision's letter of the same day).
 # 0.3.6 (2026-09-29): a unit dropped for making no progress, or whose process died, is FILED
 # failed with why (cilex-vision); blob_geometry files one row per passage, within a row budget.
-WORKER_VERSION = "worker-0.3.6"
+WORKER_VERSION = "worker-0.3.7"
 
 
 # ----------------------------------------------------------------------------------
@@ -106,6 +106,12 @@ _BY_SLUG = {
     # again, and a server at its limit should get at most one claim a minute per station.
     "labs_busy": Action.SERVER_BUSY,
     "scan_unit_revoked": Action.REVOKED,
+    # The thumbnail PUT (object_profile, cilex-vision reply4): each is a malformed request
+    # from THIS worker, not a transient -- filed failed with its cause, never retried.
+    "bad_thumb_key": Action.BUG,
+    "thumb_too_large": Action.BUG,
+    "thumb_not_jpeg": Action.BUG,
+    "thumbs_not_accepted": Action.BUG,
 }
 
 
@@ -232,6 +238,8 @@ class LabsClient(Protocol):
                  window_at: Optional[float] = None) -> list[Segment]: ...
     def fetch(self, seg: Segment, dest_path: str) -> int: ...
     def submit(self, unit: ScanUnit, body: dict) -> None: ...
+    # Only for a plugin that files thumbnails (object_profile): PUT one JPEG under the lease.
+    def put_thumb(self, unit: ScanUnit, key: str, jpeg: bytes) -> Optional[dict]: ...
 
 
 class HttpLabsClient:
@@ -245,13 +253,14 @@ class HttpLabsClient:
         self.timeout = timeout_s
 
     def _req(self, method: str, path: str, body: Optional[dict] = None,
-             raw_to: Optional[str] = None):
+             raw_to: Optional[str] = None, raw_body: Optional[bytes] = None,
+             content_type: Optional[str] = None):
         url = path if path.startswith("http") else self.base + path
-        data = json.dumps(body).encode() if body is not None else None
+        data = raw_body if raw_body is not None else (json.dumps(body).encode() if body is not None else None)
         req = urllib.request.Request(url, data=data, method=method)
         req.add_header("x-cilex-station-token", self._token)
         if data is not None:
-            req.add_header("content-type", "application/json")
+            req.add_header("content-type", content_type or "application/json")
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 if raw_to is not None:
@@ -313,6 +322,12 @@ class HttpLabsClient:
 
     def fetch(self, seg, dest_path):
         return self._req("GET", seg.fetch_url, raw_to=dest_path)
+
+    def put_thumb(self, unit, key, jpeg):
+        # cilex-vision reply4: image/jpeg, at most 32,768 bytes, key [a-z0-9-]{1,40}, only
+        # while this station holds the unit; idempotent ("stored" / "unchanged").
+        return self._req("PUT", _unit_path(unit, "thumbs/" + urllib.parse.quote(key, safe="")),
+                         raw_body=jpeg, content_type="image/jpeg")
 
     def submit(self, unit, body):
         # ANY 2xx is success, and that includes 200 {"status": "already_recorded"}:
@@ -480,6 +495,8 @@ class UnitOutcome:
     station_fault: Optional[str] = None
     # Rows dropped before submitting because they start outside the claimed hour (_within_hour).
     rows_outside_hour: int = 0
+    # Thumbnails PUT before the results that name them (object_profile).
+    thumbs_uploaded: int = 0
     # True when the unit was DROPPED because it stopped making progress, or because the
     # worker could not run it at all (worker-0.3.5, lanes.py): its lane rests, the others go on.
     stalled: bool = False
@@ -797,7 +814,7 @@ def _run_unit(client, plugin, unit, decode, states, context, tmpdir, sleep):
     # so the row cap, the metrics caps, the identical-body retry and the
     # file-it-with-its-cause rule exist in exactly one place. This path used to carry
     # its own copy; two copies of one rule is how they drift.
-    return _finish(client, plugin, unit, out, obs, sleep)
+    return _finish(client, plugin, unit, out, obs, sleep, thumbs=ctx.get("thumbs"))
 
 
 def _run_raw(client, plugin, unit, segs, out, tmpdir, sleep):
@@ -984,7 +1001,7 @@ def _within_hour(obs, unit):
     return kept, dropped
 
 
-def _finish(client, plugin, unit, out, obs, sleep):
+def _finish(client, plugin, unit, out, obs, sleep, thumbs: Optional[dict] = None):
     """Check and submit a unit's observations. The ONE place a result is submitted
     for the raw paths, so the rules below cannot drift between copies: the row cap and
     the metrics caps are checked BEFORE submitting (the server checks both before it
@@ -1016,6 +1033,35 @@ def _finish(client, plugin, unit, out, obs, sleep):
             check_metrics(ob.get("metrics"))
         except MetricsViolation as e:
             return _file_failed(client, plugin, unit, out, f"metrics_violation: {e}", Action.BUG)
+    if thumbs is not None:
+        # THUMBNAILS FIRST, then the results that name them (cilex-vision reply4): the server
+        # keeps only the thumbnails a row names, so the other order would file rows pointing at
+        # nothing. Only the rows that survived the checks above are served -- a row dropped for
+        # starting outside the hour takes its thumbnail with it.
+        named = sorted({(ob.get("metrics") or {}).get("thumb") for ob in obs} - {None})
+        missing = [k for k in named if k not in thumbs]
+        if missing:
+            return _file_failed(client, plugin, unit, out,
+                                f"thumb_missing: {len(missing)} row(s) name a thumbnail never made, e.g. {missing[0]}",
+                                Action.BUG)
+        t = _now()
+        try:
+            for key in named:
+                why = _abort_reason()
+                if why:                          # taken back between two uploads: stop here
+                    out.action, out.note = Action.REVOKED, why
+                    return out
+                try:
+                    _retrying(client.put_thumb, unit, key, thumbs[key], sleep=sleep)
+                except Refusal as r:
+                    a = action_for(r)
+                    if a is Action.BUG:
+                        return _file_failed(client, plugin, unit, out, f"thumb_refused: {key}: {r}", a)
+                    out.action, out.note = _taken_back(a, f"thumb {key}: {r}")
+                    return out
+                out.thumbs_uploaded += 1
+        finally:
+            _add(out, "thumbs_s", t)
     body = {"analyzer_version": f"{plugin.version}+{WORKER_VERSION}",
             "segments_scanned": out.segments_scanned, "observations": obs}
     try:

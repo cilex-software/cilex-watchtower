@@ -71,6 +71,7 @@ Item {
         case "track_linking":    return qsTr("Follows each moving thing: how long it stayed, where it came and went.");
         case "perceptual_hash":  return qsTr("Finds hours where nothing changed, and scenes that repeat.");
         case "audio_energy":     return qsTr("Loudness and sudden sounds, on cameras that record audio.");
+        case "object_profile":   return qsTr("The main colour of each thing that passes, and a picture of it. Aimed at vehicles; not under infrared.");
         case "image_embedding":  return qsTr("Search by picture. Not built yet.");
         default:                 return "";
         }

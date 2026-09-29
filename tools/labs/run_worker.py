@@ -50,7 +50,8 @@ PLUGINS = {"illumination": P.IlluminationPlugin, "blob_geometry": P.ShapePlugin,
            "frame_difference": P.FrameDifferencePlugin, "audio_energy": P.AudioEnergyPlugin,
            "optical_flow": P.OpticalFlowPlugin, "perceptual_hash": P.PerceptualHashPlugin,
            "camera_health": P.CameraHealthPlugin, "foreground_mask": P.ForegroundMaskPlugin,
-           "colour_histogram": P.ColourHistogramPlugin, "track_linking": P.TrackLinkingPlugin}
+           "colour_histogram": P.ColourHistogramPlugin, "track_linking": P.TrackLinkingPlugin,
+           "object_profile": P.ObjectProfilePlugin}
 
 
 def make_plugin(name):

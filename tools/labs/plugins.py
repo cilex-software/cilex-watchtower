@@ -33,6 +33,7 @@ import labs_perceptual_hash as ph
 import labs_track_linking as tl
 import worker as W
 import shape_observations as so
+import object_profile as op
 
 log = logging.getLogger(__name__)
 
@@ -258,6 +259,114 @@ class ShapePlugin:
                 if extra:
                     row["metrics"] = extra
                 out.append(row)
+        return out
+
+
+# ----------------------------------------------------------------------------------
+class _ProfileState:
+    """object_profile's per-camera memory: the shape analyser's background model and the
+    observer's ring of recent frames. Both are pictures of the recent past."""
+
+    def __init__(self, shape, observer):
+        self.shape = shape
+        self.observer = observer
+
+
+class ObjectProfilePlugin:
+    """V1 Vehicles (object_profile, op-2): the colour of each PASSAGE's own pixels and a
+    thumbnail of its best view. cilex-vision's specs V1 and reply2/reply4 (2026-09-29).
+
+    One row per passage, the SAME passages Object shapes finds: the shape analyser runs here
+    with object_profile's observer (it changes none of blob_geometry's rows, measured on a
+    real hour). Folded rows (a recurring source) and budget-merged rows are not passages and
+    get no row here. The colour rule, gates and thumbnail are object_profile.py's.
+
+    THUMBNAILS: one JPEG per row, left in the unit's context under "thumbs"; the worker PUTs
+    those the surviving rows name BEFORE it submits them (worker._finish). colour_2 is OFF.
+    Stream `sub`: the V1 trial measured main no better (22 and 22 of 43 by eye).
+    """
+    name = op.ANALYZER
+    version = op.VERSION
+    segment_limit = 200
+    keyframes_only = True
+    want_chroma = False
+    want_planes = True
+    stateful = True
+    state_is_recent_past = True
+    stream_type = "sub"
+
+    def __init__(self, cfg: Optional["so.Config"] = None, pcfg: Optional["op.Config"] = None):
+        self.cfg = cfg or so.Config()
+        self.pcfg = pcfg or op.DEFAULT
+
+    def new_state(self):
+        return _ProfileState(so.AnalyserState(self.cfg), op.Observer(self.pcfg))
+
+    @staticmethod
+    def supported_by(openapi: dict) -> "Optional[str]":
+        """None if the server takes object_profile's thumbnails; otherwise why not. Until
+        then nothing is claimed: a row naming a thumbnail the server cannot hold is useless."""
+        try:
+            for path, ops in openapi["paths"].items():
+                if "/labs/scan/" in path and "/thumbs/" in path and "put" in ops:
+                    return None
+        except Exception:
+            return "could not read the server's OpenAPI"
+        return "server predates object_profile thumbnails (cilex-vision reply4)"
+
+    def analyse(self, segs, state, unit, context):
+        starts, sky = {}, {}
+
+        def stream():
+            for seg, frames in segs:
+                starts[seg.segment_id] = seg.start_time
+                sky[seg.segment_id] = seg.scene_light_astronomical
+                yield so.SegmentMeta.from_api({
+                    "segment_id": seg.segment_id, "camera_id": unit.camera_id,
+                    "start_time": seg.start_time, "duration_s": seg.duration_s,
+                    "stream_type": seg.stream_type, "width": seg.width,
+                    "height": seg.height, "codec": seg.codec}), frames
+
+        rows = []
+        for _meta, obs, _stats in so.analyse_window(stream(), state.shape, self.cfg,
+                                                     observer=state.observer):
+            rows.extend(obs)
+        hour = _parse(unit.hour_start)
+        thumbs = context.setdefault("thumbs", {})
+        taken: set = set()
+        out = []
+        for ob in rows:
+            if ob.recur_folded or ob.coarse_bin_s or ob.view is None:
+                continue
+            if ob.segment_id not in starts:
+                raise ValueError(f"row names segment {ob.segment_id!r}, which this unit never streamed")
+            base = _parse(starts[ob.segment_id])
+            if base is None:
+                continue
+            t = base + timedelta(seconds=float(ob.t_offset_s or 0.0))
+            span = float(ob.span_s or 0.0)
+            if not 0.0 <= span < W.GROUP_MAX_SPAN_S:
+                raise ValueError(f"object_profile row spans {span} s; a row must stay under "
+                                 f"{W.GROUP_MAX_SPAN_S:.0f} s to join an event group")
+            v = ob.view
+            res = op.colour_of(v, self.pcfg, sky=sky.get(v.segment_id))
+            ms = max(0, int(round((t - hour).total_seconds() * 1000))) if hour is not None else 0
+            key = op.thumb_key(ms, taken)
+            thumbs[key] = op.thumbnail(v, self.pcfg)
+            m = {"thumb": key, "stream": self.stream_type,
+                 "best_at_s": round(float(ob.bbox_at_s or 0.0), 3),
+                 "body_px": int(res.get("body_px", 0)), "scene_chroma": res["scene_chroma"]}
+            if res.get("bg_chroma") is not None:
+                m["bg_chroma"] = res["bg_chroma"]
+            if res.get("colour_gate"):
+                m["colour_gate"] = res["colour_gate"]
+            else:
+                m["colour_1"] = res["colour_1"]
+                m["colour_1_share"] = res["colour_1_share"]
+            out.append({"start_time": _iso(t), "end_time": _iso(t + timedelta(seconds=span)),
+                        "bbox_x": ob.bbox_x, "bbox_y": ob.bbox_y, "bbox_w": ob.bbox_w,
+                        "bbox_h": ob.bbox_h, "shape_class": ob.shape_class,
+                        "shape_confidence": ob.shape_confidence, "metrics": m})
         return out
 
 

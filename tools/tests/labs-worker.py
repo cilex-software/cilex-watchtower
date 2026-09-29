@@ -2847,6 +2847,147 @@ check("vitals: the allow-list -- decoders by name, with or without .exe or a bui
       all(VT.is_decoder(n) for n in ("ffmpeg", "ffmpeg.exe", "FFMPEG.EXE", "ffprobe.exe", "ffmpeg-v1144.exe"))
       and not any(VT.is_decoder(n) for n in ("conhost.exe", "python.exe", "cmd.exe", "sleep", "", None)))
 
+
+# ---------------------------------------------------------------- object_profile (Vehicles, V1 op-2)
+# cilex-vision reply4 (2026-09-29): a pilot of the real analyser on one station. Thumbnails are PUT
+# under the lease FIRST, then the results that name them; four new refusals are the worker's bugs.
+import re as _re
+import labs_colour_histogram as _CH
+import object_profile as _OP
+
+def _op_frames(n=70, warm=30, step=0.4):
+    """A red box crossing a flat grey scene, as 4:2:0 planes (the selftest's scene)."""
+    base = np.empty((180, 320, 3), np.uint8); base[:] = (150, 150, 150); base[::7, ::11] = (160, 160, 160)
+    out = []
+    for i in range(n):
+        f = base.copy()
+        if i >= warm:
+            x = 10 + 6 * (i - warm)
+            if x + 40 < 320:
+                f[80:110, x:x + 40] = (220, 20, 20)
+        ycc = _CH.rgb_to_ycbcr(f.astype(np.float32))
+        y = np.clip(np.rint(ycc[..., 0]), 0, 255).astype(np.uint8)
+        u = np.clip(np.rint(ycc[..., 1].reshape(90, 2, 160, 2).mean((1, 3))), 0, 255).astype(np.uint8)
+        v = np.clip(np.rint(ycc[..., 2].reshape(90, 2, 160, 2).mean((1, 3))), 0, 255).astype(np.uint8)
+        out.append(so.Frame(index=i, t_offset_s=i * step, luma=y, u=u, v=v))
+    return out
+
+_OPF = _op_frames()
+def _op_decode(path, kf, want_chroma, want_planes=False):
+    assert want_planes, "object_profile must ask the decoder for the U and V planes"
+    return list(_OPF)
+
+class _ThumbFake(Fake):
+    def __init__(self, *a, thumb_refuse=None, **k):
+        super().__init__(*a, **k)
+        self.log, self.thumbs = [], {}
+        self.thumb_refuse = list(thumb_refuse or [])
+    def put_thumb(self, u, key, jpeg):
+        if self.thumb_refuse:
+            r = self.thumb_refuse.pop(0)
+            if r: raise r
+        self.log.append(("thumb", key)); self.thumbs[key] = jpeg
+        return {"status": "stored"}
+    def submit(self, u, body):
+        self.log.append(("submit",)); super().submit(u, body)
+
+def _op_segs(cam):
+    return [W.Segment(f"op-{i}", f"http://x/labs/segments/op-{i}", f"2026-09-24T10:00:{i * 30:02d}+00:00",
+                      f"2026-09-24T10:00:{i * 30 + 28:02d}+00:00", 28.0, 3_000_000, "sub", 320, 180, "h264",
+                      scene_light_astronomical="day", astro_key_present=True) for i in range(2)]
+
+_OPP = P.ObjectProfilePlugin()
+_uo = unit(a="object_profile")
+_c = _ThumbFake(segs={(_uo.camera_id, _uo.hour_start): _op_segs(_uo.camera_id)})
+_o = W.run_unit(_c, _OPP, _uo, decode=_op_decode, states={}, tmpdir=TMP, sleep=lambda s: None)
+_b = _c.submitted[0][1] if _c.submitted else {}
+_rows = _b.get("observations") or []
+_named = [(r.get("metrics") or {}).get("thumb") for r in _rows]
+check("object_profile: a unit of a moving red box is SUBMITTED with rows, as op-2+worker-0.3.7",
+      _o.submitted and len(_rows) >= 1 and _b.get("analyzer_version") == f"op-2+{W.WORKER_VERSION}"
+      and W.WORKER_VERSION == "worker-0.3.7", str((_o.note, _b.get("analyzer_version"), len(_rows))))
+check("object_profile: EVERY thumbnail is PUT before the results, and only those the rows name",
+      _c.log and _c.log[-1] == ("submit",) and all(e[0] == "thumb" for e in _c.log[:-1])
+      and sorted(k for _, k in _c.log[:-1]) == sorted(_named) and _o.thumbs_uploaded == len(_named),
+      str(_c.log))
+check("object_profile: each thumbnail is a JPEG of at most 32,768 bytes, its key [a-z0-9-]{1,40}",
+      _c.thumbs and all(j[:2] == b"\xff\xd8" and len(j) <= 32768 for j in _c.thumbs.values())
+      and all(_re.fullmatch(r"[a-z0-9-]{1,40}", k) for k in _c.thumbs), str({k: len(j) for k, j in _c.thumbs.items()}))
+_allowed = {"thumb", "stream", "best_at_s", "body_px", "scene_chroma", "bg_chroma",
+            "colour_1", "colour_1_share", "colour_gate"}
+check("object_profile: rows carry only the V1 keys and the two evidence keys -- NO colour_2 (the operator's call)",
+      all(set((r.get("metrics") or {})) <= _allowed and "colour_2" not in r["metrics"]
+          and "colour_2_share" not in r["metrics"] for r in _rows), str([sorted(r["metrics"]) for r in _rows]))
+_ok_caps = True
+for _r in _rows:
+    try:
+        W.check_metrics(_r["metrics"])
+    except W.MetricsViolation:
+        _ok_caps = False
+check("object_profile: every row passes the server's metrics caps; stream is 'sub'",
+      _ok_caps and all(r["metrics"]["stream"] == "sub" for r in _rows))
+check("object_profile: each row is a passage -- inside the hour, span under 300 s, the box and shape typed",
+      all(r["start_time"] >= "2026-09-24T10:00:00" and r["start_time"] < "2026-09-24T11:00:00"
+          and r["end_time"] >= r["start_time"]
+          and all(k in r for k in ("bbox_x", "bbox_y", "bbox_w", "bbox_h", "shape_class", "shape_confidence"))
+          for r in _rows), str(_rows[:1]))
+check("object_profile: the red box is named red (by day the cast gate does not apply)",
+      any(r["metrics"].get("colour_1") == "red" for r in _rows),
+      str([(r["metrics"].get("colour_1"), r["metrics"].get("colour_gate")) for r in _rows]))
+
+# refusals of the thumbnail PUT
+_c = _ThumbFake(segs={(_uo.camera_id, _uo.hour_start): _op_segs(_uo.camera_id)},
+                thumb_refuse=[R(400, "bad_thumb_key", False)])
+_o = W.run_unit(_c, P.ObjectProfilePlugin(), _uo, decode=_op_decode, states={}, tmpdir=TMP, sleep=lambda s: None)
+_b = _c.submitted[0][1] if _c.submitted else {}
+check("object_profile: a thumbnail REFUSED as malformed (400 bad_thumb_key) files the unit failed, with that cause",
+      W.action_for(R(400, "bad_thumb_key", False)) is W.Action.BUG and _b.get("failed") is True
+      and "thumb_refused" in (_b.get("error") or "") and _b.get("observations") == [], str(_b)[:200])
+check("...and so are thumb_too_large, thumb_not_jpeg and thumbs_not_accepted (bugs, not stops)",
+      all(W.action_for(R(st, sl, False)) is W.Action.BUG for st, sl in
+          ((413, "thumb_too_large"), (415, "thumb_not_jpeg"), (404, "thumbs_not_accepted"))))
+_c = _ThumbFake(segs={(_uo.camera_id, _uo.hour_start): _op_segs(_uo.camera_id)},
+                thumb_refuse=[R(409, "scan_unit_revoked", False)])
+_o = W.run_unit(_c, P.ObjectProfilePlugin(), _uo, decode=_op_decode, states={}, tmpdir=TMP, sleep=lambda s: None)
+check("object_profile: the unit TAKEN BACK during the uploads is not submitted at all",
+      not _c.submitted and _o.action is W.Action.REVOKED and not _o.submitted, str((_o.action, _o.note)))
+_c = _ThumbFake(segs={(_uo.camera_id, _uo.hour_start): _op_segs(_uo.camera_id)},
+                thumb_refuse=[R(0, "transport_error", True)])
+_o = W.run_unit(_c, P.ObjectProfilePlugin(), _uo, decode=_op_decode, states={}, tmpdir=TMP, sleep=lambda s: None)
+check("object_profile: a transport blip on a thumbnail is retried, and the unit still submits",
+      _o.submitted and _c.log and _c.log[-1] == ("submit",), str((_o.note, _c.log[-2:])))
+
+# the server capability that gates claiming, and the request itself
+_oa_yes = {"paths": {"/labs/scan/{analyzer}/{camera_id}/{hour_start}/thumbs/{key}": {"put": {}},
+                     "/labs/scan/claim": {"post": {}}}}
+_oa_no = {"paths": {"/labs/scan/claim": {"post": {}}}}
+check("object_profile: claimed only from a server with the thumbnail PUT (supported_by)",
+      P.ObjectProfilePlugin.supported_by(_oa_yes) is None
+      and "predates" in (P.ObjectProfilePlugin.supported_by(_oa_no) or ""))
+import run_worker as _RW2
+check("object_profile: registered in the worker (a lane of its own)",
+      "object_profile" in _RW2.PLUGINS and isinstance(_RW2.make_plugin("object_profile"), P.ObjectProfilePlugin))
+_seen = []
+class _Resp:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self, *a): return b'{"status": "stored"}'
+import urllib.request as _urq_op              # its own name: `_ur` is a ScanUnit by now (hang-3)
+_uo2 = _urq_op.urlopen
+try:
+    _urq_op.urlopen = lambda req, timeout=None: _seen.append(req) or _Resp()
+    _hc = W.HttpLabsClient("http://srv:8000", "tok-123")
+    _res = _hc.put_thumb(W.ScanUnit("hiwatch-1", "2026-09-24T10:00:00Z", "object_profile", None, 1), "t0001234", b"\xff\xd8jpeg")
+finally:
+    _urq_op.urlopen = _uo2
+_rq = _seen[0] if _seen else None
+check("object_profile: the PUT goes to /labs/scan/object_profile/{camera}/{hour}/thumbs/{key}, image/jpeg, the JPEG as the body",
+      _rq is not None and _rq.get_method() == "PUT"
+      and _rq.full_url.endswith("/labs/scan/object_profile/hiwatch-1/2026-09-24T10%3A00%3A00Z/thumbs/t0001234")
+      and _rq.get_header("Content-type") == "image/jpeg" and _rq.data == b"\xff\xd8jpeg"
+      and _rq.get_header("X-cilex-station-token") == "tok-123" and _res == {"status": "stored"},
+      str(_rq and (_rq.get_method(), _rq.full_url, _rq.header_items())))
+
 print()
 if fails:
     print(f"{len(fails)} FAILED: {', '.join(fails)}", file=sys.stderr); sys.exit(1)
