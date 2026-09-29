@@ -5,6 +5,32 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 PLAYBACK: HEAD SPLIT BREAKS HEVC SESSIONS -->
+> **2026-09-29 23:19 — FIXED IN THE APP (09b39f1): clips that died ~15 s in and went black**
+>
+> **What the operator saw:** a Colour clip (10 Улица 4, 20:56 MSK) played about 13 s, then jumped to
+> the end and went black.
+>
+> **The cause, measured read-only on that window with the same request the Linux app sends:**
+> - The server cuts the two head-split pieces with libx264 (playback-service `cache.py`, since
+>   2026-07-18, built for mobile).
+> - An HEVC session's other fragments are the HEVC main, stream-copied. So the codec changed at the
+>   joint, with no marker.
+> - Our player's libav HLS demuxer decoded 224 frames (14.75 s) and then refused all 1,768 HEVC
+>   packets. It still refused them with a discontinuity tag added.
+> - Without head_split, all 5 fragments were HEVC: 2,280 frames, 0 errors.
+>
+> **Why it slipped through:** the app has asked for head_split on every session since 2026-08-31.
+> The server defers to the client (`broadcast_settings` main = `auto`). My measurement then timed
+> segment 0 and never played across the joint.
+>
+> **The fix and what's left:**
+> - The app now asks only on H.264 sessions (the Mac). Linux and Windows pay the whole first
+>   segment again at open.
+> - **The booth's running build still asks.** cilex-vision was told that setting head_split main to
+>   off in /admin/broadcasting would fix every running client (their call). The Windows agent's next
+>   build carries 09b39f1.
+
 <!-- 2026-09-29 LABS: V1 object_profile READ-ONLY TRIAL -->
 > **2026-09-29 — Vehicle search V1 (colour of each passage + thumbnail): read-only trial done; V1 as specified does NOT pass**
 >
@@ -43,9 +69,13 @@
 >     before the results that name them. It claims only once the server's OpenAPI has the
 >     thumbnail PUT;
 >   - the app names it Vehicles / Транспорт.
->   - **Waiting for:** CV's DEPLOYED line, then the Windows agent takes 0.3.7 to the chosen station.
->     This host stays on 0.3.6, server-stopped.
->   - Two contract questions are in reply 5: "unknown" as a finding, and thumbnails for gated rows.
+>   - **Server half DEPLOYED 23:17 MSK** (query-api 1.0.100, cbfdd33; reply 6). `object_profile`
+>     is registered switched off, scope `listed`, five cameras. The live OpenAPI's thumbnail PUT
+>     matches the lane's check (verified).
+>   - **Next:** the operator picks the station, the Windows agent installs 0.3.7, and CV switches
+>     it on for that station's hose. This host stays on 0.3.6, server-stopped.
+>   - Reply 5's questions are answered: "unknown" is not a finding; gated rows keep their
+>     thumbnails in the pilot.
 > - **Rule, from cilex-vision (amended spec):** trials NEVER run on the pilot host. It records every
 >   camera.
 >   - This trial ran up to 9 decodes at once there, which took it to load 33.8 with 1.25 GB
