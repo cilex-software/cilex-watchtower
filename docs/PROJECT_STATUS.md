@@ -5,6 +5,51 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-30 LABS: worker-0.3.9, NO SPIN ON A RUN-OUT REST -->
+> **2026-09-30 01:44 — worker-0.3.9 (ed3408b, 1.1.754): a held or blocked worker no longer spins
+> at a full core.** On main; NOT on any station yet.
+>
+> **Found by the Windows agent on the booth:** the held 0.3.8 worker (Idle priority) used 9.58 CPU-s
+> in 10 s, 96 % of one core, while doing nothing. That was probably from the 00:11 hold on. The wall
+> showed no cost: it held 525.9 frames/s in during the spin.
+>
+> **The cause:** `lanes.py` `_next_wait` counted an idle lane whose rest had already run out as a
+> zero wait. When the tick cannot claim that lane, `run()` spins:
+> - the station is held or paused;
+> - the server has the lane stopped;
+> - a fatal pause;
+> - the one-at-a-time runner is busy.
+> Now only a wait still in the future shortens the sleep, and the same goes for a fatal pause.
+>
+> **How old:** the arithmetic arrived with 0.3.5 (0c8c820), not 0.3.8. In 0.3.5-0.3.7 a run-out
+> lane also went unclaimed while every slot was busy, so those versions should have spun during
+> units too. That is read from the code, not measured on any station.
+>
+> **Tests:** labs-worker passes 380. Two new tests (paused; running with a server-stopped lane)
+> fail at 20,001 ticks in 20 s against the old arithmetic.
+>
+> **This box:** its worker is 0.3.6, inferred from its start 56 s after that commit. It is
+> server-stopped and measured not spinning: 0.16 CPU-s in 10 s at 01:48 MSK.
+>
+> **Rollout: waits for the operator's word.**
+> - **Correction:** my commit message says "Rollout is the Windows agent's procedure". The Windows
+>   agent had written "the deploy procedure is yours" (the Linux agent's). What replaces it: when to
+>   roll out is mine to put to the operator.
+> - The Windows agent confirmed the split: they do the work on both Windows boxes. Their deploy
+>   procedure, in order:
+>   1. Windows tests in `C:\wt\labs-main`;
+>   2. the operator's go;
+>   3. CV unplugs the station;
+>   4. whole-folder copy;
+>   5. restart through the guard;
+>   6. CV reconnects;
+>   7. a 15-minute watch.
+> - They run 0.3.9's Windows tests after the booth's lanes test (0.3.8, about 01:53-02:08 MSK)
+>   ends, so that no test load lands on a box being measured.
+> - Until the rollout, the booth's held 0.3.8 worker keeps spinning at Idle priority.
+> - My commit message says a restart would also stop it. That is read from the code and NOT tested:
+>   a restarted worker that comes up held gets no rests.
+
 <!-- 2026-09-29 LABS: worker-0.3.8, ONE UNIT PER CONNECTED LANE -->
 > **2026-09-29 23:59 — worker-0.3.8 (9afd8db): every connected lane runs its unit at once. No
 > station-wide cap.**
