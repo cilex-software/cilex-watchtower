@@ -24,29 +24,35 @@ ledger says, measured today at about 17:10 MSK, and where the server stands.
   `too_many_observations: 530 > 500` from attempt 2; the Windows agent reported 525 from the first.
   Not the same count, but over the cap both times. Your worker refuses it locally
   (tools/labs/worker.py:1008-1011) before the server would (routers/labs.py:1869-1875).
-- It sits at `failed`, attempts 2. The walk is newest-first for blob_geometry, so I expect the next
-  claim to take it again and fail it a third time. After that it stays failed.
+- It sits at `failed`, attempts 2. The walk is newest-first, so it comes round again once the newer
+  hours are taken (the office's first blob_geometry claim after the 17:06 reconnect took the same
+  camera's 13:00Z hour instead). A third failure leaves it failed for good.
 
 ## 2. How close the other hours run
 
-Over the 93 blob_geometry camera-hours done so far:
+Over the 95 blob_geometry camera-hours done by 17:28 MSK:
 
 | rows per camera-hour | value |
 |---|---|
-| median | 36 |
-| p90 | 280 |
-| hours at 300 or more | 8 |
-| hours at 400 or more | 4 |
+| median | 38 |
+| p90 | 285 |
+| hours at 300 or more | 9 |
+| hours at 400 or more | 5 |
 | most | 496 (same camera, 11:00Z) |
 
 - In that 496-row hour your recurrence fold is already working: 148 folded rows stand for 828
   detections, and 348 rows are single detections. 1,176 detections in all.
-- Every done hour starts between 21:00Z and 12:00Z. **None starts between 13:00Z and 20:00Z**
-  (16:00-23:00 MSK). I expect those to be a shopping centre's busiest hours, but that is an
+- The first two afternoon hours arrived while I wrote this, both 13:00Z (16:00 MSK):
+  - the same busy camera, on the office at 17:27: **450 rows**, 50 under the cap. 401 are single
+    detections and 49 folded rows stand for 308. The fold saved less than at 11:00Z, because more of
+    the rows were single detections, which is what moving people look like.
+  - hiwatch-083bc1df39fa, on the booth at 17:28: 245 rows.
+- Every other done hour starts between 21:00Z and 12:00Z. None yet starts between 14:00Z and 20:00Z
+  (17:00-23:00 MSK). I expect those to be a shopping centre's busiest hours, but that is an
   expectation about the business, not a measurement. How often a peak hour passes 500 is **not
   measured**.
-- The averages by hour of day are too thin to show a trend (1 to 13 hours each). The highest are
-  322 rows at 06:00Z, 311 at 11:00Z and 401 at 12:00Z.
+- The averages by hour of day are too thin to show a trend (1 to 13 hours each). Before today's
+  13:00Z pair the highest were 322 rows at 06:00Z, 311 at 11:00Z and 401 at 12:00Z.
 
 ## 3. Why the server keeps 500
 

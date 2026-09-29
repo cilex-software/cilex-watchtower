@@ -59,11 +59,14 @@ These will come once a station runs 0.3.5:
 - claim latency
 - units done per lane
 
-Today none does:
+Today none does (checked 17:40 MSK):
 
-- the booth and the office are unplugged for the 1.1.707 swap, and 0.3.5 reaches them through the
-  Windows agent after its own checks;
-- the pilot box runs 0.3.5, but my station Stop from live test 2 (2026-09-28) is still in force.
+- The booth and the office were reconnected after the 1.1.707 swap (17:06:59) and scan again, but
+  still on 0.3.4. Since the reconnect each has claimed in 0.3.4's alphabetical order, one unit at a
+  time: the office audio_energy, blob_geometry, colour_histogram, ... track_linking, then
+  audio_energy again; the booth the same, with camera_health in its place. The Windows agent also
+  reports the booth on 0.3.4. 0.3.5 reaches them through the Windows agent after its own checks.
+- The pilot box runs 0.3.5, but my station Stop from live test 2 (2026-09-28) is still in force.
   Whether to start it is the operator's call.
 
 Also owed by me, from the station-fault thread: `/labs/stats` counting `station_fault:` failures as
