@@ -5,6 +5,33 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 LABS: worker-0.3.8, ONE UNIT PER CONNECTED LANE -->
+> **2026-09-29 23:59 — worker-0.3.8 (9afd8db): every connected lane runs its unit at once. No
+> station-wide cap.**
+>
+> **The operator's rule:** "i define how many analysers run in parallel - that is defined by how many
+> hoses are connected to the machine". cilex-vision withdrew its "run at once from the console"
+> letter; `max_slots` was invented that night and is gone.
+>
+> **What changed:**
+> - The report's `slots` is null.
+> - `--slots` / `WT_LABS_SLOTS` are ignored, with a warning.
+> - The in-process runner stays one unit at a time.
+>
+> **The protection is operating-system priority:**
+> - this box: the systemd unit sets idle CPU and IO;
+> - the booth: `start /low`, with its unit processes at Idle, per the Windows agent;
+> - plus the wall guard's hold.
+>
+> **Rollout:** through the Windows agent, with someone awake to watch. The stations stay on 0.3.7 at
+> one at a time until then. Letter: `docs/letters/2026-09-29-run-at-once-from-the-console.reply-cilex-watchtower-linux.md`.
+>
+> **The Vehicles pilot's first unit** (10 Улица 4, 19:00Z, 23:52 MSK): done, 36 rows, 36 thumbnails,
+> none missing.
+> - 31 rows are `too_small`, 1 `no_body_pixels`, and 4 named.
+> - By eye: 1 navy SUV named black. The other 3 are headlight beams sweeping lawn and paving, named
+>   green and blue: at night a beam is a passage, with the light's colour.
+
 <!-- 2026-09-29 PLAYBACK: HEAD SPLIT BREAKS HEVC SESSIONS -->
 > **2026-09-29 23:19 — FIXED IN THE APP (09b39f1): clips that died ~15 s in and went black**
 >
