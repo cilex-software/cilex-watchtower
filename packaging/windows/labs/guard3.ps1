@@ -93,8 +93,11 @@ function Start-Worker {
         # console away. 2026-09-29 02:13 on wt-office-01: worker-0.3.2's Stop killed its own
         # conhost, and every ffmpeg after that died at start (0xC0000142), filing ~25 units
         # failed. /low starts it at Idle from the first instruction; its children inherit it.
+        # The worker's log goes in the GUARD's folder, never beside the code: on the booth
+        # -Labs is the git checkout, and a log there left the tree dirty, which made the
+        # 1.1.707 build refuse to start (2026-09-29).
         $cmdline = '/c start "" /low /b "{0}" -u "{1}" --loop --api {2} >> "{3}" 2>&1' -f `
-                   $Python, (Join-Path $labs 'run_worker.py'), $Api, (Join-Path $labs 'worker.log')
+                   $Python, (Join-Path $labs 'run_worker.py'), $Api, (Join-Path $GuardDir 'worker.log')
         Start-Process -FilePath cmd.exe -ArgumentList $cmdline -WorkingDirectory $labs -WindowStyle Hidden -ErrorAction Stop
         $workerStarts.Add((Get-Date))
         Start-Sleep -Seconds 3
