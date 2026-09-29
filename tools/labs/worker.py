@@ -64,7 +64,7 @@ from typing import Callable, Iterable, Optional, Protocol
 # others (the operator's requirement, via cilex-vision's letter of the same day).
 # 0.3.6 (2026-09-29): a unit dropped for making no progress, or whose process died, is FILED
 # failed with why (cilex-vision); blob_geometry files one row per passage, within a row budget.
-WORKER_VERSION = "worker-0.3.9"
+WORKER_VERSION = "worker-0.3.10"
 
 
 # ----------------------------------------------------------------------------------

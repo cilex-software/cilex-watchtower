@@ -1828,6 +1828,240 @@ check("lanes: EVERY connected lane runs its unit AT ONCE -- 4 lanes, 3 units eac
 check("...and the in-process runner (a station that cannot start unit processes) still runs one unit at a time",
       len(_rone.ran) == 12 and _rone.peak == 1, f"ran={len(_rone.ran)} peak={_rone.peak}")
 
+# ---- FILL (worker-0.3.10, opt-in): the operator, 2026-09-30, relayed by cilex-vision: "ok do
+# office PC only to run analyser for vehicles but use full capacity of this PC to the limit".
+# A lane getting work takes one more unit at a time while the machine measures room: an idle
+# logical CPU, free memory for FILL_MEM_FACTOR of its largest unit, no unit in hand past
+# FILL_LEASE_SHARE of its lease, and fewer claims and units in hand than logical CPUs (and than
+# the 32 a report may list). Real threads here; the machine is a fake the test sets.
+import dataclasses as _dc
+class _FillProbe:
+    """The machine fill sees: logical CPUs, free memory, the largest unit measured, and the
+    idle CPU -- a number, or a function of the scheduler (set .s after building it)."""
+    def __init__(self, cores=8, free=64 * 2**30, unit=2**28, idle=None, can_walk=True):
+        self.cores, self.free, self._unit, self.can_walk = cores, free, unit, can_walk
+        self.idle, self.s, self.samples = (float(cores) if idle is None else idle), None, 0
+    def sample(self, now): self.samples += 1
+    def idle_cores(self, now, window_s): return self.idle(self.s) if callable(self.idle) else self.idle
+    def unit_bytes(self, analyzer): return self._unit if self.can_walk else None
+class _FillRunner:
+    """Units that take `secs` on real threads: how many run at once, per analyser?"""
+    single_slot = False
+    def __init__(self, secs=0.15):
+        self.lock, self.secs, self.now, self.ran, self.per, self.per_peak = threading.Lock(), secs, 0, [], {}, {}
+    def run(self, unit, plugin):
+        with self.lock:
+            self.now += 1; self.ran.append(unit.camera_id); a = unit.analyzer
+            self.per[a] = self.per.get(a, 0) + 1; self.per_peak[a] = max(self.per_peak.get(a, 0), self.per[a])
+        _time.sleep(self.secs)
+        with self.lock:
+            self.now -= 1; self.per[unit.analyzer] -= 1
+        o = W.UnitOutcome(unit); o.submitted = True
+        return o
+    def abort(self, u, why): return False
+    def abort_all(self, why): pass
+    def unit_pids(self): return []
+class _FillFake(LimitFake):
+    """Hands out units thread-safely, each leased for `lease_s` from ITS claim (None: no lease named)."""
+    def __init__(self, *a, lease_s=None, **k):
+        super().__init__(*a, **k); self._lk, self.lease_s = threading.Lock(), lease_s
+    def claim(self, analyzer, limit):
+        with self._lk:
+            u, n = super().claim(analyzer, limit)
+        if self.lease_s is not None:
+            exp = (_dt.now(_tz.utc) + _td(seconds=self.lease_s)).isoformat()
+            u = [_dc.replace(x, lease_expires_at=exp) for x in u]
+        return u, n
+_FT = dict(poll_s=0.005, legacy_poll_s=0.005, idle_s=0.3, fill_every_s=0.02, fill_window_s=0.01)
+class _Said(logging.Handler):
+    """What the scheduler logs during the fill tests, kept here instead of printed."""
+    def __init__(self): super().__init__(logging.WARNING); self.lines = []
+    def emit(self, rec): self.lines.append(rec.getMessage())
+_said, _lanes_log = _Said(), logging.getLogger("labs.lanes")
+_lanes_log.addHandler(_said); _lanes_log.propagate = False
+def _fill_run(probe, *, units=40, secs=0.15, want_ran=20, lease_s=None, timing=None, control=None,
+              during=None, names=("object_profile",)):
+    names = list(names)
+    c, plugs = lane_world(names, units_per=units, cls=lambda **k: _FillFake(lease_s=lease_s, **k))
+    r, hb = _FillRunner(secs), HbRec()
+    s = LN.Scheduler(c, lambda: plugs, runner=r, hb=hb, names=names,
+                     control=control or ctl_seq({"paused": False}), executor=_TPE(max_workers=80),
+                     timing=LN.Timing(**dict(_FT, **(timing or {}))), fill=probe)
+    if probe is not None and hasattr(probe, "s"):
+        probe.s = s
+    th = threading.Thread(target=s.run, daemon=True); th.start()
+    if during is not None:
+        during(s, r)
+    end = _time.time() + 20
+    while len(r.ran) < want_ran and _time.time() < end:
+        _time.sleep(0.01)
+    s.stop(); th.join(5)
+    return s, r, hb, c
+def _in_flight(s): return sum(1 for x in list(s.lanes.values()) if x.op is not None)
+def _nots(hb): return {(e.get("fill") or {}).get("not_adding") for e in hb.log if "fill" in e}
+
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=4, idle=8.0))
+_keys = {k for e in _hb.log for k in (e.get("lane_states") or {})}
+_slots = max([(e.get("fill") or {}).get("slots", {}).get("object_profile", 1) for e in _hb.log] or [1])
+check("fill: a lane getting work widens to as many units at once as this machine has logical CPUs "
+      "(4 here), never more -- the ceiling is the machine's own number",
+      len(_r.ran) >= 20 and _r.per_peak.get("object_profile") == 4, f"ran={len(_r.ran)} per-lane peak={_r.per_peak}")
+check("...its extra slots never reach the Labs screen's lane list, which names each analyser once; "
+      "the status file's `fill` counts them",
+      _keys == {"object_profile"} and _slots == 4, f"lane_states keys={_keys} most slots={_slots}")
+check("...and every unit the server handed over ran exactly once (40 units, no unit twice)",
+      len(_r.ran) == len(set(_r.ran)), f"ran={len(_r.ran)} distinct={len(set(_r.ran))}")
+
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=16, idle=lambda s: 16.0 - 4.0 * _in_flight(s)))
+check("fill: it stops adding when the machine has no idle logical CPU left -- each unit here "
+      "takes 4 of 16, so it settles at 4 at once, far under the 16 CPUs",
+      len(_r.ran) >= 20 and _r.per_peak.get("object_profile") == 4 and "cpu" in _nots(_hb),
+      f"ran={len(_r.ran)} per-lane peak={_r.per_peak} not_adding={_nots(_hb)}")
+
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=16, free=int(1.5 * 2**28)), want_ran=6)
+check("fill: no unit is added while free memory holds fewer than FILL_MEM_FACTOR of its largest unit",
+      len(_r.ran) >= 6 and _r.per_peak.get("object_profile") == 1 and "memory" in _nots(_hb),
+      f"per-lane peak={_r.per_peak} not_adding={_nots(_hb)}")
+
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=16, can_walk=False), want_ran=6)
+check("fill: a station that cannot measure a unit's memory (Windows without psutil) adds none, and says why",
+      _r.per_peak.get("object_profile") == 1 and "unmeasurable" in _nots(_hb),
+      f"per-lane peak={_r.per_peak} not_adding={_nots(_hb)}")
+
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=16), secs=1.0, lease_s=0.2, want_ran=1,
+                            timing={"fill_every_s": 0.2}, during=lambda s, r: _time.sleep(0.6))
+check("fill: no unit is added while a unit in hand has used more than FILL_LEASE_SHARE of its lease "
+      "(the server's lease_expires_at, set at the claim and not renewed)",
+      _r.per_peak.get("object_profile") == 1 and "lease" in _nots(_hb),
+      f"per-lane peak={_r.per_peak} not_adding={_nots(_hb)}")
+
+del _said.lines[:]
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=16), secs=0.12, lease_s=0.1, want_ran=12,
+                            timing={"fill_every_s": 0.005}, during=lambda s, r: _time.sleep(0.5))
+_late = [x for x in _said.lines if "gives back an extra unit slot" in x and "of its lease" in x]
+check("fill: an extra slot whose unit used more than FILL_LEASE_SHARE of its lease is given back "
+      "(this many at once is too many to keep units inside their leases)",
+      _s._fill_made.get("object_profile", 0) >= 1 and len(_late) >= 1,
+      f"extras made={_s._fill_made} given back for the lease={len(_late)} said={_said.lines[:4]}")
+
+_s, _r, _hb, _c = _fill_run(None, want_ran=10)
+check("fill OFF (no --fill, no WT_LABS_FILL): one unit per lane, as in worker-0.3.8",
+      len(_r.ran) >= 10 and _r.per_peak.get("object_profile") == 1 and "fill" not in _hb.fields,
+      f"per-lane peak={_r.per_peak}")
+
+def _until_dry(s, r):
+    end = _time.time() + 10
+    while (len(r.ran) < 3 or r.now or any(x.extra for x in list(s.lanes.values()))) and _time.time() < end:
+        _time.sleep(0.005)
+    _time.sleep(0.05)
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=8), units=3, want_ran=3, during=_until_dry)
+check("fill: when the claims find nothing the extra slots go, and each of the 3 units ran exactly once",
+      len(_r.ran) == 3 and len(set(_r.ran)) == 3 and not any(x.extra for x in _s.lanes.values())
+      and _s._fill_dry.get("object_profile") is not None and _s._fill_made.get("object_profile", 0) >= 1,
+      f"ran={_r.ran} lanes={[x.name for x in _s.lanes.values()]} dry={_s._fill_dry} made={_s._fill_made}")
+
+_hold = {"hold": None}
+_phase = {}
+def _hold_then_release(s, r):
+    end = _time.time() + 10
+    while r.per_peak.get("object_profile", 0) < 3 and _time.time() < end:
+        _time.sleep(0.005)
+    _hold["hold"] = {"why": "a test", "by": "wall-guard"}
+    _phase["ran_at_hold"] = len(r.ran)
+    end = _time.time() + 10
+    while (r.now or any(x.extra for x in list(s.lanes.values()))) and _time.time() < end:
+        _time.sleep(0.005)
+    _phase["extras_held"] = [x.name for x in list(s.lanes.values()) if x.extra]
+    _phase["ran_settled"] = len(r.ran)
+    _time.sleep(0.1)
+    _phase["ran_held"] = len(r.ran)
+    with r.lock:
+        r.per_peak.clear()
+    _hold["hold"] = None
+_hctl = lambda: {"paused": False, "camera_health": False, "why": "", "hold": _hold["hold"]}
+_s, _r, _hb, _c = _fill_run(_FillProbe(cores=8), units=200, control=_hctl, during=_hold_then_release, want_ran=60)
+check("fill: a hold (the wall guard's) gives back every extra slot once its unit ends, and claims nothing ...",
+      _phase.get("extras_held") == [] and _phase.get("ran_held") == _phase.get("ran_settled") is not None,
+      str(_phase))
+check("...and after the release the lane fills again from one unit",
+      _r.per_peak.get("object_profile", 0) >= 3, f"per-lane peak after release={_r.per_peak}")
+
+_p = _FillProbe(cores=8)
+_s1 = LN.Scheduler(Fake(), lambda: [], runner=_FillRunner(), hb=HbRec(), names=["object_profile"],
+                   control=ctl_seq({"paused": False}), executor=LN.SyncExecutor(), fill=_p)
+_rone = _FillRunner(); _rone.single_slot = True
+_s2 = LN.Scheduler(Fake(), lambda: [], runner=_rone, hb=HbRec(), names=["object_profile"],
+                   control=ctl_seq({"paused": False}), executor=LN.SyncExecutor(), fill=_p)
+check("fill: the in-process runner ignores it (one unit at a time, as before)", _s1.fill is _p and _s2.fill is None)
+
+from concurrent.futures import Future as _Fut
+_p64 = _FillProbe(cores=64)
+_s3 = LN.Scheduler(Fake(), lambda: [], runner=_FillRunner(), hb=HbRec(), names=["object_profile"],
+                   control=ctl_seq({"paused": False}), executor=LN.SyncExecutor(), fill=_p64)
+for _i in range(31):
+    _x = LN.Lane(f"object_profile+{_i + 1}", analyzer="object_profile"); _x.op = _Fut(); _s3.lanes[_x.name] = _x
+_s3.lanes["object_profile"].op = _Fut()
+check("fill: on a machine with more than 32 logical CPUs it stops at the 32 units a report may list "
+      "(cilex-vision refuses a longer `holding`, and then gives no claims)",
+      _s3._room(0.0, "object_profile", adding=True)[0] == "ceiling"
+      and LN.REPORT_HOLDING_MAX == 32, str(_s3._room(0.0, "object_profile", adding=True)))
+_s3._leases[("object_profile", "c", "h")] = (0.0, -5.0)
+check("fill: a unit whose lease had run out when its claim came back counts as past its lease",
+      _s3._lease_used(W.ScanUnit("c", "h", "object_profile", None, 1), 1.0) == float("inf"))
+
+class _M:
+    def __init__(self): self.i = 0
+    def __call__(self):
+        self.i += 1                   # 4 CPUs; each call 10 CPU-s pass, 3 of them busy
+        return __import__("vitals")._Machine(4, 8 * 2**30, 6 * 2**30, 3.0 * self.i, 10.0 * self.i)
+class _Pids:
+    def unit_pids(self): return [("object_profile", 101), ("object_profile", 102), ("illumination", 103)]
+_sizes = {101: 300 * 2**20, 102: 500 * 2**20, 103: 90 * 2**20}
+_mp = LN.MachineProbe(_Pids(), machine=_M(), tree=lambda pid: __import__("vitals")._Tree(1.0, _sizes[pid]),
+                      can_walk=True)
+_before = _mp.idle_cores(0.0, 15.0)
+for _t in range(0, 21):
+    _mp.sample(float(_t))
+check("MachineProbe: idle logical CPUs over the window come from the machine's own counters "
+      "(3 of every 10 CPU-s busy on 4 CPUs = 2.8 idle), and nothing before a whole window",
+      _before is None and abs(_mp.idle_cores(20.0, 15.0) - 2.8) < 1e-9 and _mp.free == 2 * 2**30,
+      f"{_before} {_mp.idle_cores(20.0, 15.0)} {_mp.free}")
+check("MachineProbe: a unit's size is the largest process tree one unit of that analyser has had",
+      _mp.unit_bytes("object_profile") == 500 * 2**20 and _mp.unit_bytes("illumination") == 90 * 2**20,
+      f"{_mp.unit_bytes('object_profile')} {_mp.unit_bytes('illumination')}")
+_mp2 = LN.MachineProbe(_Pids(), machine=_M(), tree=lambda pid: None, can_walk=False)
+_mp2.sample(0.0)
+check("MachineProbe: without a way to walk process trees, a unit's size is unknown -- never guessed",
+      _mp2.unit_bytes("object_profile") is None)
+def _boom(*a): raise OSError("counters unavailable")
+_mp3 = LN.MachineProbe(_Pids(), machine=_M(), tree=_boom, can_walk=True)
+for _t in range(0, 21):
+    _mp3.sample(float(_t))
+_mp3._machine = _boom
+_mp3.sample(21.0)
+check("MachineProbe: a measurement that raises leaves that figure unknown (so fill adds none) and never "
+      "stops the worker",
+      _mp3.free is None and _mp3.idle_cores(21.0, 15.0) is None and _mp3.unit_bytes("object_profile") is None
+      and "counters unavailable" in (_mp3.error or ""), f"{_mp3.free} {_mp3.error}")
+_real = LN.MachineProbe(type("R", (), {"unit_pids": lambda self: []})())
+_real.sample(0.0); _time.sleep(0.3); _real.sample(0.3)
+_ri = _real.idle_cores(0.3, 0.3)
+check("MachineProbe on THIS machine's real counters (vitals.py): logical CPUs, free memory and an idle "
+      "figure between 0 and the CPU count",
+      _real.cores == os.cpu_count() and (_real.free or 0) > 0 and _ri is not None and 0.0 <= _ri <= _real.cores,
+      f"cores={_real.cores} free={_real.free} idle={_ri} error={_real.error}")
+_env0 = os.environ.pop("WT_LABS_FILL", None)
+_A = lambda f: type("A", (), {"fill": f})()
+_fw = [RW2.fill_wanted(_A(True)), RW2.fill_wanted(_A(False))]
+for _v in ("1", "true", "on", "0", "", "no"):
+    os.environ["WT_LABS_FILL"] = _v; _fw.append(RW2.fill_wanted(_A(False)))
+os.environ.pop("WT_LABS_FILL", None)
+if _env0 is not None:
+    os.environ["WT_LABS_FILL"] = _env0
+check("run_worker: --fill or WT_LABS_FILL=1/true/on turns fill on; unset, 0, empty or no leave it off",
+      _fw == [True, False, True, True, True, False, False, False], str(_fw))
+_lanes_log.removeHandler(_said); _lanes_log.propagate = True
+
 c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
 c.refuse = {("claim", "illumination"): [R(409, "labs_lane_not_running", True)]}
 s, hb = sched(c, plugs, clk, ctl_seq({"paused": False}))
@@ -2625,6 +2859,8 @@ open(os.path.join(_CH, "labs_test_child.py"), "w", encoding="utf-8").write(_tw.d
                 time.sleep(60)      # bounded: a stall detector that failed must FAIL the check, not hang the suite
             if mode == "crash":
                 os._exit(7)
+            if mode == "slow":
+                time.sleep(1.5)     # long enough to be seen running beside the others
             if mode == "warn":
                 logging.getLogger("labs.test").warning("a warning from inside the unit process")
             if mode == "decoder":
@@ -2692,6 +2928,37 @@ _o = _pr.run(W.ScanUnit("crash-1", "2026-09-24T10:00:00Z", "illumination", None,
 check("unit process: one that DIES is reported as such (exit 7), nothing filed, and its lane rests",
       not _o.submitted and _o.stalled and "exit 7" in _o.note and not [x for x in _rows() if x["camera_id"] == "crash-1"],
       f"{_o.note} stalled={_o.stalled}")
+
+# FILL (worker-0.3.10) runs several units of ONE analyser at once. Until then no station had,
+# so this is the path proved for real: three spawned unit processes of one analyser side by side
+# (the fakes decode nothing), each seen by unit_pids(), each walked by the probe, all outcomes back.
+_prc = UP.ProcessRunner(_SPEC, watch_s=0.05)
+_u3 = [W.ScanUnit(f"slow-{i}", "2026-09-24T10:00:00Z", "object_profile", None, 1) for i in range(3)]
+_o3 = {}
+_t3 = [threading.Thread(target=lambda u=u: _o3.__setitem__(u.camera_id, _prc.run(u, NamedPlug("object_profile"))))
+       for u in _u3]
+for _t in _t3:
+    _t.start()
+_end = _time.time() + 30
+while len(_prc.unit_pids()) < 3 and _time.time() < _end:
+    _time.sleep(0.02)
+_seen3 = _prc.unit_pids()
+_pb3 = LN.MachineProbe(_prc)
+_pb3.sample(0.0)
+for _t in _t3:
+    _t.join(60)
+check("unit process: THREE units of ONE analyser run at once, each in a process of its own, as fill runs "
+      "them -- unit_pids() names each, and every outcome comes back",
+      len(_seen3) == 3 and len({p for _, p in _seen3}) == 3 and {a for a, _ in _seen3} == {"object_profile"}
+      and all(_o3.get(u.camera_id) is not None and _o3[u.camera_id].submitted for u in _u3)
+      and len([x for x in _rows() if x["camera_id"].startswith("slow-")]) == 3 and _prc.unit_pids() == [],
+      f"seen={_seen3} outcomes={ {k: v.submitted for k, v in _o3.items()} } after={_prc.unit_pids()}")
+if _pb3.can_walk:
+    check("...and the probe measures a real unit process's memory (its process tree, this machine's vitals)",
+          (_pb3.unit_bytes("object_profile") or 0) > 10 * 2**20, f"{_pb3.unit_bytes('object_profile')} {_pb3.error}")
+else:
+    print("SKIP the probe on a real unit process's memory -- this box has no psutil and no /proc, so fill "
+          "adds no unit here (checked above: 'cannot measure a unit's memory')")
 
 # THE ORDER OF A STOP. The unit is told why FIRST; its decoders die only once it has answered
 # (or ACK_WAIT_S passes). A killed decoder makes the analyser fail, and worker._file_failed

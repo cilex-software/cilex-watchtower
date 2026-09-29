@@ -427,3 +427,8 @@ class ProcessRunner:
     def running(self) -> list:
         with self._lock:
             return [c.unit for c in self._children.values()]
+
+    def unit_pids(self) -> list:
+        """(analyser, pid) of every unit process now: what fill measures a unit's memory by."""
+        with self._lock:
+            return [(c.unit.analyzer, c.proc.pid) for c in self._children.values() if c.proc.pid]

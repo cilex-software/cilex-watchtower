@@ -20,6 +20,8 @@ Since worker-0.3.5 each analyser is a lane of its own (lanes.py) and each unit r
 process of its own (unit_proc.py). Since worker-0.3.8 every connected lane runs its unit at
 the same time, one per lane, with no station-wide cap: how many run at once is how many
 hoses the operator connects (their rule, 2026-09-29). --slots / WT_LABS_SLOTS are ignored.
+Since worker-0.3.10 a station may opt in to FILL (--fill or WT_LABS_FILL=1): a lane that is
+getting work takes more units at once while this machine measures room for them (lanes.py).
 """
 import argparse, logging, os, sys, threading, time, json, urllib.request
 from datetime import datetime, timezone
@@ -188,6 +190,13 @@ def decoder_start_fault(exe=None, run=None, timeout_s: float = 15.0):
     return None
 
 
+def fill_wanted(a) -> bool:
+    """--fill, or WT_LABS_FILL set to 1/true/yes/on (the office's launcher sets it in the
+    guard's environment, which the worker inherits)."""
+    return bool(getattr(a, "fill", False)) or \
+        os.environ.get("WT_LABS_FILL", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def loop_main(a) -> int:
     if a.slots is not None or os.environ.get("WT_LABS_SLOTS"):
         # Said once, where the station's log reads it: a station still set to "2" (or "1")
@@ -195,10 +204,20 @@ def loop_main(a) -> int:
         logging.getLogger("labs.station").warning(
             "labs: --slots / WT_LABS_SLOTS are ignored since worker-0.3.8 -- every connected lane "
             "runs its unit at once, one per lane; unplug a hose to run fewer")
+    fill = fill_wanted(a)
+    if fill and a.in_process:
+        logging.getLogger("labs.station").warning(
+            "labs: fill is ignored with --in-process: units run in this process, one at a time")
+        fill = False
+    elif fill:
+        logging.getLogger("labs.station").warning(
+            "labs: FILL is on: a lane getting work takes one more unit at a time while this machine has "
+            "an idle logical CPU, free memory for %g of its largest unit, and fewer units in hand than "
+            "logical CPUs (%s)", L.FILL_MEM_FACTOR, os.cpu_count())
     all_plugins = [make_plugin(n) for n in (a.analyzer or sorted(PLUGINS))]
     hb = Heartbeat({"state": "starting", "worker_version": W.WORKER_VERSION, "server": a.api,
                     "started_at": S.now_iso(), "totals": {}, "last_unit": None,
-                    "current": None, "note": "",
+                    "current": None, "note": "", "fill_mode": fill,
                     # What this station CAN run (its plugin registry), shown in the Labs
                     # screen whether or not it is scanning right now.
                     "registered": [p.name for p in all_plugins]}).start()
@@ -277,7 +296,8 @@ def loop_main(a) -> int:
                     on_change=lambda snap: hb.update(**snap)).start()
                 hb.update(vitals_source=V.source())
             sched = L.Scheduler(client, supported, runner=runner, hb=hb, names=[p.name for p in all_plugins],
-                                reporter=reporter, station_check=decoder_start_fault)
+                                reporter=reporter, station_check=decoder_start_fault,
+                                fill=L.MachineProbe(runner) if fill else None)
             sched.run()
     except KeyboardInterrupt:
         pass
@@ -362,6 +382,9 @@ def main():
     ap.add_argument("--slots", type=int, default=None,
                     help="IGNORED since worker-0.3.8: every connected lane runs its unit at once, "
                          "one per lane, with no station-wide cap (the operator's rule)")
+    ap.add_argument("--fill", action="store_true",
+                    help="--loop: FILL this machine -- a lane that is getting work takes one more unit at a "
+                         "time while an idle logical CPU, free memory and the lease allow (also WT_LABS_FILL=1)")
     ap.add_argument("--in-process", action="store_true",
                     help="--loop: run units in this process, one at a time (worker-0.3.4's way), "
                          "for a station that cannot start unit processes")

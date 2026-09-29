@@ -25,6 +25,20 @@ Now:
     `slots` count (1 on every station) made the lanes take turns; the operator never asked
     for it. ONE EXCEPTION: the in-process runner (a station that cannot start unit
     processes) shares this process's per-unit state, so it still runs one unit at a time.
+  * FILL, opt-in per station (worker-0.3.10; the operator, 2026-09-30, relayed by cilex-vision:
+    "ok do office PC only to run analyser for vehicles but use full capacity of this PC to the
+    limit"). With --fill or WT_LABS_FILL=1, a connected lane that is getting work takes ONE MORE
+    unit, in an extra slot of its own, while this machine measures room for it:
+      - at least one logical CPU idle over the last `fill_window_s`;
+      - free memory for FILL_MEM_FACTOR of the largest unit of that analyser measured so far;
+      - fewer claims and units in hand than logical CPUs. Units waiting on downloads leave the
+        CPU idle, and would otherwise be added without end.
+    No count is ours: the machine's own measurements decide. It adds at most one unit every
+    `fill_every_s`, so each look sees the last one working. An extra slot goes when its claim
+    finds nothing or is refused (the lane's waits stay with its first slot), when free memory no
+    longer holds another unit, and on a hold, a pause, a server stop or a fatal pause. So after
+    the wall guard's hold the station fills again from one unit per lane. Without the flag,
+    nothing changes.
   * Lanes start in queue order: a lane that has just had its turn queues behind the lanes
     that were waiting, and the first order is shuffled at every start, so no analyser is
     always first (the letter's point 4).
@@ -36,7 +50,9 @@ Now:
 from __future__ import annotations
 
 import logging
+import os
 import random
+import sys
 import threading
 import time
 from collections import deque
@@ -56,6 +72,23 @@ MAX_CLAIM_RETRIES = 5
 # The station check (can this station START its decoder?) runs before claims, at most
 # this often: it is a real `ffmpeg -version`.
 STATION_CHECK_EVERY_S = 60.0
+# Fill: free memory must hold this many of the largest unit measured so far -- the next one,
+# and room for the units in hand to grow, since a unit's memory grows as it runs.
+FILL_MEM_FACTOR = 2.0
+# Fill measures the units' own memory this often. Walking the process trees costs more than
+# reading the machine's counters, which is done at every tick.
+FILL_UNIT_SAMPLE_S = 5.0
+# ...and keeps this much CPU history, enough for any window it is asked about.
+FILL_KEEP_S = 300.0
+# A unit's lease is set at its claim and NOT renewed (cilex-vision, 2026-09-30: 20 min,
+# routers/labs.py:113 and :1524). A unit whose lease runs out is thrown away and its hour is
+# queued again. So fill adds nothing while a unit in hand has used more than this share of
+# its lease, and gives back an extra slot whose unit used more. It is a margin of ours: the
+# office's slowest Vehicles unit that night took 15.4 min of the 20.
+FILL_LEASE_SHARE = 0.75
+# cilex-vision refuses a report whose `holding` lists more units than this (routers/labs.py:3521,
+# HTTP 422), and a station whose reports are refused gets no claims. Fill stays below it.
+REPORT_HOLDING_MAX = 32
 
 
 @dataclass
@@ -69,6 +102,9 @@ class Timing:
     not_reporting_s: float = 5.0  # the server has no recent report from us: report, ask again soon
     rest_s: float = 900.0         # a lane whose claim was refused in a way nobody expected, or whose
                                   # unit stopped making progress, rests this long
+    fill_every_s: float = 30.0    # fill: at most one more unit this often, so each look sees the last
+                                  # one past its start...
+    fill_window_s: float = 15.0   # ...judged on the idle CPU of this much of the latest past
 
 
 def unit_summary(o: W.UnitOutcome) -> dict:
@@ -122,11 +158,120 @@ class InProcessRunner:
         pass
 
 
-class Lane:
-    """One analyser: its own claim, its own waits, its own unit."""
+class MachineProbe:
+    """What fill measures on this machine, through vitals.py:
+      - the idle CPU over a recent window (psutil, /proc, or ctypes on Windows);
+      - free memory;
+      - the largest process tree one unit of each analyser has had: its process plus its
+        decoders (psutil or /proc). Windows without psutil cannot walk a tree, so there fill
+        never adds a unit, and says why."""
 
-    def __init__(self, name: str):
+    def __init__(self, runner, *, machine=None, tree=None, can_walk: Optional[bool] = None):
+        import vitals as V
+        self.runner = runner
+        self._machine = machine or V.machine
+        self._tree = tree or V.tree
+        self.can_walk = ((V.psutil is not None or sys.platform.startswith("linux"))
+                         if can_walk is None else bool(can_walk))
+        self.cores: Optional[int] = None
+        self.free: Optional[int] = None           # bytes the OS calls available
+        self._cpu: deque = deque()                # (t, busy, total), one per tick
+        self._peak: dict = {}                     # analyser -> largest one-unit tree seen, bytes
+        self._walked_at: Optional[float] = None
+        self.error: Optional[str] = None          # the last thing it failed to measure
+
+    def sample(self, now: float) -> None:
+        """Called at every tick, on the scheduler's thread. A measurement that fails leaves that
+        figure unknown -- so fill adds nothing -- and never stops the worker."""
+        try:
+            m = self._machine()
+        except Exception as e:
+            self._failed(f"this machine's CPU and memory: {type(e).__name__}: {e}")
+            self.free = None
+            self._cpu.clear()                     # no stale window either
+        else:
+            self.cores = m.cores
+            self.free = (m.mem_total - m.mem_used) if m.mem_total is not None and m.mem_used is not None else None
+            if m.busy is not None and m.total is not None:
+                self._cpu.append((now, m.busy, m.total))
+            while len(self._cpu) > 2 and now - self._cpu[0][0] > FILL_KEEP_S:
+                self._cpu.popleft()
+        if self.can_walk and (self._walked_at is None or now - self._walked_at >= FILL_UNIT_SAMPLE_S):
+            self._walked_at = now
+            try:
+                pids = list(getattr(self.runner, "unit_pids", lambda: [])())
+            except Exception as e:
+                self._failed(f"the units' processes: {type(e).__name__}: {e}")
+                pids = []
+            for analyzer, pid in pids:
+                try:
+                    t = self._tree(pid)
+                except Exception as e:
+                    self._failed(f"a unit's memory: {type(e).__name__}: {e}")
+                    continue
+                if t is not None:                 # None: it ended between the list and the walk
+                    self._peak[analyzer] = max(self._peak.get(analyzer, 0), int(t.rss))
+
+    def _failed(self, why: str) -> None:
+        if why != self.error:                     # said once, not at every tick
+            self.error = why
+            log.warning("labs: fill cannot measure %s", why)
+
+    def idle_cores(self, now: float, window_s: float) -> Optional[float]:
+        """Logical CPUs' worth left idle over the last `window_s`, or None until a whole
+        window has been measured."""
+        if not self.cores or len(self._cpu) < 2:
+            return None
+        old = None
+        for s in self._cpu:
+            if s[0] > now - window_s:
+                break
+            old = s
+        if old is None:
+            return None
+        _, b1, n1 = self._cpu[-1]
+        _, b0, n0 = old
+        if n1 <= n0:
+            return None
+        return max(0.0, 1.0 - (b1 - b0) / (n1 - n0)) * self.cores
+
+    def unit_bytes(self, analyzer: str) -> Optional[int]:
+        return self._peak.get(analyzer) if self.can_walk else None
+
+
+def _lease_s(unit: W.ScanUnit, wall: datetime) -> Optional[float]:
+    """How long this unit's lease runs from `wall` (its claim), from the server's own
+    lease_expires_at; None when the server named none or it cannot be read."""
+    s = getattr(unit, "lease_expires_at", None)
+    if not s:
+        return None
+    try:
+        t = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return (t - wall).total_seconds()
+
+
+def _ukey(u: W.ScanUnit):
+    return (u.analyzer, u.camera_id, u.hour_start)
+
+
+def _mb(n) -> str:
+    return "unknown" if n is None else f"{n / 2**20:.0f} MB"
+
+
+class Lane:
+    """One analyser: its own claim, its own waits, its own unit. Fill (opt-in) adds EXTRA
+    lanes for an analyser that is getting work -- one more unit each, named `<analyser>+<n>`;
+    an extra never waits (it goes instead), and the Labs screen shows only the first."""
+
+    def __init__(self, name: str, analyzer: Optional[str] = None):
         self.name = name
+        self.analyzer = analyzer or name          # what it claims for
+        self.extra = self.analyzer != name        # made by fill
+        self.retire = False                       # an extra to give back when its work in hand ends
         self.state = "waiting"
         self.note = ""
         self.until: Optional[float] = None        # no claim before this (its own wait)...
@@ -149,16 +294,29 @@ class Scheduler:
                  station_check: Optional[Callable[[], Optional[str]]] = None,
                  executor=None, clock: Callable[[], float] = time.monotonic,
                  sleep: Optional[Callable[[float], None]] = None, timing: Optional[Timing] = None,
-                 order: Optional[list] = None, rng: Optional[random.Random] = None):
+                 order: Optional[list] = None, rng: Optional[random.Random] = None,
+                 fill: Optional[MachineProbe] = None):
         self.client, self.supported, self.runner, self.hb = client, supported, runner, hb
         self.control, self.reporter, self.station_check = control, reporter, station_check
-        self.executor = executor or ThreadPoolExecutor(max_workers=max(2, 2 * len(names)),
-                                                       thread_name_prefix="labs-lane")
+        # Every claim and unit in flight holds a thread. Fill can hold up to one per logical CPU
+        # beyond the lanes' own, so the pool must never be what stops it.
+        self.executor = executor or ThreadPoolExecutor(
+            max_workers=max(2, 2 * len(names)) + ((os.cpu_count() or 1) if fill is not None else 0),
+            thread_name_prefix="labs-lane")
         self.clock, self._sleep = clock, sleep
         self.t = timing or Timing()
         # A runner that shares this process's per-unit state runs one unit at a time; every
         # other runner runs one unit per connected lane, all at once (no station-wide cap).
         self._one_at_a_time = bool(getattr(runner, "single_slot", False))
+        # FILL (opt-in; the module doc): None = one unit per connected lane.
+        self.fill = None if self._one_at_a_time else fill
+        if fill is not None and self.fill is None:
+            log.warning("labs: fill is ignored: this station runs its units in this process, one at a time")
+        self._fill_at = clock()                   # the last unit fill added, the start, or a stop
+        self._fill_dry: dict = {}                 # analyser -> fill adds none before this
+        self._fill_made: dict = {}                # analyser -> extra lanes made so far (their names)
+        self._fill_code: Optional[str] = None     # why fill adds none now (the status file)
+        self._leases: dict = {}                   # unit key -> (claimed, on this clock; lease length s)
         self.lanes = {n: Lane(n) for n in names}
         first = list(order) if order else list(names)
         if not order:
@@ -224,29 +382,33 @@ class Scheduler:
     # ---- the tick ------------------------------------------------------------------------------
     def tick(self) -> None:
         now = self.clock()
-        for lane in self.lanes.values():
+        for lane in list(self.lanes.values()):    # a copy: fill's extra lanes may go here
             if lane.op is not None and lane.op.done():
                 self._finished(lane, now)
+        if self.fill is not None:
+            self.fill.sample(now)
         ctl = self.control()
         ok, word, note = self.allowed(ctl)
         # Kept current in every state: what this station COULD run is shown on the Labs
         # screen whether or not it is scanning (supported() rate-limits its own reads).
         plugins = self.supported()
         if not ok:
+            self._fill_stop(now)
             self._say(word)
             self._publish(word, note, ctl=ctl)
             return
         if self._fatal_until is not None and now >= self._fatal_until:
             self._fatal_until, self._fatal_note = None, ""
         if self._fatal_until is not None:
+            self._fill_stop(now)
             self._say("idle")
             self._publish("fatal", self._fatal_note, ctl=ctl)
             return
         by_name = {p.name: p for p in plugins}
         runs = []
         for lane in self.lanes.values():
-            lane.plugin = by_name.get(lane.name)
-            if lane.plugin is not None and self.lane_ok(lane.name, ctl):
+            lane.plugin = by_name.get(lane.analyzer)
+            if not lane.extra and lane.plugin is not None and self.lane_ok(lane.name, ctl):
                 runs.append(lane.name)
         busy = sum(1 for x in self.lanes.values() if x.op is not None)
         # One per lane is the only bound (a lane with work in hand is skipped below).
@@ -255,7 +417,17 @@ class Scheduler:
         for lane in list(self.queue):
             if free <= 0:
                 break
-            if lane.op is not None or lane.name not in runs:
+            if lane.op is not None:
+                continue
+            if lane.extra:
+                # An extra lane claims again only while its analyser runs and the machine still
+                # has room for the unit it would take; otherwise it goes.
+                why = ("its analyser is not running here" if lane.analyzer not in runs
+                       else self._room(now, lane.analyzer, adding=False)[1])
+                if why:
+                    self._retire(lane, why)
+                    continue
+            elif lane.name not in runs:
                 continue
             if lane.until is not None and now < lane.until:
                 if lane.wake_sig is None:
@@ -269,6 +441,8 @@ class Scheduler:
                 break
             self._start_claim(lane)
             free -= 1
+        if self.fill is not None and self._fatal_until is None:
+            self._fill_step(now, runs)
         self._say("idle")
         self._publish(None, None, runs=runs, ctl=ctl)
 
@@ -303,7 +477,7 @@ class Scheduler:
         self.queue.remove(lane)
         lane.state, lane.note, lane.until, lane.until_iso, lane.wake_sig = "claiming", "", None, None, None
         lane.op_kind = "claim"
-        lane.op = self.executor.submit(self._claim_one, lane.name)
+        lane.op = self.executor.submit(self._claim_one, lane.analyzer)
         lane.op.add_done_callback(lambda _f: self._wake.set())
 
     def _claim_one(self, name: str):
@@ -338,11 +512,21 @@ class Scheduler:
         if what == "units" and val:
             lane.tries = 0
             self.totals["claimed"] += len(val)
-            if self.reporter is not None:
-                for u in val:                 # all of them are this station's now
+            wall = datetime.now(timezone.utc)
+            for u in val:                     # all of them are this station's now
+                self._leases[_ukey(u)] = (now, _lease_s(u, wall))
+                if self.reporter is not None:
                     self.reporter.add_holding(u)
+            if lane.retire:                   # the station stopped claiming meanwhile
+                for u in val:
+                    self._let_go(u)
+                self._retire(lane, "the station stopped claiming")
+                return
             lane.backlog = list(val[1:])
             self._start_unit(lane, val[0])    # the lane keeps its turn for its unit
+            return
+        if lane.extra:
+            self._extra_claim_ended(lane, what, val, now)
             return
         self.queue.append(lane)               # its turn is over: to the back
         name = lane.name
@@ -402,20 +586,24 @@ class Scheduler:
             o.stalled = True                  # the lane rests: a runner that fails once fails again
         else:
             o = res
+        used = self._lease_used(unit, now)
+        self._leases.pop(_ukey(unit), None)
         if self.reporter is not None:
             self.reporter.remove_holding(unit)
             self.reporter.kick()              # CONTRACT: report right after a unit finishes
         summary = unit_summary(o)
         self.totals[summary["outcome"]] = self.totals.get(summary["outcome"], 0) + 1
         self.hb.update(last_unit=summary, totals=dict(self.totals))
-        if lane.backlog and not (o.station_fault or o.action is W.Action.FATAL):
+        if lane.backlog and not (o.station_fault or o.action is W.Action.FATAL or lane.retire):
             nxt = lane.backlog.pop(0)         # already leased to this station: run it now
             self._start_unit(lane, nxt)
             return
         for u in lane.backlog:                # never started; the server takes them back
-            if self.reporter is not None:
-                self.reporter.remove_holding(u)
+            self._let_go(u)
         lane.backlog = []
+        if lane.extra:
+            self._extra_unit_ended(lane, o, used, now)
+            return
         self.queue.append(lane)
         if o.station_fault:
             self._set_fatal(now, f"this station cannot start its decoder: {o.station_fault}")
@@ -429,6 +617,168 @@ class Scheduler:
             self._rest(lane, now, "rest", f"its last unit was dropped: {o.note}", self.t.rest_s)
         else:
             lane.state, lane.note = "ready", ""
+
+    # ---- fill (opt-in; the module doc) --------------------------------------------------------------
+    def _fill_step(self, now: float, runs: list) -> None:
+        """Add at most ONE unit to the station, at most every `fill_every_s`: to a connected lane
+        with work in hand in every slot it has (so it is getting work), whose claims have not
+        lately found nothing -- the one with the fewest slots first."""
+        if now - self._fill_at < self.t.fill_every_s:
+            return
+        want = []
+        for name in runs:
+            slots = [x for x in self.lanes.values() if x.analyzer == name]
+            if all(x.op is not None for x in slots) and now >= self._fill_dry.get(name, float("-inf")):
+                want.append((len(slots), name))
+        if not want:
+            self._fill_note("no_work", "no connected lane has work in hand in every slot it has")
+            return
+        n, name = min(want)
+        code, why = self._room(now, name, adding=True)
+        if code:
+            self._fill_note(code, why)
+            return
+        fault = self._station_fault(now)
+        if fault:
+            self._set_fatal(now, f"this station cannot start its decoder: {fault}")
+            return
+        p = self.fill
+        log.warning("labs: fill: %s takes one more unit, %d at once: %.1f of %s logical CPUs idle over the "
+                    "last %g s, free memory %s, its largest unit %s", name, n + 1,
+                    p.idle_cores(now, self.t.fill_window_s) or 0.0, p.cores, self.t.fill_window_s,
+                    _mb(p.free), _mb(p.unit_bytes(name)))
+        self._fill_note(None, "")
+        self._fill_made[name] = self._fill_made.get(name, 0) + 1
+        lane = Lane(f"{name}+{self._fill_made[name]}", analyzer=name)
+        lane.plugin = self.lanes[name].plugin
+        self.lanes[lane.name] = lane
+        self.queue.append(lane)
+        self._fill_at = now
+        self._start_claim(lane)
+
+    def _room(self, now: float, analyzer: str, adding: bool):
+        """(None, "") when this machine has room for one more claim of `analyzer`, else (a
+        code for the status file, why not). `adding`: a unit fill would add, which must also
+        find the CPU idle and no unit in hand near the end of its lease; without it, an extra
+        lane about to claim again after its unit, which only needs the room to still be there."""
+        p = self.fill
+        cores = p.cores or os.cpu_count()
+        if not cores:
+            return "cpu", "this machine's number of logical CPUs is unknown"
+        in_hand = (sum(1 for x in self.lanes.values() if x.op is not None)
+                   + sum(len(x.backlog) for x in self.lanes.values()))
+        if in_hand >= min(cores, REPORT_HOLDING_MAX):
+            return "ceiling", (f"{in_hand} claims and units in hand, as many as this machine's {cores} logical CPUs"
+                               if cores <= REPORT_HOLDING_MAX else
+                               f"{in_hand} claims and units in hand, the most a report may list ({REPORT_HOLDING_MAX})")
+        unit = p.unit_bytes(analyzer)
+        if unit is None:
+            if not p.can_walk:
+                return "unmeasurable", "this station cannot measure a unit's memory (it has no psutil)"
+            return "measuring", f"no {analyzer} unit has been measured yet"
+        if p.free is None:
+            return "memory", "this machine's free memory is unknown"
+        if p.free < FILL_MEM_FACTOR * unit:
+            return "memory", (f"free memory {_mb(p.free)} holds fewer than {FILL_MEM_FACTOR:g} of the largest "
+                              f"{analyzer} unit ({_mb(unit)})")
+        if not adding:
+            return None, ""
+        late = [s for s in (self._lease_used(u, now) for u in self._in_hand_units()) if s is not None
+                and s > FILL_LEASE_SHARE]
+        if late:
+            return "lease", (f"{len(late)} unit(s) in hand past {FILL_LEASE_SHARE:.0%} of their lease "
+                             f"(the furthest at {max(late):.0%})")
+        idle = p.idle_cores(now, self.t.fill_window_s)
+        if idle is None:
+            return "measuring", "the idle CPU is still being measured"
+        if idle < 1.0:
+            return "cpu", f"{idle:.1f} of {cores} logical CPUs idle over the last {self.t.fill_window_s:g} s"
+        return None, ""
+
+    def _fill_note(self, code: Optional[str], why: str) -> None:
+        if code != self._fill_code:
+            self._fill_code = code
+            if code:
+                log.warning("labs: fill adds no unit now: %s", why)
+
+    def _fill_stop(self, now: float) -> None:
+        """The station stopped claiming (a hold, a pause, a server stop, a fatal pause): every
+        extra lane goes -- one with work in hand once that ends -- and fill starts again from one
+        unit per lane, no sooner than `fill_every_s` after claiming resumes."""
+        if self.fill is None:
+            return
+        self._fill_at = now
+        self._fill_note("stopped", "the station is not claiming")
+        for lane in list(self.lanes.values()):
+            if lane.extra:
+                if lane.op is None:
+                    self._retire(lane, "the station stopped claiming")
+                else:
+                    lane.retire = True
+
+    def _extra_claim_ended(self, lane: Lane, what, val, now: float) -> None:
+        """An extra lane's claim brought no unit: it goes, and fill leaves its analyser alone
+        for `idle_s`. Waiting, retrying and backing off stay with the lane's first."""
+        if what == "units":
+            why = "its claim found nothing"
+        elif what == "error":
+            log.warning("labs: claim %s failed in this worker: %r", lane.analyzer, val)
+            why = f"its claim failed here: {type(val).__name__}: {val}"
+        else:
+            r, a = val, W.action_for(val)
+            if a is W.Action.FATAL and (r.status == 401 or r.detail == "station_token_not_recognised"):
+                self._set_fatal(now, str(r))  # the STATION's token: every lane waits
+            elif a is W.Action.NOT_REPORTING and self.reporter is not None:
+                self.reporter.kick()
+            why = f"its claim was refused: {r}"
+        self._fill_dry[lane.analyzer] = now + self.t.idle_s
+        self._retire(lane, why)
+
+    def _extra_unit_ended(self, lane: Lane, o: W.UnitOutcome, used: Optional[float], now: float) -> None:
+        """An extra lane's unit ended: it claims again, unless the station stopped, the unit could
+        not run, or it used so much of its lease that this many at once is too many."""
+        if o.station_fault:
+            self._set_fatal(now, f"this station cannot start its decoder: {o.station_fault}")
+        elif o.action is W.Action.FATAL:
+            self._set_fatal(now, o.note)
+        why = ("the station stopped claiming" if lane.retire
+               else "its unit could not run here" if (o.station_fault or o.action is W.Action.FATAL)
+               else "its analyser was switched off on the server" if o.action is W.Action.STOP_ANALYSER
+               else f"its unit was dropped: {o.note}" if getattr(o, "stalled", False)
+               else f"its unit used {used:.0%} of its lease" if used is not None and used > FILL_LEASE_SHARE
+               else "")
+        if why:
+            self._retire(lane, why)
+            return
+        self.queue.append(lane)
+        lane.state, lane.note = "ready", ""
+
+    def _retire(self, lane: Lane, why: str) -> None:
+        """An extra lane goes -- never a lane's first: fill made it, fill takes it back."""
+        if lane in self.queue:
+            self.queue.remove(lane)
+        self.lanes.pop(lane.name, None)
+        left = sum(1 for x in self.lanes.values() if x.analyzer == lane.analyzer)
+        log.warning("labs: fill: %s gives back an extra unit slot, %d left: %s", lane.analyzer, left, W.fit(why, 200))
+
+    def _in_hand_units(self) -> list:
+        return ([x.unit for x in self.lanes.values() if x.unit is not None]
+                + [u for x in self.lanes.values() for u in x.backlog])
+
+    def _lease_used(self, unit: W.ScanUnit, now: float) -> Optional[float]:
+        """The share of its lease this unit has used, or None when the server named no lease."""
+        rec = self._leases.get(_ukey(unit))
+        if not rec or rec[1] is None:
+            return None
+        if rec[1] <= 0:
+            return float("inf")               # it had run out when the claim came back
+        return (now - rec[0]) / rec[1]
+
+    def _let_go(self, u: W.ScanUnit) -> None:
+        """A unit claimed and never started: once no report lists it, the server takes it back."""
+        self._leases.pop(_ukey(u), None)
+        if self.reporter is not None:
+            self.reporter.remove_holding(u)
 
     # ---- waits -------------------------------------------------------------------------------------
     def _rest(self, lane: Lane, now: float, state: str, note: str, seconds: float, wake_on_lanes: bool = False):
@@ -485,8 +835,9 @@ class Scheduler:
 
     def _publish(self, word, note, runs=None, ctl=None) -> None:
         running = sorted((x for x in self.lanes.values() if x.unit is not None), key=lambda x: x.started_seq)
+        firsts = [x for x in self.lanes.values() if not x.extra]     # the Labs screen's lanes
         if word is None:
-            listed = [x for x in self.lanes.values() if runs is None or x.name in runs]
+            listed = [x for x in firsts if runs is None or x.name in runs]
             if self._fatal_until is not None:
                 word, note = "fatal", self._fatal_note      # set during this very tick
             elif running:
@@ -501,12 +852,19 @@ class Scheduler:
                         else "no analyser can run on this station right now")
         fields = {"state": word, "note": W.fit(note or "", 300),
                   # The Labs screen names ONE analyser (a string): the latest started; `units`
-                  # lists every unit in hand, one per lane.
-                  "current": running[-1].name if running else None,
+                  # lists every unit in hand: one per lane, more where fill added some.
+                  "current": running[-1].analyzer if running else None,
                   "units": [{"analyzer": x.unit.analyzer, "camera_id": x.unit.camera_id,
                              "hour_start": x.unit.hour_start} for x in running],
                   "lane_states": {x.name: {"state": x.state, "note": x.note, "until": x.until_iso}
-                                  for x in self.lanes.values()}}
+                                  for x in firsts}}
+        if self.fill is not None:
+            # Fill's slots per analyser (only where it added any), and why it adds none now.
+            slots: dict = {}
+            for x in self.lanes.values():
+                slots[x.analyzer] = slots.get(x.analyzer, 0) + 1
+            fields["fill"] = {"slots": {a: n for a, n in sorted(slots.items()) if n > 1},
+                              "not_adding": self._fill_code}
         if runs is not None:
             fields["runs"] = runs
         if ctl is not None:
