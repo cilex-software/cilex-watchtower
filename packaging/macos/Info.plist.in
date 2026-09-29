@@ -2,20 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Configured by CMake (MACOSX_BUNDLE_INFO_PLIST) — version flows from
      PROJECT_VERSION automatically, so this file never joins the bump-hook set.
-     WRITTEN 2026-08-16 ON LINUX, NEVER CONSUMED BY A MAC BUILD YET (M0 of
-     docs/plans/mac-port/ is the first configure). Bundle identifier is
-     PROVISIONAL until the operator confirms it at M4. -->
+     Bundle identifier is PROVISIONAL until the operator confirms it at M4.
+     CMAKE'S FIELDS MUST USE THE DOLLAR-BRACE FORM, never the at-sign form. Qt's
+     _qt_internal_copy_info_plist (QtPublicAppleHelpers.cmake) first runs this file
+     through configure_file(@ONLY) for Qt's own at-sign values, in a scope where the
+     MACOSX_BUNDLE_* names are target properties, not variables, so an at-sign
+     MACOSX_BUNDLE_* placeholder comes out EMPTY. Only the dollar-brace form reaches
+     CMake's own pass, which fills it from the target. Every Mac build until
+     2026-09-29 shipped an empty version, build number, executable name and bundle
+     identifier this way; the launch banner's "version unknown" exposed it. -->
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>      <string>en</string>
-    <key>CFBundleExecutable</key>             <string>@MACOSX_BUNDLE_EXECUTABLE_NAME@</string>
-    <key>CFBundleIdentifier</key>             <string>@MACOSX_BUNDLE_GUI_IDENTIFIER@</string>
+    <key>CFBundleExecutable</key>             <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+    <key>CFBundleIdentifier</key>             <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
     <key>CFBundleInfoDictionaryVersion</key>  <string>6.0</string>
     <key>CFBundleName</key>                   <string>Cilex Watchtower</string>
     <key>CFBundleDisplayName</key>            <string>Cilex Watchtower</string>
     <key>CFBundlePackageType</key>            <string>APPL</string>
-    <key>CFBundleShortVersionString</key>     <string>@MACOSX_BUNDLE_SHORT_VERSION_STRING@</string>
-    <key>CFBundleVersion</key>                <string>@MACOSX_BUNDLE_BUNDLE_VERSION@</string>
+    <key>CFBundleShortVersionString</key>     <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+    <key>CFBundleVersion</key>                <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
     <key>LSMinimumSystemVersion</key>         <string>12.0</string>
     <key>NSHighResolutionCapable</key>        <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key> <true/>

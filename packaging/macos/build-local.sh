@@ -151,11 +151,17 @@ fi
 # can be ahead of the last build. Shown on the banner so a launch says at a glance what
 # it runs (operator request, 2026-09-29). Unknown says "version unknown", never a guess.
 PLIST="${BIN%/MacOS/watchtower}/Info.plist"
-VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null)
+# PlistBuddy's answer counts only when it EXITS 0. A missing or unreadable plist makes it
+# print "File Doesn't Exist, Will Create: ..." or "Error Reading File: ..." on STDOUT, exit 1
+# (measured on macOS 26, 2026-09-29) -- which the banner then showed as the version.
+VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null) || VER=
 [ -n "$VER" ] || VER=$(sed -n \
   -e 's/.*<key>CFBundleShortVersionString<\/key>[[:space:]]*<string>\([^<]*\)<\/string>.*/\1/p' \
   -e '/<key>CFBundleShortVersionString<\/key>[[:space:]]*$/{n;s/.*<string>\([^<]*\)<\/string>.*/\1/p;}' \
   "$PLIST" 2>/dev/null | head -n 1)
+# Digits and dots only. Anything else -- a message, an unfilled template placeholder -- is
+# not a version, and the banner says "version unknown" rather than print it.
+case "$VER" in ''|.*|*[!0-9.]*) VER= ;; esac
 if [ "$(uname)" = Darwin ]; then
   BUILT=$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$BIN" 2>/dev/null)
 else

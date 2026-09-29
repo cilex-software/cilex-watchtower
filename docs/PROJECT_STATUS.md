@@ -5,6 +5,38 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-29 MAC: THE BUNDLE NEVER SAID WHAT IT WAS -->
+> **2026-09-29 — Every Mac build until 1.1.701 shipped an EMPTY version, build number, executable
+> name and bundle identifier.** Found while verifying the launch banner's version (bbdf97b, the Linux
+> agent's, at the operator's request): on the Mac it read "version unknown".
+>
+> - **Cause:** `packaging/macos/Info.plist.in` wrote CMake's fields as `@MACOSX_BUNDLE_…@`. Qt runs
+>   the template through `configure_file(@ONLY)` first, for its own `@FOO@` values
+>   (`_qt_internal_copy_info_plist`, `QtPublicAppleHelpers.cmake:642-654` in Homebrew Qt 6.11.1).
+>   In that scope those names are target properties, not variables, so they came out empty before
+>   CMake's own pass ever saw them. Fixed by writing them as `${MACOSX_BUNDLE_…}`.
+> - **Now, measured with `plutil -p` on the built bundle:** version `1.1.701`, build `1.1.701`,
+>   executable `watchtower`, identifier `com.cilexvision.watchtower` (provisional until M4, as
+>   `CMakeLists.txt` says).
+> - **Settings do not move.** Qt derives the QSettings domain from the organization name, not the
+>   bundle identifier. Measured with a probe app carrying the new identifier: it resolves to the same
+>   `com.cilex-vision.Watchtower.plist`.
+> - **May change, NOT verified:**
+>   - `cilex://` routing. `run-macos.sh` notes LaunchServices refusing it with
+>     `kLSApplicationNotFoundErr` (2026-08-22), and URL schemes are registered against a bundle
+>     identifier, which was empty.
+>   - macOS privacy prompts (Local Network and the like). They may ask once more under the new
+>     identity.
+> - **The banner also got a guard.** A missing or unreadable plist makes PlistBuddy print "File
+>   Doesn't Exist, Will Create: …" or "Error Reading File: …" on stdout, with exit 1. The banner
+>   showed that as the version. Now PlistBuddy counts only on exit 0, and only digits and dots pass.
+>   Checked on the Mac: bash 5.3 and stock bash 3.2 (the checkout launcher) and zsh (the packaged
+>   one). Cases: the real bundle, a missing plist, a garbage file, an unfilled placeholder, an empty
+>   version, and a stage without the app.
+>
+> Not run end-to-end: `./run-macos.sh` itself. The operator's Watchtower was running from the same
+> bundle, and the script renames the `run-last.log` it writes to.
+
 <!-- 2026-09-29 LABS: worker-0.3.3 — THE KILL TOOK THE CONSOLE HOST -->
 > **2026-09-29 — worker-0.3.3: a Stop kills decoders ONLY; a station that cannot start its decoder
 > stops claiming.** An incident found by the Windows agent on the office.
