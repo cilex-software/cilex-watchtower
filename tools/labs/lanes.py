@@ -456,11 +456,18 @@ class Scheduler:
         if any(x.op is not None and x.op.done() for x in self.lanes.values()):
             return 0.0
         t = self.t.poll_s if self.governed() else self.t.legacy_poll_s
+        # Only a wait still in the FUTURE can shorten the sleep. A lane whose rest has already
+        # run out and that the last tick did not claim is blocked by something else -- the
+        # station is held or paused, the server has the lane stopped, the one-at-a-time runner
+        # is busy -- so waking early for it achieves nothing: it is tried at the next poll
+        # anyway. Counting it as 0 made run() spin: a held booth worker (worker-0.3.8) used
+        # 9.58 CPU-s in 10 s, 96 % of a core, from the 00:11 hold on (the Windows agent,
+        # 2026-09-30).
         for x in self.lanes.values():
-            if x.op is None and x.until is not None:
-                t = min(t, max(0.0, x.until - now))
-        if self._fatal_until is not None:
-            t = min(t, max(0.0, self._fatal_until - now))
+            if x.op is None and x.until is not None and x.until > now:
+                t = min(t, x.until - now)
+        if self._fatal_until is not None and self._fatal_until > now:
+            t = min(t, self._fatal_until - now)
         return t
 
     def _wait(self, seconds: float) -> None:

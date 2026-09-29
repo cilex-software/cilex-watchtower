@@ -2461,6 +2461,37 @@ check("governed: the unit in hand is announced to the reporter and handed back, 
       g.events == [("in hand", "illumination"), ("handed back", "illumination")] and g.kicks >= 1,
       f"{g.events} kicks={g.kicks}")
 
+# ---- a lane whose rest has run out must not make the loop spin (worker-0.3.9) ----------------
+# The Windows agent, 2026-09-30: the booth's HELD worker-0.3.8 used 9.58 CPU-s in 10 s (96 % of a
+# core) doing nothing. _next_wait counted a lane whose rest had already run out as a wait of 0, and
+# nothing claims it while the station is held or the server has the lane stopped -- so run() spun.
+# On the fake clock a zero wait advances 1 ms, so a spin shows as thousands of ticks.
+_n_ctl = [0]
+def _ctl_paused_count():
+    _n_ctl[0] += 1
+    return {"paused": True, "camera_health": False, "why": "paused", "hold": None}
+c, plugs = loop_world(["illumination", "foreground_mask"]); clk = Clock()
+s, hb = sched(c, plugs, clk, _ctl_paused_count)
+s.lanes["illumination"].until = clk.t - 1.0          # a rest that has already run out
+s.run(until=lambda: clk.t >= 20)
+check("lanes: a PAUSED or HELD station with a lane whose rest has run out WAITS between ticks, it does not spin "
+      "(the booth's held 0.3.8 worker used 96 % of a core)",
+      _n_ctl[0] <= 20 / T.legacy_poll_s + 2 and c.claims == [], f"ticks in 20 s: {_n_ctl[0]}, claims {c.claims}")
+_n_ctl2 = [0]
+def _ctl_run_count():
+    _n_ctl2[0] += 1
+    return _LOCAL_RUN
+c, plugs = loop_world(["illumination", "blob_geometry"])
+g = _Gov("running", {"illumination": "running", "blob_geometry": "paused"})
+clk = Clock()
+s, hb = sched(c, plugs, clk, _ctl_run_count, reporter=g)
+s.lanes["blob_geometry"].until = clk.t - 1.0         # rested once, and now the server has it stopped
+s.run(until=lambda: clk.t >= 20)
+check("lanes: RUNNING, a lane the server has stopped whose rest has run out does not make the loop spin either "
+      "-- one tick a poll, and the running lane still works",
+      _n_ctl2[0] <= 20 / T.poll_s + 10 and "illumination" in c.claims and "blob_geometry" not in c.claims,
+      f"ticks in 20 s: {_n_ctl2[0]}, claims {c.claims}")
+
 for _mode, _level, _at, _word, _says in (("paused", "station", "2026-09-28T09:05:00Z", "paused", "this workstation, since 2026-09-28T09:05:00Z"),
                                          ("stopped", None, None, "stopped_by_server", "never started"),
                                          (None, None, None, "waiting", "no fresh orders")):
