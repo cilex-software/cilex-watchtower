@@ -55,5 +55,14 @@ got off worker-0.3.2 after its Stop killed the worker's own console host (0xC000
 every later ffmpeg): the guard now launches workers through `cmd start /low /b`, so the
 console belongs to cmd, and worker-0.3.3 kills decoders only.
 
+**Fill (worker-0.3.10, 2026-09-30).** The operator asked for the office to run Vehicles
+"to the full capacity of this PC". `start-labs-office.vbs` puts `WT_LABS_FILL=1` into its own
+process environment, and the guard and the worker it starts inherit it. The worker then adds
+Vehicles units one at a time while the machine measures room for them: an idle logical CPU,
+free memory of at least 2x the largest unit, and no unit near its lease. The ceiling is the
+logical CPU count. On any hold the extra units go back, and after it the lane refills from
+one unit. The booth's launcher never sets the variable. psutil (7.2.2 on the office) is what
+lets fill measure a unit's memory on Windows; without it, fill adds nothing and says why.
+
 Not yet decided by the operator: starting the launcher at logon (a trigger on that task),
 so Labs and its guard survive a reboot. Until then it is started on demand.
