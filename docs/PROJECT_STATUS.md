@@ -5,6 +5,39 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-30 LABS: THE OFFICE AFTER 10:00 -- 720p HOURS GIVEN UP, worker-0.3.12 -->
+> **2026-09-30 15:00 — the office kept losing 720p Vehicles hours to leases, and 24 are now GIVEN
+> UP. worker-0.3.12 (182279f) is approved by the operator and swaps in once the units in hand end.**
+>
+> **CORRECTION to the block below: it was NOT the priority class.** At Normal (09:39:40, the
+> operator's word) the units stayed on the E-cores. Windows' default QoS for windowless
+> processes placed them (power throttling at the default).
+> - HighQoS (the throttling opt-out) is not inherited: new units showed ctl=0, and only the
+>   worker had ctl=1 (the Windows agent, 14:49).
+> - The priority class is inherited.
+>
+> **Measured read-only (labs_scan_units, 14:5x):**
+> - Lease expiries on the office per hour: 2 / 6 / 7 / 10 (11h-14h). All 25 are on the three
+>   720p cameras (083bc14effdc, 083bc17adca6, 083bc1df39cc).
+> - **24 of those hours are at attempts=3: given up for good** unless cilex-vision resets them.
+> - Done units: median 17-19 min each since 10:00, against the 20-min lease.
+>
+> **worker-0.3.12:**
+> - `WT_LABS_PRIORITY` and `WT_LABS_HIGHQOS` are set by the worker on itself, on each unit at its
+>   start, and on each decoder.
+> - The booth's run: 405 passed, 0 failed. The real Windows calls read back.
+> - The office launcher sets priority normal and HighQoS on (ad20910). guard3 holds if the worker
+>   outranks the wall app. The office's wt-warden task still starts the wall at BelowNormal: its
+>   UserId names the PC's old name and cannot be re-saved.
+>
+> **The 09:47 office wall freeze (2806 ms):** Labs at Normal had outranked the wall and Warden,
+> both left at BelowNormal by that task.
+>
+> **Open, the operator's:**
+> - cilex-vision's lease renewal deploy (also carries BY CAMERA's per-camera counts);
+> - resetting the 24 given-up hours;
+> - my recommendation of BelowNormal over Normal for the office's Labs (the operator chose Normal).
+
 <!-- 2026-09-30 LABS: FILL ON THE OFFICE -- E-CORES, LEASE OVERRUNS, worker-0.3.11 -->
 > **2026-09-30 09:45 — fill ran on the office from 09:01. The units could not use most of the CPU,
 > and 9 units were lost to their leases. worker-0.3.11 (6aae1f0) is on main, NOT deployed.**
