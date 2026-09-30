@@ -2060,6 +2060,91 @@ if _env0 is not None:
     os.environ["WT_LABS_FILL"] = _env0
 check("run_worker: --fill or WT_LABS_FILL=1/true/on turns fill on; unset, 0, empty or no leave it off",
       _fw == [True, False, True, True, True, False, False, False], str(_fw))
+# ---- 0.3.11: leases while units are IN FLIGHT (the office, 2026-09-30 09:23: 16 at once, three
+# units ran past their 20-min lease and were thrown away; the 75 % rule acted only when a unit ENDED).
+def _capped(cores=16, n_in_hand=16, lease=100.0):
+    p = _FillProbe(cores=cores)
+    s = LN.Scheduler(Fake(), lambda: [NamedPlug("object_profile")], runner=_FillRunner(), hb=HbRec(),
+                     names=["object_profile"], control=ctl_seq({"paused": False}), executor=LN.SyncExecutor(),
+                     fill=p)
+    ls = [s.lanes["object_profile"]]
+    for i in range(n_in_hand - 1):
+        x = LN.Lane(f"object_profile+{i + 1}", analyzer="object_profile"); s.lanes[x.name] = x; ls.append(x)
+    us = []
+    for i, x in enumerate(ls):
+        u = W.ScanUnit(f"cam-{i}", "2026-09-30T05:00:00Z", "object_profile", None, 1)
+        x.unit, x.op, x.op_kind = u, _Fut(), "unit"
+        s._leases[(u.analyzer, u.camera_id, u.hour_start)] = (0.0, lease)
+        us.append(u)
+    return s, ls, us
+def _ended(s, lane, u, now, **timings):
+    lane.op = None
+    o = W.UnitOutcome(u); o.submitted = True; o.timings.update(timings)
+    s._unit_done(lane, o, now)
+
+del _said.lines[:]
+_s, _ls, _us = _capped()
+_ended(_s, _ls[5], _us[5], 101.0, fetch_s=72.4, decode_s=400.1, analyse_s=380.2, total_s=912.0)
+check("fill 0.3.11: a unit that ends past 3/4 of its lease caps its analyser at floor(N x 3/4 / used) "
+      "-- 16 at once at 101 % -> 11 -- and its own extra slot goes",
+      _s._fill_cap.get("object_profile", [None])[0] == 11 and "object_profile+5" not in _s.lanes,
+      f"cap={_s._fill_cap} lanes={len(_s.lanes)}")
+check("...then nothing is added while the analyser has as many slots as its safe width, and an extra "
+      "slot above it does not claim again (15 slots > 11)",
+      _s._room(101.0, "object_profile", adding=True)[0] == "lease_cap"
+      and _s._room(101.0, "object_profile", adding=False)[0] == "lease_cap",
+      f"{_s._room(101.0, 'object_profile', adding=True)} {_s._room(101.0, 'object_profile', adding=False)}")
+_pl = [x for x in _said.lines if x.startswith("labs: unit done: object_profile cam-5")]
+check("...and every unit leaves one line with its phases, how many of its analyser were in hand, and "
+      "how much of its lease it used (the server keeps no timings)",
+      len(_pl) == 1 and "in 912 s (fetch 72 s, decode 400 s, analyse 380 s), 16 of it at once, 101% of its lease" in _pl[0],
+      str(_pl))
+check("...and the Labs screen's last unit keeps the phases too",
+      (_s.hb.fields.get("last_unit") or {}).get("phases") == {"fetch_s": 72.4, "decode_s": 400.1, "analyse_s": 380.2},
+      str((_s.hb.fields.get("last_unit") or {}).get("phases")))
+
+_s2b, _ls2, _us2 = _capped()
+_ended(_s2b, _ls2[3], _us2[3], 86.0)
+_c1 = _s2b._fill_cap["object_profile"][0]
+_ended(_s2b, _ls2[4], _us2[4], 120.0)
+check("fill 0.3.11: a second overrun while capped keeps the smaller safe width "
+      f"(16 at 86 % -> {_c1}, then 15 at 120 % -> 9)",
+      _c1 == 13 and _s2b._fill_cap["object_profile"][0] == 9, str(_s2b._fill_cap))
+
+_s3b, _ls3, _us3 = _capped()
+_ended(_s3b, _ls3[5], _us3[5], 101.0)
+_w = [_s3b._fill_cap_of("object_profile", t) for t in (150.0, 201.0, 301.0, 401.0, 501.0, 601.0)]
+check("fill 0.3.11: each lease length with no overrun allows one more at once, and the cap goes at the "
+      "machine's ceiling -- a slow climb back, not a refill to 16",
+      _w == [11, 12, 13, 14, 15, None], str(_w))
+
+_s4b, _ls4, _us4 = _capped(n_in_hand=4)
+check("fill 0.3.11: while ANY unit in hand is past 3/4 of its lease, an extra slot whose unit ended does "
+      "not claim again (the width falls at once, and the late units get the rest) -- before that, it does",
+      _s4b._room(80.0, "object_profile", adding=False)[0] == "lease"
+      and _s4b._room(50.0, "object_profile", adding=False)[0] is None and not _s4b._fill_cap,
+      f"{_s4b._room(80.0, 'object_profile', adding=False)} {_s4b._room(50.0, 'object_profile', adding=False)}")
+
+# ...and on real threads: one slow unit crossing 3/4 of its lease makes the fast extras give back
+# their slots as they end, through the claim loop.
+class _SlowOne(_FillRunner):
+    def run(self, unit, plugin):
+        self.secs = 1.2 if unit.camera_id.endswith("-0") else 0.05
+        return super().run(unit, plugin)
+del _said.lines[:]
+_c5, _p5 = lane_world(["object_profile"], units_per=60, cls=lambda **k: _FillFake(lease_s=0.4, **k))
+_r5 = _SlowOne()
+_s5 = LN.Scheduler(_c5, lambda: _p5, runner=_r5, hb=HbRec(), names=["object_profile"],
+                   control=ctl_seq({"paused": False}), executor=_TPE(max_workers=40),
+                   timing=LN.Timing(**dict(_FT, fill_every_s=0.01)), fill=_FillProbe(cores=8))
+_th5 = threading.Thread(target=_s5.run, daemon=True); _th5.start()
+_time.sleep(0.9)
+_s5.stop(); _th5.join(5)
+_shrunk = [x for x in _said.lines if "gives back an extra unit slot" in x and "fewer at once until they end" in x]
+check("...on real threads: the fast extras give back their slots through the claim loop while the slow "
+      "unit is past 3/4 of its lease",
+      len(_shrunk) >= 1, f"{len(_shrunk)} {[x for x in _said.lines if 'gives back' in x][:3]}")
+
 _lanes_log.removeHandler(_said); _lanes_log.propagate = True
 
 c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)

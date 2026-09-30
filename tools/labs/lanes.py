@@ -39,6 +39,14 @@ Now:
     longer holds another unit, and on a hold, a pause, a server stop or a fatal pause. So after
     the wall guard's hold the station fills again from one unit per lane. Without the flag,
     nothing changes.
+    LEASES (worker-0.3.11; the office, 2026-09-30 09:23: 16 at once, the server's serving rate
+    the limit and not the machine, three units ran past their 20-min lease and were thrown away).
+    A lease is set at the claim and not renewed, so fill must act while units are in flight:
+      - while ANY unit in hand is past FILL_LEASE_SHARE of its lease, an extra slot whose unit
+        ends does not claim again -- the width falls at once and the late units get the rest;
+      - a unit that ends past that share caps its analyser at floor(N x share / used), N being
+        its units in hand then (16 at 101 % -> 11), for one lease length; each lease length
+        with no overrun after that allows one more (AIMD), instead of refilling at once.
   * Lanes start in queue order: a lane that has just had its turn queues behind the lanes
     that were waiting, and the first order is shuffled at every start, so no analyser is
     always first (the letter's point 4).
@@ -115,6 +123,7 @@ def unit_summary(o: W.UnitOutcome) -> dict:
             "hour_start": o.unit.hour_start, "outcome": outcome,
             "observations": o.observations, "segments": o.segments_scanned,
             "note": W.fit(o.note or "", 200), "seconds": o.timings.get("total_s"),
+            "phases": {k: o.timings.get(k) for k in ("fetch_s", "decode_s", "analyse_s") if k in o.timings},
             "at": S.now_iso()}
 
 
@@ -317,6 +326,7 @@ class Scheduler:
         self._fill_made: dict = {}                # analyser -> extra lanes made so far (their names)
         self._fill_code: Optional[str] = None     # why fill adds none now (the status file)
         self._leases: dict = {}                   # unit key -> (claimed, on this clock; lease length s)
+        self._fill_cap: dict = {}                 # analyser -> [safe width, until (this clock), lease s]
         self.lanes = {n: Lane(n) for n in names}
         first = list(order) if order else list(names)
         if not order:
@@ -587,11 +597,25 @@ class Scheduler:
         else:
             o = res
         used = self._lease_used(unit, now)
-        self._leases.pop(_ukey(unit), None)
+        rec = self._leases.pop(_ukey(unit), None)
+        if self.fill is not None and used is not None and used > FILL_LEASE_SHARE:
+            self._fill_overran(lane, used, rec[1] if rec else None, now)
         if self.reporter is not None:
             self.reporter.remove_holding(unit)
             self.reporter.kick()              # CONTRACT: report right after a unit finishes
         summary = unit_summary(o)
+        # One line per unit with its phases and how many of its analyser were in hand, so a
+        # station's log shows where a unit's time went at 16 at once against 1 (the office,
+        # 2026-09-30: 720p Vehicles units at 15-23 min, the machine and the server both idle).
+        # Nothing else keeps them: the server's unit table has no timings.
+        tm = o.timings or {}
+        f = lambda k: ("%.0f s" % tm[k]) if isinstance(tm.get(k), (int, float)) else "-"
+        n_at = 1 + sum(1 for x in self.lanes.values() if x is not lane and x.analyzer == lane.analyzer
+                       and x.unit is not None)
+        log.warning("labs: unit %s: %s %s %s in %s (fetch %s, decode %s, analyse %s), %d of it at once%s",
+                    summary["outcome"], unit.analyzer, unit.camera_id, unit.hour_start, f("total_s"),
+                    f("fetch_s"), f("decode_s"), f("analyse_s"), n_at,
+                    "" if used is None else ", %.0f%% of its lease" % (100 * used))
         self.totals[summary["outcome"]] = self.totals.get(summary["outcome"], 0) + 1
         self.hb.update(last_unit=summary, totals=dict(self.totals))
         if lane.backlog and not (o.station_fault or o.action is W.Action.FATAL or lane.retire):
@@ -671,6 +695,18 @@ class Scheduler:
             return "ceiling", (f"{in_hand} claims and units in hand, as many as this machine's {cores} logical CPUs"
                                if cores <= REPORT_HOLDING_MAX else
                                f"{in_hand} claims and units in hand, the most a report may list ({REPORT_HOLDING_MAX})")
+        slots = sum(1 for x in self.lanes.values() if x.analyzer == analyzer)
+        cap = self._fill_cap_of(analyzer, now)
+        # An extra lane about to claim again counts itself among the slots; a unit fill would
+        # add does not exist yet.
+        if cap is not None and (slots >= cap if adding else slots > cap):
+            return "lease_cap", (f"{cap} at once is {analyzer}'s safe width for now: a unit ran past "
+                                 f"{FILL_LEASE_SHARE:.0%} of its lease with more at once")
+        late = [s for s in (self._lease_used(u, now) for u in self._in_hand_units()) if s is not None
+                and s > FILL_LEASE_SHARE]
+        if late:
+            return "lease", (f"{len(late)} unit(s) in hand past {FILL_LEASE_SHARE:.0%} of their lease "
+                             f"(the furthest at {max(late):.0%}): fewer at once until they end")
         unit = p.unit_bytes(analyzer)
         if unit is None:
             if not p.can_walk:
@@ -683,17 +719,45 @@ class Scheduler:
                               f"{analyzer} unit ({_mb(unit)})")
         if not adding:
             return None, ""
-        late = [s for s in (self._lease_used(u, now) for u in self._in_hand_units()) if s is not None
-                and s > FILL_LEASE_SHARE]
-        if late:
-            return "lease", (f"{len(late)} unit(s) in hand past {FILL_LEASE_SHARE:.0%} of their lease "
-                             f"(the furthest at {max(late):.0%})")
         idle = p.idle_cores(now, self.t.fill_window_s)
         if idle is None:
             return "measuring", "the idle CPU is still being measured"
         if idle < 1.0:
             return "cpu", f"{idle:.1f} of {cores} logical CPUs idle over the last {self.t.fill_window_s:g} s"
         return None, ""
+
+    def _fill_overran(self, lane: Lane, used: float, lease_s: Optional[float], now: float) -> None:
+        """A unit of this analyser ended past FILL_LEASE_SHARE of its lease: cap the analyser at
+        the width that share suggests, for one lease length (the module doc)."""
+        if not (lease_s and lease_s > 0):
+            return                            # a lease already over at its claim says nothing of width
+        a = lane.analyzer
+        n = 1 + sum(1 for x in self.lanes.values() if x is not lane and x.analyzer == a and x.unit is not None)
+        cap = max(1, int(n * FILL_LEASE_SHARE / used))
+        old = self._fill_cap.get(a)
+        if old is not None:
+            cap = min(cap, old[0])
+        self._fill_cap[a] = [cap, now + lease_s, lease_s]
+        log.warning("labs: fill: a %s unit used %.0f%% of its lease with %d at once: at most %d at once for "
+                    "the next %.0f min", a, 100 * used, n, cap, lease_s / 60)
+
+    def _fill_cap_of(self, analyzer: str, now: float) -> Optional[int]:
+        """Its safe width now, or None. A whole lease length with no overrun allows one more; the
+        cap goes once it reaches the machine's ceiling."""
+        c = self._fill_cap.get(analyzer)
+        if c is None:
+            return None
+        while now >= c[1]:
+            c[0] += 1
+            c[1] += c[2]
+            ceiling = min(self.fill.cores or os.cpu_count() or 1, REPORT_HOLDING_MAX)
+            if c[0] >= ceiling:
+                del self._fill_cap[analyzer]
+                log.warning("labs: fill: %s has run within its leases long enough: no cap now", analyzer)
+                return None
+            log.warning("labs: fill: %s may run %d at once now (a lease length with no unit past %.0f%%)",
+                        analyzer, c[0], 100 * FILL_LEASE_SHARE)
+        return c[0]
 
     def _fill_note(self, code: Optional[str], why: str) -> None:
         if code != self._fill_code:
