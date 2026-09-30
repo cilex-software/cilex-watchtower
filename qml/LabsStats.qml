@@ -13,6 +13,13 @@ import Watchtower
 //   * an event is a FINDING, a record where the analyser found something. Which records
 //     are findings is cilex-vision's rule, per analyser.
 //
+// BY CAMERA (the operator, 2026-09-30): one row per camera, busiest first. Its line is the
+// camera's records split by analyser -- each colour an analyser, the line normalised to 100 %
+// of that camera -- and its total, with a bar against the busiest camera, is on the right.
+// An event here is any RECORD an analyser filed (the operator's choice). The per-camera
+// counts are the server's (`records_by_camera`, asked 2026-09-30); until it gives them the
+// mode says so, and nothing is estimated from other figures.
+//
 // Data: LabsModel.stats. Until the server has GET /labs/stats, "all" comes from
 // /labs/pipeline and the two periods say they are waiting for the server. Colours are the
 // analysers' own, as on the Playback timeline's Labs lane (LabsNames), so an analyser
@@ -23,7 +30,10 @@ Item {
     property var labs: null
     property var screen: null                // LabsScreen: title(), num(), known()
     property string window: "24h"
+    property string by: "analyser"           // "analyser" | "camera" (LabsScreen.statsBy)
+    property var cameraModel: null           // camera names are this station's own
     signal pickWindow(string w)
+    signal pickBy(string b)
     // An analyser clicked: open the list of its findings, to watch (LabsFindings).
     signal openFindings(string slug)
 
@@ -32,6 +42,61 @@ Item {
     readonly property var win: (sdata && sdata.windows) ? sdata.windows[window] : undefined
     readonly property var srows: win ? win.rows : []
     readonly property bool waitingForServer: source === "pipeline" && window !== "all"
+    readonly property bool byCam: by === "camera"
+    readonly property bool camCounted: !!(win && win.byCamera)
+    readonly property var cams: (win && win.cameras) ? win.cameras : []
+    readonly property real maxCamRecords: {
+        var m = 0
+        for (var i = 0; i < cams.length; i++) m = Math.max(m, cams[i].records)
+        return m
+    }
+    readonly property real camTotal: {
+        var t = 0
+        for (var i = 0; i < cams.length; i++) t += cams[i].records
+        return t
+    }
+    // The analysers that filed anything in this period, in the window's order: the legend.
+    readonly property var camLegend: {
+        var out = [], seen = ({})
+        for (var i = 0; i < cams.length; i++) {
+            var ps = cams[i].parts
+            for (var j = 0; j < ps.length; j++)
+                if (ps[j].records > 0) seen[ps[j].slug] = true
+        }
+        for (var k = 0; k < srows.length; k++)
+            if (seen[srows[k].slug]) out.push(srows[k].slug)
+        return out
+    }
+    // camera id -> {name, ip}, from this station's camera list (names are the operator's own).
+    property var camLookup: ({})
+    function _buildLookup() {
+        var lk = ({})
+        var n = cameraModel ? cameraModel.total : 0
+        for (var i = 0; i < n; i++) {
+            var c = cameraModel.get(i)
+            if (!c || !c.camId) continue
+            lk[c.camId] = { name: c.name ? c.name : c.camId, ip: c.ip ? c.ip : "" }
+        }
+        camLookup = lk
+    }
+    onVisibleChanged: if (visible) _buildLookup()
+    onCameraModelChanged: _buildLookup()
+    Component.onCompleted: _buildLookup()
+    // The camera list can arrive after this view is shown (the Labs screen opened at start, or
+    // before the list has loaded): names follow it, never stay as bare ids.
+    Connections {
+        target: st.cameraModel
+        ignoreUnknownSignals: true
+        function onCountsChanged() { st._buildLookup() }
+    }
+    function camName(id) { var c = camLookup[id]; return c ? c.name : id }
+    function camIp(id) { var c = camLookup[id]; return c ? c.ip : "" }
+    // "77 %", "< 1 %": a share too small to show is never "0 %" (it is not none).
+    function pct(part, whole) {
+        if (!(whole > 0)) return "—"
+        var v = 100 * part / whole
+        return (v > 0 && v < 1) ? "< 1 %" : Math.round(v) + " %"
+    }
 
     readonly property int wName: 260
     readonly property int wFind: 230
@@ -128,7 +193,8 @@ Item {
                             var bits = []
                             if (st.waitingForServer) return ""      // nothing here is counted yet
                             if (st.asOf) bits.push(qsTr("counted at %1").arg(st.asOf))
-                            bits.push(qsTr("in camera-hours, each analyser counted separately"))
+                            bits.push(st.byCam ? qsTr("records per camera, each line split by analyser")
+                                               : qsTr("in camera-hours, each analyser counted separately"))
                             if (st.source === "pipeline" && st.window === "all")
                                 bits.push(qsTr("until the server counts by period: from the analyser list"))
                             return bits.join("  ·  ")
@@ -140,9 +206,26 @@ Item {
                         text: st.labs ? qsTr("statistics: %1").arg(st.labs.statsError) : ""
                         color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10
                     }
+                    Text {
+                        visible: st.byCam && st.camCounted && st.win && st.win.camerasAddUp === false
+                        text: qsTr("the server's counts by camera do not add up to its totals for every analyser")
+                        color: Theme.warn; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
                 }
                 Figure {
-                    visible: !st.waitingForServer
+                    visible: !st.waitingForServer && st.byCam && st.camCounted
+                    value: st.num(st.camTotal)
+                    label: qsTr("Records")
+                    tip: qsTr("Every record the analysers filed from the footage of this period, all cameras together")
+                }
+                Figure {
+                    visible: !st.waitingForServer && st.byCam && st.camCounted
+                    value: st.num(st.cams.length)
+                    label: qsTr("Cameras")
+                    tip: qsTr("Cameras with at least one record in this period. A camera kept out of Labs is not counted.")
+                }
+                Figure {
+                    visible: !st.waitingForServer && !st.byCam
                     readonly property var v: st.total("checked")
                     value: st.num(v)
                     unit: st.known(v) ? qsTr("h") : ""
@@ -150,7 +233,7 @@ Item {
                     tip: qsTr("Camera-hours the analysers have finished. An analyser may look at only part of each hour it checks.")
                 }
                 Figure {
-                    visible: !st.waitingForServer
+                    visible: !st.waitingForServer && !st.byCam
                     readonly property var v: st.total("waiting")
                     readonly property bool floor: st.someUnknown("waiting")
                     value: st.known(v) ? ((floor ? "≥ " : "") + st.num(v)) : "—"
@@ -160,7 +243,7 @@ Item {
                                : qsTr("Camera-hours of footage the analysers that are switched on have still to check")
                 }
                 Figure {
-                    visible: !st.waitingForServer
+                    visible: !st.waitingForServer && !st.byCam
                     readonly property var v: st.total("findings")
                     readonly property bool floor: st.someUnknown("findings")
                     value: st.known(v) ? ((floor ? "≥ " : "") + st.num(v)) : "—"
@@ -173,7 +256,7 @@ Item {
 
         // ===== column heads, and what the colours mean =====
         Rectangle {
-            visible: !st.waitingForServer && st.srows.length > 0
+            visible: !st.waitingForServer && !st.byCam && st.srows.length > 0
             Layout.fillWidth: true
             Layout.preferredHeight: 34
             color: Theme.bg
@@ -197,7 +280,7 @@ Item {
         // ===== one row per analyser =====
         ListView {
             id: list
-            visible: !st.waitingForServer
+            visible: !st.waitingForServer && !st.byCam
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -355,6 +438,211 @@ Item {
                 visible: list.count === 0
                 text: (!st.labs || st.labs.loading) ? qsTr("Asking the server…") : qsTr("No answer from the server yet")
                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
+            }
+        }
+
+        // ===== BY CAMERA: column heads, and which colour is which analyser =====
+        Rectangle {
+            visible: !st.waitingForServer && st.byCam && st.camCounted && st.cams.length > 0
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.max(34, legendFlow.implicitHeight + 18)
+            color: Theme.bg
+            Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
+                spacing: 0
+                Label10 { Layout.preferredWidth: st.wName; text: qsTr("Camera") }
+                Flow {
+                    id: legendFlow
+                    Layout.fillWidth: true
+                    Layout.rightMargin: 24
+                    Layout.alignment: Qt.AlignVCenter
+                    spacing: 14
+                    Repeater {
+                        model: st.camLegend
+                        delegate: Swatch {
+                            required property var modelData
+                            swatch: LabsNames.color(modelData)
+                            label: st.screen ? st.screen.title(modelData) : modelData
+                        }
+                    }
+                }
+                Label10 { Layout.preferredWidth: st.wFind; text: qsTr("Records") }
+            }
+        }
+
+        // ===== BY CAMERA: one row per camera, busiest first =====
+        ListView {
+            id: camList
+            visible: !st.waitingForServer && st.byCam && st.camCounted
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            model: st.cams
+            boundsBehavior: Flickable.StopAtBounds
+            QC.ScrollBar.vertical: QC.ScrollBar { policy: QC.ScrollBar.AsNeeded }
+
+            delegate: Rectangle {
+                id: crow
+                required property var modelData
+                readonly property var c: modelData
+                // Its analysers, largest share first: the words under the line, and its tooltip.
+                readonly property var shares: {
+                    var out = []
+                    for (var i = 0; i < c.parts.length; i++)
+                        if (c.parts[i].records > 0) out.push(c.parts[i])
+                    out.sort(function (a, b) { return b.records - a.records })
+                    return out
+                }
+                width: ListView.view.width
+                height: 60
+                color: "transparent"
+                Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line }
+
+                RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
+                    spacing: 0
+
+                    // ---- the camera: its name here, and its address (two cameras can share a name)
+                    Column {
+                        Layout.preferredWidth: st.wName
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 4
+                        Text {
+                            width: st.wName - 16; elide: Text.ElideRight
+                            text: st.camName(crow.c.cameraId)
+                            color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold
+                        }
+                        Text {
+                            width: st.wName - 16; elide: Text.ElideRight
+                            // The address tells two cameras with one name apart; a camera this
+                            // station does not know shows its id once, as its name, not twice.
+                            visible: text !== ""
+                            text: st.camIp(crow.c.cameraId) !== "" ? st.camIp(crow.c.cameraId)
+                                : (st.camName(crow.c.cameraId) !== crow.c.cameraId ? crow.c.cameraId : "")
+                            color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                        }
+                    }
+
+                    // ---- its records, split by analyser: the whole line is this camera (100 %)
+                    Column {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        Layout.rightMargin: 24
+                        spacing: 7
+                        Item {
+                            id: cbar
+                            width: parent.width
+                            height: 12
+                            readonly property var vals: {
+                                var v = []
+                                for (var i = 0; i < crow.c.parts.length; i++) v.push(crow.c.parts[i].records)
+                                return v
+                            }
+                            readonly property var widths: (st.labs && width > 0) ? st.labs.barWidths(vals, width, 3) : []
+                            Row {
+                                Repeater {
+                                    model: cbar.widths.length
+                                    delegate: Rectangle {
+                                        required property int index
+                                        width: cbar.widths[index]; height: cbar.height
+                                        color: LabsNames.color(crow.c.parts[index].slug)
+                                    }
+                                }
+                            }
+                            MouseArea { id: cbarMa; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+                            QC.ToolTip.visible: cbarMa.containsMouse
+                            QC.ToolTip.delay: 300
+                            QC.ToolTip.text: {
+                                var t = []
+                                for (var i = 0; i < crow.shares.length; i++) {
+                                    var p = crow.shares[i]
+                                    t.push(qsTr("%1: %2 records, %3").arg(st.screen ? st.screen.title(p.slug) : p.slug)
+                                                                      .arg(st.num(p.records)).arg(st.pct(p.records, crow.c.records)))
+                                }
+                                return t.join("\n")
+                            }
+                        }
+                        Text {
+                            width: parent.width; elide: Text.ElideRight
+                            text: {
+                                var bits = []
+                                for (var i = 0; i < crow.shares.length; i++)
+                                    bits.push((st.screen ? st.screen.title(crow.shares[i].slug) : crow.shares[i].slug)
+                                              + " " + st.pct(crow.shares[i].records, crow.c.records))
+                                return bits.join("  ·  ")
+                            }
+                            color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11
+                        }
+                    }
+
+                    // ---- how many, against the busiest camera
+                    Column {
+                        Layout.preferredWidth: st.wFind
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 6
+                        Row {
+                            spacing: 6
+                            Text {
+                                id: cVal
+                                text: st.num(crow.c.records)
+                                color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 16; font.weight: Font.Bold
+                            }
+                            Text {
+                                anchors.baseline: cVal.baseline
+                                text: qsTr("%1 of all").arg(st.pct(crow.c.records, st.camTotal))
+                                color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                            }
+                        }
+                        Rectangle {
+                            visible: st.maxCamRecords > 0
+                            width: !visible ? 0 : Math.max(crow.c.records > 0 ? 2 : 0, (st.wFind - 24) * crow.c.records / st.maxCamRecords)
+                            height: 4
+                            color: Theme.ink2
+                        }
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                visible: camList.count === 0
+                text: qsTr("No camera has any records in this period")
+                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
+            }
+        }
+
+        // ===== BY CAMERA, before the server counts by camera (or before any answer) =====
+        Item {
+            visible: !st.waitingForServer && st.byCam && !st.camCounted
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Column {
+                anchors.centerIn: parent
+                width: Math.min(560, parent.width - 48)
+                spacing: 12
+                Text {
+                    width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                    text: !st.win ? ((!st.labs || st.labs.loading) ? qsTr("Asking the server…") : qsTr("No answer from the server yet"))
+                                  : qsTr("The server does not count by camera yet")
+                    color: st.win ? Theme.ink : Theme.ink3
+                    font.family: Theme.fontSans; font.pixelSize: st.win ? 15 : 13; font.weight: st.win ? Font.DemiBold : Font.Normal
+                }
+                Text {
+                    visible: !!st.win
+                    width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
+                    text: qsTr("How many records each camera produced, analyser by analyser, is a count only cilex-vision can make. It was asked for on 30 September, and this view fills in as soon as the server has it. Nothing here is estimated.")
+                    color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13; lineHeight: 1.2
+                }
+                Text {
+                    visible: !!st.win
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: qsTr("Show by analyser")
+                    color: byAnMa.containsMouse ? Theme.accent : Theme.ink2
+                    font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.DemiBold; font.underline: byAnMa.containsMouse
+                    MouseArea { id: byAnMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: st.pickBy("analyser") }
+                }
             }
         }
 

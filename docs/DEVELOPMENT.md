@@ -149,7 +149,8 @@ with a version already pushed."
 | `WT_CAMERAS=<provisioning.json>` | One-time bootstrap import into an empty camera store. |
 | `WT_SCREENSHOT=<path>`, `WT_SCREENSHOT_MS=<ms>` | Screenshot hook (above). |
 | `WT_NO_SCHEME_REG=1` | Do not register the `cilex://` link handler. Set it on EVERY test/screenshot run (see above). |
-| `WT_LABS_VIEW=stats[:24h\|7d\|all]` | Open the Labs screen on its Statistics view, for that period. Review screenshots; it only picks what is shown. |
+| `WT_LABS_VIEW=stats[:24h\|7d\|all[:camera\|analyser]]` or `table` | Open the Labs screen on Statistics (for that period, grouped by camera or by analyser) or on Analyser Settings. Review screenshots; it only picks what is shown. |
+| `WT_LABS_STATS_FILE=<json>` | Read `GET /labs/stats`'s answer from that file instead of the server, to review a part of Statistics whose server half is not deployed yet (BY CAMERA, 2026-09-30). Review screenshots only; read-only. |
 | `WT_CV_URL`, `WT_CV_USER`, `WT_CV_PASS` | cilex-vision backend base URL + credentials (dev defaults baked in source; override via env). |
 
 ## Architecture

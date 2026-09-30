@@ -11,6 +11,7 @@
 #include "LabsStation.h"
 #include <QCoreApplication>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <cmath>
@@ -230,6 +231,106 @@ int main(int argc, char **argv)
     ok(wv.isEmpty(), "an ABSENT segment (not counted) draws no bar -- never a bar that reads it as 0");
     ok(wtlabs::barWidthsVariant({QVariant(9.0), QVariant(0.0), QVariant(3100.0)}, 400, 3).size() == 3,
        "a zero segment is a count, and the bar is drawn");
+
+    // ---- BY CAMERA (operator request 2026-09-30): records per camera, split by analyser --------
+    const QJsonObject perCam = obj(R"({
+      "generated_at": "2026-09-30T10:00:00.000Z", "computed_at": "2026-09-30T09:58:00.000Z",
+      "windows": {"24h": {"from": "2026-09-29T10:00:00Z", "to": "2026-09-30T10:00:00Z"}},
+      "analyzers": [
+        {"analyzer": "track_linking", "enabled": true, "windows": {
+          "24h": {"camera_hours": 900, "checked": 40, "in_progress": 0, "waiting": 860, "given_up": 0,
+                  "findings": 30, "records": 700, "records_by_camera": {"cam-b": 500, "cam-a": 200}}}},
+        {"analyzer": "blob_geometry", "enabled": true, "windows": {
+          "24h": {"camera_hours": 900, "checked": 40, "in_progress": 0, "waiting": 860, "given_up": 0,
+                  "findings": 5, "records": 250, "records_by_camera": {"cam-a": 100, "cam-c": 150}}}},
+        {"analyzer": "illumination", "enabled": false, "windows": {
+          "24h": {"camera_hours": null, "checked": 0, "in_progress": 0, "waiting": null, "given_up": 0,
+                  "findings": null, "records": 0, "records_by_camera": {}}}}
+      ]})");
+    const QVariantMap pc = wtlabs::parseStats(perCam).value(QStringLiteral("windows")).toMap()
+                               .value(QStringLiteral("24h")).toMap();
+    const QVariantList cams = pc.value(QStringLiteral("cameras")).toList();
+    auto camAt = [&](int i) { return cams.value(i).toMap(); };
+    auto partsOf = [&](int i) {
+        QStringList out;
+        for (const QVariant &v : camAt(i).value(QStringLiteral("parts")).toList())
+            out << QStringLiteral("%1=%2").arg(v.toMap().value(QStringLiteral("slug")).toString())
+                                            .arg(v.toMap().value(QStringLiteral("records")).toDouble());
+        return out.join(QLatin1Char(','));
+    };
+    ok(pc.value(QStringLiteral("byCamera")).toBool() && pc.value(QStringLiteral("camerasAddUp")).toBool(),
+       "by camera: counted when EVERY analyser carries records_by_camera -- an empty one included -- and each adds up to its records");
+    ok(cams.size() == 3 && camAt(0).value(QStringLiteral("cameraId")).toString() == "cam-b"
+           && camAt(1).value(QStringLiteral("cameraId")).toString() == "cam-a"
+           && camAt(2).value(QStringLiteral("cameraId")).toString() == "cam-c",
+       QStringLiteral("by camera: busiest first (cam-b 500, cam-a 300, cam-c 150), only cameras with records (%1 cameras)").arg(cams.size()));
+    ok(near(camAt(1).value(QStringLiteral("records")).toDouble(), 300)
+           && partsOf(1) == "track_linking=200,blob_geometry=100,illumination=0",
+       QStringLiteral("by camera: a camera's total is the sum of its analysers, and its parts list EVERY analyser in the window's order, zeros included, so each colour sits in one place (%1)").arg(partsOf(1)));
+    ok(partsOf(2) == "track_linking=0,blob_geometry=150,illumination=0",
+       QStringLiteral("by camera: an analyser that filed nothing for a camera is a zero part, not a missing one (%1)").arg(partsOf(2)));
+
+    QJsonObject oneMissing = perCam;
+    {
+        QJsonArray an = oneMissing.value(QStringLiteral("analyzers")).toArray();
+        QJsonObject a1 = an[1].toObject();
+        QJsonObject w1 = a1.value(QStringLiteral("windows")).toObject();
+        QJsonObject d1 = w1.value(QStringLiteral("24h")).toObject();
+        d1.remove(QStringLiteral("records_by_camera"));
+        w1[QStringLiteral("24h")] = d1; a1[QStringLiteral("windows")] = w1; an[1] = a1;
+        oneMissing[QStringLiteral("analyzers")] = an;
+    }
+    const QVariantMap pm = wtlabs::parseStats(oneMissing).value(QStringLiteral("windows")).toMap()
+                               .value(QStringLiteral("24h")).toMap();
+    ok(!pm.value(QStringLiteral("byCamera")).toBool() && !pm.contains(QStringLiteral("cameras")),
+       "by camera: ONE analyser not counted by camera means the window is not -- a total from the others alone would read as all of them");
+    ok(pm.value(QStringLiteral("rows")).toList().size() == 3,
+       "...and the by-analyser rows of that window are untouched");
+
+    const QJsonObject badCount = obj(R"({"windows": {"24h": {}}, "analyzers": [
+        {"analyzer": "track_linking", "enabled": true, "windows": {"24h": {"records": 5,
+         "records_by_camera": {"cam-a": 3, "cam-b": "2"}}}}]})");
+    ok(!wtlabs::parseStats(badCount).value(QStringLiteral("windows")).toMap().value(QStringLiteral("24h")).toMap()
+            .value(QStringLiteral("byCamera")).toBool(),
+       "by camera: a count that is not a number makes that analyser NOT COUNTED -- never a camera quietly dropped");
+
+    const QJsonObject noAddUp = obj(R"({"windows": {"24h": {}}, "analyzers": [
+        {"analyzer": "track_linking", "enabled": true, "windows": {"24h": {"records": 9,
+         "records_by_camera": {"cam-a": 3, "cam-b": 2}}}}]})");
+    const QVariantMap pn = wtlabs::parseStats(noAddUp).value(QStringLiteral("windows")).toMap().value(QStringLiteral("24h")).toMap();
+    ok(pn.value(QStringLiteral("byCamera")).toBool() && !pn.value(QStringLiteral("camerasAddUp")).toBool(),
+       "by camera: cameras that do not add up to the analyser's records are shown, and flagged (the screen says so)");
+
+    const QJsonObject ties = obj(R"({"windows": {"24h": {}}, "analyzers": [
+        {"analyzer": "track_linking", "enabled": true, "windows": {"24h": {"records": 12,
+         "records_by_camera": {"cam-z": 4, "cam-a": 4, "cam-m": 4}}}}]})");
+    const QVariantList tc = wtlabs::parseStats(ties).value(QStringLiteral("windows")).toMap().value(QStringLiteral("24h")).toMap()
+                                .value(QStringLiteral("cameras")).toList();
+    ok(tc.size() == 3 && tc[0].toMap().value(QStringLiteral("cameraId")) == "cam-a" && tc[2].toMap().value(QStringLiteral("cameraId")) == "cam-z",
+       "by camera: equal counts keep one order (by camera id), so rows do not swap between refreshes");
+
+    const QVariantMap viaPipe = wtlabs::statsFromPipeline({}, obj(R"({"generated_at": "2026-09-30T10:00:00Z"})"),
+                                                          QDateTime::currentDateTimeUtc());
+    ok(!viaPipe.value(QStringLiteral("windows")).toMap().value(QStringLiteral("all")).toMap()
+            .value(QStringLiteral("byCamera"), true).toBool(),
+       "by camera: never from /labs/pipeline, which counts nothing by camera");
+
+    // ---- the screen: Statistics first, "Analyser Settings", and BY CAMERA | BY ANALYSER ------
+    QFile q2("qml/LabsScreen.qml");
+    if (!q2.open(QIODevice::ReadOnly)) {
+        std::printf("SKIP LabsScreen.qml tabs -- run from the repo root\n");
+    } else {
+        const QString src = QString::fromUtf8(q2.readAll());
+        const auto tabs = QRegularExpression(QStringLiteral(
+            "qsTr\\(\"Statistics\"\\), v: \"stats\" \\}, \\{ k: qsTr\\(\"Analyser Settings\"\\), v: \"table\""));
+        ok(tabs.match(src).hasMatch(), "the operator's tab order: Statistics first, then Analyser Settings (2026-09-30)");
+        ok(src.contains(QStringLiteral("property string view: \"stats\"")), "...and the screen opens on Statistics, the first tab");
+        QStringList by;
+        for (const auto &m : QRegularExpression(QStringLiteral("v: \"(camera|analyser)\"")).globalMatch(src))
+            by << m.captured(1);
+        ok(by == QStringList({QStringLiteral("camera"), QStringLiteral("analyser")}),
+           QStringLiteral("the grouping switch offers BY CAMERA then BY ANALYSER, the operator's order (%1)").arg(by.join(",")));
+    }
 
     // ---- the screen offers exactly the periods the data has -----------------------------------
     QFile q("qml/LabsScreen.qml");

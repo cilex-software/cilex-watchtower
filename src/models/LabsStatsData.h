@@ -8,6 +8,8 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
+#include <algorithm>
+#include <cmath>
 
 // Labs statistics by period (operator request 2026-09-28): for each analyser, how much of
 // the footage recorded in a period it has CHECKED, how much is still WAITING, and what it
@@ -39,10 +41,27 @@ inline QVariant statNum(const QJsonValue &v)
     return v.isDouble() ? QVariant(v.toDouble()) : QVariant();
 }
 
+// camera_id -> records, from `records_by_camera`. Absent, or any count that is not a number:
+// NOT COUNTED (an invalid QVariant) -- a camera silently dropped would shrink every total.
+inline QVariant recordsByCamera(const QJsonValue &v)
+{
+    if (!v.isObject())
+        return QVariant();
+    const QJsonObject o = v.toObject();
+    QVariantMap m;
+    for (auto it = o.constBegin(); it != o.constEnd(); ++it) {
+        if (!it.value().isDouble() || !(it.value().toDouble() >= 0))
+            return QVariant();
+        m[it.key()] = it.value().toDouble();
+    }
+    return m;
+}
+
 // One analyser in one window, from the server's answer. Keys (QML reads them):
 //   slug, enabled, cameraHours, checked, inProgress, waiting, givenUp, findings, records,
 //   segmentsScanned, checkedEver (the "all" window only: checked hours whose footage the
-//   server has since deleted are in it, and not in cameraHours).
+//   server has since deleted are in it, and not in cameraHours), recordsByCamera
+//   (camera_id -> records; absent until the server counts by camera).
 inline QVariantMap statRow(const QString &slug, bool enabled, const QJsonObject &w)
 {
     QVariantMap r;
@@ -57,7 +76,88 @@ inline QVariantMap statRow(const QString &slug, bool enabled, const QJsonObject 
     r[QStringLiteral("records")] = statNum(w.value(QStringLiteral("records")));
     r[QStringLiteral("segmentsScanned")] = statNum(w.value(QStringLiteral("segments_scanned")));
     r[QStringLiteral("checkedEver")] = statNum(w.value(QStringLiteral("checked_ever")));
+    r[QStringLiteral("recordsByCamera")] = recordsByCamera(w.value(QStringLiteral("records_by_camera")));
     return r;
+}
+
+// BY CAMERA (operator request 2026-09-30: "how many meta data events was collected by
+// camera", one multi-coloured line per camera, each colour an analyser, normalised; an event
+// here is any RECORD, the operator's choice the same day). The server's half,
+// `records_by_camera` in each analyser's window, was asked of cilex-vision that day
+// (docs/letters/2026-09-30-labs-statistics-by-camera-cilex-watchtower-linux.md).
+//
+// The pivot of one window's rows: {byCamera, cameras, camerasAddUp}.
+//   byCamera     -- true only when EVERY analyser in the window was counted by camera. A
+//                   camera's total from some analysers alone would read as all of them.
+//   cameras      -- [{cameraId, records, parts: [{slug, records}]}], busiest first (then by
+//                   id). `parts` lists every analyser of the window in the window's order,
+//                   zeros included, so each colour sits in the same place on every line.
+//                   Only cameras with records: the server names no others, and a camera it
+//                   does not name is not "0" (it may be outside Labs, or kept out of it).
+//   camerasAddUp -- whether each analyser's cameras add up to its `records`. The server
+//                   promises they do; if they do not, the screen says so.
+inline QVariantMap camerasOf(const QVariantList &rows)
+{
+    QVariantMap out;
+    bool all = !rows.isEmpty(), addUp = true;
+    QStringList order;
+    QHash<QString, QHash<QString, double>> by;          // camera -> analyser -> records
+    for (const QVariant &v : rows) {
+        const QVariantMap r = v.toMap();
+        const QString slug = r.value(QStringLiteral("slug")).toString();
+        order << slug;
+        const QVariant rb = r.value(QStringLiteral("recordsByCamera"));
+        if (!rb.isValid() || rb.isNull()) {
+            all = false;
+            continue;
+        }
+        double sum = 0;
+        const QVariantMap m = rb.toMap();
+        for (auto it = m.cbegin(); it != m.cend(); ++it) {
+            const double n = it.value().toDouble();
+            if (n > 0) {
+                by[it.key()][slug] += n;
+                sum += n;
+            }
+        }
+        const QVariant rec = r.value(QStringLiteral("records"));
+        if (rec.isValid() && !rec.isNull() && std::fabs(rec.toDouble() - sum) > 0.5)
+            addUp = false;
+    }
+    out[QStringLiteral("byCamera")] = all;
+    if (!all)
+        return out;
+    QVector<QVariantMap> cams;
+    for (auto it = by.cbegin(); it != by.cend(); ++it) {
+        double total = 0;
+        QVariantList parts;
+        for (const QString &slug : order) {
+            const double n = it.value().value(slug, 0.0);
+            total += n;
+            QVariantMap part;
+            part[QStringLiteral("slug")] = slug;
+            part[QStringLiteral("records")] = n;
+            parts.append(part);
+        }
+        QVariantMap c;
+        c[QStringLiteral("cameraId")] = it.key();
+        c[QStringLiteral("records")] = total;
+        c[QStringLiteral("parts")] = parts;
+        cams.append(c);
+    }
+    std::sort(cams.begin(), cams.end(), [](const QVariantMap &a, const QVariantMap &b) {
+        const double ra = a.value(QStringLiteral("records")).toDouble();
+        const double rb = b.value(QStringLiteral("records")).toDouble();
+        if (ra != rb)
+            return ra > rb;
+        return a.value(QStringLiteral("cameraId")).toString() < b.value(QStringLiteral("cameraId")).toString();
+    });
+    QVariantList list;
+    for (const QVariantMap &c : cams)
+        list.append(c);
+    out[QStringLiteral("cameras")] = list;
+    out[QStringLiteral("camerasAddUp")] = addUp;
+    return out;
 }
 
 // GET /labs/stats -> {source: "server", generatedAt, computedAt,
@@ -91,6 +191,9 @@ inline QVariantMap parseStats(const QJsonObject &o)
         win[QStringLiteral("from")] = b.value(QStringLiteral("from")).toString();
         win[QStringLiteral("to")] = b.value(QStringLiteral("to")).toString();
         win[QStringLiteral("rows")] = rows;
+        const QVariantMap byCam = camerasOf(rows);
+        for (auto it = byCam.cbegin(); it != byCam.cend(); ++it)
+            win[it.key()] = it.value();
         windows[w] = win;
     }
     out[QStringLiteral("windows")] = windows;
@@ -144,6 +247,7 @@ inline QVariantMap statsFromPipeline(const QVariantList &rows, const QJsonObject
     win[QStringLiteral("from")] = QString();
     win[QStringLiteral("to")] = pipeline.value(QStringLiteral("generated_at")).toString();
     win[QStringLiteral("rows")] = out;
+    win[QStringLiteral("byCamera")] = false;      // /labs/pipeline counts nothing by camera
     QVariantMap windows;
     windows[QStringLiteral("all")] = win;
     QVariantMap s;

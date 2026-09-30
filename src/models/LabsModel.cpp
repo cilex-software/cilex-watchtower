@@ -5,6 +5,7 @@
 #include "ServerMessage.h"
 
 #include <QDateTime>
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -113,10 +114,21 @@ void LabsModel::fetchStats(const QJsonObject &pipeline)
     connect(reply, &QNetworkReply::finished, this, [this, reply, pipeline]() {
         reply->deleteLater();
         m_loading = false;
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        const QByteArray body = reply->readAll();
+        int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QByteArray body = reply->readAll();
         if (code == 401)
             AuthController::instance()->noteUnauthorized();
+        // WT_LABS_STATS_FILE=<json>, for REVIEW SCREENSHOTS only: the answer is read from that
+        // file instead, to show a part of the view whose server half is not deployed yet (BY
+        // CAMERA, 2026-09-30). Read-only, like WT_LABS_VIEW; unset, nothing changes.
+        const QString reviewFile = qEnvironmentVariable("WT_LABS_STATS_FILE");
+        if (!reviewFile.isEmpty()) {
+            QFile f(reviewFile);
+            if (f.open(QIODevice::ReadOnly)) {
+                body = f.readAll();
+                code = 200;
+            }
+        }
         const QVariantMap parsed = code == 200 ? wtlabs::parseStats(QJsonDocument::fromJson(body).object())
                                                : QVariantMap();
         if (code == 200 && !parsed.value(QStringLiteral("windows")).toMap().isEmpty()) {

@@ -18,10 +18,15 @@ Item {
     readonly property var st: (labs && labs.station) ? labs.station : ({})
     readonly property var rows: labs ? labs.analyzers : []
     readonly property bool admin: labs ? labs.canEdit : false
-    // "table": the analysers and their switches; "stats": what each has checked and found
-    // (LabsStats.qml, operator request 2026-09-28), for the period in statsWindow.
-    property string view: "table"
+    // "stats": what each analyser has checked and found (LabsStats.qml, operator request
+    // 2026-09-28), for the period in statsWindow; "table": the analysers and their switches.
+    // Statistics is the FIRST tab and the one the screen opens on, and the table's tab is
+    // "Analyser Settings" (the operator, 2026-09-30).
+    property string view: "stats"
     property string statsWindow: "24h"
+    // Statistics grouped "analyser" (one row per analyser) or "camera" (one row per camera,
+    // its records split by analyser -- the operator, 2026-09-30).
+    property string statsBy: "analyser"
     // An analyser's findings, opened from Statistics (LabsFindings); "" = not open.
     property string findingsSlug: ""
     property var cameraModel: null
@@ -32,15 +37,20 @@ Item {
     onRowsChanged: {
         if (typeof wtLabsConfirm === "undefined" || wtLabsConfirm === "" || confirm.visible) return;
         for (var i = 0; i < rows.length; i++)
-            if (rows[i].slug === wtLabsConfirm) { confirm.row = rows[i]; confirm.visible = true; return; }
+            if (rows[i].slug === wtLabsConfirm) { view = "table"; confirm.row = rows[i]; confirm.visible = true; return; }
     }
     Component.onCompleted: {
         if (visible && labs) labs.refresh()
-        // WT_LABS_VIEW (main.cpp): "stats" or "stats:<24h|7d|all>" opens the statistics
-        // view, for review screenshots.
+        // WT_LABS_VIEW (main.cpp): "stats", "stats:<24h|7d|all>" or "stats:<period>:camera"
+        // opens the statistics view, for review screenshots; "table" the settings.
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
-            if (p[0] === "stats") { view = "stats"; if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1] }
+            if (p[0] === "table") view = "table"
+            if (p[0] === "stats") {
+                view = "stats"
+                if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
+                if (p.length > 2 && ["camera", "analyser"].indexOf(p[2]) >= 0) statsBy = p[2]
+            }
             // "findings:<analyser>[:<period>[:<filter>]]" opens that analyser's findings.
             if (p[0] === "findings" && p.length > 1) {
                 view = "stats"
@@ -382,11 +392,17 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
                 LabsSeg {
-                    choices: [ { k: qsTr("Analysers"), v: "table" }, { k: qsTr("Statistics"), v: "stats" } ]
+                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
                 Item { Layout.fillWidth: true }
+                LabsSeg {
+                    visible: root.view === "stats"
+                    choices: [ { k: qsTr("By camera"), v: "camera" }, { k: qsTr("By analyser"), v: "analyser" } ]
+                    value: root.statsBy
+                    onPicked: (v) => root.statsBy = v
+                }
                 LabsSeg {
                     visible: root.view === "stats"
                     choices: [ { k: qsTr("24 hours"), v: "24h" }, { k: qsTr("7 days"), v: "7d" }, { k: qsTr("All"), v: "all" } ]
@@ -416,7 +432,10 @@ Item {
             labs: root.labs
             screen: root
             window: root.statsWindow
+            by: root.statsBy
+            cameraModel: root.cameraModel
             onPickWindow: (w) => root.statsWindow = w
+            onPickBy: (b) => root.statsBy = b
             onOpenFindings: (slug) => root.openFindings(slug)
         }
 
