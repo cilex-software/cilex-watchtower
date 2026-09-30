@@ -64,5 +64,16 @@ logical CPU count. On any hold the extra units go back, and after it the lane re
 one unit. The booth's launcher never sets the variable. psutil (7.2.2 on the office) is what
 lets fill measure a unit's memory on Windows; without it, fill adds nothing and says why.
 
+**Priority (2026-09-30).** `-WorkerPriority Idle|BelowNormal|Normal` sets the class the worker
+starts in; its units inherit it. The default is Idle, and the booth keeps it. The office launcher
+passes Normal (operator decision): on the office's i5-14400, the Idle tree sat on the 4 E-cores
+while most P-core capacity idled. Priority alone did not move it (Windows' QoS for windowless
+processes does that); worker-0.3.12's high-QoS opt-out is meant to. **Labs must never outrank
+the wall.** The office wall ran Below Normal, the Task Scheduler default of the `wt-warden`
+task that starts it. At 09:47 that day, Labs at Normal over it froze the wall for 2806 ms. So:
+- that task's priority is raised;
+- the guard compares the worker's class with the wall app's every sample, and treats a
+  worker above the wall as harm.
+
 Not yet decided by the operator: starting the launcher at logon (a trigger on that task),
 so Labs and its guard survive a reboot. Until then it is started on demand.

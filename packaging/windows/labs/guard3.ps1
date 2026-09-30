@@ -39,13 +39,20 @@
 # -StartWorker: the guard also starts the Labs worker when none is running (hidden, Idle,
 # ffmpeg from -FfmpegDir on PATH) and restarts it if it dies, at most 3 times an hour. So
 # the worker never runs without its guard: start the guard, never the worker alone.
+# -WorkerPriority Idle|BelowNormal|Normal (default Idle): the class the worker starts in; its
+# units inherit it. The office launcher passes Normal (operator decision 2026-09-30: on its
+# i5-14400 the Idle tree sat on the 4 E-cores). LABS MUST NEVER OUTRANK THE WALL: on
+# 2026-09-30 09:47 Labs at Normal over an office wall at Below Normal (the Task Scheduler
+# default of the task that starts it) froze the wall 2806 ms. So every sample compares the
+# worker's class with the wall app's, and a worker above the wall is harm.
 param([switch]$Office, [string]$OfficeHost = '192.168.1.5',
       [double]$BaseRate = 0, [int]$BasePipes = 0,
       [int]$ReleaseAfterSec = 900, [string]$TestDir = '',
       [string]$Labs = 'C:\dev\cilex-watchtower\tools\labs',
       [string]$Python = 'python',
       [string]$GuardDir = 'C:\wt\labs-guard',
-      [switch]$StartWorker, [string]$Api = 'http://192.168.1.4:8000', [string]$FfmpegDir = '')
+      [switch]$StartWorker, [string]$Api = 'http://192.168.1.4:8000', [string]$FfmpegDir = '',
+      [ValidateSet('Idle', 'BelowNormal', 'Normal')][string]$WorkerPriority = 'Idle')
 $ErrorActionPreference = 'Continue'
 $labs = $Labs
 $BY   = 'wall-guard'
@@ -94,12 +101,14 @@ function Start-Worker {
         # cmd -- not to the worker -- so a kill of the worker's children can never take the
         # console away. 2026-09-29 02:13 on wt-office-01: worker-0.3.2's Stop killed its own
         # conhost, and every ffmpeg after that died at start (0xC0000142), filing ~25 units
-        # failed. /low starts it at Idle from the first instruction; its children inherit it.
+        # failed. /low starts it at Idle from the first instruction; its children inherit it
+        # (/belownormal likewise; /normal for -WorkerPriority Normal).
         # The worker's log goes in the GUARD's folder, never beside the code: on the booth
         # -Labs is the git checkout, and a log there left the tree dirty, which made the
         # 1.1.707 build refuse to start (2026-09-29).
-        $cmdline = '/c start "" /low /b "{0}" -u "{1}" --loop --api {2} >> "{3}" 2>&1' -f `
-                   $Python, (Join-Path $labs 'run_worker.py'), $Api, (Join-Path $GuardDir 'worker.log')
+        $flag = @{ Idle = '/low'; BelowNormal = '/belownormal'; Normal = '/normal' }[$WorkerPriority]
+        $cmdline = '/c start "" {4} /b "{0}" -u "{1}" --loop --api {2} >> "{3}" 2>&1' -f `
+                   $Python, (Join-Path $labs 'run_worker.py'), $Api, (Join-Path $GuardDir 'worker.log'), $flag
         Start-Process -FilePath cmd.exe -ArgumentList $cmdline -WorkingDirectory $labs -WindowStyle Hidden -ErrorAction Stop
         $workerStarts.Add((Get-Date))
         Start-Sleep -Seconds 3
@@ -229,6 +238,18 @@ while ($true) {
 
     # -- the worker: started (and restarted) by this guard when asked to, never without it
     if ($StartWorker -and -not $Office -and -not $TestDir -and @(Worker).Count -eq 0) { Start-Worker }
+
+    # -- LABS MUST NEVER OUTRANK THE WALL (see the header): compare priority classes each sample
+    if (-not $Office -and -not $TestDir -and $app0) {
+        $rank = @{ Idle = 0; BelowNormal = 1; Normal = 2; AboveNormal = 3; High = 4; RealTime = 5 }
+        $wp = "$((Get-Process -Id $app0 -ErrorAction SilentlyContinue).PriorityClass)"
+        foreach ($wk in @(Worker)) {
+            $kp = "$((Get-Process -Id $wk.ProcessId -ErrorAction SilentlyContinue).PriorityClass)"
+            if ($rank.ContainsKey($wp) -and $rank.ContainsKey($kp) -and $rank[$kp] -gt $rank[$wp]) {
+                Harm ("Labs outranks the wall: worker pid {0} at {1}, the wall app at {2}" -f $wk.ProcessId, $kp, $wp)
+            }
+        }
+    }
     $st = ReadJson (Join-Path $sd 'status.json')
     if ($st) {
         $sk = "$($st.pid)|$($st.state)|$($st.server_mode)|$($st.governed)"
