@@ -5,6 +5,45 @@
 > history surgery + rotation (operator decisions).
 
 
+<!-- 2026-09-30 LABS: FILL ON THE OFFICE -- E-CORES, LEASE OVERRUNS, worker-0.3.11 -->
+> **2026-09-30 09:45 — fill ran on the office from 09:01. The units could not use most of the CPU,
+> and 9 units were lost to their leases. worker-0.3.11 (6aae1f0) is on main, NOT deployed.**
+>
+> **Measured by the Windows agent and cilex-vision, 09:01-09:29 MSK:**
+> - Fill reached 16 Vehicles units by 09:09, stopped by the ceiling.
+> - The 720p units then took 17-23 min. By 09:28, 9 were lost to their 20-min lease: 8 revoked,
+>   1 abandoned.
+> - The server and the network were mostly idle (CV): the pipe to the office was non-empty in only
+>   18 of 179 half-second samples.
+> - **The cause: the office is an i5-14400, 6 P-cores and 4 E-cores. Its Idle-priority Labs tree
+>   runs on the 4 E-cores (78-92 % busy), while the P-cores' second threads sit at 0-1 %.** Fill's
+>   machine-wide idle figure, about 9 of 16, was not CPU the units could use.
+>
+> **worker-0.3.11:**
+> - While any unit is past 3/4 of its lease, a finished extra slot does not claim again.
+> - An overrun caps the analyser at floor(N x 3/4 / share used) for one lease length. The cap then
+>   climbs one per clean lease length.
+> - Every unit logs its fetch / decode / analyse seconds.
+>
+> **Open, all the operator's:**
+> - BelowNormal instead of Idle for the office's Labs tree: the Windows agent's guard3 parameter,
+>   office launcher only. The wall stays at Normal.
+> - The 0.3.11 deploy.
+> - CV's lease renewal deploy (about 16 s of blank walls).
+
+<!-- 2026-09-30 LABS: STATISTICS FIRST, BY CAMERA -->
+> **2026-09-30 — the Labs screen opens on Statistics; the table's tab is "Analyser Settings";
+> BY CAMERA | BY ANALYSER sits left of the periods (d87e353, 1.1.761).**
+> - **BY CAMERA:** one row per camera, busiest first. The line is the camera's records split by
+>   analyser, normalised to 100 %. The total and its share of all are on the right. An event is
+>   any record, the operator's choice.
+> - **The server half:** `records_by_camera` in /labs/stats, asked of CV in
+>   `docs/letters/2026-09-30-labs-statistics-by-camera-cilex-watchtower-linux.md`. Until it
+>   arrives, the mode says so.
+> - **Reviewed on a file of live data** (WT_LABS_STATS_FILE). The per-camera sums equal the
+>   server's `records` in all 36 cells.
+> - **The fleet is 133 active cameras** (DB, 2026-09-30), and 121 have Labs records.
+
 <!-- 2026-09-30 LABS: worker-0.3.10, FILL (OPT-IN) -->
 > **2026-09-30 03:1x — worker-0.3.10 (2e67821, 1.1.756): FILL, opt-in per station.** On main, NOT
 > on any station yet. The rollout is the Windows agent's, with the operator's go.
