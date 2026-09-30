@@ -114,6 +114,16 @@ def child_main(inbox, outbox, spec: dict, analyzer: str, unit: W.ScanUnit, conte
     root.setLevel(logging.WARNING)
     root.addHandler(_Forward(logging.WARNING))
 
+    # This station's priority class and power-throttling QoS (WT_LABS_PRIORITY, WT_LABS_HIGHQOS;
+    # winqos.py): set in every unit itself, since nothing says Windows passes the throttling state
+    # from the worker to its children -- and on its decoders, which nine modules spawn, by a sweep.
+    import winqos as Q
+    for note in Q.apply_to_self(who="a unit"):
+        if "NOT set" in note or "could not" in note:
+            logging.getLogger("labs.qos").warning("labs: %s", note)
+    if os.name == "nt" and (Q.wanted_high_qos() or Q.wanted_priority()):
+        Q.DecoderSweep(Q.wanted_priority(), Q.wanted_high_qos()).start()
+
     def orphaned() -> None:
         # The worker is gone: nothing this unit finds can be handed to it. Stop the decoders
         # now, let the checkpoints drop the unit, and never outlive the worker for long.

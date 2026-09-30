@@ -2145,6 +2145,61 @@ check("...on real threads: the fast extras give back their slots through the cla
       "unit is past 3/4 of its lease",
       len(_shrunk) >= 1, f"{len(_shrunk)} {[x for x in _said.lines if 'gives back' in x][:3]}")
 
+# ---- worker-0.3.12: the Labs tree's priority class and power-throttling QoS, per station ----
+# The office, 2026-09-30 (the Windows agent): moved from Idle to Normal, the units STAYED on the
+# 4 E-cores -- Windows' default QoS for windowless processes placed them, not the class. Two knobs.
+import winqos as QS
+check("winqos: WT_LABS_PRIORITY reads idle / belownormal / normal, anything else is None -- never guessed",
+      [QS.wanted_priority({"WT_LABS_PRIORITY": v}) for v in ("idle", "BelowNormal", " normal ", "high", "", "low")]
+      == ["idle", "belownormal", "normal", None, None, None])
+check("winqos: WT_LABS_HIGHQOS=1/true/on turns it on; unset, 0 or no leave it off",
+      [QS.wanted_high_qos({"WT_LABS_HIGHQOS": v}) for v in ("1", "true", "on", "0", "", "no")]
+      == [True, True, True, False, False, False] and not QS.wanted_high_qos({}))
+_n0, _nbad = QS.apply_to_self({}), QS.apply_to_self({"WT_LABS_PRIORITY": "realtime"})
+check("winqos: unset changes nothing; an unknown class is said and ignored, never guessed at",
+      _n0 == [] and any("'realtime'" in x and "ignored" in x for x in _nbad), f"{_n0} {_nbad}")
+if os.name != "nt":
+    _nlin = QS.apply_to_self({"WT_LABS_PRIORITY": "normal", "WT_LABS_HIGHQOS": "1"})
+    check("winqos: on a Linux station both are said to be for Windows and ignored, and nothing raises",
+          len(_nlin) == 1 and "for Windows stations" in _nlin[0], str(_nlin))
+    print("SKIP winqos real calls (SetPriorityClass, SetProcessInformation) -- this box is not Windows")
+else:
+    _was = QS.read_priority()
+    _e1 = QS.set_priority("belownormal"); _p1 = QS.read_priority()
+    _e2 = QS.set_priority("normal"); _p2 = QS.read_priority()
+    check("winqos (Windows): the priority class is set and reads back (BelowNormal 0x4000, then Normal 0x20)",
+          _e1 is None and _p1 == 0x4000 and _e2 is None and _p2 == 0x20, f"{_e1} {_p1} {_e2} {_p2}")
+    _back = {0x40: "idle", 0x4000: "belownormal", 0x20: "normal"}.get(_was)
+    if _back:
+        QS.set_priority(_back)                # this suite's own class, as it was started
+    _e3 = QS.set_high_qos(); _q = QS.read_qos()
+    if _q is None:
+        print("SKIP winqos (Windows): this Windows cannot read the throttling state back")
+    else:
+        check("winqos (Windows): execution-speed throttling is OFF and reads back (control bit set, state bit clear)",
+              _e3 is None and (_q[0] & 1) == 1 and (_q[1] & 1) == 0, f"{_e3} {_q}")
+_applied, _kids = [], [[101, 102], [101, 102, 103], [102, 103]]
+_sw = QS.DecoderSweep("belownormal", True, children=lambda: _kids.pop(0),
+                      apply=lambda pid, pr, hq: _applied.append((pid, pr, hq)) or None)
+_sw.once(); _sw.once(); _sw.once()
+check("winqos: a unit's sweep sets each decoder ONCE, as it appears (101, 102, then 103), with what the "
+      "station asked", _applied == [(101, "belownormal", True), (102, "belownormal", True), (103, "belownormal", True)],
+      str(_applied))
+class _QSaid(logging.Handler):
+    def __init__(self): super().__init__(logging.WARNING); self.lines = []
+    def emit(self, r): self.lines.append(r.getMessage())
+_qs, _qlog = _QSaid(), logging.getLogger("labs.qos")
+_qlog.addHandler(_qs); _qlog.propagate = False
+def _no_list(): raise RuntimeError("no psutil")
+_sw2 = QS.DecoderSweep(None, True, children=_no_list, apply=lambda *a: None)
+_sw2.once(); _sw2.once()
+_sw3 = QS.DecoderSweep(None, True, children=lambda: [7, 8], apply=lambda pid, pr, hq: "access denied")
+_sw3.once(); _sw3.once()
+_qlog.removeHandler(_qs); _qlog.propagate = True
+check("winqos: a sweep that cannot list its decoders, or cannot set one, says so ONCE and carries on",
+      sum("cannot list its decoders" in x for x in _qs.lines) == 1
+      and sum("could not be set" in x for x in _qs.lines) == 1, str(_qs.lines))
+
 _lanes_log.removeHandler(_said); _lanes_log.propagate = True
 
 c, plugs = lane_world(["illumination", "foreground_mask"], units_per=2); clk = Clock(); timed(c, clk)
@@ -3048,6 +3103,40 @@ if _pb3.can_walk:
 else:
     print("SKIP the probe on a real unit process's memory -- this box has no psutil and no /proc, so fill "
           "adds no unit here (checked above: 'cannot measure a unit's memory')")
+
+# worker-0.3.12: WT_LABS_PRIORITY / WT_LABS_HIGHQOS reach a real unit process, which still runs.
+os.environ["WT_LABS_HIGHQOS"] = "1"; os.environ["WT_LABS_PRIORITY"] = "belownormal"
+try:
+    _oq = _pr.run(W.ScanUnit("ok-qos", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+finally:
+    os.environ.pop("WT_LABS_HIGHQOS", None); os.environ.pop("WT_LABS_PRIORITY", None)
+check("unit process: with WT_LABS_PRIORITY and WT_LABS_HIGHQOS set, a unit still runs and its outcome comes "
+      "back (on Windows it sets both on itself, and its decoders get them from its sweep)",
+      _oq.submitted and len([x for x in _rows() if x["camera_id"] == "ok-qos"]) == 1, str(_oq))
+
+# ...and the unit really applies them to ITSELF at its start. On Linux the calls change nothing
+# visible, so a stand-in winqos (first on the path the spawned unit inherits) records the call.
+_QD = tempfile.mkdtemp(prefix="wt-qos-stub-")
+_QMARK = os.path.join(_QD, "called.txt")
+open(os.path.join(_QD, "winqos.py"), "w", encoding="utf-8").write(_tw.dedent(f"""
+    \"\"\"Test double for winqos inside a unit process (tools/tests/labs-worker.py). Not shipped.\"\"\"
+    MARK = {_QMARK!r}
+    def apply_to_self(env=None, who="the worker"):
+        with open(MARK, "a", encoding="utf-8") as f:
+            f.write(who + "\\n")
+        return []
+    def wanted_high_qos(env=None): return False
+    def wanted_priority(env=None): return None
+"""))
+sys.path.insert(0, _QD)
+try:
+    _oq2 = _pr.run(W.ScanUnit("ok-qos-2", "2026-09-24T10:00:00Z", "illumination", None, 1), NamedPlug("illumination"))
+finally:
+    sys.path.remove(_QD)
+_qcalls = open(_QMARK, encoding="utf-8").read().splitlines() if os.path.exists(_QMARK) else []
+check("unit process: every unit applies the station's priority and QoS to ITSELF at its start "
+      "(winqos.apply_to_self, as 'a unit') -- nothing relies on Windows passing them down",
+      _oq2.submitted and _qcalls == ["a unit"], f"{_qcalls} {_oq2}")
 
 # THE ORDER OF A STOP. The unit is told why FIRST; its decoders die only once it has answered
 # (or ACK_WAIT_S passes). A killed decoder makes the analyser fail, and worker._file_failed

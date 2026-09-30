@@ -22,6 +22,8 @@ the same time, one per lane, with no station-wide cap: how many run at once is h
 hoses the operator connects (their rule, 2026-09-29). --slots / WT_LABS_SLOTS are ignored.
 Since worker-0.3.10 a station may opt in to FILL (--fill or WT_LABS_FILL=1): a lane that is
 getting work takes more units at once while this machine measures room for them (lanes.py).
+Since worker-0.3.12 a Windows station may set the Labs tree's priority class and opt it out of
+power throttling (WT_LABS_PRIORITY, WT_LABS_HIGHQOS; winqos.py).
 """
 import argparse, logging, os, sys, threading, time, json, urllib.request
 from datetime import datetime, timezone
@@ -214,10 +216,16 @@ def loop_main(a) -> int:
             "labs: FILL is on: a lane getting work takes one more unit at a time while this machine has "
             "an idle logical CPU, free memory for %g of its largest unit, and fewer units in hand than "
             "logical CPUs (%s)", L.FILL_MEM_FACTOR, os.cpu_count())
+    # Windows stations: the priority class and power-throttling QoS asked by WT_LABS_PRIORITY /
+    # WT_LABS_HIGHQOS (winqos.py) -- on this process now, and on each unit and its decoders.
+    import winqos as Q
+    qos = Q.apply_to_self()
+    for note in qos:
+        logging.getLogger("labs.station").warning("labs: %s", note)
     all_plugins = [make_plugin(n) for n in (a.analyzer or sorted(PLUGINS))]
     hb = Heartbeat({"state": "starting", "worker_version": W.WORKER_VERSION, "server": a.api,
                     "started_at": S.now_iso(), "totals": {}, "last_unit": None,
-                    "current": None, "note": "", "fill_mode": fill,
+                    "current": None, "note": "", "fill_mode": fill, "qos": qos,
                     # What this station CAN run (its plugin registry), shown in the Labs
                     # screen whether or not it is scanning right now.
                     "registered": [p.name for p in all_plugins]}).start()
