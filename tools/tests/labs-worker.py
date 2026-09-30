@@ -2954,8 +2954,12 @@ check("unit process: THREE units of ONE analyser run at once, each in a process 
       and len([x for x in _rows() if x["camera_id"].startswith("slow-")]) == 3 and _prc.unit_pids() == [],
       f"seen={_seen3} outcomes={ {k: v.submitted for k, v in _o3.items()} } after={_prc.unit_pids()}")
 if _pb3.can_walk:
+    # A spawned unit that decodes nothing measured 9.7 MiB of working set on the booth
+    # (10,129,408 B, 2026-09-30) and more here, so the floor is only "a real process was
+    # measured", not a size: 10 MiB, set from this box alone, failed there.
     check("...and the probe measures a real unit process's memory (its process tree, this machine's vitals)",
-          (_pb3.unit_bytes("object_profile") or 0) > 10 * 2**20, f"{_pb3.unit_bytes('object_profile')} {_pb3.error}")
+          (_pb3.unit_bytes("object_profile") or 0) > 2 * 2**20 and _pb3.error is None,
+          f"{_pb3.unit_bytes('object_profile')} {_pb3.error}")
 else:
     print("SKIP the probe on a real unit process's memory -- this box has no psutil and no /proc, so fill "
           "adds no unit here (checked above: 'cannot measure a unit's memory')")
