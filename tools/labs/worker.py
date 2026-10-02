@@ -26,11 +26,12 @@ dependency raises a plain 401 "station token required" that never carries `code`
 `POST /labs/scan/claim` validates its query BEFORE auth, so a 422 there is a bug in
 this file, never an auth state.
 
-LEASES ARE 20 MINUTES (labs.py LEASE_MINUTES). A unit not submitted inside that
-window is swept back to the queue and another station may take it. Disabling an
-analyser blocks NEW claims only -- work already leased keeps running until it
-finishes or the lease lapses. That is a gap in the control surface, raised with
-cilex-vision; this worker honours `analyzer_disabled` at the next claim.
+INITIAL LEASES ARE 20 MINUTES (labs.py LEASE_MINUTES, read 2026-10-02). On a server
+with renewal, station reports extend live held units and return their new deadlines;
+reporter.py and lanes.py consume those extensions. Without one, the last confirmed
+deadline stands. An expired unit can return to the queue for another station.
+Unplugging a lane blocks NEW claims while held work finishes; a Stop revokes work
+in hand, and reporter.py aborts it (control-plane contract, 2026-09-28).
 """
 from __future__ import annotations
 
@@ -64,7 +65,9 @@ from typing import Callable, Iterable, Optional, Protocol
 # others (the operator's requirement, via cilex-vision's letter of the same day).
 # 0.3.6 (2026-09-29): a unit dropped for making no progress, or whose process died, is FILED
 # failed with why (cilex-vision); blob_geometry files one row per passage, within a row budget.
-WORKER_VERSION = "worker-0.3.12"
+# 0.3.13 (2026-10-02): fill follows renewed leases from station reports, using server
+# timestamps and a monotonic clock; missing replies never invent an extension.
+WORKER_VERSION = "worker-0.3.13"
 
 
 # ----------------------------------------------------------------------------------

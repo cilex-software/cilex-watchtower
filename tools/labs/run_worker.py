@@ -24,6 +24,8 @@ Since worker-0.3.10 a station may opt in to FILL (--fill or WT_LABS_FILL=1): a l
 getting work takes more units at once while this machine measures room for them (lanes.py).
 Since worker-0.3.12 a Windows station may set the Labs tree's priority class and opt it out of
 power throttling (WT_LABS_PRIORITY, WT_LABS_HIGHQOS; winqos.py).
+Since worker-0.3.13 fill follows lease extensions acknowledged in station reports.
+An older server that sends no extensions retains its original lease behaviour.
 """
 import argparse, logging, os, sys, threading, time, json, urllib.request
 from datetime import datetime, timezone

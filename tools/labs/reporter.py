@@ -1,9 +1,9 @@
 """This station's side of cilex-vision's Labs control plane (deployed 2026-09-28).
 
 Every ~2 s the worker reports itself -- its state, the units it holds (one per lane at
-most, worker-0.3.5), the machine's and its own CPU and memory -- and the reply is the
+first, more with fill), the machine's and its own CPU and memory -- and the reply is the
 server's orders: the station's mode, each analyser lane's mode, and the units it has taken
-back (CONTRACT.md, "Station side").
+back (CONTRACT.md, "Station side"), plus any renewed lease deadlines.
 
   * The SERVER is the switch (operator decision 2026-09-28): Start / Pause / Stop at four
     levels. The local control file's `paused` flag no longer governs once the server
@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from datetime import datetime
 from typing import Callable, Optional
 
 import station as S
@@ -37,6 +38,17 @@ MIN_EVERY_S, MAX_EVERY_S = 1.0, 30.0
 def _key(analyzer, camera_id, hour_start):
     h = W._hour(hour_start)
     return (analyzer, camera_id, h if h is not None else hour_start)
+
+
+def _aware_stamp(value) -> Optional[datetime]:
+    """A server timestamp must name its offset; never guess this machine's timezone."""
+    if not isinstance(value, str):
+        return None
+    try:
+        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return stamp if stamp.tzinfo is not None else None
 
 
 class Reporter:
@@ -54,6 +66,7 @@ class Reporter:
         self._lock = threading.Lock()
         self._state = "idle"                  # the loop's own word when holding nothing
         self._holding: dict = {}              # key -> ScanUnit: every lane's units in hand
+        self._renewals: dict = {}             # key -> (server expiry, request monotonic time, lease seconds)
         self._hold: Optional[dict] = None
         self._orders: Optional[dict] = None
         self._orders_at: Optional[float] = None
@@ -77,18 +90,27 @@ class Reporter:
     def set_holding(self, unit: Optional[W.ScanUnit]) -> None:
         """ONE unit in hand, or none (worker.run_once: the one-off --live run)."""
         with self._lock:
-            self._holding = {} if unit is None else {_key(unit.analyzer, unit.camera_id, unit.hour_start): unit}
+            holding = {} if unit is None else {_key(unit.analyzer, unit.camera_id, unit.hour_start): unit}
+            self._renewals = {k: v for k, v in self._renewals.items()
+                              if k in holding and self._holding.get(k) is holding[k]}
+            self._holding = holding
             self._aborted &= set(self._holding)
 
     def add_holding(self, unit: W.ScanUnit) -> None:
         """A lane has a unit in hand (lanes.Scheduler): it joins the report's `holding` list."""
         with self._lock:
-            self._holding[_key(unit.analyzer, unit.camera_id, unit.hour_start)] = unit
+            k = _key(unit.analyzer, unit.camera_id, unit.hour_start)
+            if self._holding.get(k) is not unit:
+                self._renewals.pop(k, None)
+            self._holding[k] = unit
 
     def remove_holding(self, unit: W.ScanUnit) -> None:
         with self._lock:
             k = _key(unit.analyzer, unit.camera_id, unit.hour_start)
+            if self._holding.get(k) is not unit:
+                return
             self._holding.pop(k, None)
+            self._renewals.pop(k, None)
             self._aborted.discard(k)
 
     def holding(self) -> list:
@@ -125,6 +147,20 @@ class Reporter:
     def hold(self) -> Optional[dict]:
         with self._lock:
             return dict(self._hold) if self._hold else None
+
+    def lease(self, unit: W.ScanUnit) -> Optional[tuple[float, float]]:
+        """Latest renewal as (monotonic start, lease seconds), for this claim only.
+
+        An empty later report does not withdraw a renewal: the server lists only leases
+        extended by THAT report (CV's 2026-09-30 contract). The deadline keeps ageing
+        even when reports fail or orders go stale. Revocation and a local hold still win.
+        """
+        with self._lock:
+            k = _key(unit.analyzer, unit.camera_id, unit.hour_start)
+            if self._holding.get(k) is not unit or self._hold or k in self._revoked or k in self._aborted:
+                return None
+            rec = self._renewals.get(k)
+            return (rec[1], rec[2]) if rec else None
 
     def abort_reason(self, unit: W.ScanUnit) -> Optional[str]:
         """Why the unit in hand must be dropped now, or None. The worker's checkpoints ask."""
@@ -182,7 +218,8 @@ class Reporter:
 
     def report_once(self) -> bool:
         with self._lock:
-            units, hold = list(self._holding.values()), (dict(self._hold) if self._hold else None)
+            sent = dict(self._holding)
+            units, hold = list(sent.values()), (dict(self._hold) if self._hold else None)
             state = "paused" if hold else ("running" if units else self._state)
         # `slots` is null: since worker-0.3.8 there is no station-wide cap -- every connected
         # lane runs its unit at once (the operator's rule). The server takes null (0..64 or null).
@@ -196,6 +233,7 @@ class Reporter:
                 self.log.warning("labs vitals: %s: %s", type(e).__name__, e)
         if hold:
             body["hold"] = hold
+        started = self.clock()
         try:
             reply = W._guard(self.client.report, body)
         except W.Refusal as r:
@@ -225,12 +263,44 @@ class Reporter:
             self._orders, self._orders_at = reply, now
             # The server lists only units in our holding, so older keys can go.
             self._revoked = revoked
+            self._read_leases(reply, sent, started)
         self._last_error = ""
         self._last_ok_iso = S.now_iso()
         self._next = now + self._every
         self._act_on_hand()
         self._publish()
         return True
+
+    def _read_leases(self, reply: dict, sent: dict, started: float) -> None:
+        """Called under _lock. Publish immutable samples; only the scheduler changes its
+        own lease state. A response in flight cannot renew a replacement claim for the
+        same camera-hour: it must still be the exact ScanUnit that this request reported.
+        """
+        generated = _aware_stamp(reply.get("generated_at"))
+        leases = reply.get("leases")
+        if generated is None or not isinstance(leases, list) or self._hold:
+            return
+        for row in leases:
+            if not isinstance(row, dict):
+                continue
+            ids = [row.get(n) for n in ("analyzer", "camera_id", "hour_start")]
+            if not all(isinstance(v, str) and v for v in ids) or _aware_stamp(ids[2]) is None:
+                continue
+            k = _key(*ids)
+            unit = sent.get(k)
+            if unit is None or self._holding.get(k) is not unit or k in self._revoked or k in self._aborted:
+                continue
+            expires = _aware_stamp(row.get("lease_expires_at"))
+            old = self._renewals.get(k)
+            previous = old[0] if old else _aware_stamp(unit.lease_expires_at)
+            if expires is None or expires <= generated or (previous is not None and expires <= previous):
+                continue
+            # Compare SERVER timestamps, then use only the monotonic clock. CV's
+            # generated_at precedes the renewal query (labs.py, read 2026-10-02).
+            # Anchor at REQUEST start so time spent waiting for the reply is consumed,
+            # not added to the lease. Repeated deadlines never reset its age, including
+            # the server's two-hour ceiling. No extension is invented on an old server.
+            self._renewals[k] = (expires, started, (expires - generated).total_seconds())
 
     def _act_on_hand(self) -> None:
         """Each unit in hand that the server took back -- or every one, under a hold -- is

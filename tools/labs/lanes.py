@@ -41,12 +41,14 @@ Now:
     nothing changes.
     LEASES (worker-0.3.11; the office, 2026-09-30 09:23: 16 at once, the server's serving rate
     the limit and not the machine, three units ran past their 20-min lease and were thrown away).
-    A lease is set at the claim and not renewed, so fill must act while units are in flight:
+    Fill acts on the latest acknowledged lease while units are in flight:
       - while ANY unit in hand is past FILL_LEASE_SHARE of its lease, an extra slot whose unit
         ends does not claim again -- the width falls at once and the late units get the rest;
       - a unit that ends past that share caps its analyser at floor(N x share / used), N being
         its units in hand then (16 at 101 % -> 11), for one lease length; each lease length
         with no overrun after that allows one more (AIMD), instead of refilling at once.
+    Since worker-0.3.13, a report's renewed deadline starts a new lease window. Its age
+    is independent of the unit's total runtime. Older servers keep the claim's deadline.
   * Lanes start in queue order: a lane that has just had its turn queues behind the lanes
     that were waiting, and the first order is shuffled at every start, so no analyser is
     always first (the letter's point 4).
@@ -88,8 +90,8 @@ FILL_MEM_FACTOR = 2.0
 FILL_UNIT_SAMPLE_S = 5.0
 # ...and keeps this much CPU history, enough for any window it is asked about.
 FILL_KEEP_S = 300.0
-# A unit's lease is set at its claim and NOT renewed (cilex-vision, 2026-09-30: 20 min,
-# routers/labs.py:113 and :1524). A unit whose lease runs out is thrown away and its hour is
+# A unit's lease starts at its claim; reports may renew it (CV's 2026-09-30 contract).
+# A unit whose lease runs out is thrown away and its hour is
 # queued again. So fill adds nothing while a unit in hand has used more than this share of
 # its lease, and gives back an extra slot whose unit used more. It is a margin of ours: the
 # office's slowest Vehicles unit that night took 15.4 min of the 20.
@@ -325,7 +327,7 @@ class Scheduler:
         self._fill_dry: dict = {}                 # analyser -> fill adds none before this
         self._fill_made: dict = {}                # analyser -> extra lanes made so far (their names)
         self._fill_code: Optional[str] = None     # why fill adds none now (the status file)
-        self._leases: dict = {}                   # unit key -> (claimed, on this clock; lease length s)
+        self._leases: dict = {}                   # unit key -> (latest lease start, monotonic; lease seconds)
         self._fill_cap: dict = {}                 # analyser -> [safe width, until (this clock), lease s]
         self.lanes = {n: Lane(n) for n in names}
         first = list(order) if order else list(names)
@@ -831,12 +833,20 @@ class Scheduler:
 
     def _lease_used(self, unit: W.ScanUnit, now: float) -> Optional[float]:
         """The share of its lease this unit has used, or None when the server named no lease."""
-        rec = self._leases.get(_ukey(unit))
+        key = _ukey(unit)
+        rec = self._leases.get(key)
+        if rec is not None and self.reporter is not None:
+            renewed = self.reporter.lease(unit)
+            if renewed is not None:
+                # Also read before _unit_done computes its overrun cap: a report can
+                # arrive on the very tick the unit finishes. The reporter never writes
+                # this dict from its thread, and never re-anchors an unchanged expiry.
+                self._leases[key] = rec = renewed
         if not rec or rec[1] is None:
             return None
         if rec[1] <= 0:
             return float("inf")               # it had run out when the claim came back
-        return (now - rec[0]) / rec[1]
+        return max(0.0, now - rec[0]) / rec[1]
 
     def _let_go(self, u: W.ScanUnit) -> None:
         """A unit claimed and never started: once no report lists it, the server takes it back."""

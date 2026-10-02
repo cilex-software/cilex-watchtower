@@ -153,6 +153,27 @@ with a version already pushed."
 | `WT_LABS_STATS_FILE=<json>` | Read `GET /labs/stats`'s answer from that file instead of the server, to review a part of Statistics whose server half is not deployed yet (BY CAMERA, 2026-09-30). Review screenshots only; read-only. |
 | `WT_CV_URL`, `WT_CV_USER`, `WT_CV_PASS` | cilex-vision backend base URL + credentials (dev defaults baked in source; override via env). |
 
+## Labs lease renewal (worker-0.3.13)
+
+`tools/labs/reporter.py` reads optional `leases[]` in station report replies. Each entry
+names `(analyzer, camera_id, hour_start, lease_expires_at)`; `generated_at` is the report's
+server timestamp. The prepared CV contract (read 2026-10-02 in `routers/labs.py`) lists only
+leases extended by that report. Missing or empty lists retain the prior deadline.
+
+The reporter keeps a renewal only for the exact `ScanUnit` object included in the outgoing
+report and still held on receipt. It normalises hour offsets, requires aware timestamps,
+and accepts only an expiry later than the previously confirmed one. `Reporter.lease(unit)`
+returns an immutable `(request_start_monotonic, expiry_minus_generated_seconds)` pair.
+Anchoring before the request conservatively charges response latency to the lease. Neither
+a repeated deadline nor another successful heartbeat grants more time.
+
+The scheduler reads that pair before every lease-based fill or completion decision. It
+measures the current lease window, not total job runtime, so continued renewals do not
+eventually trigger the 75% guard just because a job is old. If renewals stop, the last window
+ages normally. Revoked/held jobs still abort. Servers without renewal use the claim's original
+deadline. The deterministic cases live in `tools/tests/labs-worker.py`; they need no live
+server, database or footage.
+
 ## Architecture
 
 - **`src/models/`** — C++ models exposed to QML:

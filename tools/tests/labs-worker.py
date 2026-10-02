@@ -2806,6 +2806,180 @@ check("reporter: a local HOLD drops EVERY unit in hand, each once",
       sorted(a for a, _w in _dropped) == ["audio_energy", "illumination"], str(_dropped))
 _ctl_box["c"] = dict(_ctl_box["c"], hold=None)
 
+# ---- renewed leases: server time becomes a window on the monotonic clock -----------------
+# The server renews only near expiry and eventually reaches its maximum lifetime. A reply
+# can repeat the same expiry, omit leases, or arrive after the unit has ended/reclaimed.
+# None of those is permission to restart a lease clock. All clocks/requests below are fake.
+_RENEW_WALL = _dt(2026, 9, 30, 9, 0, tzinfo=_tz.utc)
+def _renew_iso(seconds):
+    return (_RENEW_WALL + _td(seconds=seconds)).isoformat()
+def _renew_row(u, expiry=180.0, **overrides):
+    return dict({"analyzer": u.analyzer, "camera_id": u.camera_id, "hour_start": u.hour_start,
+                 "lease_expires_at": _renew_iso(expiry)}, **overrides)
+def _renew_reply(us, generated=80.0, expiry=180.0, **overrides):
+    return dict(_ORD, generated_at=_renew_iso(generated), leases=[_renew_row(u, expiry) for u in us],
+                **overrides)
+class _RenewClient:
+    def __init__(self, reply):
+        self.reply, self.during, self.bodies = reply, None, []
+    def report(self, body):
+        self.bodies.append(body)
+        if self.during is not None:
+            self.during()
+        if isinstance(self.reply, Exception):
+            raise self.reply
+        return self.reply
+def _renew_reporter(us, reply=None):
+    clk = Clock(); clk.t = 80.0
+    client = _RenewClient(_renew_reply(us) if reply is None else reply)
+    ctl = {"paused": False, "camera_health": False, "why": "", "hold": None}
+    dropped = []
+    rep = RPT.Reporter(client, clock=clk.now, control=lambda: ctl,
+                       on_abort=lambda un, why: dropped.append((un, why)))
+    for u in us:
+        rep.add_holding(u)
+    return rep, client, clk, ctl, dropped
+
+_ru = W.ScanUnit("renew-cam", "2026-09-30T05:00:00Z", "object_profile", _renew_iso(100), 1)
+_rv = _dc.replace(_ru, analyzer="illumination")  # same camera/hour, a different lane
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru, _rv])
+_rc.reply["leases"] = [_renew_row(_ru, hour_start="2026-09-30T08:00:00.000+03:00")]
+_rr.report_once()
+check("renewal: the reported unit matches an equivalent hour offset, and another analyser's lease is untouched",
+      _rr.lease(_ru) == (80.0, 100.0) and _rr.lease(_rv) is None,
+      f"renewed={_rr.lease(_ru)} other={_rr.lease(_rv)}")
+_remembered = _rr.lease(_ru)
+_retained = []
+for _answer in (dict(_ORD), dict(_ORD, leases=[]), R(503, "labs_busy", True)):
+    _rclk.t += 5.0; _rc.reply = _answer; _rr.report_once()
+    _retained.append(_rr.lease(_ru))
+check("renewal: omitted or empty leases and a failed report preserve the LAST confirmed window, without refreshing it",
+      _retained == [_remembered] * 3, str(_retained))
+
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru])
+_rc.during = lambda: setattr(_rclk, "t", 170.0)  # ninety seconds spent awaiting the reply
+_rr.report_once()
+_lsample = _rr.lease(_ru)
+check("renewal: report latency counts against the lease -- its clock starts at the REQUEST, not the reply",
+      _lsample == (80.0, 100.0) and abs((_rclk.t - _lsample[0]) / _lsample[1] - 0.9) < 1e-9,
+      str(_lsample))
+
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru])
+_rr.report_once(); _same = _rr.lease(_ru); _unchanged = []
+for _gen, _expiry in ((100.0, 180.0), (120.0, 170.0), (150.0, 180.0)):
+    _rclk.t = _gen; _rc.reply = _renew_reply([_ru], generated=_gen, expiry=_expiry)
+    _rr.report_once(); _unchanged.append(_rr.lease(_ru))
+check("renewal: a repeated maximum deadline or an older expiry NEVER restarts the lease window",
+      _unchanged == [_same] * 3, str(_unchanged))
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru], _renew_reply([_ru], generated=80, expiry=100))
+_rr.report_once()
+check("renewal: the original claim's expiry echoed by a report is not a renewal", _rr.lease(_ru) is None)
+
+_bad_answers = [
+    dict(_ORD, leases=None), dict(_ORD, leases={"bad": "container"}),
+    _renew_reply([]), _renew_reply([_ru], expiry=80), _renew_reply([_ru], expiry=70),
+    dict(_renew_reply([_ru]), generated_at="2026-09-30T09:01:20"),
+    dict(_renew_reply([_ru]), generated_at="not a timestamp"),
+    dict(_renew_reply([_ru]), generated_at=None),
+]
+for _bad in (None, "not a row", {},
+             _renew_row(_ru, lease_expires_at="2026-09-30T09:03:00"),
+             _renew_row(_ru, lease_expires_at="not a timestamp"),
+             _renew_row(_ru, lease_expires_at=None),
+             _renew_row(_ru, camera_id="not-reported"),
+             _renew_row(_ru, analyzer="another-analyser"),
+             _renew_row(_ru, hour_start="2026-09-30T06:00:00Z"),
+             _renew_row(_ru, camera_id=[])):
+    _bad_answers.append(dict(_renew_reply([]), leases=[_bad]))
+_bad_results = []
+for _answer in _bad_answers:
+    _rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru], _answer)
+    try:
+        _bad_results.append((_rr.report_once(), _rr.lease(_ru)))
+    except Exception as _e:
+        _bad_results.append(type(_e).__name__)
+check("renewal: malformed, naive, expired and unreported leases are ignored without breaking the report",
+      _bad_results == [(True, None)] * len(_bad_answers), str(_bad_results))
+
+_paused = dict(_renew_reply([_ru]), station={"mode": "paused"}, lanes={"object_profile": "stopped"})
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru], _paused)
+_rr.report_once()
+check("renewal: paused or unplugged lanes keep renewing units already in hand (their finish is gentle)",
+      _rr.lease(_ru) == (80.0, 100.0) and _rr.abort_reason(_ru) is None and not _rd)
+_revoked = dict(_renew_reply([_ru, _rv]), revoked=[_renew_row(_ru)])
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru, _rv], _revoked)
+_rr.report_once(); _rr.report_once()
+check("renewal: revocation wins even if the reply also lists a lease, without touching another lane",
+      _rr.lease(_ru) is None and _rr.lease(_rv) == (80.0, 100.0)
+      and len(_rd) == 1 and _rd[0][0] is _ru)
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru])
+def _renew_hold_during_request():
+    _rctl["hold"] = {"by": "wall-guard", "why": "test hold"}
+    _rr.tick()
+_rc.during = _renew_hold_during_request
+_rr.report_once()
+_while_held = _rr.lease(_ru)
+_rctl["hold"] = None; _rr.tick()
+check("renewal: a hold arriving during the request wins, and releasing it cannot revive that aborted unit",
+      _while_held is None and _rr.lease(_ru) is None and len(_rd) == 1)
+
+for _operation in ("remove", "set_holding"):
+    _rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru]); _rr.report_once()
+    if _operation == "remove":
+        _rr.remove_holding(_ru)
+    else:
+        _rr.set_holding(None)
+    _gone = _rr.lease(_ru)
+    _replacement = _dc.replace(_ru)  # value-equal, but a new claim's object
+    _rr.add_holding(_replacement)
+    check(f"renewal: {_operation} forgets its window; a same-key replacement inherits no renewal",
+          _gone is None and _rr.lease(_ru) is None and _rr.lease(_replacement) is None)
+for _replace in (False, True):
+    _rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru])
+    _replacement = _dc.replace(_ru)
+    def _finish_during_report():
+        _rr.remove_holding(_ru)
+        if _replace:
+            _rr.add_holding(_replacement)
+    _rc.during = _finish_during_report
+    _rr.report_once()
+    check(f"renewal: an in-flight reply cannot renew {'a value-equal new claim' if _replace else 'a completed unit'}",
+          _rr.lease(_ru) is None and _rr.lease(_replacement) is None)
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter([_ru], _renew_reply([_ru, _rv]))
+_rc.during = lambda: _rr.add_holding(_rv)
+_rr.report_once()
+check("renewal: a newly held unit that was NOT in this request cannot borrow its reply's lease",
+      _rr.lease(_ru) == (80.0, 100.0) and _rr.lease(_rv) is None)
+
+# Exercise the actual fill protection and completion path, not just the accessor. The
+# unit outlives several original lease windows, then silence makes the last one age out.
+_rs, _rlanes, _runits = _capped(n_in_hand=2)
+_rr, _rc, _rclk, _rctl, _rd = _renew_reporter(_runits)
+_rs.reporter = _rr
+_shares, _room_codes = [], []
+for _at in (80.0, 160.0, 240.0):
+    _rclk.t = _at; _rc.reply = _renew_reply(_runits, generated=_at, expiry=_at + 100.0)
+    _rr.report_once()
+    _shares.append(_rs._lease_used(_runits[0], _at + 1.0))
+    _room_codes.append(_rs._room(_at + 1.0, "object_profile", adding=False)[0])
+check("fill renewal: repeated fresh windows keep a long-running unit safe beyond its original lease",
+      all(v is not None and abs(v - 0.01) < 1e-9 for v in _shares) and _room_codes == [None] * 3,
+      f"shares={_shares} room={_room_codes}")
+# No previous _lease_used call for this final renewal: completion itself must consume it.
+_rclk.t = 320.0; _rc.reply = _renew_reply(_runits, generated=320.0, expiry=420.0)
+_rr.report_once()
+_ended(_rs, _rlanes[1], _runits[1], 325.0, total_s=325.0)
+check("fill renewal: completion consumes the latest window before deciding to cap or retire an extra slot",
+      not _rs._fill_cap and _rlanes[1].name in _rs.lanes and _rr.lease(_runits[1]) is None,
+      f"cap={_rs._fill_cap} lanes={list(_rs.lanes)}")
+_room_before_silence = _rs._room(325.0, "object_profile", adding=False)[0]
+_rclk.t = 400.0; _rc.reply = dict(_ORD, leases=[]); _rr.report_once()
+_room_after_silence = _rs._room(400.0, "object_profile", adding=False)[0]
+_ended(_rs, _rlanes[0], _runits[0], 421.0)
+check("fill renewal: missing renewals age the LAST window normally -- in-flight shrink and overrun cap still act",
+      _room_before_silence is None and _room_after_silence == "lease" and bool(_rs._fill_cap),
+      f"room={_room_before_silence}/{_room_after_silence} cap={_rs._fill_cap}")
+
 # ---- the lanes, governed ------------------------------------------------------------------------
 class _Gov:
     def __init__(self, mode, lanes, level=None, at="2026-09-28T09:00:00Z"):
@@ -2818,6 +2992,7 @@ class _Gov:
     def add_holding(self, u): self.events.append(("in hand", u.analyzer))
     def remove_holding(self, u): self.events.append(("handed back", u.analyzer))
     def abort_reason(self, u): return None
+    def lease(self, u): return None
     def kick(self): self.kicks += 1
     def snapshot(self): return {"lanes": dict(self.lanes)}
 _LOCAL_PAUSED = {"paused": True, "camera_health": False, "why": "paused", "hold": None}

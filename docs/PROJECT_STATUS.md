@@ -4,6 +4,41 @@
 > (`<REDACTED-CRED>` markers). Original bytes remain in git history pending
 > history surgery + rotation (operator decisions).
 
+<!-- 2026-10-02 LABS: worker-0.3.13 FOLLOWS RENEWED LEASES -->
+> **2026-10-02 — worker-0.3.13 implements the client half of lease renewal. Not deployed.**
+>
+> - `reporter.py` accepts `leases[]` from a station report and keeps the last confirmed
+>   extension when later reports omit it or fail. Entries match the exact claim still in
+>   hand; a late response cannot renew a completed unit or its replacement.
+> - `lanes.py` uses the renewed window for both in-flight fill decisions and completion's
+>   overrun cap. Lease age starts again only when the server advances the deadline;
+>   total unit runtime remains separate. Repeating the same deadline cannot renew forever.
+> - Server `generated_at` and `lease_expires_at` supply the duration. A monotonic clock,
+>   anchored before the request, counts response delay against it and ignores local clock
+>   adjustments. Invalid timestamps supply no extension. Revocation and local holds still win.
+> - **Validation:** `python3 tools/tests/labs-worker.py`: **436 passed, 0 failed, 1 skipped**,
+>   including 17 new renewal checks. Five targeted backend report tests also passed with
+>   mocked DB calls: renewal, empty holdings, revocation, draining and finished-unit handling.
+>   No production footage was decoded and no scan units were claimed or changed.
+>
+> **Backend, verified read-only today:** the running query-api is **1.0.103** and its loaded
+> `labs.py` has no renewal query or `leases` response. The adjacent cilex-vision checkout has
+> the prepared renewal change, still uncommitted. It renews live held units when less than
+> 10 minutes remain, to 20 minutes from the renewal, capped at 2 hours from the original claim.
+> Empty `leases[]` means no extension on that report, not revocation.
+>
+> **Remaining operational work:** deploy CV's prepared renewal/BY CAMERA batch, update the
+> station workers through their guards, verify real renewals and completed long units, and
+> reconcile/reset the 24 exhausted Vehicles camera-hours recorded below. No deployment or
+> ledger reset was performed by this change. The operator stopped local Warden and Watchtower
+> in this session; keep them stopped until asked to start them.
+>
+> **Update to the office's older checkpoint below:** Windows commit `a0b3dd6` (2026-09-30
+> 16:18 MSK), fetched today, records worker-0.3.12 running and reaching the P-cores. It also
+> records the operator's switch to **BelowNormal + HighQoS** after Normal caused wall stalls.
+> This supersedes the older "Normal chosen / 0.3.12 swapping" notes; no Windows runtime was
+> inspected here today.
+
 
 <!-- 2026-09-30 LABS: THE OFFICE AFTER 10:00 -- 720p HOURS GIVEN UP, worker-0.3.12 -->
 > **2026-09-30 15:00 — the office kept losing 720p Vehicles hours to leases, and 24 are now GIVEN
