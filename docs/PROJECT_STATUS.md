@@ -4,6 +4,40 @@
 > (`<REDACTED-CRED>` markers). Original bytes remain in git history pending
 > history surgery + rotation (operator decisions).
 
+<!-- 2026-10-02 LABS: BACKEND RENEWAL AND BY CAMERA DEPLOYED -->
+> **2026-10-02 20:40 MSK — backend lease renewal and BY CAMERA are deployed.**
+>
+> - Live query-api reports **1.0.106 / a1f54e2d** through authenticated `/version`;
+>   `/ready` and Docker health pass. Only query-api was recreated, at 17:38 UTC.
+>   A half-second `/health` probe bounded its unavailable interval at **19.55 seconds**;
+>   the other 23 containers kept their IDs, images, start times and states.
+> - Authenticated `/labs/stats`, generated at 17:39:57 UTC, carries both camera maps
+>   in all **36 analyser/period windows**. All 72 maps pass totals, ordering, positive
+>   counts, exclusions and null-finding checks. Vehicles has **82,199 records / 16,232
+>   findings across five cameras**. This supplies the existing BY CAMERA UI.
+> - **Natural renewal verified at 17:46:04 UTC:** the office's `blob_geometry` unit for
+>   `hiwatch-083bc14effeb`, footage hour 16:00 UTC, kept its original 17:35:56.2328 claim
+>   and attempt 1. Its expiry advanced from **17:55:56.2328 to 18:05:57.055488 UTC**,
+>   within the two-hour ceiling. Verification used database reads; normal station reports
+>   caused the extension. The deployed SQL also passed read-only PostgreSQL planning.
+> - The release image retains production's dependencies and adds the committed Labs
+>   source. Host API suite: **2,202 passed, 4 skipped**. Release-image suite: **2,200
+>   passed, 4 skipped, 2 existing failures**, both reproduced in the unchanged production
+>   image: flat FastAPI route inspection and a test requiring optional `tritonclient`.
+>   All Labs tests pass; all six display allowlist routes also pass actual dispatch/auth
+>   checks in both images. Deployment details are recorded in cilex-vision's
+>   `.agents/handoff/OPS-LABS-RENEWAL-STATS-20261002.md`.
+>
+> **Startup/follow-up:** status requests recovered (HTTP 200); motion sweep succeeded at
+> 17:44:55 UTC. The log review also found snapshot 503s and caught observation-group span /
+> text foreign-key errors in unchanged write paths. Their onset is unknown; backend's
+> deployment handoff records them for separate follow-up. Catalogue's six-hour retry was
+> not observed. No restart or OOM occurred in the replacement container.
+>
+> **Still open:** deploy worker-0.3.13 through the station guards, observe a completed
+> long unit after renewal, and reconcile/reset the 24 exhausted Vehicles camera-hours.
+> Local Warden and Watchtower remain stopped at the operator's request.
+
 <!-- 2026-10-02 LABS: worker-0.3.13 FOLLOWS RENEWED LEASES -->
 > **2026-10-02 — worker-0.3.13 implements the client half of lease renewal. Not deployed.**
 >
@@ -21,13 +55,13 @@
 >   mocked DB calls: renewal, empty holdings, revocation, draining and finished-unit handling.
 >   No production footage was decoded and no scan units were claimed or changed.
 >
-> **Backend, verified read-only today:** the running query-api is **1.0.103** and its loaded
+> **Backend before the later deployment above, verified read-only:** query-api was **1.0.103** and its loaded
 > `labs.py` has no renewal query or `leases` response. The adjacent cilex-vision checkout has
 > the prepared renewal change, still uncommitted. It renews live held units when less than
 > 10 minutes remain, to 20 minutes from the renewal, capped at 2 hours from the original claim.
 > Empty `leases[]` means no extension on that report, not revocation.
 >
-> **Remaining operational work:** deploy CV's prepared renewal/BY CAMERA batch, update the
+> **Operational work at this implementation checkpoint (deployment update above):** deploy CV's prepared renewal/BY CAMERA batch, update the
 > station workers through their guards, verify real renewals and completed long units, and
 > reconcile/reset the 24 exhausted Vehicles camera-hours recorded below. No deployment or
 > ledger reset was performed by this change. The operator stopped local Warden and Watchtower
