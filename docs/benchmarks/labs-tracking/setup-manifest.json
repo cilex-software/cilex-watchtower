@@ -1,0 +1,62 @@
+{
+  "automatic_version_metadata_paths": [
+    "CMakeLists.txt",
+    "packaging/windows/watchtower.rc",
+    "packaging/windows/installer.nsi",
+    "packaging/windows/app.manifest"
+  ],
+  "challenge_id": "labs-temporal-tracking-v1",
+  "hash_notes": "The manifest excludes itself. The source base pins the full original tree; protected_labs_source_sha256 additionally identifies the existing Python integration and regression files. Both participant refs must initially resolve to the same setup commit.",
+  "identical_prompt": "docs/benchmarks/labs-tracking/PROMPT.md",
+  "implementation_included": false,
+  "participant_branches": [
+    "benchmark/kimi-labs-tracking",
+    "benchmark/qwen-labs-tracking"
+  ],
+  "preparation_host_dependency_inventory": {
+    "numpy": "2.4.4",
+    "opencv-python": "4.13.0.92",
+    "psutil": "7.2.2",
+    "python": "3.12.3"
+  },
+  "private_evaluator_status": "coordinator_preparation_required",
+  "protected_labs_source_sha256": {
+    "tools/labs/b1_illumination.py": "e415ccf8902ff1b106ca9a09c128575a345225664802c636960ff558c4028f60",
+    "tools/labs/frame_source.py": "6392b6827fd64022dd414a0edc71ef77abac273809befeb763ad840abe375ffb",
+    "tools/labs/labs_audio_energy.py": "20ba1b82eca02e18c6ae88d478cada3d3ac253ae508b871cb06c86a6ab03835f",
+    "tools/labs/labs_camera_health.py": "74925789d9e73dca067c5ef6e26a21daf499e79a005c4cd691b717c4cbf178cc",
+    "tools/labs/labs_colour_histogram.py": "b94271bd1d8dea49e7fbb7fa95fa2ac7049f89df52d802a0fc593223e94d9fcb",
+    "tools/labs/labs_foreground_mask.py": "a84ba8d54c9c38a2727196dff89d98b26614ca98ecaed5a062663173b2f8844b",
+    "tools/labs/labs_framediff.py": "0a62674410778f3af657a46348b5d63ab15d02dcc2a75a8689b6fde94929fb71",
+    "tools/labs/labs_optical_flow.py": "6fbb3493450f6bed39ec05017b008a2bc54db55dd2a5d491882973bda336115f",
+    "tools/labs/labs_perceptual_hash.py": "c995830cdf02bd19bdcd21811b7b2e21d527cae4cd731e0390fb165b4fff3e7b",
+    "tools/labs/labs_track_linking.py": "09940cbc60f4849c5d39ce894ea18af4e0e64d3ca0440e8c3b9f082cff9bda2d",
+    "tools/labs/lanes.py": "6440f68518aaffdc937575010e59d5cd597593ce45c4f36c0eccca902c3e1a94",
+    "tools/labs/measure_cost.py": "1eaf2f880b395008b85b8b2cc1c33f27bb7691de938aed970fd09ce52c041218",
+    "tools/labs/object_profile.py": "5622ae2f3ca47439f8367cf855da692d4953f48be7132db014edc33bedfd0ee3",
+    "tools/labs/plugins.py": "671a6dd1afc7b2992a6453da02970838ce52fb7bc0c1adbc2c7fbc09a637d1c7",
+    "tools/labs/reporter.py": "8f379663fbb526067bb2598aa3327b01d90e8c60f568a8c0b7f4ef219ebfb027",
+    "tools/labs/run_worker.py": "496e79681757de3a79a2426700ad9733ce4c42acd25902583ad774641f87a831",
+    "tools/labs/selftest_object_profile.py": "9c516f091491fa9820d7db858f9f29ca1d828dd03e044e4eb92956233a55e13f",
+    "tools/labs/selftest_shape_observations.py": "a5da8fa708ed451bfc3b163235d495911aac0347730f354e91b61f26a692318d",
+    "tools/labs/shape_observations.py": "7fd8f38f76b97753fc16b6de0f5131c6e9fe204311ab758d44d3a9f4959367eb",
+    "tools/labs/smoke_real_footage.py": "62a72a41a383c557e71280413bd9a8f023fd1baa698b666a5b64de6a52c48363",
+    "tools/labs/station.py": "e8dc3b1698f5d13ea08cc9d0ccfe08511b8b6d453b66144c1ebf00081aebd290",
+    "tools/labs/unit_proc.py": "ae6737c0666ba32e2fc2df499fddc9fed225642d720bbc03e8d05cc005866ab3",
+    "tools/labs/vitals.py": "64c382b9447ea6c729483349bd3205caff48d41e1ca5ab024e62128b94c2fd5f",
+    "tools/labs/winqos.py": "4c95b934463cbb535b918c19722e7ff805080706e30b965c448e90ed98c30c7b",
+    "tools/labs/worker.py": "674f9e6ff53c836af78e090085adb3154f9f40d4cdbe2282fd734ed9b020efad",
+    "tools/tests/labs-worker.py": "715148f32084ed979d40bc00ee935c48ab0cf63608bfed6dbab62cdefb6a7081"
+  },
+  "public_package_sha256": {
+    "docs/benchmarks/labs-tracking/CONTRACT.md": "973c7b6f298f31845e4bd47f3c495ac938b7abcbe9372932fd039ed3844cd409",
+    "docs/benchmarks/labs-tracking/EVALUATION.md": "9fddc199aafd1b70f4ab69046897b85df37278a2b41007223f54b6cc857d9b30",
+    "docs/benchmarks/labs-tracking/PROMPT.md": "c650e9beecd165feb46e32fc72e0b6ff3baf0e042a34264dcf521a1bd85f552d",
+    "docs/benchmarks/labs-tracking/README.md": "7a0713b2729336a97d28a1fc92a09c694487435f804acd391bbc9a95a2667d07",
+    "docs/benchmarks/labs-tracking/fixtures/README.md": "e39f636b0ea7df89fca48874d3986488b8a4b201f6a2572989cfd4e3e3413eda",
+    "docs/benchmarks/labs-tracking/fixtures/cases.json": "78b9e64c3f02224f6922b43bdb34eb24b4de9b93e39c9c24f899ffabf7dd0ced"
+  },
+  "run_status": "not_started",
+  "schema_version": 1,
+  "source_base_commit": "5c628372c7b650591aa20e2b1bd774e825106007"
+}

@@ -1,0 +1,2931 @@
+{
+  "schema": "labs-temporal-tracking-public-cases/v1",
+  "contract": "../CONTRACT.md",
+  "numeric_comparison": {
+    "absolute_tolerance": 1e-9,
+    "relative_tolerance": 1e-9,
+    "exact": [
+      "IDs",
+      "counts",
+      "statuses",
+      "quantized costs",
+      "ordering",
+      "integer timestamps"
+    ]
+  },
+  "cases": [
+    {
+      "id": "one-object-unique-and-bounded-path",
+      "description": "A uniquely associated object, exact evidence, equal-area earliest box, online path simplification and idempotent drain/finish.",
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {
+              "path_points": 3
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "d0",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "d0",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "d1",
+                  "bbox": [
+                    0.15,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "d1",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 2000,
+              "detections": [
+                {
+                  "id": "d2",
+                  "bbox": [
+                    0.2,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "d2",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 3000,
+              "detections": [
+                {
+                  "id": "d3",
+                  "bbox": [
+                    0.25,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 3,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "d3",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000001"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 3000,
+                "observations": 4,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "bbox": [
+                  0.1,
+                  0.2,
+                  0.1,
+                  0.2
+                ],
+                "bbox_at_ms": 0,
+                "first_center": [
+                  0.15,
+                  0.3
+                ],
+                "last_center": [
+                  0.3,
+                  0.3
+                ],
+                "path_length": 0.15,
+                "net_displacement": 0.15,
+                "mean_speed": 0.05,
+                "max_observation_gap_ms": 1000,
+                "path": [
+                  [
+                    0,
+                    0.15,
+                    0.3
+                  ],
+                  [
+                    2000,
+                    0.25,
+                    0.3
+                  ],
+                  [
+                    3000,
+                    0.3,
+                    0.3
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "maximum-cardinality-before-nearest-edge",
+      "description": "Taking the cheapest individual edge first loses a feasible match. The unique maximum-cardinality assignment preserves two tracks.",
+      "cost_checks": {
+        "at_seq": 1,
+        "gate": 0.25,
+        "feasible_edges": [
+          {
+            "track_id": "t00000001",
+            "detection_id": "left",
+            "cost": 400000
+          },
+          {
+            "track_id": "t00000001",
+            "detection_id": "middle",
+            "cost": 360000
+          },
+          {
+            "track_id": "t00000002",
+            "detection_id": "middle",
+            "cost": 440000
+          }
+        ],
+        "infeasible_edges": [
+          {
+            "track_id": "t00000002",
+            "detection_id": "left",
+            "reason": "distance"
+          }
+        ],
+        "maximum_cardinality": 2,
+        "best_cost": 840000,
+        "alternative_same_cardinality_cost": null
+      },
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {}
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "a",
+                  "bbox": [
+                    0.1,
+                    0.4,
+                    0.1,
+                    0.1
+                  ]
+                },
+                {
+                  "id": "b",
+                  "bbox": [
+                    0.3,
+                    0.4,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "middle",
+                  "bbox": [
+                    0.19,
+                    0.4,
+                    0.1,
+                    0.1
+                  ]
+                },
+                {
+                  "id": "left",
+                  "bbox": [
+                    0,
+                    0.4,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "left",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "middle",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000001",
+              "t00000002"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 1000,
+                "observations": 2,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "last_center": [
+                  0.05,
+                  0.45
+                ]
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 0,
+                "end_ms": 1000,
+                "observations": 2,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "last_center": [
+                  0.24,
+                  0.45
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "distinguishable-crossing",
+      "description": "Two opposing paths cross between sampled frames. Supplied orthogonal descriptors exclude cross-identity edges; detection names and order change.",
+      "semantic_checks": [
+        "t00000001 follows descriptor [1,0,0,0] from x=0.20 to x=0.80.",
+        "t00000002 follows descriptor [0,1,0,0] from x=0.80 to x=0.20.",
+        "No inferred position at the unsampled x=0.50 crossing is evidence."
+      ],
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {}
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "b0",
+                  "bbox": [
+                    0.78,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "id": "a0",
+                  "bbox": [
+                    0.18,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    1,
+                    0,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a0",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b0",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "z1",
+                  "bbox": [
+                    0.38,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    1,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "id": "a1",
+                  "bbox": [
+                    0.58,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a1",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "z1",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 2000,
+              "detections": [
+                {
+                  "id": "m2",
+                  "bbox": [
+                    0.58,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    1,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "id": "c2",
+                  "bbox": [
+                    0.38,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "c2",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "m2",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 3000,
+              "detections": [
+                {
+                  "id": "x3",
+                  "bbox": [
+                    0.78,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    1,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "id": "b3",
+                  "bbox": [
+                    0.18,
+                    0.48,
+                    0.04,
+                    0.04
+                  ],
+                  "appearance": [
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 3,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "b3",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "x3",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000001",
+              "t00000002"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 3000,
+                "observations": 4,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "first_center": [
+                  0.2,
+                  0.5
+                ],
+                "last_center": [
+                  0.8,
+                  0.5
+                ],
+                "path_length": 0.6,
+                "max_observation_gap_ms": 1000
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 0,
+                "end_ms": 3000,
+                "observations": 4,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "first_center": [
+                  0.8,
+                  0.5
+                ],
+                "last_center": [
+                  0.2,
+                  0.5
+                ],
+                "path_length": 0.6,
+                "max_observation_gap_ms": 1000
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "explicit-cost-tie-and-recovery",
+      "description": "One centered detection is equally feasible for two tracks. Both abstain; later distinguishable observations recover without adding fictional evidence.",
+      "cost_checks": {
+        "at_seq": 1,
+        "gate": 0.25,
+        "feasible_edges": [
+          {
+            "track_id": "t00000001",
+            "detection_id": "middle",
+            "cost": 800000
+          },
+          {
+            "track_id": "t00000002",
+            "detection_id": "middle",
+            "cost": 800000
+          }
+        ],
+        "maximum_cardinality": 1,
+        "best_cost": 800000,
+        "alternative_same_cardinality_cost": 800000,
+        "ambiguity_reason": "cost_tie"
+      },
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {}
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "a",
+                  "bbox": [
+                    0.28,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                },
+                {
+                  "id": "b",
+                  "bbox": [
+                    0.68,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "middle",
+                  "bbox": [
+                    0.48,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "middle",
+                  "track_id": null,
+                  "status": "ambiguous",
+                  "reason": "cost_tie"
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 2000,
+              "detections": [
+                {
+                  "id": "right",
+                  "bbox": [
+                    0.67,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                },
+                {
+                  "id": "left",
+                  "bbox": [
+                    0.29,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "left",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "right",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000001",
+              "t00000002"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 2000,
+                "observations": 2,
+                "reason": "finish",
+                "ambiguous_batches": 1,
+                "max_observation_gap_ms": 2000,
+                "path": [
+                  [
+                    0,
+                    0.3,
+                    0.5
+                  ],
+                  [
+                    2000,
+                    0.31,
+                    0.5
+                  ]
+                ]
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 0,
+                "end_ms": 2000,
+                "observations": 2,
+                "reason": "finish",
+                "ambiguous_batches": 1,
+                "max_observation_gap_ms": 2000,
+                "path": [
+                  [
+                    0,
+                    0.7,
+                    0.5
+                  ],
+                  [
+                    2000,
+                    0.69,
+                    0.5
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "possible-merge-takes-precedence",
+      "description": "A feasible large detection contains both predicted centers. Merge takes precedence over the equal matching costs, and contributes no accepted observation.",
+      "cost_checks": {
+        "at_seq": 1,
+        "gate": 0.6,
+        "area_ratio": 72,
+        "maximum_cardinality": 1,
+        "best_cost": 333333,
+        "alternative_same_cardinality_cost": 333333,
+        "ambiguity_reason": "merge"
+      },
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {
+              "gate_base": 0.5,
+              "max_area_ratio": 100
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "a",
+                  "bbox": [
+                    0.28,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                },
+                {
+                  "id": "b",
+                  "bbox": [
+                    0.68,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "wide",
+                  "bbox": [
+                    0.26,
+                    0.38,
+                    0.48,
+                    0.24
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "wide",
+                  "track_id": null,
+                  "status": "ambiguous",
+                  "reason": "merge"
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000001",
+              "t00000002"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 0,
+                "observations": 1,
+                "reason": "finish",
+                "ambiguous_batches": 1,
+                "mean_speed": null,
+                "path_length": 0,
+                "max_observation_gap_ms": 0
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 0,
+                "end_ms": 0,
+                "observations": 1,
+                "reason": "finish",
+                "ambiguous_batches": 1,
+                "mean_speed": null,
+                "path_length": 0,
+                "max_observation_gap_ms": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "strict-gap-span-and-reset-boundaries",
+      "description": "Gap and span equality preserve tracks; one millisecond beyond expires them. Empty batches advance time. Reset ends at actual evidence time.",
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {
+              "max_gap_ms": 1000,
+              "max_span_ms": 1500
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "a",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1000,
+              "detections": [
+                {
+                  "id": "b",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "b",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 1500,
+              "detections": [
+                {
+                  "id": "c",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "c",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 1501,
+              "detections": [
+                {
+                  "id": "d",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 3,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "d",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000001"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 4,
+              "t_ms": 2501,
+              "detections": []
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 4,
+              "replayed": false,
+              "assignments": [],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 5,
+              "t_ms": 2502,
+              "detections": []
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 5,
+              "replayed": false,
+              "assignments": [],
+              "closed": [
+                "t00000002"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 6,
+              "t_ms": 2600,
+              "detections": [
+                {
+                  "id": "e",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 6,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "e",
+                  "track_id": "t00000003",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 7,
+              "t_ms": 2700,
+              "detections": [
+                {
+                  "id": "f",
+                  "bbox": [
+                    0.1,
+                    0.2,
+                    0.1,
+                    0.2
+                  ]
+                }
+              ],
+              "reset": true
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 7,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "f",
+                  "track_id": "t00000004",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000003"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000004"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 1500,
+                "observations": 3,
+                "reason": "span",
+                "max_observation_gap_ms": 1000
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 1501,
+                "end_ms": 1501,
+                "observations": 1,
+                "reason": "gap"
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000003",
+                "start_ms": 2600,
+                "end_ms": 2600,
+                "observations": 1,
+                "reason": "reset"
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000004",
+                "start_ms": 2700,
+                "end_ms": 2700,
+                "observations": 1,
+                "reason": "finish"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bounded-replay-conflict-and-atomic-capacity",
+      "description": "Rejected operations preserve snapshots and ID counters. Replay survives drain, expired replay fails, and both feed and finish enforce outbox backpressure atomically.",
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {
+              "max_tracks": 1,
+              "max_pending": 1,
+              "replay_batches": 2,
+              "max_gap_ms": 1000
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "zero",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "zero",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "before_track_capacity"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 500,
+              "detections": [
+                {
+                  "id": "far",
+                  "bbox": [
+                    0.8,
+                    0.8,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "capacity"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_track_capacity"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1001,
+              "detections": [
+                {
+                  "id": "next",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "next",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000001"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 0,
+                "observations": 1,
+                "reason": "gap"
+              }
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1001,
+              "detections": [
+                {
+                  "id": "next",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ],
+                  "appearance": null
+                }
+              ],
+              "reset": false
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": true,
+              "assignments": [
+                {
+                  "detection_id": "next",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000001"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "before_conflict"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 1001,
+              "detections": [
+                {
+                  "id": "next",
+                  "bbox": [
+                    0.01,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "replay_conflict"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_conflict"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 2002,
+              "detections": []
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "sequence_error"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_conflict"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "other-camera",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 2002,
+              "detections": []
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "wrong_scope"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_conflict"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 2002,
+              "detections": [
+                {
+                  "id": "third",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "third",
+                  "track_id": "t00000003",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000002"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "before_outbox_capacity"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 3003,
+              "detections": [
+                {
+                  "id": "fourth",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "capacity"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_outbox_capacity"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 1001,
+                "end_ms": 1001,
+                "observations": 1,
+                "reason": "gap"
+              }
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 3003,
+              "detections": [
+                {
+                  "id": "fourth",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 3,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "fourth",
+                  "track_id": "t00000004",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000003"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "before_stale_and_finish"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "zero",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "stale_replay"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_stale_and_finish"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "capacity"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "before_stale_and_finish"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000003",
+                "start_ms": 2002,
+                "end_ms": 2002,
+                "observations": 1,
+                "reason": "gap"
+              }
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000004"
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000004",
+                "start_ms": 3003,
+                "end_ms": 3003,
+                "observations": 1,
+                "reason": "finish"
+              }
+            ]
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 3003,
+              "detections": [
+                {
+                  "id": "fourth",
+                  "bbox": [
+                    0,
+                    0,
+                    0.1,
+                    0.1
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "finished"
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "checkpoint-undrained-outbox-and-exact-continuation",
+      "description": "Restore a JSON-round-tripped snapshot containing two queued episodes, an active track, and replay history. Compare all subsequent results with uninterrupted execution.",
+      "operations": [
+        {
+          "on": "main",
+          "command": {
+            "op": "init",
+            "camera_id": "cam-public",
+            "unit_id": "unit-public",
+            "config": {
+              "max_gap_ms": 1000,
+              "max_tracks": 4,
+              "max_pending": 4,
+              "replay_batches": 4
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 0,
+              "t_ms": 0,
+              "detections": [
+                {
+                  "id": "b",
+                  "bbox": [
+                    0.78,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                },
+                {
+                  "id": "a",
+                  "bbox": [
+                    0.18,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 0,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a",
+                  "track_id": "t00000001",
+                  "status": "born",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b",
+                  "track_id": "t00000002",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 1,
+              "t_ms": 500,
+              "detections": [
+                {
+                  "id": "a1",
+                  "bbox": [
+                    0.2,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                },
+                {
+                  "id": "b1",
+                  "bbox": [
+                    0.76,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 1,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "a1",
+                  "track_id": "t00000001",
+                  "status": "matched",
+                  "reason": null
+                },
+                {
+                  "detection_id": "b1",
+                  "track_id": "t00000002",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 1600,
+              "detections": [
+                {
+                  "id": "c",
+                  "bbox": [
+                    0.48,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "c",
+                  "track_id": "t00000003",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000001",
+                "t00000002"
+              ]
+            }
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "queued_checkpoint"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "restore"
+          },
+          "snapshot_from": "queued_checkpoint",
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "queued_checkpoint"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 1600,
+              "detections": [
+                {
+                  "id": "c",
+                  "bbox": [
+                    0.48,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 2,
+              "replayed": true,
+              "assignments": [
+                {
+                  "detection_id": "c",
+                  "track_id": "t00000003",
+                  "status": "born",
+                  "reason": null
+                }
+              ],
+              "closed": [
+                "t00000001",
+                "t00000002"
+              ]
+            }
+          },
+          "capture_result": "replay_receipt"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 2,
+              "t_ms": 1600,
+              "detections": [
+                {
+                  "id": "c",
+                  "bbox": [
+                    0.48,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "replay_receipt"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000001",
+                "start_ms": 0,
+                "end_ms": 500,
+                "observations": 2,
+                "reason": "gap"
+              },
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000002",
+                "start_ms": 0,
+                "end_ms": 500,
+                "observations": 2,
+                "reason": "gap"
+              }
+            ]
+          },
+          "capture_result": "first_drain"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "first_drain"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 1800,
+              "detections": [
+                {
+                  "id": "c3",
+                  "bbox": [
+                    0.5,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true,
+            "result": {
+              "seq": 3,
+              "replayed": false,
+              "assignments": [
+                {
+                  "detection_id": "c3",
+                  "track_id": "t00000003",
+                  "status": "matched",
+                  "reason": null
+                }
+              ],
+              "closed": []
+            }
+          },
+          "capture_result": "continued_receipt"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 3,
+              "t_ms": 1800,
+              "detections": [
+                {
+                  "id": "c3",
+                  "bbox": [
+                    0.5,
+                    0.48,
+                    0.04,
+                    0.04
+                  ]
+                }
+              ]
+            }
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "continued_receipt"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "continued_snapshot"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "continued_snapshot"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": [
+              "t00000003"
+            ]
+          },
+          "capture_result": "finish_ids"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "finish_ids"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result_subset": [
+              {
+                "camera_id": "cam-public",
+                "unit_id": "unit-public",
+                "track_id": "t00000003",
+                "start_ms": 1600,
+                "end_ms": 1800,
+                "observations": 2,
+                "reason": "finish",
+                "ambiguous_batches": 0,
+                "max_observation_gap_ms": 200
+              }
+            ]
+          },
+          "capture_result": "last_drain"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "last_drain"
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "finish"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        },
+        {
+          "on": "main",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "capture_result": "finished_snapshot"
+        },
+        {
+          "on": "restored",
+          "command": {
+            "op": "snapshot"
+          },
+          "expect": {
+            "ok": true
+          },
+          "expect_result_equal": "finished_snapshot"
+        },
+        {
+          "on": "sealed",
+          "command": {
+            "op": "restore"
+          },
+          "snapshot_from": "finished_snapshot",
+          "expect": {
+            "ok": true,
+            "result": null
+          }
+        },
+        {
+          "on": "sealed",
+          "command": {
+            "op": "feed",
+            "batch": {
+              "camera_id": "cam-public",
+              "unit_id": "unit-public",
+              "seq": 4,
+              "t_ms": 2000,
+              "detections": []
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": {
+              "code": "finished"
+            }
+          }
+        },
+        {
+          "on": "sealed",
+          "command": {
+            "op": "drain"
+          },
+          "expect": {
+            "ok": true,
+            "result": []
+          }
+        }
+      ]
+    }
+  ],
+  "adapter_examples": [
+    {
+      "id": "pixel-blob-normalization-and-run-reset",
+      "description": "Construct a real fm.Blob with these fields and a lightweight frame carrying it. The adapter reads normalized bbox, not centroid or area.",
+      "blob": {
+        "label": 7,
+        "x": 10,
+        "y": 20,
+        "w": 20,
+        "h": 20,
+        "area": 200,
+        "cx": 21,
+        "cy": 31,
+        "frame_w": 100,
+        "frame_h": 80
+      },
+      "frame": {
+        "t_s": 1.2345,
+        "run": 2,
+        "scored": true
+      },
+      "arguments": {
+        "camera_id": "cam-public",
+        "unit_id": "unit-public",
+        "seq": 0,
+        "previous_run": 1
+      },
+      "expected_batch": {
+        "camera_id": "cam-public",
+        "unit_id": "unit-public",
+        "seq": 0,
+        "t_ms": 1235,
+        "detections": [
+          {
+            "id": "b7",
+            "bbox": [
+              0.1,
+              0.25,
+              0.2,
+              0.25
+            ]
+          }
+        ],
+        "reset": true
+      },
+      "variants": [
+        {
+          "frame_overrides": {
+            "scored": false
+          },
+          "expected_detections": []
+        },
+        {
+          "arguments_overrides": {
+            "previous_run": null
+          },
+          "expected_reset": false
+        },
+        {
+          "arguments_overrides": {
+            "previous_run": 2
+          },
+          "expected_reset": false
+        }
+      ]
+    },
+    {
+      "id": "labs-wire-preview",
+      "description": "Pass the unique-object case's drained episode to labs_rows with this aware datetime. Compare finite scalar metrics and exact existing wire names.",
+      "episodes_from_case": "one-object-unique-and-bounded-path",
+      "hour_start": "2026-10-04T03:00:00+03:00",
+      "expected_rows": [
+        {
+          "start_time": "2026-10-04T00:00:00.000Z",
+          "end_time": "2026-10-04T00:00:03.000Z",
+          "object_count": 1,
+          "bbox_x": 0.1,
+          "bbox_y": 0.2,
+          "bbox_w": 0.1,
+          "bbox_h": 0.2,
+          "metrics": {
+            "track_id": "t00000001",
+            "observations": 4,
+            "ambiguous_batches": 0,
+            "path_length": 0.15,
+            "net_displacement": 0.15,
+            "mean_speed": 0.05,
+            "max_gap_s": 1,
+            "end_reason": "finish"
+          }
+        }
+      ]
+    }
+  ]
+}
