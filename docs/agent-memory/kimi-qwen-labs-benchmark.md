@@ -2,7 +2,8 @@
 
 Saved on 2026-10-04, Europe/Moscow, at the user's explicit request to remember
 the preceding explanation, starter prompt, and evaluation commitments. Updated
-the same day for the user's explicit authorization of assigned-branch GitHub pushes.
+the same day for the user's explicit authorization of autonomous implementation
+and assigned-branch GitHub pushes.
 This is coordinator context; both published assignments receive the same rule update.
 
 ## User intent and current state
@@ -13,11 +14,19 @@ They want each vendor's strongest applicable model at its highest supported
 reasoning setting and full supported context/output capabilities. Do not reduce
 one model's capabilities merely to make its limits match the other.
 
+The user has not pasted any earlier preface into either model. Those were prepared
+instructions, not instructions already received or executed by the participants.
+The current request is to provide full prompts that authorize each model to start
+immediately when pasted, perform all necessary work within the contract, and persist
+through implementation, testing, fixes, documentation, commit and assigned-branch push.
+There is no separate START signal or routine permission checkpoint.
+
 Both participant checkouts were clean and their seven benchmark-package files
-were byte-for-byte identical when checked on 2026-10-04. No coordinator START
-signal or scored implementation run has been issued. The task specification and
-public examples are prepared; isolated runners and an independent frozen private
-evaluator are not yet prepared. Do not describe those as complete.
+were byte-for-byte identical when checked on 2026-10-04, before this rule update.
+The specification and public examples are prepared; technically isolated runners
+and an independent frozen private evaluator are not yet prepared. That does not
+block development. Do not describe this as a pre-frozen controlled trial, or claim
+that either model has started merely because the prompt was prepared.
 
 ## Branches and canonical documents
 
@@ -28,11 +37,17 @@ evaluator are not yet prepared. Do not describe those as complete.
 
 Both branches were originally pushed with the same setup commit:
 `2067735ff110ecf61149577091240286c5428174`.
-That is the historical setup commit. The current common starting commit is
+That is the historical setup commit. The previous common starting commit was
 `8bfc29c9961b85131695c08c02fc00de0d367ec2`: the authorized-push rule update,
 published atomically to both branches on 2026-10-04 and applied to both local
 checkouts. The prompt, evaluation protocol, README and manifest hashes were
 updated together; the tracking contract and public fixtures were not changed.
+The current common starting commit for autonomous development is
+`f442cb5b7092406d3f026d54d8791d5afaec4586`, published atomically to both branches
+and applied to both local checkouts on 2026-10-04. The full participant prompt
+and linked preparation rules now authorize immediate implementation through a
+verified assigned-branch push. The technical contract, fixture data, scoring
+weights and release gates are unchanged; evaluator-preparation timing is updated.
 The source base was `5c628372c7b650591aa20e2b1bd774e825106007`.
 These are standalone shallow single-branch clones. They are not isolated runners
 merely because they occupy different directories on the same host.
@@ -59,25 +74,25 @@ refer to the assigned branch already checked out; it needs no model-specific tex
 
 ## Current common preface
 
-Use this identical text for both models. It preserves the shared preface with
-the user's later assigned-branch push authorization applied. It intentionally
-waits for START so neither begins unrecorded planning before the evaluation
-preparation is ready.
+Use this identical body for both models, with the correct checkout/branch supplied
+outside it. It supersedes the earlier unpasted prefaces and their START restriction.
 
 ```text
 You are participating in the Cilex Watchtower Labs development benchmark.
 
-Confirm your current directory, branch and starting commit, then wait for
-the coordinator’s START signal. Do not begin planning or implementation
-before that signal.
+Confirm your current directory, assigned benchmark branch and starting commit.
+Read docs/benchmarks/labs-tracking/PROMPT.md and every document it requires,
+then proceed immediately with the complete assignment.
 
-On START, read docs/benchmarks/labs-tracking/PROMPT.md and every document
-it requires. Complete the assignment according to its contract and
-evaluation rules.
+Work autonomously within the contract. Make routine implementation decisions
+yourself and perform everything needed to implement, test, investigate and fix
+failures, document actual results, commit and push the verified solution.
+Do not wait for a START signal, further permission, or private-grader setup.
+Do not stop after a plan, draft or partial implementation.
 
-Work independently on your assigned branch. Make routine implementation
-decisions yourself. If a genuine specification ambiguity blocks progress,
-ask the coordinator once.
+Work independently on your assigned branch. Ask the coordinator only about
+a genuine blocker that cannot be resolved from the contract and available
+project information; continue independent authorized work where possible.
 
 Do not inspect the other participant’s work, change protected files,
 access live production services, or modify the benchmark rules.
@@ -158,6 +173,9 @@ Prepare and freeze independent tests before seeing either implementation.
 Hidden cases exercise published requirements without adding surprise rules.
 Freeze assertion counts, seeds, test groups, mutation cases and reserve cases.
 Publish evaluator and environment hashes without exposing hidden test data.
+The evaluator is not frozen before autonomous development is authorized. Record
+when it is prepared and whether any implementation had already been inspected;
+do not retrospectively present these runs as a pre-frozen controlled experiment.
 
 | What is judged | Points | Published breakdown |
 | --- | ---: | --- |
@@ -179,13 +197,17 @@ same otherwise idle isolated CPU, with one warmup and three fresh-process runs.
 The published resource workload covers 100000 batches with eight detections and
 250 batches with 32 detections. Its declared limits are 180 seconds on one
 isolated CPU, 128 MiB additional peak RSS and 2097152-byte sampled checkpoints.
-These are requirements to validate for feasibility before launch, not measured
-results or claims that either model has already met them.
+These are declared requirements whose feasibility must be validated on the common
+evaluation worker before awarding performance points, not measured results or a
+development-start gate. Disclose any necessary correction, apply it equally, and
+do not change a limit to favor an observed submission. If performance conditions
+are not verified, report that part as provisional rather than inventing a score.
 
 ## Fairness and run protocol
 
-Both receive the same task, source, public examples, dependency versions,
-environment limits and clarification messages. The effective native CLI,
+Both receive the same task, source, public examples, declared dependency versions,
+resource limits and clarification messages. Record actual environments and compare
+the submitted code under common verified evaluation conditions. The effective native CLI,
 model/snapshot, maximum supported reasoning, context/output and fallback
 settings must be recorded. Automatic fallback to another model is disabled.
 This compares native CLI plus model as a development assistant, not bare models.
@@ -200,20 +222,24 @@ the rule is an explicit authorization limit, not a verified technical access
 restriction. Future runner isolation and Git access controls remain to be prepared
 and verified; do not describe the current host credentials as branch-restricted.
 
-The published proposal is eight hours of implementation plus one 60-minute
-repair round. It is a proposed common maximum, not an already-started run or
-an obligation to spend all eight hours. Freeze the actual allowance and any
-spend cap identically before launch. The coordinator controls start and stop;
-a prompt arrival or Git timestamp is not the run clock.
+The earlier proposal of eight hours of implementation plus one 60-minute repair
+round is retained only as an optional future formal-run protocol. It is not an
+active deadline, equal-clock guarantee, or reason to wait. Pasting the full prompt
+authorizes autonomous development immediately. Record available timing and cost
+evidence, but do not claim an enforced common clock or identical development
+conditions that were never established. Any future formal allowance/spend cap must
+be agreed and recorded equally before that separate timed comparison begins.
 
 Initial and repaired scores must be reported separately, with time, cost,
 defects and human assistance. Repair feedback gives each participant its own
 reproducible failing cases at the same level of detail, without patches or the
 competitor's results. Any specification clarification reaches both verbatim.
 
-The published protocol allows up to two concurrent subagents using the same
-participant model. If that restriction cannot be enforced for either CLI,
-disable subagents for both and record the decision before launch.
+The current protocol allows up to two concurrent subagents using the same
+participant model. If a CLI cannot keep its subagents on that selected model,
+that participant works alone and records the limitation. Record subagent usage
+and differences in CLI capability. Missing subagent setup does not delay work
+that the primary model can perform itself.
 
 ## Mandatory gates and choosing a winner
 
@@ -268,20 +294,24 @@ Locally configured settings as checked on 2026-10-04:
 Do not reinterpret the `openai` provider label as use of an OpenAI model or
 account: it is the compatible API protocol for the configured Qwen endpoint.
 
-## What remains before START
+## Coordinator evaluation work; development does not wait for it
 
-1. Prepare isolated participant runners that cannot access the competing
-   checkout/content, host credentials, production services or private evaluator,
-   while providing controlled GitHub access for authorized assigned-branch pushes.
-   Verify the enforcement and do not rely on the shared host's broad credentials.
+1. Prepare a common independent evaluation environment. Fully isolated participant
+   runners and controlled GitHub access remain work for any later formal rerun;
+   do not claim the current shared host or broad credentials provide that isolation.
+   Participants must still obey the published independence and access restrictions.
 2. Validate public cases and independently implement and freeze the private
-   evaluator, assertions, seeds, mutation/reserve cases and environment manifest.
-3. Validate feasibility of the published resource workload on the frozen worker.
-4. Verify and pin both effective model/CLI configurations and any subagent rule.
-5. Freeze the equal time/spend policy, publish artifact hashes and establish
-   collection and timing procedures.
-6. Issue the same START instruction when ready, collect immutable submissions,
-   evaluate first-pass results and then run the common repair protocol.
+   evaluator, assertions, seeds and mutation/reserve cases before inspecting either
+   implementation. Publish hashes and disclose preparation timing.
+3. Validate the resource workload's feasibility on the common evaluation worker
+   and record its environment, CPU/memory conditions and measurement procedure.
+4. Record both actual model/CLI configurations, subagent usage, environments,
+   available timing/cost evidence and any material differences in conditions.
+5. Collect immutable pushed submissions and evaluate them using the same contract,
+   tests and scoring. Report initial and any later repaired scores separately;
+   provide equally detailed feedback if a common repair round is conducted.
+6. If a formal timed rerun is needed, agree its common allowance and controls
+   separately. This optional future process does not suspend current development.
 
 On context restoration, read this memory and the published benchmark documents,
 then verify current checkout and run state. Do not claim the preparation, start,

@@ -19,17 +19,24 @@ and commitments. Read [Kimi and Qwen Labs benchmark](kimi-qwen-labs-benchmark.md
 before resuming this work. It preserves the exact common preface, the task and
 expected deliverables, the grading and winner rules, both checkout locations,
 and Qwen launcher corrections. Use each vendor's maximum supported capabilities;
-do not reduce one merely to match the other. The isolated runners and independent
-private evaluator are still pending, and no coordinator START has been issued.
-The proposed allowance is eight hours plus a 60-minute repair round, not an
-already-started run. The user now explicitly authorizes normal non-force GitHub
-pushes by each participant only to its assigned benchmark branch. No pushing
-`main`, the competitor's branch, any other branch or tags; no force-push, merging
-or deployment. This supersedes the former no-push preface and the generic
-straight-to-main workflow in historical records. The common updated starting
-commit `8bfc29c9961b85131695c08c02fc00de0d367ec2` is published to both branches
-and applied to both local checkouts. Current host credentials are not technically restricted
-to those branches; verified runner/Git isolation remains preparation work.
+do not reduce one merely to match the other. The user never pasted the earlier
+prefaces. The current full prompt authorizes immediate autonomous implementation,
+tests, fixes, documentation, commit and normal non-force GitHub push only to the
+assigned benchmark branch. No START signal or routine permission request is needed.
+Ask only for genuine blockers; persist through the verified solution and push.
+No pushing `main`, the competitor's branch, any other branch or tags; no force-push,
+merging or deployment. These rules supersede the previous no-push/START prefaces
+and the generic straight-to-main workflow in historical records.
+The independent private evaluator and technically isolated runners are still
+pending; they do not block development. Freeze evaluation tests before inspecting
+implementations, disclose actual preparation/conditions, and do not
+claim a pre-frozen controlled trial or enforced equal clock. Eight hours plus a
+60-minute repair round is only an optional future formal-run proposal.
+The common autonomous-start commit `f442cb5b7092406d3f026d54d8791d5afaec4586`
+is published to both branches and applied to both checkouts. The benchmark memory
+retains `2067735` and `8bfc29c` as historical setup/rule-update commits. Current host
+credentials are not technically restricted to the benchmark branches; verified
+runner/Git isolation remains separate preparation work.
 The dated records below are historical; use current project
 status and the new benchmark memory for present decisions.
 
