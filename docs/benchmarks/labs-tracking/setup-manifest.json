@@ -23,6 +23,14 @@
     "remote": "origin",
     "repository": "romayankin/cilex-watchtower"
   },
+  "participant_launch": {
+    "fixed_time_allowance_active": false,
+    "grading_preparation_blocks_development": false,
+    "mode": "autonomous_development",
+    "private_evaluator_freeze": "before_coordinator_inspects_either_implementation; record_actual_timestamp",
+    "separate_start_signal_required": false,
+    "trigger": "user_supplies_current_launch_prompt"
+  },
   "preparation_host_dependency_inventory": {
     "numpy": "2.4.4",
     "opencv-python": "4.13.0.92",
@@ -59,14 +67,14 @@
     "tools/tests/labs-worker.py": "715148f32084ed979d40bc00ee935c48ab0cf63608bfed6dbab62cdefb6a7081"
   },
   "public_package_sha256": {
-    "docs/benchmarks/labs-tracking/CONTRACT.md": "973c7b6f298f31845e4bd47f3c495ac938b7abcbe9372932fd039ed3844cd409",
-    "docs/benchmarks/labs-tracking/EVALUATION.md": "bc0a3cd4cb6e9dc272bfd06965c979ec2825a0c7410155ad22daf20a50887a6c",
-    "docs/benchmarks/labs-tracking/PROMPT.md": "9c6988e3691e51f58776d09682c00329c6a3f070ca17c84080544d8fc0245285",
-    "docs/benchmarks/labs-tracking/README.md": "3b96d5bb5278941a85d0326b7e1927d66a187b7fbb3909c091c46ad0fdb2da1b",
-    "docs/benchmarks/labs-tracking/fixtures/README.md": "e39f636b0ea7df89fca48874d3986488b8a4b201f6a2572989cfd4e3e3413eda",
+    "docs/benchmarks/labs-tracking/CONTRACT.md": "a9502e7f44c65f748ecdbc69212653ab83f809f8ca8d3d6671dd88346512a66e",
+    "docs/benchmarks/labs-tracking/EVALUATION.md": "244b815a3822bc8847b8247a29f12e7e56f9e3d23251e9037aed5f82d6fab855",
+    "docs/benchmarks/labs-tracking/PROMPT.md": "0e78f425d0be8705d7d9e262c030bab6221b510c00cb32843225f9a1f9da18c2",
+    "docs/benchmarks/labs-tracking/README.md": "f8ee8f945fb6ac51cd7b2e0fce503fa5d96448d52da097d64d3a0e6217a559ca",
+    "docs/benchmarks/labs-tracking/fixtures/README.md": "51c2bf517bd23d389a1732705126682d368fa656efa248684bdb9a4750184211",
     "docs/benchmarks/labs-tracking/fixtures/cases.json": "78b9e64c3f02224f6922b43bdb34eb24b4de9b93e39c9c24f899ffabf7dd0ced"
   },
-  "run_status": "not_started",
+  "run_status": "awaiting_user_prompt",
   "schema_version": 1,
   "source_base_commit": "5c628372c7b650591aa20e2b1bd774e825106007"
 }

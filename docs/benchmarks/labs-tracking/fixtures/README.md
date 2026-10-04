@@ -3,7 +3,8 @@
 [`cases.json`](cases.json) publishes small inputs and semantic expectations for the
 [`contract`](../CONTRACT.md). These are data, not an implementation, test runner,
 complete evaluator, or measured performance result. Both participants receive the
-same file. The coordinator must validate its eventual evaluator before either run.
+same file. The coordinator must validate the eventual evaluator before scoring;
+that preparation does not block participants from starting development.
 
 ## Reading the operations
 

@@ -17,11 +17,19 @@ metadata increment; it is not an application release or deployment.
 The exact same launch instruction may be pasted into either CLI:
 
 > Read `docs/benchmarks/labs-tracking/PROMPT.md` and its linked contract,
-> evaluation protocol and public fixtures. Complete the assignment on the
-> benchmark branch already checked out. Follow the coordinator's run-start
-> signal; do not start the timed implementation during environment preparation.
-> Commit and push completed work only to your own assigned benchmark branch at
-> origin. Do not force-push, push other refs or tags, merge, or deploy.
+> evaluation guide and public fixtures. Start now in the assigned checkout;
+> no separate START signal, deadline, isolated runner or private grader is
+> required for this autonomous development task. Make routine decisions,
+> implement the complete contract, test and fix the solution, then commit with
+> the repository hooks and push to your own assigned benchmark branch at origin.
+> Stay within the permitted files and offline assignment. Do not inspect the
+> other participant's work, contact production, force-push, push other refs or
+> tags, merge, or deploy. Report the commit, push result, actual validation and
+> remaining limitations honestly. Do not claim a formal blind benchmark score.
+
+On 2026-10-04 the user confirmed that neither CLI had received the earlier
+prompt. The current prompt authorizes autonomous implementation immediately
+when supplied; the earlier wait-for-coordinator instructions no longer apply.
 
 The user explicitly authorized publication to each participant's own branch on
 2026-10-04. Use only the command for your assigned branch, after checking the
@@ -34,28 +42,34 @@ current branch and origin:
 
 This replaces the earlier no-push instruction. The shared host login can write
 more broadly; the branch scope above is an instruction, not a claim that GitHub
-credentials enforce per-participant isolation. The coordinator still prepares
-isolated runners and records their authorized Git access before START.
+credentials enforce per-participant isolation. Record the Git route and actual
+development conditions; do not claim the existing host checkouts are sandboxes.
 
 The task, permitted files and submission rules are in [PROMPT.md](PROMPT.md).
-Behaviour is defined by [CONTRACT.md](CONTRACT.md). Test families, scoring and
-fairness are in [EVALUATION.md](EVALUATION.md). The [public cases](fixtures/README.md)
-are examples and conformance data, not an implementation or a hidden grader.
+Behaviour is defined by [CONTRACT.md](CONTRACT.md). Test families, the published
+rubric and later evaluation conditions are in [EVALUATION.md](EVALUATION.md).
+The [public cases](fixtures/README.md) are examples and conformance data, not an
+implementation or a hidden grader.
 
 `setup-manifest.json` records the source base and public package hashes. The
 manifest excludes itself to avoid a circular checksum. The remote branch commit
 IDs independently establish identical starting Git trees.
 
-Before launch, the coordinator still provisions isolated environments, validates
-the effective flagship model/CLI settings and freezes the independent evaluator.
-No provider login, CLI installation, model invocation, production operation or
-timed run is performed by this package.
+The independent private evaluator and controlled runner isolation are not ready.
+They do not block development in the assigned checkouts. Before inspecting either
+implementation, the coordinator must freeze an independent evaluator and disclose
+its hashes and timestamp; it must not be described as frozen before development.
+A future formally controlled run needs its own frozen evaluator and environment
+before launch. The eight-hour allowance and one-hour repair round in the guide
+are proposals for that future run, not current deadlines. This preparation does
+not claim measured results, a completed grader or a timed benchmark launch.
 
 The development CLIs may have different commands and authentication flows. Their
 task text is intentionally provider-neutral, and provider-specific launch details
-belong to the coordinator's run manifest rather than a different task prompt.
+belong to the recorded development conditions rather than a different task prompt.
 
 Reference dependency inventory measured on the preparation host (not a claim
 that evaluation containers already exist): Python 3.12.3, NumPy 2.4.4,
-opencv-python 4.13.0.92, psutil 7.2.2. The coordinator supplies these same package
-versions to both runners and records the OS/image details before starting.
+opencv-python 4.13.0.92, psutil 7.2.2. Record the versions actually used for
+development. Later comparative scoring uses the same package versions and
+resource conditions for both submissions; concurrent local timings are diagnostic.

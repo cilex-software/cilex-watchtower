@@ -343,7 +343,11 @@ Limit: 180 seconds on one isolated CPU and <=128 MiB additional peak RSS above t
 post-import baseline, for both streams together. The evaluator measures process RSS
 and elapsed time externally; tracemalloc alone is not a substitute. Report three fresh
 measured-process runs serially after one unscored warmup, as EVALUATION.md specifies.
-These are declared limits, not reported reference measurements. Before launch, the
-coordinator must independently validate workload semantics and feasibility on the
-frozen evaluation environment; a necessary adjustment reaches both participants before
-either run starts. No adjustment after seeing a participant's performance is permitted.
+These are declared limits, not reported reference measurements. Participants may
+start autonomous implementation and local measurement immediately; evaluator
+preparation is not a prerequisite for their development. Before comparative
+resource scoring, the coordinator must independently validate workload semantics
+and feasibility on a common evaluation environment. Any necessary adjustment
+must be documented and sent identically to both participants before examining
+their performance results. No adjustment to favor an observed submission is
+permitted. Shared-host local timings are diagnostic until controlled reruns.

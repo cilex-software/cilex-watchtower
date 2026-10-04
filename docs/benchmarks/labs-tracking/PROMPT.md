@@ -5,6 +5,32 @@ coding agent. Work independently on the benchmark branch already checked out.
 Do not inspect another participant's branch, worktree, logs, implementation or
 results. Your model/provider identity does not change this assignment.
 
+## Authorization and working mode
+
+The user authorizes you to start as soon as they give you this assignment.
+Implement the complete solution, test it, fix discovered problems, document
+actual results, commit using the repository hooks, and push to your assigned
+benchmark branch. Do not wait for another START signal, routine approvals, an
+isolated runner, a private evaluator, or a submission deadline to be announced.
+
+You have autonomy over design, algorithms, implementation, local diagnostics,
+test cases and fixes within the published contract and permitted file scope.
+Make routine decisions yourself. Do not stop after a plan, skeleton, first
+passing example or unverified claim. Continue until the deliverables work and
+the required checks and branch publication are complete. Diagnose ordinary
+failures and retry after correcting their cause. If a genuine ambiguity,
+missing access or external failure prevents completion, report the specific
+blocker and evidence; continue independent work where possible. Never hide a
+failure, weaken a test, fabricate a result or claim a failed push succeeded.
+
+Use your existing assigned checkout for offline development and testing. The
+coordinator's independent grading preparation does not block your work. These
+are autonomous development runs; no common eight-hour clock or separate repair
+deadline has been started. Record actual timing and environment information
+where available, and distinguish local measurements from controlled evaluation.
+Use the selected model at its maximum supported reasoning setting; do not
+delegate to another vendor/model or silently fall back to a different model.
+
 ## Goal
 
 Implement a deterministic, resumable, streaming temporal tracking and evidence
@@ -60,8 +86,8 @@ published contract.
 
 ## Scope and branch rules
 
-This is an explicitly requested isolated experiment. For this task, these branch
-instructions supersede the repository's normal straight-to-main/push workflow:
+This is an explicitly requested independent experiment. For this task, these
+branch instructions supersede the repository's normal straight-to-main workflow:
 
 - Stay on your assigned benchmark branch. Do not merge, rebase onto newer main,
   or fetch other branches.
@@ -73,8 +99,8 @@ instructions supersede the repository's normal straight-to-main/push workflow:
   branch, any other branch, or tags. Do not force-push, delete remote refs, or
   use `--all`/`--mirror`/`--tags`. Do not change branch protection or credentials.
   Use the supplied Git authentication normally without inspecting or exposing
-  credential files or token values. Publishing work does not start the run or
-  authorize changes after the coordinator has collected a submission.
+  credential files or token values. Publishing work does not authorize changes
+  to a submission after the coordinator has frozen it for evaluation.
 - Do not read host credentials, histories, private evaluation files or other
   projects. Do not contact cameras, stations, the production API/database, or
   Docker's host socket. Do not start Watchtower, Warden or a live Labs worker.
@@ -102,21 +128,27 @@ python3 tools/labs/selftest_object_profile.py
 git diff --check
 ```
 
-Run tests only in the assigned evaluation environment. The existing worker suite
-uses temporary state and fake clients; never substitute a live station config.
+Run tests offline in your assigned checkout using the supplied dependencies.
+The existing worker suite uses temporary state and fake clients; never
+substitute a live station config. Use bounded sequential test workloads on this
+shared host; do not start the Watchtower app, Warden, production workers or
+services. Record environment and host-load caveats for performance measurements.
 Document genuine pre-existing failures or platform skips with their evidence.
 Do not weaken a test to obtain a pass.
 
-Commit your implementation using the repository hooks, and push it to your own
-assigned branch before the submission deadline. Leave a clean working tree and
-identify the commit for the coordinator to collect. The final response must list
-implemented behaviour, exact validation results, unresolved limitations, the
+Commit your verified implementation using the repository hooks, and push it
+directly to your own assigned branch without asking for another approval. Use
+the explicit destination command for your participant in README.md. Verify the
+remote branch head equals the final local commit, leave a clean working tree,
+and identify that commit for the coordinator to collect. The final response
+must list implemented behaviour, exact validation results, unresolved limitations, the
 commit and push result. If a push fails, preserve the local commit and report
 the failure; never claim publication without a successful push. Report
 incomplete work honestly.
 
-The coordinator, not this prompt's arrival or a commit timestamp, starts and
-stops the timed run. There is no permission here to purchase services, install
-CLIs globally, deploy anything or change the benchmark rules. If a normative
-ambiguity blocks you, ask the coordinator once; any clarification will be sent
-identically to both participants and recorded before evaluation.
+No separate coordinator start signal is needed. The instruction to do what is
+necessary applies to this offline assignment; it does not authorize purchases,
+global CLI installs, production operations, deployment or changing benchmark
+requirements. If a normative ambiguity genuinely blocks you, ask the
+coordinator once; any clarification must reach both participants identically
+and be recorded for evaluation.

@@ -3,17 +3,26 @@
 ## State of this package
 
 This is the common starting specification and public fixture package. The task
-implementation is deliberately absent. No participant has started a timed run.
-The private evaluator and runner isolation are coordinator-owned and are not
-implemented or claimed complete by this setup commit.
+implementation is deliberately absent. On 2026-10-04 the user confirmed that
+neither CLI had received an earlier task prompt and authorized autonomous
+implementation when the current launch prompt is supplied. Start in the assigned
+checkout without another START signal, a fixed deadline, an isolated runner or
+a private evaluator. Make routine implementation and testing decisions within
+the assignment's scope, complete the work and publish it to the assigned branch.
 
-Before either participant starts, the coordinator must validate the public cases,
-prepare an independent private evaluator, and freeze its checks, seeds, scoring
-groups and environment manifest outside both participant environments. Publish
-the evaluator/environment artifact hashes, not hidden data or solutions. Any
-contract correction before launch must reach both branches in the same commit.
+The private evaluator and controlled runner isolation are coordinator-owned and
+are not ready. These development runs must not be described as a formally timed,
+isolated blind benchmark. The rubric below is published; private checks have not
+been frozen before development. Before inspecting either implementation, the
+coordinator must validate the public cases and independently prepare and freeze
+the evaluator's checks, seeds, scoring groups and environment manifest outside
+both participant environments. Publish their hashes and freeze timestamp, not
+hidden data or solutions, and disclose that the freeze occurred after development
+was authorized. Do not claim an earlier freeze. Any contract correction must
+reach both participants identically and be recorded before evaluation.
 No undisclosed rule, later threshold, or preferred implementation may affect a
-score. A defect in the contract pauses both runs; it is not charged to one model.
+score. A defect in the contract pauses affected scoring; it is not charged to
+one model.
 Snapshot state is intentionally implementation-defined. Automated corruption
 tests use the public envelope, JSON/type/finiteness rules and black-box recovery
 properties; they must not assume one participant's internal field names or
@@ -27,22 +36,27 @@ inclusive/exclusive boundary cases use exactly representable, simple geometry.
 The contract's output tolerance does not justify scoring two mathematically
 equivalent implementations differently on an unstable rounding-boundary case.
 
-## Identical starting opportunity
+## Development conditions and later evaluation
 
 - Both remote branches initially point to the SAME setup commit:
   `benchmark/kimi-labs-tracking` and `benchmark/qwen-labs-tracking`.
 - Both receive exactly `PROMPT.md` as their task, the complete same source
   snapshot, this contract, and the same public cases and documentation.
-- Run each in a separate disposable checkout/container, with only its own
-  working tree and Git history visible. Git branches/worktrees alone do not
-  isolate files, refs, the host home, credentials or a private evaluator.
-  Use shallow, single-branch clones of the common setup commit, not the full
-  project history: `git clone --single-branch --depth 1 --branch <assigned-branch>`.
-  The published source snapshot is sufficient; older history and other refs are
-  not part of the participant input. Do not fetch additional history during runs.
-- Pin identical Python/package versions, CPU/memory limits, platform, timezone
-  and locale. Capture a package inventory and runner-image digest. Evaluate
-  performance serially on the same otherwise idle evaluation worker.
+- Use the existing separate, shallow, single-branch checkout assigned to each
+  participant. The published source snapshot is sufficient; older history and
+  other refs are not participant input. Do not fetch additional history or
+  inspect the other checkout. These host checkouts do not isolate the host home,
+  credentials or other files; the scope restrictions still apply.
+- Record the actual development Python/package versions, platform, timezone,
+  locale, resource conditions and CLI settings. For later comparative scoring,
+  supply identical package versions and CPU/memory limits, capture the evaluator
+  environment and evaluate performance serially on the same otherwise idle
+  worker. Local measurements, especially while both agents run concurrently,
+  are diagnostic and must be labelled with their conditions.
+- A future controlled rerun requires separate disposable runners with only
+  each participant's own tree/history visible, common environment settings and
+  evaluator/environment artifact hashes frozen before that rerun starts. This
+  preparation does not block the current autonomous development assignment.
 - Do not run the contest on a recording/guard station or give the runners a
   host Docker socket, production mounts, backend credentials or station access.
 - Supply both with the same local documentation. Runtime code/tests are
@@ -56,42 +70,48 @@ equivalent implementations differently on an unstable rounding-boundary case.
   rules. Git authentication may be used normally; credential contents must not
   be inspected or exposed. No outside coding assistants or competitor outputs.
   Do not supply additional provider-specific task coaching, skills or hidden
-  project memory. Record the allowed Git route in the runner manifest; the
+  project memory. Record the allowed Git route in the development report; the
   current host's shared GitHub login is not itself a branch-access sandbox.
 - Use the native CLI of each candidate. This measures the CLI plus model as a
   development assistant, not a controlled claim about a bare language model.
   Pin CLI version, effective model ID/snapshot, reasoning setting, context limit
   and all automatic fallback settings. Require the highest supported reasoning
   setting of the selected flagship; disable fallback to another model.
-- Up to two concurrent subagents are permitted for either participant, only
-  using that participant's selected model. Their time/cost counts toward the
-  same run. If either CLI cannot enforce this rule, disable subagents for BOTH
-  before starting and record that common decision.
+- Up to two concurrent subagents are permitted, only using that participant's
+  selected model. Do not delegate to another LLM or enable model fallback. If
+  the CLI cannot keep subagents on the selected model, work alone and record
+  that limitation; do not wait for coordinator action. Record subagent usage,
+  time/cost and any difference between the two participants' CLI capabilities.
 
 ## Time, feedback and collection
 
-The proposed and common allowance is eight hours of implementation plus one
-60-minute repair round. These are maximums, not mandatory idle time. Freeze the
-actual launch allowance and any spend cap identically before starting. Neither
-CLI is launched by this setup work, and no API spend is authorized here.
+The current assignment has no imposed eight-hour stop or scheduled repair round.
+Start when the user supplies the launch prompt and continue through implementation,
+validation, commit and assigned-branch push. Report elapsed time and resource use
+where available; do not invent measurements. Existing authenticated model use is
+part of this authorized task. Purchases, unrelated installations and production
+operations remain outside scope.
 
-The clock includes planning, tool execution, normal model responses, tests,
-local commits (including hooks) and authorized branch pushes. Pause it only for
-an externally verified provider outage or a coordinator-caused environment
-fault, using the same policy for both models.
-Record active and wall time, provider failures, tool usage, subagent usage,
-human interventions and actual billed cost or a clearly labelled estimate.
+For a future controlled rerun, the proposed common allowance is eight hours of
+implementation plus one 60-minute repair round. Freeze any such allowance and
+spend cap identically before that rerun. Its clock includes planning, tool
+execution, model responses, tests, commit hooks and branch pushes; pause only for
+an externally verified provider outage or coordinator-caused environment fault
+under the same policy for both participants. These are future timing rules, not
+conditions for starting the current assignment.
 
-At each submission/deadline collect the full diff, commit, remote branch/ref and
-push result, clean/dirty status, test output and submission report without
-allowing the agent to modify them after scoring starts. Pin the submitted SHA;
+Record available active and wall time, provider failures, tool usage, subagent
+usage, human interventions and actual billed cost or a clearly labelled estimate.
+At submission collect the full diff, commit, remote branch/ref and push result,
+clean/dirty status, test output and submission report. Pin the submitted SHA;
 later pushes cannot silently replace that scored submission. A failed push is
 reported and the local committed snapshot remains collectable. Uncommitted work
 is preserved for diagnosis but does not silently replace the submitted commit.
 
-Score round one privately. For the repair round each participant gets its own
-reproducible failing-case diagnostics (input, expected/actual behaviour and
-error), at the same level of detail. Do not provide implementation patches or
+Score the initial submissions privately. If a repair round is subsequently
+authorized, each participant gets its own reproducible failing-case diagnostics
+(input, expected/actual behaviour and error), at the same level of detail.
+Do not provide implementation patches or
 the competitor's results. Grade the repaired submissions using both the original
 tests and frozen reserve instances of the SAME published requirements. Report
 first-pass and repaired scores separately; do not average away an initial flaw.
@@ -105,8 +125,9 @@ for their specified properties, not the agent's prose or confidence.
 
 Each listed subcategory has the stated weight. Its earned points are its weight
 times the fraction of frozen independent assertions passed in that subcategory.
-Freeze assertion counts before launch. A malformed response or crash fails the
-affected checks; repeated copies of one easy case cannot increase its weight.
+Freeze assertion counts with the independent evaluator before inspecting either
+implementation. A malformed response or crash fails the affected checks;
+repeated copies of one easy case cannot increase its weight.
 
 | Category | Points | Fixed subcategories |
 |---|---:|---|
@@ -120,17 +141,21 @@ affected checks; repeated copies of one easy case cannot increase its weight.
 For the five throughput points, two are for completing the resource workload
 without a timeout/crash; three are proportional to median throughput relative
 to the faster correct submission, capped at three. Compare three fresh-process
-runs serially after one unscored warmup. Timing is diagnostic only if the common
-host cannot supply an isolated CPU; in that case neither participant runs until
-a suitable evaluator host is available. Incorrect output earns no throughput
-points. Timeouts and resource limits are specified in `CONTRACT.md`.
+runs serially after one unscored warmup. Before comparative scoring, verify that
+the common evaluator can supply an isolated CPU and the contract's resource
+conditions. If it cannot, defer throughput scoring; local timings remain
+diagnostic and development continues. The workload limits are contract
+requirements, not a claim that this preparation has validated their feasibility
+or measured either implementation. Incorrect output earns no throughput points.
+Timeouts and resource limits are specified in `CONTRACT.md`.
 
 The test-quality rubric gives one coverage point each for association, ambiguity,
 time boundaries, replay/checkpoints, and validation/adapter coverage. Mutation
 points use one independently planted defect from each family; publish these
-families now, freeze the actual mutations privately before launch. A test must
-fail for the defect and pass on the participant's unmutated implementation. A
-mutation that cannot be applied semantically is replaced by a pre-frozen reserve
+families now, freeze the actual mutations with the independent evaluator before
+inspecting either implementation. A test must fail for the defect and pass on
+the participant's unmutated implementation. A mutation that cannot be applied
+semantically is replaced by a pre-frozen reserve
 defect in the same family, never by a new criterion.
 
 Maintainability points require identifiable evidence: clear separation of core
