@@ -69,6 +69,9 @@
 #include "models/StationNam.h"
 #include "models/FrameClock.h"
 #include "models/MotionScan.h"
+#include "models/LabsTrackJob.h"
+#include "models/LabsTrackRuns.h"
+#include "models/LabsVerify.h"
 #include "models/FrameCache.h"
 #include "models/PlaybackClient.h"
 #include "models/PtzClient.h"
@@ -676,6 +679,12 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("FrameClock", new FrameClock(&app));
     // Measured-motion scanner for the events hero (yellow-span sync, 2026-08-17).
     engine.rootContext()->setContextProperty("MotionScan", new MotionScan(&app));
+    // Labs temporal tracking (benchmark stage 2): one local recording in, one
+    // bounded track run out, driven by tools/labs/temporal_tracks_clip.py as a
+    // child process; plus the local run-evidence store the Labs screen reopens.
+    engine.rootContext()->setContextProperty("LabsTrack", new LabsTrackJob(&app));
+    engine.rootContext()->setContextProperty("LabsTrackRuns", new LabsTrackRuns(&app));
+    engine.rootContext()->setContextProperty("Verify", new LabsVerify(&app));
     // Decoded-frame cache: instant hot backward steps (capture is step-gated inside
     // FrameStepper) + the frame-by-frame filmstrip's thumbnails (image://fcache/...).
     auto *frameCache = new FrameCache(&app);
@@ -732,6 +741,13 @@ int main(int argc, char *argv[])
     // WT_LABS_VIEW=stats[:24h|7d|all]: open the Labs screen on its statistics view, for
     // review screenshots. Read-only: it only picks what the screen shows.
     engine.rootContext()->setContextProperty("wtLabsView", qEnvironmentVariable("WT_LABS_VIEW"));
+    // Dev/verification hooks (stage-2 Labs tracking): WT_LABS_TRACK_TEST=<path|first>
+    // opens Temporal tracks and starts a real run on that recording; WT_LABS_VERIFY_TEST=
+    // <failure|integration|all> starts that verification group. They drive the REAL
+    // controls so a screenshot shows shipped behaviour, like WT_HOVERSHOT does.
+    engine.rootContext()->setContextProperty("wtLabsTrackTest", qEnvironmentVariable("WT_LABS_TRACK_TEST"));
+    engine.rootContext()->setContextProperty("wtLabsVerifyTest", qEnvironmentVariable("WT_LABS_VERIFY_TEST"));
+    engine.rootContext()->setContextProperty("wtLabsSaved", qEnvironmentVariable("WT_LABS_SAVED"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.

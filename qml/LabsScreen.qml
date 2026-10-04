@@ -45,6 +45,8 @@ Item {
         // opens the statistics view, for review screenshots; "table" the settings.
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
+            if (p[0] === "tracks") view = "tracks"
+            if (p[0] === "verify") view = "verify"
             if (p[0] === "table") view = "table"
             if (p[0] === "stats") {
                 view = "stats"
@@ -392,7 +394,8 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
                 LabsSeg {
-                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" } ]
+                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" },
+                               { k: qsTr("Temporal tracks"), v: "tracks" }, { k: qsTr("Verification"), v: "verify" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -450,6 +453,22 @@ Item {
             analyzer: root.findingsSlug
             onPeriodChanged: root.statsWindow = period      // the same period back in Statistics
             onBack: root.findingsSlug = ""
+        }
+
+        // ===== temporal tracks on one local recording =====
+        LabsTracking {
+            visible: root.view === "tracks"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            screen: root
+        }
+
+        // ===== verification of this build's tracking work =====
+        LabsVerify {
+            visible: root.view === "verify"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            screen: root
         }
 
         // ===== table header =====
