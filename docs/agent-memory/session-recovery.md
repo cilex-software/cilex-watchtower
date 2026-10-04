@@ -22,7 +22,15 @@ and Qwen launcher corrections. Use each vendor's maximum supported capabilities;
 do not reduce one merely to match the other. The isolated runners and independent
 private evaluator are still pending, and no coordinator START has been issued.
 The proposed allowance is eight hours plus a 60-minute repair round, not an
-already-started run. The dated records below are historical; use current project
+already-started run. The user now explicitly authorizes normal non-force GitHub
+pushes by each participant only to its assigned benchmark branch. No pushing
+`main`, the competitor's branch, any other branch or tags; no force-push, merging
+or deployment. This supersedes the former no-push preface and the generic
+straight-to-main workflow in historical records. The common updated starting
+commit `8bfc29c9961b85131695c08c02fc00de0d367ec2` is published to both branches
+and applied to both local checkouts. Current host credentials are not technically restricted
+to those branches; verified runner/Git isolation remains preparation work.
+The dated records below are historical; use current project
 status and the new benchmark memory for present decisions.
 
 ## Historical session (2026-06-21–29)

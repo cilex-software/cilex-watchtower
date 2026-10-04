@@ -1,8 +1,9 @@
 # Kimi and Qwen Labs benchmark memory
 
 Saved on 2026-10-04, Europe/Moscow, at the user's explicit request to remember
-the preceding explanation, starter prompt, and evaluation commitments. This is
-coordinator context, not a change to either participant's published assignment.
+the preceding explanation, starter prompt, and evaluation commitments. Updated
+the same day for the user's explicit authorization of assigned-branch GitHub pushes.
+This is coordinator context; both published assignments receive the same rule update.
 
 ## User intent and current state
 
@@ -25,8 +26,13 @@ evaluator are not yet prepared. Do not describe those as complete.
 | Kimi | `/home/cilex-vision/projects/cilex-watchtower-kimi` | `benchmark/kimi-labs-tracking` |
 | Qwen | `/home/cilex-vision/projects/cilex-watchtower-qwen` | `benchmark/qwen-labs-tracking` |
 
-Both branches were pushed with the same setup commit:
+Both branches were originally pushed with the same setup commit:
 `2067735ff110ecf61149577091240286c5428174`.
+That is the historical setup commit. The current common starting commit is
+`8bfc29c9961b85131695c08c02fc00de0d367ec2`: the authorized-push rule update,
+published atomically to both branches on 2026-10-04 and applied to both local
+checkouts. The prompt, evaluation protocol, README and manifest hashes were
+updated together; the tracking contract and public fixtures were not changed.
 The source base was `5c628372c7b650591aa20e2b1bd774e825106007`.
 These are standalone shallow single-branch clones. They are not isolated runners
 merely because they occupy different directories on the same host.
@@ -44,10 +50,19 @@ The package contains no tracking implementation. This memory does not override
 its contract or introduce hidden requirements. Coordinator memory updates on
 main must not move or contaminate either participant's starting branch.
 
-## Exact common preface given to the user
+The user now explicitly authorizes each participant to make normal, non-force
+GitHub pushes to its own branch in the table above, using the authorized remote.
+This supersedes the previous no-push instruction. It does not authorize pushes
+to `main`, the other participant's branch, any other branch, or tags; force-pushes,
+merging and deployment remain prohibited. The same provider-neutral prompt can
+refer to the assigned branch already checked out; it needs no model-specific text.
 
-Use this identical text for both models. It intentionally waits for START so
-neither begins unrecorded planning before the evaluation preparation is ready.
+## Current common preface
+
+Use this identical text for both models. It preserves the shared preface with
+the user's later assigned-branch push authorization applied. It intentionally
+waits for START so neither begins unrecorded planning before the evaluation
+preparation is ready.
 
 ```text
 You are participating in the Cilex Watchtower Labs development benchmark.
@@ -65,15 +80,19 @@ decisions yourself. If a genuine specification ambiguity blocks progress,
 ask the coordinator once.
 
 Do not inspect the other participant’s work, change protected files,
-access live services, or modify the benchmark rules.
+access live production services, or modify the benchmark rules.
 
 Implement the complete solution, run the required tests, and document
 actual results and limitations in
 docs/benchmarks/labs-tracking/SUBMISSION.md.
 
-Commit your work locally using the repository hooks. Your final response
-must identify the commit, completed behaviour, exact test results and any
-remaining problems. Do not push, merge or deploy.
+Commit your work using the repository hooks, then make a normal,
+non-force GitHub push only to your assigned benchmark branch already
+checked out. Do not push main, the other participant’s branch, any other
+branch, or tags. Do not force-push, merge or deploy.
+
+Your final response must identify the commit and pushed branch, completed
+behaviour, exact test results and any remaining problems.
 ```
 
 ## Plain-language explanation of the task
@@ -116,7 +135,8 @@ do not establish success.
 
 ## Expected result
 
-Each model must deliver a working, locally committed software component:
+Each model must deliver a working software component committed and pushed only
+to its assigned benchmark branch:
 
 - Tracking engine: `tools/labs/temporal_tracks.py`.
 - Offline replay tool: `tools/labs/replay_temporal_tracks.py`.
@@ -124,7 +144,8 @@ Each model must deliver a working, locally committed software component:
 - Meaningful tests: `tools/tests/labs-temporal-tracks.py`, plus permitted helpers.
 - Design, actual validation results, measurements and limitations in
   `docs/benchmarks/labs-tracking/SUBMISSION.md`.
-- Clean implementation commit, whose ID is reported in the final response.
+- Clean implementation commit, whose ID and pushed branch are reported in the
+  final response. Report a failed push honestly rather than claiming publication.
 
 We should demonstrate correct tracking numbers where evidence allows them,
 correct uncertainty when it does not, and equivalent results after saving and
@@ -168,6 +189,16 @@ environment limits and clarification messages. The effective native CLI,
 model/snapshot, maximum supported reasoning, context/output and fallback
 settings must be recorded. Automatic fallback to another model is disabled.
 This compares native CLI plus model as a development assistant, not bare models.
+
+Runner network rules must permit each model's authorized provider endpoint and
+the GitHub remote operations needed to publish its assigned branch. They must
+still prevent fetching or reading the competitor's content and accessing live
+production services or the private evaluator. GitHub availability does not grant
+permission to inspect other branches or publish outside the assigned branch.
+The current host's GitHub credentials are not restricted to one benchmark branch;
+the rule is an explicit authorization limit, not a verified technical access
+restriction. Future runner isolation and Git access controls remain to be prepared
+and verified; do not describe the current host credentials as branch-restricted.
 
 The published proposal is eight hours of implementation plus one 60-minute
 repair round. It is a proposed common maximum, not an already-started run or
@@ -240,7 +271,9 @@ account: it is the compatible API protocol for the configured Qwen endpoint.
 ## What remains before START
 
 1. Prepare isolated participant runners that cannot access the competing
-   checkout, host credentials, production services or private evaluator.
+   checkout/content, host credentials, production services or private evaluator,
+   while providing controlled GitHub access for authorized assigned-branch pushes.
+   Verify the enforcement and do not rely on the shared host's broad credentials.
 2. Validate public cases and independently implement and freeze the private
    evaluator, assertions, seeds, mutation/reserve cases and environment manifest.
 3. Validate feasibility of the published resource workload on the frozen worker.
