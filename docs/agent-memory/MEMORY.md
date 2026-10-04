@@ -2,6 +2,8 @@
 
 ➤ **START HERE after a context reset → [session recovery](session-recovery.md)** — full Cilex Watchtower state (P1–P6 done, latest commit, build/verify, backend facts, working agreements) + how to resume.
 
+**Current comparison, 2026-10-04:** [Kimi and Qwen Labs benchmark](kimi-qwen-labs-benchmark.md) — exact shared starter prompt, plain-language task explanation, 100-point scoring, winner rules, checkout locations, maximum-capability preference, and preparation still required before START. No scored run has started.
+
 **Durable, crash-recoverable records live IN THE REPO (this memory dir is local and won't survive a machine loss):**
 `docs/PROJECT_STATUS.md` (current status + roadmap) and `docs/DEVELOPMENT.md` (stack, build, dev hooks, architecture, API, gotchas), plus `docs/letters/` (backend functional-spec letters). Pushed to GitHub.
 
