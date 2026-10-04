@@ -30,6 +30,9 @@ Item {
     // An analyser's findings, opened from Statistics (LabsFindings); "" = not open.
     property string findingsSlug: ""
     property var cameraModel: null
+    // The tracking workspace's model (LabsTracking, main/Main.qml). Passed in rather
+    // than created here so the "Tracking" tab owns no second engine.
+    property var tracking: null
     function openFindings(slug) { findings.period = root.statsWindow; root.findingsSlug = slug }
 
     onVisibleChanged: if (visible && labs) { labs.refresh(); labs.refreshStation() }
@@ -46,6 +49,8 @@ Item {
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
             if (p[0] === "table") view = "table"
+            // "tracking" opens the tracking workspace (run/review/verify).
+            if (p[0] === "tracking") view = "tracking"
             if (p[0] === "stats") {
                 view = "stats"
                 if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
@@ -392,7 +397,9 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
                 LabsSeg {
-                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" } ]
+                    choices: [ { k: qsTr("Statistics"), v: "stats" },
+                               { k: qsTr("Analyser Settings"), v: "table" },
+                               { k: qsTr("Tracking"), v: "tracking" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -437,6 +444,15 @@ Item {
             onPickWindow: (w) => root.statsWindow = w
             onPickBy: (b) => root.statsBy = b
             onOpenFindings: (slug) => root.openFindings(slug)
+        }
+
+        // ===== tracking: run the engine over a recording, review, verify =====
+        LabsTrackingPanel {
+            visible: root.view === "tracking" && root.findingsSlug === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            tracking: root.tracking
+            cameraModel: root.cameraModel
         }
 
         // ===== one analyser's findings, to watch =====

@@ -731,6 +731,10 @@ Window {
     SnapshotModel { id: snapshotModel; dir: Artifacts.snapshotDir }
     StorageHealth { id: storageHealth }
     LabsModel { id: labsModel }
+    // Labs tracking: the engine over a recording the operator picked, its evidence,
+    // and the in-app verification checks. The export folder comes from the same
+    // setting the export drawer writes to, so "the recordings you made" is one list.
+    LabsTracking { id: labsTracking; exportDir: Artifacts.exportDir }
     PlaybackClient { id: playbackClient }
 
     // Admin switched the live-video transport (go2rtc ↔ direct RTSP): re-fetch
@@ -2205,6 +2209,7 @@ Window {
                     visible: win.section === "labs" && win.focusedCamera === null && win.playbackCamera === null && !win.prefsTabActive
                     labs: labsModel
                     cameraModel: cameraModel
+                    tracking: labsTracking
                 }
 
                 HealthScreen {

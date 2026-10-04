@@ -150,6 +150,12 @@ with a version already pushed."
 | `WT_SCREENSHOT=<path>`, `WT_SCREENSHOT_MS=<ms>` | Screenshot hook (above). |
 | `WT_NO_SCHEME_REG=1` | Do not register the `cilex://` link handler. Set it on EVERY test/screenshot run (see above). |
 | `WT_LABS_VIEW=stats[:24h\|7d\|all[:camera\|analyser]]` or `table` | Open the Labs screen on Statistics (for that period, grouped by camera or by analyser) or on Analyser Settings. Review screenshots; it only picks what is shown. |
+| `WT_LABS_VIEW=…` / `tracking` | `tracking` opens the Labs **Tracking** workspace (run the temporal tracking engine over a recording, review tracks beside it, run the in-app checks). |
+| `WT_LABS_TRACKING_TOOLS=<dir>` | Where `tools/labs` lives when the build is not inside the checkout (the app searches `<appdir>/../tools/labs`, `<appdir>/../../tools/labs` and `<cwd>/tools/labs` first). |
+| `WT_PYTHON=<path>` | Interpreter for the tracking helpers (`tools/labs/temporal_tracks_run.py`, `…_checks.py`); default is `python3` off PATH. |
+| `WT_LABS_TRACK_RECORDING=<path>` | Pre-select that recording in the Tracking panel (review screenshots). |
+| `WT_LABS_TRACK_RUN=1` | Start the analysis at boot once a recording is selected. |
+| `WT_LABS_TRACK_CHECKS=<all\|contract\|regression\|workload\|integration>` | Run that verification group at boot and show its real results. |
 | `WT_LABS_STATS_FILE=<json>` | Read `GET /labs/stats`'s answer from that file instead of the server, to review a part of Statistics whose server half is not deployed yet (BY CAMERA, 2026-09-30). Review screenshots only; read-only. |
 | `WT_CV_URL`, `WT_CV_USER`, `WT_CV_PASS` | cilex-vision backend base URL + credentials (dev defaults baked in source; override via env). |
 

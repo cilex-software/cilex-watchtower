@@ -732,6 +732,14 @@ int main(int argc, char *argv[])
     // WT_LABS_VIEW=stats[:24h|7d|all]: open the Labs screen on its statistics view, for
     // review screenshots. Read-only: it only picks what the screen shows.
     engine.rootContext()->setContextProperty("wtLabsView", qEnvironmentVariable("WT_LABS_VIEW"));
+    // Labs tracking review hooks (2026-10-04): pre-select a recording and optionally
+    // start the analysis at boot, so a screenshot shows a REAL run's tracks without a
+    // terminal. WT_LABS_VIEW=tracking opens the panel.
+    engine.rootContext()->setContextProperty("wtTrackRecording", qEnvironmentVariable("WT_LABS_TRACK_RECORDING"));
+    engine.rootContext()->setContextProperty("wtTrackRun", qEnvironmentVariableIsSet("WT_LABS_TRACK_RUN"));
+    // WT_LABS_TRACK_CHECKS=<all|contract|regression|workload|integration>: start that
+    // verification group at boot (review screenshots of the real results).
+    engine.rootContext()->setContextProperty("wtTrackChecks", qEnvironmentVariable("WT_LABS_TRACK_CHECKS"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.
