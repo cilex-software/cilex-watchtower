@@ -46,10 +46,18 @@ equivalent implementations differently on an unstable rounding-boundary case.
 - Do not run the contest on a recording/guard station or give the runners a
   host Docker socket, production mounts, backend credentials or station access.
 - Supply both with the same local documentation. Runtime code/tests are
-  offline. Agent network access is limited to its authenticated model endpoint
-  and any identically documented provider login requirements; no outside coding
-  assistants or competitor outputs. Do not supply additional provider-specific
-  task coaching, skills or hidden project memory.
+  offline. Agent network access is limited to its authenticated model endpoint,
+  identically documented provider login requirements, and normal authenticated
+  Git operations on its own assigned branch at the supplied
+  `romayankin/cilex-watchtower` origin. The user authorizes non-force pushes only
+  to `benchmark/kimi-labs-tracking` for Kimi and
+  `benchmark/qwen-labs-tracking` for Qwen. No fetching competitor work, pushing
+  other refs/tags, force-pushing, deleting refs, or changing repository access
+  rules. Git authentication may be used normally; credential contents must not
+  be inspected or exposed. No outside coding assistants or competitor outputs.
+  Do not supply additional provider-specific task coaching, skills or hidden
+  project memory. Record the allowed Git route in the runner manifest; the
+  current host's shared GitHub login is not itself a branch-access sandbox.
 - Use the native CLI of each candidate. This measures the CLI plus model as a
   development assistant, not a controlled claim about a bare language model.
   Pin CLI version, effective model ID/snapshot, reasoning setting, context limit
@@ -67,16 +75,19 @@ The proposed and common allowance is eight hours of implementation plus one
 actual launch allowance and any spend cap identically before starting. Neither
 CLI is launched by this setup work, and no API spend is authorized here.
 
-The clock includes planning, tool execution, normal model responses, tests and
-local commits. Pause it only for an externally verified provider outage or a
-coordinator-caused environment fault, using the same policy for both models.
+The clock includes planning, tool execution, normal model responses, tests,
+local commits (including hooks) and authorized branch pushes. Pause it only for
+an externally verified provider outage or a coordinator-caused environment
+fault, using the same policy for both models.
 Record active and wall time, provider failures, tool usage, subagent usage,
 human interventions and actual billed cost or a clearly labelled estimate.
 
-At each submission/deadline collect the full diff, commit, clean/dirty status,
-test output and submission report without allowing the agent to modify them
-after scoring starts. Uncommitted work is preserved for diagnosis but does not
-silently replace the submitted commit.
+At each submission/deadline collect the full diff, commit, remote branch/ref and
+push result, clean/dirty status, test output and submission report without
+allowing the agent to modify them after scoring starts. Pin the submitted SHA;
+later pushes cannot silently replace that scored submission. A failed push is
+reported and the local committed snapshot remains collectable. Uncommitted work
+is preserved for diagnosis but does not silently replace the submitted commit.
 
 Score round one privately. For the repair round each participant gets its own
 reproducible failing-case diagnostics (input, expected/actual behaviour and

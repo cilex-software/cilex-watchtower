@@ -13,6 +13,16 @@
     "benchmark/kimi-labs-tracking",
     "benchmark/qwen-labs-tracking"
   ],
+  "participant_git_publication": {
+    "authorized_on": "2026-10-04",
+    "branches": {
+      "kimi": "benchmark/kimi-labs-tracking",
+      "qwen": "benchmark/qwen-labs-tracking"
+    },
+    "policy": "Normal non-force pushes to the assigned branch only; no other refs, tags, deletions, merges or deployment. Submitted commits remain frozen for scoring.",
+    "remote": "origin",
+    "repository": "romayankin/cilex-watchtower"
+  },
   "preparation_host_dependency_inventory": {
     "numpy": "2.4.4",
     "opencv-python": "4.13.0.92",
@@ -50,9 +60,9 @@
   },
   "public_package_sha256": {
     "docs/benchmarks/labs-tracking/CONTRACT.md": "973c7b6f298f31845e4bd47f3c495ac938b7abcbe9372932fd039ed3844cd409",
-    "docs/benchmarks/labs-tracking/EVALUATION.md": "9fddc199aafd1b70f4ab69046897b85df37278a2b41007223f54b6cc857d9b30",
-    "docs/benchmarks/labs-tracking/PROMPT.md": "c650e9beecd165feb46e32fc72e0b6ff3baf0e042a34264dcf521a1bd85f552d",
-    "docs/benchmarks/labs-tracking/README.md": "7a0713b2729336a97d28a1fc92a09c694487435f804acd391bbc9a95a2667d07",
+    "docs/benchmarks/labs-tracking/EVALUATION.md": "bc0a3cd4cb6e9dc272bfd06965c979ec2825a0c7410155ad22daf20a50887a6c",
+    "docs/benchmarks/labs-tracking/PROMPT.md": "9c6988e3691e51f58776d09682c00329c6a3f070ca17c84080544d8fc0245285",
+    "docs/benchmarks/labs-tracking/README.md": "3b96d5bb5278941a85d0326b7e1927d66a187b7fbb3909c091c46ad0fdb2da1b",
     "docs/benchmarks/labs-tracking/fixtures/README.md": "e39f636b0ea7df89fca48874d3986488b8a4b201f6a2572989cfd4e3e3413eda",
     "docs/benchmarks/labs-tracking/fixtures/cases.json": "78b9e64c3f02224f6922b43bdb34eb24b4de9b93e39c9c24f899ffabf7dd0ced"
   },

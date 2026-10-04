@@ -20,6 +20,22 @@ The exact same launch instruction may be pasted into either CLI:
 > evaluation protocol and public fixtures. Complete the assignment on the
 > benchmark branch already checked out. Follow the coordinator's run-start
 > signal; do not start the timed implementation during environment preparation.
+> Commit and push completed work only to your own assigned benchmark branch at
+> origin. Do not force-push, push other refs or tags, merge, or deploy.
+
+The user explicitly authorized publication to each participant's own branch on
+2026-10-04. Use only the command for your assigned branch, after checking the
+current branch and origin:
+
+| Participant | Authorized push |
+|---|---|
+| Kimi | `git -c push.followTags=false push origin HEAD:refs/heads/benchmark/kimi-labs-tracking` |
+| Qwen | `git -c push.followTags=false push origin HEAD:refs/heads/benchmark/qwen-labs-tracking` |
+
+This replaces the earlier no-push instruction. The shared host login can write
+more broadly; the branch scope above is an instruction, not a claim that GitHub
+credentials enforce per-participant isolation. The coordinator still prepares
+isolated runners and records their authorized Git access before START.
 
 The task, permitted files and submission rules are in [PROMPT.md](PROMPT.md).
 Behaviour is defined by [CONTRACT.md](CONTRACT.md). Test families, scoring and

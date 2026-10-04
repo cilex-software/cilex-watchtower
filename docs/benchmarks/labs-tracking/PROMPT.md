@@ -64,7 +64,17 @@ This is an explicitly requested isolated experiment. For this task, these branch
 instructions supersede the repository's normal straight-to-main/push workflow:
 
 - Stay on your assigned benchmark branch. Do not merge, rebase onto newer main,
-  fetch other branches or push anywhere during the timed implementation.
+  or fetch other branches.
+- The user authorizes normal, non-force pushes to `origin` in
+  `romayankin/cilex-watchtower`, only for your assigned branch:
+  `benchmark/kimi-labs-tracking` for Kimi or `benchmark/qwen-labs-tracking` for
+  Qwen. Confirm the current branch and remote before each push, and name that
+  destination ref explicitly. Do not push to `main`, the other participant's
+  branch, any other branch, or tags. Do not force-push, delete remote refs, or
+  use `--all`/`--mirror`/`--tags`. Do not change branch protection or credentials.
+  Use the supplied Git authentication normally without inspecting or exposing
+  credential files or token values. Publishing work does not start the run or
+  authorize changes after the coordinator has collected a submission.
 - Do not read host credentials, histories, private evaluation files or other
   projects. Do not contact cameras, stations, the production API/database, or
   Docker's host socket. Do not start Watchtower, Warden or a live Labs worker.
@@ -97,10 +107,13 @@ uses temporary state and fake clients; never substitute a live station config.
 Document genuine pre-existing failures or platform skips with their evidence.
 Do not weaken a test to obtain a pass.
 
-Commit your implementation locally using the repository hooks. Leave a clean
-working tree and identify the commit for the coordinator to collect. The final
-response must list implemented behaviour, exact validation results, unresolved
-limitations and the commit. Report incomplete work honestly.
+Commit your implementation using the repository hooks, and push it to your own
+assigned branch before the submission deadline. Leave a clean working tree and
+identify the commit for the coordinator to collect. The final response must list
+implemented behaviour, exact validation results, unresolved limitations, the
+commit and push result. If a push fails, preserve the local commit and report
+the failure; never claim publication without a successful push. Report
+incomplete work honestly.
 
 The coordinator, not this prompt's arrival or a commit timestamp, starts and
 stops the timed run. There is no permission here to purchase services, install
