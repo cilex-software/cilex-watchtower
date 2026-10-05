@@ -28,7 +28,7 @@ Window {
     // chosen, not suffered.
     onClosing: Settings.markOperatorQuit()
 
-    property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : "live"
+    property string section: (typeof wtSection !== "undefined" && wtSection !== "") ? wtSection : ((typeof wtLabsView !== "undefined" && wtLabsView !== "") ? "labs" : "live")
     property string gridLayout: (typeof wtLayout !== "undefined" && wtLayout !== "")
                                 ? wtLayout : "16"   // canonical layout id (see LayoutSpec)
     property int gridPage: 1
@@ -2000,21 +2000,21 @@ Window {
         z: 900
         win: win
         visible: !win.fullscreen
-        subtitle: AuthController.authenticated ? win.activeTabLabel() : ""
+        subtitle: (AuthController.authenticated || wtDemo) ? win.activeTabLabel() : ""
     }
 
     RowLayout {
         anchors.fill: parent
         anchors.topMargin: titleBar.visible ? titleBar.height : 0
         spacing: 0
-        visible: AuthController.authenticated   // shell hidden until signed in
+        visible: AuthController.authenticated || wtDemo   // shell hidden until signed in
 
         NavRail {
             Layout.fillHeight: true
             visible: !win.fullscreen
             section: win.section
             unackCount: eventModel.unacknowledgedCount
-            isAdmin: AuthController.isAdmin
+            isAdmin: AuthController.isAdmin || wtDemo
             onSectionSelected: (sid) => win.goToSection(sid)
         }
 
@@ -2336,7 +2336,7 @@ Window {
     LoginScreen {
         anchors.fill: parent
         anchors.topMargin: titleBar.visible ? titleBar.height : 0
-        visible: !AuthController.authenticated
+        visible: !AuthController.authenticated && !wtDemo
         z: 1000
     }
 

@@ -46,6 +46,7 @@ Item {
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
             if (p[0] === "table") view = "table"
+            if (p[0] === "tracking") view = "tracking"
             if (p[0] === "stats") {
                 view = "stats"
                 if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
@@ -392,7 +393,11 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
                 LabsSeg {
-                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" } ]
+                    choices: [
+                        { k: qsTr("Statistics"), v: "stats" },
+                        { k: qsTr("Analyser Settings"), v: "table" },
+                        { k: qsTr("Temporal Tracking"), v: "tracking" }
+                    ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -625,6 +630,15 @@ Item {
                 text: (!root.labs || root.labs.loading) ? qsTr("Asking the server…") : qsTr("No answer from the server yet")
                 color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
             }
+        }
+
+        // ===== temporal tracking =====
+        LabsTracking {
+            visible: root.view === "tracking" && root.findingsSlug === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            screen: root
+            cameraModel: root.cameraModel
         }
     }
 

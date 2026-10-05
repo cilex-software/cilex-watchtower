@@ -729,9 +729,12 @@ int main(int argc, char *argv[])
     // WT_LABS_CONFIRM=<slug>: open the Labs screen's real "Switch on?" dialog for that
     // analyser once the server's answer arrives -- for review screenshots. Nothing is sent.
     engine.rootContext()->setContextProperty("wtLabsConfirm", qEnvironmentVariable("WT_LABS_CONFIRM"));
-    // WT_LABS_VIEW=stats[:24h|7d|all]: open the Labs screen on its statistics view, for
+    // WT_LABS_VIEW=stats[:24h|7d|all] | tracking: open the Labs screen on its statistics view, for
     // review screenshots. Read-only: it only picks what the screen shows.
     engine.rootContext()->setContextProperty("wtLabsView", qEnvironmentVariable("WT_LABS_VIEW"));
+    engine.rootContext()->setContextProperty("wtTrackingSubView", qEnvironmentVariable("WT_TRACKING_SUBVIEW"));
+    engine.rootContext()->setContextProperty("wtTrackingAutoRun", qEnvironmentVariableIsSet("WT_TRACKING_AUTORUN"));
+    engine.rootContext()->setContextProperty("wtTrackingFailControl", qEnvironmentVariableIsSet("WT_TRACKING_FAILCONTROL"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.
