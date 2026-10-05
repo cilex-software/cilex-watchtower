@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "prepared_at_utc": "2026-10-05T13:41:13.139062+00:00",
+  "status": "prepared; detector results pending",
+  "files_sha256": {
+    "docs/benchmarks/labs-detection-stage3/CASES.md": "2d9f58ef56abf9a9b523effef581e5bea95aeb8c316e78b1518c13b0d9ae94f8",
+    "docs/benchmarks/labs-detection-stage3/CLASSIFICATION.md": "299e3ba3372a57c72bca195a13d4537b8a84f0f218c1d2ace2f2bed3dd62544f",
+    "docs/benchmarks/labs-detection-stage3/PREPARATION.md": "22ab993eaf4bdf8c2cab7e48877a652391f9ef53cf43c07fe398dbd935afdb5e",
+    "docs/benchmarks/labs-detection-stage3/PROMPT.md": "70bbc350df065c0d2aa1066faeca2e03ede66281cb5e706d1f0b867c8feca7d2",
+    "docs/benchmarks/labs-detection-stage3/PROTOCOL.md": "b7ec211707ea3d8dd8c29502d9efcf7f527540303ec0153a765ef173ce7b7360",
+    "docs/benchmarks/labs-detection-stage3/README.md": "1839502a169006ef096f763f66d747d24e9c27ce9e9218867852b5ad073270b2",
+    "docs/benchmarks/labs-detection-stage3/RESULT_FORMAT.md": "42bbe1dbb9c2b6621a40b5fe38740e22907c4e895d381084590d72c0578b0b20",
+    "docs/benchmarks/labs-detection-stage3/dataset.json": "e0da850916707aec4772f979408c0f3ddc46c02b8b868649286a555999fe6555",
+    "tools/labs/stage3_evidence.py": "e7ea8b5c27bb9d6a92e0da0bfb9ec14bb88bddf0315d5dc3c2a0820de3623533",
+    "tools/tests/labs-stage3-evidence.py": "74ac706374e7cf0fce76b3820225ac443d9b74a6659c3e3bd236ab1b487c93a5",
+    "tools/benchmarks/prepare_stage3_clips.py": "44cbc7646b7b67704650c9f6928f779c338358d49ec916e137568478c00c962a"
+  },
+  "detector_accuracy": "not measured",
+  "in_app_stage3_integration": "implementation pending",
+  "instructions_updated_at_utc": "2026-10-05T14:17:15.143169+00:00"
+}

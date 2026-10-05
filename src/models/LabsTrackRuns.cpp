@@ -76,8 +76,11 @@ QString LabsTrackRuns::saveRun(const QVariantMap &doc)
     return path;
 }
 
-QVariantList LabsTrackRuns::listRuns() const
+QVariantList LabsTrackRuns::listRuns(const QString &analyserFilter) const
 {
+    // An empty filter lists everything; the Labs screens pass their own
+    // analyser id so one pane never shows another analyser's evidence.
+
     QVariantList out;
     const QFileInfoList files = QDir(m_dir).entryInfoList({ QStringLiteral("*.json") }, QDir::Files);
     QList<QFileInfo> sorted = files;
@@ -93,9 +96,17 @@ QVariantList LabsTrackRuns::listRuns() const
         if (!doc.isObject())
             continue;
         const QVariantMap d = doc.object().toVariantMap();
+        if (!analyserFilter.isEmpty()
+            && d.value(QStringLiteral("analyser")).toMap().value(QStringLiteral("id")).toString()
+                   != analyserFilter)
+            continue;
         const QVariantMap in = d.value(QStringLiteral("input")).toMap();
         const QVariantMap counts = d.value(QStringLiteral("counts")).toMap();
         const QVariantMap scope = d.value(QStringLiteral("scope")).toMap();
+        const QVariantMap analyser = d.value(QStringLiteral("analyser")).toMap();
+        // stage-3 envelopes carry no top-level counts: the observation count lives
+        // in measurements, so read it there when counts is absent
+        const QVariantMap meas = d.value(QStringLiteral("measurements")).toMap();
         QVariantMap m;
         m[QStringLiteral("runId")] = d.value(QStringLiteral("run_id"));
         m[QStringLiteral("startedAt")] = d.value(QStringLiteral("started_at"));
@@ -110,6 +121,11 @@ QVariantList LabsTrackRuns::listRuns() const
         m[QStringLiteral("ambiguous")] = counts.value(QStringLiteral("ambiguous"));
         m[QStringLiteral("elapsedS")] = d.value(QStringLiteral("elapsed_s"));
         m[QStringLiteral("savedPath")] = fi.absoluteFilePath();
+        m[QStringLiteral("analyserId")] = analyser.value(QStringLiteral("id"));
+        m[QStringLiteral("clipId")] = d.value(QStringLiteral("clip_id"));
+        m[QStringLiteral("observations")] = counts.contains(QStringLiteral("observations"))
+                                            ? counts.value(QStringLiteral("observations"))
+                                            : meas.value(QStringLiteral("observations"));
         out.append(m);
     }
     return out;

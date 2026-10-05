@@ -30,7 +30,7 @@ public:
     Q_INVOKABLE QVariantList listInputs(const QString &dir) const;
 
     Q_INVOKABLE QString saveRun(const QVariantMap &doc);
-    Q_INVOKABLE QVariantList listRuns() const;
+    Q_INVOKABLE QVariantList listRuns(const QString &analyserFilter = QString()) const;
     Q_INVOKABLE QVariantMap loadRun(const QString &runId) const;
     Q_INVOKABLE bool removeRun(const QString &runId);
 

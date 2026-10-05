@@ -441,7 +441,7 @@ Item {
                             width: parent.width - 24; wrapMode: Text.WordWrap
                             visible: root.currentTrack !== undefined
                             text: root.currentTrack === undefined ? "" :
-                                  root.currentTrack.track_id + "\n" +
+                                  (root.currentTrack.track_id || "") + "\n" +
                                   qsTr("observations %1 · ambiguous batches %2\ntime %3–%4 ms (%5)\npath length %6 · net %7 · mean speed %8\nlargest box at %9 ms\nreason %10")
                                   .arg(root.currentTrack.observations).arg(root.currentTrack.ambiguous_batches)
                                   .arg(root.currentTrack.start_ms).arg(root.currentTrack.end_ms)
@@ -527,9 +527,9 @@ Item {
                                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 12; spacing: 10
                                 Text { Layout.preferredWidth: 150; text: root.saved[index].runId; color: Theme.ink; font.family: Theme.fontMono; font.pixelSize: 11 }
                                 Text { Layout.preferredWidth: 80; text: root.saved[index].status; color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11 }
-                                Text { Layout.fillWidth: true; elide: Text.ElideRight; text: root.saved[index].inputName; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
-                                Text { Layout.preferredWidth: 130; text: qsTr("%1 tracks · %2 det").arg(root.saved[index].tracks).arg(root.saved[index].detections); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
-                                Text { Layout.preferredWidth: 170; text: root.saved[index].startedAt; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                                Text { Layout.fillWidth: true; elide: Text.ElideRight; text: (root.saved[index].inputName || ""); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                                Text { Layout.preferredWidth: 130; text: qsTr("%1 tracks · %2 det").arg(root.saved[index].tracks || 0).arg(root.saved[index].detections || 0); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
+                                Text { Layout.preferredWidth: 170; text: (root.saved[index].startedAt || ""); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10 }
                             }
                             MouseArea {
                                 id: savedMa; anchors.fill: parent; hoverEnabled: true

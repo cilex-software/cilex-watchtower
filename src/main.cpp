@@ -72,6 +72,7 @@
 #include "models/LabsTrackJob.h"
 #include "models/LabsTrackRuns.h"
 #include "models/LabsVerify.h"
+#include "models/LabsSemanticJob.h"
 #include "models/FrameCache.h"
 #include "models/PlaybackClient.h"
 #include "models/PtzClient.h"
@@ -685,6 +686,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("LabsTrack", new LabsTrackJob(&app));
     engine.rootContext()->setContextProperty("LabsTrackRuns", new LabsTrackRuns(&app));
     engine.rootContext()->setContextProperty("Verify", new LabsVerify(&app));
+    // Stage-3 local semantic analysers (experimental, never fleet-registered).
+    engine.rootContext()->setContextProperty("Semantic", new LabsSemanticJob(&app));
     // Decoded-frame cache: instant hot backward steps (capture is step-gated inside
     // FrameStepper) + the frame-by-frame filmstrip's thumbnails (image://fcache/...).
     auto *frameCache = new FrameCache(&app);
@@ -748,6 +751,12 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtLabsTrackTest", qEnvironmentVariable("WT_LABS_TRACK_TEST"));
     engine.rootContext()->setContextProperty("wtLabsVerifyTest", qEnvironmentVariable("WT_LABS_VERIFY_TEST"));
     engine.rootContext()->setContextProperty("wtLabsSaved", qEnvironmentVariable("WT_LABS_SAVED"));
+    // Stage-3 dev hooks: WT_LABS_SEMANTIC_TEST=<path> opens Objects & colours and
+    // starts a real analysis of that recording; WT_LABS_SEMANTIC_PANE selects the pane.
+    engine.rootContext()->setContextProperty("wtLabsSemanticTest", qEnvironmentVariable("WT_LABS_SEMANTIC_TEST"));
+    engine.rootContext()->setContextProperty("wtLabsSemanticPane", qEnvironmentVariable("WT_LABS_SEMANTIC_PANE"));
+    engine.rootContext()->setContextProperty("wtLabsSemanticCancelMs", qEnvironmentVariable("WT_LABS_SEMANTIC_CANCEL_MS"));
+    engine.rootContext()->setContextProperty("wtLabsSemanticVerify", qEnvironmentVariable("WT_LABS_SEMANTIC_VERIFY"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.

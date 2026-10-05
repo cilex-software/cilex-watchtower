@@ -47,6 +47,7 @@ Item {
             var p = wtLabsView.split(":")
             if (p[0] === "tracks") view = "tracks"
             if (p[0] === "verify") view = "verify"
+            if (p[0] === "semantic" || p[0] === "objects") view = "semantic"
             if (p[0] === "table") view = "table"
             if (p[0] === "stats") {
                 view = "stats"
@@ -395,7 +396,8 @@ Item {
                 spacing: 14
                 LabsSeg {
                     choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" },
-                               { k: qsTr("Temporal tracks"), v: "tracks" }, { k: qsTr("Verification"), v: "verify" } ]
+                               { k: qsTr("Temporal tracks"), v: "tracks" }, { k: qsTr("Verification"), v: "verify" },
+                               { k: qsTr("Objects & colours"), v: "semantic" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -453,6 +455,14 @@ Item {
             analyzer: root.findingsSlug
             onPeriodChanged: root.statsWindow = period      // the same period back in Statistics
             onBack: root.findingsSlug = ""
+        }
+
+        // ===== stage-3 semantic objects and colours =====
+        LabsSemantic {
+            visible: root.view === "semantic"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            screen: root
         }
 
         // ===== temporal tracks on one local recording =====
