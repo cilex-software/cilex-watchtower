@@ -740,6 +740,12 @@ int main(int argc, char *argv[])
     // WT_LABS_TRACK_CHECKS=<all|contract|regression|workload|integration>: start that
     // verification group at boot (review screenshots of the real results).
     engine.rootContext()->setContextProperty("wtTrackChecks", qEnvironmentVariable("WT_LABS_TRACK_CHECKS"));
+    // Stage 3 semantic-analyser review hooks (2026-10-05): pre-select a clip, start
+    // the analysis, run the checks, and name the reviewer whose decisions are saved.
+    engine.rootContext()->setContextProperty("wtStage3Recording", qEnvironmentVariable("WT_LABS_STAGE3_RECORDING"));
+    engine.rootContext()->setContextProperty("wtStage3Run", qEnvironmentVariableIsSet("WT_LABS_STAGE3_RUN"));
+    engine.rootContext()->setContextProperty("wtStage3Checks", qEnvironmentVariable("WT_LABS_STAGE3_CHECKS"));
+    engine.rootContext()->setContextProperty("wtStage3Reviewer", qEnvironmentVariable("WT_LABS_STAGE3_REVIEWER"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.

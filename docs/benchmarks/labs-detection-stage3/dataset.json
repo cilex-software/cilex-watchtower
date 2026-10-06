@@ -1,0 +1,744 @@
+{
+  "schema_version": 1,
+  "dataset_id": "watchtower-stage3-2026-10-05",
+  "source_root": "/home/cilex-vision/Videos/Watchtower",
+  "neutral_root": "/home/cilex-vision/Videos/Watchtower-Stage3",
+  "annotation_status": "partial positive development annotations; no exhaustive negatives or frame boxes",
+  "difficulty_status": "task author design judgement, not measured model difficulty",
+  "capture_time_policy": "Filename suffix is provenance only; never infer recording start or timezone.",
+  "clips": [
+    {
+      "clip_id": "WT3-001",
+      "neutral_filename": "clip-001.mp4",
+      "source_filename": "A man in black leather jacket and black t-shirt and light colored pants is walking behind the fence then opens the gate and walks past the camera - Street Cam 10.16_20261005_153301.mp4",
+      "source_bytes": 24063181,
+      "sha256": "f009c932660f235c63095b88a24397cbd3770f19454ee1873755b6c549c1cd8d",
+      "title": "Person through the gate",
+      "filename_provenance": {
+        "camera_label": "Street Cam 10.16",
+        "suffix_timestamp_text": "20261005_153301",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 52900,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "7960/529",
+              "start_time": "0.100000",
+              "duration": "52.900000",
+              "nb_frames": "796"
+            }
+          ],
+          "format": {
+            "duration": "52.900000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "person",
+          "broad dark upper clothing"
+        ],
+        "medium": [
+          "light lower clothing",
+          "jacket",
+          "T-shirt",
+          "person partly behind fence"
+        ],
+        "hard": [
+          "leather material",
+          "walking behind fence",
+          "opens gate",
+          "walks past camera",
+          "ordered action sequence"
+        ],
+        "not_scored": [
+          "man (use person; gender is not a required label)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Sample at seek 14.812 s shows a near person with dark upper clothing and light trousers. Gate opening not verified by these stills.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-001-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "upper_clothing",
+              "accepted_labels": [
+                "black",
+                "dark_gray"
+              ]
+            }
+          ],
+          "description": "the near person described as wearing the black jacket",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-002",
+      "neutral_filename": "clip-002.mp4",
+      "source_filename": "A man is walking past and behind a small black saloon car with license plate number B595CO198 - Street Cam1.1 20261005_152338.mp4",
+      "source_bytes": 23380686,
+      "sha256": "b0e606de1c17dc82d3499af6503dca2bb044da0babe694113b23c2bbf5fcfecc",
+      "title": "Person near a parked dark car",
+      "filename_provenance": {
+        "camera_label": "Street Cam 1.1",
+        "suffix_timestamp_text": "20261005_152338",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 51950,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "15620/1039",
+              "start_time": "0.050000",
+              "duration": "51.950000",
+              "nb_frames": "781"
+            }
+          ],
+          "format": {
+            "duration": "51.950000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "person when visible",
+          "car including when stationary",
+          "broad dark vehicle body"
+        ],
+        "medium": [
+          "small saloon/sedan subtype",
+          "person occluded by car"
+        ],
+        "hard": [
+          "exact plate B595CO198",
+          "walks past and behind car (spatial/action relationship)"
+        ],
+        "not_scored": [
+          "man (use person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Samples show the dark car while stationary; person visible behind it at seek 14.546 s and farther away at 21.819 s. Plate not transcribed independently.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-002-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [],
+          "description": "the person passing behind the car",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        },
+        {
+          "target_id": "WT3-002-c1",
+          "subject_id": "c1",
+          "class": "car",
+          "required_colors": [
+            {
+              "region": "vehicle_body",
+              "accepted_labels": [
+                "black",
+                "dark_gray"
+              ]
+            }
+          ],
+          "description": "the prominent parked dark car",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-003",
+      "neutral_filename": "clip-003.mp4",
+      "source_filename": "A person (supposedly grandma) is sitting on th bench further away her figure appears very small then a little girl in blue coat and pink pants rides the scooter  - Street Cam 10.2_20261005_152928.mp4",
+      "source_bytes": 28312145,
+      "sha256": "82ac975bd44caaf8c2e4d947dc0d3aa2ab92fcaac86fe357225abeebf0374a10",
+      "title": "Foreground scooter rider and distant seated person",
+      "filename_provenance": {
+        "camera_label": "Street Cam 10.2",
+        "suffix_timestamp_text": "20261005_152928",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 60000,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "451/30",
+              "start_time": "0.000000",
+              "duration": "60.000000",
+              "nb_frames": "902"
+            }
+          ],
+          "format": {
+            "duration": "60.000000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "foreground rider as person, at its clearest visible part of the clip"
+        ],
+        "medium": [
+          "small distant person",
+          "bench",
+          "scooter",
+          "blue upper clothing",
+          "pink lower clothing",
+          "coat"
+        ],
+        "hard": [
+          "sitting on bench",
+          "riding scooter",
+          "ordered scene description"
+        ],
+        "not_scored": [
+          "supposedly grandma (explicitly uncertain; relationship not visually established)",
+          "little girl (age/gender not required; detect person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 25.200 s shows a foreground person partly occluded by the hedge near the left edge. Distant figures are much smaller. The person target is provisional easy at best visibility; no claim that every frame is easy.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-003-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [],
+          "description": "the foreground scooter rider, not a substitute distant seated person",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-004",
+      "neutral_filename": "clip-004.mp4",
+      "source_filename": "A woman in brown jacket walks out of the building holding a bag in her right hand then sits in a small black saloon car with license plate number B595CO198 and the car drives off - Street Cam 1.1 20261005_152521.mp4",
+      "source_bytes": 22551606,
+      "sha256": "ba2ecd144a01b9a64725b644ebddc1a24559d1ff1c4619e88df4b906e757324f",
+      "title": "Person approaches dark car; car leaves",
+      "filename_provenance": {
+        "camera_label": "Street Cam 1.1",
+        "suffix_timestamp_text": "20261005_152521",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 52950,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "15940/1059",
+              "start_time": "0.050000",
+              "duration": "52.950000",
+              "nb_frames": "797"
+            }
+          ],
+          "format": {
+            "duration": "52.950000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "person",
+          "car including when stationary",
+          "broad dark vehicle body"
+        ],
+        "medium": [
+          "brown jacket (shade/garment association)",
+          "bag",
+          "small saloon/sedan subtype"
+        ],
+        "hard": [
+          "exact plate B595CO198",
+          "bag in right hand",
+          "exits building",
+          "gets into car",
+          "car drives off",
+          "ordered interactions"
+        ],
+        "not_scored": [
+          "woman (use person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 14.826 s shows a person beside the entrance and the dark car. Later samples show the car in a different position and then absent; these stills do not independently establish the entire entry action.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-004-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [],
+          "description": "the person leaving the entrance with a bag",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        },
+        {
+          "target_id": "WT3-004-c1",
+          "subject_id": "c1",
+          "class": "car",
+          "required_colors": [
+            {
+              "region": "vehicle_body",
+              "accepted_labels": [
+                "black",
+                "dark_gray"
+              ]
+            }
+          ],
+          "description": "the prominent dark car",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-005",
+      "neutral_filename": "clip-005.mp4",
+      "source_filename": "A woman in red jump suit is walking with white dog and blu bag in her right hand - Street Cam 10.1_20261005_153009.mp4",
+      "source_bytes": 22731026,
+      "sha256": "03e9eb74a0122cd457742953f458ce230fa68dfae0c57c2e2ec5dc448be5ee49",
+      "title": "Red clothing, dog and bag on path",
+      "filename_provenance": {
+        "camera_label": "Street Cam 10.1",
+        "suffix_timestamp_text": "20261005_153009",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 48950,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "14720/979",
+              "start_time": "0.050000",
+              "duration": "48.950000",
+              "nb_frames": "736"
+            }
+          ],
+          "format": {
+            "duration": "48.950000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "person",
+          "broad red clothing"
+        ],
+        "medium": [
+          "dog",
+          "white dog fur",
+          "bag",
+          "blue bag colour",
+          "jumpsuit garment type"
+        ],
+        "hard": [
+          "walks with dog (relationship)",
+          "bag in right hand"
+        ],
+        "not_scored": [
+          "woman (use person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 13.706 s shows a person in red and a light-coloured dog. Blue bag/right hand not independently confirmed by the contact sheet.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-005-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "clothing",
+              "accepted_labels": [
+                "red"
+              ]
+            }
+          ],
+          "description": "the person in red on the path",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-006",
+      "neutral_filename": "clip-006.mp4",
+      "source_filename": "A woman in red jump suit is walking with white dog and blue bag in her right hand then she opens the gate and walks away with the dog - Street Cam 10.16_20261005_153314.mp4",
+      "source_bytes": 24166193,
+      "sha256": "ab4c72f2bb5e3ca71efdc0965d6789e54d8073db6597d7673496ceda3cce09e8",
+      "title": "Red clothing and dog at gate",
+      "filename_provenance": {
+        "camera_label": "Street Cam 10.16",
+        "suffix_timestamp_text": "20261005_153314",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 51950,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "15640/1039",
+              "start_time": "0.050000",
+              "duration": "51.950000",
+              "nb_frames": "782"
+            }
+          ],
+          "format": {
+            "duration": "51.950000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "person",
+          "broad red clothing"
+        ],
+        "medium": [
+          "dog",
+          "white dog fur",
+          "bag",
+          "blue bag colour",
+          "jumpsuit garment type"
+        ],
+        "hard": [
+          "bag in right hand",
+          "walking with dog",
+          "opens gate",
+          "walks away with dog",
+          "ordered interactions"
+        ],
+        "not_scored": [
+          "woman (use person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 14.546 s shows a near person in red, a light-coloured dog and a blue accessory. Gate action/right-hand claim not established by these samples.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-006-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "clothing",
+              "accepted_labels": [
+                "red"
+              ]
+            }
+          ],
+          "description": "the person in red walking towards the gate",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-007",
+      "neutral_filename": "clip-007.mp4",
+      "source_filename": "Someone sits on a bench then a man in black sporty look is passing and then a woman with a white dog in red jumpsuit with blue bag is passing in opposite direction- Street Cam 10.2_20261005_153201.mp4",
+      "source_bytes": 32601142,
+      "sha256": "968ea6912f8ad5c546e06e4bc8689c5b703643776d2798617424fb8a0b10c17f",
+      "title": "Two foreground passages in opposite directions",
+      "filename_provenance": {
+        "camera_label": "Street Cam 10.2",
+        "suffix_timestamp_text": "20261005_153201",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 69950,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "21040/1399",
+              "start_time": "0.050000",
+              "duration": "69.950000",
+              "nb_frames": "1052"
+            }
+          ],
+          "format": {
+            "duration": "69.950000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "foreground person in dark clothing",
+          "broad dark upper clothing",
+          "foreground person in red clothing",
+          "broad red clothing"
+        ],
+        "medium": [
+          "distant seated person",
+          "bench",
+          "dog",
+          "white dog fur",
+          "bag",
+          "blue bag colour",
+          "sporty clothing style",
+          "jumpsuit garment type"
+        ],
+        "hard": [
+          "sitting on bench",
+          "opposite movement directions",
+          "person-dog association",
+          "ordered passages"
+        ],
+        "not_scored": [
+          "man/woman (use person; distinguish two visible subjects without demographic classification)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 10.492 s shows a near person in dark clothing; 29.379 s shows a different near person in red partly behind the hedge. More than one person target is required, not one generic clip-level person flag.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-007-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "upper_clothing",
+              "accepted_labels": [
+                "black",
+                "dark_gray"
+              ]
+            }
+          ],
+          "description": "the foreground person in dark clothing",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        },
+        {
+          "target_id": "WT3-007-p2",
+          "subject_id": "p2",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "clothing",
+              "accepted_labels": [
+                "red"
+              ]
+            }
+          ],
+          "description": "the different foreground person in red",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    },
+    {
+      "clip_id": "WT3-008",
+      "neutral_filename": "clip-008.mp4",
+      "source_filename": "White mid-sized sedan car with license plate number P910KE178 then a woman in black jacket and plack pants moves bags closer to the entrancer door on the porch and opens the door - Entrance Cam 10.2 20261005_152628.mp4",
+      "source_bytes": 27769021,
+      "sha256": "e6f3330e2282bae8c227c12f7b629cbbba28a2b217c7b0d3164e5bbc76429ff3",
+      "title": "Light car and person moving luggage at entrance",
+      "filename_provenance": {
+        "camera_label": "Entrance Cam 10.2",
+        "suffix_timestamp_text": "20261005_152628",
+        "capture_time_verified": false,
+        "timezone": null
+      },
+      "media": {
+        "duration_ms": 60000,
+        "width": 2560,
+        "height": 1440,
+        "probe": {
+          "programs": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 2560,
+              "height": 1440,
+              "r_frame_rate": "20/1",
+              "avg_frame_rate": "451/30",
+              "start_time": "0.000000",
+              "duration": "60.000000",
+              "nb_frames": "902"
+            }
+          ],
+          "format": {
+            "duration": "60.000000"
+          }
+        },
+        "measurement": "ffprobe; duration/frame count are container metadata, not full-decode validation"
+      },
+      "metadata_buckets": {
+        "easy": [
+          "car",
+          "broad light vehicle body",
+          "person",
+          "broad dark upper clothing"
+        ],
+        "medium": [
+          "mid-sized sedan subtype",
+          "black jacket",
+          "black trousers",
+          "bags/luggage",
+          "entrance door",
+          "porch"
+        ],
+        "hard": [
+          "exact plate P910KE178",
+          "moves bags towards entrance door",
+          "opens door",
+          "ordered interactions"
+        ],
+        "not_scored": [
+          "woman (use person)"
+        ]
+      },
+      "sample_review": {
+        "method": "8 ffmpeg seek stills per clip, viewed by dataset preparer; seek positions are review aids, not frame PTS or gold intervals",
+        "note": "Seek 1.800 s shows a light car; 33.000 s shows a near person in dark clothing and luggage. Plate not transcribed independently.",
+        "exhaustive": false
+      },
+      "targets": [
+        {
+          "target_id": "WT3-008-c1",
+          "subject_id": "c1",
+          "class": "car",
+          "required_colors": [
+            {
+              "region": "vehicle_body",
+              "accepted_labels": [
+                "white",
+                "light_gray"
+              ]
+            }
+          ],
+          "description": "the prominent light car near the start",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        },
+        {
+          "target_id": "WT3-008-p1",
+          "subject_id": "p1",
+          "class": "person",
+          "required_colors": [
+            {
+              "region": "upper_clothing",
+              "accepted_labels": [
+                "black",
+                "dark_gray"
+              ]
+            }
+          ],
+          "description": "the person handling luggage on the porch",
+          "annotation_source": "user_filename",
+          "review_state": "requires_detector_evidence_review"
+        }
+      ]
+    }
+  ]
+}

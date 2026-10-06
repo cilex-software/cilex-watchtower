@@ -735,6 +735,9 @@ Window {
     // and the in-app verification checks. The export folder comes from the same
     // setting the export drawer writes to, so "the recordings you made" is one list.
     LabsTracking { id: labsTracking; exportDir: Artifacts.exportDir }
+    // Stage 3 semantic analysers (objects + object-linked colours), beside the
+    // existing analysers and the temporal tracker, and off by default on the fleet.
+    LabsDetection { id: labsDetection; exportDir: Artifacts.exportDir }
     PlaybackClient { id: playbackClient }
 
     // Admin switched the live-video transport (go2rtc ↔ direct RTSP): re-fetch
@@ -2210,6 +2213,7 @@ Window {
                     labs: labsModel
                     cameraModel: cameraModel
                     tracking: labsTracking
+                    detection: labsDetection
                 }
 
                 HealthScreen {

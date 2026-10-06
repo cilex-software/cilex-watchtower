@@ -33,6 +33,8 @@ Item {
     // The tracking workspace's model (LabsTracking, main/Main.qml). Passed in rather
     // than created here so the "Tracking" tab owns no second engine.
     property var tracking: null
+    // The Stage 3 semantic analysers' model (LabsDetection, Main.qml).
+    property var detection: null
     function openFindings(slug) { findings.period = root.statsWindow; root.findingsSlug = slug }
 
     onVisibleChanged: if (visible && labs) { labs.refresh(); labs.refreshStation() }
@@ -51,6 +53,8 @@ Item {
             if (p[0] === "table") view = "table"
             // "tracking" opens the tracking workspace (run/review/verify).
             if (p[0] === "tracking") view = "tracking"
+            // "detection" opens the Stage 3 semantic-analyser workspace.
+            if (p[0] === "detection") view = "detection"
             if (p[0] === "stats") {
                 view = "stats"
                 if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
@@ -399,7 +403,8 @@ Item {
                 LabsSeg {
                     choices: [ { k: qsTr("Statistics"), v: "stats" },
                                { k: qsTr("Analyser Settings"), v: "table" },
-                               { k: qsTr("Tracking"), v: "tracking" } ]
+                               { k: qsTr("Tracking"), v: "tracking" },
+                               { k: qsTr("Detection"), v: "detection" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -453,6 +458,14 @@ Item {
             Layout.fillHeight: true
             tracking: root.tracking
             cameraModel: root.cameraModel
+        }
+
+        // ===== detection: the Stage 3 semantic analysers =====
+        LabsDetectionPanel {
+            visible: root.view === "detection" && root.findingsSlug === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            detection: root.detection
         }
 
         // ===== one analyser's findings, to watch =====

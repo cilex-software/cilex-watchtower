@@ -1,0 +1,206 @@
+{
+ "clips": [
+  {
+   "clip_id": "WT3-001",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "f009c932660f235c63095b88a24397cbd3770f19454ee1873755b6c549c1cd8d",
+   "observations": 19,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-001-20261005T151211Z",
+   "run_id": "stage3-objects-colours-20261005T151211Z",
+   "run_sha256": "2260398e150235c2495dcf866a76f26e7303e7978bcbcf1e1634f6fd840af087",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "man walking on the path in a dark jacket; upper_clothing dark_gray re-derives from his own torso crop; the light trousers are not part of this target and the lower band is unreliable on this frame",
+     "observation_ids": [
+      "s3o000010"
+     ],
+     "target_id": "WT3-001-p1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-002",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "b0e606de1c17dc82d3499af6503dca2bb044da0babe694113b23c2bbf5fcfecc",
+   "observations": 381,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-002-20261005T151230Z",
+   "run_id": "stage3-objects-colours-20261005T151230Z",
+   "run_sha256": "ba552ef2e144a143f4e3e861a5759c17b8aea071270afe8577ecdc0b5c46a9f2",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "person in a dark puffer jacket carrying a bag; upper_clothing dark_gray from his own torso; the parked car is visible in the same frame",
+     "observation_ids": [
+      "s3o000365"
+     ],
+     "target_id": "WT3-002-p1"
+    },
+    {
+     "decision": "accepted",
+     "note": "the black sedan while parked; vehicle_body black from the car's own body, stationary for the whole sampled interval",
+     "observation_ids": [
+      "s3o000126"
+     ],
+     "target_id": "WT3-002-c1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-003",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "82ac975bd44caaf8c2e4d947dc0d3aa2ab92fcaac86fe357225abeebf0374a10",
+   "observations": 56,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-003-20261005T151250Z",
+   "run_id": "stage3-objects-colours-20261005T151250Z",
+   "run_sha256": "fade5b7fcbaa44003020fa942f7d2754b239529c460085e87fb28bcf94c7354e",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "the foreground child on the scooter is the required person; upper_clothing blue on the navy jacket at confidence 0.31 (low, honest); the pink trousers are a medium target and stay unknown",
+     "observation_ids": [
+      "s3o000015"
+     ],
+     "target_id": "WT3-003-p1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-004",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "ba2ecd144a01b9a64725b644ebddc1a24559d1ff1c4619e88df4b906e757324f",
+   "observations": 397,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-004-20261005T151309Z",
+   "run_id": "stage3-objects-colours-20261005T151309Z",
+   "run_sha256": "b88b6e63282f1c5a59e80dee0bfb4d0ad03cad876dbdb749483d8181ddedf026",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "person seen from behind in a black jacket beside the car; upper_clothing black from her own torso pixels",
+     "observation_ids": [
+      "s3o000154"
+     ],
+     "target_id": "WT3-004-p1"
+    },
+    {
+     "decision": "accepted",
+     "note": "the black sedan while stationary; vehicle_body black; the plate is legible but plate reading is out of scope",
+     "observation_ids": [
+      "s3o000292"
+     ],
+     "target_id": "WT3-004-c1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-005",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "03e9eb74a0122cd457742953f458ce230fa68dfae0c57c2e2ec5dc448be5ee49",
+   "observations": 32,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-005-20261005T151329Z",
+   "run_id": "stage3-objects-colours-20261005T151329Z",
+   "run_sha256": "75a912d8ec2a25fadbff8f495aeade6fd6d5bc94edcca0417b81fef631e25780",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "person in a red suit walking the light dog; upper_clothing red from her own torso",
+     "observation_ids": [
+      "s3o000012"
+     ],
+     "target_id": "WT3-005-p1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-006",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "ab4c72f2bb5e3ca71efdc0965d6789e54d8073db6597d7673496ceda3cce09e8",
+   "observations": 27,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-006-20261005T151344Z",
+   "run_id": "stage3-objects-colours-20261005T151344Z",
+   "run_sha256": "0948cc359e5aeb94751456305ad82b15f83ca5b9d9e3ceeff3a68809284b3e1b",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "person in red at the gate with the dog; red on upper, whole clothing and lower bands",
+     "observation_ids": [
+      "s3o000004"
+     ],
+     "target_id": "WT3-006-p1"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-007",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "968ea6912f8ad5c546e06e4bc8689c5b703643776d2798617424fb8a0b10c17f",
+   "observations": 199,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-007-20261005T151401Z",
+   "run_id": "stage3-objects-colours-20261005T151401Z",
+   "run_sha256": "fcc783db2147689edcf8e24a7fc6c6da2714845e787ad0d8daac9c815b874bd0",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "the first foreground subject: man in a dark top carrying a bag; dark_gray upper from his own torso. Earlier build let the carried bag supply the lower band; region narrowed and re-measured",
+     "observation_ids": [
+      "s3o000040"
+     ],
+     "target_id": "WT3-007-p1"
+    },
+    {
+     "decision": "accepted",
+     "note": "the second foreground subject: woman in a red tracksuit with the dog, a different observation id from p1, no colour shared with it",
+     "observation_ids": [
+      "s3o000108"
+     ],
+     "target_id": "WT3-007-p2"
+    }
+   ]
+  },
+  {
+   "clip_id": "WT3-008",
+   "implementation_sha256": "f0653c9f9c225c97c2e2ff0e1c616acb7d81b3c63dedb4348f4a21fd995c5acf",
+   "input_sha256": "e6f3330e2282bae8c227c12f7b629cbbba28a2b217c7b0d3164e5bbc76429ff3",
+   "observations": 399,
+   "reviewer": "deepseek-flash agent \u2014 development review (viewed annotated frame + object/region crops)",
+   "run_dir": "WT3-008-20261005T151422Z",
+   "run_id": "stage3-objects-colours-20261005T151422Z",
+   "run_sha256": "61a1605f97edfa919c4290a069720c76d400a9b0a106ef878e5bd0406b5b02f0",
+   "source_revision": "7018c87db59c-dirty",
+   "targets": [
+    {
+     "decision": "accepted",
+     "note": "the light car near the start; vehicle_body white at confidence 0.37 \u2014 the pixels agree, the confidence is low and is reported",
+     "observation_ids": [
+      "s3o000014"
+     ],
+     "target_id": "WT3-008-c1"
+    },
+    {
+     "decision": "accepted",
+     "note": "woman in a black coat handling luggage at the entrance; upper_clothing black from her own torso",
+     "observation_ids": [
+      "s3o000264"
+     ],
+     "target_id": "WT3-008-p1"
+    }
+   ]
+  }
+ ],
+ "note": "Development review performed by the named reviewer by viewing the annotated frame plus the object/region crops for each target. The contact sheets are regenerated locally with tools/labs/stage3_review_sheets.py and are NOT committed: the Stage 3 pack keeps evidence local and puts no footage in Git.",
+ "schema": "stage3-development-review/1"
+}
