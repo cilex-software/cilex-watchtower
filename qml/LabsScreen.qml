@@ -46,6 +46,7 @@ Item {
         if (typeof wtLabsView !== "undefined" && wtLabsView !== "") {
             var p = wtLabsView.split(":")
             if (p[0] === "table") view = "table"
+            if (p[0] === "tracks") view = "tracks"
             if (p[0] === "stats") {
                 view = "stats"
                 if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
@@ -392,7 +393,8 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
                 spacing: 14
                 LabsSeg {
-                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" } ]
+                    choices: [ { k: qsTr("Statistics"), v: "stats" }, { k: qsTr("Analyser Settings"), v: "table" },
+                               { k: qsTr("Tracking"), v: "tracks" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -437,6 +439,15 @@ Item {
             onPickWindow: (w) => root.statsWindow = w
             onPickBy: (b) => root.statsBy = b
             onOpenFindings: (slug) => root.openFindings(slug)
+        }
+
+        // ===== tracking: local runs on a picked recording + verification =====
+        // Entirely local (a helper process and the Labs state dir); it never asks
+        // the server for anything, so it is the one Labs view that works offline.
+        LabsTracks {
+            visible: root.view === "tracks" && root.findingsSlug === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
         }
 
         // ===== one analyser's findings, to watch =====

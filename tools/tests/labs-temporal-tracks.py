@@ -44,10 +44,17 @@ import temporal_tracks_adapter as TA    # noqa: E402
 
 fails = []
 _passed = [0]
+_JSONL = False          # --jsonl: one JSON object per check, for the product's
+                        # in-app verification view (track_run.py verify)
 
 
 def check(name, cond, detail=""):
-    print(("PASS " if cond else "FAIL ") + name + (f"   [{detail}]" if detail and not cond else ""))
+    if _JSONL:
+        print(json.dumps({"type": "check", "name": name,
+                          "status": "pass" if cond else "fail", "detail": str(detail)},
+                         ensure_ascii=True, allow_nan=False), flush=True)
+    else:
+        print(("PASS " if cond else "FAIL ") + name + (f"   [{detail}]" if detail and not cond else ""))
     if not cond:
         fails.append(name)
     else:
@@ -324,7 +331,13 @@ def run_adapter_examples():
     try:
         import labs_foreground_mask as fm      # importing it needs numpy + cv2
     except ImportError:
-        print("SKIP adapter fixture examples -- numpy/cv2 not importable on this box")
+        msg = "adapter fixture examples -- numpy/cv2 not importable on this box"
+        if _JSONL:
+            print(json.dumps({"type": "check", "name": "adapter fixture examples",
+                              "status": "skip", "detail": msg}, ensure_ascii=True),
+                  flush=True)
+        else:
+            print("SKIP " + msg)
         return
     data = json.loads(CASES_PATH.read_text(encoding="utf-8"))
     for ex in data["adapter_examples"]:
@@ -1650,6 +1663,8 @@ def run_workload():
 
 
 def main():
+    global _JSONL
+    _JSONL = "--jsonl" in sys.argv
     if "--workload" in sys.argv:
         run_workload()
         return 0
@@ -1675,9 +1690,14 @@ def main():
     test_checkpoint_fuzz()
     test_streaming_mini()
     test_run2_shape()
-    print(f"{_passed[0]} PASS, {len(fails)} FAIL")
-    if fails:
-        print("FAILED:", *fails, sep="\n  ")
+    if _JSONL:
+        print(json.dumps({"type": "summary", "passed": _passed[0],
+                          "failed": len(fails), "skipped": 0},
+                         ensure_ascii=True), flush=True)
+    else:
+        print(f"{_passed[0]} PASS, {len(fails)} FAIL")
+        if fails:
+            print("FAILED:", *fails, sep="\n  ")
     return 1 if fails else 0
 
 

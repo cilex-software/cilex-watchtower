@@ -732,6 +732,21 @@ int main(int argc, char *argv[])
     // WT_LABS_VIEW=stats[:24h|7d|all]: open the Labs screen on its statistics view, for
     // review screenshots. Read-only: it only picks what the screen shows.
     engine.rootContext()->setContextProperty("wtLabsView", qEnvironmentVariable("WT_LABS_VIEW"));
+    // WT_LABS_TRACKS_OPEN=<run_id>: the Labs Tracking view opens that evidence record
+    // once it renders (review screenshots). Read-only; the record is a local file.
+    engine.rootContext()->setContextProperty("wtLabsTracksOpen", qEnvironmentVariable("WT_LABS_TRACKS_OPEN"));
+    // WT_LABS_RUN_FILE/CAMERA/START: drive the Tracking view's REAL run path once —
+    // probe the file, then start the run the operator's buttons would start. For
+    // validation runs and screenshots; nothing is fabricated or bypassed.
+    engine.rootContext()->setContextProperty("wtLabsRunFile", qEnvironmentVariable("WT_LABS_RUN_FILE"));
+    engine.rootContext()->setContextProperty("wtLabsRunCamera", qEnvironmentVariable("WT_LABS_RUN_CAMERA"));
+    engine.rootContext()->setContextProperty("wtLabsRunStart", qEnvironmentVariable("WT_LABS_RUN_START"));
+    // WT_LABS_RUN_CANCEL_MS: cancel an auto-started run after that many ms (the
+    // cancellation path's validation hook; the run records as cancelled).
+    engine.rootContext()->setContextProperty("wtLabsRunCancelMs", qEnvironmentVariableIntValue("WT_LABS_RUN_CANCEL_MS"));
+    // WT_LABS_VERIFY=<contract|regressions|workload|integration[+failure]>: start
+    // that verification suite when the Tracking view opens (validation runs).
+    engine.rootContext()->setContextProperty("wtLabsVerify", qEnvironmentVariable("WT_LABS_VERIFY"));
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.
