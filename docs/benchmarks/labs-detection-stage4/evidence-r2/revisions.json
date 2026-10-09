@@ -1,0 +1,95 @@
+{
+ "frozen_config": {
+  "confidence": 0.3,
+  "decode_width": 1280,
+  "input_size": 256,
+  "primary_iou": 0.5,
+  "runtime": "auto",
+  "sampling": "native-1hz-pts",
+  "sensitivity_iou": 0.3,
+  "size_policy": "bbox-area-v1",
+  "threads": 2
+ },
+ "revisions": {
+  "r0": {
+   "approaches": {
+    "A": {
+     "architecture": "scratch-cnn-anchorfree",
+     "cache_dir": "cache384",
+     "cache_size": 384,
+     "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/A-scratch/final.pt",
+     "checkpoint_sha256": null,
+     "checkpoint_verified": null,
+     "epochs": 50,
+     "manifest": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/A-scratch/manifest.json",
+     "manifest_sha256": null,
+     "onnx": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/A-scratch/final.onnx",
+     "onnx_sha256": null,
+     "onnx_verified": null,
+     "problems": [],
+     "usable": true
+    },
+    "B": {
+     "architecture": "resnet18-frozen-trunk-anchorfree-head",
+     "cache_dir": "cache384",
+     "cache_size": 384,
+     "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/B-resnet18/final.pt",
+     "checkpoint_sha256": null,
+     "checkpoint_verified": null,
+     "epochs": 40,
+     "manifest": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/B-resnet18/manifest.json",
+     "manifest_sha256": null,
+     "onnx": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/training/B-resnet18/final.onnx",
+     "onnx_sha256": null,
+     "onnx_verified": null,
+     "problems": [],
+     "usable": true
+    }
+   },
+   "description": "The original Stage 4 checkpoints, trained with the 384/256 geometry defect. Kept for comparison only; explicitly NOT used as a fallback when an R1 artifact is missing or wrong-hash.",
+   "label": "R0 \u2014 original submission (historical, not selected)",
+   "status": "historical"
+  },
+  "r1": {
+   "approaches": {
+    "A": {
+     "architecture": "scratch-cnn-anchorfree",
+     "cache_dir": "cache256",
+     "cache_size": 256,
+     "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-A/final.pt",
+     "checkpoint_sha256": "de75734020a283a945066b5209cb7926fa331f4f3843a1f6e61b673c5f141ea4",
+     "checkpoint_verified": true,
+     "epochs": 50,
+     "manifest": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-A/manifest.json",
+     "manifest_sha256": "1a8aa69d1a64b18d5da4a70fedb77ec0a83104f7bb749f8cf7aa19e2ee1cdd23",
+     "onnx": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-A/final.onnx",
+     "onnx_sha256": "0e339c00f676541d37e17d863f7bfeeffc37e3047788ecd493484804874239fa",
+     "onnx_verified": true,
+     "problems": [],
+     "usable": true
+    },
+    "B": {
+     "architecture": "resnet18-frozen-trunk-anchorfree-head",
+     "cache_dir": "cache256",
+     "cache_size": 256,
+     "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-B/final.pt",
+     "checkpoint_sha256": "559d7a3b539cfb76beb3cb65e2521aeda8f7728a2b4637b1622ff237bc280401",
+     "checkpoint_verified": true,
+     "epochs": 40,
+     "manifest": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-B/manifest.json",
+     "manifest_sha256": "f867bc459c34dcbe11affaa470f3e289e952ad955c2d0b3db520a50bc0be7856",
+     "onnx": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-B/final.onnx",
+     "onnx_sha256": "8aec21db2750c7425a59ad3b24a5f38b714dbb3205d0bd758821b842e6fd9187",
+     "onnx_verified": true,
+     "problems": [],
+     "usable": true
+    }
+   },
+   "description": "Trained on the matching-resolution cache256 with the explicit validated letterbox transform. This is the revision ordinary Run, model cards, controls and evidence use.",
+   "label": "R1 \u2014 geometry-corrected training (selected)",
+   "status": "selected"
+  }
+ },
+ "schema": "stage4-revisions/1",
+ "selected": "r1"
+}

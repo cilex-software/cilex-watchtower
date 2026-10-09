@@ -1,0 +1,92 @@
+{
+ "approach": "B",
+ "cache": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/cache256",
+ "cache_size": 256,
+ "checkpoint": "build/stage4/R1-training/R1-B/final.pt",
+ "checkpoint_sha256": "559d7a3b539cfb76beb3cb65e2521aeda8f7728a2b4637b1622ff237bc280401",
+ "confidence": 0.3,
+ "frame_stats": {
+  "frames": 135,
+  "frames_with_predictions": 34,
+  "frames_with_references": 108,
+  "predictions": 51,
+  "references": 242
+ },
+ "input_size": 256,
+ "label": "B-R1-retrained",
+ "model_meta": {
+  "epoch": 40,
+  "seed": 20261006,
+  "tag": "R1-B"
+ },
+ "primary": {
+  "iou_threshold": 0.5,
+  "macro": {
+   "classes_measured": 3,
+   "f1": 0.026455026455026454
+  },
+  "micro": {
+   "f1": 0.027303754266211604,
+   "fn": 238,
+   "fp": 47,
+   "precision": 0.0784313725490196,
+   "recall": 0.01652892561983471,
+   "tp": 4
+  },
+  "per_class": {
+   "animal": {
+    "f1": 0.05555555555555555,
+    "fn": 42,
+    "fp": 26,
+    "mean_iou": 0.5856440512208541,
+    "precision": 0.07142857142857142,
+    "predicted": 28,
+    "recall": 0.045454545454545456,
+    "recall_state": "measured",
+    "reference": 44,
+    "tp": 2
+   },
+   "car": {
+    "f1": 0.0,
+    "fn": 52,
+    "fp": 1,
+    "mean_iou": null,
+    "precision": 0.0,
+    "predicted": 1,
+    "recall": 0.0,
+    "recall_state": "measured",
+    "reference": 52,
+    "tp": 0
+   },
+   "human": {
+    "f1": 0.023809523809523808,
+    "fn": 144,
+    "fp": 20,
+    "mean_iou": 0.5782739085399594,
+    "precision": 0.09090909090909091,
+    "predicted": 22,
+    "recall": 0.0136986301369863,
+    "recall_state": "measured",
+    "reference": 146,
+    "tp": 2
+   }
+  }
+ },
+ "primary_iou": 0.5,
+ "random_init": false,
+ "schema": "stage4-r1-frame-evaluation/1",
+ "sensitivity_iou_0.3": {
+  "f1": 0.0955631399317406,
+  "fn": 228,
+  "fp": 37,
+  "precision": 0.27450980392156865,
+  "recall": 0.05785123966942149,
+  "tp": 14
+ },
+ "sensitivity_per_class": {
+  "animal": 0.33333333333333326,
+  "car": 0.0,
+  "human": 0.023809523809523808
+ },
+ "split": "validation"
+}

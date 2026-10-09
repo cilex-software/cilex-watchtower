@@ -1,5 +1,9 @@
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -10,6 +14,9 @@
 #include <QSGRendererInterface>
 #include <QFontDatabase>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QImage>
 #include <QTimer>
 #include <QDebug>
@@ -61,6 +68,7 @@
 #include "AuthController.h"
 #include "LiveProxy.h"
 #include "models/DeepLink.h"
+#include "models/LabsStage4.h"
 #include "models/CvImageProvider.h"
 #include "models/FlightRecorder.h"
 #include "models/MetalCacheProbe.h"
@@ -746,6 +754,124 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("wtStage3Run", qEnvironmentVariableIsSet("WT_LABS_STAGE3_RUN"));
     engine.rootContext()->setContextProperty("wtStage3Checks", qEnvironmentVariable("WT_LABS_STAGE3_CHECKS"));
     engine.rootContext()->setContextProperty("wtStage3Reviewer", qEnvironmentVariable("WT_LABS_STAGE3_REVIEWER"));
+    // WT_LABS_STAGE4_RUN / WT_LABS_STAGE4_OBS (main.cpp): open a run and select one
+    // of its observations at startup, so the in-app acceptance pass (playback seek
+    // and overlay at the observed PTS) can be exercised and captured without a
+    // human clicking. Off by default.
+    engine.rootContext()->setContextProperty("wtStage4Run", qEnvironmentVariable("WT_LABS_STAGE4_RUN"));
+    engine.rootContext()->setContextProperty("wtStage4Obs", qEnvironmentVariable("WT_LABS_STAGE4_OBS"));
+    // WT_LABS_STAGE4_SWITCH_TO: after loading a run, switch the approach, so the
+    // in-app stale-result clearing can be exercised and captured.
+    engine.rootContext()->setContextProperty("wtStage4SwitchTo",
+                                             qEnvironmentVariable("WT_LABS_STAGE4_SWITCH_TO"));
+    // WT_LABS_STAGE4_STATEDUMP=<path>: application self-test hook. The REAL
+    // controller writes its own state (input, approach, revision, run, selection,
+    // evidence availability) so product-path checks can assert on the running
+    // application instead of on a Python re-implementation. No authentication is
+    // bypassed: the Labs screen still requires a signed-in session, and the dump is
+    // written after the application has run normally.
+    {
+        const QString dumpPath = qEnvironmentVariable("WT_LABS_STAGE4_STATEDUMP");
+        if (!dumpPath.isEmpty()) {
+            engine.rootContext()->setContextProperty("wtStage4StateDump", dumpPath);
+        }
+        {
+            const QString switchInput = qEnvironmentVariable("WT_LABS_STAGE4_SWITCH_INPUT");
+            if (!switchInput.isEmpty())
+                engine.rootContext()->setContextProperty("wtStage4SwitchInput", switchInput);
+            if (qEnvironmentVariableIsSet("WT_LABS_STAGE4_VERIFY_ARTIFACTS"))
+                engine.rootContext()->setContextProperty("wtStage4VerifyArtifacts", "1");
+        }
+    }
+    // WT_LABS_STAGE4_FILTER_SELFTEST (main.cpp): run the shared V1 filter case file
+    // through the C++ filter boundary and print the verdicts as JSON, then exit.
+    // The Python side runs the same file, so a divergence between the operator's
+    // filter and the evaluator's becomes a check failure instead of a silent
+    // difference. Off by default and inert without the variable.
+    const QString stage4Selftest = qEnvironmentVariable("WT_LABS_STAGE4_FILTER_SELFTEST");
+    if (!stage4Selftest.isEmpty()) {
+        LabsStage4 selftest;
+        QFile cases(stage4Selftest);
+        if (!cases.open(QIODevice::ReadOnly)) {
+            qCritical() << "filter selftest: cannot read" << stage4Selftest;
+            return 3;
+        }
+        const QJsonObject spec = QJsonDocument::fromJson(cases.readAll()).object();
+        cases.close();
+        QJsonArray results;
+        for (const QJsonValue &v : spec.value(QStringLiteral("cases")).toArray()) {
+            const QJsonObject c = v.toObject();
+            const QJsonObject q = c.value(QStringLiteral("query")).toObject();
+            // Reset EVERY filter for each case. Setting only the fields a case
+            // mentions let the previous case's size/type selection leak forward
+            // (measured: two cases failed against the C++ boundary purely because
+            // a stale `sizes: ["small"]` was still active).
+            selftest.clearFilters();
+            QStringList types;
+            for (const QJsonValue &t : q.value(QStringLiteral("types")).toArray())
+                types << t.toString();
+            selftest.setProperty("filterTypes", types);
+            QStringList sizes;
+            for (const QJsonValue &t : q.value(QStringLiteral("sizes")).toArray())
+                sizes << t.toString();
+            selftest.setProperty("filterSizes", sizes);
+            selftest.setProperty("filterLocation",
+                                 q.value(QStringLiteral("colour_location")).toString());
+            const QJsonArray srgb = q.value(QStringLiteral("colour_srgb")).toArray();
+            if (srgb.size() == 3) {
+                const QColor picked(srgb[0].toInt(), srgb[1].toInt(), srgb[2].toInt());
+                selftest.setProperty("filterColourHex", picked.name());
+                selftest.setProperty("filterColourActive", true);
+            } else {
+                selftest.setProperty("filterColourActive", false);
+            }
+            selftest.setProperty("filterTolerance",
+                                 q.value(QStringLiteral("tolerance")).toDouble(20.0));
+            selftest.setProperty("includeUncertain",
+                                 q.value(QStringLiteral("include_uncertain")).toBool(false));
+            selftest.setProperty("recordingMeta",
+                                 c.value(QStringLiteral("recording")).toObject().toVariantMap());
+            const QJsonObject window = q.value(QStringLiteral("time_window")).toObject();
+            selftest.setProperty("filterTimeFrom",
+                                 window.value(QStringLiteral("from")).toString());
+            selftest.setProperty("filterTimeTo", window.value(QStringLiteral("to")).toString());
+            selftest.setProperty("filterCamera", q.value(QStringLiteral("camera")).toString());
+            selftest.setProperty("filterArea", q.value(QStringLiteral("area")).toString());
+            const QVariantMap verdict = selftest.evaluateFilter(
+                c.value(QStringLiteral("observation")).toObject().toVariantMap());
+            QJsonObject row;
+            row.insert(QStringLiteral("name"), c.value(QStringLiteral("name")).toString());
+            row.insert(QStringLiteral("state"), verdict.value(QStringLiteral("state")).toString());
+            row.insert(QStringLiteral("region"), verdict.value(QStringLiteral("region")).toString());
+            const QVariant d = verdict.value(QStringLiteral("delta_e"));
+            row.insert(QStringLiteral("delta_e"), d.isNull() ? QJsonValue() : QJsonValue(d.toDouble()));
+            row.insert(QStringLiteral("expected"), c.value(QStringLiteral("expected")).toString());
+            row.insert(QStringLiteral("reason"),
+                       verdict.value(QStringLiteral("reason")).toString());
+            results.append(row);
+        }
+        // The published CIEDE2000 pairs through the C++ implementation as well: the
+        // Python side reports the same numbers, so both are pinned to the paper.
+        QJsonArray deltas;
+        for (const QJsonValue &v : spec.value(QStringLiteral("ciede2000_pairs")).toArray()) {
+            const QJsonArray pair = v.toArray();
+            if (pair.size() != 7)
+                continue;
+            const double d = selftest.deltaE2000(
+                {pair[0].toDouble(), pair[1].toDouble(), pair[2].toDouble()},
+                {pair[3].toDouble(), pair[4].toDouble(), pair[5].toDouble()});
+            QJsonObject row;
+            row.insert(QStringLiteral("expected"), pair[6].toDouble());
+            row.insert(QStringLiteral("got"), d);
+            deltas.append(row);
+        }
+        QJsonObject out;
+        out.insert(QStringLiteral("cases"), results);
+        out.insert(QStringLiteral("ciede2000"), deltas);
+        QTextStream(stdout) << QString::fromUtf8(
+            QJsonDocument(out).toJson(QJsonDocument::Compact)) << Qt::endl;
+        return 0;
+    }
     // Playback "One Axis" screenshot hooks: open the speed ladder / mark an
     // export range once the session renders. They drive the real controls, so
     // a verification screenshot shows the shipped behaviour, not a mock.

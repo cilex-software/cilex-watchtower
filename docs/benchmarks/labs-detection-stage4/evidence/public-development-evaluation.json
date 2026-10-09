@@ -1,0 +1,1916 @@
+{
+ "kind": "stage4-public-development-evaluation",
+ "runs": [
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "A",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 76,
+    "wrong": 0
+   },
+   "clip_id": "S4-016",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 76,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 33,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 76,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 33,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 76,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "A-20261006T175623Z-959f08",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "B",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 76,
+    "wrong": 0
+   },
+   "clip_id": "S4-016",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 76,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 33,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 76,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 33,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 73,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 76,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "B-20261006T175701Z-8244e1",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "A",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 47,
+    "wrong": 0
+   },
+   "clip_id": "S4-017",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 47,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 24,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 24,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 23,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 23,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 47,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 24,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 24,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 23,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 23,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 18,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 47,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "A-20261006T175644Z-b84825",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "B",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 47,
+    "wrong": 0
+   },
+   "clip_id": "S4-017",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 47,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 24,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 24,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 23,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 23,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 47,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 24,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 24,
+      "tp": 0
+     },
+     "car": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 23,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 23,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 18,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 70,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 47,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "B-20261006T175728Z-f39446",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "A",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 120,
+    "wrong": 0
+   },
+   "clip_id": "S4-027",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 120,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 44,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 76,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 76,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 120,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 44,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 76,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 76,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 120,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "A-20261006T175635Z-06cd43",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "B",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 120,
+    "wrong": 0
+   },
+   "clip_id": "S4-027",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 120,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 44,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 76,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 76,
+      "tp": 0
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 2,
+     "f1": 0.0
+    },
+    "micro": {
+     "f1": 0.0,
+     "fn": 120,
+     "fp": 0,
+     "precision": null,
+     "recall": 0.0,
+     "tp": 0
+    },
+    "per_class": {
+     "animal": {
+      "f1": null,
+      "fn": 0,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 44,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 76,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 76,
+      "tp": 0
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 0.0,
+    "per_reviewed_minute": 0.0,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "30": {
+      "fn": 44,
+      "fp": 0,
+      "precision": null,
+      "recall": 0.0,
+      "tp": 0
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 120,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "B-20261006T175718Z-d3f1e3",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "A",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 34,
+    "wrong": 0
+   },
+   "clip_id": "S4-010",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.01893622946254525
+    },
+    "micro": {
+     "f1": 0.05560098119378578,
+     "fn": 0,
+     "fp": 1155,
+     "precision": 0.028595458368376788,
+     "recall": 1.0,
+     "tp": 34
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 24,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 24,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 2,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 2,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.05680868838763575,
+      "fn": 0,
+      "fp": 1129,
+      "mean_iou": 0.416820307575851,
+      "precision": 0.029234737747205503,
+      "predicted": 1163,
+      "recall": 1.0,
+      "recall_state": "measured",
+      "reference": 34,
+      "tp": 34
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.004455583402951825
+    },
+    "micro": {
+     "f1": 0.013082583810302535,
+     "fn": 26,
+     "fp": 1181,
+     "precision": 0.00672834314550042,
+     "recall": 0.23529411764705882,
+     "tp": 8
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 24,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 24,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 2,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 2,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.013366750208855473,
+      "fn": 26,
+      "fp": 1155,
+      "mean_iou": 0.5491052312480821,
+      "precision": 0.006878761822871883,
+      "predicted": 1163,
+      "recall": 0.23529411764705882,
+      "recall_state": "measured",
+      "reference": 34,
+      "tp": 8
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 10,
+    "per_reviewed_frame": 26.84090909090909,
+    "per_reviewed_minute": 106.5563909774436,
+    "predicted_objects_on_those_frames": 284,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 33,
+      "fp": 71,
+      "precision": 0.013888888888888888,
+      "recall": 0.029411764705882353,
+      "tp": 1
+     },
+     "20": {
+      "fn": 32,
+      "fp": 152,
+      "precision": 0.012987012987012988,
+      "recall": 0.058823529411764705,
+      "tp": 2
+     },
+     "30": {
+      "fn": 30,
+      "fp": 195,
+      "precision": 0.020100502512562814,
+      "recall": 0.11764705882352941,
+      "tp": 4
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 26,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "A-20261006T175744Z-06b281",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "B",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 34,
+    "wrong": 0
+   },
+   "clip_id": "S4-010",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.015215553677092137
+    },
+    "micro": {
+     "f1": 0.04066265060240964,
+     "fn": 7,
+     "fp": 1267,
+     "precision": 0.020865533230293665,
+     "recall": 0.7941176470588235,
+     "tp": 27
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 2,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 2,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 143,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 143,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.04564666103127641,
+      "fn": 7,
+      "fp": 1122,
+      "mean_iou": 0.4027149184315379,
+      "precision": 0.02349869451697128,
+      "predicted": 1149,
+      "recall": 0.7941176470588235,
+      "recall_state": "measured",
+      "reference": 34,
+      "tp": 27
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.005071851225697379
+    },
+    "micro": {
+     "f1": 0.013554216867469878,
+     "fn": 25,
+     "fp": 1285,
+     "precision": 0.006955177743431221,
+     "recall": 0.2647058823529412,
+     "tp": 9
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 2,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 2,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 143,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 143,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.015215553677092137,
+      "fn": 25,
+      "fp": 1140,
+      "mean_iou": 0.5502643796721624,
+      "precision": 0.007832898172323759,
+      "predicted": 1149,
+      "recall": 0.2647058823529412,
+      "recall_state": "measured",
+      "reference": 34,
+      "tp": 9
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 10,
+    "per_reviewed_frame": 29.204545454545453,
+    "per_reviewed_minute": 115.93984962406014,
+    "predicted_objects_on_those_frames": 293,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 34,
+      "fp": 72,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tp": 0
+     },
+     "20": {
+      "fn": 33,
+      "fp": 125,
+      "precision": 0.007936507936507936,
+      "recall": 0.029411764705882353,
+      "tp": 1
+     },
+     "30": {
+      "fn": 31,
+      "fp": 181,
+      "precision": 0.016304347826086956,
+      "recall": 0.08823529411764706,
+      "tp": 3
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 25,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "B-20261006T175952Z-c84f3e",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "A",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 76,
+    "wrong": 0
+   },
+   "clip_id": "S4-016",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.029751624311209802
+    },
+    "micro": {
+     "f1": 0.0468417317246274,
+     "fn": 43,
+     "fp": 1300,
+     "precision": 0.024756189047261814,
+     "recall": 0.4342105263157895,
+     "tp": 33
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.03571428571428571,
+      "fn": 41,
+      "fp": 67,
+      "mean_iou": 0.44850866164052217,
+      "precision": 0.028985507246376812,
+      "predicted": 69,
+      "recall": 0.046511627906976744,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 2
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 139,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 139,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0535405872193437,
+      "fn": 2,
+      "fp": 1094,
+      "mean_iou": 0.3882000095922522,
+      "precision": 0.027555555555555555,
+      "predicted": 1125,
+      "recall": 0.9393939393939394,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 31
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.010558022863722344
+    },
+    "micro": {
+     "f1": 0.0127750177430802,
+     "fn": 67,
+     "fp": 1324,
+     "precision": 0.006751687921980495,
+     "recall": 0.11842105263157894,
+     "tp": 9
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.017857142857142856,
+      "fn": 42,
+      "fp": 68,
+      "mean_iou": 0.5047390752026026,
+      "precision": 0.014492753623188406,
+      "predicted": 69,
+      "recall": 0.023255813953488372,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 1
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 139,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 139,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.013816925734024179,
+      "fn": 25,
+      "fp": 1117,
+      "mean_iou": 0.6138569547779216,
+      "precision": 0.0071111111111111115,
+      "predicted": 1125,
+      "recall": 0.24242424242424243,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 8
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 30.09090909090909,
+    "per_reviewed_minute": 119.45864661654134,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 71,
+      "fp": 72,
+      "precision": 0.02702702702702703,
+      "recall": 0.0273972602739726,
+      "tp": 2
+     },
+     "20": {
+      "fn": 71,
+      "fp": 153,
+      "precision": 0.012903225806451613,
+      "recall": 0.0273972602739726,
+      "tp": 2
+     },
+     "30": {
+      "fn": 71,
+      "fp": 255,
+      "precision": 0.007782101167315175,
+      "recall": 0.0273972602739726,
+      "tp": 2
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 67,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "A-20261006T175914Z-f10512",
+   "status": "completed"
+  },
+  {
+   "apparent_size": {
+    "accuracy": null,
+    "confusion": {
+     "big": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "medium": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     },
+     "small": {
+      "big": 0,
+      "medium": 0,
+      "small": 0
+     }
+    },
+    "correct": 0,
+    "matched": 0,
+    "state": "not measured"
+   },
+   "approach": "B",
+   "broad_colour": {
+    "abstained_unknown": 0,
+    "accuracy_on_known": null,
+    "correct": 0,
+    "coverage": null,
+    "known_reference": 0,
+    "lab_delta_e_mean": null,
+    "missing_object": 0,
+    "numeric_pairs": 0,
+    "numeric_state": "not measured",
+    "unknown_reference": 76,
+    "wrong": 0
+   },
+   "clip_id": "S4-016",
+   "coverage": {
+    "analysed": 44,
+    "failed": 0,
+    "scheduled": 44
+   },
+   "detection_iou_0.3": {
+    "iou_threshold": 0.3,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.008173690932311623
+    },
+    "micro": {
+     "f1": 0.020969855832241154,
+     "fn": 60,
+     "fp": 1434,
+     "precision": 0.011034482758620689,
+     "recall": 0.21052631578947367,
+     "tp": 16
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 54,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 54,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 124,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 124,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.024521072796934867,
+      "fn": 17,
+      "fp": 1256,
+      "mean_iou": 0.4374674433777012,
+      "precision": 0.012578616352201259,
+      "predicted": 1272,
+      "recall": 0.48484848484848486,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 16
+     }
+    }
+   },
+   "detection_iou_0.5": {
+    "iou_threshold": 0.5,
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.0025542784163473816
+    },
+    "micro": {
+     "f1": 0.006553079947575361,
+     "fn": 71,
+     "fp": 1445,
+     "precision": 0.0034482758620689655,
+     "recall": 0.06578947368421052,
+     "tp": 5
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.0,
+      "fn": 43,
+      "fp": 54,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 54,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 43,
+      "tp": 0
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 0,
+      "fp": 124,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 124,
+      "recall": null,
+      "recall_state": "not measured",
+      "reference": 0,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.007662835249042145,
+      "fn": 28,
+      "fp": 1267,
+      "mean_iou": 0.5887969661262205,
+      "precision": 0.003930817610062893,
+      "predicted": 1272,
+      "recall": 0.15151515151515152,
+      "recall_state": "measured",
+      "reference": 33,
+      "tp": 5
+     }
+    }
+   },
+   "false_positives": {
+    "frames_with_no_reference_object": 0,
+    "per_reviewed_frame": 32.84090909090909,
+    "per_reviewed_minute": 130.37593984962405,
+    "predicted_objects_on_those_frames": 0,
+    "reviewed_frames": 44,
+    "schedule_note": "frames are the released sampled keyframes, one per whole second by construction"
+   },
+   "filters": {
+    "note": "queries are built from reference colours; the numeric query value is the broad label's anchor sRGB, converted to D65 Lab by the same code the product uses",
+    "tolerances": {
+     "10": {
+      "fn": 72,
+      "fp": 101,
+      "precision": 0.00980392156862745,
+      "recall": 0.0136986301369863,
+      "tp": 1
+     },
+     "20": {
+      "fn": 71,
+      "fp": 138,
+      "precision": 0.014285714285714285,
+      "recall": 0.0273972602739726,
+      "tp": 2
+     },
+     "30": {
+      "fn": 71,
+      "fp": 214,
+      "precision": 0.009259259259259259,
+      "recall": 0.0273972602739726,
+      "tp": 2
+     }
+    }
+   },
+   "reference_limits": {
+    "missing_objects_counted": 71,
+    "numeric_colour": "not measured: the public references carry broad labels with srgb null and numeric_reference_status not_annotated"
+   },
+   "run_id": "B-20261006T180043Z-174564",
+   "status": "completed"
+  }
+ ],
+ "schema_version": 1
+}

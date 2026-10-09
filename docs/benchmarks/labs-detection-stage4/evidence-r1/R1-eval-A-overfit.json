@@ -1,0 +1,92 @@
+{
+ "approach": "A",
+ "cache": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/cache256",
+ "cache_size": 256,
+ "checkpoint": "build/stage4/R1-smoke/R1-overfit/final.pt",
+ "checkpoint_sha256": "953c532dbad2c482b52f1f380b5e8633abedd25db2641d9436a27ff30ff7e356",
+ "confidence": 0.3,
+ "frame_stats": {
+  "frames": 24,
+  "frames_with_predictions": 6,
+  "frames_with_references": 9,
+  "predictions": 8,
+  "references": 9
+ },
+ "input_size": 256,
+ "label": "R1 overfit 24 frames (memorised)",
+ "model_meta": {
+  "epoch": 25,
+  "seed": 20261006,
+  "tag": "R1-overfit"
+ },
+ "primary": {
+  "iou_threshold": 0.5,
+  "macro": {
+   "classes_measured": 1,
+   "f1": 0.7058823529411765
+  },
+  "micro": {
+   "f1": 0.7058823529411765,
+   "fn": 3,
+   "fp": 2,
+   "precision": 0.75,
+   "recall": 0.6666666666666666,
+   "tp": 6
+  },
+  "per_class": {
+   "animal": {
+    "f1": null,
+    "fn": 0,
+    "fp": 0,
+    "mean_iou": null,
+    "precision": null,
+    "predicted": 0,
+    "recall": null,
+    "recall_state": "not measured",
+    "reference": 0,
+    "tp": 0
+   },
+   "car": {
+    "f1": null,
+    "fn": 0,
+    "fp": 0,
+    "mean_iou": null,
+    "precision": null,
+    "predicted": 0,
+    "recall": null,
+    "recall_state": "not measured",
+    "reference": 0,
+    "tp": 0
+   },
+   "human": {
+    "f1": 0.7058823529411765,
+    "fn": 3,
+    "fp": 2,
+    "mean_iou": 0.73149433159154,
+    "precision": 0.75,
+    "predicted": 8,
+    "recall": 0.6666666666666666,
+    "recall_state": "measured",
+    "reference": 9,
+    "tp": 6
+   }
+  }
+ },
+ "primary_iou": 0.5,
+ "random_init": false,
+ "schema": "stage4-r1-frame-evaluation/1",
+ "sensitivity_iou_0.3": {
+  "f1": 0.7058823529411765,
+  "fn": 3,
+  "fp": 2,
+  "precision": 0.75,
+  "recall": 0.6666666666666666,
+  "tp": 6
+ },
+ "sensitivity_per_class": {
+  "animal": null,
+  "car": null,
+  "human": 0.7058823529411765
+ },
+ "split": "fitting"
+}

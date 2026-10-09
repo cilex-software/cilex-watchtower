@@ -1,0 +1,42 @@
+{
+ "cgroup_memory_peak_after": null,
+ "cgroup_memory_peak_before": null,
+ "cgroup_memory_peak_delta": null,
+ "command": [
+  "python3",
+  "tools/labs/stage4_analyse.py",
+  "--input",
+  "/home/cilex-vision/Videos/Watchtower-Stage4/clips/clip-016.mp4",
+  "--approach",
+  "A",
+  "--checkpoint",
+  "build/stage4/R1-training/R1-A/final.pt",
+  "--output",
+  "/tmp/r1-memrun-A-auto",
+  "--runtime",
+  "auto",
+  "--threads",
+  "2"
+ ],
+ "exit_code": 0,
+ "interval_s": 0.05,
+ "label": "R1-A-auto",
+ "peak_processes": {
+  "1840439": 84078592,
+  "1840723": 301203456
+ },
+ "peak_tree_rss_bytes": 385282048,
+ "peak_tree_rss_mib": 367.43,
+ "per_process_peak_rss_bytes": {
+  "1840439": 111575040,
+  "1840491": 55828480,
+  "1840519": 184602624,
+  "1840723": 301203456,
+  "1840996": 271032320
+ },
+ "samples": 154,
+ "sampling_limit": "RSS is sampled, not instrumented: a spike shorter than the interval can be missed",
+ "stderr_tail": "",
+ "stdout_tail": "\"objects\": 1, \"pts_ms\": 10040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 166, \"objects\": 2, \"pts_ms\": 11040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 181, \"objects\": 3, \"pts_ms\": 12040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 196, \"objects\": 1, \"pts_ms\": 13040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 211, \"objects\": 1, \"pts_ms\": 14040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 226, \"objects\": 1, \"pts_ms\": 15040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 241, \"objects\": 2, \"pts_ms\": 16040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 256, \"objects\": 2, \"pts_ms\": 17040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 271, \"objects\": 2, \"pts_ms\": 18040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 286, \"objects\": 2, \"pts_ms\": 19000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 302, \"objects\": 0, \"pts_ms\": 20040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 317, \"objects\": 1, \"pts_ms\": 21040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 332, \"objects\": 1, \"pts_ms\": 22040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 347, \"objects\": 0, \"pts_ms\": 23040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 362, \"objects\": 3, \"pts_ms\": 24000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 377, \"objects\": 2, \"pts_ms\": 25000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 392, \"objects\": 2, \"pts_ms\": 26000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 407, \"objects\": 1, \"pts_ms\": 27000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 423, \"objects\": 2, \"pts_ms\": 28040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 438, \"objects\": 2, \"pts_ms\": 29040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 453, \"objects\": 1, \"pts_ms\": 30040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 468, \"objects\": 0, \"pts_ms\": 31040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 484, \"objects\": 2, \"pts_ms\": 32040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 499, \"objects\": 0, \"pts_ms\": 33040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 514, \"objects\": 1, \"pts_ms\": 34040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 529, \"objects\": 0, \"pts_ms\": 35040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 544, \"objects\": 0, \"pts_ms\": 36000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 559, \"objects\": 1, \"pts_ms\": 37000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 574, \"objects\": 0, \"pts_ms\": 38000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 589, \"objects\": 2, \"pts_ms\": 39000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 605, \"objects\": 2, \"pts_ms\": 40040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 620, \"objects\": 2, \"pts_ms\": 41040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 635, \"objects\": 0, \"pts_ms\": 42040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 650, \"objects\": 0, \"pts_ms\": 43040.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"event\": \"frame\", \"frame_index\": 665, \"objects\": 0, \"pts_ms\": 44000.0, \"run_id\": \"A-20261006T220646Z-53453a\"}\n{\"errors\": [], \"event\": \"finished\", \"observations\": 56, \"run_dir\": \"/tmp/r1-memrun-A-auto\", \"run_id\": \"A-20261006T220646Z-53453a\", \"status\": \"completed\"}\n",
+ "wall_seconds": 7.75
+}

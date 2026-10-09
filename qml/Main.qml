@@ -738,6 +738,9 @@ Window {
     // Stage 3 semantic analysers (objects + object-linked colours), beside the
     // existing analysers and the temporal tracker, and off by default on the fleet.
     LabsDetection { id: labsDetection; exportDir: Artifacts.exportDir }
+    // Stage 4: the A/B object, size and colour analysers trained on the released
+    // public data. Local only — nothing here is registered or activated on a server.
+    LabsStage4 { id: labsStage4 }
     PlaybackClient { id: playbackClient }
 
     // Admin switched the live-video transport (go2rtc ↔ direct RTSP): re-fetch
@@ -2214,6 +2217,7 @@ Window {
                     cameraModel: cameraModel
                     tracking: labsTracking
                     detection: labsDetection
+                    stage4: labsStage4
                 }
 
                 HealthScreen {

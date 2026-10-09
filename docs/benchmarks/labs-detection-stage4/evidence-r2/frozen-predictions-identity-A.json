@@ -1,0 +1,32 @@
+{
+ "approach": "A",
+ "cache": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/cache256",
+ "cache_manifest_sha256": "78d9983101d49decba244bdd432e5f6d72a9a023c48328e87bcb52eaccb482d2",
+ "cache_size": 256,
+ "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-A/final.pt",
+ "checkpoint_sha256": "de75734020a283a945066b5209cb7926fa331f4f3843a1f6e61b673c5f141ea4",
+ "checkpoint_verified": true,
+ "frames": 135,
+ "frozen_config": {
+  "confidence": 0.3,
+  "decode_width": 1280,
+  "input_size": 256,
+  "primary_iou": 0.5,
+  "runtime": "auto",
+  "sampling": "native-1hz-pts",
+  "sensitivity_iou": 0.3,
+  "size_policy": "bbox-area-v1",
+  "threads": 2
+ },
+ "note": "one pass per checkpoint; raw predictions saved BEFORE scoring",
+ "predictions": 57,
+ "predictions_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/predictions-A.jsonl",
+ "predictions_sha256": "13b438371a8984a7742761634e7002c28c781af66837410ce468ecbaf583299d",
+ "references_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/references-A.jsonl",
+ "references_sha256": "244726f2c4b491dcc4fe55120a9063cdcd793b30c6e03a3314b58a3cbb251ca7",
+ "revision": "r1",
+ "schema": "stage4-frozen-predictions/1",
+ "split": "validation",
+ "split_path": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/split.json",
+ "split_sha256": "7309d722e1362ecd9cfcd15f06ddc0abeeb0e8453c2a79d66e3e4ce0e70aff58"
+}

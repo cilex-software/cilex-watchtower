@@ -1,0 +1,378 @@
+{
+ "approaches": {
+  "A": {
+   "coverage": {
+    "complete": true,
+    "empty_records": 101,
+    "problems": [],
+    "records": 135,
+    "requested": 135
+   },
+   "deltas": {
+    "animal": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    },
+    "car": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    },
+    "human": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    }
+   },
+   "explanation": {
+    "coverage": "frames are scored only where a prediction record exists; the coverage block states how many were requested, recorded and empty",
+    "ignore_regions": "unmatched predictions at least half inside a class-scoped released ignore region move from FP to IGNORED; they stay visible in the raw counts",
+    "matching": "cardinality is identical in both paths (verified), so TP/FP/FN from matching cannot move because of the exact tie-break; what changes is WHICH reference a prediction is paired with and therefore the mean IoU and any matched-pair analysis"
+   },
+   "identity": {
+    "approach": "A",
+    "cache": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/cache256",
+    "cache_manifest_sha256": "78d9983101d49decba244bdd432e5f6d72a9a023c48328e87bcb52eaccb482d2",
+    "cache_size": 256,
+    "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-A/final.pt",
+    "checkpoint_sha256": "de75734020a283a945066b5209cb7926fa331f4f3843a1f6e61b673c5f141ea4",
+    "checkpoint_verified": true,
+    "frames": 135,
+    "frozen_config": {
+     "confidence": 0.3,
+     "decode_width": 1280,
+     "input_size": 256,
+     "primary_iou": 0.5,
+     "runtime": "auto",
+     "sampling": "native-1hz-pts",
+     "sensitivity_iou": 0.3,
+     "size_policy": "bbox-area-v1",
+     "threads": 2
+    },
+    "note": "one pass per checkpoint; raw predictions saved BEFORE scoring",
+    "predictions": 57,
+    "predictions_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/predictions-A.jsonl",
+    "predictions_sha256": "13b438371a8984a7742761634e7002c28c781af66837410ce468ecbaf583299d",
+    "references_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/references-A.jsonl",
+    "references_sha256": "244726f2c4b491dcc4fe55120a9063cdcd793b30c6e03a3314b58a3cbb251ca7",
+    "revision": "r1",
+    "schema": "stage4-frozen-predictions/1",
+    "split": "validation",
+    "split_path": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/split.json",
+    "split_sha256": "7309d722e1362ecd9cfcd15f06ddc0abeeb0e8453c2a79d66e3e4ce0e70aff58"
+   },
+   "new": {
+    "macro": {
+     "classes_measured": 3,
+     "classes_supported": [
+      "human",
+      "car",
+      "animal"
+     ],
+     "denominator_note": "macro averages the F1 of classes WITH reference support; classes without support are reported as not measured and excluded, never as a perfect score",
+     "f1": 0.006944444444444445
+    },
+    "micro": {
+     "f1": 0.006688963210702342,
+     "fn": 241,
+     "fp": 56,
+     "ignored": 0,
+     "precision": 0.017543859649122806,
+     "recall": 0.004132231404958678,
+     "tp": 1
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.020833333333333336,
+      "f1_state": "measured",
+      "fn": 43,
+      "fp": 51,
+      "frames_with_reference": 44,
+      "ignored": 0,
+      "mean_iou": 0.5543418872916995,
+      "precision": 0.019230769230769232,
+      "predicted": 52,
+      "recall": 0.022727272727272728,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 1
+     },
+     "car": {
+      "f1": 0.0,
+      "f1_state": "measured",
+      "fn": 52,
+      "fp": 0,
+      "frames_with_reference": 52,
+      "ignored": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 52,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "f1_state": "measured",
+      "fn": 146,
+      "fp": 5,
+      "frames_with_reference": 90,
+      "ignored": 0,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 5,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 146,
+      "tp": 0
+     }
+    }
+   },
+   "old": {
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.006944444444444445
+    },
+    "micro": {
+     "f1": 0.006688963210702342,
+     "fn": 241,
+     "fp": 56,
+     "precision": 0.017543859649122806,
+     "recall": 0.004132231404958678,
+     "tp": 1
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.020833333333333336,
+      "fn": 43,
+      "fp": 51,
+      "mean_iou": 0.5543418872916995,
+      "precision": 0.019230769230769232,
+      "predicted": 52,
+      "recall": 0.022727272727272728,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 1
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 52,
+      "fp": 0,
+      "mean_iou": null,
+      "precision": null,
+      "predicted": 0,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 52,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.0,
+      "fn": 146,
+      "fp": 5,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 5,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 146,
+      "tp": 0
+     }
+    }
+   }
+  },
+  "B": {
+   "coverage": {
+    "complete": true,
+    "empty_records": 101,
+    "problems": [],
+    "records": 135,
+    "requested": 135
+   },
+   "deltas": {
+    "animal": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    },
+    "car": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    },
+    "human": {
+     "fn": 0,
+     "fp": 0,
+     "ignored_new": 0,
+     "tp": 0
+    }
+   },
+   "explanation": {
+    "coverage": "frames are scored only where a prediction record exists; the coverage block states how many were requested, recorded and empty",
+    "ignore_regions": "unmatched predictions at least half inside a class-scoped released ignore region move from FP to IGNORED; they stay visible in the raw counts",
+    "matching": "cardinality is identical in both paths (verified), so TP/FP/FN from matching cannot move because of the exact tie-break; what changes is WHICH reference a prediction is paired with and therefore the mean IoU and any matched-pair analysis"
+   },
+   "identity": {
+    "approach": "B",
+    "cache": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/cache256",
+    "cache_manifest_sha256": "78d9983101d49decba244bdd432e5f6d72a9a023c48328e87bcb52eaccb482d2",
+    "cache_size": 256,
+    "checkpoint": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R1-training/R1-B/final.pt",
+    "checkpoint_sha256": "559d7a3b539cfb76beb3cb65e2521aeda8f7728a2b4637b1622ff237bc280401",
+    "checkpoint_verified": true,
+    "frames": 135,
+    "frozen_config": {
+     "confidence": 0.3,
+     "decode_width": 1280,
+     "input_size": 256,
+     "primary_iou": 0.5,
+     "runtime": "auto",
+     "sampling": "native-1hz-pts",
+     "sensitivity_iou": 0.3,
+     "size_policy": "bbox-area-v1",
+     "threads": 2
+    },
+    "note": "one pass per checkpoint; raw predictions saved BEFORE scoring",
+    "predictions": 51,
+    "predictions_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/predictions-B.jsonl",
+    "predictions_sha256": "40acc8130ae7bb0e9ebbf30e59919e0981c37830a1bc56f126bd82c68809e1a3",
+    "references_file": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/R2-frozen-predictions/references-B.jsonl",
+    "references_sha256": "244726f2c4b491dcc4fe55120a9063cdcd793b30c6e03a3314b58a3cbb251ca7",
+    "revision": "r1",
+    "schema": "stage4-frozen-predictions/1",
+    "split": "validation",
+    "split_path": "/home/cilex-vision/projects/cilex-watchtower-deepseek/build/stage4/split.json",
+    "split_sha256": "7309d722e1362ecd9cfcd15f06ddc0abeeb0e8453c2a79d66e3e4ce0e70aff58"
+   },
+   "new": {
+    "macro": {
+     "classes_measured": 3,
+     "classes_supported": [
+      "human",
+      "car",
+      "animal"
+     ],
+     "denominator_note": "macro averages the F1 of classes WITH reference support; classes without support are reported as not measured and excluded, never as a perfect score",
+     "f1": 0.026455026455026454
+    },
+    "micro": {
+     "f1": 0.027303754266211604,
+     "fn": 238,
+     "fp": 47,
+     "ignored": 0,
+     "precision": 0.0784313725490196,
+     "recall": 0.01652892561983471,
+     "tp": 4
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.05555555555555555,
+      "f1_state": "measured",
+      "fn": 42,
+      "fp": 26,
+      "frames_with_reference": 44,
+      "ignored": 0,
+      "mean_iou": 0.5856465931861091,
+      "precision": 0.07142857142857142,
+      "predicted": 28,
+      "recall": 0.045454545454545456,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 2
+     },
+     "car": {
+      "f1": 0.0,
+      "f1_state": "measured",
+      "fn": 52,
+      "fp": 1,
+      "frames_with_reference": 52,
+      "ignored": 0,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 1,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 52,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.023809523809523808,
+      "f1_state": "measured",
+      "fn": 144,
+      "fp": 20,
+      "frames_with_reference": 90,
+      "ignored": 0,
+      "mean_iou": 0.5782745344855957,
+      "precision": 0.09090909090909091,
+      "predicted": 22,
+      "recall": 0.0136986301369863,
+      "recall_state": "measured",
+      "reference": 146,
+      "tp": 2
+     }
+    }
+   },
+   "old": {
+    "macro": {
+     "classes_measured": 3,
+     "f1": 0.026455026455026454
+    },
+    "micro": {
+     "f1": 0.027303754266211604,
+     "fn": 238,
+     "fp": 47,
+     "precision": 0.0784313725490196,
+     "recall": 0.01652892561983471,
+     "tp": 4
+    },
+    "per_class": {
+     "animal": {
+      "f1": 0.05555555555555555,
+      "fn": 42,
+      "fp": 26,
+      "mean_iou": 0.5856465931861091,
+      "precision": 0.07142857142857142,
+      "predicted": 28,
+      "recall": 0.045454545454545456,
+      "recall_state": "measured",
+      "reference": 44,
+      "tp": 2
+     },
+     "car": {
+      "f1": 0.0,
+      "fn": 52,
+      "fp": 1,
+      "mean_iou": null,
+      "precision": 0.0,
+      "predicted": 1,
+      "recall": 0.0,
+      "recall_state": "measured",
+      "reference": 52,
+      "tp": 0
+     },
+     "human": {
+      "f1": 0.023809523809523808,
+      "fn": 144,
+      "fp": 20,
+      "mean_iou": 0.5782745344855957,
+      "precision": 0.09090909090909091,
+      "predicted": 22,
+      "recall": 0.0136986301369863,
+      "recall_state": "measured",
+      "reference": 146,
+      "tp": 2
+     }
+    }
+   }
+  }
+ },
+ "note": "identical frozen predictions scored by both paths; a scoring correction is not improved recognition",
+ "schema": "stage4-r2-scoring-comparison/1"
+}

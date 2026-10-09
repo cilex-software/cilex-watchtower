@@ -35,6 +35,8 @@ Item {
     property var tracking: null
     // The Stage 3 semantic analysers' model (LabsDetection, Main.qml).
     property var detection: null
+    // The Stage 4 A/B analysers' model (LabsStage4, Main.qml).
+    property var stage4: null
     function openFindings(slug) { findings.period = root.statsWindow; root.findingsSlug = slug }
 
     onVisibleChanged: if (visible && labs) { labs.refresh(); labs.refreshStation() }
@@ -55,6 +57,8 @@ Item {
             if (p[0] === "tracking") view = "tracking"
             // "detection" opens the Stage 3 semantic-analyser workspace.
             if (p[0] === "detection") view = "detection"
+            // "stage4" opens the Stage 4 A/B workspace (objects, size, colour).
+            if (p[0] === "stage4") view = "stage4"
             if (p[0] === "stats") {
                 view = "stats"
                 if (p.length > 1 && ["24h", "7d", "all"].indexOf(p[1]) >= 0) statsWindow = p[1]
@@ -404,7 +408,8 @@ Item {
                     choices: [ { k: qsTr("Statistics"), v: "stats" },
                                { k: qsTr("Analyser Settings"), v: "table" },
                                { k: qsTr("Tracking"), v: "tracking" },
-                               { k: qsTr("Detection"), v: "detection" } ]
+                               { k: qsTr("Detection"), v: "detection" },
+                               { k: qsTr("Stage 4"), v: "stage4" } ]
                     value: root.view
                     onPicked: (v) => root.view = v
                 }
@@ -466,6 +471,14 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             detection: root.detection
+        }
+
+        // ===== stage 4: object, apparent size, colour and colour location =====
+        LabsStage4Panel {
+            visible: root.view === "stage4" && root.findingsSlug === ""
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            stage4: root.stage4
         }
 
         // ===== one analyser's findings, to watch =====
