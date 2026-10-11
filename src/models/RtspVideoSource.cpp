@@ -566,6 +566,13 @@ int RtspVideoSource::erroredCount()
 void RtspVideoSource::teardown()
 {
     PipelineBuildPump::instance().cancel(this);   // drop any queued (not-yet-started) build
+    {
+        // Detaching callbacks does not cancel a sample already being copied.
+        // Revoke its right to publish before detaching/reusing the pipeline.
+        std::lock_guard<std::mutex> flock(m_frameMutex);
+        m_frameSource = nullptr;
+        m_pendingFrame = QVideoFrame();
+    }
     if (m_busWatch) {
         g_source_remove(m_busWatch);
         m_busWatch = 0;
@@ -591,8 +598,8 @@ void RtspVideoSource::teardown()
         }
         // A healthy, already-lit decode pipeline is parked for adoption (see ParkingLot);
         // everything else dies as before.
-        const bool parkable = !m_warmOnly && !m_noPark && m_deliveredSinceBuild && !m_errored
-                              && parkGraceMs() > 0 && !m_url.isEmpty();
+        const bool parkable = !m_pipelineWarmOnly && !m_noPark && m_deliveredSinceBuild && !m_errored
+                              && parkGraceMs() > 0 && !m_pipelineUrl.isEmpty();
         if (parkable) {
             ParkedPipeline e;
             e.pipeline = p;
@@ -600,17 +607,13 @@ void RtspVideoSource::teardown()
             e.parkedAtMs = steadyMs();
             e.decoderBound = m_decoderBound.load();
             e.latencyMs = m_latencyMs;
-            ParkingLot::instance().park(m_url, std::move(e));
+            ParkingLot::instance().park(m_pipelineUrl, std::move(e));
         } else {
             destroyPipelineAsync(p);
         }
     }
-    // The mailbox may still hold a frame from the pipeline that just left; a deliver() already
-    // queued must not push it under a URL this source is about to change to (identity rule).
-    {
-        std::lock_guard<std::mutex> flock(m_frameMutex);
-        m_pendingFrame = QVideoFrame();
-    }
+    m_pipelineUrl.clear();
+    m_pipelineWarmOnly = false;
     m_lastFrame = QVideoFrame();
     setPlaying(false);
 }
@@ -751,6 +754,8 @@ void RtspVideoSource::startPipelineNow()
         return;
     }
     if (err) g_error_free(err);
+    m_pipelineUrl = m_url;
+    m_pipelineWarmOnly = m_warmOnly;
 
     // WT_WALL_BADURL=<url>: test harness — force pipelines onto an unresponsive/erroring source so the churn
     // (WT_WALL_CHURN) tears down BAD-STATE pipelines (the go2rtc-instability path the crash hit), not healthy
@@ -765,6 +770,10 @@ void RtspVideoSource::startPipelineNow()
         gst_object_unref(src);
     }
     if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
+        {
+            std::lock_guard<std::mutex> flock(m_frameMutex);
+            m_frameSource = GST_APP_SINK(sinkEl);
+        }
         GstAppSinkCallbacks cbs = {};
         cbs.new_sample = &RtspVideoSource::onNewSample;
         gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &cbs, this, nullptr);
@@ -828,10 +837,16 @@ bool RtspVideoSource::tryAdoptParked()
         return false;
     }
     m_pipeline = e.pipeline;
+    m_pipelineUrl = m_url;
+    m_pipelineWarmOnly = false;
     m_bus = bus;
     m_busWatch = watch;
     qstrncpy(m_urlTag, QUrl(m_url).toString(QUrl::RemoveUserInfo).right(38).toUtf8().constData(), sizeof m_urlTag);
     if (GstElement *sinkEl = gst_bin_get_by_name(GST_BIN(m_pipeline), "sink")) {
+        {
+            std::lock_guard<std::mutex> flock(m_frameMutex);
+            m_frameSource = GST_APP_SINK(sinkEl);
+        }
         GstAppSinkCallbacks cbs = {};
         cbs.new_sample = &RtspVideoSource::onNewSample;
         gst_app_sink_set_callbacks(GST_APP_SINK(sinkEl), &cbs, this, nullptr);
@@ -931,15 +946,6 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
     // first_deliver it splits "decoder produced a frame" from "the GUI got a real one".
     // Behind the alive check, reading only POD fields: `me` may be mid-destruction.
     {
-        std::lock_guard<std::mutex> lock(aliveMutex());
-        if (aliveSet().count(me) == 0)
-            return GST_FLOW_OK;
-        if (!me->m_sawFirstSample) {
-            me->m_sawFirstSample = true;
-            qInfo("[LIVETIME] first_sample url=%s", me->m_urlTag);
-        }
-    }
-    if (frame.isValid()) {
         // Streaming-thread → GUI-thread hop, COALESCED. Posting EVERY decoded frame via a
         // QueuedConnection is unbounded: 16 pipelines × 15 fps = 240 frames/s, each holding a
         // full RGBA buffer (~3.7 MB). When the GUI thread falls behind (picker render, relayout)
@@ -955,6 +961,14 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
         bool needPost = false;
         {
             std::lock_guard<std::mutex> flock(me->m_frameMutex);
+            if (me->m_frameSource != sink)
+                return GST_FLOW_OK; // a callback from a camera we have left
+            if (!me->m_sawFirstSample) {
+                me->m_sawFirstSample = true;
+                qInfo("[LIVETIME] first_sample url=%s", me->m_urlTag);
+            }
+            if (!frame.isValid())
+                return GST_FLOW_OK;
             // Count what ARRIVES here and what dies here. Until 2026-08-16 neither was
             // counted: `g_totalFrames` increments in deliver() and VideoSurface's own
             // tick fires on QVideoSink::videoFrameChanged, so BOTH existing frame

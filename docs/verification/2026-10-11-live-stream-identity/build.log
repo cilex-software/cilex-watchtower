@@ -1,0 +1,254 @@
+[0/1] Re-running CMake...
+-- Could NOT find Qt6Quick3D (missing: Qt6Quick3D_DIR)
+CMake Warning at /usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package):
+  Found package configuration file:
+
+    /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Quick3DSpatialAudio/Qt6Quick3DSpatialAudioConfig.cmake
+
+  but it set Qt6Quick3DSpatialAudio_FOUND to FALSE so package
+  "Qt6Quick3DSpatialAudio" is considered to be NOT FOUND.  Reason given by
+  package:
+
+  Qt6Quick3DSpatialAudio could not be found because dependency Qt6Quick3D
+  could not be found.
+
+  Configuring with --debug-find-pkg=Qt6Quick3D might reveal details why the
+  package was not found.
+
+  Configuring with -DQT_DEBUG_FIND_PACKAGE=ON will print the values of some
+  of the path variables that find_package uses to try and find the package.
+
+Call Stack (most recent call first):
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/QtPublicDependencyHelpers.cmake:142 (find_dependency)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudiopluginDependencies.cmake:22 (_qt_internal_find_qt_dependencies)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudiopluginConfig.cmake:40 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/QtPublicPluginHelpers.cmake:638 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlPlugins.cmake:6 (__qt_internal_include_qml_plugin_packages)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlConfig.cmake:199 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/Qt6Config.cmake:257 (find_package)
+  CMakeLists.txt:19 (find_package)
+
+
+CMake Warning (dev) at /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:3782 (message):
+  qml/WatchNames.js is not an ECMAScript module and also doesn't contain
+  '.pragma library'.  It will be re-evaluated in the context of every QML
+  document that explicitly or implicitly imports Watchtower.  Set its
+  QT_QML_SKIP_QMLDIR_ENTRY source file property to FALSE if you really want
+  this to happen.  Set it to TRUE to prevent it.
+Call Stack (most recent call first):
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:1018 (qt6_target_qml_sources)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:1486 (qt6_add_qml_module)
+  CMakeLists.txt:118 (qt_add_qml_module)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring done (2.6s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/cilex-vision/projects/cilex-watchtower/build
+[1/199] Generating watchtower_en.qm
+Updating '/home/cilex-vision/projects/cilex-watchtower/build/watchtower_en.qm'...
+    Generated 100 translation(s) (99 finished and 1 unfinished)
+    Ignored 1219 untranslated source text(s)
+[2/199] Generating watchtower_ru.qm
+Updating '/home/cilex-vision/projects/cilex-watchtower/build/watchtower_ru.qm'...
+    Generated 1319 translation(s) (1319 finished and 0 unfinished)
+[3/199] Copying watchtower qml sources into build dir
+[4/199] Running qmlimportscanner for watchtower
+[5/199] Automatic MOC and UIC for target watchtower
+[6/199] Running rcc for resource qmake_Watchtower
+[7/199] Generating .rcc/qmlcache/watchtower_qmlcache_loader.cpp
+[8/199] Running rcc for resource watchtower_translations
+[9/199] Running AUTOMOC file extraction for target watchtower
+[10/199] Running moc --collect-json for target watchtower
+[11/199] Automatic QML type registration for target watchtower
+[12/199] Generating .rcc/qmlcache/watchtower_qml_Main_qml.cpp
+[13/199] Generating .rcc/qmlcache/watchtower_qml_LoginScreen_qml.cpp
+[14/199] Generating .rcc/qmlcache/watchtower_qml_AlertsDropdown_qml.cpp
+[15/199] Generating .rcc/qmlcache/watchtower_qml_Theme_qml.cpp
+[16/199] Generating .rcc/qmlcache/watchtower_qml_LayoutSpec_qml.cpp
+[17/199] Generating .rcc/qmlcache/watchtower_qml_ReconnectCoordinator_qml.cpp
+[18/199] Generating .rcc/qmlcache/watchtower_qml_EventStyle_qml.cpp
+[19/199] Generating .rcc/qmlcache/watchtower_qml_EventsStore_qml.cpp
+[20/199] Generating .rcc/qmlcache/watchtower_qml_EvIcon_qml.cpp
+[21/199] Generating .rcc/qmlcache/watchtower_qml_Sev_qml.cpp
+[22/199] Generating .rcc/qmlcache/watchtower_qml_TypePill_qml.cpp
+[23/199] Generating .rcc/qmlcache/watchtower_qml_StateTag_qml.cpp
+[24/199] Generating .rcc/qmlcache/watchtower_qml_EvButton_qml.cpp
+[25/199] Generating .rcc/qmlcache/watchtower_qml_EvPersonGlyph_qml.cpp
+[26/199] Generating .rcc/qmlcache/watchtower_qml_EvVehicleGlyph_qml.cpp
+[27/199] Generating .rcc/qmlcache/watchtower_qml_EvSnapshot_qml.cpp
+[28/199] Generating .rcc/qmlcache/watchtower_qml_EvPlayer_qml.cpp
+[29/199] Generating .rcc/qmlcache/watchtower_qml_EvHeroPlayer_qml.cpp
+[30/199] Generating .rcc/qmlcache/watchtower_qml_EvTriage_qml.cpp
+[31/199] Running rcc for resource watchtower_raw_qml_0
+[32/199] Generating .rcc/qmlcache/watchtower_qml_EvWall_qml.cpp
+[33/199] Generating .rcc/qmlcache/watchtower_qml_EvVerify_qml.cpp
+[34/199] Generating .rcc/qmlcache/watchtower_qml_EvSessions_qml.cpp
+[35/199] Generating .rcc/qmlcache/watchtower_qml_EvTimeline_qml.cpp
+[36/199] Generating .rcc/qmlcache/watchtower_qml_EvMap_qml.cpp
+[37/199] Generating .rcc/qmlcache/watchtower_qml_EventsArea_qml.cpp
+[38/199] Generating .rcc/qmlcache/watchtower_qml_NetIcon_qml.cpp
+[39/199] Generating .rcc/qmlcache/watchtower_qml_Icon_qml.cpp
+[40/199] Generating .rcc/qmlcache/watchtower_qml_StatusBadge_qml.cpp
+[41/199] Generating .rcc/qmlcache/watchtower_qml_LiveStatusBadge_qml.cpp
+[42/199] Generating .rcc/qmlcache/watchtower_qml_RecordingStatusBadge_qml.cpp
+[43/199] Generating .rcc/qmlcache/watchtower_qml_IconButton_qml.cpp
+[44/199] Generating .rcc/qmlcache/watchtower_qml_PlaceholderVid_qml.cpp
+[45/199] Generating .rcc/qmlcache/watchtower_qml_FilterPill_qml.cpp
+[46/199] Generating .rcc/qmlcache/watchtower_qml_CameraTile_qml.cpp
+[47/199] Generating .rcc/qmlcache/watchtower_qml_PaginationControl_qml.cpp
+[48/199] Generating .rcc/qmlcache/watchtower_qml_StatusSummaryChip_qml.cpp
+[49/199] Generating .rcc/qmlcache/watchtower_qml_EmptyState_qml.cpp
+[50/199] Generating .rcc/qmlcache/watchtower_qml_LoadingState_qml.cpp
+[51/199] Generating .rcc/qmlcache/watchtower_qml_NavRail_qml.cpp
+[52/199] Generating .rcc/qmlcache/watchtower_qml_TitleBar_qml.cpp
+[53/199] Generating .rcc/qmlcache/watchtower_qml_TabStrip_qml.cpp
+[54/199] Generating .rcc/qmlcache/watchtower_qml_TopBar_qml.cpp
+[55/199] Generating .rcc/qmlcache/watchtower_qml_OpsSidebar_qml.cpp
+[56/199] Generating .rcc/qmlcache/watchtower_qml_GroupSwitcher_qml.cpp
+[57/199] Generating .rcc/qmlcache/watchtower_qml_CameraGroups_qml.cpp
+[58/199] Generating .rcc/qmlcache/watchtower_qml_LiveMonitor_qml.cpp
+[59/199] Generating .rcc/qmlcache/watchtower_qml_PtzPanel_qml.cpp
+[60/199] Generating .rcc/qmlcache/watchtower_qml_SingleCameraDetail_qml.cpp
+[61/199] Generating .rcc/qmlcache/watchtower_qml_LiveThumb_qml.cpp
+[62/199] Generating .rcc/qmlcache/watchtower_qml_GroupSuggestions_qml.cpp
+[63/199] Generating .rcc/qmlcache/watchtower_qml_PbFmt_qml.cpp
+[64/199] Generating .rcc/qmlcache/watchtower_qml_ExportProgress_qml.cpp
+[65/199] Generating .rcc/qmlcache/watchtower_qml_PbRibbon_qml.cpp
+[66/199] Generating .rcc/qmlcache/watchtower_qml_PbNavHeader_qml.cpp
+[67/199] Generating .rcc/qmlcache/watchtower_qml_PbLanes_qml.cpp
+[68/199] Generating .rcc/qmlcache/watchtower_qml_LabsNames_qml.cpp
+[69/199] Generating .rcc/qmlcache/watchtower_qml_LabsCard_qml.cpp
+[70/199] Generating .rcc/qmlcache/watchtower_qml_PbTransport_qml.cpp
+[71/199] Generating .rcc/qmlcache/watchtower_qml_PlaybackScreen_qml.cpp
+[72/199] Generating .rcc/qmlcache/watchtower_qml_PbEventsPanel_qml.cpp
+[73/199] Generating .rcc/qmlcache/watchtower_qml_PbBanner_qml.cpp
+[74/199] Generating .rcc/qmlcache/watchtower_qml_FrameStepper_qml.cpp
+[75/199] Generating .rcc/qmlcache/watchtower_qml_FrameStrip_qml.cpp
+[76/199] Generating .rcc/qmlcache/watchtower_qml_FrameHarvester_qml.cpp
+[77/199] Generating .rcc/qmlcache/watchtower_qml_PlaybackCalendar_qml.cpp
+[78/199] Generating .rcc/qmlcache/watchtower_qml_WpCell_qml.cpp
+[79/199] Generating .rcc/qmlcache/watchtower_qml_ExportDrawer_qml.cpp
+[80/199] Generating .rcc/qmlcache/watchtower_qml_HealthScreen_qml.cpp
+[81/199] Generating .rcc/qmlcache/watchtower_qml_WallPlayback_qml.cpp
+[82/199] Generating .rcc/qmlcache/watchtower_qml_LabsScreen_qml.cpp
+[83/199] Generating .rcc/qmlcache/watchtower_qml_LabsStats_qml.cpp
+[84/199] Generating .rcc/qmlcache/watchtower_qml_LabsSeg_qml.cpp
+[85/199] Generating .rcc/qmlcache/watchtower_qml_LabsSemanticSearch_qml.cpp
+[86/199] Generating .rcc/qmlcache/watchtower_qml_LabsFindings_qml.cpp
+[87/199] Generating .rcc/qmlcache/watchtower_qml_SavedViewsScreen_qml.cpp
+[88/199] Generating .rcc/qmlcache/watchtower_qml_EventsScreen_qml.cpp
+[89/199] Generating .rcc/qmlcache/watchtower_qml_SaveViewModal_qml.cpp
+[90/199] Generating .rcc/qmlcache/watchtower_qml_CommandPalette_qml.cpp
+[91/199] Generating .rcc/qmlcache/watchtower_qml_PreferencesScreen_qml.cpp
+[92/199] Generating .rcc/qmlcache/watchtower_qml_ClipsScreen_qml.cpp
+[93/199] Generating .rcc/qmlcache/watchtower_qml_VideoSurface_qml.cpp
+[94/199] Generating .rcc/qmlcache/watchtower_qml_HdCapTest_qml.cpp
+[95/199] Generating .rcc/qmlcache/watchtower_qml_VideoTest_qml.cpp
+[96/199] Generating .rcc/qmlcache/watchtower_qml_Toast_qml.cpp
+[97/199] Generating .rcc/qmlcache/watchtower_qml_WatchChip_qml.cpp
+[98/199] Generating .rcc/qmlcache/watchtower_qml_WatchNames_js.cpp
+[99/199] Generating .rcc/qmlcache/watchtower_qml_ToastHost_qml.cpp
+[100/199] Generating .rcc/qmlcache/watchtower_qml_GroupsStatus_js.cpp
+[101/199] Building CXX object CMakeFiles/watchtower.dir/src/main.cpp.o
+/home/cilex-vision/projects/cilex-watchtower/src/main.cpp: In function ‘void {anonymous}::wtFatalHandler(int)’:
+/home/cilex-vision/projects/cilex-watchtower/src/main.cpp:183:16: warning: ignoring return value of ‘ssize_t write(int, const void*, size_t)’ declared with attribute ‘warn_unused_result’ [-Wunused-result]
+  183 |         ::write(STDERR_FILENO, line, size_t(len));
+      |         ~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[102/199] Building CXX object CMakeFiles/watchtower.dir/watchtower_autogen/mocs_compilation.cpp.o
+[103/199] Building CXX object CMakeFiles/watchtower.dir/build/.qt/rcc/qrc_qmake_Watchtower.cpp.o
+[104/199] Building CXX object CMakeFiles/watchtower.dir/watchtower_qmltyperegistrations.cpp.o
+[105/199] Building CXX object CMakeFiles/watchtower.dir/src/models/LabsSemanticSearchModel.cpp.o
+[106/199] Building CXX object CMakeFiles/watchtower.dir/src/models/RtspVideoSource.cpp.o
+[107/199] Building CXX object CMakeFiles/watchtower.dir/src/models/MemTelemetry.cpp.o
+[108/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qmlcache_loader.cpp.o
+[109/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_Main_qml.cpp.o
+[110/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LoginScreen_qml.cpp.o
+[111/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_AlertsDropdown_qml.cpp.o
+[112/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_Theme_qml.cpp.o
+[113/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LayoutSpec_qml.cpp.o
+[114/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_ReconnectCoordinator_qml.cpp.o
+[115/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EventStyle_qml.cpp.o
+[116/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EventsStore_qml.cpp.o
+[117/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvIcon_qml.cpp.o
+[118/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_Sev_qml.cpp.o
+[119/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_TypePill_qml.cpp.o
+[120/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_StateTag_qml.cpp.o
+[121/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvButton_qml.cpp.o
+[122/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvPersonGlyph_qml.cpp.o
+[123/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvVehicleGlyph_qml.cpp.o
+[124/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvPlayer_qml.cpp.o
+[125/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvSnapshot_qml.cpp.o
+[126/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvHeroPlayer_qml.cpp.o
+[127/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvTriage_qml.cpp.o
+[128/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvWall_qml.cpp.o
+[129/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvSessions_qml.cpp.o
+[130/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvVerify_qml.cpp.o
+[131/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvTimeline_qml.cpp.o
+[132/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EvMap_qml.cpp.o
+[133/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EventsArea_qml.cpp.o
+[134/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_NetIcon_qml.cpp.o
+[135/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_Icon_qml.cpp.o
+[136/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_StatusBadge_qml.cpp.o
+[137/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LiveStatusBadge_qml.cpp.o
+[138/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_IconButton_qml.cpp.o
+[139/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_RecordingStatusBadge_qml.cpp.o
+[140/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PlaceholderVid_qml.cpp.o
+[141/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_CameraTile_qml.cpp.o
+[142/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PaginationControl_qml.cpp.o
+[143/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_FilterPill_qml.cpp.o
+[144/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_StatusSummaryChip_qml.cpp.o
+[145/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EmptyState_qml.cpp.o
+[146/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LoadingState_qml.cpp.o
+[147/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_NavRail_qml.cpp.o
+[148/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_TitleBar_qml.cpp.o
+[149/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_TabStrip_qml.cpp.o
+[150/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_TopBar_qml.cpp.o
+[151/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_OpsSidebar_qml.cpp.o
+[152/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_GroupSwitcher_qml.cpp.o
+[153/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LiveMonitor_qml.cpp.o
+[154/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_CameraGroups_qml.cpp.o
+[155/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_SingleCameraDetail_qml.cpp.o
+[156/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PtzPanel_qml.cpp.o
+[157/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LiveThumb_qml.cpp.o
+[158/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_GroupSuggestions_qml.cpp.o
+[159/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PlaybackScreen_qml.cpp.o
+[160/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbFmt_qml.cpp.o
+[161/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_ExportProgress_qml.cpp.o
+[162/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbNavHeader_qml.cpp.o
+[163/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbRibbon_qml.cpp.o
+[164/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbLanes_qml.cpp.o
+[165/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsNames_qml.cpp.o
+[166/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsCard_qml.cpp.o
+[167/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbTransport_qml.cpp.o
+[168/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbEventsPanel_qml.cpp.o
+[169/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PbBanner_qml.cpp.o
+[170/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_FrameStepper_qml.cpp.o
+[171/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_FrameStrip_qml.cpp.o
+[172/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_FrameHarvester_qml.cpp.o
+[173/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PlaybackCalendar_qml.cpp.o
+[174/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_WallPlayback_qml.cpp.o
+[175/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_WpCell_qml.cpp.o
+[176/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_ExportDrawer_qml.cpp.o
+[177/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_HealthScreen_qml.cpp.o
+[178/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsScreen_qml.cpp.o
+[179/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsStats_qml.cpp.o
+[180/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsSeg_qml.cpp.o
+[181/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsFindings_qml.cpp.o
+[182/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_LabsSemanticSearch_qml.cpp.o
+[183/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_EventsScreen_qml.cpp.o
+[184/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_SavedViewsScreen_qml.cpp.o
+[185/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_SaveViewModal_qml.cpp.o
+[186/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_CommandPalette_qml.cpp.o
+[187/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_ClipsScreen_qml.cpp.o
+[188/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_PreferencesScreen_qml.cpp.o
+[189/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_VideoSurface_qml.cpp.o
+[190/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_VideoTest_qml.cpp.o
+[191/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_HdCapTest_qml.cpp.o
+[192/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_Toast_qml.cpp.o
+[193/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_WatchChip_qml.cpp.o
+[194/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_WatchNames_js.cpp.o
+[195/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_GroupsStatus_js.cpp.o
+[196/199] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_ToastHost_qml.cpp.o
+[197/199] Building CXX object CMakeFiles/watchtower.dir/build/.qt/rcc/qrc_watchtower_translations.cpp.o
+[198/199] Building CXX object CMakeFiles/watchtower.dir/build/.qt/rcc/qrc_watchtower_raw_qml_0.cpp.o
+[199/199] Linking CXX executable watchtower

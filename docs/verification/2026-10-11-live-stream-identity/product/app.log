@@ -1,0 +1,130 @@
+2026-10-11 03:13:15.271 [WT-DEC] QMediaPlayer decodes in software (default since 2026-09-09; WT_PB_HW_DECODE=1 restores hardware)
+2026-10-11 03:13:15.278 === watchtower start v1.1.772 pid=2729209 build=57c3e7fe-dirty qt=6.12.0 os=Ubuntu 24.04.4 LTS (flightrec /tmp/watchtower-live-identity-qml-before/data/Cilex Vision/Watchtower/flightrec, 10240KB x5) ===
+2026-10-11 03:13:15.278 [MTLCACHE] probe armed: harvest-sink Metal-cache warnings are counted (proven benign 2026-09-25); any other occurrence logs thread + backtrace + sink rhi states
+2026-10-11 03:13:15.427 [TLS] supportsSsl=1 backend=openssl available=[cert-only,openssl] lib=OpenSSL 3.0.13 30 Jan 2024
+libva info: VA-API version 1.20.0
+libva info: Trying to open /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so
+libva info: Found init function __vaDriverInit_1_20
+libva info: va_openDriver() returns 0
+
+** (gst-plugin-scanner:2729225): CRITICAL **: 03:13:16.275: _dma_fmt_to_dma_drm_fmts: assertion 'fmt != GST_VIDEO_FORMAT_UNKNOWN' failed
+2026-10-11 03:13:16.356 [LIVE-PROXY] listening on http://127.0.0.1:35123
+2026-10-11 03:13:16.476 Member enabled of the object QQuickRectangle_QML_454 overrides a member of the base object. Consider renaming it or adding final or override specifier
+2026-10-11 03:13:16.762 [FFMPEG] probing candidate 1/2: /home/cilex-vision/projects/cilex-watchtower/build/ffmpeg
+2026-10-11 03:13:16.801 Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
+2026-10-11 03:13:16.827 [FFMPEG] probing candidate 1/2: /home/cilex-vision/projects/cilex-watchtower/build/ffmpeg
+(previous message repeated x2 more)
+2026-10-11 03:13:17.029 [WALL] visible=false session=- state=0 pos=0
+2026-10-11 03:13:17.476 [MSCAN] attached sink=0x5a02e3ae3800
+2026-10-11 03:13:17.477 [MSCAN] attached sink=0x5a02e3a114b0
+2026-10-11 03:13:17.479 [LIVETIME] hd_promote armed wantHd=false pref=false override=-1 main=n sub=n
+2026-10-11 03:13:17.498 [FFMPEG] probing candidate 2/2: ffmpeg
+(previous message repeated x3 more)
+2026-10-11 03:13:17.500 [LIVETIME] gui_stall 1143 ms ended t=1791677597499
+2026-10-11 03:13:17.838 [LIVETIME] gui_stall 338 ms ended t=1791677597838
+2026-10-11 03:13:17.891 [FFMPEG] using ffmpeg (drawtext yes, encoder libx264)
+(previous message repeated x3 more)
+2026-10-11 03:13:17.993 [LIVETIME] gui_stall 154 ms ended t=1791677597993
+2026-10-11 03:13:18.017 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"demo roster required; no production roster","detail":{}}
+2026-10-11 03:13:18.017 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"output directory supplied","detail":{}}
+2026-10-11 03:13:20.465 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"shipping wall/detail/login components located","detail":{}}
+2026-10-11 03:13:20.476 [LIVE-IDENTITY-LEG] {"kind":"wall","name":"01-initial-wall"}
+2026-10-11 03:13:20.492 [LIVETIME] gui_stall 2487 ms ended t=1791677600492
+2026-10-11 03:13:20.496 [FLTREC] modules snapshot: 160 modules -> /tmp/watchtower-live-identity-qml-before/data/Cilex Vision/Watchtower/flightrec/modules.txt
+2026-10-11 03:13:20.504 [LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/red
+2026-10-11 03:13:20.639 [LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:20.784 [LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/blue
+2026-10-11 03:13:20.972 [LIVETIME] first_sample url=rtsp://127.0.0.1:18554/red
+2026-10-11 03:13:20.972 [LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/red
+2026-10-11 03:13:21.078 [LIVETIME] first_sample url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:21.078 [LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:21.227 [LIVETIME] first_sample url=rtsp://127.0.0.1:18554/blue
+2026-10-11 03:13:21.229 [LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/blue
+2026-10-11 03:13:21.275 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:21.340 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-red.png"}}
+2026-10-11 03:13:21.340 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-red.png","expected":"red","leg":"01-initial-wall","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":582.5,"height":342.5}
+2026-10-11 03:13:21.340 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:21.362 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-green.png"}}
+2026-10-11 03:13:21.362 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-green.png","expected":"green","leg":"01-initial-wall","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":582.5,"height":342.5}
+2026-10-11 03:13:21.362 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/blue","actual":"rtsp://127.0.0.1:18554/blue"}}
+2026-10-11 03:13:21.404 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"01-initial-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-blue.png"}}
+2026-10-11 03:13:21.404 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-blue.png","expected":"blue","leg":"01-initial-wall","camera_id":"fixture-blue","url":"rtsp://127.0.0.1:18554/blue","width":582.5,"height":342.5}
+2026-10-11 03:13:21.409 [LIVE-IDENTITY-LEG] {"kind":"open","camera":0,"name":"02-open-red"}
+2026-10-11 03:13:21.413 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=5ms frame=yes decoder=bound
+2026-10-11 03:13:22.161 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"02-open-red camera identity and title","detail":{"id":"fixture-red","title":"Fixture red"}}
+2026-10-11 03:13:22.161 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"02-open-red selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:22.251 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"02-open-red rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/02-open-red-fixture-red.png"}}
+2026-10-11 03:13:22.251 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/02-open-red-fixture-red.png","expected":"red","leg":"02-open-red","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":868,"height":782}
+2026-10-11 03:13:22.253 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=0ms frame=yes decoder=bound
+2026-10-11 03:13:22.253 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=845ms frame=yes decoder=bound
+2026-10-11 03:13:22.253 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=844ms frame=yes decoder=bound
+2026-10-11 03:13:22.253 [LIVE-IDENTITY-LEG] {"kind":"wall","name":"03-wall-after-red"}
+2026-10-11 03:13:22.965 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:23.040 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-red.png"}}
+2026-10-11 03:13:23.040 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-red.png","expected":"red","leg":"03-wall-after-red","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":582.5,"height":327.5}
+2026-10-11 03:13:23.040 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:23.063 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-green.png"}}
+2026-10-11 03:13:23.063 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-green.png","expected":"green","leg":"03-wall-after-red","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":582.5,"height":327.5}
+2026-10-11 03:13:23.063 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/blue","actual":"rtsp://127.0.0.1:18554/blue"}}
+2026-10-11 03:13:23.115 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"03-wall-after-red rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-blue.png"}}
+2026-10-11 03:13:23.115 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-blue.png","expected":"blue","leg":"03-wall-after-red","camera_id":"fixture-blue","url":"rtsp://127.0.0.1:18554/blue","width":582.5,"height":327.5}
+2026-10-11 03:13:23.128 [LIVE-IDENTITY-LEG] {"kind":"open","camera":1,"name":"04-open-green"}
+2026-10-11 03:13:23.132 [WT-PARK] adopt refused (no bus watch) url=…://127.0.0.1:18554/green
+2026-10-11 03:13:23.142 [LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:23.581 [LIVETIME] first_sample url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:23.581 [LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/green
+2026-10-11 03:13:23.879 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"04-open-green camera identity and title","detail":{"id":"fixture-green","title":"Fixture green"}}
+2026-10-11 03:13:23.879 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"04-open-green selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:23.961 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"04-open-green rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/04-open-green-fixture-green.png"}}
+2026-10-11 03:13:23.962 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/04-open-green-fixture-green.png","expected":"green","leg":"04-open-green","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":868,"height":782}
+2026-10-11 03:13:23.963 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=836ms frame=yes decoder=bound
+2026-10-11 03:13:23.963 [LIVE-IDENTITY-LEG] {"kind":"tab","camera":0,"name":"05-return-red-after-green"}
+2026-10-11 03:13:24.684 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"05-return-red-after-green camera identity and title","detail":{"id":"fixture-red","title":"Fixture red"}}
+2026-10-11 03:13:24.684 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"05-return-red-after-green selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:24.783 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"05-return-red-after-green rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/05-return-red-after-green-fixture-red.png"}}
+2026-10-11 03:13:24.783 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/05-return-red-after-green-fixture-red.png","expected":"red","leg":"05-return-red-after-green","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":868,"height":782}
+2026-10-11 03:13:24.785 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=0ms frame=yes decoder=bound
+2026-10-11 03:13:24.785 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=822ms frame=yes decoder=bound
+2026-10-11 03:13:24.785 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=1657ms frame=yes decoder=bound
+2026-10-11 03:13:24.785 [LIVE-IDENTITY-LEG] {"kind":"wall","name":"06-wall-after-green"}
+2026-10-11 03:13:25.598 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:25.670 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-red.png"}}
+2026-10-11 03:13:25.670 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-red.png","expected":"red","leg":"06-wall-after-green","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":582.5,"height":327.5}
+2026-10-11 03:13:25.670 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:25.689 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-green.png"}}
+2026-10-11 03:13:25.689 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-green.png","expected":"green","leg":"06-wall-after-green","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":582.5,"height":327.5}
+2026-10-11 03:13:25.689 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/blue","actual":"rtsp://127.0.0.1:18554/blue"}}
+2026-10-11 03:13:25.723 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"06-wall-after-green rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-blue.png"}}
+2026-10-11 03:13:25.723 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-blue.png","expected":"blue","leg":"06-wall-after-green","camera_id":"fixture-blue","url":"rtsp://127.0.0.1:18554/blue","width":582.5,"height":327.5}
+2026-10-11 03:13:25.731 [LIVE-IDENTITY-LEG] {"kind":"open","camera":2,"name":"07-open-blue"}
+2026-10-11 03:13:25.735 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=3ms frame=yes decoder=bound
+2026-10-11 03:13:26.479 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"07-open-blue camera identity and title","detail":{"id":"fixture-blue","title":"Fixture blue"}}
+2026-10-11 03:13:26.479 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"07-open-blue selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/blue","actual":"rtsp://127.0.0.1:18554/blue"}}
+2026-10-11 03:13:26.605 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"07-open-blue rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/07-open-blue-fixture-blue.png"}}
+2026-10-11 03:13:26.605 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/07-open-blue-fixture-blue.png","expected":"blue","leg":"07-open-blue","camera_id":"fixture-blue","url":"rtsp://127.0.0.1:18554/blue","width":868,"height":782}
+2026-10-11 03:13:26.607 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=876ms frame=yes decoder=bound
+2026-10-11 03:13:26.607 [LIVE-IDENTITY-LEG] {"kind":"tab","camera":1,"name":"08-return-green-after-blue"}
+2026-10-11 03:13:27.310 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"08-return-green-after-blue camera identity and title","detail":{"id":"fixture-green","title":"Fixture green"}}
+2026-10-11 03:13:27.310 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"08-return-green-after-blue selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:27.466 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"08-return-green-after-blue rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/08-return-green-after-blue-fixture-green.png"}}
+2026-10-11 03:13:27.466 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/08-return-green-after-blue-fixture-green.png","expected":"green","leg":"08-return-green-after-blue","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":868,"height":782}
+2026-10-11 03:13:27.471 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=1740ms frame=yes decoder=bound
+2026-10-11 03:13:27.471 [LIVE-IDENTITY-LEG] {"kind":"tab","camera":0,"name":"09-return-red-after-blue"}
+2026-10-11 03:13:28.200 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"09-return-red-after-blue camera identity and title","detail":{"id":"fixture-red","title":"Fixture red"}}
+2026-10-11 03:13:28.200 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"09-return-red-after-blue selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:28.349 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"09-return-red-after-blue rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/09-return-red-after-blue-fixture-red.png"}}
+2026-10-11 03:13:28.349 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/09-return-red-after-blue-fixture-red.png","expected":"red","leg":"09-return-red-after-blue","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":868,"height":782}
+2026-10-11 03:13:28.351 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=0ms frame=yes decoder=bound
+2026-10-11 03:13:28.351 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=880ms frame=yes decoder=bound
+2026-10-11 03:13:28.351 [LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=1744ms frame=yes decoder=bound
+2026-10-11 03:13:28.351 [LIVE-IDENTITY-LEG] {"kind":"wall","name":"10-final-wall"}
+2026-10-11 03:13:29.170 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/red","actual":"rtsp://127.0.0.1:18554/red"}}
+2026-10-11 03:13:29.236 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-red.png"}}
+2026-10-11 03:13:29.236 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-red.png","expected":"red","leg":"10-final-wall","camera_id":"fixture-red","url":"rtsp://127.0.0.1:18554/red","width":582.5,"height":327.5}
+2026-10-11 03:13:29.236 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/green","actual":"rtsp://127.0.0.1:18554/green"}}
+2026-10-11 03:13:29.265 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-green.png"}}
+2026-10-11 03:13:29.265 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-green.png","expected":"green","leg":"10-final-wall","camera_id":"fixture-green","url":"rtsp://127.0.0.1:18554/green","width":582.5,"height":327.5}
+2026-10-11 03:13:29.265 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall selected URL","detail":{"expected":"rtsp://127.0.0.1:18554/blue","actual":"rtsp://127.0.0.1:18554/blue"}}
+2026-10-11 03:13:29.305 [LIVE-IDENTITY-CHECK] {"ok":true,"name":"10-final-wall rendered pixels saved","detail":{"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-blue.png"}}
+2026-10-11 03:13:29.305 [LIVE-IDENTITY-SHOT] {"file":"/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-blue.png","expected":"blue","leg":"10-final-wall","camera_id":"fixture-blue","url":"rtsp://127.0.0.1:18554/blue","width":582.5,"height":327.5}
+2026-10-11 03:13:29.305 [LIVE-IDENTITY-SUMMARY] {"checks":45,"failures":0,"saved_shots":18,"completed_legs":10,"expected_legs":10,"pixel_verification":"requires verify_qml_captures.py","fixture_roster":true,"shipping_navigation":true}

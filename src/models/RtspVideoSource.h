@@ -123,6 +123,10 @@ private:
     int m_latencyMs = 150;
 
     GstElement *m_pipeline = nullptr;
+    // Identity of the pipeline we actually built/adopted. m_url and m_warmOnly
+    // are requested state and may already describe the next camera at teardown.
+    QString m_pipelineUrl;
+    bool m_pipelineWarmOnly = false;
     GstBus *m_bus = nullptr;
     guint m_busWatch = 0;
 
@@ -140,6 +144,7 @@ private:
     QVideoFrame m_pendingFrame;
     bool m_deliverQueued = false;
     std::mutex m_frameMutex;
+    GstAppSink *m_frameSource = nullptr; // non-owning; guarded by m_frameMutex
     // Per-pipeline decode-side tallies, written under m_frameMutex in onNewSample.
     long long m_framesIn = 0;          // frames the appsink handed us
     long long m_framesCoalesced = 0;   // frames the GUI thread never drained

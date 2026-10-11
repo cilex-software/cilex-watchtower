@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "nice",
+    "-n",
+    "10",
+    "taskset",
+    "-c",
+    "0,2",
+    "/tmp/watchtower-live-identity-before/live-stream-identity",
+    "rtsp://127.0.0.1:18554"
+  ],
+  "environment_overrides": {
+    "QT_QPA_PLATFORM": "offscreen",
+    "WT_RTSP_TCP": "1",
+    "WT_PARK_MS": "10000",
+    "WT_PARK_MAX": "8",
+    "WT_TRACE": "1",
+    "WT_STREAM_WATCHDOG_OFF": "1",
+    "OMP_NUM_THREADS": "2",
+    "OPENBLAS_NUM_THREADS": "2",
+    "MKL_NUM_THREADS": "2"
+  },
+  "exit_code": 1,
+  "started_at_utc": "2026-10-11T00:14:45.240599+00:00",
+  "completed_at_utc": "2026-10-11T00:15:00.039592+00:00",
+  "sha256": {
+    "tools/tests/live-stream-identity/main.cpp": "a80914547c939c824e0d1cdfee2e63b9c693a4ae2961d5939d417bd31d52b655",
+    "tools/tests/live-stream-identity/rtsp_fixture.py": "1c5b8e486394d610f61ac982cc9da649534aca83151ec1a69cb1d6bff8f2ff72",
+    "docs/verification/2026-10-11-live-stream-identity/before/RtspVideoSource.cpp": "2220d1814d45a9bc1ae4f5c18843522da431cee4997110e98d038624327ae2e6",
+    "docs/verification/2026-10-11-live-stream-identity/before/RtspVideoSource.h": "3ea00a1e51672ec6a6a92ca2192134f74059c88f843b2d0b4ac60d201b4f0ec8"
+  }
+}

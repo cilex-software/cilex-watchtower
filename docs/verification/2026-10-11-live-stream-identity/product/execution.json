@@ -1,0 +1,133 @@
+{
+  "recorded_at_utc": "2026-10-11T00:16:22.155160+00:00",
+  "phase": "fixed_binary_product_integration",
+  "original_directory_name_note": "The suffix qml-before was a preparatory name; this run used the already fixed binary and is not baseline evidence.",
+  "binary_path": "/home/cilex-vision/projects/cilex-watchtower/build/watchtower",
+  "binary_sha256": "2460e821845340894dbfb8a348089c96f13f5c467b2f10884dd49e1f10ef407d",
+  "binary_mtime_utc": "2026-10-11T00:11:36.859916+00:00",
+  "binary_hash_capture": "Measured after execution; file modification time precedes run start, and no intervening rebuild was observed.",
+  "command": "env -u WT_CV_AUTOLOGIN -u WT_STATION_TOKEN -u WT_CV_USER -u WT_CV_PASS -u WT_WALL_BADURL -u WT_LEGACY WT_CV_URL=http://127.0.0.1:9 XDG_CONFIG_HOME=/tmp/watchtower-live-identity-qml-before/config XDG_DATA_HOME=/tmp/watchtower-live-identity-qml-before/data XDG_CACHE_HOME=/tmp/watchtower-live-identity-qml-before/cache WT_DEMO=1 WT_NO_SCHEME_REG=1 WT_NO_POLL=1 WT_RESTORE_OFF=1 WT_RTSP_TCP=1 QT_QPA_PLATFORM=xcb WT_TEST_QML=/home/cilex-vision/projects/cilex-watchtower/tools/tests/live-stream-identity.qml timeout 110s nice -n 10 taskset -c 0,2 ./run.sh --identity-output=/tmp/watchtower-live-identity-qml-before/shots > /tmp/watchtower-live-identity-qml-before/app.log 2>&1",
+  "cwd": "/home/cilex-vision/projects/cilex-watchtower",
+  "inherited_environment_relevant": {
+    "DISPLAY": ":0",
+    "XDG_RUNTIME_DIR": "/run/user/1000"
+  },
+  "actual_process_exit_code": 0,
+  "test_start_local": "2026-10-11T03:13:15.278+03:00",
+  "test_summary_local": "2026-10-11T03:13:29.305+03:00",
+  "images": [
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-blue.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/01-initial-wall-fixture-blue.png",
+      "sha256": "7d51b9ae6dbf1a1450916f2c603afabbc59fe168528943ffe0a43d1dfc3c3f9a",
+      "bytes": 1489
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/01-initial-wall-fixture-green.png",
+      "sha256": "dc86fdf1218702fe7ecdc4f7ac88d7b755e155ed9d495168c8da29ce1c8ab32c",
+      "bytes": 1490
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/01-initial-wall-fixture-red.png",
+      "sha256": "36682f7bf30fdd10721e9b7fd50bcbb3aabcd011bde4e27a4409b58d830750ea",
+      "bytes": 1489
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/02-open-red-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/02-open-red-fixture-red.png",
+      "sha256": "7c3b063c0854e32c9ef28775075e4e310472efe1b4728d8ed5dd7c8fc5c905f9",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-blue.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/03-wall-after-red-fixture-blue.png",
+      "sha256": "3ed0a800d86653ad94b8faadb75d06e563568bfa7c6e72f55f5afe4a25db0acc",
+      "bytes": 1427
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/03-wall-after-red-fixture-green.png",
+      "sha256": "bfe594688b4d21fd6dc72656d01eb533957cb72b56dfa68900b08d2ffc8714f7",
+      "bytes": 1428
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/03-wall-after-red-fixture-red.png",
+      "sha256": "ca25a1761069db4c6d7e2aa9b1636382675567d139058ea5439ce12c2fc0916a",
+      "bytes": 1427
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/04-open-green-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/04-open-green-fixture-green.png",
+      "sha256": "884dd2ba063b4d57bbfbe7276caf808cf5c1eb381cd6931f7e9fa5ace8dd27c4",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/05-return-red-after-green-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/05-return-red-after-green-fixture-red.png",
+      "sha256": "7c3b063c0854e32c9ef28775075e4e310472efe1b4728d8ed5dd7c8fc5c905f9",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-blue.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/06-wall-after-green-fixture-blue.png",
+      "sha256": "3ed0a800d86653ad94b8faadb75d06e563568bfa7c6e72f55f5afe4a25db0acc",
+      "bytes": 1427
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/06-wall-after-green-fixture-green.png",
+      "sha256": "bfe594688b4d21fd6dc72656d01eb533957cb72b56dfa68900b08d2ffc8714f7",
+      "bytes": 1428
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/06-wall-after-green-fixture-red.png",
+      "sha256": "ca25a1761069db4c6d7e2aa9b1636382675567d139058ea5439ce12c2fc0916a",
+      "bytes": 1427
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/07-open-blue-fixture-blue.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/07-open-blue-fixture-blue.png",
+      "sha256": "26fe35f620ea73a9c490b034a6531f6c3ac7c2729951c067f485199a455f7f92",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/08-return-green-after-blue-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/08-return-green-after-blue-fixture-green.png",
+      "sha256": "884dd2ba063b4d57bbfbe7276caf808cf5c1eb381cd6931f7e9fa5ace8dd27c4",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/09-return-red-after-blue-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/09-return-red-after-blue-fixture-red.png",
+      "sha256": "7c3b063c0854e32c9ef28775075e4e310472efe1b4728d8ed5dd7c8fc5c905f9",
+      "bytes": 3853
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-blue.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/10-final-wall-fixture-blue.png",
+      "sha256": "3ed0a800d86653ad94b8faadb75d06e563568bfa7c6e72f55f5afe4a25db0acc",
+      "bytes": 1427
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-green.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/10-final-wall-fixture-green.png",
+      "sha256": "bfe594688b4d21fd6dc72656d01eb533957cb72b56dfa68900b08d2ffc8714f7",
+      "bytes": 1428
+    },
+    {
+      "original_capture_path": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-red.png",
+      "saved_path": "docs/verification/2026-10-11-live-stream-identity/product/shots/10-final-wall-fixture-red.png",
+      "sha256": "ca25a1761069db4c6d7e2aa9b1636382675567d139058ea5439ce12c2fc0916a",
+      "bytes": 1427
+    }
+  ],
+  "warnings": [
+    "GStreamer plugin scanner CRITICAL _dma_fmt_to_dma_drm_fmts assertion at startup",
+    "QQuickRectangle enabled member overrides base member warning"
+  ],
+  "scope": "Synthetic local-only roster injected into actual Product.Main wall/detail; authentication visibility bypassed in isolated test instance; no production backend credentials or streams."
+}

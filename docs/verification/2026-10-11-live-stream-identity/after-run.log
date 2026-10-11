@@ -1,0 +1,66 @@
+qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1 LGPL version 2.1 or later
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/red
+[WT-DEC] video/x-h264 candidate vah264dec (hardware) -> try
+[WT-DEC] using vah264dec (hardware)
+[WT-RES] decode 160 x 96 → NV12 buffer 22 KB/frame
+[LIVETIME] first_sample url=rtsp://127.0.0.1:18554/red
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/red
+QRhi* {anonymous}::ThreadLocalRhiHolder::ensureRhi(QRhi*) : No RHI backend. Using CPU conversion.
+PASS initial camera A pixels (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/red frame=yes (1 held)
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/green
+[WT-DEC] video/x-h264 candidate vah264dec (hardware) -> try
+[WT-DEC] using vah264dec (hardware)
+[WT-RES] decode 160 x 96 → NV12 buffer 22 KB/frame
+[LIVETIME] first_sample url=rtsp://127.0.0.1:18554/green
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/green
+PASS retarget detail to green (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/green frame=yes (2 held)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=859ms frame=yes decoder=bound
+PASS retarget detail to red (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/red frame=yes (2 held)
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/blue
+[WT-DEC] video/x-h264 candidate vah264dec (hardware) -> try
+[WT-DEC] using vah264dec (hardware)
+[WT-RES] decode 160 x 96 → NV12 buffer 22 KB/frame
+[LIVETIME] first_sample url=rtsp://127.0.0.1:18554/blue
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/blue
+PASS retarget detail to blue (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/blue frame=yes (3 held)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=0ms frame=yes decoder=bound
+PASS wall reopens camera C from parked pipeline (correct=3 wrong=0)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/red parked_for=1258ms frame=yes decoder=bound
+PASS wall camera A remains independent (correct=3 wrong=0)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=1937ms frame=yes decoder=bound
+PASS reopened detail camera B remains independent (correct=3 wrong=0)
+PASS concurrent wall camera C pixels (correct=3 wrong=0)
+PASS concurrent wall camera A pixels (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/green frame=yes (1 held)
+[WT-WARM] warm-keep consumer (no decode) for rtsp://127.0.0.1:18554/green
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/green
+PASS decoded to warm-only produces no frames (correct=0 wrong=0)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=651ms frame=yes decoder=bound
+PASS warm-only back to decoded camera B (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/green frame=yes (1 held)
+[WT-WARM] warm-keep consumer (no decode) for rtsp://127.0.0.1:18554/blue
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/blue
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/blue
+[WT-DEC] video/x-h264 candidate vah264dec (hardware) -> try
+[WT-DEC] using vah264dec (hardware)
+[WT-RES] decode 160 x 96 → NV12 buffer 22 KB/frame
+[LIVETIME] first_sample url=rtsp://127.0.0.1:18554/blue
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:18554/blue
+PASS warm-only URL switch then camera C decode (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/blue frame=yes (2 held)
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:18554/red
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=1229ms frame=yes decoder=bound
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/green frame=yes (2 held)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=44ms frame=yes decoder=bound
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/blue frame=yes (2 held)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/green parked_for=42ms frame=yes decoder=bound
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/green frame=yes (2 held)
+[LIVETIME] adopted url=rtsp://127.0.0.1:18554/blue parked_for=42ms frame=yes decoder=bound
+PASS rapid A B C retargets reject every foreign frame (correct=3 wrong=0)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/red frame=yes (2 held)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/blue frame=yes (3 held)
+[WT-PARK] parked url=rtsp://127.0.0.1:18554/blue frame=yes (3 held)

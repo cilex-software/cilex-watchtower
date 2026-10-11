@@ -1,0 +1,701 @@
+{
+    "boundary": "RtspVideoSource public API plus decoded QVideoSink pixels; no product QML navigation",
+    "failed": 4,
+    "passed": 9,
+    "tests": [
+        {
+            "correct_frames": 3,
+            "name": "initial camera A pixels",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 0,
+            "name": "retarget detail to green",
+            "passed": false,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "green",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 12
+        },
+        {
+            "correct_frames": 3,
+            "name": "retarget detail to red",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 0,
+            "name": "retarget detail to blue",
+            "passed": false,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 12
+        },
+        {
+            "correct_frames": 0,
+            "immediate_adoption": true,
+            "name": "wall reopens camera C from parked pipeline",
+            "parked_before": 1,
+            "passed": false,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 14
+        },
+        {
+            "correct_frames": 3,
+            "name": "wall camera A remains independent",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 3,
+            "name": "reopened detail camera B remains independent",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                },
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                },
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 0,
+            "name": "concurrent wall camera C pixels",
+            "passed": false,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "blue",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 3
+        },
+        {
+            "correct_frames": 3,
+            "name": "concurrent wall camera A pixels",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "actual": "red",
+                    "expected": "red",
+                    "rgb": [
+                        255,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 0,
+            "name": "decoded to warm-only produces no frames",
+            "passed": true,
+            "samples": [
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 3,
+            "name": "warm-only back to decoded camera B",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                },
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                },
+                {
+                    "actual": "green",
+                    "expected": "green",
+                    "rgb": [
+                        0,
+                        254,
+                        1
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 3,
+            "name": "warm-only URL switch then camera C decode",
+            "passed": true,
+            "samples": [
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                },
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                },
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                }
+            ],
+            "wrong_frames": 0
+        },
+        {
+            "correct_frames": 3,
+            "name": "rapid A B C retargets reject every foreign frame",
+            "passed": true,
+            "rapid_samples": [
+            ],
+            "samples": [
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                },
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                },
+                {
+                    "actual": "blue",
+                    "expected": "blue",
+                    "rgb": [
+                        0,
+                        0,
+                        255
+                    ]
+                }
+            ],
+            "wrong_frames": 0,
+            "wrong_frames_during_rapid_changes": 0
+        }
+    ]
+}

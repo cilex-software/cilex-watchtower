@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "python3",
+    "tools/tests/live-stream-identity/verify_qml_captures.py",
+    "docs/verification/2026-10-11-live-stream-identity/product/app.log",
+    "--capture-dir",
+    "docs/verification/2026-10-11-live-stream-identity/product/shots",
+    "--output",
+    "docs/verification/2026-10-11-live-stream-identity/product/pixel-verification-recheck.json"
+  ],
+  "actual_exit_code": 0,
+  "cwd": "/home/cilex-vision/projects/cilex-watchtower"
+}

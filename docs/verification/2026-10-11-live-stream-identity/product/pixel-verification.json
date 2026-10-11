@@ -1,0 +1,307 @@
+{
+  "passed": true,
+  "failures": [],
+  "captures": [
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-red.png",
+      "expected": "red",
+      "leg": "01-initial-wall",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 582.5,
+      "height": 342.5,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-green.png",
+      "expected": "green",
+      "leg": "01-initial-wall",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 582.5,
+      "height": 342.5,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/01-initial-wall-fixture-blue.png",
+      "expected": "blue",
+      "leg": "01-initial-wall",
+      "camera_id": "fixture-blue",
+      "url": "rtsp://127.0.0.1:18554/blue",
+      "width": 582.5,
+      "height": 342.5,
+      "mean_rgb": [
+        1.0,
+        0.0,
+        255.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/02-open-red-fixture-red.png",
+      "expected": "red",
+      "leg": "02-open-red",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-red.png",
+      "expected": "red",
+      "leg": "03-wall-after-red",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-green.png",
+      "expected": "green",
+      "leg": "03-wall-after-red",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/03-wall-after-red-fixture-blue.png",
+      "expected": "blue",
+      "leg": "03-wall-after-red",
+      "camera_id": "fixture-blue",
+      "url": "rtsp://127.0.0.1:18554/blue",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        0.0,
+        255.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/04-open-green-fixture-green.png",
+      "expected": "green",
+      "leg": "04-open-green",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/05-return-red-after-green-fixture-red.png",
+      "expected": "red",
+      "leg": "05-return-red-after-green",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-red.png",
+      "expected": "red",
+      "leg": "06-wall-after-green",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-green.png",
+      "expected": "green",
+      "leg": "06-wall-after-green",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/06-wall-after-green-fixture-blue.png",
+      "expected": "blue",
+      "leg": "06-wall-after-green",
+      "camera_id": "fixture-blue",
+      "url": "rtsp://127.0.0.1:18554/blue",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        0.0,
+        255.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/07-open-blue-fixture-blue.png",
+      "expected": "blue",
+      "leg": "07-open-blue",
+      "camera_id": "fixture-blue",
+      "url": "rtsp://127.0.0.1:18554/blue",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        1.0,
+        0.0,
+        255.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/08-return-green-after-blue-fixture-green.png",
+      "expected": "green",
+      "leg": "08-return-green-after-blue",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/09-return-red-after-blue-fixture-red.png",
+      "expected": "red",
+      "leg": "09-return-red-after-blue",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 868,
+      "height": 782,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-red.png",
+      "expected": "red",
+      "leg": "10-final-wall",
+      "camera_id": "fixture-red",
+      "url": "rtsp://127.0.0.1:18554/red",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        255.0,
+        0.0,
+        0.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-green.png",
+      "expected": "green",
+      "leg": "10-final-wall",
+      "camera_id": "fixture-green",
+      "url": "rtsp://127.0.0.1:18554/green",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        255.0,
+        2.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    },
+    {
+      "file": "/tmp/watchtower-live-identity-qml-before/shots/10-final-wall-fixture-blue.png",
+      "expected": "blue",
+      "leg": "10-final-wall",
+      "camera_id": "fixture-blue",
+      "url": "rtsp://127.0.0.1:18554/blue",
+      "width": 582.5,
+      "height": 327.5,
+      "mean_rgb": [
+        1.0,
+        0.0,
+        255.0
+      ],
+      "matching_fraction": 1.0,
+      "passed": true
+    }
+  ],
+  "qml_summaries": [
+    {
+      "checks": 45,
+      "failures": 0,
+      "saved_shots": 18,
+      "completed_legs": 10,
+      "expected_legs": 10,
+      "pixel_verification": "requires verify_qml_captures.py",
+      "fixture_roster": true,
+      "shipping_navigation": true
+    }
+  ],
+  "test_boundary": "synthetic roster; actual product tab/wall/detail/rendering"
+}

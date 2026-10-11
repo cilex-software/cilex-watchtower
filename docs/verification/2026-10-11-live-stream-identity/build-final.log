@@ -1,0 +1,4 @@
+[1/184] Automatic MOC and UIC for target watchtower
+[2/183] Running AUTOMOC file extraction for target watchtower
+[3/4] Building CXX object CMakeFiles/watchtower.dir/src/models/RtspVideoSource.cpp.o
+[4/4] Linking CXX executable watchtower

@@ -1,0 +1,17 @@
+[
+  {
+    "file": "before-results.json",
+    "change": "removed terminal blank line only",
+    "parsed_json_unchanged": true
+  },
+  {
+    "file": "before-rapid-results.json",
+    "change": "removed terminal blank line only",
+    "parsed_json_unchanged": true
+  },
+  {
+    "file": "after-results.json",
+    "change": "removed terminal blank line only",
+    "parsed_json_unchanged": true
+  }
+]
