@@ -1,7 +1,8 @@
+.pragma library
+
 // The Watch — display names for ranks and badge families. The mythology is
 // entirely client-side (backend "has no opinion about ravens"). qsTranslate
 // with an explicit context so lupdate picks these up from a .js library.
-.pragma library
 
 function rankName(key) {
     switch (key) {

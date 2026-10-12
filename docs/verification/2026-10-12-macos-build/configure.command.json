@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "cmake",
+    "-S",
+    "/home/cilex-vision/projects/cilex-watchtower",
+    "-B",
+    "/media/cilex-vision/86761555761546F9/CilexLab/macos-build-guidance-20261012-v1/configure-build",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_PREFIX_PATH=/home/cilex-vision/Qt/6.12.0/gcc_64"
+  ],
+  "platform": "Ubuntu Linux; macOS build not executed",
+  "at": "2026-10-12T19:07:45.432608+00:00"
+}

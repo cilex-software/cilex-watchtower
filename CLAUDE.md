@@ -3,6 +3,17 @@
 Read this first. It is committed to the repo, so every agent working any
 checkout gets the same rules automatically.
 
+## Completed work goes to main — operator instruction, 2026-10-12
+
+After completing and verifying each task, commit its changes, integrate them
+into `main` (merge or fast-forward as appropriate), and push `origin/main`
+without asking for publication permission again. Preserve unrelated and
+unfinished work; obey checks and version hooks; never force-push shared history.
+Verify the remote commit after pushing. This supersedes older default branch
+or publication restrictions below. A later explicit local-only, no-push, or
+different-branch task instruction overrides this default for that task.
+Deployments, service restarts and messages still need their own authorization.
+
 ## Orientation
 
 - `docs/PROJECT_STATUS.md` — current status + roadmap. **The shared brain.**

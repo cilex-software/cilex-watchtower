@@ -13,7 +13,7 @@
 #     self-containment. A full macdeployqt+GStreamer bundle (the W4 problem,
 #     Darwin edition) stays an open M4 option nobody currently needs.
 #   * Consequence, stated honestly: the zip runs ONLY on an Apple-Silicon Mac
-#     with `brew install qt qt-multimedia gstreamer` (any recent version — the
+#     with `brew install qt qtmultimedia gstreamer` (any recent version — the
 #     dylib compatibility floor is checked at launch by run-macos.sh, which
 #     prints the exact brew command when something is missing).
 #
@@ -188,7 +188,7 @@ missing=()
 [ -e /opt/homebrew/opt/qtbase/lib/QtCore.framework/QtCore ] || \
   [ -e /opt/homebrew/opt/qt/lib/QtCore.framework/QtCore ] || missing+=(qt)
 [ -e /opt/homebrew/opt/qtmultimedia/lib/QtMultimedia.framework/QtMultimedia ] || \
-  [ -e /opt/homebrew/opt/qt/lib/QtMultimedia.framework/QtMultimedia ] || missing+=(qt-multimedia)
+  [ -e /opt/homebrew/opt/qt/lib/QtMultimedia.framework/QtMultimedia ] || missing+=(qtmultimedia)
 [ -e /opt/homebrew/opt/gstreamer/lib/libgstreamer-1.0.0.dylib ] || missing+=(gstreamer)
 if [ ${#missing[@]} -gt 0 ]; then
   echo "Missing prerequisites. Install Homebrew (https://brew.sh) if needed, then run:"
@@ -213,7 +213,7 @@ cat > "$STAGE/README.txt" <<EOF
 Cilex Watchtower $VERSION — macOS (Apple Silicon), build $SHA
 
 To run:
-  1. Prerequisites (one time):  brew install qt qt-multimedia gstreamer
+  1. Prerequisites (one time):  brew install qt qtmultimedia gstreamer
      (Homebrew itself: https://brew.sh)
   2. ./run-macos.sh
 
@@ -229,7 +229,7 @@ rm -f "$ZIP"
 (cd "$BUILD/dist" && zip -qr9 "../$NAME.zip" "$NAME")
 echo "==> $ZIP  ($(du -h "$ZIP" | cut -f1 | tr -d ' '))"
 echo "    contents: watchtower.app + run-macos.sh + README.txt"
-echo "    target needs: Apple Silicon + brew qt, qt-multimedia, gstreamer"
+echo "    target needs: Apple Silicon + brew qt, qtmultimedia, gstreamer"
 
 if [ "$PUBLISH" = 1 ]; then
     # Rolling prerelease, same semantics windows-latest has: delete + recreate.
@@ -238,6 +238,6 @@ if [ "$PUBLISH" = 1 ]; then
     git push --delete origin macos-latest 2>/dev/null || true
     gh release create macos-latest "$ZIP" --prerelease \
         --title "macOS rolling build $VERSION" \
-        --notes "Local build from $SHA. Unsigned, arm64-only; target needs \`brew install qt qt-multimedia gstreamer\` (see packaging/macos/README.md)."
+        --notes "Local build from $SHA. Unsigned, arm64-only; target needs \`brew install qt qtmultimedia gstreamer\` (see packaging/macos/README.md)."
     echo "==> published macos-latest ($VERSION)"
 fi

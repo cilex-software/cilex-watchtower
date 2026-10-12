@@ -1,0 +1,71 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE  
+-- Found OpenGL: /usr/lib/x86_64-linux-gnu/libOpenGL.so   
+-- Found WrapOpenGL: TRUE  
+-- Found WrapVulkanHeaders: /usr/include  
+-- Found Wayland_Client: /usr/lib/x86_64-linux-gnu/libwayland-client.so (found version "1.22.0") 
+-- Found Wayland_Server: /usr/lib/x86_64-linux-gnu/libwayland-server.so (found version "1.22.0") 
+-- Found Wayland_Cursor: /usr/lib/x86_64-linux-gnu/libwayland-cursor.so (found version "1.22.0") 
+-- Found Wayland_Egl: /usr/lib/x86_64-linux-gnu/libwayland-egl.so (found version "18.1.0") 
+-- Found Wayland: /usr/lib/x86_64-linux-gnu/libwayland-client.so;/usr/lib/x86_64-linux-gnu/libwayland-server.so;/usr/lib/x86_64-linux-gnu/libwayland-cursor.so;/usr/lib/x86_64-linux-gnu/libwayland-egl.so (found version "1.22.0")  
+-- Found WaylandScanner: /usr/bin/wayland-scanner  
+-- Could NOT find Qt6Quick3D (missing: Qt6Quick3D_DIR)
+CMake Warning at /usr/share/cmake-3.28/Modules/CMakeFindDependencyMacro.cmake:76 (find_package):
+  Found package configuration file:
+
+    /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Quick3DSpatialAudio/Qt6Quick3DSpatialAudioConfig.cmake
+
+  but it set Qt6Quick3DSpatialAudio_FOUND to FALSE so package
+  "Qt6Quick3DSpatialAudio" is considered to be NOT FOUND.  Reason given by
+  package:
+
+  Qt6Quick3DSpatialAudio could not be found because dependency Qt6Quick3D
+  could not be found.
+
+  Configuring with --debug-find-pkg=Qt6Quick3D might reveal details why the
+  package was not found.
+
+  Configuring with -DQT_DEBUG_FIND_PACKAGE=ON will print the values of some
+  of the path variables that find_package uses to try and find the package.
+
+Call Stack (most recent call first):
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/QtPublicDependencyHelpers.cmake:142 (find_dependency)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudiopluginDependencies.cmake:22 (_qt_internal_find_qt_dependencies)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/QmlPlugins/Qt6quick3dspatialaudiopluginConfig.cmake:40 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/QtPublicPluginHelpers.cmake:638 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlPlugins.cmake:6 (__qt_internal_include_qml_plugin_packages)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlConfig.cmake:199 (include)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6/Qt6Config.cmake:257 (find_package)
+  CMakeLists.txt:19 (find_package)
+
+
+-- Found PkgConfig: /usr/bin/pkg-config (found version "1.8.1") 
+-- Checking for modules 'gstreamer-1.0;gstreamer-app-1.0;gstreamer-video-1.0'
+--   Found gstreamer-1.0, version 1.24.2
+--   Found gstreamer-app-1.0, version 1.24.2
+--   Found gstreamer-video-1.0, version 1.24.2
+CMake Warning (dev) at /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:3782 (message):
+  qml/WatchNames.js is not an ECMAScript module and also doesn't contain
+  '.pragma library'.  It will be re-evaluated in the context of every QML
+  document that explicitly or implicitly imports Watchtower.  Set its
+  QT_QML_SKIP_QMLDIR_ENTRY source file property to FALSE if you really want
+  this to happen.  Set it to TRUE to prevent it.
+Call Stack (most recent call first):
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:1018 (qt6_target_qml_sources)
+  /home/cilex-vision/Qt/6.12.0/gcc_64/lib/cmake/Qt6Qml/Qt6QmlMacros.cmake:1486 (qt6_add_qml_module)
+  CMakeLists.txt:118 (qt_add_qml_module)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring done (4.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /media/cilex-vision/86761555761546F9/CilexLab/macos-build-guidance-20261012-v1/configure-build

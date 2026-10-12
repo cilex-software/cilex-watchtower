@@ -1,0 +1,9 @@
+{
+  "configure_before_exit": 0,
+  "configure_before_warning": true,
+  "configure_after_exit": 0,
+  "configure_after_warning": false,
+  "js_function_bodies_unchanged": true,
+  "mac_side_perl_patch_exact_and_idempotent": true,
+  "macos_build": "not run"
+}

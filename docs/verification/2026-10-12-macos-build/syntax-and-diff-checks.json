@@ -1,0 +1,28 @@
+[
+  {
+    "argv": [
+      "bash",
+      "-n",
+      "packaging/macos/build-local.sh",
+      "run-macos.sh"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "--",
+      "qml/WatchNames.js",
+      "packaging/macos/build-local.sh",
+      "packaging/macos/README.md",
+      "docs/PROJECT_STATUS.md"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

@@ -8,10 +8,39 @@ quarantine attribute applied, `./run-macos.sh` healed the quarantine, checked
 prerequisites, and started a fully working wall. **Operator decision
 2026-08-20: prerequisites on the target are acceptable; size beats
 self-containment.** The target needs an Apple-Silicon Mac with
-`brew install qt qt-multimedia gstreamer` — the launcher prints exactly that
+`brew install qt qtmultimedia gstreamer` — the launcher prints exactly that
 when something is missing. A fully-bundled dmg (macdeployqt + the GStreamer
 plugin tree — the W4 problem, Darwin edition) remains an M4 option nobody
 currently needs.
+
+## Rebuild from a checkout on Apple Silicon
+
+With the build prerequisites installed, run from the repository root:
+
+```sh
+git pull --ff-only origin main \
+  && cmake -S . -B build-macos \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_OSX_ARCHITECTURES=arm64 \
+    -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix qtmultimedia)" \
+  && cmake --build build-macos --parallel 4 \
+  && ./run-macos.sh
+```
+
+Homebrew names the multimedia formula `qtmultimedia`, without a hyphen
+([formula](https://formulae.brew.sh/formula/qtmultimedia)); install it with
+`brew install qtmultimedia` if missing. `qt-multimedia` is not the formula name.
+
+Keep `.pragma library` at the top of `qml/WatchNames.js`. Qt's CMake scanner
+only checks the first 128 bytes, so a long comment before the pragma caused
+a non-fatal “doesn't contain '.pragma library'” warning despite its presence
+([Qt source](https://github.com/qt/qtdeclarative/blob/v6.11.2/src/qml/Qt6QmlMacros.cmake#L3452)).
+The October 12 correction moves the existing directive without changing
+the JavaScript functions. Before/after Linux Qt 6.12 configure checks passed
+and the warning disappeared; the macOS build was not run on the Linux host.
+[Saved checks](../../docs/verification/2026-10-12-macos-build/checks.json) and
+[configure logs](../../docs/verification/2026-10-12-macos-build/) retain the
+observed before/after result.
 
 ## The storage model — identical to Windows
 

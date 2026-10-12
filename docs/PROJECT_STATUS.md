@@ -1,5 +1,16 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-12 — macOS build guidance corrected.** Homebrew's formula
+> is `qtmultimedia`; packaging prerequisite messages and instructions now use
+> that name (`packaging/macos/build-local.sh:191`). The existing `.pragma library`
+> moved above the comments in `qml/WatchNames.js:1`, inside Qt's limited CMake
+> scan. Before/after Linux Qt 6.12 configure runs both exited zero; the reported
+> warning appeared before and disappeared after, with all JavaScript function
+> bodies unchanged. [Saved checks](verification/2026-10-12-macos-build/checks.json).
+> macOS build not run here. `AGENTS.md` and `CLAUDE.md` now record the operator's
+> standing instruction to commit, integrate into main and push completed verified
+> work without asking again; narrower task instructions still take precedence.
+
 > **2026-10-12 — Camera obstruction pilot implemented; updated client must be reopened.**
 > Single-camera Cilex Vision service for4.1.6/.109 is active; the new central alert,
 > camera review, six-hour false-alarm snooze and eligible seven-day suppression
