@@ -1,5 +1,13 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-12 — Camera obstruction pilot implemented; updated client must be reopened.**
+> Single-camera Cilex Vision service for4.1.6/.109 is active; the new central alert,
+> camera review, six-hour false-alarm snooze and eligible seven-day suppression
+> are built. Real isolated report ingestion and final backend suites passed; a
+> physical-cover-to-visible-alert drill remains unmeasured.
+> [Evidence, exact boundaries and reopen command](verification/2026-10-12-camera-obstruction/README.md).
+> Publication authorised after implementation; mobile push deferred.
+
 > **[REDACTED 2026-08-22, operator order]** Credential strings removed at HEAD
 > (`<REDACTED-CRED>` markers). Original bytes remain in git history pending
 > history surgery + rotation (operator decisions).

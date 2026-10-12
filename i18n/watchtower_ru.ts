@@ -6973,4 +6973,37 @@
         <translation>Выбрать другую камеру для этой ячейки</translation>
     </message>
 </context>
+<context>
+    <name>CameraObstructionAlert</name>
+    <message><source>Potential camera obstruction</source><translation>Возможно, камера закрыта</translation></message>
+    <message><source>The camera view has substantially deteriorated. Open the live stream to confirm the incident or report a false alarm.</source><translation>Обзор камеры существенно ухудшился. Откройте прямую трансляцию, чтобы подтвердить происшествие или сообщить о ложной тревоге.</translation></message>
+    <message><source>Open camera live stream</source><translation>Открыть прямую трансляцию</translation></message>
+</context>
+<context>
+    <name>CameraObstructionReview</name>
+    <message><source>Camera visibility restored</source><translation>Обзор камеры восстановлен</translation></message>
+    <message><source>Camera obstruction alerts snoozed</source><translation>Оповещения о закрытии камеры отложены</translation></message>
+    <message><source>Obstruction confirmed — incident acknowledged</source><translation>Камера закрыта — происшествие подтверждено</translation></message>
+    <message><source>Reported as false alarm</source><translation>Отмечено как ложная тревога</translation></message>
+    <message><source>Potential obstruction — review this camera</source><translation>Возможно, камера закрыта — проверьте изображение</translation></message>
+    <message><source>Alerts suppressed until %1. Monitoring and recording continue.</source><translation>Оповещения отключены до %1. Наблюдение и запись продолжаются.</translation></message>
+    <message><source>Acknowledged as a true incident. The obstruction remains active until visibility recovers.</source><translation>Происшествие подтверждено. Состояние закрытия камеры сохраняется до восстановления обзора.</translation></message>
+    <message><source>False alarm snoozes this camera for 6 hours and queues a report with the triggering 30-second clip.</source><translation>Ложная тревога отключает оповещения этой камеры на 6 часов и ставит в очередь отчёт с 30-секундной записью срабатывания.</translation></message>
+    <message><source>False alarm — snooze 6 hours</source><translation>Ложная тревога — отложить на 6 часов</translation></message>
+    <message><source>Confirm true incident</source><translation>Подтвердить происшествие</translation></message>
+    <message><source>Disable this camera's alerts for 7 days</source><translation>Отключить оповещения камеры на 7 дней</translation></message>
+    <message><source>An authorised operator or administrator must classify this alarm.</source><translation>Отметить результат проверки может уполномоченный оператор или администратор.</translation></message>
+    <message><source>False-alarm report: %1 · evidence: %2</source><translation>Отчёт о ложной тревоге: %1 · видеозапись: %2</translation></message>
+    <message><source>pending</source><translation>ожидается</translation></message>
+    <message><source>Disable obstruction alerts for 7 days?</source><translation>Отключить оповещения о закрытии камеры на 7 дней?</translation></message>
+    <message><source>This camera has repeated false alarms. Alerts will be disabled for 7 days; recording and monitoring continue.</source><translation>На этой камере повторяются ложные тревоги. Оповещения будут отключены на 7 дней; запись и наблюдение продолжатся.</translation></message>
+</context>
+<context>
+    <name>CameraObstructionController</name>
+    <message><source>Camera visibility access denied</source><translation>Нет доступа к оповещениям о закрытии камер</translation></message>
+    <message><source>Camera visibility monitoring unavailable</source><translation>Контроль обзора камер недоступен</translation></message>
+    <message><source>Camera visibility updates unavailable; displayed state may be stale.</source><translation>Обновления состояния обзора недоступны; отображаемые сведения могут быть устаревшими.</translation></message>
+    <message><source>Invalid camera visibility incident received; displayed state may be stale.</source><translation>Получены некорректные данные о закрытии камеры; отображаемые сведения могут быть устаревшими.</translation></message>
+    <message><source>Action was not confirmed. %1</source><translation>Действие не подтверждено. %1</translation></message>
+</context>
 </TS>

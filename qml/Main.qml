@@ -45,6 +45,13 @@ Window {
     property string wallMode: "live"    // "live" | "playback" (synchronized wall review)
     property bool opsSidebarOpen: true  // Live page right-hand panel (OpsSidebar) — toggled from the Live toolbar
 
+    Binding {
+        target: CameraObstruction
+        property: "currentCameraId"
+        value: AuthController.authenticated && win.focusedCamera !== null && win.playbackCamera === null
+               ? String(win.focusedCamera.camId || "") : ""
+    }
+
     // ------------------------------------------------------------- View tabs
     // tabs[0] is the MAIN tab: whatever the nav rail points at, which may itself
     // hold a camera opened IN PLACE (a tile's "Open"). tabs[1..] are cameras
@@ -2063,6 +2070,11 @@ Window {
                 onCloseRequested: (i) => win.closeTab(i)
             }
 
+            CameraObstructionReview {
+                Layout.fillWidth: true
+                controller: CameraObstruction
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -2507,6 +2519,29 @@ Window {
         }
         function onOpFailed(message) {
             toastHost.show(message, qsTr("The Watch"), "warn", "", "");
+        }
+    }
+
+    CameraObstructionAlert {
+        anchors.fill: parent
+        controller: CameraObstruction
+        onOpenCamera: (cameraId, incidentId) => {
+            var cam = cameraModel.cameraByBackendId(cameraId);
+            if (!cam || !cam.camId) {
+                toastHost.show(qsTr("Camera unavailable"), qsTr("The alarm camera is not in your current camera roster."), "warn", "", "");
+                return;
+            }
+            win.playbackCamera = null;
+            win.wallMode = "live";
+            win.openCameraTab(cam);
+            Qt.callLater(function() { CameraObstruction.beginReview(incidentId); });
+        }
+    }
+
+    Connections {
+        target: CameraObstruction
+        function onActionFailed(message) {
+            toastHost.show(qsTr("Camera obstruction action failed"), message, "warn", "", "");
         }
     }
 

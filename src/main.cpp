@@ -73,6 +73,7 @@
 #include "models/PlaybackClient.h"
 #include "models/PtzClient.h"
 #include "models/WatchClient.h"
+#include "models/CameraObstructionController.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -628,6 +629,7 @@ int main(int argc, char *argv[])
     // Exposed to QML as a context property (not a module type) so it does not
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
+    engine.rootContext()->setContextProperty("CameraObstruction", new CameraObstructionController(auth, &app));
     // Live-over-HTTP loopback proxy (remote-live transport) — app-lifetime, so
     // live surfaces can fall back to it whenever RTSP cannot deliver.
     engine.rootContext()->setContextProperty("LiveHttp", liveProxy);
