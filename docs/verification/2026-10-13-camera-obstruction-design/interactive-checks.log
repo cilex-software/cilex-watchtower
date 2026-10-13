@@ -1,0 +1,70 @@
+2026-10-13 14:56:38.848 [WT-DEC] QMediaPlayer decodes in software (default since 2026-09-09; WT_PB_HW_DECODE=1 restores hardware)
+2026-10-13 14:56:38.852 === watchtower start v1.1.776 pid=216987 build=8294cb6a-dirty qt=6.12.0 os=Ubuntu 24.04.4 LTS (flightrec /media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/interactive-workflow/isolated-data/Cilex Vision/Watchtower/flightrec, 10240KB x5) ===
+2026-10-13 14:56:38.852 [MTLCACHE] probe armed: harvest-sink Metal-cache warnings are counted (proven benign 2026-09-25); any other occurrence logs thread + backtrace + sink rhi states
+2026-10-13 14:56:38.895 [TLS] supportsSsl=1 backend=openssl available=[cert-only,openssl] lib=OpenSSL 3.0.13 30 Jan 2024
+libva info: VA-API version 1.20.0
+libva info: Trying to open /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so
+libva info: Found init function __vaDriverInit_1_20
+libva info: va_openDriver() returns 0
+
+** (gst-plugin-scanner:216993): CRITICAL **: 14:56:40.146: _dma_fmt_to_dma_drm_fmts: assertion 'fmt != GST_VIDEO_FORMAT_UNKNOWN' failed
+2026-10-13 14:56:40.248 [LIVE-PROXY] listening on http://127.0.0.1:35507
+2026-10-13 14:56:40.442 Member enabled of the object QQuickRectangle_QML_370 overrides a member of the base object. Consider renaming it or adding final or override specifier
+2026-10-13 14:56:40.542 [FFMPEG] probing candidate 1/2: /home/cilex-vision/projects/cilex-watchtower/build/ffmpeg
+2026-10-13 14:56:40.584 Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
+2026-10-13 14:56:40.627 [FFMPEG] probing candidate 1/2: /home/cilex-vision/projects/cilex-watchtower/build/ffmpeg
+(previous message repeated x2 more)
+2026-10-13 14:56:40.752 [WALL] visible=false session=- state=0 pos=0
+2026-10-13 14:56:40.988 [MSCAN] attached sink=0x583b296f8350
+2026-10-13 14:56:40.989 [MSCAN] attached sink=0x583b27f7b460
+2026-10-13 14:56:40.989 [MSCAN] attached sink=0x583b27ea6d50
+2026-10-13 14:56:40.989 [LIVETIME] hd_promote armed wantHd=false pref=false override=-1 main=n sub=n
+2026-10-13 14:56:40.994 [FFMPEG] probing candidate 2/2: ffmpeg
+(previous message repeated x3 more)
+2026-10-13 14:56:41.021 [AUTH] token accepted user=fixture-operator role=admin ttl=7200s
+2026-10-13 14:56:41.023 [AUTH] session renewal armed in 6600s
+2026-10-13 14:56:41.029 [WATCH] station registry HTTP 404 (Error transferring http://127.0.0.1:45009/client/stations - server replied: Not Found) — retry 1/3 in 5s
+2026-10-13 14:56:41.112 [FFMPEG] using ffmpeg (drawtext yes, encoder libx264)
+(previous message repeated x2 more)
+2026-10-13 14:56:41.342 [WT-URL] suffix='' main='' sub_before='' sub_after=''
+2026-10-13 14:56:41.342 [STREAMS] cameras=2 hls_sub_url=0 hls_opt_url=0 e.g.
+2026-10-13 14:56:41.724 [PREVIEW-CHECK] {"ok":true,"check":"simulated initial incident"}
+2026-10-13 14:56:41.777 [FFMPEG] using ffmpeg (drawtext yes, encoder libx264)
+2026-10-13 14:56:41.841 [PREVIEW-CHECK] {"ok":true,"check":"capture 01-interactive-alert"}
+2026-10-13 14:56:42.427 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:56:42.842 [PREVIEW-CHECK] {"ok":true,"check":"correct live tab and review"}
+2026-10-13 14:56:42.852 [PREVIEW-CHECK] {"ok":true,"check":"capture review strip"}
+2026-10-13 14:56:42.893 [PREVIEW-CHECK] {"ok":true,"check":"capture 02-interactive-review"}
+2026-10-13 14:56:43.184 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionFalseAlarm enabled/visible"}
+2026-10-13 14:56:43.531 [WATCH] station registry HTTP 404 (Error transferring http://127.0.0.1:45009/client/stations - server replied: Not Found) — retry 2/3 in 10s
+2026-10-13 14:56:44.102 [PREVIEW-CHECK] {"ok":true,"check":"false alarm suppresses popup"}
+2026-10-13 14:56:44.102 [PREVIEW-CHECK] {"ok":true,"check":"no report claimed queued"}
+2026-10-13 14:56:44.103 [PREVIEW-CHECK] {"ok":true,"check":"one false alarm hides seven day"}
+2026-10-13 14:56:44.109 [FLTREC] modules snapshot: 131 modules -> /media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/interactive-workflow/isolated-data/Cilex Vision/Watchtower/flightrec/modules.txt
+2026-10-13 14:56:44.137 [PREVIEW-CHECK] {"ok":true,"check":"capture 03-interactive-snooze"}
+2026-10-13 14:56:44.917 [PREVIEW-CHECK] {"ok":true,"check":"previewRepeatedFalseAlarms enabled/visible"}
+2026-10-13 14:56:46.098 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:56:46.391 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionFalseAlarm enabled/visible"}
+2026-10-13 14:56:46.392 [WATCH] station registry HTTP 404 (Error transferring http://127.0.0.1:45009/client/stations - server replied: Not Found) — retry 3/3 in 15s
+2026-10-13 14:56:47.365 [PREVIEW-CHECK] {"ok":true,"check":"third false alarm eligible"}
+2026-10-13 14:56:47.398 [PREVIEW-CHECK] {"ok":true,"check":"capture 04-interactive-seven-day"}
+2026-10-13 14:56:47.694 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionDisable7d enabled/visible"}
+2026-10-13 14:56:48.224 [PREVIEW-CHECK] {"ok":true,"check":"seven day asks confirmation"}
+2026-10-13 14:56:48.267 [PREVIEW-CHECK] {"ok":true,"check":"capture 07-disable-confirmation"}
+2026-10-13 14:56:49.523 [PREVIEW-CHECK] {"ok":true,"check":"seven day fixture suppression"}
+2026-10-13 14:56:50.068 [PREVIEW-CHECK] {"ok":true,"check":"previewTriggerAlarm enabled/visible"}
+2026-10-13 14:56:51.326 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:56:51.703 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionConfirm enabled/visible"}
+2026-10-13 14:56:52.399 [PREVIEW-CHECK] {"ok":true,"check":"confirmed stays active"}
+2026-10-13 14:56:52.435 [PREVIEW-CHECK] {"ok":true,"check":"capture 05-interactive-confirmed"}
+2026-10-13 14:56:53.114 [PREVIEW-CHECK] {"ok":true,"check":"previewRecovery enabled/visible"}
+2026-10-13 14:56:53.389 [WATCH] station registry unreachable after retries — chip hidden
+2026-10-13 14:56:53.973 [PREVIEW-CHECK] {"ok":true,"check":"capture 06-interactive-recovered"}
+2026-10-13 14:56:54.507 [PREVIEW-CHECK] {"ok":true,"check":"previewReset enabled/visible"}
+2026-10-13 14:56:55.014 [PREVIEW-CHECK] {"ok":true,"check":"reset clears fixture"}
+2026-10-13 14:56:55.457 [PREVIEW-CHECK] {"ok":true,"check":"previewTriggerAlarm enabled/visible"}
+2026-10-13 14:56:56.257 [PREVIEW-CHECK] {"ok":true,"check":"capture 08-russian-alert"}
+2026-10-13 14:56:56.747 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:56:57.014 [PREVIEW-CHECK] {"ok":true,"check":"capture review strip"}
+2026-10-13 14:56:57.037 [PREVIEW-CHECK] {"ok":true,"check":"capture 09-russian-review"}
+2026-10-13 14:56:57.297 [PREVIEW-SUMMARY] {"checks":34,"failures":0}

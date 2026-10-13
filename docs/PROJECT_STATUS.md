@@ -1,5 +1,13 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Obstruction UI aligned with Watchtower design.**
+> Compact graphite review strip, themed keyboard-accessible actions, restrained
+> pulsing alert edge and matching seven-day confirmation. English/Russian
+> offscreen previews inspected; component suite 9 passed, main regression
+> 16 checks passed, extended preview 34 checks passed; Ubuntu build exited 0.
+> Native desktop/macOS and real detector/report delivery were not measured.
+> [Source citations, commands and evidence](verification/2026-10-13-camera-obstruction-design/README.md).
+
 > **2026-10-13 — Interactive obstruction UI preview.** Run
 > `./tools/preview-camera-obstruction.sh` for the shipping shell and alert/review
 > widgets against isolated simulated incidents. No real stream or report is used.

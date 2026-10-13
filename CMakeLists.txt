@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.776
+    VERSION 1.1.777
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -126,6 +126,7 @@ qt_add_qml_module(watchtower
         qml/LoginScreen.qml
         qml/AlertsDropdown.qml
         qml/CameraObstructionAlert.qml
+        qml/CameraObstructionButton.qml
         qml/CameraObstructionReview.qml
         qml/Theme.qml
         qml/LayoutSpec.qml

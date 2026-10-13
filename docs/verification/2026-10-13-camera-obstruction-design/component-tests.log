@@ -1,0 +1,13 @@
+********* Start testing of qmltestrunner *********
+Config: Using QtTest library 6.12.0, Qt 6.12.0 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 11.5.0 20240719 (Red Hat 11.5.0-5)), ubuntu 24.04
+PASS   : qmltestrunner::CameraObstructionUi::initTestCase()
+PASS   : qmltestrunner::CameraObstructionUi::test_confirmAndViewer()
+PASS   : qmltestrunner::CameraObstructionUi::test_disableDialogKeyboardAndPermissionChange()
+PASS   : qmltestrunner::CameraObstructionUi::test_keyboardActivationAndGuards()
+PASS   : qmltestrunner::CameraObstructionUi::test_openAndClassify()
+PASS   : qmltestrunner::CameraObstructionUi::test_recoveredUnreviewedAndSevenDayGate()
+PASS   : qmltestrunner::CameraObstructionUi::test_responsiveActions(wide)
+PASS   : qmltestrunner::CameraObstructionUi::test_responsiveActions(narrow)
+PASS   : qmltestrunner::CameraObstructionUi::cleanupTestCase()
+Totals: 9 passed, 0 failed, 0 skipped, 0 blacklisted, 1062ms
+********* Finished testing of qmltestrunner *********

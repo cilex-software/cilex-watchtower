@@ -1,0 +1,136 @@
+{
+  "recorded_at_utc": "2026-10-13T12:02:29.928078+00:00",
+  "evidence_directory": "/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1",
+  "source_sha256": {
+    "qml/CameraObstructionAlert.qml": "0f0e908366068bdc5aef440f8938e2c36c2d1f0fc4c876ed5631f1c011a5dacf",
+    "qml/CameraObstructionReview.qml": "a51fa0e8399ed1aee1e29934c8041c8215cabe88302814b6bdc168cd0bbf6e94",
+    "qml/CameraObstructionButton.qml": "b276253774a9f3c462f293e7a147fecc472e417d5647a7159e94cf748312b225",
+    "tools/tests/camera-obstruction/run-ui.sh": "3db66ce0de4413744ac50a458a881defc71633d0e4113eeeceec1faaafb6c856",
+    "tools/tests/camera-obstruction/tst_ui.qml": "235b99287db37c7d0bf3c9c3e28a047d775ec8dbf2d282745824575185ac0af7"
+  },
+  "commands": {
+    "qml-ui-tests-05.command.json": {
+      "argv": [
+        "bash",
+        "tools/tests/camera-obstruction/run-ui.sh"
+      ],
+      "cwd": "/home/cilex-vision/projects/cilex-watchtower",
+      "started_at_utc": "2026-10-13T11:53:31.074858+00:00",
+      "exit_code": 0
+    },
+    "rebuild-command.json": {
+      "argv": [
+        "nice",
+        "-n",
+        "10",
+        "cmake",
+        "--build",
+        "build",
+        "--parallel",
+        "1"
+      ],
+      "cwd": "/home/cilex-vision/projects/cilex-watchtower",
+      "utc": "2026-10-13T11:53:15.083514+00:00"
+    },
+    "full-app-command.json": {
+      "argv": [
+        "python3",
+        "tools/tests/camera-obstruction/run-main-ui.py",
+        "--binary",
+        "./run-watchtower.sh",
+        "--output",
+        "/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/full-app-regression"
+      ],
+      "cwd": "/home/cilex-vision/projects/cilex-watchtower",
+      "utc": "2026-10-13T11:55:47.722159+00:00"
+    },
+    "interactive-command.json": {
+      "argv": [
+        "python3",
+        "/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/smoke-runner.py",
+        "--interactive",
+        "--binary",
+        "/home/cilex-vision/projects/cilex-watchtower/run-watchtower.sh",
+        "--output",
+        "/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/interactive-workflow"
+      ],
+      "environment_overrides": {
+        "QT_QPA_PLATFORM": "offscreen"
+      },
+      "started_at": "2026-10-13T11:56:38.562267+00:00"
+    }
+  },
+  "results": {
+    "component_suite": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "includes_init_and_cleanup": true,
+      "exit_code": 0
+    },
+    "main_regression": {
+      "checks": 16,
+      "failures": 0,
+      "run": {
+        "started_at_utc": "2026-10-13T11:55:47.827347+00:00",
+        "argv": [
+          "/home/cilex-vision/projects/cilex-watchtower/run-watchtower.sh",
+          "--obstruction-output=/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/full-app-regression"
+        ],
+        "exit_code": 0,
+        "loopback_only": true,
+        "real_video_pixels_verified": false,
+        "live_actions": false,
+        "interactive": false
+      }
+    },
+    "interactive_workflow": {
+      "checks": 34,
+      "failures": 0,
+      "run": {
+        "started_at_utc": "2026-10-13T11:56:38.722218+00:00",
+        "argv": [
+          "/home/cilex-vision/projects/cilex-watchtower/run-watchtower.sh",
+          "--obstruction-output=/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-design-20261013-v1/interactive-workflow"
+        ],
+        "exit_code": 0,
+        "loopback_only": true,
+        "real_video_pixels_verified": false,
+        "live_actions": false,
+        "interactive": true
+      }
+    },
+    "ubuntu_build": {
+      "exit_code": 0,
+      "version_at_run": "1.1.776"
+    }
+  },
+  "rendering": "Qt offscreen, production application plus loopback fixture",
+  "not_measured": [
+    "native desktop manual operation",
+    "macOS rendering",
+    "real camera video",
+    "detector accuracy",
+    "real report delivery"
+  ],
+  "screenshots_sha256": {
+    "01-interactive-alert.png": "7caf81d347d209839126e61bf251a0aece5b0bc82934358fec60792ed10643ff",
+    "02-interactive-review-strip.png": "0208ee9cc1c94873539368011edb0f6a6c74872649365d8d63c1d1627f46037b",
+    "02-interactive-review.png": "5ef4a869a018f2e3aa180a3fd382e5b27f054244bbbda78d37e319c88f6838b6",
+    "03-interactive-snooze.png": "d73ef0c20dad6b95129a09c6b357accb73f5b8298e061b17325eda8fa1000ffe",
+    "04-interactive-seven-day.png": "3c2c933fbcba8a5c2037c0f195fa446f111f913153b3512ec4773a8275e8b118",
+    "05-interactive-confirmed.png": "c43b1c2185b6c06c7de11c2a66c5bca3955251fecd9b1df593a9dbfca05ef53f",
+    "06-interactive-recovered.png": "a0e6b6240b965423a4d0344da325bca7ef7ed33f7dc0f19a45f63d6a65cad1d5",
+    "07-disable-confirmation.png": "dbf0322bf94795defc3f893510afd43fe3b783b34764cab471144d5bfa761481",
+    "08-russian-alert.png": "0dff0c3d1d42a6835f57b656a412fd92fdbf054e9c0c1cce9829de20b373b125",
+    "09-russian-review-strip.png": "51b9d45771b82baea94b290e00d46eb46a6596d4db567402eb59fe4e186c92ac",
+    "09-russian-review.png": "f5db05c4df50be4c716afae1cb5c7ae570763739f2b9a0f862ca2d4d136077e7"
+  },
+  "saved_logs_sha256": {
+    "component-tests.log": "75c6280084d4e64f8dd81bcee9e9bf92c5cc6e5a4e1d7050cb276c2a8c29be28",
+    "interactive-checks.log": "274765151235f8b54e4f0c727630e29beb8ff5d168c45837de1eaeff28ae3ae3",
+    "main-regression.log": "a628753530782eabf14648c07b2c9a8d00be5b0664c525014be8130fc5ae5963",
+    "build.log": "15b56b408ab56aee0818650a23a9031e7a1280f7a524b3191052f09bc3a070ea"
+  },
+  "saved_logs_transform": "Trailing whitespace removed in repository copies only; original bytes preserved in evidence directory."
+}

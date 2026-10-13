@@ -1,0 +1,9 @@
+[1/9] Copying watchtower qml sources into build dir
+[2/9] Running qmlimportscanner for watchtower
+[3/9] Generating .rcc/qmlcache/watchtower_qml_CameraObstructionButton_qml.cpp
+[4/9] Generating .rcc/qmlcache/watchtower_qml_CameraObstructionReview_qml.cpp
+[5/9] Running rcc for resource watchtower_raw_qml_0
+[6/9] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_CameraObstructionButton_qml.cpp.o
+[7/9] Building CXX object CMakeFiles/watchtower.dir/build/.rcc/qmlcache/watchtower_qml_CameraObstructionReview_qml.cpp.o
+[8/9] Building CXX object CMakeFiles/watchtower.dir/build/.qt/rcc/qrc_watchtower_raw_qml_0.cpp.o
+[9/9] Linking CXX executable watchtower
