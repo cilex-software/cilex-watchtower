@@ -18,6 +18,8 @@ function Get-WtgRemoteStage([string]$TargetHost,[string]$RemoteStagePath,[string
 function New-WtgRemoteRequest($Context,[string]$PackagePath,[string]$ManifestHash,[string]$ExpectedHost,[string]$TargetSid='') {
     $req=[ordered]@{RunId=$Context.RunId;PackagePath=$PackagePath;ExpectedHost=$ExpectedHost;TargetSid=$TargetSid;PackageManifestSha256=$ManifestHash;NonInteractive=$true}
     foreach($name in @('InstallDir','InstallScope','TargetUser','StartupMode','Language','BackendUrl','PackageSha256','AdoptExisting','LegacyTaskName','ConsentUnattended','OverrideRequirements','DependencyMode','VerifyOnly','DeferEnrollment','ConfirmNoManualSignIn')){$req[$name]=Get-WtgOption $Context $name $null}
+    # Build-host prompts cannot grant consent for the same finding on another PC.
+    $req.OverrideRequirements=@(Get-WtgOption $Context 'ExplicitOverrideRequirements' $req.OverrideRequirements)
     $req.VerifyOnly=[bool]$req.VerifyOnly
     if($req.VerifyOnly -and -not $req.StartupMode){$req.StartupMode='AfterSignIn'}
     return $req
@@ -82,6 +84,42 @@ function Set-WtgRemoteRequestDirectory($Request,$Identity) {
     if(-not $Request.InstallDir){
         if($Request.InstallScope -eq 'Machine'){$Request.InstallDir=Join-Path $Identity.ProgramFiles 'Cilex Watchtower'}
         else{$Request.InstallDir=Join-Path $Identity.LocalAppData 'Programs\Cilex Watchtower'}
+    }
+}
+function Confirm-WtgRemoteRequirements($Context,$Request,[scriptblock]$Inspect,[string]$ExpectedSid='') {
+    $attempt=0
+    while($true){
+        $identity=Assert-WtgRemoteResult (& $Inspect $Request $attempt) $Request.RunId $Request.ExpectedHost $ExpectedSid @('Inspected')
+        if(-not $ExpectedSid){$ExpectedSid=$identity.TargetSid}
+        Set-WtgRemoteRequestDirectory $Request $identity
+        # Verification and retained-run reconciliation never ask to accept an installation.
+        if($Request.VerifyOnly){return $identity}
+        if(-not $identity.PSObject.Properties['ManifestSha256'] -or $identity.ManifestSha256 -ne $Request.PackageManifestSha256){throw 'REMOTE_INSPECTION_PACKAGE_MISMATCH'}
+        if(-not $identity.PSObject.Properties['InstallDir'] -or $identity.InstallDir -ne $Request.InstallDir){throw 'REMOTE_INSPECTION_DIRECTORY_MISMATCH'}
+        if(-not $identity.PSObject.Properties['Findings'] -or $null -eq $identity.Findings){throw 'REMOTE_REQUIREMENTS_RESULT_INVALID'}
+        $findings=@($identity.Findings);$seen=@{}
+        if(-not $findings.Count -or $findings.Count -gt 256){throw 'REMOTE_REQUIREMENTS_RESULT_INVALID'}
+        foreach($finding in $findings){
+            foreach($name in @('Id','State','Message','CanOverride')){if(-not $finding -or -not $finding.PSObject.Properties[$name]){throw 'REMOTE_REQUIREMENTS_RESULT_INVALID'}}
+            if($finding.Id -isnot [string] -or $finding.Id -notmatch '^[a-zA-Z0-9_.-]{1,100}$' -or $seen.ContainsKey($finding.Id) -or $finding.State -notin @('PASS','WARNING','UNKNOWN','BLOCKED') -or $finding.Message -isnot [string] -or $finding.Message.Length -gt 4000 -or $finding.CanOverride -isnot [bool]){throw 'REMOTE_REQUIREMENTS_RESULT_INVALID'}
+            $seen[$finding.Id]=$true
+        }
+        $accepted=@($Request.OverrideRequirements)
+        $pending=@($findings|Where-Object{$_.State -ne 'PASS' -and ($_.Id -notin $accepted -or -not $_.CanOverride)})
+        if(-not $pending.Count){return $identity}
+        foreach($finding in $pending){Write-Host ($finding.Id+': '+$finding.Message)}
+        if(@($pending|Where-Object{-not $_.CanOverride}).Count){throw 'INSTALL_REQUIREMENTS_BLOCKED'}
+        if(Get-WtgOption $Context 'NonInteractive' $false){throw 'INSTALL_REQUIREMENTS_ACCEPTANCE_REQUIRED'}
+        $prompt=if((Get-WtgOption $Context 'Language' 'en') -eq 'ru'){'Другой компьютер: продолжить с указанными ограничениями [C], повторить проверку [R] или отменить [Enter]'}else{'Other computer: continue with these limitations [C], check again [R], or cancel [Enter]'}
+        $choice=Read-Host $prompt
+        if($choice -ieq 'C'){
+            # Only a deliberate answer adds the findings just displayed. The target
+            # checks again before any stop/replacement, and rejects new findings.
+            $Request.OverrideRequirements=@(@($accepted)+@($pending.Id)|Select-Object -Unique)
+            return $identity
+        }
+        if($choice -ine 'R'){throw 'INSTALL_CANCELLED'}
+        $attempt++
     }
 }
 function Set-WtgRemoteStageAcl([string]$Path) {
@@ -315,10 +353,12 @@ function Install-WtgRemotePackage($Context,[string]$PackagePath,[Management.Auto
             Copy-WtgRemoteFiles $helpers ([IO.Path]::Combine($stage.Local,'helpers')) $session
             $request=New-WtgRemoteRequest $Context ([IO.Path]::Combine($stage.Local,'package')) $manifestHash $expected
             $request.Inspect=$true
-            $inspect=Invoke-Command -Session $session -ScriptBlock {param($d,$r)$p=Join-Path $d 'inspect-request.json';[IO.File]::WriteAllText($p,($r|ConvertTo-Json -Depth 8));& (Join-Path $d 'helpers\install-target.ps1') -RequestPath $p -RunId $r.RunId -EmitJson} -ArgumentList $stage.Local,$request
-            $identity=Assert-WtgRemoteResult ($inspect|ConvertFrom-Json) $Context.RunId $expected $prepared.Sid @('Inspected')
-            if($identity.Status -ne 'Inspected'){throw 'REMOTE_INSPECTION_FAILED'}
-            $request.Inspect=$false;$request.TargetSid=$identity.TargetSid;Set-WtgRemoteRequestDirectory $request $identity
+            $inspect={param($r,$attempt)
+                $json=Invoke-Command -Session $session -ScriptBlock {param($d,$r,$attempt)$p=Join-Path $d ('inspect-'+$attempt+'-request.json');[IO.File]::WriteAllText($p,($r|ConvertTo-Json -Depth 8));& (Join-Path $d 'helpers\install-target.ps1') -RequestPath $p -RunId $r.RunId -EmitJson} -ArgumentList $stage.Local,$r,$attempt
+                return ($json|ConvertFrom-Json)
+            }
+            $identity=Confirm-WtgRemoteRequirements $Context $request $inspect $prepared.Sid
+            $request.Inspect=$false;$request.TargetSid=$identity.TargetSid
             # Disconnect the retained PowerShell session if the bounded wait expires.
             $job=Invoke-Command -Session $session -AsJob -ScriptBlock {param($d,$r)$p=Join-Path $d 'install-request.json';[IO.File]::WriteAllText($p,($r|ConvertTo-Json -Depth 8));& (Join-Path $d 'helpers\install-target.ps1') -RequestPath $p -RunId $r.RunId -ResultPath (Join-Path $d 'install-result.json')} -ArgumentList $stage.Local,$request
             $clock=[Diagnostics.Stopwatch]::StartNew()
@@ -356,10 +396,14 @@ function Install-WtgRemotePackage($Context,[string]$PackagePath,[Management.Auto
         $helpers=Join-Path $stage.UNC 'helpers';[IO.Directory]::CreateDirectory($helpers)|Out-Null
         foreach($name in @('install-target.ps1','Install.psm1','Common.psm1','StationVideoHealth.psm1','Requirements.psm1','requirements.json')){$path=Get-WtgHelperPath $name;Copy-Item -LiteralPath $path -Destination $helpers}
         $request=New-WtgRemoteRequest $Context ([IO.Path]::Combine($stage.Local,'package')) $manifestHash $expected
-        $request.Inspect=$true;Write-WtgJson -Path (Join-Path $stage.UNC 'inspect-request.json') -Value $request
-        $identity=Assert-WtgRemoteResult (Invoke-WtgSmbJob $target $stage 'inspect' $Context.RunId 90) $Context.RunId $expected '' @('Inspected')
-        if($identity.Status -ne 'Inspected'){throw 'REMOTE_INSPECTION_FAILED'}
-        $request.Inspect=$false;$request.TargetSid=$identity.TargetSid;Set-WtgRemoteRequestDirectory $request $identity
+        $request.Inspect=$true
+        $inspect={param($r,$attempt)
+            $kind='inspect-'+$attempt
+            Write-WtgJson -Path (Join-Path $stage.UNC ($kind+'-request.json')) -Value $r
+            return (Invoke-WtgSmbJob $target $stage $kind $Context.RunId 300)
+        }
+        $identity=Confirm-WtgRemoteRequirements $Context $request $inspect
+        $request.Inspect=$false;$request.TargetSid=$identity.TargetSid
         Write-WtgJson -Path (Join-Path $stage.UNC 'install-request.json') -Value $request
         return (Assert-WtgRemoteResult (Invoke-WtgSmbJob $target $stage 'install' $Context.RunId 1200) $Context.RunId $expected $identity.TargetSid)
     }finally{

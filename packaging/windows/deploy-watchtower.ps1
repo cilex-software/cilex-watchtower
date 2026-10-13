@@ -4,7 +4,11 @@
 Build, package and install Cilex Watchtower on Windows. Separate from the station updater.
 .DESCRIPTION
 Check/WhatIf are read-only. BuildInstaller creates a complete offline installer.
-Use -GhToken (Read-Host -AsSecureString) for a private repository; never paste a token into an argument.
+With no options, build current main and install locally, asking for required choices.
+A RemoteStagePath such as \\OFFICE-PC\C$\CilexWatchtower-Deploy selects remote installation,
+the target computer and SMBService unless Mode/TargetHost/Transport are supplied explicitly.
+Existing Git access is tried first; missing access prompts securely for a GitHub token.
+Use -GhToken (Read-Host -AsSecureString) for unattended authentication; never paste a token into an argument.
 #>
 [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='Low')]
 param(
@@ -42,7 +46,7 @@ if(-not $CacheDir){$CacheDir=Join-Path $base 'cache'}
 if(-not $WorkDir){$WorkDir=Join-Path $base 'work'}
 if(-not $OutputDir){$OutputDir=Join-Path $base 'output'}
 $defaultInstall=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\Cilex Watchtower'
-if(-not $InstallDir -and -not $TargetHost -and -not $TargetUser){
+if(-not $InstallDir -and -not $TargetHost -and -not $TargetUser -and -not $RemoteStagePath -and $Mode -ne 'RemoteInstall'){
     if($InstallScope -eq 'Machine'){$InstallDir=Join-Path $env:ProgramFiles 'Cilex Watchtower'}else{$InstallDir=$defaultInstall}
 }
 $runId=[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
@@ -52,6 +56,7 @@ $context=[pscustomobject]@{
     Repository=$Repository;Tag=$Tag;InstallDir=$InstallDir;InstallScope=$InstallScope
     TargetUser=$TargetUser;TargetHost=$TargetHost;ExpectedHost=$ExpectedHost;StartupMode=$StartupMode
     BackendUrl=$BackendUrl;OverrideRequirements=$OverrideRequirements;AcceptLicenses=[bool]$AcceptLicenses
+    ExplicitOverrideRequirements=@($OverrideRequirements)
     BuildJobs=$BuildJobs;Tools=$Tools;PackageSha256=$PackageSha256;PackageManifestSha256=$PackageManifestSha256
     SigningThumbprint=$SigningThumbprint;TimestampUrl=$TimestampUrl;AdoptExisting=[bool]$AdoptExisting
     LegacyTaskName=$LegacyTaskName;ConsentUnattended=[bool]$ConsentUnattended;AutologonPath=$AutologonPath
@@ -62,6 +67,29 @@ $result=[ordered]@{SchemaVersion=1;RunId=$runId;Mode=$Mode;Status='Preparing';St
 $exitCode=1;$entryLock=$null
 try {
     if($env:OS -ne 'Windows_NT'){throw (Get-WtgMessage WindowsOnly -Language $Language)}
+    # Resolve shorthand entirely from supplied strings, before any network or disk operation.
+    if($RemoteStagePath){
+        if($RemoteStagePath -notmatch '^\\\\([A-Za-z0-9][A-Za-z0-9.-]{0,252})\\([^\\]+)\\(.+)$'){
+            throw (Get-WtgMessage InputConflict @('RemoteStagePath: use \\COMPUTER\C$\CilexWatchtower-Deploy') $Language)
+        }
+        $stageHost=$matches[1];$stageShare=$matches[2];$stageTail=$matches[3]
+        if($stageShare -match '[\x00-\x1f"<>|?*:%/]' -or $stageTail -match '(^|\\)\.\.?($|\\)|[\x00-\x1f"<>|?*:%/]'){
+            throw (Get-WtgMessage InputConflict @('RemoteStagePath: invalid share or folder') $Language)
+        }
+        if($TargetHost -and $TargetHost -ne $stageHost){throw (Get-WtgMessage InputConflict @('TargetHost / RemoteStagePath: different computers') $Language)}
+        if(-not $TargetHost){$TargetHost=$stageHost}
+        if(-not $PSBoundParameters.ContainsKey('Transport')){$Transport='SMBService'}
+    }
+    if(-not $PSBoundParameters.ContainsKey('Mode') -and $TargetHost){$Mode='RemoteInstall'}
+    if($TargetHost -and $Mode -notin @('RemoteInstall','Check')){throw (Get-WtgMessage InputConflict @('TargetHost / '+$Mode) $Language)}
+    if($TargetHost -and $TargetHost -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$'){throw (Get-WtgMessage InvalidHost -Language $Language)}
+    if($TargetHost){
+        $targetAddress=$null
+        if([Net.IPAddress]::TryParse($TargetHost,[ref]$targetAddress)){
+            if(-not $ExpectedHost){throw (Get-WtgMessage RequiredInputs @('ExpectedHost: the computer name when connecting by IP address') $Language)}
+        }elseif(-not $ExpectedHost){$ExpectedHost=$TargetHost.Split('.')[0]}
+    }
+    $context.Mode=$Mode;$context.TargetHost=$TargetHost;$context.ExpectedHost=$ExpectedHost;$result.Mode=$Mode
     if($WhatIfPreference){
         Write-WtgMessage $context Plan @($Mode, $(if($TargetHost){$TargetHost}else{$env:COMPUTERNAME}), $(if($PackagePath){$PackagePath}elseif($Tag){$Tag}else{'main'}))
         Write-WtgMessage $context Preview
@@ -75,8 +103,6 @@ try {
     if($PackagePath -and $Mode -notin @('Install','RemoteInstall','Check')){throw (Get-WtgMessage InputConflict @('PackagePath / '+$Mode) $Language)}
     if($PackagePath -and ($Tag -or $SourceDirectory -or $SourceBundle -or $GhToken)){throw (Get-WtgMessage InputConflict @('PackagePath / source selection or GitHub credential') $Language)}
     if($Mode -eq 'RemoteInstall' -and (-not $TargetHost -or -not $TargetUser)){throw (Get-WtgMessage RequiredInputs @('TargetHost, TargetUser') $Language)}
-    if($TargetHost -and $Mode -notin @('RemoteInstall','Check')){throw (Get-WtgMessage InputConflict @('TargetHost / '+$Mode) $Language)}
-    if($TargetHost -and $TargetHost -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]{0,252}$'){throw (Get-WtgMessage InvalidHost -Language $Language)}
     if($BackendUrl){
         $uri=$null
         if(-not [Uri]::TryCreate($BackendUrl,[UriKind]::Absolute,[ref]$uri) -or $uri.Scheme -notin @('http','https') -or $uri.UserInfo -or $uri.Query -or $uri.Fragment){throw (Get-WtgMessage InvalidBackend -Language $Language)}
@@ -188,7 +214,7 @@ try {
                 Write-WtgJson -Path $requestFile -Value $request
                 $helper=Join-Path $moduleRoot 'install-target.ps1'
                 $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-                $null=Invoke-WtgProcess -FilePath $ps -Arguments @('-NoProfile','-File',$helper,'-RequestPath',$requestFile,'-ResultPath',$installResultFile,'-RunId',$context.RunId) -TimeoutSeconds 1800 -KeepOnTimeout -AllowedExitCodes @(0,2,3010) -OutputEncoding utf-8 -LogPath (Join-Path $context.RunDir 'installation.log')
+                $null=Invoke-WtgProcess -FilePath $ps -Arguments @('-NoProfile','-File',$helper,'-RequestPath',$requestFile,'-ResultPath',$installResultFile,'-RunId',$context.RunId) -Interactive:(-not $NonInteractive) -TimeoutSeconds 1800 -KeepOnTimeout -AllowedExitCodes @(0,2,3010) -OutputEncoding utf-8 -LogPath (Join-Path $context.RunDir 'installation.log')
                 $result.Installation=Get-Content -LiteralPath $installResultFile -Raw -Encoding UTF8|ConvertFrom-Json
                 if($result.Installation.RunId -ne $context.RunId -or $result.Installation.Status -eq 'Failed'){throw 'Installation failed or its result could not be verified.'}
             }

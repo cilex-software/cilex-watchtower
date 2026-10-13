@@ -42,6 +42,13 @@ $ctx|Add-Member -NotePropertyName VerifyOnly -NotePropertyValue $true
 $req=New-WtgRemoteRequest $ctx '' '' 'NEW-PC'
 Assert $req.VerifyOnly 'read-only verification mode survives remote request'
 Assert ($req.OverrideRequirements -contains 'graphics.adapter') 'explicit accepted warnings survive remote request'
+$ctx|Add-Member -NotePropertyName ExplicitOverrideRequirements -NotePropertyValue @()
+$req=New-WtgRemoteRequest $ctx '' '' 'NEW-PC'
+Assert ($req.OverrideRequirements.Count -eq 0) 'warnings accepted on the build computer do not grant consent on the remote computer'
+$ctx.ExplicitOverrideRequirements=@('memory.available')
+$req=New-WtgRemoteRequest $ctx '' '' 'NEW-PC'
+Assert ($req.OverrideRequirements.Count -eq 1 -and $req.OverrideRequirements[0] -eq 'memory.available') 'only original command-line overrides carry into remote target consent'
+$ctx.PSObject.Properties.Remove('ExplicitOverrideRequirements')
 $ctx.StartupMode=''
 $verificationRequest=New-WtgRemoteRequest $ctx '' '' 'NEW-PC'
 Assert ($verificationRequest.StartupMode -eq 'AfterSignIn') 'verification request supplies a valid inert startup value when no setup choice is needed'
@@ -64,6 +71,94 @@ try{
     [IO.File]::WriteAllText((Join-Path $source 'payload\fixture.dll'),'fixture')
     [IO.File]::WriteAllText((Join-Path $source 'unexpected-private-data.txt'),'not part of package')
     $module=Get-Module Remote
+    function Finding([string]$Id,[string]$State='UNKNOWN',[bool]$CanOverride=$true){return [pscustomobject]@{Id=$Id;State=$State;Message=('Fixture limitation: '+$Id);CanOverride=$CanOverride}}
+    function Inspection([object[]]$Findings){return [pscustomobject]@{RunId='fixture-review';Target='NEW-PC';TargetSid='S-1-5-21-1-2-3-1001';Status='Inspected';LocalAppData='C:\Users\Operator\AppData\Local';ProgramFiles='C:\Program Files';InstallDir='D:\Apps\Cilex Watchtower';ManifestSha256=('a'*64);Findings=$Findings}}
+    function ReviewRequest {return [ordered]@{RunId='fixture-review';ExpectedHost='NEW-PC';InstallDir='D:\Apps\Cilex Watchtower';InstallScope='User';PackageManifestSha256=('a'*64);OverrideRequirements=@();VerifyOnly=$false}}
+    function Review($Request,[object[]]$Inspections,[string[]]$Choices=@(),[bool]$NonInteractive=$false,[string]$Language='en'){
+        $state=[pscustomobject]@{Calls=0;Prompts=@();Choices=$Choices;Inspections=$Inspections}
+        $context=[pscustomobject]@{NonInteractive=$NonInteractive;Language=$Language}
+        & $module {
+            param($c,$r,$state)
+            function Read-Host([string]$Prompt){
+                $index=$state.Prompts.Count;$state.Prompts+=@($Prompt)
+                if($index -ge $state.Choices.Count){throw 'UNEXPECTED_FIXTURE_PROMPT'}
+                return $state.Choices[$index]
+            }
+            $inspect={param($request,$attempt)
+                if($attempt -ne $state.Calls -or $attempt -ge $state.Inspections.Count){throw 'UNEXPECTED_FIXTURE_INSPECTION'}
+                $state.Calls++;return $state.Inspections[$attempt]
+            }
+            $identity=Confirm-WtgRemoteRequirements $c $r $inspect
+            return [pscustomobject]@{Identity=$identity;State=$state}
+        } $context $Request $state
+    }
+    $reviewRequest=ReviewRequest
+    $review=Review $reviewRequest @((Inspection @((Finding 'capacity.validation')))) @('C')
+    Assert ($review.State.Calls -eq 1 -and $reviewRequest.OverrideRequirements.Count -eq 1 -and $reviewRequest.OverrideRequirements[0] -eq 'capacity.validation') 'interactive remote preflight accepts only displayed findings'
+    Assert ($review.State.Prompts[0] -match 'Other computer') 'English remote prompt identifies the computer being checked'
+    $reviewRequest=ReviewRequest
+    $review=Review $reviewRequest @((Inspection @((Finding 'capacity.validation')));(Inspection @((Finding 'graphics.adapter')))) @('R','C') $false 'ru'
+    Assert ($review.State.Calls -eq 2 -and $reviewRequest.OverrideRequirements.Count -eq 1 -and $reviewRequest.OverrideRequirements[0] -eq 'graphics.adapter') 'recheck obtains fresh target findings without accepting old limitations'
+    Assert ($review.State.Prompts[0] -match 'Другой компьютер') 'Russian remote prompt is localized'
+    $reviewRequest=ReviewRequest
+    Reject {Review $reviewRequest @((Inspection @((Finding 'capacity.validation')))) @('')} 'INSTALL_CANCELLED'
+    Assert ($reviewRequest.OverrideRequirements.Count -eq 0) 'cancel never accepts target requirements'
+    Reject {Review (ReviewRequest) @((Inspection @((Finding 'capacity.validation')))) @('C') $true} 'INSTALL_REQUIREMENTS_ACCEPTANCE_REQUIRED'
+    $reviewRequest=ReviewRequest;$reviewRequest.OverrideRequirements=@('capacity.validation')
+    $review=Review $reviewRequest @((Inspection @((Finding 'capacity.validation')))) @() $true
+    Assert ($review.State.Prompts.Count -eq 0) 'explicit automation overrides require no prompt'
+    $reviewRequest.OverrideRequirements=@('platform.architecture')
+    Reject {Review $reviewRequest @((Inspection @((Finding 'platform.architecture' 'BLOCKED' $false)))) @('C')} 'INSTALL_REQUIREMENTS_BLOCKED'
+    Reject {Review $reviewRequest @((Inspection @((Finding 'platform.architecture' 'UNKNOWN' $false)))) @('C')} 'INSTALL_REQUIREMENTS_BLOCKED'
+    $review=Review (ReviewRequest) @((Inspection @((Finding 'fixture.overridable' 'BLOCKED' $true)))) @('C')
+    Assert ($review.State.Prompts.Count -eq 1) 'finding override policy is explicit rather than inferred from its state label'
+    $reviewRequest=ReviewRequest;$reviewRequest.VerifyOnly=$true
+    $identityOnly=Inspection @();$identityOnly.PSObject.Properties.Remove('ManifestSha256');$identityOnly.PSObject.Properties.Remove('Findings')
+    $review=Review $reviewRequest @($identityOnly)
+    Assert ($review.State.Prompts.Count -eq 0) 'verification preserves identity-only inspection without package or acceptance prompts'
+    $badInspection=Inspection @((Finding 'capacity.validation'));$badInspection.ManifestSha256='b'*64
+    Reject {Review (ReviewRequest) @($badInspection) @('C')} 'REMOTE_INSPECTION_PACKAGE_MISMATCH'
+    $badInspection=Inspection @((Finding 'capacity.validation'));$badInspection.InstallDir='D:\other'
+    Reject {Review (ReviewRequest) @($badInspection) @('C')} 'REMOTE_INSPECTION_DIRECTORY_MISMATCH'
+    $badInspection=Inspection @((Finding 'capacity.validation'));$badInspection.Target='OTHER-PC'
+    Reject {Review (ReviewRequest) @($badInspection) @('C')} 'REMOTE_RESULT_IDENTITY_MISMATCH'
+    $badInspection=Inspection @((Finding 'capacity.validation'));$badInspection.TargetSid='S-1-5-21-1-2-3-1002'
+    Reject {Review (ReviewRequest) @((Inspection @((Finding 'capacity.validation')));$badInspection) @('R','C')} 'REMOTE_RESULT_USER_MISMATCH'
+    Reject {Review (ReviewRequest) @((Inspection @((Finding 'same');(Finding 'same')))) @('C')} 'REMOTE_REQUIREMENTS_RESULT_INVALID'
+    Reject {Review (ReviewRequest) @((Inspection @())) @('C')} 'REMOTE_REQUIREMENTS_RESULT_INVALID'
+    $badInspection=Inspection @((Finding 'capacity.validation'));$badInspection.Findings[0].CanOverride='yes'
+    Reject {Review (ReviewRequest) @($badInspection) @('C')} 'REMOTE_REQUIREMENTS_RESULT_INVALID'
+    $preflightHelper=Join-Path $fixture 'preflight-helper';[IO.Directory]::CreateDirectory($preflightHelper)|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\install-target.ps1') -Destination $preflightHelper
+    $commonFixture=@'
+function Write-WtgJson([string]$Path,$Value){[IO.File]::WriteAllText($Path,($Value|ConvertTo-Json -Depth 12))}
+function Get-WtgInstallFailureText {return 'Fixture failed'}
+Export-ModuleMember -Function *
+'@
+    $installFixture=@'
+function Resolve-WtgTargetIdentity {return [pscustomobject]@{Sid='S-1-5-21-1-2-3-1001';Name='NEW-PC\Operator';Profile='C:\Users\Operator';LocalAppData='C:\Users\Operator\AppData\Local';AppData='C:\Users\Operator\AppData\Roaming'}}
+function Test-WtgPackage([string]$Path,[string]$Hash){if($Path -ne 'C:\fixture\package' -or $Hash -ne ('a'*64)){throw 'FIXTURE_PACKAGE_NOT_PINNED'};return [pscustomobject]@{ManifestSha256=$Hash}}
+function Get-CimInstance {return [pscustomobject]@{LastBootUpTime=[DateTime]::UtcNow}}
+function Install-WtgPackage {throw 'FIXTURE_INSTALL_MUST_NOT_RUN'}
+Export-ModuleMember -Function *
+'@
+    $requirementsFixture=@'
+function Get-WtgRequirements($Context,[string]$Role){if($Role -ne 'Target' -or $Context.InstallDir -ne 'C:\Users\Operator\AppData\Local\Programs\Cilex Watchtower' -or $Context.TargetUser -ne 'NEW-PC\Operator'){throw 'FIXTURE_TARGET_CONTEXT_INVALID'};return [pscustomobject]@{Id='fixture.target';State='UNKNOWN';CanOverride=$true;Message='Target context was resolved'}}
+Export-ModuleMember -Function *
+'@
+    foreach($entry in @(@('Common.psm1',$commonFixture),@('Install.psm1',$installFixture),@('Requirements.psm1',$requirementsFixture))){[IO.File]::WriteAllText((Join-Path $preflightHelper $entry[0]),$entry[1],(New-Object Text.UTF8Encoding $true))}
+    $helperRequest=[ordered]@{RunId='fixture-preflight';ExpectedHost=$env:COMPUTERNAME;Inspect=$true;VerifyOnly=$false;PackagePath='C:\fixture\package';PackageManifestSha256=('a'*64);InstallScope='User';TargetUser='NEW-PC\Operator';Language='en';NonInteractive=$true}
+    $helperRequestPath=Join-Path $preflightHelper 'request.json';$helperResultPath=Join-Path $preflightHelper 'result.json'
+    [IO.File]::WriteAllText($helperRequestPath,($helperRequest|ConvertTo-Json))
+    & (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -NonInteractive -File (Join-Path $preflightHelper 'install-target.ps1') -RequestPath $helperRequestPath -ResultPath $helperResultPath -RunId 'fixture-preflight' | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'actual target helper completes read-only inspection with fixture modules'
+    $helperResult=Get-Content -LiteralPath $helperResultPath -Raw -Encoding UTF8|ConvertFrom-Json
+    Assert ($helperResult.Status -eq 'Inspected' -and $helperResult.Findings[0].Id -eq 'fixture.target') 'target helper inspects the intended account and resolved destination'
+    Assert ($helperResult.ManifestSha256 -eq ('a'*64)) 'target inspection binds its findings to the verified package'
+    $helperRequest.VerifyOnly=$true;$helperRequest.PackagePath='';$helperRequest.PackageManifestSha256=''
+    [IO.File]::WriteAllText($helperRequestPath,($helperRequest|ConvertTo-Json))
+    & (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -NonInteractive -File (Join-Path $preflightHelper 'install-target.ps1') -RequestPath $helperRequestPath -ResultPath $helperResultPath -RunId 'fixture-preflight' | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'verification inspection needs neither a package nor requirements acceptance'
     $resumeContext=[pscustomobject]@{TargetUser='NEW-PC\Operator';InstallDir='D:\Apps\Cilex Watchtower';InstallScope='User';StartupMode='AfterSignIn';VerifyOnly=$false}
     $savedRequest=[pscustomobject]@{RunId='fixture06';ExpectedHost='NEW-PC';TargetSid='S-1-5-21-1-2-3-1001';TargetUser=$resumeContext.TargetUser;InstallDir=$resumeContext.InstallDir;InstallScope='User';StartupMode='AfterSignIn';VerifyOnly=$false;PackageManifestSha256=('a'*64)}
     $savedResult=[pscustomobject]@{RunId='fixture06';Target='NEW-PC';TargetSid=$savedRequest.TargetSid;Status='InstalledWithDeferredChecks';InstallDir=$savedRequest.InstallDir;InstallScope='User';StartupMode='AfterSignIn';ManifestSha256=('a'*64);Runtime=[pscustomobject]@{State='VerifiedCurrentSession'}}

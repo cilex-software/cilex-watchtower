@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 param([string]$WorkRoot=(Join-Path ([IO.Path]::GetTempPath()) ('cilex-source-test-'+[Guid]::NewGuid().ToString('N'))))
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
@@ -37,6 +37,7 @@ $probe=Join-Path $WorkRoot 'arguments.ps1'
 $value='with spaces "quoted" and trailing\'
 $p=Invoke-WtgProcess -FilePath $ps -Arguments @('-NoProfile','-NonInteractive','-File',$probe,'-Value',$value)
 Assert 'native argument roundtrip' ($p.StdOut.Trim() -eq $value)
+
 $envProbe=Join-Path $WorkRoot 'env.ps1'
 [IO.File]::WriteAllText($envProbe,'[Console]::WriteLine([string]::IsNullOrEmpty($env:WTG_TEST_SECRET));[Console]::WriteLine([string]::IsNullOrEmpty($env:GIT_DIR));[Console]::WriteLine($env:SAFE_BUILD_FLAG)',[Text.Encoding]::ASCII)
 $savedSecret=$env:WTG_TEST_SECRET;$savedGit=$env:GIT_DIR
@@ -113,4 +114,63 @@ try{
     $saved=Get-ChildItem -LiteralPath $run -File -Recurse|ForEach-Object {[IO.File]::ReadAllText($_.FullName)}
     Assert 'no credential persisted' (-not (($saved -join '') -match 'unit-test-credential-not-valid-anywhere'))
 }finally{$session.Broker.Dispose();$secure.Dispose()}
+
+# Exercise the real source/authentication flow with fake Git responses only.
+# No network requests, credential store access or user prompts occur in this fixture.
+$authResults=& (Get-Module Source) {
+    param($FixtureRoot)
+    function script:New-WtgGitSession {
+        param($Context,[Security.SecureString]$GhToken)
+        return [pscustomobject]@{Environment=@{};Broker=$null;HasToken=[bool]$GhToken}
+    }
+    function script:Read-Host {
+        param([string]$Prompt,[switch]$AsSecureString)
+        if(-not $AsSecureString){throw 'Credential fixture expected hidden input.'}
+        $script:authPrompts++
+        $script:lastAuthPrompt=$Prompt
+        return (ConvertTo-SecureString 'disposable-auth-fixture-value' -AsPlainText -Force)
+    }
+    function script:Invoke-WtgProcess {
+        param($FilePath,$Arguments,$Environment,$WorkingDirectory,$TimeoutSeconds,$LogPath,$AllowedExitCodes)
+        $label=[IO.Path]::GetFileNameWithoutExtension($LogPath)
+        if($label -eq 'source-init'){
+            $source=Join-Path $WorkingDirectory 'source';[IO.Directory]::CreateDirectory($source)|Out-Null
+            [IO.File]::WriteAllText((Join-Path $source 'CMakeLists.txt'),'project(watchtower VERSION 9.8.7 LANGUAGES CXX)')
+        }
+        if($label -like 'source-fetch*'){
+            $script:authFetches++
+            $diagnostic=switch($script:authScenario){
+                'denied' {if($script:authFetches -eq 1){'fatal: could not read Username: terminal prompts disabled'}}
+                'hidden' {if($script:authFetches -eq 1){'remote: Repository not found.'}}
+                'always-denied' {'fatal: Authentication failed'}
+                'missing-tag' {"fatal: couldn't find remote ref refs/tags/missing"}
+                'network' {'fatal: Could not resolve host: github.com'}
+            }
+            if($diagnostic){[IO.File]::WriteAllText($LogPath,$diagnostic);throw 'Git fixture exit 128'}
+        }
+        return [pscustomobject]@{ExitCode=0;StdOut=$(if($label -eq 'source-revision'){'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}else{''});StdErr=''}
+    }
+    foreach($case in @(
+        @{Name='existing credentials';Scenario='ok';NonInteractive=$false;Token=$false;Success=$true;Prompts=0;Fetches=1;Language='en'},
+        @{Name='missing credentials';Scenario='denied';NonInteractive=$false;Token=$false;Success=$true;Prompts=1;Fetches=2;Language='en'},
+        @{Name='hidden private repository';Scenario='hidden';NonInteractive=$false;Token=$false;Success=$true;Prompts=1;Fetches=2;Language='ru'},
+        @{Name='one failed token retry';Scenario='always-denied';NonInteractive=$false;Token=$false;Success=$false;Prompts=1;Fetches=2;Language='en'},
+        @{Name='supplied token denied';Scenario='always-denied';NonInteractive=$false;Token=$true;Success=$false;Prompts=0;Fetches=1;Language='en'},
+        @{Name='noninteractive denied';Scenario='always-denied';NonInteractive=$true;Token=$false;Success=$false;Prompts=0;Fetches=1;Language='en'},
+        @{Name='missing tag';Scenario='missing-tag';NonInteractive=$false;Token=$false;Success=$false;Prompts=0;Fetches=1;Language='en'},
+        @{Name='network failure';Scenario='network';NonInteractive=$false;Token=$false;Success=$false;Prompts=0;Fetches=1;Language='en'}
+    )){
+        $script:authScenario=$case.Scenario;$script:authPrompts=0;$script:authFetches=0;$script:lastAuthPrompt=''
+        $run=Join-Path $FixtureRoot $case.Name;[IO.Directory]::CreateDirectory($run)|Out-Null
+        $context=[pscustomobject]@{Repository='https://github.com/example/private.git';RunDir=$run;Tools=@{Git='fixture-git.exe'};Tag=$(if($case.Scenario -eq 'missing-tag'){'missing'}else{''});DependencyMode='Auto';Language=$case.Language;NonInteractive=$case.NonInteractive}
+        $token=if($case.Token){ConvertTo-SecureString 'disposable-supplied-value' -AsPlainText -Force}else{$null}
+        $succeeded=$false;$failure=''
+        try{$null=Get-WtgSource -Context $context -GhToken $token;$succeeded=$true}catch{$failure=$_.Exception.Message}finally{if($token){$token.Dispose()}}
+        $expectedFailure=if($case.Scenario -eq 'always-denied'){'GitHub refused access'}elseif($case.Scenario -eq 'missing-tag'){'requested tag or branch was not found'}elseif($case.Scenario -eq 'network'){'Git fixture exit 128'}else{''}
+        [pscustomobject]@{Name=$case.Name;Correct=($succeeded -eq $case.Success -and $script:authPrompts -eq $case.Prompts -and $script:authFetches -eq $case.Fetches -and ($case.Success -or $failure -match [regex]::Escape($expectedFailure)));Russian=($case.Language -ne 'ru' -or $script:lastAuthPrompt -match 'Введите токен GitHub')}
+    }
+} (Join-Path $WorkRoot 'auth-fixtures')
+foreach($outcome in $authResults){Assert ('authentication: '+$outcome.Name) ($outcome.Correct -and $outcome.Russian)}
+$savedAuth=Get-ChildItem -LiteralPath (Join-Path $WorkRoot 'auth-fixtures') -File -Recurse|ForEach-Object {[IO.File]::ReadAllText($_.FullName)}
+Assert 'interactive authentication does not persist prompted token' (-not (($savedAuth -join '') -match 'disposable-auth-fixture-value|disposable-supplied-value'))
 Write-Output ('PASS '+$passed+' common/source checks. Records: '+$WorkRoot)

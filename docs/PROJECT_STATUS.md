@@ -1,5 +1,16 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Generic installation commands simplified.**
+> The Windows guide now starts with one local command and one short remote
+> command; all 46 options have an expandable explanation and example. Remote
+> mode, host and transfer method are inferred from the network staging path.
+> Missing Git access prompts securely, target warnings are reviewed locally,
+> and interactive local setup no longer hides its questions. All 490 base
+> fixture checks and a real terminal prompt/reply test passed. No station was
+> updated or restarted; live elevation and installation were not retested.
+> [Guide](../packaging/windows/generic/README.md)
+> · [Verification and limits](verification/2026-10-13-generic-install-simplicity/README.md).
+
 > **2026-10-13 — Live Arrange supports independent camera membership.**
 > Empty cells can be filled, occupied cameras removed, and pages added. Picking a
 > camera already in the view swaps positions without duplicates. The picker uses

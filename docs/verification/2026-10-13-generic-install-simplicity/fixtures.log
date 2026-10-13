@@ -1,0 +1,31 @@
+Requirements fixtures: 27 passed.
+Fixture 1: Supply file.
+https://example.invalid/
+https://example.invalid/file.zip
+Offline cache file: %TEMP%\wtg-dependencies-fixture-2814560699064587b51d58b45abf954a\2b9cc4a9db471dbe-file.zip
+Fixture 1: Добавьте файл.
+https://example.invalid/
+https://example.invalid/absent.zip
+Файл в кэше: %TEMP%\wtg-dependencies-fixture-2814560699064587b51d58b45abf954a\2b9cc4a9db471dbe-absent.zip
+Fixture 1: Добавьте файл.
+https://example.invalid/
+https://example.invalid/missing.zip
+Файл в кэше: %TEMP%\wtg-dependencies-fixture-2814560699064587b51d58b45abf954a\2b9cc4a9db471dbe-missing.zip
+Dependency upper estimate: 8.9 GiB downloads and 15.3 GiB extracted. Existing compatible tools are reused.
+Dependency fixtures: 115 passed.
+PASS 45 common/source checks. Records: %TEMP%\cilex-source-test-2a6a6f1581234325acbebc5648b55c16
+PASS 48 entry checks; Check/preview created no files.
+Install fixture tests: 127 passed.
+capacity.validation: Fixture limitation: capacity.validation
+capacity.validation: Fixture limitation: capacity.validation
+graphics.adapter: Fixture limitation: graphics.adapter
+capacity.validation: Fixture limitation: capacity.validation
+capacity.validation: Fixture limitation: capacity.validation
+platform.architecture: Fixture limitation: platform.architecture
+platform.architecture: Fixture limitation: platform.architecture
+fixture.overridable: Fixture limitation: fixture.overridable
+capacity.validation: Fixture limitation: capacity.validation
+Remote fixture tests: 94 passed.
+Build/package checks passed: 34
+Native startup helper checks were not run; provide -VsDevCmdPath to compile and test them.
+All generic deployment fixture suites passed. These checks do not install or reboot a station.

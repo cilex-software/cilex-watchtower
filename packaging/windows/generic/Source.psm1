@@ -1,4 +1,4 @@
-Set-StrictMode -Version 2
+﻿Set-StrictMode -Version 2
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1')
 
 function Assert-WtgRepository {
@@ -106,8 +106,10 @@ function Invoke-WtgGit {
     try{return Invoke-WtgProcess -FilePath $Context.Tools.Git -Arguments ($options+$Arguments) -Environment $Session.Environment -WorkingDirectory $Context.RunDir -TimeoutSeconds 1200 -LogPath $log -AllowedExitCodes $AllowedExitCodes}
     catch{
         $diagnostic=if(Test-Path -LiteralPath $log){[IO.File]::ReadAllText($log)}else{''}
-        if($diagnostic -match '(?i)authentication failed|could not read (username|password)|\b(401|403)\b|SAML SSO'){
-            throw (Get-WtgMessage GitDenied -Language $Context.Language)
+        if($diagnostic -match '(?i)authentication failed|could not read (username|password)|\b(401|403)\b|SAML SSO|repository not found'){
+            $failure=New-Object InvalidOperationException (Get-WtgMessage GitDenied -Language $Context.Language)
+            $failure.Data['WtgGitAuthenticationDenied']=$true
+            throw $failure
         }
         if($diagnostic -match '(?i)couldn.t find remote ref|not a valid ref'){
             throw (Get-WtgMessage GitMissingRef -Language $Context.Language)
@@ -125,6 +127,7 @@ function Get-WtgSource {
     if($offline -and -not ($SourceDirectory -or $SourceBundle)){throw (Get-WtgMessage OfflineSource -Language $Context.Language)}
     if(($SourceDirectory -or $SourceBundle) -and -not $SourceCommit){throw 'An explicit full SourceCommit is required for supplied source.'}
     $session=New-WtgGitSession -Context $Context -GhToken $GhToken
+    $ownsPromptToken=$false
     $source=Join-Path $Context.RunDir 'source'
     try {
         $null=Invoke-WtgGit $Context $session @('init','--quiet',$source) 'source-init'
@@ -153,7 +156,21 @@ function Get-WtgSource {
                 $null=Invoke-WtgGit $Context $session @('check-ref-format',$ref) 'source-tag-check'
                 $spec='+'+$ref+':'+$ref
             }else{$ref='refs/remotes/origin/main';$spec='+refs/heads/main:'+ $ref}
-            $null=Invoke-WtgGit $Context $session @('-C',$source,'fetch','--no-tags','origin',$spec) 'source-fetch'
+            try {
+                $null=Invoke-WtgGit $Context $session @('-C',$source,'fetch','--no-tags','origin',$spec) 'source-fetch'
+            }catch{
+                # Existing credentials get the first attempt. Prompt once only for missing
+                # access; network and missing-tag errors must keep their original diagnosis.
+                $denied=$_.Exception.Data.Contains('WtgGitAuthenticationDenied') -and $_.Exception.Data['WtgGitAuthenticationDenied'] -eq $true
+                $nonInteractive=$Context.PSObject.Properties['NonInteractive'] -and [bool]$Context.NonInteractive
+                if(-not $denied -or $session.HasToken -or $nonInteractive){throw}
+                $prompt=if($Context.Language -eq 'ru'){'Нужен доступ к исходному коду. Введите токен GitHub с правом чтения репозитория (ввод скрыт)'}else{'Source access is required. Enter a GitHub token with repository read access (input is hidden)'}
+                $GhToken=Read-Host $prompt -AsSecureString
+                $ownsPromptToken=$true
+                if(-not $GhToken -or -not $GhToken.Length){throw (Get-WtgMessage GitDenied -Language $Context.Language)}
+                $session=New-WtgGitSession -Context $Context -GhToken $GhToken
+                $null=Invoke-WtgGit $Context $session @('-C',$source,'fetch','--no-tags','origin',$spec) 'source-fetch-with-token'
+            }
         }
         $resolved=Invoke-WtgGit $Context $session @('-C',$source,'rev-parse','--verify',($ref+'^{commit}')) 'source-revision'
         $commit=$resolved.StdOut.Trim()
@@ -175,6 +192,9 @@ function Get-WtgSource {
         $record=[pscustomobject]@{Path=$source;Commit=$commit;Tag=$Context.Tag;Repository=$Context.Repository;Version=$version.Groups[1].Value;FetchedMain=([bool](-not $Context.Tag -and -not ($SourceDirectory -or $SourceBundle)));Offline=$offline}
         Write-WtgJson -Path (Join-Path $Context.RunDir 'source.json') -Value $record
         return $record
-    }finally{if($session.Broker){$session.Broker.Dispose()}}
+    }finally{
+        if($session.Broker){$session.Broker.Dispose()}
+        if($ownsPromptToken -and $GhToken){$GhToken.Dispose()}
+    }
 }
 Export-ModuleMember -Function Assert-WtgRepository,Get-WtgSource,New-WtgGitSession

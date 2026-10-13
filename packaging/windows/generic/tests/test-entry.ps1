@@ -12,6 +12,23 @@ $common=@('-NoProfile','-NonInteractive','-File',$entry,'-WorkDir',(Join-Path $u
 $p=Invoke-WtgProcess $ps ($common+@('-Mode','RemoteInstall','-WhatIf','-Language','en'))
 Assert 'preview does not need remote credentials' ($p.ExitCode -eq 0 -and $p.StdOut -match 'Preview only')
 Assert 'preview creates no files' (-not (Test-Path -LiteralPath $WorkRoot))
+$p=Invoke-WtgProcess $ps ($common+@('-WhatIf','-Language','en'))
+Assert 'no options select local installation' ($p.StdOut -match 'Install' -and $p.StdOut -notmatch 'RemoteInstall')
+$p=Invoke-WtgProcess $ps ($common+@('-TargetUser','OFFICE-PC\Operator','-RemoteStagePath','\\OFFICE-PC\C$\CilexWatchtower-Deploy','-WhatIf','-Language','en'))
+Assert 'short remote command infers mode and computer in preview' ($p.StdOut -match 'RemoteInstall' -and $p.StdOut -match 'OFFICE-PC')
+$p=Invoke-WtgProcess $ps ($common+@('-TargetHost','office-pc.example.test','-TargetUser','OFFICE-PC\Operator','-WhatIf','-Language','en'))
+Assert 'target hostname alone selects remote installation' ($p.StdOut -match 'RemoteInstall' -and $p.StdOut -match 'office-pc.example.test')
+$p=Invoke-WtgProcess $ps ($common+@('-TargetHost','WRONG-PC','-TargetUser','OFFICE-PC\Operator','-RemoteStagePath','\\OFFICE-PC\C$\CilexWatchtower-Deploy','-WhatIf','-Language','en')) -AllowedExitCodes @(1)
+Assert 'conflicting remote computers refused even in preview' ($p.StdOut -match 'different computers')
+foreach($stage in @('C:\local-stage','\\OFFICE-PC\C$\..\escape','\\OFFICE-PC\C$\path/escape')){
+    $p=Invoke-WtgProcess $ps ($common+@('-TargetUser','OFFICE-PC\Operator','-RemoteStagePath',$stage,'-WhatIf','-Language','en')) -AllowedExitCodes @(1)
+    Assert ('invalid remote stage refused: '+$stage) ($p.StdOut -match 'RemoteStagePath')
+}
+$p=Invoke-WtgProcess $ps ($common+@('-Mode','Install','-TargetUser','OFFICE-PC\Operator','-RemoteStagePath','\\OFFICE-PC\C$\CilexWatchtower-Deploy','-WhatIf','-Language','en')) -AllowedExitCodes @(1)
+Assert 'explicit local mode never silently becomes remote' ($p.StdOut -match 'cannot be combined')
+$p=Invoke-WtgProcess $ps ($common+@('-TargetUser','OFFICE-PC\Operator','-RemoteStagePath','\\192.0.2.1\C$\CilexWatchtower-Deploy','-WhatIf','-Language','en')) -AllowedExitCodes @(1)
+Assert 'IP target still needs independent computer identity' ($p.StdOut -match 'ExpectedHost')
+Assert 'short-command previews and conflicts create no files' (-not (Test-Path -LiteralPath $WorkRoot))
 foreach($mode in @('Build','BuildInstaller','Check')){
     $p=Invoke-WtgProcess $ps ($common+@('-Mode',$mode,'-VerifyOnly','-Language','en')) -AllowedExitCodes @(1)
     Assert ('verification cannot claim '+$mode) ($p.StdOut -match 'cannot be combined')
@@ -50,6 +67,25 @@ $fixtureModules=Join-Path $fixture 'generic'
 Copy-Item -LiteralPath $entry -Destination (Join-Path $fixture 'deploy-watchtower.ps1')
 Copy-Item -LiteralPath (Join-Path $root 'Common.psm1') -Destination $fixtureModules
 foreach($name in @('Requirements.psm1','Install.psm1')){[IO.File]::WriteAllText((Join-Path $fixtureModules $name),'# No live operations in this fixture.')}
+$remoteInferenceStub=@'
+function Install-WtgRemotePackage {
+    param($Context,$PackagePath,$Credential,$Transport,$RemoteStagePath)
+    return [pscustomobject]@{Status='VerificationCompleted';Target=$Context.TargetHost;ExpectedHost=$Context.ExpectedHost;InstallDir=$Context.InstallDir;Transport=$Transport;Stage=$RemoteStagePath}
+}
+Export-ModuleMember -Function Install-WtgRemotePackage
+'@
+[IO.File]::WriteAllText((Join-Path $fixtureModules 'Remote.psm1'),$remoteInferenceStub)
+foreach($transport in @('','WinRM')){
+    $inferenceWork=Join-Path $fixture ('inference-'+$(if($transport){$transport}else{'default'}))
+    $args=@('-NoProfile','-NonInteractive','-File',(Join-Path $fixture 'deploy-watchtower.ps1'),'-TargetUser','OFFICE-PC\Operator','-RemoteStagePath','\\OFFICE-PC\C$\CilexWatchtower-Deploy','-VerifyOnly','-NonInteractive','-Language','en','-WorkDir',$inferenceWork,'-CacheDir',(Join-Path $fixture 'cache'),'-OutputDir',(Join-Path $fixture 'output'))
+    if($transport){$args+=@('-Transport',$transport)}
+    $p=Invoke-WtgProcess $ps $args -AllowedExitCodes @(2)
+    $saved=Get-ChildItem -LiteralPath $inferenceWork -Filter result.json -Recurse|Select-Object -First 1
+    $inferred=Get-Content -LiteralPath $saved.FullName -Raw|ConvertFrom-Json
+    Assert ('short command reaches remote helper with identity: '+$transport) ($inferred.Mode -eq 'RemoteInstall' -and $inferred.Installation.Target -eq 'OFFICE-PC' -and $inferred.Installation.ExpectedHost -eq 'OFFICE-PC')
+    Assert ('UNC transport inferred and explicit override respected: '+$transport) ($inferred.Installation.Transport -eq $(if($transport){$transport}else{'SMBService'}))
+    Assert ('remote user folder is resolved on target: '+$transport) ([string]::IsNullOrEmpty($inferred.Installation.InstallDir))
+}
 $remoteStub=@'
 function Install-WtgRemotePackage {
     $failure=New-Object InvalidOperationException 'REMOTE_SERVICE_CLEANUP_UNCONFIRMED'
@@ -89,6 +125,30 @@ Export-ModuleMember -Function Initialize-WtgDependencies
 '@
 [IO.File]::WriteAllText((Join-Path $fixtureModules 'Requirements.psm1'),$requirementStub,(New-Object Text.UTF8Encoding $true))
 [IO.File]::WriteAllText((Join-Path $fixtureModules 'Dependencies.psm1'),$dependencyStub,(New-Object Text.UTF8Encoding $true))
+# Simulated install helper: no application or task is installed. Its marker must
+# reach an interactive caller immediately and stay in the log for automation.
+$installStub=@'
+param([string]$RequestPath,[string]$ResultPath,[string]$RunId)
+Write-Host 'FIXTURE-INSTALL-HELPER-OUTPUT'
+[IO.File]::WriteAllText($ResultPath,(@{RunId=$RunId;Status='InstalledWithDeferredChecks'}|ConvertTo-Json))
+exit 2
+'@
+[IO.File]::WriteAllText((Join-Path $fixtureModules 'install-target.ps1'),$installStub,[Text.Encoding]::ASCII)
+foreach($automated in @($false,$true)){
+    $installWork=Join-Path $fixture ('local-helper-'+$automated)
+    $installArgs=@('-NoProfile','-NonInteractive','-File',(Join-Path $fixture 'deploy-watchtower.ps1'),'-Mode','Install','-PackagePath',(Join-Path $fixture 'unused-package'),'-StartupMode','AfterSignIn','-DeferEnrollment','-AcceptPlan','-Language','en','-WorkDir',$installWork,'-CacheDir',(Join-Path $fixture 'cache'),'-OutputDir',(Join-Path $fixture 'output'))
+    if($automated){$installArgs+='-NonInteractive'}
+    $p=Invoke-WtgProcess $ps $installArgs -AllowedExitCodes @(2)
+    $installed=Get-ChildItem -LiteralPath $installWork -Filter installation.log -Recurse|Select-Object -First 1
+    $installLog=[IO.File]::ReadAllText($installed.FullName)
+    if($automated){
+        Assert 'automated local helper keeps captured diagnostic output' ($p.StdOut -notmatch 'FIXTURE-INSTALL-HELPER-OUTPUT' -and $installLog -match 'FIXTURE-INSTALL-HELPER-OUTPUT')
+    }else{
+        # A captured test parent has no real console. The separate console-only
+        # fixture verifies prompt/reply; here the log proves the entry dispatch.
+        Assert 'interactive local helper selects console mode' ($installLog -match 'Interactive output.*not captured.*Exit code: 2')
+    }
+}
 foreach($testLanguage in @('en','ru')){
     $restartWork=Join-Path $fixture ('restart-'+$testLanguage)
     $p=Invoke-WtgProcess $ps @('-NoProfile','-NonInteractive','-File',(Join-Path $fixture 'deploy-watchtower.ps1'),'-Mode','Build','-NonInteractive','-AcceptPlan','-AcceptLicenses','-Language',$testLanguage,'-WorkDir',$restartWork,'-CacheDir',(Join-Path $fixture 'cache'),'-OutputDir',(Join-Path $fixture 'output')) -AllowedExitCodes @(3010) -OutputEncoding utf-8

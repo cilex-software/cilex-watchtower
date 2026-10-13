@@ -41,6 +41,17 @@ try{
     $identity=Resolve-WtgTargetIdentity -TargetUser $TargetUser -ExpectedSid $TargetSid
     if($Inspect){
         $result=[pscustomobject]@{RunId=$RunId;Target=$env:COMPUTERNAME;Status='Inspected';TargetSid=$identity.Sid;TargetUser=$identity.Name;Profile=$identity.Profile;LocalAppData=$identity.LocalAppData;AppData=$identity.AppData;ProgramFiles=$env:ProgramFiles;OS=[Environment]::OSVersion.Version.ToString();X64=[Environment]::Is64BitOperatingSystem;BootUTC=(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToUniversalTime().ToString('o')}
+        if(-not $VerifyOnly){
+            # Read-only preflight for a prompt on the initiating computer. Actual
+            # installation repeats these requirements before touching the application.
+            if(-not $InstallDir){$InstallDir=if($InstallScope -eq 'Machine'){Join-Path $env:ProgramFiles 'Cilex Watchtower'}else{Join-Path $identity.LocalAppData 'Programs\Cilex Watchtower'}}
+            $package=Test-WtgPackage $PackagePath $ExpectedManifestSha256
+            Import-Module (Join-Path $PSScriptRoot 'Requirements.psm1') -Force
+            $inspectionContext=[pscustomobject]@{InstallDir=$InstallDir;TargetUser=$identity.Name;Language=$Language;BackendUrl=$BackendUrl;DependencyMode=$DependencyMode}
+            $result|Add-Member -NotePropertyName Findings -NotePropertyValue @(Get-WtgRequirements -Context $inspectionContext -Role Target)
+            $result|Add-Member -NotePropertyName InstallDir -NotePropertyValue $InstallDir
+            $result|Add-Member -NotePropertyName ManifestSha256 -NotePropertyValue $package.ManifestSha256
+        }
         $exitCode=0
     }else{
         if(-not $ResultPath){$ResultPath=Join-Path $identity.LocalAppData ('CilexWatchtower\Deployment\runs\'+$RunId+'\result.json')}
@@ -61,7 +72,8 @@ try{
                 $script=Join-Path $PSScriptRoot 'install-target.ps1'
                 $arguments='-NoProfile -File "'+$script+'" -RequestPath "'+$resume+'" -ResultPath "'+$ResultPath+'" -RunId '+$RunId+' -ElevatedResume'
                 $powershell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-                $child=Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Hidden -PassThru
+                # This branch is interactive: show the elevated helper's questions.
+                $child=Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -WindowStyle Normal -PassThru
                 try{while(-not $child.WaitForExit(1000)){};$exitCode=$child.ExitCode}finally{$child.Dispose()}
                 if(-not(Test-Path -LiteralPath $ResultPath)){throw 'INSTALL_ELEVATED_RESULT_MISSING'}
                 $result=Get-Content -LiteralPath $ResultPath -Raw -Encoding UTF8|ConvertFrom-Json

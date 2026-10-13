@@ -157,7 +157,7 @@ function ConvertTo-WtgArgument {
 function Invoke-WtgProcess {
     param([Parameter(Mandatory=$true)][string]$FilePath,[string[]]$Arguments=@(),[string]$WorkingDirectory,
         [hashtable]$Environment=@{},[int]$TimeoutSeconds=1800,[string]$LogPath,[int[]]$AllowedExitCodes=@(0),
-        [switch]$NoCapture,[switch]$KeepOnTimeout,[string]$OutputEncoding)
+        [switch]$NoCapture,[switch]$Interactive,[switch]$KeepOnTimeout,[string]$OutputEncoding)
     if($TimeoutSeconds -lt 1){throw 'Process timeout must be positive.'}
     $resolved=(Get-Command -Name $FilePath -ErrorAction Stop).Source
     if([IO.Path]::GetExtension($resolved) -in @('.cmd','.bat')){throw 'Use an explicit, safely quoted command-shell invocation for batch files.'}
@@ -165,7 +165,10 @@ function Invoke-WtgProcess {
     $psi.FileName=$resolved
     $psi.Arguments=(@($Arguments|ForEach-Object {ConvertTo-WtgArgument $_}) -join ' ')
     if($WorkingDirectory){$psi.WorkingDirectory=$WorkingDirectory}
-    $psi.UseShellExecute=$false;$psi.CreateNoWindow=$true
+    # Only explicitly interactive helpers inherit the console and its input.
+    # Background builds and noninteractive helpers retain their captured output.
+    if($Interactive){$NoCapture=$true}
+    $psi.UseShellExecute=$false;$psi.CreateNoWindow=-not $Interactive
     $psi.RedirectStandardOutput=-not $NoCapture;$psi.RedirectStandardError=-not $NoCapture
     if($OutputEncoding -and -not $NoCapture){$psi.StandardOutputEncoding=[Text.Encoding]::GetEncoding($OutputEncoding);$psi.StandardErrorEncoding=$psi.StandardOutputEncoding}
     # Never pass ambient deployment credentials to compilers/installer helpers.
@@ -200,7 +203,10 @@ function Invoke-WtgProcess {
             if(-not $out.Wait(5000) -or -not $err.Wait(5000)){throw 'Tool exited but inherited output remains open. Inspect the run before retrying.'}
             $stdout=Protect-WtgText $out.Result;$stderr=Protect-WtgText $err.Result
         }
-        if($LogPath){Write-WtgDiagnostic -Path $LogPath -Text ($stdout+"`r`n"+$stderr)}
+        if($LogPath){
+            $diagnostic=if($Interactive){'Interactive output was shown in the console and was not captured. Exit code: '+$process.ExitCode+'. See the saved installation result for its outcome.'}else{$stdout+"`r`n"+$stderr}
+            Write-WtgDiagnostic -Path $LogPath -Text $diagnostic
+        }
         $result=[pscustomobject]@{ExitCode=$process.ExitCode;StdOut=$stdout;StdErr=$stderr}
         if($process.ExitCode -notin $AllowedExitCodes){
             $ex=New-Object InvalidOperationException ('Tool failed: '+[IO.Path]::GetFileName($resolved)+' (exit '+$process.ExitCode+').')
