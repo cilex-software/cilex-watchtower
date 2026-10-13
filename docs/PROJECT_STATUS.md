@@ -1,5 +1,14 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Generic Windows deployment specification drafted.**
+> The existing Booth/Office updater remains unchanged; its documentation now
+> explicitly limits it to already configured stations. A separate fresh-machine
+> bootstrap, build, local/remote install and offline-installer workflow is
+> [specified](plans/2026-10-13-generic-windows-deployment-specification.md),
+> including localized warnings, requirement overrides and explicit startup
+> choices. Implementation, measured hardware minima and new-machine/reboot
+> validation remain future work. No live station was changed for this task.
+
 > **2026-10-13 — Windows build and two-station updater.**
 > Watchtower **1.1.778** and source-matched Warden **1.4.10** are installed
 > and verified on Security Booth and Office. The reusable updater builds a

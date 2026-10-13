@@ -7,6 +7,11 @@ recovery, user/session checks and per-station locking. The procedures below
 describe the older manual tooling; do not use its dated wrappers for a new
 rollout or retry rejected binaries by changing their hashes.
 
+The current updater maintains these two already configured stations; it does
+not provision a fresh Windows machine. A separate generic installer is
+[specified here](../../../docs/plans/2026-10-13-generic-windows-deployment-specification.md)
+and has not yet been implemented.
+
 Station tooling from the Windows station agent (`wt-sm-vnutri-01`). All scripts are
 ASCII-only: PowerShell 5.1 reads a BOM-less UTF-8 file as ANSI there, and both
 stations have Cyrillic profile names, so paths are discovered at run time.

@@ -9,6 +9,23 @@ does not start correctly. It checks that the same supervised app stays up
 for 150 seconds on each machine, including a check that camera frames advance. This is a startup and recovery check, not
 a guarantee that every feature or future network condition is fault-free.
 
+## Current purpose and limits
+
+This is a maintenance updater for the already configured Security Booth and
+Office stations. It requires an existing repository checkout, provisioned
+build tools, installed Watchtower/Warden, working startup tasks, a signed-in
+operator and healthy camera video. Its build checks use an existing station's
+runtime files.
+
+It is not a first-install or general Windows provisioning script. Changing
+hostnames or paths does not make it suitable for a fresh machine. It does not
+clone the initial repository, install missing build tools, assemble a complete
+new-machine installer, enroll a new station or configure unattended sign-in.
+
+The separate generic deployment script is currently a specification, not an
+implemented feature. See the [technical specification](../../../docs/plans/2026-10-13-generic-windows-deployment-specification.md).
+This maintenance script and its behavior remain unchanged.
+
 ## Quick start
 
 Open PowerShell 7 in the repository folder. Preview the action first:
