@@ -1,5 +1,12 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Installer quick start documented.**
+> The Windows README now shows the one-command installer build, its output
+> folder, an optional custom folder and how to copy/run the setup EXE.
+> Commands and output defaults were checked against the script; no build,
+> installation or restart was performed. Fresh-PC acceptance remains open.
+> [Create an installer](../packaging/windows/generic/README.md#create-an-installer-to-share).
+
 > **2026-10-13 — Generic installation commands simplified.**
 > The Windows guide now starts with one local command and one short remote
 > command; all 46 options have an expandable explanation and example. Remote

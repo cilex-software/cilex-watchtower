@@ -1,6 +1,6 @@
 # Install Cilex Watchtower on Windows
 
-[`deploy-watchtower.ps1`](../deploy-watchtower.ps1) builds the latest version and installs **Watchtower and Warden**, which keeps Watchtower running. Choose one of the two commands below. The script asks for the choices it needs; you do not need to fill in a long list of options.
+[`deploy-watchtower.ps1`](../deploy-watchtower.ps1) builds the latest version and installs **Watchtower and Warden**, which keeps Watchtower running. Choose local or remote installation below, or create an installer to share. The script asks for the choices it needs; you do not need to fill in a long list of options.
 
 ## Before you start
 
@@ -74,6 +74,32 @@ Append an option to either installation command:
 | Preview the command without installing | `-WhatIf` |
 
 For an existing installation created by an older installer, see [upgrading an older setup](ADVANCED.md#adopting-a-pre-existing-office-installation). Do not add adoption options unless that section applies.
+
+## Create an installer to share
+
+From the same `packaging\windows` PowerShell window, run:
+
+```powershell
+.\deploy-watchtower.ps1 -Mode BuildInstaller
+```
+
+Follow the prompts. This builds the latest version into **one setup `.exe` containing Watchtower, Warden and their required libraries**. It only creates the installer; it does not install the applications on this computer.
+
+When it finishes, paste this into File Explorer's address bar to find the installer:
+
+```text
+%LOCALAPPDATA%\Cilex\Deploy\output
+```
+
+Copy the generated setup `.exe` to another supported 64-bit Windows computer, double-click it, and follow its setup prompts.
+
+To save the installer somewhere else, use this command instead, replacing the example folder with your preferred location:
+
+```powershell
+.\deploy-watchtower.ps1 -Mode BuildInstaller -OutputDir 'D:\CilexInstallers'
+```
+
+Installation on a completely fresh PC remains unverified.
 
 ## If something needs attention
 
