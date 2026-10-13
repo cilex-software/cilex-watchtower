@@ -31,6 +31,8 @@ public:
         GroupLabelRole,
         LastUsedIsoRole,
         SpansRole,          // merged cells captured at save time — see SavedViewData::spans
+        HasCellsRole,
+        CellsRole,
     };
 
     explicit SavedViewModel(QObject *parent = nullptr);
@@ -51,7 +53,8 @@ public:
     Q_INVOKABLE void saveCurrent(const QString &name, bool shared, const QString &layout,
                                  const QString &statusFilter, const QString &sortMode,
                                  const QString &groupId, const QString &groupLabel,
-                                 const QString &spans = QString());
+                                 const QString &spans = QString(),
+                                 bool hasCells = false, const QStringList &cells = {});
     Q_INVOKABLE void remove(const QString &id);
     Q_INVOKABLE void touch(const QString &id);          // mark just-opened
     Q_INVOKABLE void toggleFavorite(const QString &id);

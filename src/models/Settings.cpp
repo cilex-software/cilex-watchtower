@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "LiveViewCells.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -223,6 +224,36 @@ void Settings::setLiveLayout(const QString &groupId, const QStringList &ids)
 void Settings::clearLiveLayout(const QString &groupId)
 {
     m_settings.remove(liveLayoutKey(groupId));
+    clearLiveCells(groupId);
+}
+
+static QString liveCellsKey(const QString &groupId)
+{
+    QString g = groupId.isEmpty() ? QStringLiteral("__all__") : groupId;
+    g.replace(QLatin1Char('/'), QLatin1Char('_'));
+    return QStringLiteral("live/cells/") + g;
+}
+
+bool Settings::hasLiveCells(const QString &groupId) const
+{
+    return m_settings.contains(liveCellsKey(groupId));
+}
+
+QStringList Settings::liveCells(const QString &groupId) const
+{
+    return wt::uniqueLiveCells(m_settings.value(liveCellsKey(groupId)).toStringList());
+}
+
+void Settings::setLiveCells(const QString &groupId, const QStringList &ids)
+{
+    m_settings.setValue(liveCellsKey(groupId), wt::uniqueLiveCells(ids));
+    m_settings.sync(); // A crash must not repopulate cells the guard just removed.
+}
+
+void Settings::clearLiveCells(const QString &groupId)
+{
+    m_settings.remove(liveCellsKey(groupId));
+    m_settings.sync();
 }
 
 static QString liveSpansKey(const QString &groupId, const QString &layout)

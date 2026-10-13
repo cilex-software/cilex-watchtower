@@ -1,5 +1,15 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Live Arrange supports independent camera membership.**
+> Empty cells can be filled, occupied cameras removed, and pages added. Picking a
+> camera already in the view swaps positions without duplicates. The picker uses
+> the toolbar sort and the full accessible roster; group membership is untouched.
+> Sparse/empty views persist, and new saved views retain their own selections.
+> English/Russian UI suites each passed 20 cases; isolated persistence checks,
+> timestamp lint and the macOS build passed. Fixture screenshots were inspected;
+> live playback, native interaction and remote stations were not exercised.
+> [Behavior, commands and evidence](verification/2026-10-13-live-arrangement/README.md).
+
 > **2026-10-13 — Generic deployment built and Office updated.**
 > A separate `packaging/windows/deploy-watchtower.ps1` now provides requirement
 > checks, pinned dependency preparation, source builds, local/remote installation

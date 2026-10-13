@@ -3940,6 +3940,38 @@
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
+    <message>
+        <source>Add camera</source>
+        <translation>Добавить камеру</translation>
+    </message>
+    <message>
+        <source>Remove camera from view</source>
+        <translation>Убрать камеру из вида</translation>
+    </message>
+    <message>
+        <source>Hide cameras in view</source>
+        <translation>Скрыть камеры вида</translation>
+    </message>
+    <message>
+        <source>IN VIEW</source>
+        <translation>В ВИДЕ</translation>
+    </message>
+    <message>
+        <source>Every matching camera is already in this view.</source>
+        <translation>Все подходящие камеры уже добавлены в этот вид.</translation>
+    </message>
+    <message>
+        <source>0 of %1</source>
+        <translation>0 из %1</translation>
+    </message>
+    <message>
+        <source>Hidden by filter</source>
+        <translation>Скрыта фильтром</translation>
+    </message>
+    <message>
+        <source>Add page</source>
+        <translation>Добавить страницу</translation>
+    </message>
 </context>
 <context>
     <name>LiveStatusBadge</name>

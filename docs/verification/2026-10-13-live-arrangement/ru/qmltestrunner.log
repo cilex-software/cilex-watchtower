@@ -1,0 +1,25 @@
+********* Start testing of qmltestrunner *********
+Config: Using QtTest library 6.11.1, Qt 6.11.1 (arm64-little_endian-lp64 shared (dynamic) release build; by Apple LLVM 21.0.0 (clang-2100.0.123.102)), macos 26.6.2
+PASS   : qmltestrunner::LiveArrangementUi::initTestCase()
+QWARN  : qmltestrunner::LiveArrangementUi::test_addPageAllowsAssignmentsBeyondSingleGrid() qt.qpa.fonts: Populating font family aliases took 214 ms. Replace uses of missing font family "Sans Serif" with one that exists to avoid this cost.
+PASS   : qmltestrunner::LiveArrangementUi::test_addPageAllowsAssignmentsBeyondSingleGrid()
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(single)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(four)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(nine)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(thirty-five)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(hundred)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(feature)
+PASS   : qmltestrunner::LiveArrangementUi::test_arbitraryEmptyLayouts(center)
+PASS   : qmltestrunner::LiveArrangementUi::test_emptyCellAddsOutsideGroupByClick()
+PASS   : qmltestrunner::LiveArrangementUi::test_filteredOccupiedCellShowsItsCameraBeforeEditing()
+PASS   : qmltestrunner::LiveArrangementUi::test_filtersAndSortPreserveExplicitMembershipAndGaps()
+PASS   : qmltestrunner::LiveArrangementUi::test_firstEditOnFilteredWallRetainsHiddenMembers()
+PASS   : qmltestrunner::LiveArrangementUi::test_groupViewsStayIndependent()
+PASS   : qmltestrunner::LiveArrangementUi::test_noDuplicatesWhenSelectingAnotherPageCamera()
+PASS   : qmltestrunner::LiveArrangementUi::test_pickerFollowsEverySortAndIndependentFilters()
+PASS   : qmltestrunner::LiveArrangementUi::test_reloadEmptyViewAndResetToGroup()
+PASS   : qmltestrunner::LiveArrangementUi::test_removeArbitraryThenEveryCameraAndReAdd()
+PASS   : qmltestrunner::LiveArrangementUi::test_syncRetainsExistingCameraDelegateIdentity()
+PASS   : qmltestrunner::LiveArrangementUi::cleanupTestCase()
+Totals: 20 passed, 0 failed, 0 skipped, 0 blacklisted, 4164ms
+********* Finished testing of qmltestrunner *********

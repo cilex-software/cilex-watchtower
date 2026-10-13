@@ -132,21 +132,17 @@ Item {
     // aspect-correct, never stretched. perPage stays the page capacity (for paging).
     readonly property bool isFeatureLayout: layout === "plus4" || layout === "plus6"
         || layout === "plus8" || layout === "center13"
-    readonly property int fillCount: Math.min(perPage, Math.max(0, total - (page - 1) * perPage))
-    // countFiltered()/page() are imperative calls; read cameraModel.total (NOTIFY
-    // countsChanged) inside these bindings so they re-evaluate when the model data
-    // changes — e.g. the /streams list is (re)fetched after sign-in or refresh.
-    readonly property int total: {
-        if (!cameraModel) return 0;
-        cameraModel.total;   // refresh dependency
-        return cameraModel.countFiltered(groupId, _effFilter);
-    }
-    readonly property int pageCount: Math.max(1, Math.ceil(total / perPage))
+    readonly property int slotCount: arrangedFull.length
+    readonly property int fillCount: Math.min(perPage, Math.max(0, slotCount - (page - 1) * perPage))
+    readonly property int total: arrangedFull.filter(function(c) { return !!c; }).length
+    readonly property int pageCount: Math.max(1, Math.ceil(slotCount / perPage))
+    readonly property int visibleCellCount: useFixedNet ? perPage
+        : Math.min(perPage, gridFrame.fitGrid.cols * gridFrame.fitGrid.rows)
     // ---- arrange mode: assign cameras to grid cells ------------------------
     // The grid normally auto-fills cells from the sorted roster. In arrange mode
     // the operator taps a cell and picks the camera that should occupy it; the
-    // chosen camera swaps into that slot and the per-group order is persisted
-    // (Settings.liveLayout), overriding the default sort for that group.
+    // view owns an exact list of slots after the first edit. Empty strings are
+    // intentional holes; membership never writes back to CameraModel's groups.
     property bool arrangeMode: false
     property int arrangeRev: 0            // bump to force arrangedFull re-eval after a save
     property int pickerCell: -1          // page-tile index being assigned (-1 = picker closed)
@@ -182,7 +178,7 @@ Item {
     readonly property var liveDecodeSet: {
         var cams = pagedCameras, ranked = [];
         for (var i = 0; i < cams.length; i++)
-            ranked.push({ id: cams[i].camId, armed: (cams[i].recording === CameraStatus.Armed), pos: i });
+            if (cams[i]) ranked.push({ id: cams[i].camId, armed: (cams[i].recording === CameraStatus.Armed), pos: i });
         ranked.sort(function(a, b) { return (a.armed === b.armed) ? (a.pos - b.pos) : (a.armed ? -1 : 1); });
         // maxLiveDecodes 0 = NO LIMIT (operator setting): every ranked tile
         // gets a live slot; the shed valve (MemTel.shedLive -> 1) still wins.
@@ -234,89 +230,121 @@ Item {
     }
     property string pickerSearch: ""
     property string pickerGroup: ""      // picker group filter ("" = all groups)
-    property bool pickerHideShown: false // hide cameras already on the visible wall
-    // While arranging, ignore the status filter so the full group is shown and a
-    // saved order covers every camera (not just the currently-visible subset).
+    property bool pickerHideShown: false // hide cameras already anywhere in this view
+    // While arranging, reveal status-filtered members so every occupied slot
+    // can be edited without confusing a hidden camera with a vacant cell.
     readonly property string _effFilter: arrangeMode ? "" : statusFilter
 
-    // Full filtered roster reordered by the saved per-group arrangement: saved
-    // ids first (in saved order), then any remaining cameras in default sort
-    // (so newly-added cameras still appear). Paging slices this.
-    //
-    // AN EXPLICIT SORT MUST ACTUALLY SORT (operator report 2026-08-29, booth: the
-    // menu read «Сортировка: Alphabetical» over a wall in no alphabetical order,
-    // and "none of the sorting orders were working"). The arrangement used to be
-    // applied UNCONDITIONALLY here, so any group with a saved layout turned every
-    // entry in the sort menu into a silent no-op — the booth's «Улица» group had
-    // 35 saved ids for 35 cameras, so the sorted list was built and then discarded
-    // on every evaluation. A control that shows a mode it does not apply is the
-    // silent-no-op the house rules forbid.
-    //
-    // The arrangement is the MANUAL base order, so it still wins where "manual" is
-    // what the mode means: "live" (the default — liveness tiers are layered over
-    // the arrangement by _liveFirst below, preserving it within each tier) and
-    // while arranging (dragging must reorder the thing being dragged). Picking
-    // IP / Stream order / Status first / Alphabetical asks for a different order
-    // and now gets one; picking "Live first" again restores the arrangement, which
-    // is never deleted — only bypassed.
-    readonly property var arrangedFull: {
-        arrangeRev;                       // refresh dep
+    readonly property bool hasExplicitCells: { arrangeRev; return Settings.hasLiveCells(groupId); }
+    // The picker always queries the complete accessible roster in the toolbar's
+    // selected order. It must not inherit a manual slot order or the wall's group.
+    readonly property var pickerRoster: {
         if (!cameraModel) return [];
-        cameraModel.total;                // refresh dep
-        var all = cameraModel.page(groupId, _effFilter, sortMode, 1, Math.max(1, total));
-        var saved = (sortMode === "live" || arrangeMode) ? Settings.liveLayout(groupId) : [];
-        if (!saved || saved.length === 0) return _liveFirst(all);
-        var byId = ({});
+        return cameraModel.page("", "", sortMode, 1, Math.max(1, cameraModel.total));
+    }
+    readonly property var baseCells: {
+        arrangeRev;
+        if (!cameraModel) return [];
+        var all = pickerRoster, byId = ({}), used = ({}), out = [];
         for (var i = 0; i < all.length; i++) byId[all[i].camId] = all[i];
-        var out = [], used = ({});
-        for (var j = 0; j < saved.length; j++) {
-            var c = byId[saved[j]];
-            if (c && !used[saved[j]]) { out.push(c); used[saved[j]] = true; }
+        if (hasExplicitCells) {
+            var cells = Settings.liveCells(groupId);
+            for (var j = 0; j < cells.length; j++) {
+                var id = cells[j], cam = byId[id];
+                out.push(cam && !used[id] ? cam : null);
+                if (id) used[id] = true;
+            }
+            return out;
         }
-        for (var k = 0; k < all.length; k++)
-            if (!used[all[k].camId]) out.push(all[k]);
+        all = cameraModel.page(groupId, "", sortMode, 1, Math.max(1, cameraModel.total));
+        // Old arrangements were ordering hints, with new group cameras appended.
+        // Keep their contract until the first membership edit, and respect explicit
+        // sorting on entry to Arrange as well as on the normal wall.
+        var saved = sortMode === "live" ? Settings.liveLayout(groupId) : [];
+        byId = ({});
+        for (var k = 0; k < all.length; k++) byId[all[k].camId] = all[k];
+        for (var n = 0; n < saved.length; n++) {
+            var c = byId[saved[n]];
+            if (c && !used[c.camId]) { out.push(c); used[c.camId] = true; }
+        }
+        for (var m = 0; m < all.length; m++)
+            if (!used[all[m].camId]) out.push(all[m]);
         return _liveFirst(out);
     }
-    // "Live first" (the default sort): online cameras ALWAYS lead the wall and offline
-    // tiles sink to the last page — even on top of a saved manual arrangement, whose
-    // relative order is preserved WITHIN each liveness tier (stable partition). Only in
-    // the "live" sort (pick IP/Stream/Status to get the exact manual order back), and
-    // never while arranging (so Arrange mode stays deterministic). Mirrors CameraModel's
-    // liveRank; applied here too so it survives the arrangement overlay above.
+    readonly property var arrangedFull: {
+        var cells = baseCells;
+        if (!cameraModel || _effFilter === "") return cells;
+        var matches = cameraModel.page("", _effFilter, sortMode, 1, Math.max(1, cameraModel.total));
+        var allowed = ({});
+        for (var i = 0; i < matches.length; i++) allowed[matches[i].camId] = true;
+        // A filter hides a camera without deleting its saved slot or membership.
+        return hasExplicitCells
+            ? cells.map(function(c) { return c && allowed[c.camId] ? c : null; })
+            : cells.filter(function(c) { return c && allowed[c.camId]; });
+    }
     function _liveFirst(list) {
-        if (sortMode !== "live" || arrangeMode || !list || list.length < 2)
-            return list;
+        if (sortMode !== "live" || !list || list.length < 2) return list;
         function rank(c) {
             var s = c ? c.live : -1;
             return s === CameraStatus.Live ? 0
                  : s === CameraStatus.Degraded ? 1
-                 : s === CameraStatus.Offline ? 3 : 2;   // unknown/unresolved between live and offline
+                 : s === CameraStatus.Offline ? 3 : 2;
         }
-        var tagged = list.map(function (c, i) { return { c: c, i: i, r: rank(c) }; });
-        tagged.sort(function (a, b) { return a.r !== b.r ? a.r - b.r : a.i - b.i; });   // stable within a tier
-        return tagged.map(function (x) { return x.c; });
+        var tagged = list.map(function(c, i) { return { c: c, i: i, r: rank(c) }; });
+        tagged.sort(function(a, b) { return a.r !== b.r ? a.r - b.r : a.i - b.i; });
+        return tagged.map(function(x) { return x.c; });
     }
-    readonly property bool hasArrangement: { arrangeRev; return cameraModel ? Settings.liveLayout(groupId).length > 0 : false; }
-    function _fullIds() { var a = arrangedFull, o = []; for (var i = 0; i < a.length; i++) o.push(a[i].camId); return o; }
-    // camIds currently shown on the visible wall page — powers the picker's
-    // "ON WALL" badge and the "hide on-wall" toggle.
+    readonly property bool hasArrangement: {
+        arrangeRev;
+        return hasExplicitCells || Settings.liveLayout(groupId).length > 0;
+    }
+    function _fullIds() {
+        arrangeRev;
+        return hasExplicitCells ? Settings.liveCells(groupId).slice()
+            : baseCells.map(function(c) { return c ? c.camId : ""; });
+    }
+    // Membership covers every page, including cameras hidden by a status filter.
+    readonly property var viewIds: {
+        var ids = _fullIds(), out = ({});
+        for (var i = 0; i < ids.length; i++) if (ids[i]) out[ids[i]] = true;
+        return out;
+    }
     readonly property var displayedIds: {
-        var p = pagedCameras, s = ({});
-        for (var i = 0; i < p.length; i++) s[p[i].camId] = true;
-        return s;
+        var p = pagedCameras, out = ({});
+        for (var i = 0; i < p.length; i++) if (p[i]) out[p[i].camId] = true;
+        return out;
     }
-    // Filtered camera list shown in the picker (group + hide-on-wall + search).
     readonly property var pickModel: {
         var q = pickerSearch.toLowerCase(), g = pickerGroup, hide = pickerHideShown;
-        var disp = displayedIds, a = arrangedFull, out = [];
+        var members = viewIds, a = pickerRoster, out = [];
         for (var i = 0; i < a.length; i++) {
             var c = a[i];
             if (g !== "" && c.groupId !== g) continue;
-            if (hide && disp[c.camId] === true) continue;
+            if (hide && members[c.camId] === true) continue;
             if (q === "" || ("" + c.name).toLowerCase().indexOf(q) >= 0 || ("" + c.ip).indexOf(q) >= 0)
                 out.push(c);
         }
         return out;
+    }
+    // A deliberate Sort action orders the occupied slots. Subsequent assignment
+    // stays in the clicked cell, and changing sort never refills intentional holes.
+    function selectSort(mode) {
+        if (hasExplicitCells && cameraModel) {
+            var ids = _fullIds(), wanted = ({}), sorted = [];
+            for (var i = 0; i < ids.length; i++) if (ids[i]) wanted[ids[i]] = true;
+            var all = cameraModel.page("", "", mode, 1, Math.max(1, cameraModel.total));
+            for (var j = 0; j < all.length; j++)
+                if (wanted[all[j].camId]) { sorted.push(all[j].camId); delete wanted[all[j].camId]; }
+            // Keep unavailable saved identities too; a temporary roster outage is
+            // not permission to discard the operator's membership.
+            for (var k = 0; k < ids.length; k++)
+                if (wanted[ids[k]]) { sorted.push(ids[k]); delete wanted[ids[k]]; }
+            var next = 0;
+            for (var n = 0; n < ids.length; n++) if (ids[n]) ids[n] = sorted[next++];
+            Settings.setLiveCells(groupId, ids);
+            arrangeRev++;
+        }
+        sortRequested(mode);
     }
     // Fallback thumbnail for a camera with no backend snapshot_url.
     //
@@ -402,7 +430,7 @@ Item {
         }
         return pick;
     }
-    readonly property real _pickChrome: 176       // title + pills + search + cancel + margins
+    readonly property real _pickChrome: 196       // title + pills + search + action buttons + margins
     readonly property real _pickAvailW: width * 0.92 - 36
     readonly property real _pickAvailH: height * 0.9 - _pickChrome
     readonly property var _pg: _pickGeom(pickModel.length, _pickAvailW, _pickAvailH)
@@ -415,7 +443,7 @@ Item {
     // ---- drag-to-swap on the wall -------------------------------------------
     // The gesture the merge-selection MouseArea has been reserving ("plain drag
     // (reserved for future drag-swap)", selMa). Arrangement is an ORDERED ID LIST
-    // (Settings.liveLayout) and geometry lives separately in spanState, so a drop
+    // (Settings.liveCells) and geometry lives separately in spanState, so a drop
     // is a swap of two positions in that list — the grid does not move. That is
     // what makes merged tiles free: a big region stays big where it is, the
     // dragged camera fills it, the displaced camera takes the dragged tile's old
@@ -450,19 +478,63 @@ Item {
         cancelDrag();
     }
 
-    function assignToCell(tileIndex, camId) {
+    function _editTarget(tileIndex, ids) {
+        // Legacy filtered walls are compact. Resolve an occupied target by ID
+        // before the first edit snapshots the complete, unfiltered membership.
+        var cam = pagedCameras[tileIndex];
+        if (!hasExplicitCells && cam) return ids.indexOf(cam.camId);
+        return (page - 1) * perPage + tileIndex;
+    }
+    function _editableIds() {
         var ids = _fullIds();
-        var target = (page - 1) * perPage + tileIndex;
-        var cur = ids.indexOf(camId);
-        if (target >= ids.length || cur < 0) { pickerCell = -1; return; }
-        var t = ids[target]; ids[target] = ids[cur]; ids[cur] = t;   // swap the chosen camera into the cell
-        Settings.setLiveLayout(groupId, ids);
+        if (hasExplicitCells || _effFilter === "") return ids;
+        // A legacy filtered wall is compact. Snapshot its visible positions
+        // first, then retain hidden members beyond the visible net. Inserting
+        // into its trailing empty cell must not overwrite an unfiltered member.
+        var visible = arrangedFull.map(function(c) { return c ? c.camId : ""; });
+        var shown = ({});
+        for (var i = 0; i < visible.length; i++) if (visible[i]) shown[visible[i]] = true;
+        _padCells(visible, (page - 1) * perPage);
+        for (var j = 0; j < ids.length; j++) if (ids[j] && !shown[ids[j]]) visible.push(ids[j]);
+        return visible;
+    }
+    function _padCells(ids, target) {
+        // Capture the visible net on the first edit, including trailing holes.
+        // Removing cameras then leaves the remaining cells in place.
+        var size = Math.max(target + 1, (page - 1) * perPage + visibleCellCount);
+        while (ids.length < size) ids.push("");
+    }
+    function assignToCell(tileIndex, camId) {
+        if (tileIndex < 0 || tileIndex >= visibleCellCount || !camId) return;
+        var available = pickerRoster.some(function(c) { return c.camId === camId; });
+        if (!available) return;
+        var ids = _editableIds(), target = _editTarget(tileIndex, ids);
+        _padCells(ids, target);
+        var cur = ids.indexOf(camId), previous = ids[target];
+        ids[target] = camId;
+        if (cur >= 0 && cur !== target) ids[cur] = previous;
+        Settings.setLiveCells(groupId, ids);
         arrangeRev++; pickerCell = -1;
+    }
+    function removeFromCell(tileIndex) {
+        if (tileIndex < 0 || tileIndex >= visibleCellCount) return;
+        var ids = _editableIds(), target = _editTarget(tileIndex, ids);
+        _padCells(ids, target);
+        ids[target] = "";
+        Settings.setLiveCells(groupId, ids);
+        arrangeRev++; pickerCell = -1;
+    }
+    function addPage() {
+        var ids = _fullIds(), next = Math.max(1, Math.ceil(ids.length / perPage));
+        while (ids.length < (next + 1) * perPage) ids.push("");
+        Settings.setLiveCells(groupId, ids);
+        arrangeRev++;
+        pageRequested(next + 1);
     }
     function resetArrangement() { Settings.clearLiveLayout(groupId); arrangeRev++; }
     // Esc handling for arrange mode: close an open cell picker first, otherwise
     // leave arrange mode and return to the normal Live view. Per-cell changes are
-    // already persisted (Settings.setLiveLayout), so exiting discards nothing.
+    // already persisted (Settings.setLiveCells), so exiting discards nothing.
     function escapeArrange() {
         if (mergeSel !== null) { mergeSel = null; return; }
         if (pickerCell >= 0) { pickerCell = -1; return; }
@@ -474,8 +546,9 @@ Item {
     // cell (where the drag started; its camera is the one that goes big).
     property var mergeSel: null
     onLayoutChanged: { mergeSel = null; cancelDrag() }
-    onGroupIdChanged: mergeSel = null
-    onPageChanged: { mergeSel = null; cancelDrag() }
+    onGroupIdChanged: { mergeSel = null; pickerCell = -1; cancelDrag() }
+    onPageChanged: { mergeSel = null; pickerCell = -1; cancelDrag() }
+    onPageCountChanged: { if (page > pageCount) pageRequested(pageCount); }
     // Selection normalization: swallow any merged region the rect touches (the
     // Excel rule) — the highlight always shows the TRUE result of the merge.
     function _normSel(ac, ar, bc, br) {
@@ -532,7 +605,7 @@ Item {
     readonly property string selAnchorName: {
         if (!mergeSel) return "";
         var i = slotIndexForCell(mergeSel.ac, mergeSel.ar);
-        return (i >= 0 && i < pagedCameras.length) ? pagedCameras[i].name : "";
+        return (i >= 0 && pagedCameras[i]) ? pagedCameras[i].name : "";
     }
     function _saveSpans(s) {
         if (!s || s.regions.length === 0) Settings.clearLiveSpans(groupId, layout);
@@ -556,7 +629,7 @@ Item {
             var ids = _fullIds(), s0 = (page - 1) * perPage;
             if (s0 + iA < ids.length && s0 + iT < ids.length) {
                 var t = ids[s0 + iT]; ids[s0 + iT] = ids[s0 + iA]; ids[s0 + iA] = t;
-                Settings.setLiveLayout(groupId, ids);
+                Settings.setLiveCells(groupId, ids);
                 arrangeRev++;
             }
         }
@@ -664,20 +737,24 @@ Item {
     ListModel { id: gridModel; dynamicRoles: true }
     function syncGrid(list) {
         if (!list) list = [];
+        var occupied = [];
+        for (var s = 0; s < list.length; s++)
+            if (list[s]) occupied.push({ cam: list[s], slot: s });
         var want = ({});
-        for (var i = 0; i < list.length; i++) want[list[i].camId] = true;
+        for (var i = 0; i < occupied.length; i++) want[occupied[i].cam.camId] = true;
         for (var r = gridModel.count - 1; r >= 0; r--)          // drop cameras no longer on the page
             if (!want[gridModel.get(r).camId]) gridModel.remove(r);
-        for (var j = 0; j < list.length; j++) {                 // place each camera at its slot
-            var cam = list[j];
+        for (var j = 0; j < occupied.length; j++) {             // keep camera identity separate from its slot
+            var cam = occupied[j].cam, slot = occupied[j].slot;
             var cur = -1;
             for (var k = j; k < gridModel.count; k++)
                 if (gridModel.get(k).camId === cam.camId) { cur = k; break; }
             if (cur === -1)
-                gridModel.insert(j, { camId: cam.camId, cam: cam });
+                gridModel.insert(j, { camId: cam.camId, cam: cam, slot: slot });
             else {
                 if (cur !== j) gridModel.move(cur, j, 1);
                 gridModel.setProperty(j, "cam", cam);           // refresh data (badges) without recreating the tile
+                gridModel.setProperty(j, "slot", slot);
             }
         }
     }
@@ -686,8 +763,12 @@ Item {
     readonly property string rangeText: {
         if (total === 0)
             return qsTr("0 of 0");
-        const start = (page - 1) * perPage + 1;
-        const end = Math.min(page * perPage, total);
+        const offset = (page - 1) * perPage;
+        const before = arrangedFull.slice(0, offset).filter(function(c) { return !!c; }).length;
+        const shown = pagedCameras.filter(function(c) { return !!c; }).length;
+        if (shown === 0) return qsTr("0 of %1").arg(total);
+        const start = before + 1;
+        const end = before + shown;
         return qsTr("%1–%2 of %3").arg(start).arg(end).arg(total);
     }
 
@@ -1144,7 +1225,7 @@ Item {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: { root.sortRequested(modelData.id); sortPopup.close() }
+                                        onClicked: { root.selectSort(modelData.id); sortPopup.close() }
                                     }
                                 }
                             }
@@ -1263,7 +1344,7 @@ Item {
                                         font.family: Theme.fontSans; font.pixelSize: 12 }
                                     MouseArea { id: soMa; anchors.fill: parent; hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: { root.sortRequested(modelData.id); ovPopup.close() } }
+                                        onClicked: { root.selectSort(modelData.id); ovPopup.close() } }
                                 }
                             }
                         }
@@ -1322,7 +1403,7 @@ Item {
                 anchors.topMargin: root.fullscreen ? 4 : 14
                 anchors.bottomMargin: root.fullscreen ? 4 : 14
                 color: Theme.line2
-                visible: root.total > 0
+                visible: root.total > 0 || root.hasExplicitCells || root.arrangeMode
 
                 // The grid the tiles actually render in: feature layouts keep their
                 // fixed cols×rows; everything else auto-fits to the cameras on the page
@@ -1331,7 +1412,8 @@ Item {
                     ? ({ cols: root.spanState.cols, rows: root.spanState.rows })
                     : root.isFeatureLayout
                     ? ({ cols: root.cols, rows: root.rows })
-                    : LayoutSpec.bestGrid(root.fillCount, width, height, 16 / 9)
+                    : LayoutSpec.bestGrid(root.fillCount || (root.arrangeMode || root.hasExplicitCells ? root.perPage : 0),
+                                          width, height, 16 / 9, root.perPage)
 
                 // Manual cell positioning — NOT a QtQuick.Layouts GridLayout. On Qt 6.4.2 a
                 // GridLayout SIGSEGVs in QQuickGridLayoutBase::rearrange after the window is
@@ -1376,13 +1458,14 @@ Item {
                             id: cellWrap
                             required property int index
                             required property var cam      // the camera map (gridModel role)
+                            required property int slot     // sparse page position, independent of delegate index
                             readonly property var modelData: cam   // alias so the bindings below read unchanged
                             // Feature layouts place each tile in its fixed net cell
                             // (big tile spans); auto-fit grids place tiles row-major.
                             readonly property var cell: root.useFixedNet
-                                ? (index < root.lcells.length ? root.lcells[index] : ({ c: 0, r: 0, cw: 1, ch: 1 }))
-                                : ({ c: index % gridFrame.fitGrid.cols,
-                                     r: Math.floor(index / gridFrame.fitGrid.cols), cw: 1, ch: 1 })
+                                ? (slot < root.lcells.length ? root.lcells[slot] : ({ c: 0, r: 0, cw: 1, ch: 1 }))
+                                : ({ c: slot % gridFrame.fitGrid.cols,
+                                     r: Math.floor(slot / gridFrame.fitGrid.cols), cw: 1, ch: 1 })
                             // Merged tile: auto-promote to HD within the wall's transcode
                             // budget — a 2×2 tile in SD would look worse than what it
                             // replaced. Demotion on split frees the slot.
@@ -1482,9 +1565,9 @@ Item {
                                 anchors.fill: parent
                                 visible: root.arrangeMode
                                 readonly property bool isDropTarget:
-                                    root.dragCell >= 0 && root.dropCell === cellWrap.index
+                                    root.dragCell >= 0 && root.dropCell === cellWrap.slot
                                                        && root.dropCell !== root.dragCell
-                                readonly property bool isDragSource: root.dragCell === cellWrap.index
+                                readonly property bool isDragSource: root.dragCell === cellWrap.slot
                                 color: isDropTarget ? Qt.rgba(0.91, 0.63, 0.23, 0.30)
                                      : isDragSource ? Qt.rgba(0, 0, 0, 0.72)
                                      : cellOvMa.containsMouse ? Qt.rgba(0, 0, 0, 0.32)
@@ -1494,7 +1577,7 @@ Item {
                                 Column {
                                     anchors.centerIn: parent; spacing: 4; width: parent.width - 16
                                     Text { anchors.horizontalCenter: parent.horizontalCenter
-                                        text: (cellWrap.index === 0 && root.lspec.big) ? qsTr("CENTER") : ("CELL " + (cellWrap.index + 1))
+                                        text: (cellWrap.slot === 0 && root.lspec.big) ? qsTr("CENTER") : ("CELL " + (cellWrap.slot + 1))
                                         color: Theme.accent; font.family: Theme.fontMono; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1 }
                                     Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width
                                         horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
@@ -1504,6 +1587,7 @@ Item {
                                 }
                                 MouseArea {
                                     id: cellOvMa
+                                    objectName: "arrangeLiveCell_" + cellWrap.slot
                                     anchors.fill: parent; hoverEnabled: true
                                     cursorShape: root.dragCell >= 0 ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                                     // Click still opens the picker; a drag past the
@@ -1514,8 +1598,8 @@ Item {
                                     property real pressY: 0
                                     onPressed: (m) => {
                                         moved = false; pressX = m.x; pressY = m.y;
-                                        root.dragCell = cellWrap.index;
-                                        root.dropCell = cellWrap.index;
+                                        root.dragCell = cellWrap.slot;
+                                        root.dropCell = cellWrap.slot;
                                         root.dragCamId = cellWrap.modelData.camId;
                                         root.dragCamName = cellWrap.modelData.name;
                                     }
@@ -1537,9 +1621,25 @@ Item {
                                     }
                                     onReleased: {
                                         if (moved) root.dropOnCell(root.dropCell);
-                                        else { root.cancelDrag(); root.openCellPicker(cellWrap.index); }
+                                        else { root.cancelDrag(); root.openCellPicker(cellWrap.slot); }
                                     }
                                     onCanceled: root.cancelDrag()
+                                }
+                                // Removing a tile clears only this view's slot.
+                                C.ToolButton {
+                                    objectName: "removeLiveCell_" + cellWrap.slot
+                                    anchors.top: parent.top; anchors.right: parent.right
+                                    anchors.margins: 4
+                                    width: 28; height: 28
+                                    text: "×"
+                                    Accessible.name: qsTr("Remove camera from view")
+                                    C.ToolTip.visible: hovered
+                                    C.ToolTip.text: Accessible.name
+                                    contentItem: Text { text: parent.text; color: Theme.ink; font.pixelSize: 22
+                                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                    background: Rectangle { color: parent.hovered ? Theme.panel2 : Theme.bg
+                                        border.color: Theme.line2; border.width: 1 }
+                                    onClicked: root.removeFromCell(cellWrap.slot)
                                 }
                             }
 
@@ -1550,25 +1650,47 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.RightButton
-                                onClicked: root.openCellPicker(cellWrap.index)
+                                onClicked: root.openCellPicker(cellWrap.slot)
                             }
                         }
                     }
 
-                    // Dark "empty slot" fillers — a partially-filled auto-fit grid shows
-                    // intentional empty cells (camera-tile background) rather than the gray
-                    // grid frame bleeding through. Feature layouts manage their own cells.
+                    // Every vacant position is a real target, including fixed-net
+                    // feature/merged cells and holes between occupied cameras.
                     Repeater {
-                        model: root.useFixedNet ? 0
-                             : Math.max(0, gridFrame.fitGrid.cols * gridFrame.fitGrid.rows - root.fillCount)
+                        model: root.visibleCellCount
                         delegate: Rectangle {
                             required property int index
-                            readonly property int ci: root.fillCount + index
-                            x: (ci % gridArea.gCols) * (gridArea.cellW + gridArea.gSpace)
-                            y: Math.floor(ci / gridArea.gCols) * (gridArea.cellH + gridArea.gSpace)
-                            width: gridArea.cellW
-                            height: gridArea.cellH
-                            color: Theme.tileBg
+                            readonly property var cell: root.useFixedNet ? root.lcells[index]
+                                : ({ c: index % gridArea.gCols, r: Math.floor(index / gridArea.gCols), cw: 1, ch: 1 })
+                            readonly property bool filterHidden: root.hasExplicitCells && !root.arrangeMode
+                                && !!root.baseCells[(root.page - 1) * root.perPage + index]
+                            visible: !root.pagedCameras[index]
+                            x: cell.c * (gridArea.cellW + gridArea.gSpace)
+                            y: cell.r * (gridArea.cellH + gridArea.gSpace)
+                            width: cell.cw * gridArea.cellW + (cell.cw - 1) * gridArea.gSpace
+                            height: cell.ch * gridArea.cellH + (cell.ch - 1) * gridArea.gSpace
+                            color: emptyMa.containsMouse ? Theme.panel : Theme.tileBg
+                            border.width: root.arrangeMode ? 2 : 0
+                            border.color: Theme.accent
+                            Column {
+                                anchors.centerIn: parent; spacing: 6
+                                Text { anchors.horizontalCenter: parent.horizontalCenter
+                                    text: filterHidden ? "…" : "+"; color: Theme.accent; font.pixelSize: 24 }
+                                Text { anchors.horizontalCenter: parent.horizontalCenter
+                                    text: filterHidden ? qsTr("Hidden by filter") : qsTr("Add camera"); color: Theme.ink2
+                                    font.family: Theme.fontSans; font.pixelSize: 12 }
+                            }
+                            MouseArea {
+                                id: emptyMa
+                                objectName: "emptyLiveCell_" + index
+                                anchors.fill: parent; hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (filterHidden) root.arrangeMode = true;
+                                    root.openCellPicker(index);
+                                }
+                            }
                         }
                     }
 
@@ -1697,7 +1819,7 @@ Item {
             // Brief gap between sign-in and the first /streams response.
             LoadingState {
                 anchors.centerIn: parent
-                visible: root.total === 0 && !root.fullscreen
+                visible: !gridFrame.visible && !root.fullscreen
                         && root.cameraModel && root.cameraModel.loading
                 label: qsTr("Loading cameras…")
             }
@@ -1707,7 +1829,7 @@ Item {
             EmptyState {
                 anchors.fill: parent
                 anchors.margins: 24
-                visible: root.total === 0 && !root.fullscreen
+                visible: !gridFrame.visible && !root.fullscreen
                         && !(root.cameraModel && root.cameraModel.loading)
                 icon: root.rosterUnavailable() ? "alert" : "monitor"
                 title: root.emptyTitle()
@@ -1775,6 +1897,16 @@ Item {
                     font.letterSpacing: 0.8
                 }
                 Item { Layout.fillWidth: true }
+                C.Button {
+                    objectName: "addViewPage"
+                    visible: root.arrangeMode
+                    text: qsTr("Add page")
+                    onClicked: root.addPage()
+                    contentItem: Text { text: parent.text; color: Theme.ink2
+                        font.family: Theme.fontSans; font.pixelSize: 12 }
+                    background: Rectangle { color: parent.hovered ? Theme.panel2 : Theme.bg
+                        border.color: Theme.line2; border.width: 1 }
+                }
                 PaginationControl {
                     page: root.page
                     pageCount: root.pageCount
@@ -1829,18 +1961,20 @@ Item {
                                 font.family: Theme.fontSans; font.pixelSize: 12
                             }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                objectName: "cameraPickerGroup_" + modelData.id
                                 onClicked: root.pickerGroup = modelData.id }
                         }
                     }
                 }
 
-                // Search + a toggle to hide cameras already on the visible wall.
+                // Search + a toggle to hide cameras already anywhere in this view.
                 RowLayout {
                     Layout.fillWidth: true; spacing: 8
                     Rectangle {
                         Layout.fillWidth: true; Layout.preferredHeight: 34
                         color: Theme.bg; border.color: Theme.line2; border.width: 1
                         C.TextField {
+                            objectName: "cameraPickerSearch"
                             anchors.fill: parent; anchors.margins: 1
                             text: root.pickerSearch
                             onTextChanged: root.pickerSearch = text
@@ -1856,11 +1990,12 @@ Item {
                         border.width: 1; border.color: root.pickerHideShown ? Theme.accent : Theme.line2
                         Text {
                             id: hideTxt; anchors.centerIn: parent
-                            text: qsTr("Hide on-wall")
+                            text: qsTr("Hide cameras in view")
                             color: root.pickerHideShown ? Theme.bg : Theme.ink2
                             font.family: Theme.fontSans; font.pixelSize: 12
                         }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            objectName: "cameraPickerHideShown"
                             onClicked: root.pickerHideShown = !root.pickerHideShown }
                     }
                 }
@@ -1900,7 +2035,7 @@ Item {
                     delegate: Item {
                         id: pickCell
                         required property var modelData
-                        readonly property bool onWall: root.displayedIds[modelData.camId] === true
+                        readonly property bool onWall: root.viewIds[modelData.camId] === true
                         width: pickGrid.cellWidth; height: pickGrid.cellHeight
                         // Ask the load limiter for a fetch slot when the picker is open.
                         property bool _counted: false   // released our slot for the current load?
@@ -1992,7 +2127,7 @@ Item {
                                         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4
                                         height: 15; width: owT.implicitWidth + 8; radius: 7
                                         color: Qt.rgba(0, 0, 0, 0.66); border.color: Theme.accent; border.width: 1
-                                        Text { id: owT; anchors.centerIn: parent; text: qsTr("ON WALL"); color: Theme.accent
+                                        Text { id: owT; anchors.centerIn: parent; text: qsTr("IN VIEW"); color: Theme.accent
                                             font.family: Theme.fontMono; font.pixelSize: 8; font.weight: Font.Bold }
                                     }
                                 }
@@ -2003,6 +2138,7 @@ Item {
                                     font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight }
                             }
                             MouseArea { id: cmA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                objectName: "cameraPicker_" + pickCell.modelData.camId
                                 onClicked: root.assignToCell(root.pickerCell, pickCell.modelData.camId) }
                         }
                     }
@@ -2013,17 +2149,30 @@ Item {
                         visible: pickGrid.count === 0
                         horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap
                         text: root.pickerHideShown
-                              ? "Every matching camera is already on the wall."
+                              ? qsTr("Every matching camera is already in this view.")
                               : ((root.pickerSearch !== "" || root.pickerGroup !== "")
                                  ? qsTr("No cameras match.") : qsTr("No cameras available."))
                         color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 13
                     }
                 }
 
-                Text {
-                    Layout.alignment: Qt.AlignRight
-                    text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
-                    MouseArea { anchors.fill: parent; anchors.margins: -10; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerCell = -1 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    C.Button {
+                        objectName: "removeCameraFromView"
+                        visible: root.pickerCell >= 0 && !!root.pagedCameras[root.pickerCell]
+                        text: qsTr("Remove camera from view")
+                        onClicked: root.removeFromCell(root.pickerCell)
+                        contentItem: Text { text: parent.text; color: Theme.ink2
+                            font.family: Theme.fontSans; font.pixelSize: 13 }
+                        background: Rectangle { color: parent.hovered ? Theme.panel2 : Theme.bg
+                            border.color: Theme.line2; border.width: 1 }
+                    }
+                    Item { Layout.fillWidth: true }
+                    Text {
+                        text: qsTr("Cancel"); color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 13
+                        MouseArea { anchors.fill: parent; anchors.margins: -10; cursorShape: Qt.PointingHandCursor; onClicked: root.pickerCell = -1 }
+                    }
                 }
             }
         }

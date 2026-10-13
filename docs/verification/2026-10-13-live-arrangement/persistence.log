@@ -1,0 +1,41 @@
+Start testing: Oct 13 22:14 MSK
+----------------------------------------------------------
+1/1 Testing: live-view-persistence
+1/1 Test: live-view-persistence
+Command: "/private/tmp/watchtower-live-view-persistence-native/live-view-persistence"
+Directory: /private/tmp/watchtower-live-view-persistence-native
+"live-view-persistence" start time: Oct 13 22:14 MSK
+Output:
+----------------------------------------------------------
+PASS isolated settings directory created
+PASS absence retains legacy dynamic membership
+PASS explicit membership retains internal and trailing holes
+PASS editing one group view leaves another untouched
+PASS new membership does not rewrite legacy ordering
+PASS real QStringList invokable results support QML slice and map
+PASS editing a sliced QML cell list leaves the original sequence intact
+PASS QML can fill and clear cells through the actual Settings invokable
+PASS cell changes reach disk before normal shutdown
+PASS explicit cells survive a separate process
+PASS holes and outside-group camera survive a separate process
+PASS sparse membership edited through the real QML bridge reaches disk
+PASS duplicate IDs become holes without shifting other cells or leading holes
+PASS zero cameras is an explicit empty view
+PASS opening a legacy view can clear cells while preserving old ordering
+PASS reset removes explicit membership and legacy arrangement
+PASS pre-membership saved views remain readable and dynamic
+PASS new views persist alongside the legacy view
+PASS saved views reject duplicate membership while retaining slots
+PASS an empty saved view stays distinct from an old group view
+PASS same-group saved views independently retain membership, holes, filter and sort
+PASS saving new views does not migrate an old view implicitly
+PASS list-model roles expose the same captured membership
+<end of output>
+Test time =   0.45 sec
+----------------------------------------------------------
+Test Passed.
+"live-view-persistence" end time: Oct 13 22:14 MSK
+"live-view-persistence" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 13 22:14 MSK

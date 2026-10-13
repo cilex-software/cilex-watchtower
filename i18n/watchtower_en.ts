@@ -3790,6 +3790,38 @@
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Add camera</source>
+        <translation>Add camera</translation>
+    </message>
+    <message>
+        <source>Remove camera from view</source>
+        <translation>Remove camera from view</translation>
+    </message>
+    <message>
+        <source>Hide cameras in view</source>
+        <translation>Hide cameras in view</translation>
+    </message>
+    <message>
+        <source>IN VIEW</source>
+        <translation>IN VIEW</translation>
+    </message>
+    <message>
+        <source>Every matching camera is already in this view.</source>
+        <translation>Every matching camera is already in this view.</translation>
+    </message>
+    <message>
+        <source>0 of %1</source>
+        <translation>0 of %1</translation>
+    </message>
+    <message>
+        <source>Hidden by filter</source>
+        <translation>Hidden by filter</translation>
+    </message>
+    <message>
+        <source>Add page</source>
+        <translation>Add page</translation>
+    </message>
 </context>
 <context>
     <name>LiveStatusBadge</name>

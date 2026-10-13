@@ -162,6 +162,14 @@ public:
     Q_INVOKABLE void setLiveLayout(const QString &groupId, const QStringList &ids);
     Q_INVOKABLE void clearLiveLayout(const QString &groupId);
 
+    // Exact, sparse membership after editing a view. Unlike the legacy ordering
+    // above, unlisted cameras never append. Presence is separate from contents:
+    // an explicitly empty view must not fall back to the camera group.
+    Q_INVOKABLE bool hasLiveCells(const QString &groupId) const;
+    Q_INVOKABLE QStringList liveCells(const QString &groupId) const;
+    Q_INVOKABLE void setLiveCells(const QString &groupId, const QStringList &ids);
+    Q_INVOKABLE void clearLiveCells(const QString &groupId);
+
     // Merged-cell spans on the Live wall, per (group, layout): an opaque JSON blob
     // owned by LiveMonitor ({cols, rows, regions:[{c,r,cw,ch}]}). Stored beside the
     // manual arrangement so Saved Views and the CW-05 crash-restore get them for

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVariantList>
 #include "CameraStatus.h"
 
@@ -122,6 +123,11 @@ struct SavedViewData {
     // draw, so a merged view rendered as a plain grid. A view that cannot hold its
     // own layout is not a view. Reported by the operator 2026-09-02.
     QString spans;
+    // Independent view membership; missing on legacy group/filter views.
+    // Empty strings retain holes, and hasCells distinguishes an empty view
+    // from a legacy view that dynamically follows its group.
+    bool hasCells = false;
+    QStringList cells;
 };
 
 } // namespace wt

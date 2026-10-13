@@ -198,6 +198,9 @@ Window {
     property bool _vsDone: !restoreEligible
 
     function _vsCapture() {
+        // Settings invokables do not notify bindings. Arrange's revision makes
+        // membership edits part of the crash-recovery snapshot as well.
+        if (typeof liveMonitor !== "undefined" && liveMonitor) liveMonitor.arrangeRev;
         var t = [];
         for (var i = 1; i < tabs.length; i++)
             if (tabs[i].kind === "camera") t.push(tabs[i].camId);   // prefs tab is not worth restoring
@@ -208,6 +211,9 @@ Window {
             // The map-selection pseudo-group is session-local — never persist it.
             group: groupFilter === "__selected__" ? "" : groupFilter,
             groupLabel: groupFilter === "__selected__" ? qsTr("All cameras") : groupLabel,
+            liveCells: groupFilter === "__selected__" ? undefined : {
+                hasCells: Settings.hasLiveCells(groupFilter), cells: Settings.liveCells(groupFilter)
+            },
             sidebar: opsSidebarOpen,
             mainCam: mainTabCamera ? mainTabCamera.camId : "",
             tabs: t, active: activeTab
@@ -218,6 +224,15 @@ Window {
     property string _vsBlob: _vsCapture()
     on_VsBlobChanged: if (_vsArmed && restoreEligible) vsSaveDebounce.restart()
     Timer { id: vsSaveDebounce; interval: 1000; onTriggered: Settings.saveViewState(win._vsBlob) }
+    Connections {
+        target: liveMonitor
+        function onArrangeRevChanged() {
+            // Cells are synced immediately in Settings. Keep the session snapshot
+            // equally current, so a crash during the navigation debounce cannot
+            // restore an older cell list over the completed edit.
+            if (win._vsArmed && win.restoreEligible) Settings.saveViewState(win._vsCapture());
+        }
+    }
     // Idle-age heartbeat (CW-15 endurance finding F1): an untouched session never
     // changes the blob, so `at` never refreshed and a guard who simply WATCHED the
     // wall all day crossed the 24 h freshness window — a crash after that restored
@@ -272,11 +287,15 @@ Window {
             if (!s || s.v !== 1) { win._vsFinish("unknown-version"); return; }
             if ((Date.now() - (s.at || 0)) > 24 * 3600 * 1000) { win._vsFinish("stale"); return; }
             win.gridLayout = s.layout || "16";
-            win.gridPage = s.page || 1;
             win.statusFilter = s.status || "";
             win.sortMode = s.sort || "live";
             win.groupFilter = s.group || "";
             win.groupLabel = s.groupLabel || qsTr("All cameras");
+            // A default saved view may already have applied to this same group
+            // during startup. Recover this session's cells, not that default's.
+            // Older snapshots have no field and keep their persisted group state.
+            if (s.liveCells) win.applyViewCells(win.groupFilter, s.liveCells);
+            win.gridPage = Math.max(1, Math.min(s.page || 1, liveMonitor.pageCount));
             win.opsSidebarOpen = s.sidebar !== false;
             win.section = (!s.section || s.section === "preferences") ? "live" : s.section;
             var t = [{ "kind": "main" }];
@@ -330,9 +349,11 @@ Window {
 
     // Enter synchronized wall playback. Seeds from the operator's persisted wall
     // layout when one exists, else from the cameras currently on the wall page.
+    function currentLivePageCameras() {
+        return liveMonitor.pagedCameras.filter(function(cam) { return cam && cam.camId; }).slice(0, 16);
+    }
     function enterWallPlayback() {
-        var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
-        wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
+        wallPlayback.seedCameras(currentLivePageCameras());
         wallMode = "playback";
         wallPlayback.openFor();
     }
@@ -676,6 +697,12 @@ Window {
         liveMonitor.spansRev++;        // spanState is cached against this counter
     }
 
+    function applyViewCells(groupId, view) {
+        if (view.hasCells) Settings.setLiveCells(groupId, view.cells || []);
+        else               Settings.clearLiveCells(groupId);
+        liveMonitor.arrangeRev++;
+    }
+
     // Apply the user's default landing screen on launch (Live / a saved view / a
     // group). A dev WT_SECTION override wins. Models are ready by onCompleted.
     function applyDefaultLanding() {
@@ -696,6 +723,8 @@ Window {
                     var dg = win.resolveGroup(v.groupId, v.groupLabel);
                     win.gridLayout = v.layout; win.statusFilter = v.statusFilter; win.sortMode = v.sortMode;
                     win.groupFilter = dg.id; win.groupLabel = dg.label; win.gridPage = 1; win.section = "live";
+                    win.applyViewSpans(dg.id, v.layout, v.spans);
+                    win.applyViewCells(dg.id, v);
                     break;
                 }
         }
@@ -1104,7 +1133,7 @@ Window {
             if (!liveMonitor.visible) return;
             mergeTest.running = false;
             if (wtMergeTest === "seed") {
-                var anchorBefore = liveMonitor.pagedCameras.length > 5 ? liveMonitor.pagedCameras[5].camId : "?";
+                var anchorBefore = liveMonitor.pagedCameras[5] ? liveMonitor.pagedCameras[5].camId : "?";
                 liveMonitor.startSel({ c: 1, r: 1 });
                 liveMonitor.extendSel({ c: 2, r: 2 });
                 mergeTest.ck("sel", liveMonitor._selW + "x" + liveMonitor._selH, "2x2");
@@ -1113,7 +1142,7 @@ Window {
                 mergeTest.ck("perPage", liveMonitor.perPage, 13);
                 mergeTest.ck("region@5", region5(), "1,1,2,2");
                 mergeTest.ck("anchorCamKept",
-                             liveMonitor.pagedCameras.length > 5 ? liveMonitor.pagedCameras[5].camId : "?",
+                             liveMonitor.pagedCameras[5] ? liveMonitor.pagedCameras[5].camId : "?",
                              anchorBefore);
                 console.log("[MERGETEST] SEEDED " + (mergeTest.fails === 0 ? "PASS" : "FAIL")
                             + " fails=" + mergeTest.fails);
@@ -1914,8 +1943,7 @@ Window {
             // The WT_WALLPERF harness seeds + opens the session itself; if we also
             // opened here it would create a second composite ~3 s later (churn).
             if (typeof wtWallPerf !== "undefined" && wtWallPerf !== "") return;
-            var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[gridLayout] || 16;
-            wallPlayback.seedCameras(cameraModel.page(groupFilter, statusFilter, sortMode, gridPage, per));
+            wallPlayback.seedCameras(win.currentLivePageCameras());
             if (wtWallDay === "live") wallPlayback.openFor();
             else wallPlayback.openForDay(wtWallDay);
         }
@@ -2137,8 +2165,7 @@ Window {
                     // Picker "Use live wall": saved layout cleared — reseed from the
                     // live page and re-composite the same window.
                     onResetToLiveRequested: {
-                        var per = ({ "1": 1, "4": 4, "9": 9, "16": 16 })[win.gridLayout] || 16;
-                        wallPlayback.seedCameras(cameraModel.page(win.groupFilter, win.statusFilter, win.sortMode, win.gridPage, per));
+                        wallPlayback.seedCameras(win.currentLivePageCameras());
                         wallPlayback.reopenSameWindow();
                     }
                 }
@@ -2305,6 +2332,7 @@ Window {
                         win.gridPage = 1;
                         win.section = "live";
                         win.applyViewSpans(vg.id, view.layout, view.spans);
+                        win.applyViewCells(vg.id, view);
                         savedViewModel.touch(view.viewId);
                     }
                 }
@@ -2557,7 +2585,8 @@ Window {
             // came back as a plain grid.
             savedViewModel.saveCurrent(name, shared, win.gridLayout, win.statusFilter,
                                        win.sortMode, win.groupFilter, win.groupLabel,
-                                       Settings.liveSpans(win.groupFilter, win.gridLayout));
+                                       Settings.liveSpans(win.groupFilter, win.gridLayout),
+                                       true, liveMonitor._fullIds());
             toastHost.show("View saved", name + " · " + (shared ? qsTr("Shared") : qsTr("Mine")), "good", "", "");
         }
     }
@@ -2580,6 +2609,7 @@ Window {
             win.groupFilter = cg.id; win.groupLabel = cg.label; win.gridPage = 1;
             win.goToSection("live");
             win.applyViewSpans(cg.id, view.layout, view.spans);
+            win.applyViewCells(cg.id, view);
             savedViewModel.touch(view.viewId);
         }
         onOpenEvents: win.goToSection("events")

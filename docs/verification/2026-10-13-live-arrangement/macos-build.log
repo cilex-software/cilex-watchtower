@@ -1,0 +1,160 @@
+[0/1] Re-running CMake...
+-- Configuring done (1.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/romayankin/git/cilex-watchtower/build-macos
+[1/235] Copying watchtower qml sources into build dir
+[2/235] Generating watchtower_en.qm
+Updating '/Users/romayankin/git/cilex-watchtower/build-macos/watchtower_en.qm'...
+    Generated 30 translation(s) (29 finished and 1 unfinished)
+    Ignored 1217 untranslated source text(s)
+[3/235] Generating watchtower_ru.qm
+Updating '/Users/romayankin/git/cilex-watchtower/build-macos/watchtower_ru.qm'...
+    Generated 1271 translation(s) (1271 finished and 0 unfinished)
+[4/235] Running qmlimportscanner for watchtower
+[5/235] Automatic MOC and UIC for target watchtower
+[6/235] Running AUTOMOC file extraction for target watchtower
+[7/235] Running moc --collect-json for target watchtower
+[8/148] Running rcc for resource watchtower_translations
+[9/148] Generating .rcc/qmlcache/watchtower_qml/LayoutSpec_qml.cpp
+[10/148] Generating .rcc/qmlcache/watchtower_qml/SavedViewsScreen_qml.cpp
+[11/148] Generating .rcc/qmlcache/watchtower_qml/LiveMonitor_qml.cpp
+[12/148] Running rcc for resource watchtower_raw_qml_0
+[13/148] Generating .rcc/qmlcache/watchtower_qml/Main_qml.cpp
+[14/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_qmake_Watchtower.cpp.o
+[15/148] Building CXX object CMakeFiles/watchtower.dir/src/models/AuthController.cpp.o
+[16/148] Building CXX object CMakeFiles/watchtower.dir/watchtower_qmltyperegistrations.cpp.o
+[17/148] Building CXX object CMakeFiles/watchtower.dir/src/main.cpp.o
+[18/148] Building CXX object CMakeFiles/watchtower.dir/watchtower_autogen/mocs_compilation.cpp.o
+[19/148] Building CXX object CMakeFiles/watchtower.dir/src/models/MockData.cpp.o
+[20/148] Building CXX object CMakeFiles/watchtower.dir/src/models/Artifacts.cpp.o
+[21/148] Building CXX object CMakeFiles/watchtower.dir/src/models/CameraStore.cpp.o
+[22/148] Building CXX object CMakeFiles/watchtower.dir/src/models/Settings.cpp.o
+[23/148] Building CXX object CMakeFiles/watchtower.dir/src/models/GroupModel.cpp.o
+[24/148] Building CXX object CMakeFiles/watchtower.dir/src/models/CameraModel.cpp.o
+[25/148] Building CXX object CMakeFiles/watchtower.dir/src/models/SavedViewModel.cpp.o
+[26/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LiveProxy.cpp.o
+[27/148] Building CXX object CMakeFiles/watchtower.dir/src/models/EventModel.cpp.o
+[28/148] Building CXX object CMakeFiles/watchtower.dir/src/models/HlsProxy.cpp.o
+[29/148] Building CXX object CMakeFiles/watchtower.dir/src/models/WatchClient.cpp.o
+[30/148] Building CXX object CMakeFiles/watchtower.dir/src/models/PtzClient.cpp.o
+[31/148] Building CXX object CMakeFiles/watchtower.dir/src/models/CameraObstructionController.cpp.o
+[32/148] Building CXX object CMakeFiles/watchtower.dir/src/models/SnapshotModel.cpp.o
+[33/148] Building CXX object CMakeFiles/watchtower.dir/src/models/PlaybackClient.cpp.o
+[34/148] Building CXX object CMakeFiles/watchtower.dir/src/models/ClipTranscoder.cpp.o
+[35/148] Building CXX object CMakeFiles/watchtower.dir/src/models/StorageHealth.cpp.o
+[36/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LabsFindingsModel.cpp.o
+[37/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LabsLanesItem.cpp.o
+[38/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LabsTimeline.cpp.o
+[39/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LabsModel.cpp.o
+[40/148] Building CXX object CMakeFiles/watchtower.dir/src/models/RtspVideoSource.cpp.o
+[41/148] Building CXX object CMakeFiles/watchtower.dir/src/models/SiteMapModel.cpp.o
+[42/148] Building CXX object CMakeFiles/watchtower.dir/src/models/CvImageProvider.cpp.o
+[43/148] Building CXX object CMakeFiles/watchtower.dir/src/models/MemTelemetry.cpp.o
+[44/148] Building CXX object CMakeFiles/watchtower.dir/src/models/LanguageController.cpp.o
+[45/148] Building CXX object CMakeFiles/watchtower.dir/src/models/FrameClock.cpp.o
+[46/148] Building CXX object CMakeFiles/watchtower.dir/src/models/MotionScan.cpp.o
+[47/148] Building CXX object CMakeFiles/watchtower.dir/src/models/FrameCache.cpp.o
+[48/148] Building CXX object CMakeFiles/watchtower.dir/src/models/MetalCacheProbe.cpp.o
+[49/148] Building CXX object CMakeFiles/watchtower.dir/src/models/FlightRecorder.cpp.o
+/Users/romayankin/git/cilex-watchtower/src/models/FlightRecorder.cpp:98:5: warning: ignoring return value of function declared with 'nodiscard' attribute [-Wunused-result]
+   98 |     s_file->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+      |     ^~~~~~~~~~~~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.
+[50/148] Building CXX object CMakeFiles/watchtower.dir/src/models/DeepLink.cpp.o
+[51/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qmlcache_loader.cpp.o
+[52/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/AlertsDropdown_qml.cpp.o
+[53/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LoginScreen_qml.cpp.o
+[54/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CameraObstructionAlert_qml.cpp.o
+[55/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/Main_qml.cpp.o
+[56/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/Theme_qml.cpp.o
+[57/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CameraObstructionButton_qml.cpp.o
+[58/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LayoutSpec_qml.cpp.o
+[59/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CameraObstructionReview_qml.cpp.o
+[60/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EventStyle_qml.cpp.o
+[61/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/ReconnectCoordinator_qml.cpp.o
+[62/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EventsStore_qml.cpp.o
+[63/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvIcon_qml.cpp.o
+[64/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/Sev_qml.cpp.o
+[65/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/TypePill_qml.cpp.o
+[66/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/StateTag_qml.cpp.o
+[67/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvPersonGlyph_qml.cpp.o
+[68/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvButton_qml.cpp.o
+[69/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvVehicleGlyph_qml.cpp.o
+[70/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvSnapshot_qml.cpp.o
+[71/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvPlayer_qml.cpp.o
+[72/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvHeroPlayer_qml.cpp.o
+[73/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvWall_qml.cpp.o
+[74/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvSessions_qml.cpp.o
+[75/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvTriage_qml.cpp.o
+[76/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvVerify_qml.cpp.o
+[77/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvTimeline_qml.cpp.o
+[78/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/NetIcon_qml.cpp.o
+[79/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EventsArea_qml.cpp.o
+[80/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/StatusBadge_qml.cpp.o
+[81/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/Icon_qml.cpp.o
+[82/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EvMap_qml.cpp.o
+[83/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LiveStatusBadge_qml.cpp.o
+[84/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/IconButton_qml.cpp.o
+[85/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/RecordingStatusBadge_qml.cpp.o
+[86/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PlaceholderVid_qml.cpp.o
+[87/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/FilterPill_qml.cpp.o
+[88/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PaginationControl_qml.cpp.o
+[89/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/StatusSummaryChip_qml.cpp.o
+[90/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LoadingState_qml.cpp.o
+[91/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EmptyState_qml.cpp.o
+[92/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CameraTile_qml.cpp.o
+[93/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/NavRail_qml.cpp.o
+[94/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/TabStrip_qml.cpp.o
+[95/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/TitleBar_qml.cpp.o
+[96/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/OpsSidebar_qml.cpp.o
+[97/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/TopBar_qml.cpp.o
+[98/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/GroupSwitcher_qml.cpp.o
+[99/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PtzPanel_qml.cpp.o
+[100/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/SingleCameraDetail_qml.cpp.o
+[101/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LiveThumb_qml.cpp.o
+[102/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/GroupSuggestions_qml.cpp.o
+[103/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LiveMonitor_qml.cpp.o
+[104/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbFmt_qml.cpp.o
+[105/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CameraGroups_qml.cpp.o
+[106/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/ExportProgress_qml.cpp.o
+[107/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbRibbon_qml.cpp.o
+[108/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbNavHeader_qml.cpp.o
+[109/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PlaybackScreen_qml.cpp.o
+[110/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsNames_qml.cpp.o
+[111/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsCard_qml.cpp.o
+[112/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbLanes_qml.cpp.o
+[113/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbTransport_qml.cpp.o
+[114/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbBanner_qml.cpp.o
+[115/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/FrameStepper_qml.cpp.o
+[116/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PbEventsPanel_qml.cpp.o
+[117/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/FrameHarvester_qml.cpp.o
+[118/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/FrameStrip_qml.cpp.o
+[119/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PlaybackCalendar_qml.cpp.o
+[120/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/WpCell_qml.cpp.o
+[121/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/HealthScreen_qml.cpp.o
+[122/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/WallPlayback_qml.cpp.o
+[123/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/ExportDrawer_qml.cpp.o
+[124/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsScreen_qml.cpp.o
+[125/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsSeg_qml.cpp.o
+[126/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsStats_qml.cpp.o
+[127/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/SavedViewsScreen_qml.cpp.o
+[128/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/LabsFindings_qml.cpp.o
+[129/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/SaveViewModal_qml.cpp.o
+[130/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/EventsScreen_qml.cpp.o
+[131/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/CommandPalette_qml.cpp.o
+[132/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/VideoTest_qml.cpp.o
+[133/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/VideoSurface_qml.cpp.o
+[134/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/ClipsScreen_qml.cpp.o
+[135/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/PreferencesScreen_qml.cpp.o
+[136/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/HdCapTest_qml.cpp.o
+[137/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/WatchNames_js.cpp.o
+[138/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/Toast_qml.cpp.o
+[139/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/WatchChip_qml.cpp.o
+[140/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_watchtower_raw_qml_0_extra_qmldirs.cpp.o
+[141/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/GroupsStatus_js.cpp.o
+[142/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_watchtower_raw_qml_0.cpp.o
+[143/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_images.cpp.o
+[144/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_watchtower_translations.cpp.o
+[145/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.rcc/qmlcache/watchtower_qml/ToastHost_qml.cpp.o
+[146/148] Building CXX object CMakeFiles/watchtower.dir/build-macos/.qt/rcc/qrc_fonts.cpp.o
+[147/148] Linking CXX executable watchtower.app/Contents/MacOS/watchtower

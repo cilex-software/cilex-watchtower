@@ -66,12 +66,13 @@ QtObject {
     // `tileAspect` inside a `contW`×`contH` box — the one that makes the fitted
     // (letterboxed) tiles LARGEST. This is how an uneven camera count is laid out
     // without stretching: 3 → 2×2 (2 over 1), 5 → 3×2, etc. Cells stay ~tileAspect.
-    function bestGrid(n, contW, contH, tileAspect) {
+    function bestGrid(n, contW, contH, tileAspect, maxCells) {
         if (n < 1) return { cols: 1, rows: 1 };
         if (!(contW > 0) || !(contH > 0)) { contW = tileAspect; contH = 1; }
         let best = { cols: 1, rows: n }, bestArea = -1;
         for (let cols = 1; cols <= n; ++cols) {
             const rows = Math.ceil(n / cols);
+            if (maxCells > 0 && cols * rows > maxCells) continue;
             const cw = contW / cols, ch = contH / rows;
             const tw = Math.min(cw, ch * tileAspect);   // fitted tile width
             const area = tw * (tw / tileAspect);

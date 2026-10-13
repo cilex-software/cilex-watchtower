@@ -20,9 +20,23 @@ Item {
     property string pill: "all"      // all | mine | shared | favorites | issues
     property var rows: []
 
-    function countFor(v)  { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, v.statusFilter) : 0; }
-    function onlineFor(v) { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, "online") : 0; }
-    function issuesFor(v) { return root.cameraModel ? root.cameraModel.countFiltered(v.groupId, "issues") : 0; }
+    function countMembers(v, status) {
+        if (!root.cameraModel) return 0;
+        root.cameraModel.stateRev;
+        if (!v.hasCells) return root.cameraModel.countFiltered(v.groupId, status || v.statusFilter);
+        var members = ({}), eligible = ({}), i, count = 0;
+        for (i = 0; i < v.cells.length; i++)
+            if (v.cells[i]) members[v.cells[i]] = true;
+        var visible = root.cameraModel.page("", v.statusFilter, "default", 1, root.cameraModel.total);
+        for (i = 0; i < visible.length; i++) eligible[visible[i].camId] = true;
+        var cams = status ? root.cameraModel.page("", status, "default", 1, root.cameraModel.total) : visible;
+        for (i = 0; i < cams.length; i++)
+            if (members[cams[i].camId] && eligible[cams[i].camId]) count++;
+        return count;
+    }
+    function countFor(v)  { return countMembers(v, ""); }
+    function onlineFor(v) { return countMembers(v, "online"); }
+    function issuesFor(v) { return countMembers(v, "issues"); }
     function relTime(iso) {
         if (!iso) return "—";
         var t = Date.parse(iso);
@@ -57,6 +71,11 @@ Item {
         target: root.savedViewModel
         enabled: root.savedViewModel !== null
         function onChanged() { root.recompute() }
+    }
+    Connections {
+        target: root.cameraModel
+        enabled: root.cameraModel !== null
+        function onStateRevChanged() { root.recompute() }
     }
 
     component Pill: Rectangle {
