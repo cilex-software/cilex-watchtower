@@ -1,5 +1,12 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Interactive obstruction UI preview.** Run
+> `./tools/preview-camera-obstruction.sh` for the shipping shell and alert/review
+> widgets against isolated simulated incidents. No real stream or report is used.
+> The preview workflow passed 27 offscreen checks; the existing automated fixture
+> retained 16 passing checks. Native desktop manual use and detector performance
+> were not measured. [Command, evidence and limits](verification/2026-10-13-camera-obstruction-preview/README.md).
+
 > **2026-10-12 — macOS build guidance corrected.** Homebrew's formula
 > is `qtmultimedia`; packaging prerequisite messages and instructions now use
 > that name (`packaging/macos/build-local.sh:191`). The existing `.pragma library`

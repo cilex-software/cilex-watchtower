@@ -1,0 +1,28 @@
+2026-10-13 14:07:19.874 [PREVIEW-CHECK] {"ok":true,"check":"simulated initial incident"}
+2026-10-13 14:07:19.946 [PREVIEW-CHECK] {"ok":true,"check":"capture 01-interactive-alert"}
+2026-10-13 14:07:20.542 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:07:20.841 [PREVIEW-CHECK] {"ok":true,"check":"correct live tab and review"}
+2026-10-13 14:07:20.870 [PREVIEW-CHECK] {"ok":true,"check":"capture 02-interactive-review"}
+2026-10-13 14:07:21.139 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionFalseAlarm enabled/visible"}
+2026-10-13 14:07:21.835 [PREVIEW-CHECK] {"ok":true,"check":"false alarm suppresses popup"}
+2026-10-13 14:07:21.835 [PREVIEW-CHECK] {"ok":true,"check":"no report claimed queued"}
+2026-10-13 14:07:21.840 [PREVIEW-CHECK] {"ok":true,"check":"one false alarm hides seven day"}
+2026-10-13 14:07:21.950 [PREVIEW-CHECK] {"ok":true,"check":"capture 03-interactive-snooze"}
+2026-10-13 14:07:22.693 [PREVIEW-CHECK] {"ok":true,"check":"previewRepeatedFalseAlarms enabled/visible"}
+2026-10-13 14:07:24.013 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:07:24.297 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionFalseAlarm enabled/visible"}
+2026-10-13 14:07:24.991 [PREVIEW-CHECK] {"ok":true,"check":"third false alarm eligible"}
+2026-10-13 14:07:25.026 [PREVIEW-CHECK] {"ok":true,"check":"capture 04-interactive-seven-day"}
+2026-10-13 14:07:25.289 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionDisable7d enabled/visible"}
+2026-10-13 14:07:25.575 [PREVIEW-CHECK] {"ok":true,"check":"seven day asks confirmation"}
+2026-10-13 14:07:26.119 [PREVIEW-CHECK] {"ok":true,"check":"seven day fixture suppression"}
+2026-10-13 14:07:26.436 [PREVIEW-CHECK] {"ok":true,"check":"previewTriggerAlarm enabled/visible"}
+2026-10-13 14:07:27.241 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionOpenLive enabled/visible"}
+2026-10-13 14:07:27.564 [PREVIEW-CHECK] {"ok":true,"check":"cameraObstructionConfirm enabled/visible"}
+2026-10-13 14:07:28.119 [PREVIEW-CHECK] {"ok":true,"check":"confirmed stays active"}
+2026-10-13 14:07:28.150 [PREVIEW-CHECK] {"ok":true,"check":"capture 05-interactive-confirmed"}
+2026-10-13 14:07:28.677 [PREVIEW-CHECK] {"ok":true,"check":"previewRecovery enabled/visible"}
+2026-10-13 14:07:29.456 [PREVIEW-CHECK] {"ok":true,"check":"capture 06-interactive-recovered"}
+2026-10-13 14:07:29.971 [PREVIEW-CHECK] {"ok":true,"check":"previewReset enabled/visible"}
+2026-10-13 14:07:30.477 [PREVIEW-CHECK] {"ok":true,"check":"reset clears fixture"}
+2026-10-13 14:07:30.477 [PREVIEW-SUMMARY] {"checks":27,"failures":0}

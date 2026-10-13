@@ -1,0 +1,17 @@
+2026-10-13 14:02:59.662 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"shipping components and output available","value":null}
+2026-10-13 14:02:59.662 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"central initial alarm visible","value":null}
+2026-10-13 14:02:59.662 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"initial alarm camera A","value":null}
+2026-10-13 14:02:59.696 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"save 01-central-alert","value":null}
+2026-10-13 14:02:59.873 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"button opens correct camera A tab","value":"Fixture Hall A"}
+2026-10-13 14:02:59.873 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"live surface receives camera A identity","value":null}
+2026-10-13 14:02:59.873 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"central alarm yields to review strip","value":null}
+2026-10-13 14:02:59.915 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"save 02-camera-a-review","value":null}
+2026-10-13 14:03:00.188 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"server false-alarm action suppresses popup","value":null}
+2026-10-13 14:03:00.306 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"save 03-snoozed-report-queued","value":null}
+2026-10-13 14:03:02.133 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"second camera alarm appears independently","value":null}
+2026-10-13 14:03:02.276 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"second alarm opens B not stale A","value":"Fixture Hall B"}
+2026-10-13 14:03:02.276 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"review and live surface agree on B","value":null}
+2026-10-13 14:03:02.437 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"confirmed incident remains in live view without popup","value":null}
+2026-10-13 14:03:02.555 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"save 04-camera-b-confirmed","value":null}
+2026-10-13 14:03:02.600 [OBSTRUCTION-UI-CHECK] {"ok":true,"check":"logout clears alarm and review","value":null}
+2026-10-13 14:03:02.600 [OBSTRUCTION-UI-SUMMARY] {"checks":16,"failures":0,"production_shell":true,"production_navigation":true,"production_controller":true,"authenticated_loopback_fixture":true,"real_camera_pixels":false,"real_incident_mutations":false}

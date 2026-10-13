@@ -1,0 +1,57 @@
+{
+  "verified_at_utc": "2026-10-13T11:09:37.698357+00:00",
+  "binary_sha256": "55c7511d9d23d5d5e6b884cd241cee144f151b66914d2967d4fb69f1b37b9807",
+  "runtime_binary_version": "1.1.774 (3484f8d8-dirty), observed in captured UI; binary not rebuilt for this tooling task",
+  "source_sha256": {
+    "tools/preview-camera-obstruction.sh": "2e654dc202a6647856f20a1b62478581c82b91bd5d8a3314130891bbd26c17fd",
+    "tools/tests/camera-obstruction/preview-ui.qml": "f01092d5644c8ccbe61c2aaf453711bc4a04148c888c825831b65ecec50f8f4c",
+    "tools/tests/camera-obstruction/run-main-ui.py": "baf01f102e16a9095498060f41a468f10828ef024f08bf9acc8e669e5f199886"
+  },
+  "automated_default": {
+    "started_at_utc": "2026-10-13T11:02:56.803261+00:00",
+    "argv": [
+      "/home/cilex-vision/projects/cilex-watchtower/run-watchtower.sh",
+      "--obstruction-output=/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-preview-20261013-v1/default-regression"
+    ],
+    "exit_code": 0,
+    "loopback_only": true,
+    "real_video_pixels_verified": false,
+    "live_actions": false,
+    "interactive": false
+  },
+  "interactive_preview": {
+    "started_at_utc": "2026-10-13T11:07:17.288559+00:00",
+    "argv": [
+      "/home/cilex-vision/projects/cilex-watchtower/run-watchtower.sh",
+      "--obstruction-output=/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-preview-20261013-v1/interactive-smoke-v3"
+    ],
+    "exit_code": 0,
+    "loopback_only": true,
+    "real_video_pixels_verified": false,
+    "live_actions": false,
+    "interactive": true
+  },
+  "interactive_checks": 27,
+  "interactive_failures": 0,
+  "existing_default_checks": 16,
+  "existing_default_failures": 0,
+  "render_platform": "offscreen",
+  "visually_inspected": [
+    "01-interactive-alert.png",
+    "02-interactive-review.png",
+    "04-interactive-seven-day.png"
+  ],
+  "preserved_failed_test_attempts": [
+    "interactive-smoke/run.json",
+    "interactive-smoke-v2/run.json"
+  ],
+  "failure_explanation": "Temporary smoke harness loaded a Window through a hidden/zero-sized Loader; screenshot did not complete, timeout exit1. Replaced test-only Loader with checks appended to preview Window; product preview source unchanged.",
+  "not_measured": [
+    "native desktop manual use",
+    "physical obstruction-to-alert timing",
+    "detector accuracy",
+    "real report delivery",
+    "real video pixels"
+  ],
+  "evidence_root": "/media/cilex-vision/86761555761546F9/CilexLab/camera-obstruction-preview-20261013-v1"
+}
