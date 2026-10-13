@@ -10,6 +10,11 @@
 #include <QSGRendererInterface>
 #include <QFontDatabase>
 #include <QFile>
+#include <QDir>
+#include <QSettings>
+#include <QSaveFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QImage>
 #include <QTimer>
 #include <QDebug>
@@ -344,6 +349,37 @@ int main(int argc, char *argv[])
     QGuiApplication::setDesktopFileName(QStringLiteral("cilex-watchtower"));
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Watchtower"));
     QGuiApplication::setOrganizationName(QStringLiteral("Cilex Vision"));
+    // Opt-in startup tests must not restore or overwrite a guard's native
+    // settings. Redirect both scopes before any application settings/auth object.
+    const QString testSettingsDir = qEnvironmentVariable("WT_SETTINGS_DIR");
+    if (!testSettingsDir.isEmpty()) {
+        if (!QDir::isAbsolutePath(testSettingsDir)) {
+            qCritical("WT_SETTINGS_DIR must be absolute");
+            return 2;
+        }
+        const QString root = QDir::cleanPath(testSettingsDir);
+        const QString userPath = root + QStringLiteral("/user");
+        const QString systemPath = root + QStringLiteral("/system");
+        if (!QDir().mkpath(userPath) || !QDir().mkpath(systemPath)) {
+            qCritical("Cannot create isolated startup settings");
+            return 2;
+        }
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, userPath);
+        QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, systemPath);
+        QSaveFile marker(root + QStringLiteral("/.startup-settings.json"));
+        const QByteArray proof = QJsonDocument(QJsonObject{
+            {QStringLiteral("pid"), static_cast<double>(QCoreApplication::applicationPid())},
+            {QStringLiteral("format"), QStringLiteral("ini")},
+            {QStringLiteral("userPath"), userPath},
+            {QStringLiteral("systemPath"), systemPath}
+        }).toJson(QJsonDocument::Compact);
+        if (!marker.open(QIODevice::WriteOnly) || marker.write(proof) != proof.size()
+                || !marker.commit()) {
+            qCritical("Cannot confirm isolated startup settings");
+            return 2;
+        }
+    }
 #ifdef WT_GIT_SHA
     FlightRecorder::install(WT_GIT_SHA);
 #else

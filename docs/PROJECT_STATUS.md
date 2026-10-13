@@ -1,5 +1,20 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Windows build and two-station updater.**
+> Watchtower **1.1.778** and source-matched Warden **1.4.10** are installed
+> and verified on Security Booth and Office. The reusable updater builds a
+> pinned fresh source revision, tests private startup, preserves operator
+> pauses, backs up files and checks supervision and advancing video for
+> 150 seconds. It refuses stalled/unknown video, partial feed recovery and
+> stream errors. Controller output completion and Office test-directory path
+> limits were corrected. Checks passed: 24 file/recovery cases, 46 video
+> cases, 27 startup-monitor cases, camera-obstruction contract and 9 UI cases.
+> Both live stations passed independent process, file and video checks;
+> Office needed one controlled app recovery and then kept sixteen feeds
+> advancing for four minutes without errors. Reboot/autologon and future
+> operation remain unverified. Labs stop/hold settings were preserved.
+> [Script and usage guide](../packaging/windows/deploy/build-and-update.README.md).
+
 > **2026-10-13 — Obstruction UI aligned with Watchtower design.**
 > Compact graphite review strip, themed keyboard-accessible actions, restrained
 > pulsing alert edge and matching seven-day confirmation. English/Russian

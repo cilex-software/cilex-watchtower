@@ -5,6 +5,10 @@
 # Then the fix the hook prints, and the hook again. Hermetic: nothing leaves $TMP.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Hooks export repository-local Git variables. Clear them before creating the
+# disposable repos, or git -C can still operate on the caller's branch/index.
+local_git_vars=$(git rev-parse --local-env-vars) || exit 1
+for variable in $local_git_vars; do unset "$variable"; done
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fails=0
 check() { if eval "$2"; then echo "PASS $1"; else echo "FAIL $1"; fails=$((fails + 1)); fi; }

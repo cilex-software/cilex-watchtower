@@ -1,5 +1,12 @@
 # Deploying a Windows build to the guard booth and the office wall
 
+For the current reusable build/check/update workflow, use
+[`build-and-update.ps1`](build-and-update.ps1) and its
+[usage guide](build-and-update.README.md). It adds verified replacement,
+recovery, user/session checks and per-station locking. The procedures below
+describe the older manual tooling; do not use its dated wrappers for a new
+rollout or retry rejected binaries by changing their hashes.
+
 Station tooling from the Windows station agent (`wt-sm-vnutri-01`). All scripts are
 ASCII-only: PowerShell 5.1 reads a BOM-less UTF-8 file as ANSI there, and both
 stations have Cyrillic profile names, so paths are discovered at run time.
@@ -57,9 +64,10 @@ probe cannot tell "admitted" from "SAC off". It judges each unsigned binary by h
 machine. That morning the booth refused 12
 fresh builds in a row; 1.1.680 was then admitted on both the booth (preflight PASS) and
 the office (probe ALLOWED). So every deploy must prove the verdict on the machine it
-targets: `preflight.ps1` on the booth, the job's probe on the office. When a build is
-refused, relink it (a new PE timestamp means a new hash); after ~3 refused relinks it is a
-blocking phase, not bad luck, so retry later.
+targets: a private startup check on the booth and the Office job's private check.
+When Windows refuses a build, leave the existing wall running and report the
+refusal. Do not repeatedly relink to obtain a different security verdict or
+change station security policy as part of deployment.
 
 Never screenshot the booth's desktop to check the wall: the guard's browser is usually
 in front and holds residents' data. Capture the app window alone with
