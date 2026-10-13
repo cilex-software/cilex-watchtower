@@ -1,0 +1,555 @@
+{
+  "schemaVersion": 1,
+  "profile": "windows-x64-msvc2022-qt6.12",
+  "verifiedMetadataUTC": "2026-10-13T16:17:09.7841907Z",
+  "packages": [
+    {
+      "id": "Git",
+      "version": "2.56.0.windows.2",
+      "architecture": "x64",
+      "kind": "Zip",
+      "url": "https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.2/MinGit-2.56.0.2-64-bit.zip",
+      "sha256": "da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be",
+      "downloadBytes": 39806486,
+      "expandedBytes": 230686720,
+      "relativePath": "cmd\\git.exe",
+      "page": "https://github.com/git-for-windows/git/releases/tag/v2.56.0.windows.2",
+      "license": "GPL-2.0",
+      "publisher": "",
+      "group": "Base",
+      "manual": {
+        "ru": "Распакуйте MinGit x64; укажите Tools.Git — путь к cmd\\git.exe.",
+        "en": "Extract MinGit x64; supply Tools.Git pointing to cmd\\git.exe."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "CMake",
+      "version": "3.31.12",
+      "architecture": "x64",
+      "kind": "Zip",
+      "url": "https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-windows-x86_64.zip",
+      "sha256": "0c4baa40f28b3f8225eb3fdf6946c987b4fe901403b4eaf2fbbd9378100aaa0c",
+      "downloadBytes": 46666397,
+      "expandedBytes": 167772160,
+      "relativePath": "cmake-3.31.12-windows-x86_64\\bin\\cmake.exe",
+      "page": "https://github.com/Kitware/CMake/releases/tag/v3.31.12",
+      "license": "BSD-3-Clause",
+      "publisher": "",
+      "group": "Base",
+      "manual": {
+        "ru": "Распакуйте ZIP Windows x64; укажите Tools.CMake — путь к bin\\cmake.exe.",
+        "en": "Extract the Windows x64 ZIP; supply Tools.CMake pointing to bin\\cmake.exe."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Ninja",
+      "version": "1.13.2",
+      "architecture": "x64",
+      "kind": "Zip",
+      "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip",
+      "sha256": "07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65",
+      "downloadBytes": 291570,
+      "expandedBytes": 2097152,
+      "relativePath": "ninja.exe",
+      "page": "https://github.com/ninja-build/ninja/releases/tag/v1.13.2",
+      "license": "Apache-2.0",
+      "publisher": "",
+      "group": "Base",
+      "manual": {
+        "ru": "Распакуйте ninja-win.zip; укажите Tools.Ninja — путь к ninja.exe.",
+        "en": "Extract ninja-win.zip; supply Tools.Ninja pointing to ninja.exe."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "SevenZip",
+      "version": "26.04",
+      "architecture": "x86 console on Windows x64",
+      "kind": "File",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.04/7zr.exe",
+      "sha256": "256feca8e274e5da655e2a284fabafd9f554365eb164862089dacd4e8276d282",
+      "downloadBytes": 602624,
+      "expandedBytes": 1048576,
+      "relativePath": "7zr.exe",
+      "page": "https://www.7-zip.org/download.html",
+      "license": "LGPL-2.1",
+      "publisher": "",
+      "group": "Base",
+      "manual": {
+        "ru": "Поместите проверенный 7zr.exe в кэш пакетов.",
+        "en": "Place the verified 7zr.exe in the package cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtimageformats",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.addons.qtimageformats.win64_msvc2022_64/6.12.0-0-202609280346qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "b5a5729e0dab582a3676bf82ffc77b9de5f95bb9d0a60226f730d97fad2db448",
+      "downloadBytes": 1055799,
+      "expandedBytes": 6334794,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtmultimedia",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.addons.qtmultimedia.win64_msvc2022_64/6.12.0-0-202609280346qtmultimedia-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "2592acd8fc6c86f91106ef4e7262ad3c0954248be4fd4b74bbd1c2b1a1ba70b9",
+      "downloadBytes": 45622373,
+      "expandedBytes": 273734238,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtshadertools",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.addons.qtshadertools.win64_msvc2022_64/6.12.0-0-202609280346qtshadertools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "dfceb86842d60a81ff75c1c2c98d49d186efc5c6cc49f0225b3b2ed699beca4b",
+      "downloadBytes": 3357406,
+      "expandedBytes": 20144436,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtbase",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "219d1b86def3be418e31d704572bc4acc91b2ec373c65595c9fb12b42bf098dc",
+      "downloadBytes": 40184745,
+      "expandedBytes": 241108470,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtsvg",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "dfcad02224b71724e3314d0bc3ffc0b862dfa6e02bc4aadd39f1738f6c364c79",
+      "downloadBytes": 690561,
+      "expandedBytes": 4143366,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qtdeclarative",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "258146e9972fadbc1162cda31c7d7ed7e627f5022b2a848f2edb84d9c2ce27db",
+      "downloadBytes": 199517162,
+      "expandedBytes": 1197102972,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qttools",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "73328e361429378df518f391ebe4d82c51e833f4d5a951692768ab5a5a1d7da5",
+      "downloadBytes": 27373417,
+      "expandedBytes": 164240502,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-qttranslations",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "sha256": "328321e8879a3dc119775b4404d6e32ec2a361696e73f760540a732921507917",
+      "downloadBytes": 2014837,
+      "expandedBytes": 12089022,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-d3dcompiler_47",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346d3dcompiler_47-x64.7z",
+      "sha256": "067506b5424849133fb4291737da010ff336be91195fd6299f47096fbf413a50",
+      "downloadBytes": 1380117,
+      "expandedBytes": 8280702,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Qt-opengl32sw",
+      "version": "6.12.0",
+      "architecture": "x64",
+      "kind": "Qt7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "sha256": "edc94ad93e8bb6a97b27932fe01a71c37dd435690eeeff2d0085880e1eda8be6",
+      "downloadBytes": 5474526,
+      "expandedBytes": 32847156,
+      "relativePath": "6.12.0\\msvc2022_64",
+      "page": "https://doc.qt.io/qt-6.12/get-and-install-qt.html",
+      "license": "Qt LGPL/GPL/commercial; review module licenses",
+      "publisher": "",
+      "group": "Qt",
+      "manual": {
+        "ru": "Установите Qt 6.12.0 MSVC 2022 x64 с Multimedia, ShaderTools и ImageFormats либо поместите этот архив в кэш.",
+        "en": "Install Qt 6.12.0 MSVC 2022 x64 with Multimedia, ShaderTools and ImageFormats, or place this exact archive in the cache."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "GStreamerRuntime",
+      "version": "1.26.11",
+      "architecture": "x64",
+      "kind": "GstMsi",
+      "url": "https://gstreamer.freedesktop.org/data/pkg/windows/1.26.11/msvc/gstreamer-1.0-msvc-x86_64-1.26.11.msi",
+      "sha256": "31cbc21fa0950b5c1e79c80959b2799805cb05a7a35953a13a9f790776137605",
+      "downloadBytes": 88080384,
+      "expandedBytes": 681574400,
+      "relativePath": "PFiles64\\gstreamer\\1.0\\msvc_x86_64",
+      "page": "https://gstreamer.freedesktop.org/data/pkg/windows/1.26.11/msvc/",
+      "license": "GStreamer LGPL-2.1 and per-plugin licenses",
+      "publisher": "",
+      "group": "GStreamer",
+      "manual": {
+        "ru": "Установите оба MSI MSVC x86_64: runtime и development. Укажите Tools.GStreamerRoot.",
+        "en": "Install both MSVC x86_64 runtime and development MSI packages. Supply Tools.GStreamerRoot."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "GStreamerDevel",
+      "version": "1.26.11",
+      "architecture": "x64",
+      "kind": "GstMsi",
+      "url": "https://gstreamer.freedesktop.org/data/pkg/windows/1.26.11/msvc/gstreamer-1.0-devel-msvc-x86_64-1.26.11.msi",
+      "sha256": "af0a0720692052aaf5fb0cf2847ef34a87016ef0f914328d516f049e6c86f587",
+      "downloadBytes": 369098752,
+      "expandedBytes": 2147483648,
+      "relativePath": "PFiles64\\gstreamer\\1.0\\msvc_x86_64",
+      "page": "https://gstreamer.freedesktop.org/data/pkg/windows/1.26.11/msvc/",
+      "license": "GStreamer LGPL-2.1 and per-plugin licenses",
+      "publisher": "",
+      "group": "GStreamer",
+      "manual": {
+        "ru": "Установите оба MSI MSVC x86_64: runtime и development. Укажите Tools.GStreamerRoot.",
+        "en": "Install both MSVC x86_64 runtime and development MSI packages. Supply Tools.GStreamerRoot."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "PythonBase",
+      "version": "3.12.10",
+      "architecture": "x64",
+      "kind": "PythonInstaller",
+      "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe",
+      "sha256": "67b5635e80ea51072b87941312d00ec8927c4db9ba18938f7ad2d27b328b95fb",
+      "downloadBytes": 28311552,
+      "expandedBytes": 188743680,
+      "relativePath": "python.exe",
+      "page": "https://www.python.org/downloads/release/python-31210/",
+      "license": "PSF",
+      "publisher": "Python Software Foundation",
+      "group": "Base",
+      "manual": {
+        "ru": "Установите Python 3.12.10 x64 для текущего пользователя с pip; укажите Tools.Python.",
+        "en": "Install Python 3.12.10 x64 for the current user with pip; supply Tools.Python."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-altgraph",
+      "version": "0.17.4",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/4d/3f/3bc3f1d83f6e4a7fcb834d3720544ca597590425be5ba9db032b2bf322a2/altgraph-0.17.4-py2.py3-none-any.whl",
+      "sha256": "642743b4750de17e655e6711601b077bc6598dbfa3ba5fa2b2a35ce12b508dff",
+      "downloadBytes": 21212,
+      "expandedBytes": 63636,
+      "relativePath": "altgraph-0.17.4-py2.py3-none-any.whl",
+      "page": "https://pypi.org/project/altgraph/0.17.4/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-packaging",
+      "version": "25.0",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl",
+      "sha256": "29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
+      "downloadBytes": 66469,
+      "expandedBytes": 199407,
+      "relativePath": "packaging-25.0-py3-none-any.whl",
+      "page": "https://pypi.org/project/packaging/25.0/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-pefile",
+      "version": "2023.2.7",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/55/26/d0ad8b448476d0a1e8d3ea5622dc77b916db84c6aa3cb1e1c0965af948fc/pefile-2023.2.7-py3-none-any.whl",
+      "sha256": "da185cd2af68c08a6cd4481f7325ed600a88f6a813bad9dea07ab3ef73d8d8d6",
+      "downloadBytes": 71791,
+      "expandedBytes": 215373,
+      "relativePath": "pefile-2023.2.7-py3-none-any.whl",
+      "page": "https://pypi.org/project/pefile/2023.2.7/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-pyinstaller",
+      "version": "6.16.0",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/aa/99/2005efbc297e7813c1d6f18484aa94a1a81ce87b6a5b497c563681f4c4ea/pyinstaller-6.16.0-py3-none-win_amd64.whl",
+      "sha256": "bc10eb1a787f99fea613509f55b902fbd2d8b73ff5f51ff245ea29a481d97d41",
+      "downloadBytes": 1374706,
+      "expandedBytes": 4124118,
+      "relativePath": "pyinstaller-6.16.0-py3-none-win_amd64.whl",
+      "page": "https://pypi.org/project/pyinstaller/6.16.0/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-pyinstaller-hooks-contrib",
+      "version": "2025.8",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/48/34/1d973d0dae849683e53fbcda84443ce016f315e6f4dc7605ede4f56a28c3/pyinstaller_hooks_contrib-2025.8-py3-none-any.whl",
+      "sha256": "8d0b8cfa0cb689a619294ae200497374234bd4e3994b3ace2a4442274c899064",
+      "downloadBytes": 442346,
+      "expandedBytes": 1327038,
+      "relativePath": "pyinstaller_hooks_contrib-2025.8-py3-none-any.whl",
+      "page": "https://pypi.org/project/pyinstaller-hooks-contrib/2025.8/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-pywin32-ctypes",
+      "version": "0.2.3",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl",
+      "sha256": "8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8",
+      "downloadBytes": 30756,
+      "expandedBytes": 92268,
+      "relativePath": "pywin32_ctypes-0.2.3-py3-none-any.whl",
+      "page": "https://pypi.org/project/pywin32-ctypes/0.2.3/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Wheel-setuptools",
+      "version": "80.9.0",
+      "architecture": "x64",
+      "kind": "Wheel",
+      "url": "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl",
+      "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922",
+      "downloadBytes": 1201486,
+      "expandedBytes": 3604458,
+      "relativePath": "setuptools-80.9.0-py3-none-any.whl",
+      "page": "https://pypi.org/project/setuptools/80.9.0/",
+      "license": "See wheel license notices",
+      "publisher": "",
+      "group": "PythonWheels",
+      "manual": {
+        "ru": "Поместите этот wheel в кэш; скрипт установит его в отдельную среду сборки.",
+        "en": "Copy this exact wheel into the cache; the script installs it into a private build environment."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "MSVC",
+      "version": "17.14.41",
+      "architecture": "x64",
+      "kind": "VisualStudio",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/bc92e2cb-33de-4a0c-995d-efa817f16b16/37bb0fb429d163ecebd272a865d11a37b906d152bef960da2ddb29c2e2fd6eeb/vs_BuildTools.exe",
+      "sha256": "37bb0fb429d163ecebd272a865d11a37b906d152bef960da2ddb29c2e2fd6eeb",
+      "downloadBytes": 5242880,
+      "expandedBytes": 10737418240,
+      "relativePath": "Common7\\Tools\\VsDevCmd.bat",
+      "page": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/release-history",
+      "license": "Microsoft Visual Studio license",
+      "publisher": "Microsoft Corporation",
+      "group": "Base",
+      "manual": {
+        "ru": "Установите Build Tools 2022 17.14.41: C++, MSVC x64/x86, Windows 11 SDK 26100 и VC Redistributable; укажите Tools.VsDevCmd.",
+        "en": "Install Build Tools 2022 17.14.41, Desktop development with C++, MSVC x64/x86, Windows 11 SDK 26100, VC Redistributable; supply Tools.VsDevCmd."
+      },
+      "reboot": "Never automatically restart",
+      "additionalDownloadBytes": 8589934592
+    },
+    {
+      "id": "FFmpeg",
+      "version": "8.1.3-18-g46d899d7a0",
+      "architecture": "x64",
+      "kind": "Zip",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-13-13-05/ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-shared-8.1.zip",
+      "sha256": "19d92dfb1481e72e4e8f94844bf609418297a646f33deb6864c409ca752469c4",
+      "downloadBytes": 80991786,
+      "expandedBytes": 314572800,
+      "relativePath": "ffmpeg-n8.1.3-18-g46d899d7a0-win64-lgpl-shared-8.1\\bin\\ffmpeg.exe",
+      "page": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-13-13-05",
+      "license": "LGPL shared build; preserve notices and corresponding source obligations",
+      "publisher": "",
+      "group": "Base",
+      "manual": {
+        "ru": "Распакуйте этот ZIP LGPL shared; укажите Tools.FFmpeg — путь к bin\\ffmpeg.exe. Сохраните соседние DLL.",
+        "en": "Extract this pinned LGPL shared ZIP; supply Tools.FFmpeg pointing to bin\\ffmpeg.exe. Keep its adjacent DLLs."
+      },
+      "reboot": "Never automatically restart"
+    },
+    {
+      "id": "Makensis",
+      "version": "3.13",
+      "architecture": "x64",
+      "kind": "Zip",
+      "url": "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.13/nsis-3.13.zip",
+      "sha256": "ba63dffc4410ee89193e1cb5a41989991bd77c61068da17e3156d136b7b0b3d8",
+      "downloadBytes": 5242880,
+      "expandedBytes": 20971520,
+      "relativePath": "nsis-3.13\\makensis.exe",
+      "page": "https://nsis.sourceforge.io/Download",
+      "license": "zlib/libpng and component licenses",
+      "publisher": "",
+      "group": "Installer",
+      "manual": {
+        "ru": "Распакуйте ZIP NSIS 3.13; укажите Tools.Makensis — путь к makensis.exe.",
+        "en": "Extract the NSIS 3.13 ZIP; supply Tools.Makensis pointing to makensis.exe."
+      },
+      "reboot": "Never automatically restart"
+    }
+  ],
+  "notes": [
+    "Hashes are pinned from publisher release metadata, Qt metalinks and Python Sigstore metadata. A changed upstream payload is refused.",
+    "Extracted sizes are conservative estimates, not measured minimum hardware requirements.",
+    "Pinned Python 3.12.10 is the final vendor Windows maintenance installer for 3.12; later source-only security fixes are not included. Validate the selected packaging runtime before production release.",
+    "Visual Studio bootstrap can download up to the additionalDownloadBytes estimate. Offline compiler installation needs an official complete layout, not just the bootstrap EXE.",
+    "BtbN publisher archives have retention limits. Keep the verified cache; if this exact package is removed, manual provision or a reviewed catalog update is required. Never silently substitute latest."
+  ]
+}

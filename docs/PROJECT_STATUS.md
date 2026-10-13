@@ -1,13 +1,45 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-13 — Generic deployment built and Office updated.**
+> A separate `packaging/windows/deploy-watchtower.ps1` now provides requirement
+> checks, pinned dependency preparation, source builds, local/remote installation
+> and offline-installer packaging. The existing Booth/Office updater is unchanged.
+> The final full suite passed **487 checks through Windows PowerShell 5.1 and
+> eight Python checks**, including native launcher and host compatibility tests. A fresh
+> main-source build produced Watchtower **1.1.779** and Warden **1.4.10**;
+> isolated startup, static DLL checks, export/decoding and actual installer
+> extraction passed. Exact-tag acquisition and missing-tag refusal also passed.
+> The first Office attempt failed and its previous version was restored.
+> After repairs, the revised update installed Watchtower **1.1.779** and Warden
+> **1.4.10**. The window, supervision and 31 feeds passed the 150-second startup
+> check with zero stream errors. Both recovery tests passed: Watchtower returned
+> automatically in 4.2 seconds, and a failed Warden group was replaced in
+> 57.8 seconds without overlap. Both then passed another 150-second health check. Labs remains
+> stopped by the server; its own guard set a protective hold during replacement.
+> The deployment did not alter Labs controls or its task.
+> Microsoft's automatic-sign-in setup was not completed because the existing
+> Office account has no password. Its window/task have been cleaned up; account
+> and security settings are unchanged. Testing the existing Windows sign-in
+> behavior after reboot remains pending. A native launcher and one-minute task
+> recovery now keep the supervised processes together; isolated checks passed.
+> No reboot was performed. The guard's Watchtower remains
+> running. Clean-machine/offline installation and reboot startup
+> remain unverified; hardware capacity is provisional. The final installer passed
+> extraction. The final standalone bootstrap was extracted and passed the same
+> complete test suite. Final Office file/configuration checks passed; temporary
+> test tasks and services were removed. The working backup and evidence remain.
+> [Evidence and remaining checks](verification/2026-10-13-generic-deployment/README.md)
+> · [Usage guide](../packaging/windows/generic/README.md).
+
 > **2026-10-13 — Generic Windows deployment specification drafted.**
 > The existing Booth/Office updater remains unchanged; its documentation now
 > explicitly limits it to already configured stations. A separate fresh-machine
 > bootstrap, build, local/remote install and offline-installer workflow is
 > [specified](plans/2026-10-13-generic-windows-deployment-specification.md),
 > including localized warnings, requirement overrides and explicit startup
-> choices. Implementation, measured hardware minima and new-machine/reboot
-> validation remain future work. No live station was changed for this task.
+> choices. At that earlier specification-only stage, implementation and live
+> testing were future work. Implementation and the Office test were subsequently
+> authorized; the current outcome is recorded above.
 
 > **2026-10-13 — Windows build and two-station updater.**
 > Watchtower **1.1.778** and source-matched Warden **1.4.10** are installed

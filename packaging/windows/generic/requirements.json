@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "profile": "windows-x64-msvc2022-qt6.12",
+  "architecture": "AMD64",
+  "minimumRuntimeOsBuild": 17763,
+  "minimumBuildOsBuild": 19044,
+  "buildOsBasis": "Visual Studio 2022 supported Windows 10 21H2 or newer; Qt runtime baseline is Windows 10 1809.",
+  "minimumPowerShellVersion": "5.1",
+  "capacityStatus": "Provisional, not a measured Watchtower minimum",
+  "build": {
+    "physicalRamGiB": 8,
+    "availableRamGiB": 4,
+    "logicalProcessors": 4
+  },
+  "target": {
+    "physicalRamGiB": 4,
+    "availableRamGiB": 2,
+    "logicalProcessors": 2
+  },
+  "diskBudgetGiB": {
+    "downloads": 12,
+    "extractedTools": 16,
+    "sourceAndBuild": 10,
+    "staging": 3,
+    "installerOutput": 3,
+    "installedPayload": 3,
+    "rollback": 3,
+    "reservePerVolume": 2
+  },
+  "diskBudgetStatus": "Provisional peak allocation estimates; actual package/extraction sizes are rechecked. Existing tool/cache reuse can reduce consumption. Workload retention/export storage is additional.",
+  "workloadStatus": "Not measured: camera count, codec, resolution, frame rate and display layout must be validated on the target.",
+  "sources": [
+    "https://doc.qt.io/qt-6.12/windows.html",
+    "https://learn.microsoft.com/en-us/visualstudio/releases/2022/system-requirements"
+  ]
+}

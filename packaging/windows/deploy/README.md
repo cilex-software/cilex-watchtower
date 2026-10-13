@@ -8,9 +8,11 @@ describe the older manual tooling; do not use its dated wrappers for a new
 rollout or retry rejected binaries by changing their hashes.
 
 The current updater maintains these two already configured stations; it does
-not provision a fresh Windows machine. A separate generic installer is
-[specified here](../../../docs/plans/2026-10-13-generic-windows-deployment-specification.md)
-and has not yet been implemented.
+not provision a fresh Windows machine. The separate
+[generic deployment script](../deploy-watchtower.ps1) and
+[usage guide](../generic/README.md) now cover building, local/remote installation
+and offline packaging. Fresh-machine and unattended reboot validation remain
+incomplete; consult that guide's verification record before rollout.
 
 Station tooling from the Windows station agent (`wt-sm-vnutri-01`). All scripts are
 ASCII-only: PowerShell 5.1 reads a BOM-less UTF-8 file as ANSI there, and both

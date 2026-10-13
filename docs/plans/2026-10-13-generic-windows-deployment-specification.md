@@ -1,6 +1,8 @@
 # Technical specification: generic Cilex Watchtower deployment for Windows
 
-Status: proposed requirements; implementation has not started.
+Status: implementation available; acceptance testing is incomplete. See the
+[implementation guide](../../packaging/windows/generic/README.md) for current
+behavior, verification evidence and remaining limits.
 Date: 13 October 2026.
 
 ## 1. Objective and scope
@@ -20,8 +22,8 @@ Reusable existing components may be adapted only after their assumptions have
 been checked against this specification.
 
 MUST denotes a mandatory requirement. SHOULD denotes a recommended behavior
-whose omission must be documented. Proposed command names below are a design
-contract, not commands available today.
+whose omission must be documented. The examples below describe the design
+contract; the implementation guide records available commands and remaining gaps.
 
 ## 2. Operating modes and initial bootstrap
 
@@ -581,5 +583,8 @@ and workload thresholds, exact supported OS matrix, redistributable dependency
 set and a tested unattended-sign-in integration. These are required engineering
 outputs, not facts already proven by this specification.
 
-The current task authorizes documentation and specification only. Creating the
-new script or changing either live station is a subsequent task.
+Historical scope: the request that produced this specification authorized
+documentation only. The operator subsequently authorized implementation and
+specific Office installation/startup tests. Follow the current task's explicit
+permissions and the [verification record](../verification/2026-10-13-generic-deployment/README.md)
+for what was actually attempted and what remains unverified.
