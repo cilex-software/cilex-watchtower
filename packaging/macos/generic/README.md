@@ -2,13 +2,9 @@
 
 This workflow is separate from `../build-local.sh`, which is unchanged. It does
 not commit, push, create tags or publish releases. It currently targets native
-arm64. It is **not production accepted**. See [the validation matrix](VALIDATION.json)
-and [retained evidence](../../../docs/verification/2026-10-13-generic-macos-deployment/).
-
-The initial source inspected was `199a8998c4a4b20d8ebffdec87b5bc053adb473b`.
-Development snapshots of the pending implementation identify that as their base
-commit and separately hash the changed source tree. They are not freshly fetched
-`main`, a release tag, or a published application version.
+arm64. It is **not production accepted**; the current limitations below apply.
+Builds pin the selected application source revision and record deployment-helper
+provenance separately.
 
 ## What is implemented
 
@@ -323,6 +319,7 @@ or operator pause to make a verification result appear healthy.
 
 Run the isolated Python suite with
 `/usr/bin/python3 -B -m unittest discover -s packaging/macos/generic/tests -v`.
-Native Warden harnesses are in `tools/tests/warden-darwin*.py`. Crash, reboot and
+Native Warden harnesses are in `tools/tests/warden-darwin*.py`; isolated
+installation-refusal checks are in `tools/tests/macos-installation-refusals.py`. Crash, reboot and
 destructive tests require an explicitly designated Mac; the current user has
 designated this Mac for installation/crash tests, but has not authorized reboot.

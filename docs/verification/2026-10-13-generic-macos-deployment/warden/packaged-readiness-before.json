@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "started_epoch": 1791932018.084448,
-  "warden_sha256": "2d54b3528640f02cbdcd0ee8e414e5cf366ea9f35b424c3df003922ed4ab7b48",
-  "spawn_gate_sha256": "7ea455fef2c3dcdf2cd88e48a0b1187627a1d1bae86f4903f8827e0cbb6933b0",
-  "runtime_tree_sha256": "24be77d13954021ae235e6f7aa9c36396d8da721f5f397cf0ed41b102928dd50",
-  "runtime_tree_entries": 65
-}

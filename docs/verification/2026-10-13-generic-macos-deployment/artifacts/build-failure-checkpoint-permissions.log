@@ -1,7 +1,0 @@
-Traceback (most recent call last):
-  File "<stdin>", line 8, in <module>
-  File "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-final-20261014-0015/helper-snapshot/build.py", line 324, in build
-    'app_inventory':inventory(build_dir/'watchtower.app')},sort_keys=True)+'\n');compile_record.chmod(0o600)
-  File "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-final-20261014-0015/helper-snapshot/closure.py", line 141, in inventory
-    if not path.is_symlink() and mode & 0o7022: raise ClosureError("Unsafe file permissions: " + rel)
-closure.ClosureError: Unsafe file permissions: Contents/Info.plist

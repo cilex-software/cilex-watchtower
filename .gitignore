@@ -60,3 +60,7 @@ docs/perf/2026-09-12-rocknroll-soak/logs/
 /CilexWatchtower-*-setup.exe
 packaging/windows/CilexWatchtower-*-setup.exe
 packaging/windows/watchtower-*.zip
+
+# Generated macOS deployment verification output stays local.
+/docs/verification/*-generic-macos-deployment/
+/docs/verification/*-macos-publication/

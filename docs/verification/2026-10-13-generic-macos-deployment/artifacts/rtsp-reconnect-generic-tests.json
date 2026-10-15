@@ -1,8 +1,0 @@
-{
-  "schema_version": 1,
-  "started_at": "2026-10-13T23:26:23.223109+00:00",
-  "completed_at": "2026-10-13T23:26:30.741687+00:00",
-  "exit_code": 0,
-  "log_sha256": "7fc84af2f71b758ecbb2c6d4018b022c26ce2250f568bc71bd439683ca57f745",
-  "log": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-rtsp-reconnect-20261013T232609Z/generic-tests.log"
-}

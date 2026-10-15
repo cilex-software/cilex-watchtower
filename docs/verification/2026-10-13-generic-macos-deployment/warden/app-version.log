@@ -1,6 +1,0 @@
-PASS a miss BEFORE the banner is flushed does not poison the pid for ever
-PASS a SETTLED miss is cached, so a bannerless build stops re-reading the log
-PASS a hit is cached: a version cannot change for a given pid
-PASS unknown spawn time accepts the miss rather than scanning for ever
-PASS no app pid -> None, never a guess
-all passed

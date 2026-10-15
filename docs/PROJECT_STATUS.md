@@ -1,49 +1,14 @@
 # Cilex Watchtower — Project Status
 
-> **2026-10-16 — macOS installer source publication checks passed.**
-> The separate DMG/Setup workflow, Darwin Warden, runtime verification, reconnect
-> fix and retained development evidence are included in the publication scope.
-> Fresh checks: 278 installer tests (one expected skip), 31 Darwin Warden tests,
-> 19 recovery-harness fixtures, native application/harness builds, and loopback
-> identity/readiness plus before/after QML reconnect regressions passed.
-> This is source publication of a development implementation: the failed
-> real-camera acceptance and outstanding production/clean-Mac/reboot checks
-> below remain unchanged. Installed Watchtower/Warden were not launched.
-> [Current publication checks](verification/2026-10-16-macos-publication/README.md).
-
-> **2026-10-14 — macOS deployment tested; full acceptance remains incomplete.**
-> A separate workflow produced a development DMG with Watchtower 1.1.781 and
-> Darwin Warden 1.5.0, installed on this arm64 Mac running macOS 26.6.2. The saved
-> 31-camera view was visible, but the latest requested 150-second video observation
-> failed after 49.948 seconds because expected feeds were not continuously fresh.
-> The QML reconnect fix passed a real loopback regression; it did not resolve all
-> real-camera staleness. Earlier receipt/parser failures and their repairs remain
-> retained as evidence rather than erased by later tests.
->
-> Authorized real crash tests recovered the application process in 2.858 seconds
-> and Warden in 0.330 seconds, with a visible window, no overlap and old processes
-> gone. A real injected transaction failure restored files, receipt,
-> configuration ownership, startup policy and the visible process graph in
-> 13.162 seconds. This process-only rollback correctly returned incomplete exit 18;
-> healthy video recovery remains unverified. Representative playback and a
-> ten-second 720p H.264 export with both overlays passed; bundled FFmpeg decoded all
-> 150 frames. Owned uninstall and same-run resume passed, retaining user data and
-> the unrelated Labs control state. The latest DMG was reinstalled with its native
-> graph verified, retaining incomplete exit 21. **Both Warden and Watchtower were
-> then stopped**: at 00:40:23 UTC the selected job was unloaded and zero selected
-> processes remained. Application/receipt and AfterSignIn plist remain installed;
-> the job is not disabled. Future login/reboot operation is still unverified.
->
-> The earlier full generic suite ran 270 tests: 269 passed and one expected skip.
-> Later test-only rollback changes passed 17 focused tests; 270 is not a rerun of
-> that changed suite. The frozen verifier passed 42 tests and packaged Warden 31.
-> Production signing/notarization, protected machine/alternate-admin scope,
-> clean-Mac/older-OS, actual remote-Mac and reboot acceptance remain blocked or
-> unverified. FileVault is on; automatic login is not configured. No reboot was
-> authorized, no security policies were weakened, and no code was published.
-> A separate reported camera Purpose popup/keyboard-focus issue remains unverified;
-> no fix for that UI issue is included in this deployment work.
-> [Evidence and limitations](verification/2026-10-13-generic-macos-deployment/README.md).
+> **2026-10-16 — macOS installer sources published.**
+> The separate arm64 DMG/Setup workflow includes the package builder, installer,
+> Darwin Warden support, manifests, tests and usage documentation. Generated logs,
+> diagnostic reports and duplicate source snapshots are excluded from the source
+> tree. Native builds and isolated installer/recovery/video regressions passed.
+> Production signing/notarization, protected machine scope, clean/older/remote Mac,
+> reboot and sustained real-camera freshness acceptance remain incomplete.
+> The installed Watchtower/Warden were left stopped; no deployment was performed.
+> [Build and installation guide](../packaging/macos/generic/README.md).
 
 > **2026-10-13 — Installer quick start documented.**
 > The Windows README now shows the one-command installer build, its output

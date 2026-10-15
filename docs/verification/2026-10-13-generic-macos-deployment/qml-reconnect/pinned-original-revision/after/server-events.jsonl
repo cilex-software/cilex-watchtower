@@ -1,4 +1,0 @@
-{"ready":true,"address":"127.0.0.1","port":58408}
-{"event":"connection","generation":1}
-{"event":"silent_stall","generation":1,"delivered_raw_frames":30}
-{"event":"connection","generation":2}

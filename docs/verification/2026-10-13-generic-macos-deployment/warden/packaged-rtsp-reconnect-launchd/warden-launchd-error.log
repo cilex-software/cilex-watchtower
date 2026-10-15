@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "warden.py", line 1951, in <module>
-  File "warden.py", line 1760, in run
-  File "warden_darwin.py", line 398, in close
-RuntimeError: Warden guard exited unsuccessfully
-[PYI-80188:ERROR] Failed to execute script 'warden' due to unhandled exception!
