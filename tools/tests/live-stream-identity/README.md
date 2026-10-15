@@ -18,6 +18,20 @@ GStreamer `videotestsrc`, `x264enc`, `rtph264pay`, H.264 decode and conversion
 plugins. The C++ harness requires CMake, Qt Core/Gui/Qml/Multimedia and GStreamer
 development packages. `--port` changes the loopback listener.
 
+When Python GI is unavailable, configure with `-DBUILD_LOCAL_RTSP_FIXTURE=ON`
+to build `live-rtsp-fixture` against `gstreamer-rtsp-server-1.0`. Run it with a
+port argument, for example `live-rtsp-fixture 18554`, and wait for its JSON
+`ready:true` line. It binds only `127.0.0.1` and exits cleanly on SIGTERM/SIGINT.
+The fixture's x264 encoder is test infrastructure; it is not added to the
+Watchtower distribution or its approved FFmpeg feature profile.
+
+The harness also checks public per-source readiness: pending frame zero/null
+age, hashed identity without URL/credential/query details, inactive/warm/no-sink
+filtering, actual decoded sink counter advancement, monotonic aging while the
+GUI does not deliver, counter reset on URL changes, and cached parked pictures
+that do not count as fresh progress. These native loopback checks do not prove
+real-camera acceptance, visible product UI or hardware decoding capacity.
+
 Start the fixture in a separate terminal:
 
 ```sh

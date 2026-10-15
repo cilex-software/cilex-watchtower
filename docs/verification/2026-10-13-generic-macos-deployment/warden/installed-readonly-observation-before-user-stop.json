@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "observer_sent_signals": false,
+  "observer_started_installed_app": false,
+  "crash_harness_executed": false,
+  "runtime_code_modified": false,
+  "user_stop_requested": true,
+  "further_inspection_stopped": true,
+  "receipt": {
+    "owner_uid": 501,
+    "group_gid": 20,
+    "mode_decimal": 384,
+    "size_bytes": 1562588,
+    "link_count": 1,
+    "regular": true,
+    "symlink": false,
+    "existing_verifier_limit_bytes": 1048576,
+    "existing_verifier_rejected_size": true,
+    "independent_readonly_parse_limit_bytes": 33554432,
+    "independent_identity_checks_passed": true
+  },
+  "target_installation_matches": true,
+  "target_machine_matches": true,
+  "process_graph_verified": true,
+  "duplicate_processes": false,
+  "selected_process_count": 3,
+  "app": {
+    "pid": 79567,
+    "ppid": 77638,
+    "uid": 501,
+    "birth": [
+      1791925628,
+      943941
+    ],
+    "session": 1,
+    "expected_executable_path": true
+  },
+  "warden": {
+    "pid": 77638,
+    "ppid": 1,
+    "uid": 501,
+    "birth": [
+      1791925408,
+      277216
+    ],
+    "session": 1,
+    "expected_executable_path": true
+  },
+  "guardian": {
+    "pid": 77675,
+    "ppid": 77638,
+    "uid": 501,
+    "birth": [
+      1791925412,
+      499946
+    ],
+    "session": 1,
+    "expected_executable_path": true
+  },
+  "gui_visible": false,
+  "visible_window_count": 0,
+  "telemetry_current_process_known": false,
+  "telemetry_sample_count": 0,
+  "telemetry_last_numeric": null,
+  "backend_evidence": {
+    "current_owner_log_lines": 72,
+    "first_heartbeat_accepted": true,
+    "backend_recovery_recorded": true,
+    "station_token_appeared": true,
+    "station_token_missing_reported": true,
+    "backend_missing_reported": false,
+    "backend_failure_reported": true,
+    "latest_http_error_status": null,
+    "last_backend_event_age_seconds": 34.243
+  },
+  "complete_acceptance_verified": false,
+  "restart_cause_verified": false,
+  "raw_logs_or_credentials_saved": false
+}

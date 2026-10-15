@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "started_epoch": 1791934740.63104,
+  "package_runtime_path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-rtsp-reconnect-20261013T232609Z/build/package/watchtower.app/Contents/Resources/warden",
+  "before": {
+    "warden_sha256": "2d54b3528640f02cbdcd0ee8e414e5cf366ea9f35b424c3df003922ed4ab7b48",
+    "spawn_gate_sha256": "7ea455fef2c3dcdf2cd88e48a0b1187627a1d1bae86f4903f8827e0cbb6933b0",
+    "runtime_tree_sha256": "aabff3808a84df1ce212a4efbb5ad7b3e9bbbaa2507e1c2d352715822e282fb4",
+    "runtime_tree_entries": 65
+  },
+  "installed_app_exercised": false,
+  "status": "Passed",
+  "suite_exit": 0,
+  "launchd_exit": 0,
+  "launchd_fixture": {
+    "status": "passed",
+    "direct_parentage": true,
+    "observed_detached_descendant_cleanup": true,
+    "warden_sigkill_recovery_seconds": 9.861,
+    "no_overlap": true,
+    "cleanup_verified": true
+  },
+  "native_packaged_tests": {
+    "total": 31,
+    "seconds": 31.951,
+    "passed": true,
+    "parent_death_cleanup_seconds": 0.116,
+    "guardian_failure_cleanup_seconds": 1.647,
+    "application_fixture_recovery_seconds": 5.123
+  },
+  "fixture_error_flags": {
+    "warden-runtime.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    },
+    "warden-launchd-error.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    },
+    "warden-launchd.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    }
+  },
+  "runtime_tree_sha256_after": "aabff3808a84df1ce212a4efbb5ad7b3e9bbbaa2507e1c2d352715822e282fb4",
+  "runtime_tree_unchanged": true,
+  "selected_packaged_warden_processes_remaining": 0,
+  "source_runtime_sha256": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad",
+  "completed_epoch": 1791934784.520771
+}

@@ -1,0 +1,27 @@
+test_arm_minimum (test_closure.ClosureTests) ... ok
+test_bare_loader_rpath_for_python_bundle (test_closure.ClosureTests) ... ok
+test_case_collision_rejected (test_closure.ClosureTests) ... skipped 'case-insensitive filesystem'
+test_contained_framework_links (test_closure.ClosureTests) ... ok
+test_embedded_loader_environment_rejected (test_closure.ClosureTests) ... ok
+test_environment_does_not_inherit_secrets (test_closure.ClosureTests) ... ok
+test_escaping_link_rejected (test_closure.ClosureTests) ... ok
+test_external_load_rejected (test_closure.ClosureTests) ... ok
+test_external_rpath_rejected_even_unused (test_closure.ClosureTests) ... ok
+test_fat_missing_slice (test_closure.ClosureTests) ... ok
+test_freezing_bootstrap_has_unique_stable_provenance (test_closure.ClosureTests) ... ok
+test_highest_component_floor (test_closure.ClosureTests) ... ok
+test_loader_relative_dependency (test_closure.ClosureTests) ... ok
+test_malformed_load_bounds (test_closure.ClosureTests) ... ok
+test_memory_bounded_jobs (test_closure.ClosureTests) ... ok
+test_metadata_empty_versions_rejected (test_closure.ClosureTests) ... ok
+test_missing_arm64_rejected (test_closure.ClosureTests) ... ok
+test_staging_copy_normalizes_generated_group_write (test_closure.ClosureTests) ... ok
+test_system_load_permitted (test_closure.ClosureTests) ... ok
+test_system_prefix_traversal_rejected (test_closure.ClosureTests) ... ok
+test_unicode_space_loader_path (test_closure.ClosureTests) ... ok
+test_world_writable_rejected (test_closure.ClosureTests) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.026s
+
+OK (skipped=1)

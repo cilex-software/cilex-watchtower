@@ -1,0 +1,14 @@
+Input #0, image2, from '/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/export-fixture.png':
+  Duration: 00:00:00.04, start: 0.000000, bitrate: 187 kb/s
+  Stream #0:0: Video: png, rgb24(pc, gbr/unknown/unknown), 320x180, 25 fps, 25 tbr, 25 tbn
+Stream mapping:
+  Stream #0:0 -> #0:0 (png (native) -> h264 (h264_videotoolbox))
+Output #0, mp4, to '/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/export-fixture.mp4':
+  Metadata:
+    encoder         : Lavf63.1.102
+  Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv420p(progressive), 160x90, q=2-31, 800 kb/s, 25 fps, 12800 tbn
+    Metadata:
+      encoder         : Lavc63.1.102 h264_videotoolbox
+[h264_videotoolbox @ 0xa04c44a80] Color range not set for yuv420p. Using MPEG range.
+[out#0/mp4 @ 0xa0502c240] video:2KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 58.631513%
+frame=   25 fps=0.0 q=-0.0 Lsize=       2KiB time=00:00:00.96 bitrate=  21.1kbits/s speed=5.27x elapsed=0:00:00.18    

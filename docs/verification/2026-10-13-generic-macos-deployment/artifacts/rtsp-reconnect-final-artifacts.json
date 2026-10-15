@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-13T23:36:40.326642+00:00",
+  "candidate": "artifact-rtsp-reconnect-20261013T232609Z",
+  "distribution": "development",
+  "security": {
+    "signed": false,
+    "notarized": false,
+    "team_identifier": null,
+    "ad_hoc": true
+  },
+  "source": {
+    "repository": "https://github.com/romayankin/cilex-watchtower.git",
+    "base_commit": "199a8998c4a4b20d8ebffdec87b5bc053adb473b",
+    "uncommitted": true,
+    "acquisition": "local-development-snapshot",
+    "tree_sha256": "ae35796cb665e71be72ed17d394ad4de2e16a5124dbb0cb191deade62fb6b16d",
+    "tag": null,
+    "changed_files": {
+      "qml/VideoSurface.qml": "396ee51a2676f9567ef6080bfa119db0f9d3cfead08450f7e16117c57d64bdc6",
+      "src/models/FlightRecorder.cpp": "44cf8410336a4ff0d31d6a89309c8420f16376806fa1cb9176af609bcc70573e",
+      "src/models/MemTelemetry.cpp": "3a558642d3ac36e916d2c940000190f5921ca72afbb40ecf40a7fb8a8c71b8db",
+      "src/models/RtspVideoSource.cpp": "3d78a47e02f866b045b3275cb5b0a39447f311a6cb30fc6da87f0d9e224e3aee",
+      "src/models/RtspVideoSource.h": "35deed978d713d81b10084947f2ecfb923a47c7412ca53a2ee93864ccd457efa",
+      "warden/README.md": "fe5d77a9e33809e9dec14dcfe97e270a923d5dffd8c04b1d5076dfc76fa41829",
+      "warden/darwin_spawn_gate.c": "1b29e6f1554a3ec7227a041b52c31cefc364b09df11d791a1b99059637d19701",
+      "warden/warden.py": "ef61aa77a8b6c258b0bc8146a449fca9ed1ed930ac11c778157e18e418a0e233",
+      "warden/warden_darwin.py": "f7d610bfc22d167d06f5a4fa480b099d7190e19b724e6d427ccc26a96665568c"
+    }
+  },
+  "helpers": {
+    "version": "1.0.0",
+    "tree_sha256": "1aa53e5dc93cbe09b2c5df5270c686dc089dfc6001bf205261b8873dd30ef44b",
+    "files": [
+      {
+        "path": "ARTIFACTS.md",
+        "sha256": "3b9c300afd3e57867a8855907ec07d6920d680f99b9ffd45ffd4a61f621ddd5a"
+      },
+      {
+        "path": "LICENSE-COVERAGE.md",
+        "sha256": "e1d8ada38f5f98084b40d003de497913fa9617a2a4cf1cfe7bf90a9df0069dde"
+      },
+      {
+        "path": "README.md",
+        "sha256": "ae3bedfe0f473d4b077bc23e13688470066a6230a8e9d93370ef047fd326cf78"
+      },
+      {
+        "path": "VALIDATION.json",
+        "sha256": "98043fd716fef31c0ab5eed2faf12eabeb07190e647f7af7d38d78890bce8825"
+      },
+      {
+        "path": "bootstrap-check.js",
+        "sha256": "6e9144572c8ade2e950297c85edd89d3b44cd40daae1f5bd4094528227ccdd6b"
+      },
+      {
+        "path": "build.py",
+        "sha256": "c21772aeed85af6c304209baf7b6c2e85906eaf5f976de02cebfe623e2e48aee"
+      },
+      {
+        "path": "closure.py",
+        "sha256": "325a9440512c1f2ab51a2caebe926701fdad8310004bb9e6f90b17970c303f04"
+      },
+      {
+        "path": "common.py",
+        "sha256": "54bd79bcef6c6b927791a6532f919e7fd4504355940b308002c2da065119a5a7"
+      },
+      {
+        "path": "dependencies.py",
+        "sha256": "248bc9a55d99d5ee676b459dfc15c17ef296577f0039f7e4924936cf21026030"
+      },
+      {
+        "path": "deploy-watchtower.sh",
+        "sha256": "3f9b3c9643837f78dcc4746d312d52a947d6e918e51213b86ca8e77123eb2041"
+      },
+      {
+        "path": "deploy.py",
+        "sha256": "5d54b27f32122f9a7513fd7fd725480aef5305ebe56affaa5d1e21abb9a4f7d7"
+      },
+      {
+        "path": "git-askpass.sh",
+        "sha256": "964f3c07c89ef31f30d522fa8126a06e77b24963cbb63d10997918c78705fef8"
+      },
+      {
+        "path": "i18n/en.json",
+        "sha256": "48d0966018cccba49cdee335e423050a4bafc53fd9474f01107596104ef4cf2b"
+      },
+      {
+        "path": "i18n/ru.json",
+        "sha256": "543ca0de7f8e0c788f40098597f8a28af1b09a1343ceeb64c09044a4a98d4f6e"
+      },
+      {
+        "path": "install.py",
+        "sha256": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea"
+      },
+      {
+        "path": "license_coverage.py",
+        "sha256": "847a1029e4409338f90e423df6d964cdb245e0de3649645ee925ec1d116ffe51"
+      },
+      {
+        "path": "manifests/dependencies.json",
+        "sha256": "4d42d6d3c93b4a6cd47f6bc31115e8c85b8cebf5b12051ab6686cc2a717ac68b"
+      },
+      {
+        "path": "manifests/license-coverage.schema.json",
+        "sha256": "718f499eea97535bcf5396714a9b974f9e946ca568e868ec82fdd633bcb7b009"
+      },
+      {
+        "path": "manifests/requirements.json",
+        "sha256": "51771be22c5be8600926757d0f6490554f44e00ff920fe41b066056512797be9"
+      },
+      {
+        "path": "manifests/result.schema.json",
+        "sha256": "dfaff69969d329c256d533d567399c67c1fb8e1c7d22921ba3481fce7a9916e9"
+      },
+      {
+        "path": "remote.py",
+        "sha256": "cb18e719b89684ea113824163e3b76230ded23c28d44987446a72b653bcef216"
+      },
+      {
+        "path": "runtime.py",
+        "sha256": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad"
+      },
+      {
+        "path": "source.py",
+        "sha256": "57b9d3353ae34b903bbf22c59d3ceb4b5be89c1d8d9fe1d9c92ecb27dbe1b5d0"
+      }
+    ]
+  },
+  "version": "1.1.781",
+  "warden_version": "1.5.0",
+  "app_minimum_macos": "26.0.0",
+  "bootstrap_minimum_macos": "14.4.0",
+  "license_review": "unverified",
+  "files": [
+    {
+      "kind": "installer",
+      "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-rtsp-reconnect/CilexWatchtower-1.1.781-arm64-development.dmg",
+      "sha256": "e66d3fb53e236f5e2fdc4c3f4f49be3de5d327006e171666e38d057ed90a0501",
+      "bytes": 120194340
+    },
+    {
+      "kind": "bootstrap",
+      "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-rtsp-reconnect/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+      "sha256": "53d47bf7d78bb23140232a0385f6fccfb6488bb08b2a6b9021e5424edced15ec",
+      "bytes": 20598126
+    }
+  ],
+  "package_archive": {
+    "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-rtsp-reconnect-20261013T232609Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+    "sha256": "638e5c2dcf5691561817580bf09d3963270d15c1dc35acfbd6755e0bf4b768e4"
+  },
+  "manifest_sha256": "863e9415cfe5a319f9e418ab57cd1676dfdd596972655589d66e9fd0757fe4d3",
+  "verified": {
+    "runtime_closure_components": 327,
+    "generic_tests": {
+      "total": 270,
+      "passed": 269,
+      "skipped": 1,
+      "failed": 0
+    },
+    "embedded_runtime_regression": {
+      "schema_version": 1,
+      "timestamp": "2026-10-13T23:34:31.120874+00:00",
+      "setup_sha256": "8db4ad851b7be3c8dd3caf6d391d7cc5fd1e4c1e2502c8336375d32196570418",
+      "embedded_code_sha256": {
+        "common": "75ca2030b1545f9b928f956320a7c637c7e8ef970ffac3307ed6d3dc3f364c39",
+        "runtime": "ab203a3155f494b96f3d99205546751d843934497c1c86ad7646dd9901efcd29"
+      },
+      "embedded_runtime_tests": {
+        "total": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "validation_boundary": "Exact Setup-embedded common/runtime code objects executed with matching pinned Python3.13; includes historical-log and large-receipt regression fixtures.",
+      "application_starts": false,
+      "live_logs_accessed": false
+    },
+    "cli_smoke": {
+      "schema_version": 1,
+      "cases": [
+        {
+          "name": "en-check",
+          "exit_code": 21,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          },
+          "valid_json": true
+        },
+        {
+          "name": "ru-dry-run",
+          "exit_code": 0,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          },
+          "valid_json": true
+        },
+        {
+          "name": "bootstrap-noargs",
+          "exit_code": 21,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          },
+          "valid_json": true
+        }
+      ],
+      "strict_signatures": "passed",
+      "package_inventory": "unchanged",
+      "unicode_dry_run_target_created": false,
+      "installed_application_starts": false
+    },
+    "native_qml_reconnect": {
+      "passed": true,
+      "recovery_ms": 4609,
+      "before_reconnects": 0,
+      "after_reconnects": 1,
+      "after_connections": 2,
+      "watchdog_rebuilds": 0,
+      "evidence": "qml-reconnect/pinned-original-revision/summary.json",
+      "evidence_sha256": "03a7ec8c89a43f5064672354b5e78f5bc7b3e8ade93e87569b691335b05bf8ed"
+    },
+    "packaged_warden": {
+      "tests_passed": 31,
+      "launchagent_recovery_seconds": 9.861,
+      "no_overlap": true,
+      "detached_descendant_cleanup": true,
+      "fixture_cleanup_verified": true,
+      "runtime_tree_sha256": "aabff3808a84df1ce212a4efbb5ad7b3e9bbbaa2507e1c2d352715822e282fb4",
+      "evidence": "warden/checks-packaged-rtsp-reconnect.json",
+      "evidence_sha256": "a6d4a6f76b15141de878b64e6b34889c8bef7c5eb8b9039647fde29cf9ec746f"
+    },
+    "unchanged_build_inputs": {
+      "schema_version": 1,
+      "dependency_versions_equal": true,
+      "dependency_input_hashes_equal": true,
+      "helper_provenance_equal": true,
+      "original_source_tree_sha256": "2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019",
+      "new_source_tree_sha256": "ae35796cb665e71be72ed17d394ad4de2e16a5124dbb0cb191deade62fb6b16d",
+      "distribution": "development"
+    }
+  },
+  "pending": [
+    "Real application 150-second per-source observation and recovery for this new candidate",
+    "Production signing/notarization",
+    "Complete license review",
+    "Clean-Mac/offline installation",
+    "Oldest claimed OS",
+    "Unattended reboot/cold start",
+    "Remote deployment"
+  ],
+  "retained_previous_candidate": "artifact-log-session-20261013T230158Z",
+  "previous_real_video_result": "failed-repeated-source-stalls; evidence retained",
+  "change_boundary": "Application source differs only in qml/VideoSurface.qml; generic helper source bytes unchanged. Fix dispatches normal reconnect but does not prove initiating stall cause."
+}

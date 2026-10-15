@@ -141,8 +141,13 @@ void handler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
         // A pathological message (a base64 blob in an error string) must not blow
         // through the rotation budget in one line.
         const QByteArray body = msg.toUtf8();
-        if (body.size() > 8192) {
-            line += body.left(8192);
+        // A bounded readiness row covers every live source. The normal 8 KiB
+        // message limit truncates JSON on larger walls; keep the dedicated
+        // category within the verifier's 256 KiB limit, preserving rotation.
+        const qsizetype bodyLimit = ctx.category && qstrcmp(ctx.category, "cilex.readiness") == 0
+            ? 256 * 1024 : 8192;
+        if (body.size() > bodyLimit) {
+            line += body.left(bodyLimit);
             line += "…[truncated ";
             line += QByteArray::number(body.size());
             line += " bytes]";

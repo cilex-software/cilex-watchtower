@@ -1,0 +1,9 @@
+[1/9] Automatic MOC for target live-rtsp-fixture
+[2/9] Building CXX object CMakeFiles/live-rtsp-fixture.dir/live-rtsp-fixture_autogen/mocs_compilation.cpp.o
+[3/9] Building C object CMakeFiles/live-rtsp-fixture.dir/rtsp_fixture.c.o
+[4/9] Linking CXX executable live-rtsp-fixture
+[5/9] Automatic MOC for target live-stream-identity
+[6/9] Building CXX object CMakeFiles/live-stream-identity.dir/live-stream-identity_autogen/mocs_compilation.cpp.o
+[7/9] Building CXX object CMakeFiles/live-stream-identity.dir/main.cpp.o
+[8/9] Building CXX object CMakeFiles/live-stream-identity.dir/Users/romayankin/git/cilex-watchtower/src/models/RtspVideoSource.cpp.o
+[9/9] Linking CXX executable live-stream-identity

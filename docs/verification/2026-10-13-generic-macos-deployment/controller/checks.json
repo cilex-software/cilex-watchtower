@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "name": "unit-suite",
+      "exit_code": 0,
+      "stdout_json": false
+    },
+    {
+      "name": "check-en",
+      "exit_code": 21,
+      "stdout_json": true
+    },
+    {
+      "name": "dry-run-ru",
+      "exit_code": 21,
+      "stdout_json": true
+    },
+    {
+      "name": "verify-en",
+      "exit_code": 21,
+      "stdout_json": true
+    },
+    {
+      "name": "stock-bootstrap",
+      "exit_code": 0,
+      "stdout_json": true
+    },
+    {
+      "name": "shell-syntax",
+      "exit_code": 0,
+      "stdout_json": false
+    }
+  ]
+}

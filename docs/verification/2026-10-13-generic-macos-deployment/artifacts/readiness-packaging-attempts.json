@@ -1,0 +1,9 @@
+[
+  {
+    "stage": "source-extraction",
+    "finding": "archive.permissions",
+    "cause": "Git archive default tar.umask preserved group-write bits. Strict extraction correctly refused before any application build.",
+    "affected_entries": 1579,
+    "resolution": "Explicit git -c tar.umask=0022; failed archive/source stage retained."
+  }
+]

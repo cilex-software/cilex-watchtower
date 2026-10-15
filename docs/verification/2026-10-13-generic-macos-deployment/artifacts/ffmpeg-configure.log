@@ -1,0 +1,90 @@
+install prefix            /usr/local
+source path               .
+C compiler                /usr/bin/clang
+C library                 
+ARCH                      aarch64 (generic)
+big-endian                no
+runtime cpu detection     yes
+NEON enabled              yes
+DOTPROD enabled           yes
+I8MM enabled              yes
+PMULL enabled             yes
+EOR3 enabled              yes
+SVE enabled               yes
+SVE2 enabled              yes
+SME enabled               yes
+SME-I16I64 enabled        yes
+SME2 enabled              yes
+debug symbols             no
+strip symbols             yes
+optimize for size         yes
+optimizations             yes
+static                    yes
+shared                    no
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          no
+makeinfo supports HTML    no
+experimental features     yes
+xmllint enabled           yes
+
+External libraries:
+zlib
+
+External libraries providing hardware acceleration:
+videotoolbox
+
+Libraries:
+avcodec                 avformat                swscale
+avdevice                avutil
+avfilter                swresample
+
+Programs:
+ffmpeg
+
+Enabled decoders:
+h264                    png
+hevc                    rawvideo
+
+Enabled encoders:
+h264_videotoolbox
+
+Enabled hwaccels:
+
+Enabled parsers:
+ac3                     hevc
+h264                    png
+
+Enabled demuxers:
+image2                  mov
+
+Enabled muxers:
+mov                     mp4
+
+Enabled protocols:
+file
+
+Enabled filters:
+aformat                 fps                     setpts
+anull                   hflip                   transpose
+atrim                   null                    trim
+copy                    overlay                 vflip
+crop                    rotate
+format                  scale
+
+Enabled bsfs:
+aac_adtstoasc           hevc_mp4toannexb
+h264_mp4toannexb        vp9_superframe
+
+Enabled indevs:
+
+Enabled outdevs:
+
+License: LGPL version 2.1 or later
+
+WARNING: Option --enable-demuxer=png_pipe did not match anything
+WARNING: pkg-config not found, library detection may fail.

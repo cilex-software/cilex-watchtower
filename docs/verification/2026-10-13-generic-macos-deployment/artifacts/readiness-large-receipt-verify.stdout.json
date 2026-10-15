@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "helper_version": "1.0.0",
+  "run_id": null,
+  "started_at": "2026-10-13T22:54:00.812971+00:00",
+  "finished_at": "2026-10-13T22:54:01.381484+00:00",
+  "accepted_findings": [],
+  "states": {
+    "installation": "FilesVerified",
+    "runtime_health": "Unverified",
+    "gui_video": "Unverified",
+    "backend": "Unverified",
+    "security_admission": "Unverified",
+    "recovery": "Unverified",
+    "startup": "StartupUnverified",
+    "rollback": "NotRequired",
+    "cleanup": "NotRequired"
+  },
+  "findings": [
+    {
+      "id": "APP_MISSING",
+      "severity": "warning",
+      "overridable": false,
+      "message": "Runtime verification is incomplete (APP_MISSING); a successful outcome is not established. Inspect the process, window and camera evidence, then repeat verification."
+    }
+  ],
+  "evidence": [
+    "/Users/romayankin/Library/Application Support/CilexWatchtower/Deploy/ae8aa79f5130f2402694ab2f/receipt.json"
+  ],
+  "mode": "verify",
+  "target": {
+    "os": "Darwin",
+    "machine_id": "0a9dae2880c4e62853a47036aa8cb15b667d78db6d4f7cec83998e7066c363c7",
+    "uid": 501
+  },
+  "installation_id": "ae8aa79f5130f2402694ab2f",
+  "target_user": "romayankin",
+  "target_uid": 501,
+  "install_dir": "/Users/romayankin/Applications/watchtower.app",
+  "full_success": false,
+  "startup_evidence": {
+    "requested_mode": "after-sign-in",
+    "filevault": "On",
+    "automatic_login": "NotConfigured",
+    "desktop_account_matches": false,
+    "restart": "Unverified",
+    "cold_start": "Unverified",
+    "blockers": [],
+    "sources": [
+      "/usr/bin/fdesetup status",
+      "/Library/Preferences/com.apple.loginwindow.plist",
+      "https://support.apple.com/en-au/102316"
+    ],
+    "limitations": [
+      "An automatic-login preference does not prove that login is permitted or functioning.",
+      "Management policy and Apple Account password restrictions were not assessed.",
+      "Registration or an existing session does not prove post-reboot or power-loss recovery."
+    ]
+  },
+  "process_evidence": {
+    "state": "Unverified",
+    "supervision": "Unverified",
+    "duplicates": false,
+    "processes": [],
+    "app": null,
+    "warden": null,
+    "guardian": null,
+    "reason": "APP_MISSING"
+  },
+  "versions": {
+    "watchtower": "1.1.781",
+    "warden": "1.5.0"
+  },
+  "startup_registration": {
+    "loaded": false,
+    "disabled": false,
+    "disabled_explicit": false,
+    "pid": null,
+    "gui_session": true
+  },
+  "gui_visibility": "Unverified",
+  "playback_export": "Unverified",
+  "requested_observation_seconds": 0.0,
+  "samples": [],
+  "limitations": [
+    "Aggregate MEMTEL alone cannot certify individual sources; VIDTEL hashes do not establish camera-name mapping or playback/export.",
+    "Backend enrollment/connectivity requires separate authenticated application evidence.",
+    "Window metadata does not prove an unobscured or correct scene.",
+    "This observation does not certify recovery, login or reboot startup."
+  ],
+  "observed_seconds": 0.032,
+  "completed_at": "2026-10-13T22:54:01.381087+00:00",
+  "exit_code": 21
+}

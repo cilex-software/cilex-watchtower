@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-10-13T22:46:30Z",
+  "exit_code": 0,
+  "passed": 23,
+  "failed": 0,
+  "source_hashes": {
+    "src/models/RtspVideoSource.cpp": "3d78a47e02f866b045b3275cb5b0a39447f311a6cb30fc6da87f0d9e224e3aee",
+    "src/models/RtspVideoSource.h": "35deed978d713d81b10084947f2ecfb923a47c7412ca53a2ee93864ccd457efa",
+    "tools/tests/live-stream-identity/main.cpp": "cd5aca9f8c2ceb9f8fcb0edabd75178072de00ab1d4a5990c128368e8ca1f8dd",
+    "tools/tests/live-stream-identity/rtsp_fixture.c": "b3603e63b220bb5a6f6aba855ba2b8adfa249d82db514ee81892576ea766eaff"
+  },
+  "test_binary_sha256": "8456e1fc80536bd1f91c5df8302e1f5a2f44c9695f604187073d6d58865b5d4e",
+  "fixture_binary_sha256": "7d14d740748d0dd6d0cb17ad0668e1dd97ded54e84089ce2cd6187c1e75fa35f",
+  "real_camera_connections": false,
+  "installed_applications_started": false
+}

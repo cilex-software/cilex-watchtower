@@ -1,0 +1,30 @@
+{
+  "verified_at_utc": "2026-10-15T22:04:53.637594+00:00",
+  "source_base": "736dc949e0951288e55c5228fe2fa4e79e5da671",
+  "host": "26.6.2",
+  "checks": {
+    "installer_unit": {
+      "run": 278,
+      "skipped": 1,
+      "exit": 0
+    },
+    "darwin_warden": {
+      "run": 31,
+      "exit": 0
+    },
+    "recovery_harness": {
+      "run": 19,
+      "exit": 0
+    },
+    "macos_application_build": "passed",
+    "live_identity_readiness_loopback": "passed",
+    "qml_silent_stall_before_after": "passed",
+    "credential_review": "no secret values found in reviewed candidates; URL matches are a fixture and a redaction comment"
+  },
+  "limitations": [
+    "Existing full real-camera freshness acceptance remains incomplete.",
+    "No installed Watchtower/Warden launch, launchd registration, deployment, crash drill, reboot or release artifact publication was performed in this publication review.",
+    "Production signing, notarization, clean/older/remote Mac validation and protected machine scope remain incomplete.",
+    "Historical FFmpeg logs and raw JSON evidence retain their original whitespace."
+  ]
+}

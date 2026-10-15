@@ -1,0 +1,170 @@
+test_age_tracks_observed_changes_not_epoch (__main__.ClockTests) ... ok
+test_clock_jump_grants_fresh_grace (__main__.ClockTests) ... ok
+test_missing_log_does_not_disable_watchdog (__main__.ClockTests) ... ok
+test_scheduler_pause_grants_grace (__main__.ClockTests) ... ok
+test_wake_with_paused_monotonic_grants_grace (__main__.ClockTests) ... ok
+test_persisted_machine_identity_and_legacy_preservation (__main__.IdentityTests) ... ok
+test_pid_reuse_and_path_uid_session_mismatch (__main__.IdentityTests) ... ok
+test_private_records_reject_symlink_and_world_readable (__main__.IdentityTests) ... ok
+test_direct_parent_and_cleanup (__main__.NativeTests) ... Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 224, in guard_main
+    remaining = stop_records(descendants(records))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in stop_records
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in <listcomp>
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden.py", line 1883, in <module>
+    sys.exit(darwin.guard_main(sys.argv[2], sys.argv[3]))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 241, in guard_main
+    remaining = stop_records(descendants(records))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in descendants
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in <dictcomp>
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+ERROR
+ERROR
+test_gate_eof_never_executes (__main__.NativeTests) ... ok
+test_guard_failure_cleanup_uses_retained_identity (__main__.NativeTests) ... ERROR
+ERROR
+test_guard_refuses_cross_installation_reuse (__main__.NativeTests) ... ok
+test_live_owner_prevents_second_guard (__main__.NativeTests) ... ok
+test_native_identity_and_metrics (__main__.NativeTests) ... ok
+test_parent_sigkill_reaps_child_without_launchd (__main__.NativeTests) ... Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden.py", line 1883, in <module>
+    sys.exit(darwin.guard_main(sys.argv[2], sys.argv[3]))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 241, in guard_main
+    remaining = stop_records(descendants(records))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in stop_records
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in <listcomp>
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+ok
+test_warden_detects_guard_failure_and_exits_after_cleanup (__main__.NativeTests) ... ok
+test_warden_restart_duplicate_refusal_and_maintenance (__main__.NativeTests) ... ok
+test_wrong_process_generation_is_never_signalled (__main__.NativeTests) ... Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 224, in guard_main
+    remaining = stop_records(descendants(records))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in stop_records
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in <listcomp>
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden.py", line 1883, in <module>
+    sys.exit(darwin.guard_main(sys.argv[2], sys.argv[3]))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 241, in guard_main
+    remaining = stop_records(descendants(records))
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in descendants
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in <dictcomp>
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+ok
+
+======================================================================
+ERROR: test_direct_parent_and_cleanup (__main__.NativeTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/tools/tests/warden-darwin.py", line 188, in test_direct_parent_and_cleanup
+    self.guard.cleanup()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 342, in cleanup
+    self.request('cleanup')
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 297, in request
+    raise RuntimeError('Invalid process guard acknowledgement')
+RuntimeError: Invalid process guard acknowledgement
+
+======================================================================
+ERROR: test_direct_parent_and_cleanup (__main__.NativeTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/tools/tests/warden-darwin.py", line 125, in tearDown
+    self.guard.close()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 348, in close
+    self.cleanup()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 343, in cleanup
+    elif stop_records(descendants(self.records)):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in descendants
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in <dictcomp>
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+
+======================================================================
+ERROR: test_guard_failure_cleanup_uses_retained_identity (__main__.NativeTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/tools/tests/warden-darwin.py", line 197, in test_guard_failure_cleanup_uses_retained_identity
+    self.guard.cleanup()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 343, in cleanup
+    elif stop_records(descendants(self.records)):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in stop_records
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 141, in <listcomp>
+    pending = [r for r in pending if same_process(r, process_identity(r['pid']))]
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+
+======================================================================
+ERROR: test_guard_failure_cleanup_uses_retained_identity (__main__.NativeTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/tools/tests/warden-darwin.py", line 125, in tearDown
+    self.guard.close()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 348, in close
+    self.cleanup()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 343, in cleanup
+    elif stop_records(descendants(self.records)):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in descendants
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 109, in <dictcomp>
+    live = {r['pid']: r for r in records if same_process(r, process_identity(r['pid']))}
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 68, in process_identity
+    return unavailable()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 65, in unavailable
+    raise PermissionError("Cannot verify live process creation identity")
+PermissionError: Cannot verify live process creation identity
+
+----------------------------------------------------------------------
+Ran 18 tests in 13.742s
+
+FAILED (errors=4)
+evidence: parent SIGKILL cleanup (including observed detached descendant) 0.056s
+evidence: Warden detects guard failure and cleans child 1.160s
+evidence: isolated Watchtower failure recovery 5.154s

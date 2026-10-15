@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "profile": "macos-arm64-qt6.11.1-v1",
+  "verified_metadata_utc": "2026-10-13",
+  "packages": [
+    {
+      "id": "CMake",
+      "version": "3.31.12",
+      "kind": "tar.gz",
+      "url": "https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-macos-universal.tar.gz",
+      "sha256": "799af7fd545db9bf1b9cfe72f8095880e727a2d4e0df0e3dffc3bc7b95c2d3b0",
+      "license": "BSD-3-Clause",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Extract CMake.app/Contents/bin to an isolated tools root; select cmake explicitly.",
+        "ru": "Распакуйте CMake.app/Contents/bin в отдельный каталог инструментов; задайте абсолютный путь cmake в tools.json."
+      }
+    },
+    {
+      "id": "Ninja",
+      "version": "1.13.2",
+      "kind": "zip",
+      "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip",
+      "sha256": "c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b",
+      "license": "Apache-2.0",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Extract ninja and select it explicitly.",
+        "ru": "Распакуйте точную версию ninja; задайте абсолютный путь в tools.json."
+      }
+    },
+    {
+      "id": "Qt",
+      "version": "6.11.1",
+      "kind": "source",
+      "url": "https://download.qt.io/archive/qt/6.11/6.11.1/single/qt-everywhere-src-6.11.1.tar.xz",
+      "sha256": "252acef8c5ae68074d91cadba2ee4a83465051bbb970dd26e8f0daa0f3904e03",
+      "license": "LGPL-3.0/GPL/commercial, per-module review",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Use Qt 6.11.1 macOS arm64 including qtbase, qtdeclarative, qtmultimedia, qttools, qtshadertools and qtimageformats; select qt_root and macdeployqt.",
+        "ru": "Подготовьте Qt6.11.1 для macOS arm64 с qtbase, qtdeclarative, qtmultimedia, qttools, qtshadertools и qtimageformats; задайте qt_root и macdeployqt."
+      },
+      "provisioning": "manual-reviewed-prefix",
+      "vendor_minimum_macos": "13.0"
+    },
+    {
+      "id": "GStreamerRuntime",
+      "version": "1.26.11",
+      "kind": "pkg",
+      "url": "https://gstreamer.freedesktop.org/data/pkg/osx/1.26.11/gstreamer-1.0-1.26.11-universal.pkg",
+      "sha256": "bd6f3ad26126a6db726608f15622efaec383d672daa0a309775785d42c326f9c",
+      "license": "LGPL-2.1 and per-component licenses",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Use Apple Installer only after authorization; alternatively provide an independently verified isolated GStreamer prefix.",
+        "ru": "Установите точный пакет через Apple Installer после авторизации либо предоставьте проверенный отдельный каталог GStreamer."
+      },
+      "provisioning": "manual-authorized-installer"
+    },
+    {
+      "id": "GStreamerDevel",
+      "version": "1.26.11",
+      "kind": "pkg",
+      "url": "https://gstreamer.freedesktop.org/data/pkg/osx/1.26.11/gstreamer-1.0-devel-1.26.11-universal.pkg",
+      "sha256": "5135a7bc87a75a512f0017aa52e9774d47a5d3eca380210b815d5dc0648bb7bf",
+      "license": "LGPL-2.1 and per-component licenses",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install the matching development package with runtime; select gstreamer_root.",
+        "ru": "Установите соответствующий пакет разработки вместе с runtime; задайте gstreamer_root."
+      },
+      "provisioning": "manual-authorized-installer"
+    },
+    {
+      "id": "Python",
+      "version": "3.13.0",
+      "kind": "pkg",
+      "url": "https://www.python.org/ftp/python/3.13.0/python-3.13.0-macos11.pkg",
+      "sha256": "42b168533eca350427b67a667f006b580dad721de065cc5811dfae0e00ad37ce",
+      "license": "PSF",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Python 3.13.0 matches the current test host only; obtain a reviewed security-maintained Python before production. Select an explicit interpreter.",
+        "ru": "Python3.13.0 соответствует текущей тестовой машине; для рабочего распространения нужна проверенная поддерживаемая версия с исправлениями безопасности. Задайте интерпретатор явно."
+      },
+      "provisioning": "manual-authorized-installer",
+      "security_status": "historical-test-runtime-production-blocked"
+    },
+    {
+      "id": "FFmpeg",
+      "version": "9.0.2",
+      "kind": "source",
+      "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "license": "LGPL-2.1-or-later",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Build with the repository approved disable-autodetect LGPL profile and h264_videotoolbox; include exact source archive/configuration/notices.",
+        "ru": "Соберите точную версию с утверждённым LGPL-профилем disable-autodetect и h264_videotoolbox; сохраните исходный архив, конфигурацию и лицензии."
+      },
+      "provisioning": "isolated-source-build"
+    },
+    {
+      "id": "Wheel-pyinstaller",
+      "version": "6.16.0",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/7b/0a/c42ce6e5d3de287f2e9432a074fb209f1fb72a86a72f3903849fdb5e4829/pyinstaller-6.16.0-py3-none-macosx_10_13_universal2.whl",
+      "sha256": "7fd1c785219a87ca747c21fa92f561b0d2926a7edc06d0a0fe37f3736e00bd7a",
+      "license": "GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones)",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 1027899,
+      "provisioning": "isolated-wheel"
+    },
+    {
+      "id": "Wheel-pyinstaller-hooks-contrib",
+      "version": "2025.8",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/48/34/1d973d0dae849683e53fbcda84443ce016f315e6f4dc7605ede4f56a28c3/pyinstaller_hooks_contrib-2025.8-py3-none-any.whl",
+      "sha256": "8d0b8cfa0cb689a619294ae200497374234bd4e3994b3ace2a4442274c899064",
+      "license": "See included license",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 442346,
+      "provisioning": "isolated-wheel"
+    },
+    {
+      "id": "Wheel-altgraph",
+      "version": "0.17.4",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/4d/3f/3bc3f1d83f6e4a7fcb834d3720544ca597590425be5ba9db032b2bf322a2/altgraph-0.17.4-py2.py3-none-any.whl",
+      "sha256": "642743b4750de17e655e6711601b077bc6598dbfa3ba5fa2b2a35ce12b508dff",
+      "license": "MIT",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 21212,
+      "provisioning": "isolated-wheel"
+    },
+    {
+      "id": "Wheel-packaging",
+      "version": "25.0",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl",
+      "sha256": "29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
+      "license": "See included license",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 66469,
+      "provisioning": "isolated-wheel"
+    },
+    {
+      "id": "Wheel-setuptools",
+      "version": "80.9.0",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl",
+      "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922",
+      "license": "See included license",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 1201486,
+      "provisioning": "isolated-wheel"
+    },
+    {
+      "id": "Wheel-macholib",
+      "version": "1.16.3",
+      "kind": "wheel",
+      "url": "https://files.pythonhosted.org/packages/d1/5d/c059c180c84f7962db0aeae7c3b9303ed1d73d76f2bfbc32bc231c8be314/macholib-1.16.3-py2.py3-none-any.whl",
+      "sha256": "0e315d7583d38b8c77e815b1ecbdbf504a8258d8b3e17b61165c6feb60d18f2c",
+      "license": "MIT",
+      "architecture": "arm64",
+      "manual": {
+        "en": "Install this exact wheel with --no-index --no-deps in the isolated build environment.",
+        "ru": "Установите этот точный wheel с --no-index --no-deps в отдельную среду сборки."
+      },
+      "download_bytes": 38094,
+      "provisioning": "isolated-wheel"
+    }
+  ],
+  "manual_requirements": [
+    {
+      "id": "AppleToolchain",
+      "version": "Xcode15-or-later-for-Qt6.11",
+      "url": "https://developer.apple.com/download/all/",
+      "license": "Apple Xcode and SDK Agreement",
+      "note": "Apple authenticated download/installation requires the operator; never invoke xcode-select --install during assessment. Select DEVELOPER_DIR explicitly."
+    },
+    {
+      "id": "Git",
+      "version": "AppleGit-from-selected-Xcode",
+      "url": "https://developer.apple.com/download/all/",
+      "note": "Supplied by the authorized selected Apple toolchain. /usr/bin/git must not be invoked until toolchain existence is established."
+    },
+    {
+      "id": "pkg-config",
+      "version": "3.0.5-test-host",
+      "url": "https://github.com/pkgconf/pkgconf/releases/tag/pkgconf-3.0.5",
+      "note": "Manual verified tool input only; automatic source provenance for this version is not yet pinned."
+    }
+  ],
+  "notes": [
+    "Publisher HTTPS SHA256 metadata pins downloads; mismatches are never overridable. No installer is silently executed.",
+    "Qt source catalog entry is pinned; automated Qt source provisioning is not implemented.",
+    "Historical installed test dependencies must have separately recorded receipt/provenance, accepted finding and exact version. They do not establish clean-machine production acceptance.",
+    "Python3.13.0 is historical, not security-maintained: production blocked until catalog updates and validation.",
+    "GStreamer1.28.6 present on test host is outside this catalog1.26.11; explicit reviewed local receipt required.",
+    "No supported runtime minimum is established by this manifest. Derive from every final Mach-O load command and validate runtime on that floor."
+  ]
+}

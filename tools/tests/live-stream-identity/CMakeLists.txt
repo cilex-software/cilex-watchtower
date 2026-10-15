@@ -9,3 +9,11 @@ set(WATCHTOWER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../src/models" CACHE 
 add_executable(live-stream-identity main.cpp "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.cpp" "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.h")
 target_include_directories(live-stream-identity PRIVATE "${WATCHTOWER_SOURCE_DIR}")
 target_link_libraries(live-stream-identity PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Multimedia PkgConfig::GST)
+
+option(BUILD_LOCAL_RTSP_FIXTURE "Build a loopback-only fixture without requiring PyGObject" OFF)
+if(BUILD_LOCAL_RTSP_FIXTURE)
+    enable_language(C)
+    pkg_check_modules(GST_RTSP_SERVER REQUIRED IMPORTED_TARGET gstreamer-rtsp-server-1.0)
+    add_executable(live-rtsp-fixture rtsp_fixture.c)
+    target_link_libraries(live-rtsp-fixture PRIVATE PkgConfig::GST_RTSP_SERVER)
+endif()

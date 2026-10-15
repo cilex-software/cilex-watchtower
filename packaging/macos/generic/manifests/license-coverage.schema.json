@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cilex Watchtower recorded component license coverage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context",
+    "review",
+    "components"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "context": {
+      "type": "object",
+      "description": "Must exactly match the independently generated source/helper/version/dependency context."
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reviewer",
+        "reviewed_at",
+        "scope",
+        "attestation"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "draft",
+            "complete"
+          ]
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "reviewed_at": {
+          "type": "string"
+        },
+        "scope": {
+          "const": "all-distributed-content"
+        },
+        "attestation": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reviewer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "reviewed_at": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+              },
+              "attestation": {
+                "const": "all-distributed-components-including-embedded-code"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "unassigned_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^licenses/[^\\\\]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "license_expression",
+        "paths",
+        "notices",
+        "source",
+        "redistribution"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "license_expression": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "notices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "source": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "sha256",
+                "url"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "archive"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "commit",
+                "url"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "git"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "sha256",
+                "path"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "bundled-source"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^licenses/"
+                }
+              }
+            }
+          ]
+        },
+        "redistribution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "source_obligation",
+            "evidence"
+          ],
+          "properties": {
+            "basis": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "source_obligation": {
+              "enum": [
+                "none-recorded",
+                "source-included",
+                "source-offer",
+                "other-reviewed"
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/evidence"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$comment": "license_coverage.py additionally checks exact path coverage, contained hashed evidence, exact build context, timestamps and credential-free URLs. Structural validation does not infer legal approval."
+}

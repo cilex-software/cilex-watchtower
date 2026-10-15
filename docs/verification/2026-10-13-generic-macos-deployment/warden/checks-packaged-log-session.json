@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "before": {
+    "schema_version": 1,
+    "started_epoch": 1791932832.607733,
+    "warden_sha256": "2d54b3528640f02cbdcd0ee8e414e5cf366ea9f35b424c3df003922ed4ab7b48",
+    "spawn_gate_sha256": "7ea455fef2c3dcdf2cd88e48a0b1187627a1d1bae86f4903f8827e0cbb6933b0",
+    "runtime_tree_sha256": "590311069cd8c6a01e1471727ce398dbe92c7e05935d14e7e14eb3f5cb2745ce",
+    "runtime_tree_entries": 65
+  },
+  "completed_epoch": 1791932883.290609,
+  "warden_sha256_after": "2d54b3528640f02cbdcd0ee8e414e5cf366ea9f35b424c3df003922ed4ab7b48",
+  "gate_sha256_after": "7ea455fef2c3dcdf2cd88e48a0b1187627a1d1bae86f4903f8827e0cbb6933b0",
+  "runtime_tree_sha256_after": "590311069cd8c6a01e1471727ce398dbe92c7e05935d14e7e14eb3f5cb2745ce",
+  "runtime_tree_unchanged": true,
+  "native_packaged_tests": {
+    "total": 31,
+    "passed": 31,
+    "seconds": 31.213,
+    "parent_death_cleanup_seconds": 0.133,
+    "guardian_failure_cleanup_seconds": 1.695,
+    "application_fixture_recovery_seconds": 5.183
+  },
+  "launchd_fixture": {
+    "status": "passed",
+    "direct_parentage": true,
+    "observed_detached_descendant_cleanup": true,
+    "warden_sigkill_recovery_seconds": 9.903,
+    "no_overlap": true,
+    "cleanup_verified": true
+  },
+  "selected_packaged_warden_processes_remaining": 0,
+  "fixture_error_flags": {
+    "warden-runtime.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    },
+    "warden-launchd-error.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    },
+    "warden-launchd.log": {
+      "cleanup_failure": false,
+      "invalid_guard_ack": false,
+      "identity_read_failure": false
+    }
+  },
+  "installed_app_exercised": false,
+  "source_runtime_sha256": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad"
+}

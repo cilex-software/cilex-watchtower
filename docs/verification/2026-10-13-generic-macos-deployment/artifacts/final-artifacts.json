@@ -1,0 +1,44 @@
+{
+  "delivery_directory": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014",
+  "artifacts": [
+    {
+      "name": "CilexWatchtower-1.1.781-arm64-development.dmg",
+      "sha256": "8f6c3ca54afd8939805c5fe5916e8298d2923cd6b6afd47f13a8a6a0d0f9db0a",
+      "size_bytes": 120399614
+    },
+    {
+      "name": "CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+      "sha256": "077c0177095bbf031f93111c0fcd12cd0c12821bc02f1490448b2f118d90cfdd",
+      "size_bytes": 20508894
+    }
+  ],
+  "source_archive_package": {
+    "package": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+    "package_root": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/package",
+    "sha256": "8b1146caf6a1fdffd809bd4c01ed68eb15351ade47b8c318308cce7ff6e00fef",
+    "evidence": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/logs"
+  },
+  "distribution_results": {
+    "package": {
+      "package": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+      "package_root": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/package",
+      "sha256": "8b1146caf6a1fdffd809bd4c01ed68eb15351ade47b8c318308cce7ff6e00fef",
+      "evidence": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/build/logs"
+    },
+    "installer": {
+      "installer": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/output/CilexWatchtower-1.1.781-arm64-development.dmg",
+      "sha256": "8f6c3ca54afd8939805c5fe5916e8298d2923cd6b6afd47f13a8a6a0d0f9db0a",
+      "distribution": "development",
+      "notarized": false,
+      "offline_clean_machine": "unverified",
+      "evidence": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/installer-logs"
+    },
+    "bootstrap": {
+      "bootstrap": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/output/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+      "sha256": "077c0177095bbf031f93111c0fcd12cd0c12821bc02f1490448b2f118d90cfdd",
+      "version": "1.0.0",
+      "directory": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-candidate-20261013T204824Z/bootstrap-stage",
+      "clean_machine": "unverified"
+    }
+  }
+}

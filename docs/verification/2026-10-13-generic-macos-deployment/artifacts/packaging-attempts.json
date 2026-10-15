@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "step": "initial-closure",
+      "result": "failed",
+      "cause": "macdeployqt rewrote bundled GStreamer: raw SHA comparison against original was inappropriate",
+      "resolution": "identify original input by UUID and architecture, record input SHA, replace from approved source then relocate once"
+    },
+    {
+      "step": "closure-retry1",
+      "result": "failed",
+      "cause": "copied Qt framework executable was owner-read-only",
+      "resolution": "grant owner write on owned staging copies before relocation"
+    },
+    {
+      "step": "closure-retry2",
+      "result": "failed",
+      "cause": "after main rpaths removed, fallback considered both staged and original Qt framework",
+      "resolution": "staged framework has precedence; external roots are fallback"
+    },
+    {
+      "step": "closure-retry3",
+      "result": "passed",
+      "components": 229,
+      "minimum_macos": "26.0.0",
+      "scope": "packaging diagnostic from existing repository build; not final source-provenance acceptance"
+    },
+    {
+      "step": "full-build-attempt1",
+      "result": "failed",
+      "cause": "explicit libffi pkgconfig path was guessed and nonexistent",
+      "resolution": "use measured Homebrew SDK shim path in host tools receipt"
+    },
+    {
+      "step": "full-build-attempt2",
+      "result": "failed",
+      "cause": "FFmpeg LGPL message wraps across lines; literal string check rejected genuine LGPL output",
+      "resolution": "normalize whitespace; original license output retained",
+      "compile": "passed",
+      "macdeployqt": "passed"
+    },
+    {
+      "step": "final-build-checkpoint",
+      "result": "failed",
+      "cause": "Git archive template0664 propagated to generated Info.plist; strict checkpoint inventory rejected group write",
+      "resolution": "normalize only owned compiler output before checkpoint; regression test passed"
+    },
+    {
+      "step": "final-package-closure",
+      "result": "failed",
+      "cause": "valid bare @loader_path in PyInstaller rpath was treated as invalid",
+      "resolution": "support exact loader/executable tokens; real327-component package audit passed"
+    },
+    {
+      "step": "native-setup-layout",
+      "result": "failed",
+      "cause": "manually moved console onedir build detects app bundle and requires Contents/Frameworks/Python",
+      "resolution": "use PyInstaller BUNDLE with console bootloader; normalized-env --version passed"
+    },
+    {
+      "step": "native-plugin-signing",
+      "result": "failed",
+      "cause": "codesign rejects dotted plain PlugIns/gstreamer-1.0 as malformed nested bundle",
+      "resolution": "nondotted real directory and contained compatibility symlink; Watchtower+Setup strict deep signature checks passed"
+    },
+    {
+      "step": "native-layout-and-signing-retry",
+      "result": "passed",
+      "scope": "diagnostic package with pre-final controller; production signing and clean-machine admission remain unverified"
+    }
+  ]
+}

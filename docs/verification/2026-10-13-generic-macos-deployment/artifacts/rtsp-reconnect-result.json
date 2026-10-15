@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "en-check",
+      "exit_code": 21,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "valid_json": true
+    },
+    {
+      "name": "ru-dry-run",
+      "exit_code": 0,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "valid_json": true
+    },
+    {
+      "name": "bootstrap-noargs",
+      "exit_code": 21,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "valid_json": true
+    }
+  ],
+  "strict_signatures": "passed",
+  "package_inventory": "unchanged",
+  "unicode_dry_run_target_created": false,
+  "installed_application_starts": false
+}

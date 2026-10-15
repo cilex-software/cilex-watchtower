@@ -1,0 +1,9 @@
+[warden] 2026-10-14 01:36:55,955 backend (none) — from NOWHERE — unset
+[warden] 2026-10-14 01:36:56,030 Darwin diagnostics are system-managed; bundles include app markers and logs, no promised core dump
+[warden] 2026-10-14 01:36:56,031 STATION_TOKEN missing — heartbeats DISABLED. This station is INVISIBLE to the fleet: no heartbeats, no crash uploads, and no station row for it on the server. Put a token in ~/.config/watchtower-warden/warden.conf (STATION_TOKEN=…) and restart.
+[warden] 2026-10-14 01:36:56,058 spawned watchtower pid=23375 console=console-1791931016.log
+[warden] 2026-10-14 01:37:06,440 backend (none) — from NOWHERE — unset
+[warden] 2026-10-14 01:37:06,577 Darwin diagnostics are system-managed; bundles include app markers and logs, no promised core dump
+[warden] 2026-10-14 01:37:06,578 STATION_TOKEN missing — heartbeats DISABLED. This station is INVISIBLE to the fleet: no heartbeats, no crash uploads, and no station row for it on the server. Put a token in ~/.config/watchtower-warden/warden.conf (STATION_TOKEN=…) and restart.
+[warden] 2026-10-14 01:37:06,583 spawned watchtower pid=23496 console=console-1791931026.log
+[warden] 2026-10-14 01:37:07,264 supervisor stopping (SIGTERM) — no report for a clean stop

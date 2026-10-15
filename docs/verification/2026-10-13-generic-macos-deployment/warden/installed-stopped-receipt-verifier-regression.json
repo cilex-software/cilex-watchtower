@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "receipt_bytes": 1562588,
+  "receipt_unchanged": true,
+  "support_entries_unchanged": true,
+  "receipt_accepted": true,
+  "app_missing_reported": true,
+  "selected_process_count": 0,
+  "evidence_files_created_by_verify": 0,
+  "full_success": false,
+  "verifier_sha256": "09cfef8b7844b46f51f85ef7c271fe52e6f0c0ee5fa34123e83260e50e10ab71"
+}

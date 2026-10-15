@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-14T00:24:13.943910+00:00",
+  "scope": "Fixture-only tests of test-only native rollback harness; no installed application lifecycle or launchd operations.",
+  "total": 17,
+  "passed": 17,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "elapsed_seconds": 0.197,
+  "python": "3.9.6",
+  "command": "/usr/bin/python3 -m unittest discover -s packaging/macos/generic/tests -p test_native_rollback.py -v",
+  "test_only_changes": {
+    "packaging/macos/generic/tests/native_rollback.py": "ae54b5f3ea8922a01a836a8c320103a77e1aca1221cf7c597eb853b0a98eb4ec",
+    "packaging/macos/generic/tests/test_native_rollback.py": "4f173f3507d853daa1e89c3732fc5a65237e5124f690b416546673d4a023653e"
+  },
+  "frozen_helper_hashes": {
+    "install.py": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea",
+    "runtime.py": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad",
+    "deploy.py": "5d54b27f32122f9a7513fd7fd725480aef5305ebe56affaa5d1e21abb9a4f7d7"
+  },
+  "log": "docs/verification/2026-10-13-generic-macos-deployment/transaction/process-only-rollback-harness-tests.log",
+  "log_sha256": "5c7a09e845551ab012223852af01ea1d57b2070e392f627948452d73c5499ed8",
+  "process_only_full_acceptance": false,
+  "process_only_best_exit_code": 18
+}

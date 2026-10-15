@@ -1,0 +1,28 @@
+-- The CXX compiler identification is AppleClang 21.0.0.21000099
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework
+-- Found WrapOpenGL: TRUE
+-- Found WrapVulkanHeaders: /opt/homebrew/include
+-- Found PkgConfig: /opt/homebrew/bin/pkg-config (found version "3.0.5")
+-- Checking for modules 'gstreamer-1.0;gstreamer-app-1.0;gstreamer-video-1.0'
+--   Found gstreamer-1.0, version 1.28.6
+--   Found gstreamer-app-1.0, version 1.28.6
+--   Found gstreamer-video-1.0, version 1.28.6
+-- Configuring done (1.6s)
+-- Generating done (0.0s)
+-- Build files have been written to: /var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/watchtower-macos-publication-m1llwbcd/build-identity
+[1/5] Automatic MOC for target live-stream-identity
+[2/5] Building CXX object CMakeFiles/live-stream-identity.dir/live-stream-identity_autogen/mocs_compilation.cpp.o
+[3/5] Building CXX object CMakeFiles/live-stream-identity.dir/main.cpp.o
+[4/5] Building CXX object CMakeFiles/live-stream-identity.dir/Users/romayankin/git/cilex-watchtower/src/models/RtspVideoSource.cpp.o
+[5/5] Linking CXX executable live-stream-identity

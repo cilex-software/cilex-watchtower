@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "<stdin>", line 8, in <module>
+  File "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-final-20261014-0015/helper-snapshot/build.py", line 383, in build
+    closure=audit(package,source_minimum=target)
+  File "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-final-20261014-0015/helper-snapshot/closure.py", line 203, in audit
+    raise ClosureError("External/ambiguous runtime search path: " + rpath)
+closure.ClosureError: External/ambiguous runtime search path: @loader_path

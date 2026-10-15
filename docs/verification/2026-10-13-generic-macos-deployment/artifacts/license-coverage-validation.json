@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-10-13T22:39:57Z",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.9.6",
+  "read_only_previous_artifact": {
+    "manifest_sha256": "edae2381cea2a22608b3718c0a1f6b0c68318307f89043e4081610ce9bfdd7de",
+    "coverage": {
+      "schema_version": 1,
+      "status": "unverified",
+      "review_type": "recorded-structural-coverage",
+      "legal_approval": "not-inferred",
+      "license_decision_accepted": false,
+      "component_count": 0,
+      "payload_file_count": 3293,
+      "covered_file_count": 0,
+      "generated_metadata_excluded": [
+        "artifact-manifest.json",
+        "licenses/**",
+        "**/_CodeSignature/CodeResources"
+      ],
+      "unassigned_paths_sha256": "593450980b672d86a81c42319478de1f65a429434138ca851d142b583ff4778f"
+    },
+    "payload_writes": false,
+    "application_starts": false
+  },
+  "tests": {
+    "focused": {
+      "passed": 20
+    },
+    "generic": {
+      "total": 233,
+      "passed": 232,
+      "skipped": 1,
+      "scope": "Full suite before final dot-path/string-type hardening; all 20 focused coverage tests repeated and passed afterward."
+    }
+  },
+  "initial_failed_test": {
+    "name": "test_notice_cannot_escape_licenses_or_use_payload",
+    "reason": "Expected LicenseCoverageError; lower-level closure correctly rejected escaping link first as ClosureError. Wrapped exception consistently; no invalid package was accepted.",
+    "resolved": true
+  },
+  "sources": {
+    "license_coverage.py": "847a1029e4409338f90e423df6d964cdb245e0de3649645ee925ec1d116ffe51",
+    "build.py": "c21772aeed85af6c304209baf7b6c2e85906eaf5f976de02cebfe623e2e48aee",
+    "tests/test_license_coverage.py": "e82bacc41bc7a798783f638b6cec6706503da7ccc10155454da684426c8a24bd",
+    "manifests/license-coverage.schema.json": "718f499eea97535bcf5396714a9b974f9e946ca568e868ec82fdd633bcb7b009"
+  },
+  "new_packaged_binary_validation": "pending-rebuild",
+  "legal_approval": "not-inferred"
+}

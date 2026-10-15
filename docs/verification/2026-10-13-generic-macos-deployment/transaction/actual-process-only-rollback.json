@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-14T00:33:54.995685+00:00",
+  "status": "passed-process-file-restoration-video-unverified",
+  "run_id": "rollback-process-20261014-final",
+  "state": "FilesReceiptConfigurationStartupAndProcessesRestored_VideoUnverified",
+  "exit_code": 18,
+  "full_acceptance": false,
+  "test_mode": "ProcessOnly",
+  "package_sha256": "638e5c2dcf5691561817580bf09d3963270d15c1dc35acfbd6755e0bf4b768e4",
+  "expected_receipt_sha256": "6506a6a24361f26c167112eaa1432ca8a2a830b3d4b52cfcd5dc5c4453c64944",
+  "transaction_and_rollback_seconds": 13.162,
+  "control_state_restored": true,
+  "controls_hashes_and_ownership_equal": true,
+  "injection_count": 1,
+  "original_failure": "fixture.injected_post_replacement",
+  "rollback_failure": null,
+  "transaction_rollback": "FilesAndProcessStateRestored_RuntimeUnverified",
+  "registration_recovery": {
+    "state": "DefaultHandlerPreserved",
+    "catalog_restoration": "UnverifiedNoPublicUnregister"
+  },
+  "baseline": {
+    "runtime_health": "ProcessVerified",
+    "gui_visibility": "Visible",
+    "gui_video": "Unverified"
+  },
+  "independent_recovery": {
+    "runtime_health": "ProcessVerified",
+    "gui_visibility": "Visible",
+    "gui_video": "Unverified"
+  },
+  "video_acceptance": "UnverifiedDegradedBaselinePreserved",
+  "scope": "Authorized actual post-replacement injected failure exercised real installation rollback. Files/receipt/config ownership/startup policy and native visible process graph restored; healthy150s camera acceptance not established.",
+  "private_evidence": {
+    "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/rollback-process-20261014-final/result.json",
+    "sha256": "11debb94149d166f3a6d5351ab8098b1649171838428addde5d21938a0929b41"
+  },
+  "final_stop_verification": "VerifiedBySeparateFinalStopEvidence",
+  "final_stop_evidence": "transaction/final-stop.json"
+}

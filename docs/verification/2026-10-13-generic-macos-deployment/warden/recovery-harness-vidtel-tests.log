@@ -1,0 +1,17 @@
+test_app_recovery_preserves_owner_and_guardian (__main__.RecoveryTests) ... ok
+test_application_recovery_must_not_change_guardian (__main__.RecoveryTests) ... ok
+test_budget_includes_time_since_signal_not_since_wait (__main__.RecoveryTests) ... ok
+test_exec_or_session_change_does_not_prove_old_process_gone (__main__.RecoveryTests) ... ok
+test_final_guardian_change_refuses_signal (__main__.RecoveryTests) ... ok
+test_observed_descendants_include_recorded_detached_and_reject_foreign (__main__.RecoveryTests) ... ok
+test_pid_reuse_does_not_keep_old_process_alive (__main__.RecoveryTests) ... ok
+test_replacement_app_must_not_overlap_old_detached_descendant (__main__.RecoveryTests) ... ok
+test_signal_rechecks_final_graph_and_sends_one_exact_signal (__main__.RecoveryTests) ... ok
+test_signal_rejects_changed_process_and_never_calls_kill (__main__.RecoveryTests) ... ok
+test_unreadable_known_process_cannot_be_cleanup_success (__main__.RecoveryTests) ... ok
+test_warden_recovery_requires_old_graph_gone (__main__.RecoveryTests) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.006s
+
+OK

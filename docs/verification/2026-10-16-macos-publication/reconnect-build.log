@@ -1,0 +1,40 @@
+-- The C compiler identification is AppleClang 21.0.0.21000099
+-- The CXX compiler identification is AppleClang 21.0.0.21000099
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found WrapAtomic: TRUE
+-- Found OpenGL: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework
+-- Found WrapOpenGL: TRUE
+-- Found WrapVulkanHeaders: /opt/homebrew/include
+-- Found PkgConfig: /opt/homebrew/bin/pkg-config (found version "3.0.5")
+-- Checking for modules 'gstreamer-1.0;gstreamer-app-1.0;gstreamer-video-1.0'
+--   Found gstreamer-1.0, version 1.28.6
+--   Found gstreamer-app-1.0, version 1.28.6
+--   Found gstreamer-video-1.0, version 1.28.6
+-- Checking for module 'gstreamer-rtsp-server-1.0'
+--   Found gstreamer-rtsp-server-1.0, version 1.28.6
+-- Configuring done (1.7s)
+-- Generating done (0.0s)
+-- Build files have been written to: /var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/watchtower-macos-publication-m1llwbcd/build-reconnect
+[1/9] Automatic MOC for target stalled-rtsp-fixture
+[2/9] Building CXX object CMakeFiles/stalled-rtsp-fixture.dir/stalled-rtsp-fixture_autogen/mocs_compilation.cpp.o
+[3/9] Building C object CMakeFiles/stalled-rtsp-fixture.dir/rtsp_fixture.c.o
+[4/9] Linking CXX executable stalled-rtsp-fixture
+[5/9] Automatic MOC for target qml-stream-reconnect
+[6/9] Building CXX object CMakeFiles/qml-stream-reconnect.dir/qml-stream-reconnect_autogen/mocs_compilation.cpp.o
+[7/9] Building CXX object CMakeFiles/qml-stream-reconnect.dir/main.cpp.o
+[8/9] Building CXX object CMakeFiles/qml-stream-reconnect.dir/Users/romayankin/git/cilex-watchtower/src/models/RtspVideoSource.cpp.o
+[9/9] Linking CXX executable qml-stream-reconnect

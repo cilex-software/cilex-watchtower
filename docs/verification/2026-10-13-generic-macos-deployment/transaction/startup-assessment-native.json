@@ -1,0 +1,39 @@
+{
+  "startup": "BlockedUnattendedRebootUnverified",
+  "startup_evidence": {
+    "requested_mode": "unattended-reboot",
+    "filevault": "On",
+    "automatic_login": "NotConfigured",
+    "desktop_account_matches": false,
+    "restart": "Unverified",
+    "cold_start": "Unverified",
+    "blockers": [
+      {
+        "id": "startup.filevault_on",
+        "message": "FileVault requires sign-in after startup; unattended recovery is blocked. Use AfterSignIn on this Mac."
+      },
+      {
+        "id": "startup.automatic_login_missing",
+        "message": "Automatic login is not configured; unattended startup is blocked. Ask the authorized administrator to review the login arrangement."
+      },
+      {
+        "id": "startup.boot_unverified",
+        "message": "No matching post-reboot or cold-start evidence is recorded; unattended recovery remains unverified. Perform a separately authorized startup acceptance test."
+      }
+    ],
+    "sources": [
+      "/usr/bin/fdesetup status",
+      "/Library/Preferences/com.apple.loginwindow.plist",
+      "https://support.apple.com/en-au/102316"
+    ],
+    "limitations": [
+      "An automatic-login preference does not prove that login is permitted or functioning.",
+      "Management policy and Apple Account password restrictions were not assessed.",
+      "Registration or an existing session does not prove post-reboot or power-loss recovery."
+    ]
+  },
+  "schema_version": 1,
+  "observed_at": "2026-10-13T20:55:12.305792+00:00",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "method": "Read-only bounded status command and loginwindow preference inspection; no settings changes or reboot."
+}

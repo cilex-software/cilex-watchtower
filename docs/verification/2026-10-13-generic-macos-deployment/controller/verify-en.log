@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "helper_version": "1.0.0",
+  "run_id": null,
+  "started_at": "2026-10-13T20:11:27.814362+00:00",
+  "finished_at": "2026-10-13T20:11:27.842878+00:00",
+  "accepted_findings": [],
+  "states": {
+    "installation": "UnverifiedNoOwnedReceipt",
+    "runtime_health": "Unverified",
+    "gui_video": "Unverified",
+    "backend": "Unverified",
+    "security_admission": "Unverified",
+    "recovery": "Unverified",
+    "startup": "StartupUnverified",
+    "rollback": "NotRequired",
+    "cleanup": "NotRequired"
+  },
+  "findings": [
+    {
+      "id": "PROTECTED_INSTALL_RECEIPT_UNAVAILABLE_OR_INVALID",
+      "severity": "warning",
+      "overridable": false,
+      "message": "Runtime verification is incomplete (PROTECTED_INSTALL_RECEIPT_UNAVAILABLE_OR_INVALID); a successful outcome is not established. Inspect the process, window and camera evidence, then repeat verification."
+    }
+  ],
+  "evidence": [],
+  "mode": "verify",
+  "target": {
+    "os": "Darwin",
+    "machine_id": "0a9dae2880c4e62853a47036aa8cb15b667d78db6d4f7cec83998e7066c363c7",
+    "uid": 501
+  },
+  "installation_id": "ae8aa79f5130f2402694ab2f",
+  "target_user": "romayankin",
+  "target_uid": 501,
+  "install_dir": "/Users/romayankin/Applications/watchtower.app",
+  "full_success": false,
+  "gui_visibility": "Unverified",
+  "playback_export": "Unverified",
+  "requested_observation_seconds": 0.0,
+  "samples": [],
+  "limitations": [
+    "Aggregate MEMTEL cannot certify each camera identity or representative playback/export.",
+    "Backend enrollment/connectivity requires separate authenticated application evidence.",
+    "Window metadata does not prove an unobscured or correct scene.",
+    "This observation does not certify recovery, login or reboot startup."
+  ],
+  "observed_seconds": 0.0,
+  "completed_at": "2026-10-13T20:11:27.842867+00:00",
+  "exit_code": 21
+}
+Requested outcome is incomplete. Review the finding IDs and evidence in the JSON result before retrying. (21)

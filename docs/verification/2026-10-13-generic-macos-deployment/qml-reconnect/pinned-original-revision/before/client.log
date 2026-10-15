@@ -1,0 +1,6 @@
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:58271/silent-stall
+
+(<unknown>:75557): GStreamer-GL-WARNING **: 02:33:04.272: An NSApplication needs to be running on the main thread to ensure correct behaviour on macOS. Use gst_macos_main() or call [NSApplication sharedApplication] in your code before using this element.
+[LIVETIME] first_sample url=rtsp://127.0.0.1:58271/silent-stall
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:58271/silent-stall
+QRhi *(anonymous namespace)::ThreadLocalRhiHolder::ensureRhi(QRhi::Implementation) : No RHI backend. Using CPU conversion.

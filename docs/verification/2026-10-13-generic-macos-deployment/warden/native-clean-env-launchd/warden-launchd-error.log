@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden.py", line 1943, in <module>
+    sys.exit(Supervisor().run())
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden.py", line 1752, in run
+    self.process_guard.close()
+  File "/Users/romayankin/git/cilex-watchtower/warden/warden_darwin.py", line 394, in close
+    raise RuntimeError('Warden guard exited unsuccessfully')
+RuntimeError: Warden guard exited unsuccessfully

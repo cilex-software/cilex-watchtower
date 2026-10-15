@@ -1,0 +1,6 @@
+test_runtime_status_uses_native_dotted_backend (__main__.NativeTests) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.468s
+
+OK

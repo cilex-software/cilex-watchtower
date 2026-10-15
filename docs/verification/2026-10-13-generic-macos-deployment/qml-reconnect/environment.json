@@ -1,0 +1,13 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "architecture": "arm64",
+  "qt": "6.11.1",
+  "gstreamer": "1.28.6",
+  "final_summary_sha256": "c6be1640a12394aa8d87517a97d43cd4dbec597f142b177b58ba4b003d40885a",
+  "unexpected_failures": [],
+  "retained_warnings": [
+    "Initial attempt scanned unrelated broken Homebrew x265/libav/Python plugins; passed frame regression despite those warnings.",
+    "Both attempts use offscreen QML and report missing NSApplication/CPU image conversion. Neither claims GUI rendering or production acceptance."
+  ],
+  "fixture_cleanup": "Both client processes exited and both explicitly owned loopback servers stopped with exit0."
+}

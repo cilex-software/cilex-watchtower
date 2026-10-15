@@ -89,3 +89,116 @@ manifest re-PUT → server `manifest_revisions=2` · re-import dedup → "bundle
 already held", 0 bytes resent · clean SIGTERM → no report · fake-core included
 in bundle · export → USB layout. Read side confirmed as admin:
 5 reports, all `stored`.
+
+## Darwin supervision (generic macOS deployment)
+
+The generic installer uses packaged `cilex-warden run` in the intended user's
+Aqua LaunchAgent. It launches the literal `APP_CMD` executable directly; do not
+use `open -a`, shell-quote the value, or run the GUI supervisor as root. The
+existing Windows and Linux entry points retain their spawn behavior.
+
+The Darwin install supplies these `WT_WARDEN_` environment values (or the same
+keys in `WT_WARDEN_CONFIG_FILE`):
+
+| Key | Meaning |
+| --- | --- |
+| `APP_CMD` | Absolute `watchtower.app/Contents/MacOS/watchtower` path |
+| `APP_WORKING_DIR` | Absolute working directory |
+| `SPAWN_GATE` | Absolute packaged `cilex-spawn-gate` helper path |
+| `INSTALLATION_ID` | Stable installation/account identity, never station credentials |
+| `WARDEN_DIR` | Private per-installation Application Support state |
+| `DATA_DIR` | Existing Qt AppDataLocation, normally `~/Library/Application Support/Cilex Vision/Watchtower` |
+| `LOG_DIR` | Private `~/Library/Logs/CilexWatchtower/<installation>` directory |
+| `MAINTENANCE_FILE` | Optional private owned regular-file marker suppressing GUI restarts |
+
+The extra config is read after `/etc/watchtower-warden.conf` and
+`~/.config/watchtower-warden/warden.conf`. Generated config must not contain
+`STATION_TOKEN`: Watchtower still enrolls and refreshes the token in its existing
+legacy config, and Warden rereads that file. The Qt preferences file
+`~/Library/Preferences/com.cilex-vision.Watchtower.plist` remains authoritative
+for the saved backend. Darwin reads Qt's native `auth.baseUrl` key, with the
+older `auth/baseUrl` form accepted only when the native key is absent. An empty
+native value stays empty. No preference, credential or session migration occurs.
+When no `WARDEN_DIR` is supplied, an existing legacy
+`~/.local/share/watchtower-warden` remains in use; otherwise Darwin defaults to
+Application Support. Linux and Windows defaults are unchanged.
+
+New unenrolled Darwin stations persist a SHA-256-derived IOPlatformUUID identity
+under `~/Library/Application Support/CilexWatchtower/Identity`. Raw hardware UUIDs
+are not logged or stored. A legacy enrolled station with a token and no new
+identity record retains its old empty machine-key contract, allowing backend
+host-based enrollment identity to remain intact. The new installer must never
+copy another station's credentials or identity state.
+
+Darwin Warden stays in the foreground and keeps the launchd process group. Its
+LaunchAgent must set `AbandonProcessGroup=false`; this is supplemented by a pipe
+guardian and exact native process-creation records, not assumed sufficient by
+itself. The tiny compiled gate waits before `execv`. Warden releases it only
+after the guardian has durably recorded PID, UID, creation time, executable and
+session. Parent death before that point closes the gate; afterward pipe EOF
+instructs the guardian to clean the recorded process tree. The app's parent
+remains Warden after `execv`. If the guardian fails, Warden stops its child and
+exits unsuccessfully for launchd recovery. A new Warden refuses to spawn while
+a previous owner or cleanup guardian still lives. No global process-name kill
+is used. The lock includes installation ID, account and session.
+
+The guardian also records observed descendants that have entered a separate
+session. Arbitrary helpers that double-fork and detach entirely between the
+0.5-second observations are **not proven contained**. This limitation must not
+be presented as complete process containment or production acceptance; test the
+actual bundled multimedia/export helpers as part of the final artifact's
+runtime acceptance.
+
+The app watchdog measures observed flight-recorder changes with a monotonic
+clock, including the case where the log never appears. Wake, large scheduling
+gaps and wall-clock jumps grant a new grace interval. This behavior has injected
+clock tests; it does not establish real sleep/wake acceptance. Child-failure
+backoff remains 5, 15, 60, 60 seconds for short-lived failures, resetting to one
+second after 120 seconds of operation. Guard detection polls once per second;
+cleanup allows 5 seconds for TERM and 2 seconds for KILL. launchd's configured
+throttle and application startup time must be added to the recovery budget.
+The initial guardian handshake allows 30 seconds for cold frozen-runtime startup;
+later track/cleanup acknowledgements remain bounded to 10 seconds. A failed
+initial handshake closes the pipe and reaps the exact guardian before returning
+failure. No application is released before its guardian has acknowledged it.
+Registration does not establish startup verification.
+
+For a recorded process whose native identity is temporarily unavailable, Warden
+retries for at most 0.5 seconds before the existing bounded zombie-status check.
+A persistently unreadable live process remains a cleanup failure; it is never
+silently considered gone or signalled using only its PID. Explicit supervisor
+shutdown and a private maintenance marker take precedence when a child's exit
+races the next poll. Closing the GUI normally retains the existing kiosk restart
+policy; its clean exit and operator-quit marker are not crash evidence.
+
+CPU uses Mach aggregate tick deltas. Memory is an explicitly approximate used
+percentage (`physical - free - inactive`), not Activity Monitor memory pressure.
+Unavailable measurements remain null. macOS crash diagnostics remain under the
+system's DiagnosticReports policy; Warden bundles its existing app markers and
+logs without promising a core dump or changing crash/security settings.
+
+Inherited Qt, QML, DYLD, GStreamer and Python overrides are removed from the
+child environment. Bundled GStreamer plugins/scanner and FFmpeg are selected
+from the app, with the registry under the intended user's Library/Caches.
+Explicit `APP_ENV` remains a deliberate configuration override. Warden runtime
+logs rotate at 5 MiB with three backups. LaunchAgent diagnostic logs and each
+app-console capture are bounded with a 5 MiB retained tail; old console tails
+are pruned along with the five retained console captures.
+
+Run isolated native tests on a designated Mac with developer tools:
+
+```sh
+/usr/bin/python3 tools/tests/warden-darwin.py
+/usr/bin/python3 tools/tests/warden-app-version.py
+# Reuse the final packaged binaries for the process tests:
+CILEX_TEST_WARDEN_EXECUTABLE="$APP/Contents/Resources/warden/cilex-warden" \
+CILEX_TEST_SPAWN_GATE="$APP/Contents/Resources/warden/cilex-spawn-gate" \
+  /usr/bin/python3 tools/tests/warden-darwin.py
+```
+
+These tests compile only temporary fixture children and do not register launchd
+jobs, contact a backend, or use the real Watchtower application. Build-host
+Python/compiler use is not a runtime-target dependency claim. Native API
+references: [Apple launchd guidance](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html),
+[Apple launchd.plist manual](https://github.com/apple-oss-distributions/launchd/blob/main/man/launchd.plist.5),
+[Apple libproc structures](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/proc_info.h).

@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-13T22:55:48Z",
+  "candidate": "artifact-readiness-20261013T224150Z",
+  "distribution": "development",
+  "security": {
+    "signed": false,
+    "notarized": false,
+    "team_identifier": null,
+    "ad_hoc": true
+  },
+  "source": {
+    "repository": "https://github.com/romayankin/cilex-watchtower.git",
+    "base_commit": "199a8998c4a4b20d8ebffdec87b5bc053adb473b",
+    "uncommitted": true,
+    "acquisition": "local-development-snapshot",
+    "tree_sha256": "2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019",
+    "tag": null,
+    "changed_files": {
+      "src/models/FlightRecorder.cpp": "44cf8410336a4ff0d31d6a89309c8420f16376806fa1cb9176af609bcc70573e",
+      "src/models/MemTelemetry.cpp": "3a558642d3ac36e916d2c940000190f5921ca72afbb40ecf40a7fb8a8c71b8db",
+      "src/models/RtspVideoSource.cpp": "3d78a47e02f866b045b3275cb5b0a39447f311a6cb30fc6da87f0d9e224e3aee",
+      "src/models/RtspVideoSource.h": "35deed978d713d81b10084947f2ecfb923a47c7412ca53a2ee93864ccd457efa",
+      "warden/README.md": "fe5d77a9e33809e9dec14dcfe97e270a923d5dffd8c04b1d5076dfc76fa41829",
+      "warden/darwin_spawn_gate.c": "1b29e6f1554a3ec7227a041b52c31cefc364b09df11d791a1b99059637d19701",
+      "warden/warden.py": "ef61aa77a8b6c258b0bc8146a449fca9ed1ed930ac11c778157e18e418a0e233",
+      "warden/warden_darwin.py": "f7d610bfc22d167d06f5a4fa480b099d7190e19b724e6d427ccc26a96665568c"
+    }
+  },
+  "helpers": {
+    "version": "1.0.0",
+    "tree_sha256": "01120869f0afa3603c04d2cc95a7733158110eea5b0841c57d9afe3db15e0980",
+    "files": [
+      {
+        "path": "ARTIFACTS.md",
+        "sha256": "3b9c300afd3e57867a8855907ec07d6920d680f99b9ffd45ffd4a61f621ddd5a"
+      },
+      {
+        "path": "LICENSE-COVERAGE.md",
+        "sha256": "e1d8ada38f5f98084b40d003de497913fa9617a2a4cf1cfe7bf90a9df0069dde"
+      },
+      {
+        "path": "README.md",
+        "sha256": "ae3bedfe0f473d4b077bc23e13688470066a6230a8e9d93370ef047fd326cf78"
+      },
+      {
+        "path": "VALIDATION.json",
+        "sha256": "98043fd716fef31c0ab5eed2faf12eabeb07190e647f7af7d38d78890bce8825"
+      },
+      {
+        "path": "bootstrap-check.js",
+        "sha256": "6e9144572c8ade2e950297c85edd89d3b44cd40daae1f5bd4094528227ccdd6b"
+      },
+      {
+        "path": "build.py",
+        "sha256": "c21772aeed85af6c304209baf7b6c2e85906eaf5f976de02cebfe623e2e48aee"
+      },
+      {
+        "path": "closure.py",
+        "sha256": "325a9440512c1f2ab51a2caebe926701fdad8310004bb9e6f90b17970c303f04"
+      },
+      {
+        "path": "common.py",
+        "sha256": "54bd79bcef6c6b927791a6532f919e7fd4504355940b308002c2da065119a5a7"
+      },
+      {
+        "path": "dependencies.py",
+        "sha256": "248bc9a55d99d5ee676b459dfc15c17ef296577f0039f7e4924936cf21026030"
+      },
+      {
+        "path": "deploy-watchtower.sh",
+        "sha256": "3f9b3c9643837f78dcc4746d312d52a947d6e918e51213b86ca8e77123eb2041"
+      },
+      {
+        "path": "deploy.py",
+        "sha256": "5d54b27f32122f9a7513fd7fd725480aef5305ebe56affaa5d1e21abb9a4f7d7"
+      },
+      {
+        "path": "git-askpass.sh",
+        "sha256": "964f3c07c89ef31f30d522fa8126a06e77b24963cbb63d10997918c78705fef8"
+      },
+      {
+        "path": "i18n/en.json",
+        "sha256": "48d0966018cccba49cdee335e423050a4bafc53fd9474f01107596104ef4cf2b"
+      },
+      {
+        "path": "i18n/ru.json",
+        "sha256": "543ca0de7f8e0c788f40098597f8a28af1b09a1343ceeb64c09044a4a98d4f6e"
+      },
+      {
+        "path": "install.py",
+        "sha256": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea"
+      },
+      {
+        "path": "license_coverage.py",
+        "sha256": "847a1029e4409338f90e423df6d964cdb245e0de3649645ee925ec1d116ffe51"
+      },
+      {
+        "path": "manifests/dependencies.json",
+        "sha256": "4d42d6d3c93b4a6cd47f6bc31115e8c85b8cebf5b12051ab6686cc2a717ac68b"
+      },
+      {
+        "path": "manifests/license-coverage.schema.json",
+        "sha256": "718f499eea97535bcf5396714a9b974f9e946ca568e868ec82fdd633bcb7b009"
+      },
+      {
+        "path": "manifests/requirements.json",
+        "sha256": "51771be22c5be8600926757d0f6490554f44e00ff920fe41b066056512797be9"
+      },
+      {
+        "path": "manifests/result.schema.json",
+        "sha256": "dfaff69969d329c256d533d567399c67c1fb8e1c7d22921ba3481fce7a9916e9"
+      },
+      {
+        "path": "remote.py",
+        "sha256": "cb18e719b89684ea113824163e3b76230ded23c28d44987446a72b653bcef216"
+      },
+      {
+        "path": "runtime.py",
+        "sha256": "f702a7216c14c0bbd9ffb7994cd9b30cad5b042a5fc25b70a26b402ecf9258cb"
+      },
+      {
+        "path": "source.py",
+        "sha256": "57b9d3353ae34b903bbf22c59d3ceb4b5be89c1d8d9fe1d9c92ecb27dbe1b5d0"
+      }
+    ]
+  },
+  "version": "1.1.781",
+  "warden_version": "1.5.0",
+  "app_minimum_macos": "26.0.0",
+  "bootstrap_minimum_macos": "14.4.0",
+  "license_review": "unverified",
+  "runtime_components": 327,
+  "files": [
+    {
+      "kind": "installer",
+      "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-readiness/CilexWatchtower-1.1.781-arm64-development.dmg",
+      "sha256": "f866c27b0a9271f807cf89b6d82af75f403e1205ec9b9e032ba9a837221558a9",
+      "bytes": 120542917
+    },
+    {
+      "kind": "bootstrap",
+      "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-readiness/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+      "sha256": "a083d35a184c0af994c8501e9416cd9c09a578a61ad35a301b8537ccc0852ee4",
+      "bytes": 20596934
+    }
+  ],
+  "package_archive": {
+    "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-readiness-20261013T224150Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+    "sha256": "95f0e75f2567d4c890829e4c9f59ad210f9dc50654b95c0fd6706606037c2350"
+  },
+  "verified": {
+    "native_loopback_checks": 23,
+    "generic_helper_suite": {
+      "total": 266,
+      "passed": 265,
+      "skipped": 1
+    },
+    "packaged_warden_checks": 31,
+    "packaged_warden_recovery_seconds": 9.842,
+    "frozen_cli_and_receipt": {
+      "schema_version": 1,
+      "cases": [
+        {
+          "name": "en-check",
+          "exit_code": 21,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          },
+          "valid_json": true,
+          "stderr_bytes": 110,
+          "finding_ids": [
+            "runtime.capacity-unmeasured"
+          ]
+        },
+        {
+          "name": "ru-dry-run",
+          "exit_code": 0,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          },
+          "valid_json": true,
+          "stderr_bytes": 141,
+          "finding_ids": [
+            "runtime.capacity-unmeasured"
+          ]
+        },
+        {
+          "name": "large-receipt-verify",
+          "exit_code": 21,
+          "states": {
+            "installation": "FilesVerified",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "NotRequired",
+            "cleanup": "NotRequired"
+          },
+          "valid_json": true,
+          "stderr_bytes": 110,
+          "finding_ids": [
+            "APP_MISSING"
+          ]
+        },
+        {
+          "name": "bootstrap-noargs",
+          "exit_code": 21,
+          "valid_json": true,
+          "states": {
+            "installation": "AssessmentOnly",
+            "runtime_health": "Unverified",
+            "gui_video": "Unverified",
+            "backend": "Unverified",
+            "security_admission": "Unverified",
+            "recovery": "Unverified",
+            "startup": "StartupUnverified",
+            "rollback": "Unverified",
+            "cleanup": "Unverified"
+          }
+        }
+      ],
+      "installed_receipt": {
+        "bytes": 1562588,
+        "unchanged": true,
+        "sha256": "a10ab889a1a6e4a44833169ed3001fc44182aaa77d650d9520a78d44f994ef5b"
+      },
+      "unicode_dry_run_target_created": false,
+      "installed_application_starts": false,
+      "strict_signature_checks": "passed",
+      "final_package_inventory": "unchanged"
+    },
+    "signatures": "strict-ad-hoc",
+    "dmg": "hdiutil-verified"
+  },
+  "unverified": [
+    "production-signing/notarization",
+    "complete-license-review",
+    "clean-Mac/offline installation",
+    "oldest claimed OS",
+    "real-application150-second per-source observation and recovery",
+    "unattended reboot/cold start",
+    "remote end-to-end deployment"
+  ],
+  "previous_candidate": "artifact-candidate-20261013T204824Z retained unchanged"
+}

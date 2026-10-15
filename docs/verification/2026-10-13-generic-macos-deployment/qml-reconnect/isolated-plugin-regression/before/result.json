@@ -1,0 +1,1 @@
+{"elapsed_ms":20008,"first_blue_ms":-1,"first_red_ms":258,"initial_red_frames":28,"last_red_ms":2055,"passed":false,"playing_transitions":[{"elapsed_ms":269,"playing":true},{"elapsed_ms":4564,"playing":false}],"qml_stall_detected_ms":4564,"reconnect_runs":0,"reconnected_blue_frames":0,"recovery_from_last_frame_ms":-1,"unexpected_pixels":0,"watchdog_rebuilds":0}

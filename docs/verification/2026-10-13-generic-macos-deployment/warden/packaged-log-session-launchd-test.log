@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "test": "isolated-darwin-launchd",
+  "status": "passed",
+  "configuration": {
+    "os": "25.6.0",
+    "architecture": "arm64",
+    "python": "3.9.6"
+  },
+  "production_watchtower_exercised": false,
+  "startup_after_login": "unverified",
+  "reboot": "unverified",
+  "clean_environment_launcher": true,
+  "direct_parentage": true,
+  "observed_detached_descendant_cleanup": true,
+  "warden_sigkill_recovery_seconds": 9.903,
+  "no_overlap": true,
+  "before": {
+    "child": {
+      "pid": 55298,
+      "ppid": 55293,
+      "uid": 501,
+      "birth": [
+        1791932833,
+        260967
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 r9b462q2/fixture-child",
+      "session": 1
+    },
+    "warden": {
+      "pid": 55293,
+      "ppid": 1,
+      "uid": 501,
+      "birth": [
+        1791932832,
+        845239
+      ],
+      "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/build/package/watchtower.app/Contents/Resources/warden/cilex-warden",
+      "session": 1
+    },
+    "descendant": {
+      "pid": 55299,
+      "ppid": 55298,
+      "uid": 501,
+      "birth": [
+        1791932833,
+        892514
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 r9b462q2/fixture-child",
+      "session": 55299
+    },
+    "guard": {
+      "birth": [
+        1791932833,
+        163593
+      ],
+      "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/build/package/watchtower.app/Contents/Resources/warden/cilex-warden",
+      "pid": 55296,
+      "ppid": 55293,
+      "session": 1,
+      "uid": 501
+    }
+  },
+  "after": {
+    "child": {
+      "pid": 55440,
+      "ppid": 55438,
+      "uid": 501,
+      "birth": [
+        1791932843,
+        717450
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 r9b462q2/fixture-child",
+      "session": 1
+    },
+    "warden": {
+      "pid": 55438,
+      "ppid": 1,
+      "uid": 501,
+      "birth": [
+        1791932843,
+        437777
+      ],
+      "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/build/package/watchtower.app/Contents/Resources/warden/cilex-warden",
+      "session": 1
+    },
+    "descendant": {
+      "pid": 55441,
+      "ppid": 55440,
+      "uid": 501,
+      "birth": [
+        1791932843,
+        723151
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 r9b462q2/fixture-child",
+      "session": 55441
+    },
+    "guard": {
+      "birth": [
+        1791932843,
+        634140
+      ],
+      "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/build/package/watchtower.app/Contents/Resources/warden/cilex-warden",
+      "pid": 55439,
+      "ppid": 55438,
+      "session": 1,
+      "uid": 501
+    }
+  },
+  "cleanup_verified": true
+}

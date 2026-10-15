@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "test": "actual-rebuilt-warden-intentional-stop-classification",
+  "warden_pid": 43201,
+  "warden_birth": [
+    1791932198,
+    323111
+  ],
+  "events_after_warden_birth": [
+    {
+      "event": "application_spawn",
+      "epoch": 1791932199.847
+    },
+    {
+      "event": "intentional_supervisor_stop",
+      "epoch": 1791932380.713
+    },
+    {
+      "event": "intentional_stop_heartbeat_sent",
+      "epoch": 1791932380.753
+    }
+  ],
+  "intentional_stop_classified": true,
+  "intentional_stop_heartbeat_sent": true,
+  "new_runtime_cleanup_failure": false,
+  "launchd_error_log_unchanged_since_original_failure": true,
+  "error_counts": {
+    "traceback_count": 3,
+    "identity_permission_errors": 2,
+    "invalid_guard_acknowledgements": 1
+  },
+  "previous_error_counts": {
+    "traceback_count": 3,
+    "identity_permission_errors": 2,
+    "invalid_guard_acknowledgements": 1
+  },
+  "raw_logs_saved": false,
+  "observer_started_or_signalled_processes": false,
+  "root_stop_evidence": "stop-after-log-reader-failure.json"
+}

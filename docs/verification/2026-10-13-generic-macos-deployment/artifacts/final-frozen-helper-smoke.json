@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "watchtower.app": {
+      "CFBundleIdentifier": "com.cilexvision.watchtower",
+      "CFBundleVersion": "1.1.781",
+      "CFBundleShortVersionString": "1.1.781",
+      "CFBundleExecutable": "watchtower",
+      "LSMinimumSystemVersion": "26.0.0"
+    },
+    "Setup.app": {
+      "CFBundleIdentifier": "com.cilexvision.watchtower.setup",
+      "CFBundleVersion": "1.0.0",
+      "CFBundleShortVersionString": "1.0.0",
+      "CFBundleExecutable": "cilex-setup",
+      "LSMinimumSystemVersion": "14.4.0"
+    }
+  },
+  "manifest_inventory": "passed",
+  "components": 327,
+  "helper_provenance": "883def827ce32d9fe219638a6460a519708d1b508b359194dcdfa2200ca287a4",
+  "cases": [
+    {
+      "name": "en-check",
+      "exit_code": 21,
+      "valid_json": true,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "raw_exception": false
+    },
+    {
+      "name": "ru-dry-run",
+      "exit_code": 21,
+      "valid_json": true,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "raw_exception": false
+    },
+    {
+      "name": "bootstrap-noargs",
+      "exit_code": 21,
+      "valid_json": true,
+      "states": {
+        "installation": "AssessmentOnly",
+        "runtime_health": "Unverified",
+        "gui_video": "Unverified",
+        "backend": "Unverified",
+        "security_admission": "Unverified",
+        "recovery": "Unverified",
+        "startup": "StartupUnverified",
+        "rollback": "Unverified",
+        "cleanup": "Unverified"
+      },
+      "raw_exception": false
+    }
+  ],
+  "read_only_custom_target_created": false,
+  "maximum_build_command_log_bytes": 740214,
+  "warden_sha256": "d10d7cbd6233a8a1522fb6347b931a75761b453f6cb2f9441e5125703b1e7a74"
+}

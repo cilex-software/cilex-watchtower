@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "source_base_commit": "199a8998c4a4b20d8ebffdec87b5bc053adb473b",
+  "dirty_task_sources": true,
+  "macos": "26.6.2",
+  "macos_build": "25G83",
+  "architecture": "arm64",
+  "python": "system /usr/bin/python3 3.9.6",
+  "source_sha256": {
+    "warden/warden.py": "2cca83672c1f80e4f1d2a3490f5277c943d5cc27680d0a5dd8c50afc0e66b984",
+    "warden/warden_darwin.py": "3c9d91fc81a3310650cbe0cca5bceb94644a7db76bf7cc5bb06cb655a3905f72",
+    "warden/darwin_spawn_gate.c": "1b29e6f1554a3ec7227a041b52c31cefc364b09df11d791a1b99059637d19701",
+    "tools/tests/warden-darwin.py": "1813b02b1c351326813eb85ed0f523822678958de5e345115ee4b34da7385e70",
+    "tools/tests/warden-darwin-launchd.py": "8808a6e34a1ad8ffc2552a9e25872f5cd641279a0a47196f70989570abe6844c"
+  },
+  "native_suite": {
+    "passed": 22,
+    "failed": 0,
+    "log": "native-final-configurable.log"
+  },
+  "existing_app_version_regression": {
+    "passed": 5,
+    "failed": 0,
+    "log": "app-version.log"
+  },
+  "launchd_test": "launchd-result.json",
+  "failed_run_retained": "native-system-python.log",
+  "production_application_video": "unverified",
+  "packaged_runtime": "unverified",
+  "oldest_supported_macos": "unverified",
+  "real_sleep_wake": "unverified",
+  "reboot": "unverified"
+}

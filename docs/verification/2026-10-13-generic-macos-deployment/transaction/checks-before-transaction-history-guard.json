@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-13T20:31:42.986561+00:00",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "3.13.0",
+  "tests": [
+    {
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "packaging/macos/generic/tests",
+        "-p",
+        "test_install.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log": "docs/verification/2026-10-13-generic-macos-deployment/transaction/test_install.py.log"
+    },
+    {
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "packaging/macos/generic/tests",
+        "-p",
+        "test_remote.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log": "docs/verification/2026-10-13-generic-macos-deployment/transaction/test_remote.py.log"
+    },
+    {
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "packaging/macos/generic/tests",
+        "-p",
+        "test_dependencies.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log": "docs/verification/2026-10-13-generic-macos-deployment/transaction/test_dependencies.py.log"
+    },
+    {
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "packaging/macos/generic/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log": "docs/verification/2026-10-13-generic-macos-deployment/transaction/all-generic.log"
+    }
+  ],
+  "counts": {
+    "installation_tests": 65,
+    "remote_fixtures": 18,
+    "dependency_tests": 23,
+    "all_generic_tests": 177
+  },
+  "native_checks": [
+    "Darwin libproc read-only process snapshot",
+    "Darwin statfs64 local filesystem flags",
+    "Darwin quarantine attribute roundtrip and propagation on owned temporary archive",
+    "CoreFoundation preference cache domain replacement and key removal on uniquely named owned fixture domain"
+  ],
+  "live_launchd_installation": "unverified_by_this_workstream",
+  "remote_target": "unverified",
+  "notes": [
+    "The installation and remote suites mock launchctl, Launch Services registration, SSH/SFTP and application startup.",
+    "No remote access, elevation, application stops, reboot, security-policy changes or quarantine removal were performed by this workstream.",
+    "One closure test skips constructing case-distinct source files on this case-insensitive APFS volume; archive collision rejection is exercised by installer fixtures. See all-generic.log.",
+    "Offline production security admission, machine scope and protected alternate-administrator elevation remain explicitly blocked."
+  ]
+}

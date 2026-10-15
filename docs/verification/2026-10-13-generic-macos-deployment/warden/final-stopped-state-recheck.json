@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "test": "final-stopped-state-read-only-recheck",
+  "observed_epoch": 1791938791.527369,
+  "installation_id": "ae8aa79f5130f2402694ab2f",
+  "desktop_uid": 501,
+  "job": {
+    "loaded": false,
+    "disabled": false,
+    "disabled_explicit": false,
+    "pid": null,
+    "gui_session": true
+  },
+  "selected_process_count": 0,
+  "recorded_live_process_count": 0,
+  "guardian_record_present": true,
+  "events_near_and_after_final_stop": [
+    {
+      "event": "intentional_supervisor_stop",
+      "epoch": 1791938423.115
+    },
+    {
+      "event": "intentional_stop_heartbeat_sent",
+      "epoch": 1791938423.186
+    }
+  ],
+  "new_runtime_cleanup_failure_observed": false,
+  "launchd_stderr_bytes": 1241,
+  "launchd_stderr_sha256": "00162a13679a8dc6220e6a34db341ece1d2b9e44b189dbe63693a589a3386b5e",
+  "launchd_stderr_unchanged_since_original_failure": true,
+  "root_final_stop_evidence_sha256": "798d498556a1170a843f99ace81492070a41ededdc67e13f072189dfa2dc3de5",
+  "observer_lifecycle_actions": false,
+  "gui_app_requested_by_observer": false,
+  "passed": true,
+  "strict_record_identity_checks": [
+    {
+      "pid": 7593,
+      "same_birth_still_exists": false
+    },
+    {
+      "pid": 7644,
+      "same_birth_still_exists": false
+    }
+  ]
+}

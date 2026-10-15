@@ -10,6 +10,8 @@
 #include <QPointer>
 #include <QDebug>
 #include <QUrl>
+#include <QCryptographicHash>
+#include <QJsonObject>
 #include <cstring>
 #include <thread>
 #include <mutex>
@@ -383,6 +385,11 @@ void RtspVideoSource::setUrl(const QString &u)
     if (m_url == u)
         return;
     m_url = u;
+    const QByteArray identity = QUrl(u).adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery |
+                                                QUrl::RemoveFragment).toEncoded();
+    m_readinessId = QString::fromLatin1(QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex());
+    m_sinkFrames = 0;
+    m_lastSinkFrameMs = 0;
     emit urlChanged();
     rebuild();
 }
@@ -561,6 +568,29 @@ int RtspVideoSource::erroredCount()
     for (RtspVideoSource *s : aliveSet())
         if (s->m_errored) ++n;
     return n;
+}
+
+QJsonArray RtspVideoSource::videoReadiness()
+{
+    std::lock_guard<std::mutex> lock(aliveMutex());
+    const qint64 now = steadyMs();
+    QJsonArray sources;
+    for (const RtspVideoSource *s : aliveSet()) {
+        // Include pending and stalled sources: omitting them would let a smaller
+        // healthy subset masquerade as a fully advancing wall.
+        if (!s->m_active || s->m_warmOnly || s->m_url.isEmpty() || !s->m_sink ||
+            (s->m_pipeline && s->m_pipelineWarmOnly))
+            continue;
+        sources.append(QJsonObject{
+            {QStringLiteral("id"), s->m_readinessId},
+            {QStringLiteral("frames"), s->m_sinkFrames},
+            {QStringLiteral("age_ms"), s->m_lastSinkFrameMs
+                ? QJsonValue(now - s->m_lastSinkFrameMs) : QJsonValue(QJsonValue::Null)},
+            {QStringLiteral("decoder"), s->m_pipeline && s->m_decoderBound.load()},
+            {QStringLiteral("error"), s->m_errored}
+        });
+    }
+    return sources;
 }
 
 void RtspVideoSource::teardown()
@@ -1014,8 +1044,11 @@ void RtspVideoSource::deliver()
     }
     if (!frame.isValid())
         return;
-    if (m_sink)
+    if (m_sink) {
         m_sink->setVideoFrame(frame);
+        ++m_sinkFrames;
+        m_lastSinkFrameMs = steadyMs();
+    }
     m_lastFrame = frame;   // shared buffer, no copy — rides along if this pipeline gets parked
     setErrored(false);
     setPlaying(true);

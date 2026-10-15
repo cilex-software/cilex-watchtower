@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "observed_at": "2026-10-14T00:46:21.778166+00:00",
+  "task_installer_images_ejected": 3,
+  "task_installer_images_still_mounted": 0,
+  "other_disk_images_untouched": true,
+  "mounted_installer_executables": "NoneReportedByNativeTestOrchestrator",
+  "private_evidence": {
+    "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/final-disk-image-cleanup.json",
+    "sha256": "ad357795e16bafcd186553727fbc4262de66b8778e3dc278c8a75e134ddb5b77"
+  },
+  "scope": "Only the three task-owned installer disk images were ejected. Unrelated simulator disk image left untouched. Application rollback/uninstall backups intentionally retained."
+}

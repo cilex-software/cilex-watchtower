@@ -1,0 +1,38 @@
+test_age_tracks_observed_changes_not_epoch (__main__.ClockTests) ... ok
+test_clock_jump_grants_fresh_grace (__main__.ClockTests) ... ok
+test_missing_log_does_not_disable_watchdog (__main__.ClockTests) ... ok
+test_scheduler_pause_grants_grace (__main__.ClockTests) ... ok
+test_wake_with_paused_monotonic_grants_grace (__main__.ClockTests) ... ok
+test_child_environment_uses_packaged_plugins_and_private_cache (__main__.ConfigurationTests) ... ok
+test_enrollment_token_refresh_preserves_configuration (__main__.ConfigurationTests) ... ok
+test_native_paths_and_legacy_spool_preservation (__main__.ConfigurationTests) ... ok
+test_native_qt_dotted_backend_key_and_slash_compatibility (__main__.ConfigurationTests) ... ok
+test_bounded_log_retains_tail_and_rejects_links (__main__.IdentityTests) ... ok
+test_persisted_machine_identity_and_legacy_preservation (__main__.IdentityTests) ... ok
+test_persistent_live_unreadability_still_fails_closed (__main__.IdentityTests) ... ok
+test_pid_reuse_and_path_uid_session_mismatch (__main__.IdentityTests) ... ok
+test_private_records_reject_symlink_and_world_readable (__main__.IdentityTests) ... ok
+test_transient_native_identity_read_recovers_without_guess_or_signal (__main__.IdentityTests) ... ok
+test_unreadable_enumeration_has_no_wait_or_exit_claim_for_cleanup (__main__.IdentityTests) ... ok
+test_unreadable_identity_disappearance_is_confirmed (__main__.IdentityTests) ... ok
+test_direct_parent_and_cleanup (__main__.NativeTests) ... ok
+test_gate_eof_never_executes (__main__.NativeTests) ... ok
+test_guard_failure_cleanup_uses_retained_identity (__main__.NativeTests) ... ok
+test_guard_refuses_cross_installation_reuse (__main__.NativeTests) ... ok
+test_guard_startup_timeout_closes_and_reaps_child (__main__.NativeTests) ... ok
+test_live_owner_prevents_second_guard (__main__.NativeTests) ... ok
+test_native_identity_and_metrics (__main__.NativeTests) ... ok
+test_parent_sigkill_reaps_child_without_launchd (__main__.NativeTests) ... ok
+test_repeated_child_exit_during_guard_cleanup (__main__.NativeTests) ... ok
+test_runtime_status_uses_native_dotted_backend (__main__.NativeTests) ... ok
+test_warden_detects_guard_failure_and_exits_after_cleanup (__main__.NativeTests) ... ok
+test_warden_restart_duplicate_refusal_and_maintenance (__main__.NativeTests) ... ok
+test_wrong_process_generation_is_never_signalled (__main__.NativeTests) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 32.321s
+
+OK
+evidence: parent SIGKILL cleanup (including observed detached descendant) 0.133s
+evidence: Warden detects guard failure and cleans child 1.640s
+evidence: isolated Watchtower failure recovery 5.140s

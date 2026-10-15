@@ -44,8 +44,14 @@ os.umask(0o077)
 from pathlib import Path
 
 WIN = sys.platform == "win32"
+DARWIN = sys.platform == "darwin"
+if DARWIN:
+    # Also works when tests load warden.py by absolute importlib path. PyInstaller
+    # collects this explicit import beside its entry point.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import warden_darwin as darwin
 
-WARDEN_VERSION = "1.4.10"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate · 1.4.9: a changed STATION_TOKEN unfreezes uploads, so a re-provisioned station actually resumes · 1.4.10: app_version no longer caches a MISS forever (an early read made the field permanently null)
+WARDEN_VERSION = "1.5.0"          # 1.1: heartbeat (CW-19) · 1.2: Windows leg (CW-16) · 1.3: cpu_pct/mem_pct · 1.3.1: deeplink_ok · 1.3.2: heartbeat restored (1.3.1 never beat) · 1.4.0: restarts_24h · 1.4.1: uplink{local_addr,via} · 1.4.2: subsystems + app_last_beat_at · 1.4.3: backend from the app, no baked address · 1.4.4: re-reads STATION_TOKEN per beat (the app can enrol a station without a restart) · 1.4.5: single-instance lock (one supervisor per machine) · 1.4.6: app_version on the beat, read from the app's own flight-recorder banner · 1.4.7: WT_WARDEN_TOKEN tells 'rejected' apart from 'set' (presence was never validity) · 1.4.8: WT_MACHINE_KEY, so enrolment upserts the server's existing row instead of forking a duplicate · 1.4.9: a changed STATION_TOKEN unfreezes uploads, so a re-provisioned station actually resumes · 1.4.10: app_version no longer caches a MISS forever (an early read made the field permanently null)
 SCHEMA = 1
 
 # ---------------------------------------------------------------- config
@@ -60,6 +66,11 @@ DEFAULTS = {
     "BACKEND_URL": "",
     "STATION_TOKEN": "",                # X-Cilex-Station-Token (TOFU bootstrap secret)
     "APP_CMD": "",                      # e.g. /home/user/projects/cilex-watchtower/run.sh
+    "LOG_DIR": "",                     # Darwin private rotated diagnostics
+    "APP_WORKING_DIR": "",             # literal absolute path; no shell quoting
+    "INSTALLATION_ID": "",             # Darwin install/account lock and process records
+    "SPAWN_GATE": "",                  # packaged Darwin cilex-spawn-gate executable
+    "MAINTENANCE_FILE": "",             # optional private marker; suppress GUI restarts
     "APP_ENV": "",                      # extra env, comma-separated K=V
     "DATA_DIR": "",                     # app data dir (flightrec/, crash/); auto if empty
     "WARDEN_DIR": "",                   # spool home; default ~/.local/share/watchtower-warden
@@ -101,7 +112,12 @@ def app_saved_backend():
             import plistlib
             pl = Path.home() / "Library/Preferences/com.cilex-vision.Watchtower.plist"
             with open(pl, "rb") as fh:
-                return (plistlib.load(fh).get("auth/baseUrl") or "").strip() or None
+                values = plistlib.load(fh)
+            # Qt's native macOS plist encodes the auth/ group as a dotted key.
+            # Keep compatibility with existing slash-key fixtures/migrations;
+            # an explicitly empty native key must not revive a stale fallback.
+            value = values.get("auth.baseUrl") if "auth.baseUrl" in values else values.get("auth/baseUrl")
+            return value.strip() or None if isinstance(value, str) else None
         # Linux/BSD: QSettings writes an INI. Scanned by hand rather than with configparser
         # because Qt escapes keys in ways configparser does not expect, and we want exactly
         # one value out of a file that also holds the operator's whole UI state.
@@ -118,10 +134,22 @@ def app_saved_backend():
     return None
 
 
+def config_paths():
+    paths = ["/etc/watchtower-warden.conf",
+             str(Path.home() / ".config/watchtower-warden/warden.conf")]
+    # Leave enrollment's legacy token path intact. Generated installation config
+    # sets paths only and MUST NOT shadow the live STATION_TOKEN line.
+    extra = os.environ.get("WT_WARDEN_CONFIG_FILE")
+    if extra:
+        if not Path(extra).is_absolute():
+            raise ValueError("WT_WARDEN_CONFIG_FILE must be absolute")
+        paths.append(extra)
+    return paths
+
+
 def load_config():
     cfg = dict(DEFAULTS)
-    for p in ("/etc/watchtower-warden.conf",
-              str(Path.home() / ".config/watchtower-warden/warden.conf")):
+    for p in config_paths():
         try:
             for line in Path(p).read_text(encoding="utf-8-sig").splitlines():
                 line = line.strip()
@@ -147,10 +175,14 @@ def load_config():
         # Must equal Qt's AppDataLocation for the app (flightrec/, crash/ live there):
         # %APPDATA%/Cilex Vision/Watchtower on Windows, XDG data dir on Linux.
         cfg["DATA_DIR"] = str(Path(os.environ["APPDATA"]) / "Cilex Vision/Watchtower") if WIN \
+            else str(Path.home() / "Library/Application Support/Cilex Vision/Watchtower") if DARWIN \
             else str(Path.home() / ".local/share/Cilex Vision/Watchtower")
     if not cfg["WARDEN_DIR"]:
+        legacy = Path.home() / ".local/share/watchtower-warden"
         cfg["WARDEN_DIR"] = str(Path(os.environ["LOCALAPPDATA"]) / "watchtower-warden") if WIN \
-            else str(Path.home() / ".local/share/watchtower-warden")
+            else str(legacy if legacy.exists() else Path.home() /
+                     "Library/Application Support/CilexWatchtower/Warden") if DARWIN \
+            else str(legacy)
     return cfg
 
 
@@ -193,7 +225,21 @@ def acquire_single_instance():
     """Take the supervisor lock. None on success; the holder's pid (or '?') if refused."""
     global _LOCK_FD
     W.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(W / "warden.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+    lock_name = "warden.lock"
+    flags = os.O_RDWR | os.O_CREAT
+    if DARWIN:
+        darwin.private_directory(W)
+        installation = CFG["INSTALLATION_ID"] or os.path.realpath(CFG["APP_CMD"])
+        scope = f"{installation}|{os.getuid()}|{os.getsid(0)}"
+        lock_name = "warden-" + hashlib.sha256(scope.encode()).hexdigest()[:24] + ".lock"
+        flags |= os.O_NOFOLLOW
+    fd = os.open(str(W / lock_name), flags, 0o600)
+    if DARWIN:
+        import stat
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            os.close(fd)
+            raise RuntimeError("Unsafe Warden lock ownership or permissions")
     try:
         if WIN:
             import msvcrt
@@ -237,8 +283,28 @@ def write_state(rd, st):
     os.replace(tmp, rd / "state.json")
 
 
+_NATIVE_LOGGER = None
+
+
 def log(msg):
-    print(f"[warden] {time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
+    global _NATIVE_LOGGER
+    if DARWIN and CFG["LOG_DIR"]:
+        if _NATIVE_LOGGER is None:
+            import logging
+            from logging.handlers import RotatingFileHandler
+            directory = Path(CFG["LOG_DIR"])
+            darwin.private_directory(directory)
+            logger = logging.getLogger("cilex-warden")
+            logger.setLevel(logging.INFO)
+            logger.propagate = False
+            handler = RotatingFileHandler(directory / "warden-runtime.log", maxBytes=5 * 1024 * 1024,
+                                          backupCount=3, encoding="utf-8")
+            handler.setFormatter(logging.Formatter("[warden] %(asctime)s %(message)s"))
+            logger.addHandler(handler)
+            _NATIVE_LOGGER = logger
+        _NATIVE_LOGGER.info(msg)
+    else:
+        print(f"[warden] {time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
 
 
 # A supervisor that declines to supervise must be the loudest line in its own log.
@@ -296,8 +362,7 @@ def refresh_station_token():
     APP_CMD or DATA_DIR under a running supervisor is a different and much riskier idea.
     """
     before = CFG["STATION_TOKEN"]
-    for p_ in ("/etc/watchtower-warden.conf",
-               str(Path.home() / ".config/watchtower-warden/warden.conf")):
+    for p_ in config_paths():
         try:
             for line in Path(p_).read_text(encoding="utf-8-sig").splitlines():
                 line = line.strip()
@@ -410,6 +475,10 @@ def machine_id_hash():
                 f"MachineGuid + station seed only (see reply letter §3a)")
         _MID_CACHE = identity_material(smbios, guid, _station_seed())
         return _MID_CACHE
+    if DARWIN:
+        identity_file = Path.home() / "Library/Application Support/CilexWatchtower/Identity/machine-key.json"
+        _MID_CACHE = darwin.native_machine_key(identity_file, legacy_enrolled=bool(CFG["STATION_TOKEN"]))
+        return _MID_CACHE
     for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
         try:
             mid = Path(p).read_text(encoding="utf-8-sig").strip()
@@ -430,7 +499,7 @@ def core_pattern_ok():
     Windows has no cores at all — always (False, "") per the contract letters
     (`cores_available:false`, empty pattern; minidump_written is the analogue).
     The WER belt-and-braces check lives in wer_localdumps_ok() instead."""
-    if WIN:
+    if WIN or DARWIN:
         return False, ""
     try:
         pat = Path("/proc/sys/kernel/core_pattern").read_text(encoding="utf-8-sig").strip()
@@ -466,6 +535,11 @@ def os_facts():
         facts["os"] = f"Windows {platform.release()}"
         facts["kernel"] = platform.version()
         facts["display"] = "windows"
+        return facts
+    if DARWIN:
+        facts["os"] = "macOS " + platform.mac_ver()[0]
+        facts["kernel"] = platform.release()
+        facts["display"] = "aqua"
         return facts
     try:
         for line in Path("/etc/os-release").read_text(encoding="utf-8-sig").splitlines():
@@ -784,6 +858,8 @@ def host_load():
                 if prev and t > prev[1]:
                     di, dt = i - prev[0], t - prev[1]
                     cpu = round(max(0.0, min(100.0, 100.0 * (dt - di) / dt)), 1)
+        elif DARWIN:
+            cpu, mem, HOSTLOAD["cpu_prev"] = darwin.host_load(HOSTLOAD["cpu_prev"])
         else:
             with open("/proc/stat") as f:
                 vals = [int(x) for x in f.readline().split()[1:8]]
@@ -1329,9 +1405,29 @@ class Supervisor:
         self.loop_last_put = 0
         self.backoff_idx = 0
         self.stopping = False
+        self.process_guard = None
+        self.activity_clock = darwin.ActivityClock() if DARWIN else None
 
     def app_env(self):
         env = dict(os.environ)
+        if DARWIN:
+            for key in list(env):
+                if key.startswith(("DYLD_", "LD_", "QT_", "QML_", "GST_", "PYTHON")):
+                    env.pop(key)
+            env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+            contents = Path(CFG["APP_CMD"]).parent.parent
+            plugins = contents / "PlugIns/gstreamer-1.0"
+            scanner = contents / "Helpers/gst-plugin-scanner"
+            if plugins.is_dir() and scanner.is_file():
+                env["GST_PLUGIN_SYSTEM_PATH_1_0"] = str(plugins)
+                env["GST_PLUGIN_PATH_1_0"] = ""
+                env["GST_PLUGIN_SCANNER_1_0"] = str(scanner)
+                cache = Path.home() / "Library/Caches/CilexWatchtower/GStreamer"
+                cache.mkdir(parents=True, exist_ok=True, mode=0o700)
+                registry_id = hashlib.sha256(CFG["INSTALLATION_ID"].encode()).hexdigest()[:24]
+                env["GST_REGISTRY_1_0"] = str(cache / (registry_id + ".bin"))
+            if (contents / "Helpers/ffmpeg").is_file():
+                env["PATH"] = str(contents / "Helpers") + ":" + env["PATH"]
         for kv in CFG["APP_ENV"].split(","):
             if "=" in kv:
                 k, v = kv.split("=", 1)
@@ -1380,21 +1476,38 @@ class Supervisor:
         CONSOLE.mkdir(parents=True, exist_ok=True)
         for old in sorted(CONSOLE.glob("console-*.log"))[:-5]:
             old.unlink(missing_ok=True)
+            if DARWIN:
+                old.with_name(old.name + ".previous").unlink(missing_ok=True)
         out = CONSOLE / f"console-{int(time.time())}.log"
-        # Detach the child from our signal fate: POSIX = new session; Windows =
-        # new process group (so a CTRL_BREAK aimed at Warden never hits the app).
+        # Windows/Linux retain their existing detached spawn behavior. Darwin
+        # uses the gate below and inherits launchd's group/session for cleanup.
         kw = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if WIN \
              else {"start_new_session": True}
-        with out.open("wb") as fh:       # Popen dups the fd; don't leak ours per spawn
-            proc = subprocess.Popen(
-                [CFG["APP_CMD"]], env=self.app_env(),
-                stdout=fh, stderr=subprocess.STDOUT, **kw)
+        self.console_path = out
+        with out.open("ab" if DARWIN else "wb") as fh:       # Popen dups the fd; don't leak ours per spawn
+            if DARWIN:
+                if not self.process_guard:
+                    raise RuntimeError("Darwin process guard is not running")
+                self.activity_clock = darwin.ActivityClock()
+                proc = self.process_guard.spawn(CFG["APP_CMD"], CFG["SPAWN_GATE"],
+                    self.app_env(), fh, CFG["APP_WORKING_DIR"] or None)
+            else:
+                proc = subprocess.Popen(
+                    [CFG["APP_CMD"]], env=self.app_env(),
+                    stdout=fh, stderr=subprocess.STDOUT, **kw)
         log(f"spawned watchtower pid={proc.pid} console={out.name}")
         HB.update(app_state="running", app_state_reason=None,
                   app_pid=proc.pid, app_spawned=time.time())
         return proc, out
 
     def flightrec_age(self):
+        if DARWIN:
+            try:
+                st = (FLTREC / "watchtower.log").stat()
+                signature = (st.st_ino, st.st_size, st.st_mtime_ns)
+            except OSError:
+                signature = None
+            return self.activity_clock.age(signature)
         try:
             return time.time() - (FLTREC / "watchtower.log").stat().st_mtime
         except OSError:
@@ -1406,20 +1519,36 @@ class Supervisor:
         hang_s = int(CFG["HANG_S"])
         while True:
             try:
-                proc.wait(timeout=10)
+                proc.wait(timeout=1 if DARWIN else 10)
+                if DARWIN:
+                    # SIGTERM/maintenance may race the child's exit. Preserve
+                    # explicit shutdown intent even when wait finishes before
+                    # the next polling branch; do not mint a crash report.
+                    if self.stopping:
+                        return "stopped"
+                    if self.maintenance_requested():
+                        return "maintenance"
                 return "died"
             except subprocess.TimeoutExpired:
                 # Housekeeping while healthy: a loop must close on QUIET TIME, not
                 # only on the next death — otherwise a crash hours later would fold
                 # into a stale loop report instead of minting its own.
                 self.loop_tick()
-            if self.stopping:
+            if DARWIN:
+                darwin.bound_log(self.console_path)
+            if DARWIN and not self.process_guard.healthy():
+                self.process_guard.cleanup()
+                raise RuntimeError("Darwin process guard failed; Watchtower stopped before supervisor recovery")
+            maintenance = self.maintenance_requested()
+            if self.stopping or maintenance:
                 proc.terminate()
                 try:
                     proc.wait(timeout=15)
                 except subprocess.TimeoutExpired:
                     proc.kill()
-                return "stopped"
+                if DARWIN:
+                    self.process_guard.cleanup()
+                return "maintenance" if maintenance and not self.stopping else "stopped"
             if hang_s > 0 and self.flightrec_age() > hang_s:
                 if WIN:
                     # No SIGABRT delivery on Windows — the in-app watchdog
@@ -1592,7 +1721,49 @@ class Supervisor:
         collect(rid, trigger, head, None, marker,
                 find_core(head.get("epoch", 0), head.get("pid")))
 
+    def maintenance_requested(self):
+        if not DARWIN or not CFG["MAINTENANCE_FILE"]:
+            return False
+        path = Path(CFG["MAINTENANCE_FILE"])
+        try:
+            import stat
+            st = path.lstat()
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+                raise RuntimeError("Unsafe maintenance marker; refusing operation")
+            return True
+        except FileNotFoundError:
+            return False
+
     def run(self):
+        if DARWIN:
+            if os.getuid() == 0:
+                log("FATAL: GUI supervision must run as the intended desktop user, never root")
+                return 2
+            if CFG["LOG_DIR"]:
+                for name in ("warden-launchd.log", "warden-launchd-error.log"):
+                    darwin.bound_log(Path(CFG["LOG_DIR"]) / name)
+            if not CFG["INSTALLATION_ID"] or not CFG["SPAWN_GATE"]:
+                log("FATAL: Darwin requires INSTALLATION_ID and packaged SPAWN_GATE")
+                return 2
+            for key in ("APP_CMD", "SPAWN_GATE"):
+                if not Path(CFG[key]).is_absolute() or not os.access(CFG[key], os.X_OK):
+                    log(f"FATAL: {key} must be an absolute executable path")
+                    return 2
+            command = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, str(Path(__file__).resolve())]
+            self.process_guard = darwin.ProcessGuard(command, W / "process-guard", CFG["INSTALLATION_ID"])
+        try:
+            return self._run_supervised()
+        finally:
+            if self.process_guard:
+                pending_failure = sys.exc_info()[0] is not None
+                try:
+                    self.process_guard.close()
+                except Exception as exc:
+                    if not pending_failure:
+                        raise
+                    log(f"CLEANUP FAILURE (original failure retained): {type(exc).__name__}: {exc}")
+
+    def _run_supervised(self):
         for d in (PENDING, SENT, QUAR, CONSOLE):
             d.mkdir(parents=True, exist_ok=True)
         if not CFG["APP_CMD"]:
@@ -1607,6 +1778,8 @@ class Supervisor:
                 alarm("no-wer", "WER LocalDumps key for watchtower.exe is missing — "
                                 "filter-bypassing crashes (fast-fail, /GS) will leave no "
                                 "dump. Fix: run warden/install-windows.ps1 as admin")
+        elif DARWIN:
+            log("Darwin diagnostics are system-managed; bundles include app markers and logs, no promised core dump")
         else:
             ok, pat = core_pattern_ok()
             if not ok:
@@ -1619,15 +1792,26 @@ class Supervisor:
         hb.start()
         prune_sent()
         while not self.stopping:
+            if self.maintenance_requested():
+                HB.update(app_state="stopped_expected", app_state_reason="warden_stopping",
+                          app_pid=None, app_spawned=None)
+                time.sleep(0.5)
+                continue
             spawn_ts = time.time()
+            spawn_mono = time.monotonic()
             proc, console = self.spawn()
             why = self.watch(proc)
+            if DARWIN:
+                self.process_guard.cleanup()
+            if why == "maintenance":
+                log("maintenance marker present — GUI stopped; no failure report or restart")
+                continue
             if why == "stopped":
                 log("supervisor stopping (SIGTERM) — no report for a clean stop")
                 break
             death_ts = time.time()
             trigger, head, marker = self.death_facts(proc, spawn_ts, why == "hung")
-            alive_s = death_ts - spawn_ts
+            alive_s = time.monotonic() - spawn_mono
             HB["deaths"].append(death_ts)
             operator_quit = trigger == "exit-0" and self.consume_quit_marker(spawn_ts)
             if trigger == "exit-0":
@@ -1651,8 +1835,8 @@ class Supervisor:
             delay = [1, 5, 15, 60, 60][self.backoff_idx] if alive_s <= 120 else 1
             HB["backoff_s"] = delay
             log(f"restart in {delay}s (alive {int(alive_s)}s, cause {trigger})")
-            t0 = time.time()
-            while time.time() - t0 < delay and not self.stopping:
+            t0 = time.monotonic()
+            while time.monotonic() - t0 < delay and not self.stopping:
                 time.sleep(0.5)
         # Going down ON PURPOSE (systemd stop / host shutdown): one final beat
         # carrying the intent — this is what keeps the server quiet instead of
@@ -1749,6 +1933,8 @@ def cmd_status():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
+    if cmd == "darwin-guard" and DARWIN and len(sys.argv) == 4:
+        sys.exit(darwin.guard_main(sys.argv[2], sys.argv[3]))
     if cmd == "run":
         # Before anything else: one supervisor per machine. A second would spawn a second
         # wall and fight this one over warden.conf.

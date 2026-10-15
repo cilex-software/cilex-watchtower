@@ -1,0 +1,1919 @@
+{
+  "schema_version": 1,
+  "captured_epoch": 1791933200.796128,
+  "process_state": "ProcessVerified",
+  "observer_started_or_signalled": false,
+  "thresholds_changed": false,
+  "root_cause": "Unverified",
+  "processes": {
+    "app": {
+      "pid": 56287,
+      "ppid": 56285,
+      "uid": 501,
+      "birth": [
+        1791932937,
+        214194
+      ],
+      "session": 1,
+      "path": "/Users/romayankin/Applications/watchtower.app/Contents/MacOS/watchtower"
+    },
+    "warden": {
+      "pid": 56285,
+      "ppid": 1,
+      "uid": 501,
+      "birth": [
+        1791932935,
+        802379
+      ],
+      "session": 1,
+      "path": "/Users/romayankin/Applications/watchtower.app/Contents/Resources/warden/cilex-warden"
+    },
+    "guardian": {
+      "pid": 56286,
+      "ppid": 56285,
+      "uid": 501,
+      "birth": [
+        1791932937,
+        143901
+      ],
+      "session": 1,
+      "path": "/Users/romayankin/Applications/watchtower.app/Contents/Resources/warden/cilex-warden"
+    }
+  },
+  "telemetry_known": true,
+  "samples": [
+    {
+      "up": 30,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 5789,
+      "framesIn": 6259,
+      "dec": 31,
+      "lit": 22,
+      "err": 0,
+      "epoch": 1791932967.825,
+      "sources": [
+        {
+          "age_ms": 2966,
+          "decoder": true,
+          "error": false,
+          "frames": 152,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 106,
+          "decoder": true,
+          "error": false,
+          "frames": 222,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 3222,
+          "decoder": true,
+          "error": false,
+          "frames": 132,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 23,
+          "decoder": true,
+          "error": false,
+          "frames": 320,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 4184,
+          "decoder": true,
+          "error": false,
+          "frames": 56,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 6480,
+          "decoder": true,
+          "error": false,
+          "frames": 105,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 22,
+          "decoder": true,
+          "error": false,
+          "frames": 251,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 65,
+          "decoder": true,
+          "error": false,
+          "frames": 265,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 66,
+          "decoder": true,
+          "error": false,
+          "frames": 250,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 3947,
+          "decoder": true,
+          "error": false,
+          "frames": 85,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 61,
+          "decoder": true,
+          "error": false,
+          "frames": 201,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 3820,
+          "decoder": true,
+          "error": false,
+          "frames": 148,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 82,
+          "decoder": true,
+          "error": false,
+          "frames": 248,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 5276,
+          "decoder": true,
+          "error": false,
+          "frames": 177,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 6376,
+          "decoder": true,
+          "error": false,
+          "frames": 100,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 118,
+          "decoder": true,
+          "error": false,
+          "frames": 303,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 52,
+          "decoder": true,
+          "error": false,
+          "frames": 204,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 5497,
+          "decoder": true,
+          "error": false,
+          "frames": 133,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 5237,
+          "decoder": true,
+          "error": false,
+          "frames": 158,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 3130,
+          "decoder": true,
+          "error": false,
+          "frames": 141,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 6529,
+          "decoder": true,
+          "error": false,
+          "frames": 73,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 5194,
+          "decoder": true,
+          "error": false,
+          "frames": 160,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 29,
+          "decoder": true,
+          "error": false,
+          "frames": 315,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 32,
+          "decoder": true,
+          "error": false,
+          "frames": 317,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 51,
+          "decoder": true,
+          "error": false,
+          "frames": 259,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 5770,
+          "decoder": true,
+          "error": false,
+          "frames": 172,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 36,
+          "decoder": true,
+          "error": false,
+          "frames": 256,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 3536,
+          "decoder": true,
+          "error": false,
+          "frames": 179,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 6590,
+          "decoder": true,
+          "error": false,
+          "frames": 109,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 298,
+          "decoder": true,
+          "error": false,
+          "frames": 200,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 3802,
+          "decoder": true,
+          "error": false,
+          "frames": 92,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 60,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 11824,
+      "framesIn": 12424,
+      "dec": 31,
+      "lit": 14,
+      "err": 0,
+      "epoch": 1791932997.828,
+      "sources": [
+        {
+          "age_ms": 32970,
+          "decoder": true,
+          "error": false,
+          "frames": 152,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 400,
+          "decoder": true,
+          "error": false,
+          "frames": 666,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 33226,
+          "decoder": true,
+          "error": false,
+          "frames": 132,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 30,
+          "decoder": true,
+          "error": false,
+          "frames": 760,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 34188,
+          "decoder": true,
+          "error": false,
+          "frames": 56,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 36484,
+          "decoder": true,
+          "error": false,
+          "frames": 105,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 383,
+          "decoder": true,
+          "error": false,
+          "frames": 687,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 106,
+          "decoder": true,
+          "error": false,
+          "frames": 690,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 174,
+          "decoder": true,
+          "error": false,
+          "frames": 699,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 33951,
+          "decoder": true,
+          "error": false,
+          "frames": 85,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 249,
+          "decoder": true,
+          "error": false,
+          "frames": 634,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 33824,
+          "decoder": true,
+          "error": false,
+          "frames": 148,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 374,
+          "decoder": true,
+          "error": false,
+          "frames": 674,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 35280,
+          "decoder": true,
+          "error": false,
+          "frames": 177,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 36380,
+          "decoder": true,
+          "error": false,
+          "frames": 100,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 174,
+          "decoder": true,
+          "error": false,
+          "frames": 713,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 915,
+          "decoder": true,
+          "error": false,
+          "frames": 621,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 35501,
+          "decoder": true,
+          "error": false,
+          "frames": 133,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 35241,
+          "decoder": true,
+          "error": false,
+          "frames": 158,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 33134,
+          "decoder": true,
+          "error": false,
+          "frames": 141,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 36533,
+          "decoder": true,
+          "error": false,
+          "frames": 73,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 35198,
+          "decoder": true,
+          "error": false,
+          "frames": 160,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 1291,
+          "decoder": true,
+          "error": false,
+          "frames": 737,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 91,
+          "decoder": true,
+          "error": false,
+          "frames": 739,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 4,
+          "decoder": true,
+          "error": false,
+          "frames": 691,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 35774,
+          "decoder": true,
+          "error": false,
+          "frames": 172,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 1424,
+          "decoder": true,
+          "error": false,
+          "frames": 672,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 33540,
+          "decoder": true,
+          "error": false,
+          "frames": 179,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 36594,
+          "decoder": true,
+          "error": false,
+          "frames": 109,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 4,
+          "decoder": true,
+          "error": false,
+          "frames": 663,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 33806,
+          "decoder": true,
+          "error": false,
+          "frames": 92,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 90,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 17314,
+      "framesIn": 18030,
+      "dec": 31,
+      "lit": 14,
+      "err": 0,
+      "epoch": 1791933027.826,
+      "sources": [
+        {
+          "age_ms": 62968,
+          "decoder": true,
+          "error": false,
+          "frames": 152,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 27,
+          "decoder": true,
+          "error": false,
+          "frames": 1069,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 63224,
+          "decoder": true,
+          "error": false,
+          "frames": 132,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 27,
+          "decoder": true,
+          "error": false,
+          "frames": 1161,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 64186,
+          "decoder": true,
+          "error": false,
+          "frames": 56,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 66482,
+          "decoder": true,
+          "error": false,
+          "frames": 105,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 22,
+          "decoder": true,
+          "error": false,
+          "frames": 1060,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 104,
+          "decoder": true,
+          "error": false,
+          "frames": 1122,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 38,
+          "decoder": true,
+          "error": false,
+          "frames": 1118,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 63949,
+          "decoder": true,
+          "error": false,
+          "frames": 85,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 54,
+          "decoder": true,
+          "error": false,
+          "frames": 1037,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 63822,
+          "decoder": true,
+          "error": false,
+          "frames": 148,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 13,
+          "decoder": true,
+          "error": false,
+          "frames": 1022,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 65278,
+          "decoder": true,
+          "error": false,
+          "frames": 177,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 66378,
+          "decoder": true,
+          "error": false,
+          "frames": 100,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 13,
+          "decoder": true,
+          "error": false,
+          "frames": 1078,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 104,
+          "decoder": true,
+          "error": false,
+          "frames": 1021,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 65499,
+          "decoder": true,
+          "error": false,
+          "frames": 133,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 65239,
+          "decoder": true,
+          "error": false,
+          "frames": 158,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 63132,
+          "decoder": true,
+          "error": false,
+          "frames": 141,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 66531,
+          "decoder": true,
+          "error": false,
+          "frames": 73,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 65196,
+          "decoder": true,
+          "error": false,
+          "frames": 160,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 63,
+          "decoder": true,
+          "error": false,
+          "frames": 1133,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 71,
+          "decoder": true,
+          "error": false,
+          "frames": 1125,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 22,
+          "decoder": true,
+          "error": false,
+          "frames": 1131,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 65772,
+          "decoder": true,
+          "error": false,
+          "frames": 172,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 27,
+          "decoder": true,
+          "error": false,
+          "frames": 1049,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 63538,
+          "decoder": true,
+          "error": false,
+          "frames": 179,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 66592,
+          "decoder": true,
+          "error": false,
+          "frames": 109,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 62,
+          "decoder": true,
+          "error": false,
+          "frames": 1010,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 63804,
+          "decoder": true,
+          "error": false,
+          "frames": 92,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 120,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 25181,
+      "framesIn": 26448,
+      "dec": 31,
+      "lit": 31,
+      "err": 0,
+      "epoch": 1791933057.849,
+      "sources": [
+        {
+          "age_ms": 414,
+          "decoder": true,
+          "error": false,
+          "frames": 246,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 17,
+          "decoder": true,
+          "error": false,
+          "frames": 1446,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 2,
+          "decoder": true,
+          "error": false,
+          "frames": 238,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 14,
+          "decoder": true,
+          "error": false,
+          "frames": 1591,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 280,
+          "decoder": true,
+          "error": false,
+          "frames": 226,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 110,
+          "decoder": true,
+          "error": false,
+          "frames": 218,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 93,
+          "decoder": true,
+          "error": false,
+          "frames": 1391,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 166,
+          "decoder": true,
+          "error": false,
+          "frames": 1560,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 190,
+          "decoder": true,
+          "error": false,
+          "frames": 1542,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 578,
+          "decoder": true,
+          "error": false,
+          "frames": 214,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 14,
+          "decoder": true,
+          "error": false,
+          "frames": 1371,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 24,
+          "decoder": true,
+          "error": false,
+          "frames": 242,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 42,
+          "decoder": true,
+          "error": false,
+          "frames": 1447,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 1296,
+          "decoder": true,
+          "error": false,
+          "frames": 314,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 1317,
+          "decoder": true,
+          "error": false,
+          "frames": 280,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 279,
+          "decoder": true,
+          "error": false,
+          "frames": 1441,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 43,
+          "decoder": true,
+          "error": false,
+          "frames": 1401,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 659,
+          "decoder": true,
+          "error": false,
+          "frames": 334,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 484,
+          "decoder": true,
+          "error": false,
+          "frames": 267,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 705,
+          "decoder": true,
+          "error": false,
+          "frames": 260,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 96,
+          "decoder": true,
+          "error": false,
+          "frames": 253,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 43,
+          "decoder": true,
+          "error": false,
+          "frames": 314,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 432,
+          "decoder": true,
+          "error": false,
+          "frames": 1525,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 14,
+          "decoder": true,
+          "error": false,
+          "frames": 1519,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 143,
+          "decoder": true,
+          "error": false,
+          "frames": 1559,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 432,
+          "decoder": true,
+          "error": false,
+          "frames": 318,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 3,
+          "decoder": true,
+          "error": false,
+          "frames": 1412,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 191,
+          "decoder": true,
+          "error": false,
+          "frames": 358,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 4,
+          "decoder": true,
+          "error": false,
+          "frames": 323,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 893,
+          "decoder": true,
+          "error": false,
+          "frames": 1362,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 25,
+          "decoder": true,
+          "error": false,
+          "frames": 203,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 150,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 35538,
+      "framesIn": 37866,
+      "dec": 31,
+      "lit": 31,
+      "err": 0,
+      "epoch": 1791933087.86,
+      "sources": [
+        {
+          "age_ms": 395,
+          "decoder": true,
+          "error": false,
+          "frames": 581,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 170,
+          "decoder": true,
+          "error": false,
+          "frames": 1796,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 3,
+          "decoder": true,
+          "error": false,
+          "frames": 576,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 3,
+          "decoder": true,
+          "error": false,
+          "frames": 1948,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 12,
+          "decoder": true,
+          "error": false,
+          "frames": 579,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 111,
+          "decoder": true,
+          "error": false,
+          "frames": 500,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 128,
+          "decoder": true,
+          "error": false,
+          "frames": 1769,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 170,
+          "decoder": true,
+          "error": false,
+          "frames": 1962,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 195,
+          "decoder": true,
+          "error": false,
+          "frames": 1915,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 209,
+          "decoder": true,
+          "error": false,
+          "frames": 515,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 12,
+          "decoder": true,
+          "error": false,
+          "frames": 1722,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 429,
+          "decoder": true,
+          "error": false,
+          "frames": 547,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 37,
+          "decoder": true,
+          "error": false,
+          "frames": 1854,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 628,
+          "decoder": true,
+          "error": false,
+          "frames": 552,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 512,
+          "decoder": true,
+          "error": false,
+          "frames": 593,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 537,
+          "decoder": true,
+          "error": false,
+          "frames": 1717,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 128,
+          "decoder": true,
+          "error": false,
+          "frames": 1748,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 12,
+          "decoder": true,
+          "error": false,
+          "frames": 714,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 653,
+          "decoder": true,
+          "error": false,
+          "frames": 510,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 3,
+          "decoder": true,
+          "error": false,
+          "frames": 548,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 1452,
+          "decoder": true,
+          "error": false,
+          "frames": 569,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 128,
+          "decoder": true,
+          "error": false,
+          "frames": 654,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 120,
+          "decoder": true,
+          "error": false,
+          "frames": 1941,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 128,
+          "decoder": true,
+          "error": false,
+          "frames": 1865,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 176,
+          "decoder": true,
+          "error": false,
+          "frames": 1973,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 445,
+          "decoder": true,
+          "error": false,
+          "frames": 701,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 70,
+          "decoder": true,
+          "error": false,
+          "frames": 1748,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 337,
+          "decoder": true,
+          "error": false,
+          "frames": 631,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 3,
+          "decoder": true,
+          "error": false,
+          "frames": 730,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 1303,
+          "decoder": true,
+          "error": false,
+          "frames": 1612,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 195,
+          "decoder": true,
+          "error": false,
+          "frames": 462,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 180,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 45704,
+      "framesIn": 49405,
+      "dec": 31,
+      "lit": 31,
+      "err": 0,
+      "epoch": 1791933117.858,
+      "sources": [
+        {
+          "age_ms": 756,
+          "decoder": true,
+          "error": false,
+          "frames": 845,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 45,
+          "decoder": true,
+          "error": false,
+          "frames": 2160,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 121,
+          "decoder": true,
+          "error": false,
+          "frames": 937,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 209,
+          "decoder": true,
+          "error": false,
+          "frames": 2302,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 349,
+          "decoder": true,
+          "error": false,
+          "frames": 850,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 54,
+          "decoder": true,
+          "error": false,
+          "frames": 767,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 50,
+          "decoder": true,
+          "error": false,
+          "frames": 2179,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 38,
+          "decoder": true,
+          "error": false,
+          "frames": 2360,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 326,
+          "decoder": true,
+          "error": false,
+          "frames": 2270,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 674,
+          "decoder": true,
+          "error": false,
+          "frames": 796,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 56,
+          "decoder": true,
+          "error": false,
+          "frames": 2068,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 516,
+          "decoder": true,
+          "error": false,
+          "frames": 836,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 81,
+          "decoder": true,
+          "error": false,
+          "frames": 2231,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 1058,
+          "decoder": true,
+          "error": false,
+          "frames": 811,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 699,
+          "decoder": true,
+          "error": false,
+          "frames": 834,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 799,
+          "decoder": true,
+          "error": false,
+          "frames": 1965,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 214,
+          "decoder": true,
+          "error": false,
+          "frames": 1965,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 51,
+          "decoder": true,
+          "error": false,
+          "frames": 1072,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 1508,
+          "decoder": true,
+          "error": false,
+          "frames": 767,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 816,
+          "decoder": true,
+          "error": false,
+          "frames": 887,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 265,
+          "decoder": true,
+          "error": false,
+          "frames": 858,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 178,
+          "decoder": true,
+          "error": false,
+          "frames": 1009,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 44,
+          "decoder": true,
+          "error": false,
+          "frames": 2333,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 106,
+          "decoder": true,
+          "error": false,
+          "frames": 2265,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 56,
+          "decoder": true,
+          "error": false,
+          "frames": 2389,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 298,
+          "decoder": true,
+          "error": false,
+          "frames": 1081,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 57,
+          "decoder": true,
+          "error": false,
+          "frames": 2116,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 13,
+          "decoder": true,
+          "error": false,
+          "frames": 1016,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 641,
+          "decoder": true,
+          "error": false,
+          "frames": 1104,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 540,
+          "decoder": true,
+          "error": false,
+          "frames": 1839,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 116,
+          "decoder": true,
+          "error": false,
+          "frames": 786,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 210,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 54231,
+      "framesIn": 58225,
+      "dec": 31,
+      "lit": 30,
+      "err": 0,
+      "epoch": 1791933147.859,
+      "sources": [
+        {
+          "age_ms": 777,
+          "decoder": true,
+          "error": false,
+          "frames": 1090,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 327,
+          "decoder": true,
+          "error": false,
+          "frames": 2378,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 1213,
+          "decoder": true,
+          "error": false,
+          "frames": 1143,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 1,
+          "decoder": true,
+          "error": false,
+          "frames": 2586,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 426,
+          "decoder": true,
+          "error": false,
+          "frames": 1086,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 419,
+          "decoder": true,
+          "error": false,
+          "frames": 1027,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 1,
+          "decoder": true,
+          "error": false,
+          "frames": 2542,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 51,
+          "decoder": true,
+          "error": false,
+          "frames": 2739,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 1,
+          "decoder": true,
+          "error": false,
+          "frames": 2558,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 684,
+          "decoder": true,
+          "error": false,
+          "frames": 1038,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 55,
+          "decoder": true,
+          "error": false,
+          "frames": 2367,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 587,
+          "decoder": true,
+          "error": false,
+          "frames": 1094,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 55,
+          "decoder": true,
+          "error": false,
+          "frames": 2591,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 261,
+          "decoder": true,
+          "error": false,
+          "frames": 1024,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 413,
+          "decoder": true,
+          "error": false,
+          "frames": 1072,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 6172,
+          "decoder": true,
+          "error": false,
+          "frames": 2158,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 308,
+          "decoder": true,
+          "error": false,
+          "frames": 2216,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 1340,
+          "decoder": true,
+          "error": false,
+          "frames": 1362,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 1614,
+          "decoder": true,
+          "error": false,
+          "frames": 995,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 411,
+          "decoder": true,
+          "error": false,
+          "frames": 1172,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 417,
+          "decoder": true,
+          "error": false,
+          "frames": 1098,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 29,
+          "decoder": true,
+          "error": false,
+          "frames": 1241,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 590,
+          "decoder": true,
+          "error": false,
+          "frames": 2708,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 511,
+          "decoder": true,
+          "error": false,
+          "frames": 2578,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 4,
+          "decoder": true,
+          "error": false,
+          "frames": 2797,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 679,
+          "decoder": true,
+          "error": false,
+          "frames": 1394,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 262,
+          "decoder": true,
+          "error": false,
+          "frames": 2325,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 365,
+          "decoder": true,
+          "error": false,
+          "frames": 1330,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 1063,
+          "decoder": true,
+          "error": false,
+          "frames": 1442,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 296,
+          "decoder": true,
+          "error": false,
+          "frames": 2086,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 362,
+          "decoder": true,
+          "error": false,
+          "frames": 988,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    },
+    {
+      "up": 240,
+      "active": 0,
+      "livePipes": 31,
+      "frames": 62230,
+      "framesIn": 66773,
+      "dec": 31,
+      "lit": 29,
+      "err": 0,
+      "epoch": 1791933177.859,
+      "sources": [
+        {
+          "age_ms": 163,
+          "decoder": true,
+          "error": false,
+          "frames": 1354,
+          "id": "053a937872dc4b991bbf0c4df92e2a5a9e4c655e54294a0dc5d802b5a76f4e25"
+        },
+        {
+          "age_ms": 102,
+          "decoder": true,
+          "error": false,
+          "frames": 2649,
+          "id": "0cad16515fb8d155dd0e4e9040e33a18164ada47c3b41da4966499ef6e9d3590"
+        },
+        {
+          "age_ms": 1167,
+          "decoder": true,
+          "error": false,
+          "frames": 1357,
+          "id": "119ce86534d318390ae62259888f0720a76024192e30c4590c230b45a5f5aaed"
+        },
+        {
+          "age_ms": 99,
+          "decoder": true,
+          "error": false,
+          "frames": 2972,
+          "id": "15c671c96dba265d17926885ffa106780ba19df52f853e65132872638de7cb27"
+        },
+        {
+          "age_ms": 75,
+          "decoder": true,
+          "error": false,
+          "frames": 1321,
+          "id": "1ae0921feab1e553c5bc22348ab98e9da2a5358e31bcebcf42c210d378ecfa3d"
+        },
+        {
+          "age_ms": 893,
+          "decoder": true,
+          "error": false,
+          "frames": 1216,
+          "id": "25684594b11992911e02e390e18557e95fd8102e2b7112e94f444ee919bcd8ad"
+        },
+        {
+          "age_ms": 91,
+          "decoder": true,
+          "error": false,
+          "frames": 2940,
+          "id": "261be3e999a854a97b274fe249179cc0bc58bc56d69e4d2c40069eb9670f4a74"
+        },
+        {
+          "age_ms": 64,
+          "decoder": true,
+          "error": false,
+          "frames": 3140,
+          "id": "30b57582f86945fd3f68f898abd0a5c94560e0bc4813d426b54d217870b68966"
+        },
+        {
+          "age_ms": 69,
+          "decoder": true,
+          "error": false,
+          "frames": 2867,
+          "id": "34812924658f824c545b88ceca6555fb8d2bc0d2dd0ac2b4f1fe3b964caddc77"
+        },
+        {
+          "age_ms": 576,
+          "decoder": true,
+          "error": false,
+          "frames": 1207,
+          "id": "3688b1ee4e501c391f1e35e8194c5ad091f4b657e3e441f2d4b4823e6753929a"
+        },
+        {
+          "age_ms": 118,
+          "decoder": true,
+          "error": false,
+          "frames": 2759,
+          "id": "3cfbafd1a7842769696caba90db87a7c3245408fff2e8bf20da7add60e2d947b"
+        },
+        {
+          "age_ms": 360,
+          "decoder": true,
+          "error": false,
+          "frames": 1272,
+          "id": "42478d0f9d5d1f8446baa03dec0945f6e0a82a73590825340144b925d5b06c32"
+        },
+        {
+          "age_ms": 91,
+          "decoder": true,
+          "error": false,
+          "frames": 2980,
+          "id": "51f9c1777fb357e4a87724e21a53543227fc2b117711c3acbebcc5709784e291"
+        },
+        {
+          "age_ms": 102,
+          "decoder": true,
+          "error": false,
+          "frames": 1244,
+          "id": "580d98e607deb825efa007b229c1e508f01640f728ebb92548619e3a6e85d7d2"
+        },
+        {
+          "age_ms": 999,
+          "decoder": true,
+          "error": false,
+          "frames": 1206,
+          "id": "5eaba41c93b58c501a31bed5c2b4a7de81a8b6510eca0d9003b382a12de3c758"
+        },
+        {
+          "age_ms": 36174,
+          "decoder": true,
+          "error": false,
+          "frames": 2158,
+          "id": "5fe80934596e28fb6a1f0cbb694fe94db2bdab8214d621f82cebcc5bbe6a6a81"
+        },
+        {
+          "age_ms": 1000,
+          "decoder": true,
+          "error": false,
+          "frames": 2423,
+          "id": "60c62064bf7ae12a589b2f9cd58dec5b04446aec600d6fcce3d7f3d4b0cfb9c5"
+        },
+        {
+          "age_ms": 411,
+          "decoder": true,
+          "error": false,
+          "frames": 1665,
+          "id": "61799e39f55ad5670897617aff45a14297a68b08b24f6964be0c792338bef013"
+        },
+        {
+          "age_ms": 1426,
+          "decoder": true,
+          "error": false,
+          "frames": 1189,
+          "id": "81555a9ea86e0f3c3dc59e4c2f507de12c8c82287d7f704155fbd6cbe6af7183"
+        },
+        {
+          "age_ms": 718,
+          "decoder": true,
+          "error": false,
+          "frames": 1377,
+          "id": "878b5cea7762c9f91ea3ef93c65755bb9c4fd14f00a7a89fb12cd1535f007229"
+        },
+        {
+          "age_ms": 1506,
+          "decoder": true,
+          "error": false,
+          "frames": 1289,
+          "id": "928b72c05f2f189d9923e6eea04b410f6671d212b21518a4874cff1bcfb47a11"
+        },
+        {
+          "age_ms": 768,
+          "decoder": true,
+          "error": false,
+          "frames": 1472,
+          "id": "99e462686740dde39014276ff76c1a25070bc880efa1f65574a04cdccafff4f0"
+        },
+        {
+          "age_ms": 20,
+          "decoder": true,
+          "error": false,
+          "frames": 3037,
+          "id": "a157924f41200d52cf71fc5f9c123bf98b82e687ad518541d6135818fb5bd760"
+        },
+        {
+          "age_ms": 138,
+          "decoder": true,
+          "error": false,
+          "frames": 2953,
+          "id": "acdd81d48d8928aff9449921b2c8c593148d9b6f0ad0d2ca1303212bf9ba80f2"
+        },
+        {
+          "age_ms": 172,
+          "decoder": true,
+          "error": false,
+          "frames": 3226,
+          "id": "b460944527b17f23db9e89015b6b273978a34eeb86fc02fea9744e6764073b38"
+        },
+        {
+          "age_ms": 52,
+          "decoder": true,
+          "error": false,
+          "frames": 1741,
+          "id": "bc6cfa1a4c1289776a733c918084832e35096f797f469575b8b17cf5282b84f3"
+        },
+        {
+          "age_ms": 363,
+          "decoder": true,
+          "error": false,
+          "frames": 2555,
+          "id": "be1cb8b72d9dcbb86fcc5918dbb74a958dc0727f9c8bb2d385820e81d3156301"
+        },
+        {
+          "age_ms": 167,
+          "decoder": true,
+          "error": false,
+          "frames": 1606,
+          "id": "d2b795d543320fcced46da5dd62b5f8feb9db16ce9438714708e8aa436975b49"
+        },
+        {
+          "age_ms": 1135,
+          "decoder": true,
+          "error": false,
+          "frames": 1714,
+          "id": "e408534e7d42b9ae6b0e434d11a3e3c5db6d14f1735ae98af6fda43962e42f18"
+        },
+        {
+          "age_ms": 19606,
+          "decoder": true,
+          "error": false,
+          "frames": 2150,
+          "id": "fdbdcee2dd6f5e7399484b7e7bc11a7f637520ae40b25ab97b1c3aac3a5848e7"
+        },
+        {
+          "age_ms": 1891,
+          "decoder": true,
+          "error": false,
+          "frames": 1185,
+          "id": "ff94796299035fd6e43e6c8a3db146d0adbb82da962d0d1c760e5a4fffda7fe1"
+        }
+      ],
+      "source_schema": 1
+    }
+  ],
+  "recovery_mechanism": {
+    "established_stream_stall_events": 17,
+    "watchdog_reconnects_by_app_uptime120": 17,
+    "watchdog_recovered_events": 17,
+    "configured_default_stall_threshold_seconds": 75,
+    "initial_stream_stall_cause": "Unverified"
+  },
+  "failed_baseline": {
+    "sha256": "a582a1650511d04815701803e611ce86be0a1f557158c11ec143cd1838f10948",
+    "states": {
+      "backend": "Unverified",
+      "cleanup": "NotRequired",
+      "gui_video": "Failed",
+      "installation": "FilesVerified",
+      "recovery": "Unverified",
+      "rollback": "NotRequired",
+      "runtime_health": "ProcessVerified",
+      "security_admission": "Unverified",
+      "startup": "StartupUnverified"
+    },
+    "findings": [
+      "EXPECTED_CAMERA_COUNTS_NOT_MAINTAINED"
+    ],
+    "full_success": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cilex:watchtower:macos:deployment-result:1",
+  "type": "object",
+  "required": ["schema_version", "helper_version", "run_id", "started_at", "finished_at", "states", "findings", "evidence", "exit_code", "full_success"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "helper_version": {"type": "string", "minLength": 1},
+    "run_id": {"type": ["string", "null"]},
+    "started_at": {"type": "string"},
+    "finished_at": {"type": "string"},
+    "full_success": {"type": "boolean"},
+    "exit_code": {"enum": [0,2,10,11,12,13,14,15,16,17,18,19,20,21,22]},
+    "states": {"type": "object", "required": ["installation", "runtime_health", "gui_video", "backend", "security_admission", "recovery", "startup", "rollback", "cleanup"], "additionalProperties": {"type": "string"}},
+    "findings": {"type": "array", "items": {"type": "object", "required": ["id", "message"]}},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "accepted_findings": {"type": "array", "items": {"type": "string"}}
+  }
+}

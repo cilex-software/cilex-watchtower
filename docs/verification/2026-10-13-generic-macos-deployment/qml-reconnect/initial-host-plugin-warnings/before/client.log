@@ -1,0 +1,22 @@
+
+(<unknown>:67518): GStreamer-WARNING **: 02:29:18.659: External plugin loader failed. This most likely means that the plugin loader helper binary was not found or could not be run. You might need to set the GST_PLUGIN_SCANNER environment variable if your setup is unusual. This should normally not be required though.
+
+(<unknown>:67518): GStreamer-WARNING **: 02:29:18.668: Failed to load plugin '/opt/homebrew/lib/gstreamer-1.0/libgstx265.dylib': dlopen(/opt/homebrew/lib/gstreamer-1.0/libgstx265.dylib, 0x0006): Library not loaded: /opt/homebrew/opt/x265/lib/libx265.216.dylib
+  Referenced from: <AFF867DF-5265-314F-8255-3797EEE1D26B> /opt/homebrew/Cellar/gstreamer/1.28.6_1/lib/gstreamer-1.0/libgstx265.dylib
+  Reason: tried: '/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file), '/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file)
+
+(<unknown>:67518): GStreamer-WARNING **: 02:29:18.671: Failed to load plugin '/opt/homebrew/lib/gstreamer-1.0/libgstlibav.dylib': dlopen(/opt/homebrew/lib/gstreamer-1.0/libgstlibav.dylib, 0x0006): Library not loaded: /opt/homebrew/opt/x265/lib/libx265.216.dylib
+  Referenced from: <CBA4B5D2-C128-3701-8718-A12043F18C8F> /opt/homebrew/Cellar/ffmpeg/9.0.1/lib/libavformat.63.1.101.dylib
+  Reason: tried: '/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/opt/homebrew/opt/x265/lib/libx265.216.dylib' (no such file), '/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file), '/opt/homebrew/Cellar/x265/4.3/lib/libx265.216.dylib' (no such file)
+
+(<unknown>:67518): GLib-GIRepository-WARNING **: 02:29:18.811: Failed to load shared library 'libgobject-2.0.0.dylib' referenced by the typelib: dlopen(libgobject-2.0.0.dylib, 0x0009): tried: 'libgobject-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OSlibgobject-2.0.0.dylib' (no such file), '/opt/homebrew/Cellar/gstreamer/1.28.6_1/lib/libgobject-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/Cellar/gstreamer/1.28.6_1/lib/libgobject-2.0.0.dylib' (no such file), '/opt/homebrew/opt/qt/lib/libgobject-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/opt/qt/lib/libgobject-2.0.0.dylib' (no such file), '/usr/lib/libgobject-2.0.0.dylib' (no such file, not in dyld cache), 'libgobject-2.0.0.dylib' (no such file)
+
+(<unknown>:67518): GLib-GIRepository-WARNING **: 02:29:18.811: Failed to load shared library 'libglib-2.0.0.dylib' referenced by the typelib: dlopen(libglib-2.0.0.dylib, 0x0009): tried: 'libglib-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OSlibglib-2.0.0.dylib' (no such file), '/opt/homebrew/Cellar/gstreamer/1.28.6_1/lib/libglib-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/Cellar/gstreamer/1.28.6_1/lib/libglib-2.0.0.dylib' (no such file), '/opt/homebrew/opt/qt/lib/libglib-2.0.0.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/opt/homebrew/opt/qt/lib/libglib-2.0.0.dylib' (no such file), '/usr/lib/libglib-2.0.0.dylib' (no such file, not in dyld cache), 'libglib-2.0.0.dylib' (no such file)
+
+** (<unknown>:67518): CRITICAL **: 02:29:18.812: can't find gi.repository.Gst
+[LIVETIME] pipeline_playing url=rtsp://127.0.0.1:55863/silent-stall
+
+(<unknown>:67518): GStreamer-GL-WARNING **: 02:29:19.144: An NSApplication needs to be running on the main thread to ensure correct behaviour on macOS. Use gst_macos_main() or call [NSApplication sharedApplication] in your code before using this element.
+[LIVETIME] first_sample url=rtsp://127.0.0.1:55863/silent-stall
+[LIVETIME] first_deliver url=rtsp://127.0.0.1:55863/silent-stall
+QRhi *(anonymous namespace)::ThreadLocalRhiHolder::ensureRhi(QRhi::Implementation) : No RHI backend. Using CPU conversion.

@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "helper_version": "1.0.0",
+  "run_id": null,
+  "started_at": "2026-10-13T23:08:40.962018+00:00",
+  "finished_at": "2026-10-13T23:08:41.078284+00:00",
+  "accepted_findings": [],
+  "states": {
+    "installation": "AssessmentOnly",
+    "runtime_health": "Unverified",
+    "gui_video": "Unverified",
+    "backend": "Unverified",
+    "security_admission": "Unverified",
+    "recovery": "Unverified",
+    "startup": "StartupUnverified",
+    "rollback": "Unverified",
+    "cleanup": "Unverified"
+  },
+  "findings": [
+    {
+      "id": "runtime.capacity-unmeasured",
+      "severity": "advisory",
+      "accepted": false,
+      "message": "Ёмкость видеостены не измерена; проверьте нужные потоки на этом Mac."
+    }
+  ],
+  "evidence": [],
+  "mode": "install",
+  "dry_run": true,
+  "target": {
+    "os": "Darwin",
+    "machine_id": "0a9dae2880c4e62853a47036aa8cb15b667d78db6d4f7cec83998e7066c363c7",
+    "uid": 501
+  },
+  "language": "ru",
+  "assessment": {
+    "macos": "26.6.2",
+    "build": "25G83",
+    "native_architecture": "arm64",
+    "translated": false,
+    "cpus": 10,
+    "physical_memory_bytes": 34359738368,
+    "storage_free_bytes": {
+      "cache_dir": 241238372352,
+      "work_dir": 241238372352,
+      "output_dir": 241238372352
+    },
+    "graphics": "WorkloadUnmeasured",
+    "required_apis": {
+      "VTDecompressionSessionCreate": "Present",
+      "MTLCreateSystemDefaultDevice": "Present",
+      "LSRegisterURL": "Present"
+    }
+  },
+  "installation_target": {
+    "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/Проверка только/watchtower.app",
+    "user": "romayankin",
+    "uid": 501,
+    "id": "75f55d22153b22e41f10e1a1",
+    "domain": "gui/501"
+  },
+  "existing_installation": {
+    "schema_version": 1,
+    "installation_id": "75f55d22153b22e41f10e1a1",
+    "target_user": "romayankin",
+    "target_uid": 501,
+    "install_dir": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/Проверка только/watchtower.app",
+    "installation": "UnverifiedNoOwnedReceipt",
+    "runtime_health": "Unverified",
+    "gui_video": "Unverified",
+    "backend": "Unverified",
+    "security_admission": "Unverified",
+    "recovery": "Unverified",
+    "startup": "StartupUnverified",
+    "rollback": "NotRequired",
+    "cleanup": "NotRequired",
+    "full_success": false,
+    "evidence": [],
+    "startup_evidence": {
+      "requested_mode": "after-sign-in",
+      "filevault": "On",
+      "automatic_login": "NotConfigured",
+      "desktop_account_matches": false,
+      "restart": "Unverified",
+      "cold_start": "Unverified",
+      "blockers": [],
+      "sources": [
+        "/usr/bin/fdesetup status",
+        "/Library/Preferences/com.apple.loginwindow.plist",
+        "https://support.apple.com/en-au/102316"
+      ],
+      "limitations": [
+        "An automatic-login preference does not prove that login is permitted or functioning.",
+        "Management policy and Apple Account password restrictions were not assessed.",
+        "Registration or an existing session does not prove post-reboot or power-loss recovery."
+      ]
+    }
+  },
+  "startup_evidence": {
+    "requested_mode": "after-sign-in",
+    "filevault": "On",
+    "automatic_login": "NotConfigured",
+    "desktop_account_matches": false,
+    "restart": "Unverified",
+    "cold_start": "Unverified",
+    "blockers": [],
+    "sources": [
+      "/usr/bin/fdesetup status",
+      "/Library/Preferences/com.apple.loginwindow.plist",
+      "https://support.apple.com/en-au/102316"
+    ],
+    "limitations": [
+      "An automatic-login preference does not prove that login is permitted or functioning.",
+      "Management policy and Apple Account password restrictions were not assessed.",
+      "Registration or an existing session does not prove post-reboot or power-loss recovery."
+    ]
+  },
+  "exit_code": 0,
+  "full_success": false
+}

@@ -1,0 +1,26 @@
+test_age_tracks_observed_changes_not_epoch (__main__.ClockTests.test_age_tracks_observed_changes_not_epoch) ... ok
+test_clock_jump_grants_fresh_grace (__main__.ClockTests.test_clock_jump_grants_fresh_grace) ... ok
+test_missing_log_does_not_disable_watchdog (__main__.ClockTests.test_missing_log_does_not_disable_watchdog) ... ok
+test_scheduler_pause_grants_grace (__main__.ClockTests.test_scheduler_pause_grants_grace) ... ok
+test_wake_with_paused_monotonic_grants_grace (__main__.ClockTests.test_wake_with_paused_monotonic_grants_grace) ... ok
+test_persisted_machine_identity_and_legacy_preservation (__main__.IdentityTests.test_persisted_machine_identity_and_legacy_preservation) ... ok
+test_pid_reuse_and_path_uid_session_mismatch (__main__.IdentityTests.test_pid_reuse_and_path_uid_session_mismatch) ... ok
+test_private_records_reject_symlink_and_world_readable (__main__.IdentityTests.test_private_records_reject_symlink_and_world_readable) ... ok
+test_direct_parent_and_cleanup (__main__.NativeTests.test_direct_parent_and_cleanup) ... ok
+test_gate_eof_never_executes (__main__.NativeTests.test_gate_eof_never_executes) ... ok
+test_guard_failure_cleanup_uses_retained_identity (__main__.NativeTests.test_guard_failure_cleanup_uses_retained_identity) ... ok
+test_guard_refuses_cross_installation_reuse (__main__.NativeTests.test_guard_refuses_cross_installation_reuse) ... ok
+test_live_owner_prevents_second_guard (__main__.NativeTests.test_live_owner_prevents_second_guard) ... ok
+test_native_identity_and_metrics (__main__.NativeTests.test_native_identity_and_metrics) ... ok
+test_parent_sigkill_reaps_child_without_launchd (__main__.NativeTests.test_parent_sigkill_reaps_child_without_launchd) ... ok
+test_warden_detects_guard_failure_and_exits_after_cleanup (__main__.NativeTests.test_warden_detects_guard_failure_and_exits_after_cleanup) ... ok
+test_warden_restart_duplicate_refusal_and_maintenance (__main__.NativeTests.test_warden_restart_duplicate_refusal_and_maintenance) ... ok
+test_wrong_process_generation_is_never_signalled (__main__.NativeTests.test_wrong_process_generation_is_never_signalled) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 12.153s
+
+OK
+evidence: parent SIGKILL cleanup 0.115s
+evidence: Warden detects guard failure and cleans child 1.143s
+evidence: isolated Watchtower failure recovery 5.148s

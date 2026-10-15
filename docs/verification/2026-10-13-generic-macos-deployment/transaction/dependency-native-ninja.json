@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "test": "official pinned Ninja download, extraction and native version probe",
+  "root": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex-dependency-native-urk4pw_5",
+  "tool": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex-dependency-native-urk4pw_5/dependency-tools/ninja-aeardxvq/ninja",
+  "receipt": {
+    "id": "Ninja",
+    "version": "1.13.2",
+    "archive": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex-dependency-native-urk4pw_5/cache/dependencies/downloads/c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b/ninja-mac.zip",
+    "sha256": "c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b",
+    "executable_sha256": "458cdf3a6cf289118da14cc897b5106d152c66545947329b016629d9df085815",
+    "provenance": "pinned-official-download"
+  }
+}

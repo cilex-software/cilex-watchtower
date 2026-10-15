@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "test": "production-qml-silent-rtsp-reconnect",
+  "source_commit": "199a8998c4a4b20d8ebffdec87b5bc053adb473b",
+  "source_hashes": {
+    "VideoSurface.qml": "396ee51a2676f9567ef6080bfa119db0f9d3cfead08450f7e16117c57d64bdc6",
+    "ReconnectCoordinator.qml": "8735d5037ae8a25b0213dc39ead84448101e43098c03d7f0069ab7e7a1cc8a86",
+    "RtspVideoSource.cpp": "3d78a47e02f866b045b3275cb5b0a39447f311a6cb30fc6da87f0d9e224e3aee",
+    "RtspVideoSource.h": "35deed978d713d81b10084947f2ecfb923a47c7412ca53a2ee93864ccd457efa"
+  },
+  "runs": [
+    {
+      "phase": "before",
+      "expected_outcome_observed": true,
+      "client_exit": 1,
+      "server_exit": 0,
+      "elapsed_seconds": 20.368,
+      "qml_hashes": {
+        "VideoSurface.qml": "d8c2fb277e310192f560d610fd2f6d558e496818137ff59d0756c0077cce4957",
+        "ReconnectCoordinator.qml": "8735d5037ae8a25b0213dc39ead84448101e43098c03d7f0069ab7e7a1cc8a86"
+      },
+      "connections": 1,
+      "silent_stall_observed": true,
+      "measurement": {
+        "elapsed_ms": 20008,
+        "first_blue_ms": -1,
+        "first_red_ms": 258,
+        "initial_red_frames": 28,
+        "last_red_ms": 2055,
+        "passed": false,
+        "playing_transitions": [
+          {
+            "elapsed_ms": 269,
+            "playing": true
+          },
+          {
+            "elapsed_ms": 4564,
+            "playing": false
+          }
+        ],
+        "qml_stall_detected_ms": 4564,
+        "reconnect_runs": 0,
+        "reconnected_blue_frames": 0,
+        "recovery_from_last_frame_ms": -1,
+        "unexpected_pixels": 0,
+        "watchdog_rebuilds": 0
+      }
+    },
+    {
+      "phase": "after",
+      "expected_outcome_observed": true,
+      "client_exit": 0,
+      "server_exit": 0,
+      "elapsed_seconds": 7.716,
+      "qml_hashes": {
+        "VideoSurface.qml": "396ee51a2676f9567ef6080bfa119db0f9d3cfead08450f7e16117c57d64bdc6",
+        "ReconnectCoordinator.qml": "8735d5037ae8a25b0213dc39ead84448101e43098c03d7f0069ab7e7a1cc8a86"
+      },
+      "connections": 2,
+      "silent_stall_observed": true,
+      "measurement": {
+        "elapsed_ms": 7581,
+        "first_blue_ms": 6653,
+        "first_red_ms": 446,
+        "initial_red_frames": 25,
+        "last_red_ms": 2041,
+        "passed": true,
+        "playing_transitions": [
+          {
+            "elapsed_ms": 452,
+            "playing": true
+          },
+          {
+            "elapsed_ms": 4550,
+            "playing": false
+          },
+          {
+            "elapsed_ms": 6658,
+            "playing": true
+          }
+        ],
+        "qml_stall_detected_ms": 4550,
+        "reconnect_runs": 1,
+        "reconnected_blue_frames": 15,
+        "recovery_from_last_frame_ms": 4612,
+        "unexpected_pixels": 0,
+        "watchdog_rebuilds": 0
+      }
+    }
+  ],
+  "passed": true,
+  "watchdog_disabled": true,
+  "installed_application_started": false,
+  "limitations": [
+    "Loopback synthetic H264 source, not production camera/network acceptance.",
+    "Uses host Qt/GStreamer dependencies and offscreen QML; not packaged-runtime acceptance."
+  ],
+  "gstreamer_version": "1.28.6",
+  "fixture_hashes": {
+    "main.cpp": "fd5c11a135e48dc26b80b2c1bcdbec46767fdd0a39cfa77bd4e15ea201fbdda8",
+    "rtsp_fixture.c": "d5419f8da0ae2f589720ec3ab65f3c00f94ecee3dc4a80f41b3fa3d7bb498d0c",
+    "run.py": "bb5923b905bdd30efc58dcad9cb30f3eda79b363223d82accecb81afce246a15",
+    "CMakeLists.txt": "a2cea3fddd33fe7153b7716e932303378fa14b22af20b370111712ad912846ac"
+  },
+  "plugin_hashes": {
+    "libgstx264.dylib": "0ca6a051a38bf8c3e37d76ff088f0dd71d8b91202ea13305b2b0cb0084dd3843",
+    "libgstplayback.dylib": "cde1c4f37e8c711a20db662c324acc02a8a2b6670df8aff1eca95c3990c338d5",
+    "libgsttcp.dylib": "a1d2d6bdc19de4643d48901530d0b7af888509af17b7719e1c9b85d5aefc2b74",
+    "libgstrtp.dylib": "e60c8e722bcae3bd018df79a1179217a1fc62bb1dfe65d8198d2771125e9d548",
+    "libgstudp.dylib": "b972171f20aba5caa4024dd5e7c93bfe8cebe82dee743643d7afaee3712e9901",
+    "libgstapplemedia.dylib": "5de53d9f7eaa460a4aba276b91075502350959efc7d4b8f9a25bc816871cb69a",
+    "libgstapp.dylib": "2f317ba25da78e438541837d7b98701410beaaf5352ddc4d695645af15010ca6",
+    "libgstopengl.dylib": "a968ba9ed723ffc278b87ad9abd7004dda3a315d3d9caa3c823f82502507a526",
+    "libgstvideoparsersbad.dylib": "8ca95eba3f07309895786ea473e64a64ebd832c96718a23b919590981bc4df18",
+    "libgstcoreelements.dylib": "60aa9fb0b62e98013dba401d2ca2f0ff848a14ff3c984c61dc1156d68e519bf0",
+    "libgsttypefindfunctions.dylib": "5b240651eed72935e63ec2e2b515dbd819819cb50acc3ac422a6036fb853da63",
+    "libgstrtpmanager.dylib": "cc493ad4e48ac46761f614e8e84e1989383cd86cfc00a86cc7a3f689feabe14f",
+    "libgstrtsp.dylib": "7185e48a9932512c33f472216feabb8f63abe638d7957bd512e22a16311a97a3",
+    "libgstvideoconvertscale.dylib": "f828b33ab8d0b5e53c0813028c50977af8d56a533815dbde65313cd13021e9e4",
+    "libgstvideotestsrc.dylib": "b4c7a9480ce4ca861cec9a19e92bc7431272a44e45ec034ced02eea00425ed0b"
+  },
+  "scanner_sha256": "6f2ebe1e2a6dc7c207fd6307ced2fa9adecba6614b6bd65eefff521dcd228910",
+  "binary_hashes": {
+    "qml-stream-reconnect": "fbe5738a5598142f3442bce8539d2a64972ea6c58062c73183f74d26e364ac71",
+    "stalled-rtsp-fixture": "465ed86817bb4f4c8f0d65d228fb2111066629428791201939141f1b6017a929"
+  },
+  "fixture_processes_stopped": true
+}

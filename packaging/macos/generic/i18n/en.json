@@ -1,0 +1,9 @@
+{
+  "setup_install": "Install Cilex Watchtower and Warden for the signed-in user in ~/Applications/watchtower.app, with startup after sign-in? Existing application preferences and station credentials are preserved. Startup and video still require verification.",
+  "development": "This is a development artifact. It has no trusted Developer ID distribution signature. This installer does not remove quarantine or bypass macOS security policy.",
+  "cancel": "Cancel",
+  "install": "Install",
+  "completed": "Requested operation completed. Review the separate verification states in the JSON result.",
+  "incomplete": "Requested outcome is incomplete. Review the finding IDs and evidence in the JSON result before retrying.",
+  "interrupted": "Operation interrupted; its outcome may be unknown. Reconcile the protected run record before retrying."
+}

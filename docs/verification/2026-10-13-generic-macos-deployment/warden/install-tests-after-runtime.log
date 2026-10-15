@@ -1,0 +1,46 @@
+test_absolute_custom_bundle_name_with_unicode_and_spaces (test_install.InstallerTests) ... ok
+test_absolute_link_rejected (test_install.InstallerTests) ... ok
+test_absolute_rejected (test_install.InstallerTests) ... ok
+test_alternate_admin_fails_before_mutation (test_install.InstallerTests) ... ok
+test_arbitrary_destination_rejected (test_install.InstallerTests) ... ok
+test_archive_space_not_overridable (test_install.InstallerTests) ... ok
+test_case_collision_rejected (test_install.InstallerTests) ... ok
+test_cyclic_symlink_rejected (test_install.InstallerTests) ... ok
+test_dry_run_no_creation_or_commands (test_install.InstallerTests) ... ok
+test_failed_install_restores_files_and_keeps_failure_evidence (test_install.InstallerTests) ... ok
+test_fifo_rejected (test_install.InstallerTests) ... ok
+test_file_through_symlink_rejected (test_install.InstallerTests) ... ok
+test_hardlink_rejected (test_install.InstallerTests) ... ok
+test_hash_mismatch_rejected_before_writes (test_install.InstallerTests) ... ok
+test_implicit_parent_case_collision_rejected (test_install.InstallerTests) ... ok
+test_inventory_corruption_and_addition_rejected (test_install.InstallerTests) ... ok
+test_launchagent_direct_parentage_contract_unicode_absolute_paths (test_install.InstallerTests) ... ok
+test_link_escape_rejected (test_install.InstallerTests) ... ok
+test_lock_refuses_parallel_transaction (test_install.InstallerTests) ... ok
+test_lock_rejects_symlink (test_install.InstallerTests) ... ok
+test_machine_scope_fails_closed_without_protected_helper (test_install.InstallerTests) ... ok
+test_macos_version_padding (test_install.InstallerTests) ... ok
+test_missing_trust_rejected (test_install.InstallerTests) ... ok
+test_native_quarantine_round_trip_on_owned_fixture (test_install.InstallerTests) ... ok
+test_normalization_collision_rejected (test_install.InstallerTests) ... ok
+test_other_uid_and_path_not_selected (test_install.InstallerTests) ... ok
+test_process_parentage_and_duplicates (test_install.InstallerTests) ... ok
+test_quarantine_propagates_without_removal (test_install.InstallerTests) ... ok
+test_readonly_verify_without_receipt_creates_nothing (test_install.InstallerTests) ... ok
+test_regular_unicode_spaces_and_contained_framework_symlinks (test_install.InstallerTests) ... ok
+test_rollback_failure_does_not_hide_original_error (test_install.InstallerTests) ... ok
+test_root_gui_rejected (test_install.InstallerTests) ... ok
+test_setuid_rejected (test_install.InstallerTests) ... ok
+test_staged_corruption_rejected_before_stop (test_install.InstallerTests) ... ok
+test_startup_never_assumed_verified (test_install.InstallerTests) ... ok
+test_symlink_destination_rejected (test_install.InstallerTests) ... ok
+test_transaction_preserves_disabled_startup_and_user_configuration (test_install.InstallerTests) ... ok
+test_transaction_refuses_unmanaged_app_without_stopping_anything (test_install.InstallerTests) ... ok
+test_transaction_without_gui_remains_pending (test_install.InstallerTests) ... ok
+test_traversal_rejected (test_install.InstallerTests) ... ok
+test_world_write_rejected (test_install.InstallerTests) ... ok
+
+----------------------------------------------------------------------
+Ran 41 tests in 0.098s
+
+OK

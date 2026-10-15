@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "status": "failed-test-assertion",
+  "test": "NativeTests.test_runtime_status_uses_native_dotted_backend",
+  "expected_source_description": "app",
+  "actual_source_description": "the app's saved server",
+  "backend_fixture_resolution": "correct",
+  "change": "Corrected assertion to existing source-description text; no application code change.",
+  "rerun": "native-dotted-qt-status-test.log"
+}

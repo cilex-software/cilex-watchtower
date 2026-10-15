@@ -6,6 +6,11 @@
 
 #include <QTimer>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLoggingCategory>
+
+Q_LOGGING_CATEGORY(videoReadinessLog, "cilex.readiness")
 // Same RSS reader as main.cpp readRssMb(), minus the signal-safety constraint (this one runs
 // on the GUI thread from a QTimer, never a signal handler). Linux: /proc/self/statm; Windows:
 // PSAPI WorkingSetSize. Kept per-file rather than shared — the two callers have different
@@ -209,11 +214,12 @@ void MemTelemetry::tick()
     // rebuilds (nonzero on a healthy wall means the QML recovery layers failed);
     // recon=ran/refused makes a requested-but-refused rebuild a number.
     const MemParts mpParts = memParts();
+    const qint64 uptimeSeconds = m_uptime.elapsed() / 1000;
     qInfo("[MEMTEL] up=%llds rss=%ldMB playSec=%lld opens=%lld active=%d livePipes=%d "
           "frames=%lld framesIn=%lld coalesced=%lld drop=%.1f%% "
           "dec=%d lit=%d err=%d swd=%lld recon=%lld/%lld "
           "anon=%ldM file=%ldM shm=%ldM heapU=%ldM heapF=%ldM",
-          static_cast<long long>(m_uptime.elapsed() / 1000), rssMb(),
+          static_cast<long long>(uptimeSeconds), rssMb(),
           static_cast<long long>(playMs / 1000), static_cast<long long>(m_opens),
           static_cast<int>(m_playing.size()), RtspVideoSource::livePipelineCount(),
           fdel, fin, fco, fin > 0 ? (100.0 * double(fco) / double(fin)) : 0.0,
@@ -221,6 +227,10 @@ void MemTelemetry::tick()
           RtspVideoSource::erroredCount(), RtspVideoSource::watchdogRebuilds(),
           RtspVideoSource::reconnectRuns(), RtspVideoSource::reconnectNoops(),
           mpParts.anon, mpParts.file, mpParts.shmem, mpParts.heapUsed, mpParts.heapFree);
+    const QJsonObject video{{QStringLiteral("schema"), 1},
+                            {QStringLiteral("up"), uptimeSeconds},
+                            {QStringLiteral("sources"), RtspVideoSource::videoReadiness()}};
+    qCInfo(videoReadinessLog).noquote() << "[VIDTEL]" << QJsonDocument(video).toJson(QJsonDocument::Compact);
 }
 
 

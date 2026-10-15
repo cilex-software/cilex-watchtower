@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "test": "isolated-darwin-launchd",
+  "status": "passed",
+  "configuration": {
+    "os": "25.6.0",
+    "architecture": "arm64",
+    "python": "3.9.6"
+  },
+  "production_watchtower_exercised": false,
+  "startup_after_login": "unverified",
+  "reboot": "unverified",
+  "clean_environment_launcher": true,
+  "direct_parentage": true,
+  "observed_detached_descendant_cleanup": true,
+  "warden_sigkill_recovery_seconds": 8.86,
+  "no_overlap": true,
+  "before": {
+    "child": {
+      "pid": 53917,
+      "ppid": 53909,
+      "uid": 501,
+      "birth": [
+        1791924321,
+        373160
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 te08ih28/fixture-child",
+      "session": 1
+    },
+    "warden": {
+      "pid": 53909,
+      "ppid": 1,
+      "uid": 501,
+      "birth": [
+        1791924320,
+        716416
+      ],
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+      "session": 1
+    },
+    "descendant": {
+      "pid": 53933,
+      "ppid": 53917,
+      "uid": 501,
+      "birth": [
+        1791924323,
+        68938
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 te08ih28/fixture-child",
+      "session": 53933
+    },
+    "guard": {
+      "birth": [
+        1791924321,
+        279686
+      ],
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+      "pid": 53915,
+      "ppid": 53909,
+      "session": 1,
+      "uid": 501
+    }
+  },
+  "after": {
+    "child": {
+      "pid": 54004,
+      "ppid": 54002,
+      "uid": 501,
+      "birth": [
+        1791924331,
+        922543
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 te08ih28/fixture-child",
+      "session": 1
+    },
+    "warden": {
+      "pid": 54002,
+      "ppid": 1,
+      "uid": 501,
+      "birth": [
+        1791924331,
+        670213
+      ],
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+      "session": 1
+    },
+    "descendant": {
+      "pid": 54005,
+      "ppid": 54004,
+      "uid": 501,
+      "birth": [
+        1791924331,
+        927710
+      ],
+      "path": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/cilex launchd \u0422\u0435\u0441\u0442 te08ih28/fixture-child",
+      "session": 54005
+    },
+    "guard": {
+      "birth": [
+        1791924331,
+        852590
+      ],
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+      "pid": 54003,
+      "ppid": 54002,
+      "session": 1,
+      "uid": 501
+    }
+  },
+  "cleanup_verified": true
+}

@@ -1,0 +1,22 @@
+test_aggregate_only_baseline_cannot_authorize_failure_injection (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_changed_protected_request_after_baseline_cancels_injection (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_default_preflight_has_no_writes_extraction_or_lifecycle_actions (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_different_machine_receipt_package_and_account_are_rejected (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_execution_injects_once_then_independently_observes_recovery (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_missing_baseline_source_identity_cancels_failure_injection (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_old_evidence_and_unsafe_path_refused_before_actions (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_cannot_bypass_package_binding (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_default_still_performs_no_mutations (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_detects_changed_configuration_after_file_recovery (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_detects_changed_startup_policy (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_independent_recovery_graph_must_pass (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_refuses_missing_native_visibility_before_mutation (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_refuses_unverified_baseline_graph (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_process_only_retains_degraded_video_and_returns_incomplete18 (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_reused_pid_generation_between_baseline_and_injection_is_rejected (test_native_rollback.NativeRollbackHarnessTests) ... ok
+test_stopped_job_is_never_started_even_with_execution_flag (test_native_rollback.NativeRollbackHarnessTests) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.126s
+
+OK

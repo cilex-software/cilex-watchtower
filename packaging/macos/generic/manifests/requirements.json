@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "profile": "macos-arm64-generic-v1",
+  "bootstrap": {
+    "minimum_macos": "14.4",
+    "minimum_status": "provisional-unverified-on-oldest-os",
+    "shell": "/bin/bash 3.2",
+    "required_system_tools": [
+      "/usr/bin/curl",
+      "/usr/bin/ditto",
+      "/usr/bin/plutil",
+      "/usr/bin/shasum",
+      "/usr/bin/sw_vers",
+      "/usr/sbin/sysctl",
+      "/usr/bin/stat",
+      "/usr/bin/id",
+      "/usr/bin/ssh",
+      "/usr/bin/scp"
+    ],
+    "python_required_on_target": false,
+    "developer_tools_required_on_target": false
+  },
+  "build_host": {
+    "architecture": "arm64",
+    "translated_execution": "blocked",
+    "qt_minimum_source_version": "6.8",
+    "selected_qt_version": "6.11.1",
+    "apple_toolchain": "Qt6.11 vendor: Xcode15 or newer, SDK14 or newer; selected toolchain recorded per artifact",
+    "recommended_memory_bytes": 8589934592,
+    "memory_requirement_status": "provisional-advisory",
+    "parallel_job_memory_bytes": 2147483648,
+    "space_budget": {
+      "download_bytes": 8589934592,
+      "extraction_bytes": 17179869184,
+      "compile_bytes": 21474836480,
+      "artifact_bytes": 8589934592,
+      "reserve_bytes": 4294967296,
+      "status": "conservative-provisional-estimate"
+    }
+  },
+  "runtime_target": {
+    "architectures_implemented": [
+      "arm64"
+    ],
+    "architectures_validated": [],
+    "minimum_macos": null,
+    "minimum_rule": "max(selected source/API floor, compiler target, every arm64 Mach-O component LC_BUILD_VERSION or LC_VERSION_MIN_MACOSX); then clean-machine test required",
+    "required_apis": [
+      "launchd GUI domain",
+      "mach_continuous_time",
+      "VideoToolbox",
+      "Metal",
+      "CoreServices LaunchServices"
+    ],
+    "api_availability_validation": "unverified",
+    "qt_vendor_floor": "13.0",
+    "vendor_support_source": "https://doc.qt.io/qt-6.11/macos.html",
+    "recommended_memory_bytes": 8589934592,
+    "memory_requirement_status": "provisional-advisory",
+    "filesystem": "local writable APFS/HFS+ volume with contained symlinks, atomic same-volume replacement and intended ownership; reject remote/nonlocal destinations",
+    "space_rule": "full new package staging + prior install backup + replacement + journals and safety reserve; non-overridable",
+    "workload": {
+      "measured_limits": [],
+      "provisional_limits": null,
+      "required_evidence": "target camera count, codec, resolution, fps, hardware decoder, sustained150s feed progress, playback and export"
+    }
+  },
+  "findings": [
+    {
+      "id": "runtime.unsupported-os",
+      "severity": "advisory",
+      "overridable": true,
+      "meaning": "Vendor support differs; runnable attempt only when component/API floors pass."
+    },
+    {
+      "id": "runtime.capacity-unmeasured",
+      "severity": "advisory",
+      "overridable": true,
+      "meaning": "Camera capacity is unmeasured; runtime verification remains mandatory."
+    },
+    {
+      "id": "build.memory-advisory",
+      "severity": "advisory",
+      "overridable": true,
+      "meaning": "Low-memory build may be attempted with reduced parallelism."
+    },
+    {
+      "id": "build.local-dependency-receipt",
+      "severity": "advisory",
+      "overridable": true,
+      "meaning": "Use separately authenticated historical installed build inputs; record exact receipts and hashes."
+    },
+    {
+      "id": "security.integrity",
+      "severity": "fatal",
+      "overridable": false
+    },
+    {
+      "id": "security.policy",
+      "severity": "fatal",
+      "overridable": false
+    },
+    {
+      "id": "runtime.architecture",
+      "severity": "fatal",
+      "overridable": false
+    },
+    {
+      "id": "runtime.required-api",
+      "severity": "fatal",
+      "overridable": false
+    },
+    {
+      "id": "transaction.space",
+      "severity": "fatal",
+      "overridable": false
+    },
+    {
+      "id": "transaction.authorization",
+      "severity": "fatal",
+      "overridable": false
+    }
+  ],
+  "acceptance": {
+    "vendor_supported_configuration": "not equivalent to application validation",
+    "supported_configurations": [],
+    "experimentally_runnable_configurations": [],
+    "registration_status": "StartupUnverified",
+    "after_sign_in": "observed GUI login and healthy matching package required",
+    "unattended_reboot": "authorized automatic login plus observed new boot, intended GUI session and healthy matching package; cold-start evidence separate",
+    "production": "DeveloperID signature + notarization/stapling + final hashes + clean-machine/oldestOS/runtime/recovery matrix"
+  }
+}

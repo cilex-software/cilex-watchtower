@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QJsonArray>
 #include <QVideoSink>
 #include <QVideoFrame>
 #include <QtQml/qqmlregistration.h>
@@ -88,6 +89,9 @@ public:
     static int decoderBoundCount();
     static int litCount();
     static int erroredCount();
+    // GUI-thread readiness evidence. IDs omit URL credentials/query/fragment;
+    // counters advance only for fresh frames handed to a non-null video sink.
+    static QJsonArray videoReadiness();
     // Backstop watchdog rebuilds forced, and reconnect() calls that ran vs
     // no-op'd at the guard — a rebuild someone asked for and nobody performed
     // must be a number, not a silence.
@@ -158,6 +162,9 @@ private:
     bool m_noPark = false;       // set around a rebuild that must NOT park/adopt (reconnect, latency)
     void armWatchdog();
     qint64 m_lastDeliverMs = 0;                // GUI thread (deliver())
+    QString m_readinessId;
+    qint64 m_sinkFrames = 0;                  // GUI thread; reset on URL change
+    qint64 m_lastSinkFrameMs = 0;             // excludes adopted cached frames
     qint64 m_builtAtMs = 0;
     bool m_deliveredSinceBuild = false;
     int m_swdAttempts = 0;

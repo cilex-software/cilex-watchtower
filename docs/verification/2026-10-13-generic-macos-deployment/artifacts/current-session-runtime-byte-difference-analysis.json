@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "warden_zip_member_order_unchanged": false,
+  "warden_zip_uncompressed_members_unchanged": true,
+  "changed_member_count": 0,
+  "zip_timestamp_change_count": 0,
+  "zip_members": 155,
+  "watchtower_signature_region_shape_unchanged": true,
+  "watchtower_bytes_outside_code_signature_unchanged": true,
+  "watchtower_unsigned_region_sha256": "81850b2c06f0977e300d58b54814cc4c74ff1320571fe0006c39b574077edce8",
+  "source_tree_sha256": "2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019",
+  "why_warden_retested": "Whole runtime inventory hash changed, despite identical uncompressed library members."
+}

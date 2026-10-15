@@ -1,0 +1,1 @@
+{"passed": true, "evidence": "/private/var/folders/vp/cw9qf1695757j0q1lcxpdy9c0000gn/T/watchtower-macos-publication-m1llwbcd/reconnect-evidence/summary.json", "runs": [{"phase": "before", "client_exit": 1, "connections": 1, "elapsed_seconds": 20.754}, {"phase": "after", "client_exit": 0, "connections": 2, "elapsed_seconds": 7.708}]}

@@ -1,0 +1,1847 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-14T00:48:03.834022+00:00",
+  "overall": "incomplete",
+  "status_meaning": {
+    "passed": "Only the precisely scoped observation or fixture is established; a fixture pass is not production or clean-Mac acceptance.",
+    "failed": "An attempted check failed. Later corrections do not erase the original failure evidence.",
+    "blocked": "A required implementation, approved input, credential, target or startup arrangement is unavailable.",
+    "unverified": "The requirement has not been demonstrated for the current artifact and intended configuration."
+  },
+  "test_host": {
+    "os": "macOS 26.6.2",
+    "build": "25G83",
+    "architecture": "native arm64",
+    "system_python": "3.9.6",
+    "stock_bash": "3.2"
+  },
+  "advertised_supported_configurations": [],
+  "evidence_root": "docs/verification/2026-10-13-generic-macos-deployment",
+  "claims": [
+    {
+      "id": "1.separate-entry",
+      "status": "passed",
+      "evidence": "deploy-watchtower.sh exists; legacy build-local.sh has no changes.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "1.no-publication",
+      "status": "passed",
+      "evidence": "Controller source acquisition uses init/fetch/checkout only; deployment does not commit, push, tag or publish.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "2.source-inspection",
+      "status": "passed",
+      "evidence": "Initial source199a8998c4a4b20d8ebffdec87b5bc053adb473b inspected; existing runtime dependencies and missing Darwin support confirmed.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "2.bundle-metadata",
+      "status": "passed",
+      "evidence": "Current final development artifact metadata/inventory checked: Watchtower1.1.781, Warden1.5.0,327 Mach-O components and source/helper hash bindings. Empty/wrong identifiers/versions remain rejected by fixtures.",
+      "scope": "current packaged/static plus fixture"
+    },
+    {
+      "id": "2.preferences-deeplink-contracts",
+      "status": "unverified",
+      "evidence": "Configuration snapshots and native CFPreferences fixture pass. New default cilex handler snapshot/restore compares bundle ID and exact path; setters are fixture-tested. No supported general unregister is used. Actual current-candidate settings/backend/session preservation is pending.",
+      "scope": "fixture; native read-only handler inspection"
+    },
+    {
+      "id": "3.modes-interface",
+      "status": "passed",
+      "evidence": "Current frozen Setup/bootstrap English check, Russian dry-run, large-receipt verify and no-arguments assessment emitted valid JSON and expected incomplete exit codes. Unsupported paths still fail explicitly.",
+      "scope": "current frozen CLI"
+    },
+    {
+      "id": "3.readonly-modes",
+      "status": "passed",
+      "evidence": "Current frozen English check, Russian Unicode dry-run and large-receipt verify left receipt/inventory unchanged, created no selected target and started no installed app. Controller/remote/install fixtures enforce no provisioning/registration/lifecycle mutations.",
+      "scope": "current frozen CLI plus fixture"
+    },
+    {
+      "id": "3.stock-bootstrap",
+      "status": "passed",
+      "evidence": "Bash3.2 syntax and stock osascript assessment executed on host; no developer tool dialogs.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "3.clean-oldest-bootstrap",
+      "status": "unverified",
+      "evidence": "No clean macOS14.4 target tested; frozen runtime minimum must be checked before execution.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "3.versioned-bootstrap-distribution",
+      "status": "passed",
+      "evidence": "Latest corrected version1.0.0 DevelopmentOnly bootstrap SHA502e0f42b2add2d6e057ee80676ea052c2b6c04af4557c1c6f87fdbb8a9f552e produced and frozen CLI checked. Clean-oldest Mac remains unverified.",
+      "scope": "current packaged development artifact"
+    },
+    {
+      "id": "3.noninteractive",
+      "status": "passed",
+      "evidence": "Missing input/prompt fixtures and bounded SSH BatchMode; masked GitFD fixtures.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "3.local-interruption-resume",
+      "status": "passed",
+      "evidence": "98 installer fixtures include bound interrupted install/uninstall journals, changed-file/receipt/policy rejection, incomplete-history guard, completed-uninstall observation and preservation of original failed journal writes. Actual interrupted native transaction and power-loss recovery remain unverified.",
+      "scope": "fixture"
+    },
+    {
+      "id": "4.requirements-manifests",
+      "status": "passed",
+      "evidence": "Versioned JSON distinguishes build/runtime/vendor/provisional facts and advertises no validated configurations.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "4.hardware-space-apis",
+      "status": "passed",
+      "evidence": "Native assessment recordsOSbuild/nativearchitecture/memory/CPU/freebytes and loadsrequiredAPI symbols; extraction/transaction space rejection fixtures pass.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "4.complete-workload-capacity",
+      "status": "unverified",
+      "evidence": "No actual camera-capacity benchmark; no measured capacity advertised.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "4.minimum-derived",
+      "status": "passed",
+      "evidence": "Pure Mach-O auditor fixtures plus actual Qt/GStreamer/Python/FFmpeg floors; runtime min takes component maximum.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "4.architectures",
+      "status": "passed",
+      "evidence": "Only nativearm64 accepted; translated/x86_64/universal2 paths refused. No Intel/universal acceptance claimed.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "4.overrides",
+      "status": "passed",
+      "evidence": "Advisory IDs recorded; unknown/security/hash/architecture/space/authorization overrides rejected by controller and transaction fixtures.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.language",
+      "status": "passed",
+      "evidence": "Current frozen English check and Russian dry-run passed, alongside preferred-UI-language selection fixtures. Detailed complete localization and alternate-administrator language remain separate unverified claims.",
+      "scope": "current frozen CLI plus fixture"
+    },
+    {
+      "id": "5.complete-localization",
+      "status": "unverified",
+      "evidence": "Some build diagnostics and detailed dependency facts remain English; alternate-administrator language not tested.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.unicode-spaces",
+      "status": "passed",
+      "evidence": "Archive, environment launcher, lock, controller and SSH fixtures use Unicode/spaces. Native development installation occurred at the default per-user path; actual alternate-administrator or custom Unicode destination is unverified.",
+      "scope": "fixture and historical native default path"
+    },
+    {
+      "id": "5.dependency-plan",
+      "status": "passed",
+      "evidence": "PinnedofficialURLs/hashes/licenses/manualrecipes and read-onlytoolchain detection;23dependency fixtures and actualNinjadownload/extract/version.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.complete-auto-provision",
+      "status": "blocked",
+      "evidence": "Automatic Apple/Qt/GStreamer/pkg-config/Python/FFmpeg provisioning not complete; explicit verified inputs required.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.isolation-retries-cache",
+      "status": "passed",
+      "evidence": "Pinned wheelvenv and officialNinja exercised; cache corruption, offline, retries/TLS/proxy/auth errors covered in fixtures. No Homebrew invocation.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.offline-no-network",
+      "status": "passed",
+      "evidence": "Offline dependency/source/SSH refusal fixtures; target final-artifact installation not yet observed.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "5.restart-resume",
+      "status": "unverified",
+      "evidence": "No actual interrupted dependency install or requiredrestart case exercised.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "6.fresh-main-exact-tag",
+      "status": "passed",
+      "evidence": "Native Apple Git against an authenticated local HTTPS fixture: fresh main, exact annotated tag and absent-tag refusal passed; credentials absent from argv/environment/logs/artifacts. Actual private GitHub acquisition remains unverified.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "6.offline-source-provenance",
+      "status": "passed",
+      "evidence": "Trustedhash+commit required; archive integrity checked and source tree hashed; offline tag verification explicitlyblocked.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "6.secure-github-channels",
+      "status": "passed",
+      "evidence": "ProtectedFD fixture/noninteractiveprompt rejection/redaction. Actual selectedKeychain consent and authenticatedGit operation unverified.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "6.dedicated-normalized-build",
+      "status": "passed",
+      "evidence": "Dedicated full native Watchtower compilation completed with normalized environment and memory-bound jobs. Development snapshot provenance remains explicit; no installed app dependency was used.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "6.helper-provenance",
+      "status": "passed",
+      "evidence": "Latest corrected artifact preserves source tree2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019 and records separate helper tree1aa53e5dc93cbe09b2c5df5270c686dc089dfc6001bf205261b8873dd30ef44b. Only runtime parser helper source changed; package hashes/inventory and embedded runtime regression verified.",
+      "scope": "current final development artifact"
+    },
+    {
+      "id": "7.per-user-install",
+      "status": "passed",
+      "evidence": "Corrected mounted development DMG upgrade run20261013T230718Z-811e9ce7987c2c3a returned Installed and PendingStoppedStartup. Separate authorized start followed; exit21/full_success=false remains correct for incomplete acceptance.",
+      "scope": "actual corrected per-user upgrade"
+    },
+    {
+      "id": "7.machine-alternate-admin",
+      "status": "blocked",
+      "evidence": "Protected nativeauthorization helper and shared-owner coordination not implemented; fails before mutation.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "7.paths-ownership-filesystem",
+      "status": "passed",
+      "evidence": "Canonical ownership/custom-path fixtures and native local APFS assessment passed; journaled HFS+ and real custom Unicode installation remain unverified.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "7.lock-stage-replace",
+      "status": "passed",
+      "evidence": "98 installer fixtures plus actual mounted-DMG upgrade passed file replacement and preserved stopped startup. Explicit root start was separate. No real rollback or uninstall acceptance has occurred yet.",
+      "scope": "fixture plus actual per-user upgrade"
+    },
+    {
+      "id": "7.scoped-processes",
+      "status": "passed",
+      "evidence": "Native libproc birth/UID/path/session checks and isolatedLaunchAgent failure tests; guardian differentiated fromduplicateWarden.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "7.safe-extraction",
+      "status": "passed",
+      "evidence": "Traversal, absolute/hardlink,escaping/cycliclink,case/Unicodecollision,permissions,space and containedframeworksymlink fixtures.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "7.rollback",
+      "status": "passed",
+      "evidence": "98 installer fixtures plus actual process-only rollback restored application/receipt/configuration ownership/startup policy after one injected post-replacement failure. Independent native process and visible-window recovery passed in13.162s. Original injection retained; no rollback failure; video unverified exit18.",
+      "scope": "Fixture and actual designated-Mac transaction/process restoration; not healthy video rollback.",
+      "evidence_ref": "native_process_only_rollback"
+    },
+    {
+      "id": "7.actual-rollback-health",
+      "status": "unverified",
+      "evidence": "Actual rollback restored files/receipt/configuration/startup and visible graph, but process-only mode deliberately retains degraded video. Healthy150s recovery was not established.",
+      "scope": "Actual native process restoration observed; complete runtime health unverified.",
+      "evidence_ref": "native_process_only_rollback"
+    },
+    {
+      "id": "8.ssh-security-bindings",
+      "status": "passed",
+      "evidence": "18fixturescover strict hostkeys,targetidentity,secret exclusion,SFTPescaping and runboundresult.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "8.remote-loss-resume",
+      "status": "passed",
+      "evidence": "Unknown result, changedpackage/crossrun/staleresult rejection and noreexecution fixtures.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "8.live-remote-install",
+      "status": "blocked",
+      "evidence": "No separate Mac target/login/key/expectedidentity supplied; no RemoteLogin enabling attempted.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "8.alternate-ssh-desktop",
+      "status": "blocked",
+      "evidence": "Protected elevation path missing; different SSH/desktop accounts refused before network.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.selfcontained-dmg",
+      "status": "unverified",
+      "evidence": "Corrected development DMG d74c31e64feba38f71052b12c9153064cd8cad28a67b78cc01e9c00ee2973594 was produced, verified and installed on this developer Mac. Clean offline target and production license/security acceptance remain unverified or blocked.",
+      "scope": "current artifact/host installation; clean acceptance pending"
+    },
+    {
+      "id": "9.runtime-closure",
+      "status": "passed",
+      "evidence": "Current final development package contains327 audited Mach-O components with derived runtime floor26.0.0; strict nested ad-hoc Watchtower/Setup/bootstrap signatures and unchanged final inventory passed. Clean supported Mac runtime remains unverified.",
+      "scope": "current static and packaged checks"
+    },
+    {
+      "id": "9.clean-machine-runtime",
+      "status": "unverified",
+      "evidence": "No clean Mac or oldest macOS test executed.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.ffmpeg-profile",
+      "status": "passed",
+      "evidence": "Exactapproved LGPL9.0.2 source built for14.4; VideoToolboxH264 export and decode fixture passed on actualhardware.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.license-redistribution",
+      "status": "blocked",
+      "evidence": "Structural license coverage validator and20 fixtures implemented. Historical package inventory had3293 payload files but zero assigned components. Complete per-component copyright/source-offer/license decision remains unavailable; no legal approval inferred.",
+      "scope": "implementation tested; production blocked"
+    },
+    {
+      "id": "9.production-signing",
+      "status": "blocked",
+      "evidence": "This Mac reported zero valid codesigningidentities. Development builds authorized; noproductiontrust claim.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.quarantine-security",
+      "status": "passed",
+      "evidence": "Native ownedfixture xattrroundtrip/propagation and no removal; noSIP/Gatekeeper/privacy/trustpolicy bypass.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.offline-production-admission",
+      "status": "blocked",
+      "evidence": "No implemented offlineGatekeeper assessment guaranteeing zero network; productionoffline path explicitlyblocked.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "9.uninstall",
+      "status": "passed",
+      "evidence": "Native owned uninstall and completed same-run journal/absence reconciliation passed; app/job detached into retained owned backup. Tracked Qt preferences and unrelated Labs control hashes/modes/ownership matched. No shared dependency removed.",
+      "scope": "Fixtures and actual designated-Mac uninstall/resume; broader LaunchServices removal unverified.",
+      "evidence_ref": "native_owned_uninstall_resume"
+    },
+    {
+      "id": "10.darwin-warden",
+      "status": "passed",
+      "evidence": "Native Warden tests and existing regressions passed, including native dotted Qt backend key, legacy fallback, unchanged real preferences, identity, metrics, maintenance and monotonic timing.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "10.launchd-parentage",
+      "status": "passed",
+      "evidence": "Corrected artifact separately started with native process graph app56287 under Warden56285 under launchd, guardian56286 under Warden, intended UID/session and no duplicates. It is currently running for diagnostics; this is not crash or login acceptance.",
+      "scope": "actual corrected installed process graph"
+    },
+    {
+      "id": "10.failure-recovery",
+      "status": "passed",
+      "evidence": "Latest isolated packaged Warden fixture recovery9.903s/no-overlap/cleanup passed. Actual app watchdog reconnects were observed, but their17 recovered events do not establish sustained31-feed or supervisor-crash acceptance.",
+      "scope": "isolated supervisor fixture; actual stream events not full recovery"
+    },
+    {
+      "id": "10.complete-descendant-containment",
+      "status": "unverified",
+      "evidence": "Observedsetsiddescendantcleaned; arbitraryhelperescapingbetweenobservations notprovencontained.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "10.packaged-warden",
+      "status": "passed",
+      "evidence": "Latest repackaged Warden31 tests and isolated env-i LaunchAgent recovery9.903s passed with unchanged tested runtime tree, no overlap, detached-descendant cleanup and fixture cleanup. No actual Watchtower crash signal has been sent.",
+      "scope": "current native packaged fixture"
+    },
+    {
+      "id": "10.after-sign-in",
+      "status": "unverified",
+      "evidence": "Registration/pendingdisabled/nographicalsession fixtures; no actualnewlogin observed.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "10.unattended-reboot",
+      "status": "blocked",
+      "evidence": "Read-only actual Mac assessment: FileVault On and no automatic-login account. No authorized arrangement or reboot; no cold-start/power-loss coverage; settings unchanged.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "10.sleep-lock-switch-network",
+      "status": "unverified",
+      "evidence": "Monotonicclock unitchecks pass; physicalsleep/wake,lock,user-switch,networkreconnect not exercised.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "11.configuration-preservation",
+      "status": "passed",
+      "evidence": "Actual rollback compared configuration/agent/receipt hashes, modes, ownership and startup policy unchanged; native uninstall/resume independently preserved Qt preferences and unrelated Labs control file. Raw credentials/configuration were not copied into public evidence.",
+      "scope": "Actual selected local configuration/control files plus prior fixtures; backend worker contracts require separate evidence.",
+      "evidence_ref": "native_process_only_rollback"
+    },
+    {
+      "id": "11.native-consent",
+      "status": "unverified",
+      "evidence": "Exact frozen Setup refused an unwritable owned destination in Russian with no selected lifecycle/configuration changes. Native Gatekeeper/privacy consent denial and protected alternate-administrator authorization remain unverified.",
+      "scope": "Native filesystem authorization refusal passed; broader consent/security acceptance remains incomplete.",
+      "evidence_ref": "native_frozen_refusals"
+    },
+    {
+      "id": "11.results-resume",
+      "status": "passed",
+      "evidence": "Versioned states, bounded output, private/HMAC run binding and incomplete-outcome fixtures pass. Completed uninstall dispatch reconciles its same-run journal and actual absence instead of reporting an installed application.",
+      "scope": "fixture"
+    },
+    {
+      "id": "11.log-retention",
+      "status": "unverified",
+      "evidence": "Wardenlogbounds implemented; complete deploymentlog/runretention remains under review.",
+      "scope": "Historical matrix scope retained; no current-candidate runtime claim is inferred."
+    },
+    {
+      "id": "12.real-gui-video150",
+      "status": "failed",
+      "evidence": "Actual reconnect candidate requested150s failed after49.948s with EXPECTED_CAMERA_COUNTS_NOT_MAINTAINED. Prior corrected-candidate54.383s failure and earlier parser failure remain retained; no thresholds relaxed.",
+      "scope": "Native designated existing Mac, saved31-source view; full runtime acceptance failed.",
+      "evidence_ref": "native_reconnect_freshness_failure"
+    },
+    {
+      "id": "12.playback-export",
+      "status": "passed",
+      "evidence": "Recorded playback advanced01:16:38.231 to01:17:32.052. A selected10s export produced9.90s720pH264 with both overlays; bundled FFmpeg decoded/reencoded150frames successfully. Unsupported diagnostic muxers and broken external FFmpeg attempts remain retained separately.",
+      "scope": "One representative actual current-session development candidate workflow; not exhaustive or new reconnect candidate acceptance.",
+      "evidence_ref": "native_representative_playback_export"
+    },
+    {
+      "id": "12.actual-app-recovery",
+      "status": "unverified",
+      "evidence": "Two real scoped crash signals completed process and visible-window recovery: app2.858s, Warden0.330s, old-owned processes gone/no overlap. Healthy per-source video recovery remains failed/unverified; no full recovery acceptance.",
+      "scope": "Native process recovery passed; complete video recovery acceptance remains unverified.",
+      "evidence_ref": "native_reconnect_process_recovery"
+    },
+    {
+      "id": "12.failed-evidence",
+      "status": "passed",
+      "evidence": "Both verifier defects, the failed initial real readiness precheck and the new recurring31-feed freshness failure remain retained. The corrected embedded parser passes retained historical input; that correction does not turn actual stale video into success.",
+      "scope": "retained actual/fixture evidence"
+    },
+    {
+      "id": "13.docs-and-deliverables",
+      "status": "unverified",
+      "evidence": "Current final development DMG/bootstrap/archive, entry/helpers, manifests, messages, tests, README and external matrix exist. Full native runtime, clean-machine, production and remote acceptance remain incomplete.",
+      "scope": "current development artifacts delivered; full acceptance incomplete"
+    },
+    {
+      "id": "7.stopped-startup-preservation",
+      "status": "passed",
+      "evidence": "Actual upgrade left the existing unloaded job at PendingStoppedStartup; runtime started only through a later separately authorized action. Loaded/no-PID refusal and interrupted-state preservation remain fixture-tested.",
+      "scope": "actual unloaded-state preservation plus fixture",
+      "evidence_ref": "installer_latest"
+    },
+    {
+      "id": "7.default-handler-rollback",
+      "status": "unverified",
+      "evidence": "Read-only native cilex handler snapshot and mocked restore/readback tests pass. Native restoration with permission denial, duplicate bundle IDs and previous handler absence is not accepted; catalog cleanup lacks a documented public unregister path.",
+      "scope": "Current implementation/acceptance distinction explicit.",
+      "evidence_ref": "installer_latest"
+    },
+    {
+      "id": "9.uninstall-interruption",
+      "status": "passed",
+      "evidence": "Fixture interruptions after app rename and final journal commit resume from protected bound backups, preserve original failures and refuse changed policy/receipt/application state. Complete owned backup retention is explicit.",
+      "scope": "Current implementation/acceptance distinction explicit.",
+      "evidence_ref": "installer_latest"
+    },
+    {
+      "id": "9.native-uninstall-reinstall",
+      "status": "passed",
+      "evidence": "Actual owned uninstall and same-run resume passed; exact latest DMG reinstalled with Installed/ProcessVerified, exit21. Final requested stop verified job unloaded and zero selected processes; application/receipt and AfterSignIn plist remain. Video/login/reboot acceptance incomplete.",
+      "scope": "Native owned lifecycle file/process operations; not complete video/startup acceptance.",
+      "evidence_ref": "native_reinstall"
+    },
+    {
+      "id": "12.per-source-readiness-fixtures",
+      "status": "passed",
+      "evidence": "38 runtime fixtures,12 crash-harness fixtures, nine rollback-harness fixtures and23 native loopback readiness checks establish instrumentation and test boundaries, not actual31-camera acceptance.",
+      "scope": "Current implementation/acceptance distinction explicit.",
+      "evidence_ref": "runtime_source"
+    },
+    {
+      "id": "12.current-native-rollback",
+      "status": "unverified",
+      "evidence": "Actual process-only harness completed with FilesReceiptConfigurationStartupAndProcessesRestored_VideoUnverified, exit18. Real transaction and independent graph/control checks passed; healthy-video rollback remains unverified.",
+      "scope": "Process-only native rollback passed; complete requested video acceptance remains incomplete.",
+      "evidence_ref": "native_process_only_rollback"
+    },
+    {
+      "id": "12.final-stopped-state",
+      "status": "unverified",
+      "evidence": "The prior stopped state was observed before the corrected artifact start. Corrected Warden and Watchtower currently remain running for diagnostics; final requested stop must still be performed and verified by root.",
+      "scope": "current running; final stop pending",
+      "evidence_ref": "receipt_fix"
+    },
+    {
+      "id": "12.real-readiness-precheck-failure",
+      "status": "failed",
+      "evidence": "Actual crash-harness baseline failed with VIDEO_TELEMETRY_LINE_LIMIT_EXCEEDED before any signals. Root diagnosed historical rotated-log rows; the reader correction and helper-only distribution are pending. Original result remains retained.",
+      "scope": "actual installed candidate, pre-crash readiness only",
+      "evidence_ref": "native_current_readiness_failure"
+    },
+    {
+      "id": "12.actual-recurring-source-stalls",
+      "status": "failed",
+      "evidence": "Eight native samples retain31 source hashes and31 decoders but show fresh counts22/14/14/31/31/31/30/29, with worst age66592ms. Seventeen watchdog reconnect/recovered events were observed by uptime120s; stalls recur and root cause is unverified. No thresholds changed or crash signals sent.",
+      "scope": "actual saved31-camera view; sampled delivery freshness",
+      "evidence_ref": "native_source_freshness_failure"
+    },
+    {
+      "id": "12.native-corruption-permission-refusals",
+      "status": "passed",
+      "evidence": "Exact frozen reconnect-candidate Setup rejected corrupt package.hash and authorization.destination at mode0500 Unicode/spaced parent. Before/after process identities, job policy, executable/receipt/agent/config hashes/ownership and cilex handler matched. No selected lifecycle or settings mutations.",
+      "scope": "Native existing macOS26.6.2 developer host; filesystem permission and package integrity only.",
+      "evidence_ref": "native_frozen_refusals"
+    },
+    {
+      "id": "12.actual-process-only-crash-recovery",
+      "status": "passed",
+      "evidence": "Two explicitly authorized native installed crashes recovered application in2.858s and Warden in0.330s. Native process/window verification, no overlap and old-owned process cleanup passed. Video acceptance failed; no full recovery success.",
+      "scope": "Native designated existing Mac, exact reconnect candidate; process recovery only.",
+      "evidence_ref": "native_reconnect_process_recovery"
+    },
+    {
+      "id": "12.actual-process-only-rollback",
+      "status": "passed",
+      "evidence": "Real injected post-replacement failure retained; prior files/receipt/configuration/startup and independent visible process graph restored in13.162s. No rollback failure. Process-only state remains incomplete exit18.",
+      "scope": "Actual designated Mac, degraded video retained; no full150s video proof.",
+      "evidence_ref": "native_process_only_rollback"
+    },
+    {
+      "id": "12.actual-owned-uninstall-resume",
+      "status": "passed",
+      "evidence": "Owned app and LaunchAgent detached; protected same-run journal/absence reconciliation passed. Existing Qt preferences and unrelated Labs control hashes/modes/ownership preserved; backup retained. LaunchServices removal unverified.",
+      "scope": "Actual designated Mac owned uninstall/resume followed by reinstall and verified requested final stop; general LaunchServices removal unverified.",
+      "evidence_ref": "native_owned_uninstall_resume"
+    },
+    {
+      "id": "12.final-requested-stop",
+      "status": "passed",
+      "evidence": "Final native evidence at2026-10-14T00:40:23.445051Z: selected job unloaded/PIDnull, zero selected processes, app/receipt/AfterSignIn plist present, disabledfalse; unrelated Labs control SHA unchanged.",
+      "scope": "Requested stop at completion, not a future-login or reboot-disable claim.",
+      "evidence_ref": "native_final_stop"
+    },
+    {
+      "id": "12.final-installer-image-cleanup",
+      "status": "passed",
+      "evidence": "Three task-owned installer DMGs ejected with exit0 and subsequent absent mounts; unrelated simulator disk untouched. Native orchestrator reports no executable running from those installer mounts.",
+      "scope": "Task installer mount cleanup only; owned transaction backups and failed-run evidence retained.",
+      "evidence_ref": "native_final_disk_image_cleanup"
+    }
+  ],
+  "snapshot_type": "External current validation; frozen payload matrix retained unchanged",
+  "derived_from": {
+    "path": "packaging/macos/generic/VALIDATION.json",
+    "sha256": "98043fd716fef31c0ab5eed2faf12eabeb07190e647f7af7d38d78890bce8825",
+    "updated_at": "2026-10-13",
+    "modified": false
+  },
+  "current_candidate": {
+    "run_id": "artifact-rtsp-reconnect-20261013T232609Z",
+    "source_tree_sha256": "ae35796cb665e71be72ed17d394ad4de2e16a5124dbb0cb191deade62fb6b16d",
+    "helper_tree_sha256": "1aa53e5dc93cbe09b2c5df5270c686dc089dfc6001bf205261b8873dd30ef44b",
+    "install_helper_sha256": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea",
+    "runtime_helper_sha256": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad",
+    "distribution": "development",
+    "security_admission": "DevelopmentOnly",
+    "notarized": false,
+    "ad_hoc_only": true,
+    "assembly_status": "passed",
+    "final_hashes_status": "passed",
+    "installed_runtime_status": "failed-expected-source-freshness",
+    "installation_status": "Installed",
+    "watchtower_version": "1.1.781",
+    "warden_version": "1.5.0",
+    "app_minimum_macos": "26.0.0",
+    "bootstrap_minimum_macos": "14.4.0",
+    "runtime_components": 327,
+    "artifacts": [
+      {
+        "kind": "installer",
+        "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-rtsp-reconnect/CilexWatchtower-1.1.781-arm64-development.dmg",
+        "sha256": "e66d3fb53e236f5e2fdc4c3f4f49be3de5d327006e171666e38d057ed90a0501",
+        "bytes": 120194340
+      },
+      {
+        "kind": "bootstrap",
+        "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-rtsp-reconnect/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+        "sha256": "53d47bf7d78bb23140232a0385f6fccfb6488bb08b2a6b9021e5424edced15ec",
+        "bytes": 20598126
+      }
+    ],
+    "package_archive": {
+      "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-rtsp-reconnect-20261013T232609Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+      "sha256": "638e5c2dcf5691561817580bf09d3963270d15c1dc35acfbd6755e0bf4b768e4"
+    },
+    "manifest_sha256": "863e9415cfe5a319f9e418ab57cd1676dfdd596972655589d66e9fd0757fe4d3",
+    "evidence_path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/rtsp-reconnect-final-artifacts.json",
+    "change": "Application source differs only in qml/VideoSurface.qml; generic helper source bytes unchanged. Fix dispatches normal reconnect but does not prove initiating stall cause.",
+    "runtime_observations": {
+      "native_qml_fixture": "passed",
+      "fixture_second_connection_fresh_frames_seconds": 4.609,
+      "actual150_seconds": "failed",
+      "actual_crash_recovery": "ProcessRecoveryObserved_VideoAcceptanceFailed",
+      "final_stopped_state": "VerifiedStopped",
+      "baseline_observed_seconds": 49.948,
+      "baseline_failure": "EXPECTED_CAMERA_COUNTS_NOT_MAINTAINED",
+      "app_process_recovery_seconds": 2.858,
+      "warden_process_recovery_seconds": 0.33,
+      "crash_signals_sent": 2,
+      "actual_rollback": "FilesReceiptConfigurationStartupAndProcessesRestored_VideoUnverified",
+      "actual_rollback_exit_code": 18,
+      "actual_rollback_seconds": 13.162,
+      "actual_uninstall": "Uninstalled",
+      "actual_uninstall_same_run_resume": "UninstallJournalAndCurrentAbsenceReconciled",
+      "reinstall": "InstalledWithProcessVerified",
+      "reinstall_run_id": "20261014T003441Z-3a96257ef2aadfa2",
+      "reinstall_exit_code": 21,
+      "final_stop_at": "2026-10-14T00:40:23.445051+00:00",
+      "currently_running": false,
+      "selected_process_count": 0,
+      "job_loaded": false,
+      "installer_mount_cleanup": "AllThreeTaskImagesEjected_OthersUntouched"
+    },
+    "native_upgrade_run_id": "20261014T000434Z-c1d8f29fce83f4ae",
+    "native_upgrade_exit_code": 21,
+    "native_upgrade_full_success": false,
+    "startup_after_upgrade": "StartupUnverified",
+    "root_reported_native_upgrade": {
+      "status": "passed",
+      "state": "InstalledWithProcessVerified",
+      "evidence_path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-rtsp-reconnect-reconciled-result.json",
+      "scope": "Per-user replacement installed and ProcessVerified; exit21/full_successfalse with StartupUnverified and later150s video failure."
+    }
+  },
+  "requested_final_state": {
+    "warden": "stopped",
+    "watchtower": "stopped",
+    "verification": "VerifiedStopped",
+    "reboot_authorized": false,
+    "latest_observed_stop_at": "2026-10-14T00:40:23.445051+00:00",
+    "latest_observed_selected_process_count": 0,
+    "latest_observed_job_loaded": false,
+    "latest_running_evidence": "docs/verification/2026-10-13-generic-macos-deployment/warden/actual-process-recovery-rtsp-reconnect.json",
+    "latest_running_evidence_epoch": 1791933200.796128,
+    "latest_stop_is_historical": false,
+    "verified_at": "2026-10-14T00:40:23.445051+00:00",
+    "application_present": true,
+    "receipt_present": true,
+    "after_sign_in_plist_present": true,
+    "disabled": false,
+    "evidence": "docs/verification/2026-10-13-generic-macos-deployment/transaction/final-stop.json",
+    "latest_running_evidence_is_historical": true,
+    "read_only_recheck": {
+      "observed_at": "2026-10-14T00:46:31.527369+00:00",
+      "passed": true,
+      "selected_process_count": 0,
+      "recorded_live_process_count": 0,
+      "job_loaded": false,
+      "new_cleanup_failure_observed": false,
+      "observer_lifecycle_actions": false,
+      "evidence": "docs/verification/2026-10-13-generic-macos-deployment/warden/final-stopped-state-recheck.json",
+      "evidence_sha256": "b6fb14d2c97d1046958bbbfb55934f95e736dc5967f76430cc5a6f2ffb955591"
+    }
+  },
+  "evidence_catalog": {
+    "installer_latest": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/checks-2026-10-14-rollback-harness.json",
+      "status": "passed",
+      "installer_tests": 98,
+      "native_rollback_harness_fixtures": 9,
+      "scope": "Fixtures; no real install, uninstall, crash or rollback executed by this workstream."
+    },
+    "generic_pre_final_patch": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/readiness-pre-freeze-tests.json",
+      "status": "passed",
+      "total": 264,
+      "passed": 263,
+      "skipped": 1,
+      "scope": "Before final loaded/no-PID preservation patch; not a full-suite assertion for final frozen helpers."
+    },
+    "native_readiness": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/native-readiness/evidence.json",
+      "status": "passed",
+      "tests": 23,
+      "scope": "Native loopback RTSP decoded-frame and readiness checks only; no real camera connections or installed application starts."
+    },
+    "runtime_source": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-source-readiness.json",
+      "status": "passed",
+      "runtime_tests": 38,
+      "recovery_harness_tests": 12,
+      "scope": "Per-source telemetry verification and recovery-harness fixtures; actual expected feeds unverified."
+    },
+    "stock_bootstrap": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/controller/checks.json",
+      "status": "passed",
+      "scope": "System Bash3.2 and osascript read-only assessment on this developer Mac; missing runtime reported without installation dialogs."
+    },
+    "previous_artifacts": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/final-artifacts.json",
+      "status": "passed",
+      "scope": "Historical development DMG/bootstrap only; contains earlier receipt-reader defect and is not acceptance of the current candidate."
+    },
+    "previous_frozen_warden": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-packaged-dotted-qt.json",
+      "status": "passed",
+      "tests": 25,
+      "scope": "Previous frozen Warden and isolated launchd fixture; current-candidate and real Watchtower recovery unverified."
+    },
+    "receipt_failure": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/installed-readonly-observation-before-user-stop.json",
+      "status": "failed",
+      "scope": "Historical real 1,562,588-byte receipt exceeded the old 1MiB verifier limit; requested150s acceptance did not complete."
+    },
+    "receipt_fix": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/installed-stopped-receipt-verifier-regression.json",
+      "status": "passed",
+      "scope": "Read-only corrected parser accepted the same receipt and observed zero selected processes without changing receipt or support entries."
+    },
+    "license_coverage": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/license-coverage-validation.json",
+      "status": "passed",
+      "scope": "20 structural coverage fixtures. Prior payload had zero assigned components; complete redistribution approval remains blocked."
+    },
+    "startup": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/startup-assessment-native.json",
+      "status": "blocked",
+      "scope": "Read-only FileVault On and automatic login not configured; no reboot/cold-start proof."
+    },
+    "generic_final_frozen": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/readiness-final-generic-tests.json",
+      "status": "passed",
+      "total": 266,
+      "passed": 265,
+      "skipped": 1,
+      "scope": "Final frozen helper source includes loaded/no-PID safeguard. No installed application starts. Counts cross-referenced to readiness-final-artifacts.json; full log retained."
+    },
+    "final_development_artifacts": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/readiness-final-artifacts.json",
+      "status": "passed",
+      "scope": "Current single DMG, bootstrap and package archive hashed;327 Mach-O components, strict ad-hoc signatures, hdiutil DMG verification and unchanged package inventory. DevelopmentOnly; no production/notarization/clean-Mac claim."
+    },
+    "packaged_warden_current": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-packaged-readiness.json",
+      "status": "passed",
+      "native_packaged_tests": 31,
+      "runtime_tree_sha256": "24be77d13954021ae235e6f7aa9c36396d8da721f5f397cf0ed41b102928dd50",
+      "runtime_tree_unchanged": true,
+      "warden_sigkill_recovery_seconds": 9.842,
+      "application_fixture_recovery_seconds": 5.133,
+      "guardian_failure_cleanup_seconds": 1.696,
+      "parent_death_cleanup_seconds": 0.116,
+      "scope": "Actual packaged Warden in isolated env-i LaunchAgent fixtures; direct parentage, detached-descendant cleanup, no overlap, temporary-job cleanup and zero selected fixture processes. Real installed Watchtower not exercised."
+    },
+    "frozen_cli_current": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/readiness-result.json",
+      "status": "passed",
+      "scope": "Frozen English check, Russian Unicode/spaces dry-run, bootstrap no-arguments assessment and large-receipt read-only verify. Existing1,562,588-byte receipt unchanged; no target creation or installed application start."
+    },
+    "native_current_upgrade": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-result.json",
+      "status": "passed",
+      "run_id": "20261013T225558Z-1cde4f5adb65b0f7",
+      "scope": "Actual final mounted-DMG upgrade installed files and preserved PendingStoppedStartup. Exit21/full_success=false; runtime and startup acceptance incomplete."
+    },
+    "native_current_start": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/authorized-start.json",
+      "status": "passed",
+      "scope": "Separate explicit authorized start observed launchd→Warden→Watchtower with native creation identities and guardian; no duplicates."
+    },
+    "native_current_gui": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/gui-observation.json",
+      "status": "passed",
+      "scope": "Native screenshot shows saved Улица view,31 camera images and4 empty add-camera cells; slow badges present. Static visibility does not prove advancing video."
+    },
+    "native_current_readiness_failure": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/crash-tests/20261013T225710Z-1ed4617c3c739c99/result.json",
+      "status": "failed",
+      "run_id": "20261013T225710Z-1ed4617c3c739c99",
+      "scope": "Real crash harness failed its initial healthy baseline on VIDEO_TELEMETRY_LINE_LIMIT_EXCEEDED. attempts=[]; no crash signals sent and no150s/recovery acceptance established."
+    },
+    "native_stop_after_readiness_failure": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/stop-after-log-reader-failure.json",
+      "status": "passed",
+      "scope": "Scoped bootout after failed baseline; job unloaded,0 selected Warden/Watchtower/guardian processes, no duplicates. This is the interim stop before further authorized tests."
+    },
+    "generic_current_session_final": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/current-session-final-generic-tests.json",
+      "status": "passed",
+      "python": "3.9.6",
+      "total": 270,
+      "passed": 269,
+      "skipped": 1,
+      "scope": "One final complete generic source suite after parser correction, including latest42 runtime tests. No failures; helper/test hashes unchanged; no installed applications started/signalled."
+    },
+    "current_session_artifacts": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/current-session-final-artifacts.json",
+      "status": "passed",
+      "scope": "Corrected DevelopmentOnly DMG/bootstrap/package hashes, strict ad-hoc signatures, final inventory and embedded runtime regression. Production/clean-target acceptance remains blocked or unverified."
+    },
+    "current_session_embedded_runtime": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/current-session-embedded-runtime-regression.json",
+      "status": "passed",
+      "tests": 42,
+      "scope": "Exact prior embedded parser reproduced historical-row failure; exact corrected parser accepted31-source retained input. Not a full live150s observation."
+    },
+    "current_session_packaged_warden": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-packaged-log-session.json",
+      "status": "passed",
+      "tests": 31,
+      "warden_recovery_seconds": 9.903,
+      "scope": "Current packaged isolated LaunchAgent fixture; no overlap, detached-descendant cleanup and fixture cleanup passed. No real app crash drilled."
+    },
+    "native_corrected_upgrade": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-current-session-result.json",
+      "status": "passed",
+      "run_id": "20261013T230718Z-811e9ce7987c2c3a",
+      "scope": "Corrected artifact actually installed while preserving PendingStoppedStartup; incomplete acceptance exit21/full_success=false."
+    },
+    "native_corrected_start": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/authorized-start-current-session.json",
+      "status": "passed",
+      "scope": "Separately authorized start; native app/Warden/guardian graph and intended user/session verified without duplicates."
+    },
+    "native_source_freshness_failure": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/actual-initial-source-stalls.json",
+      "status": "failed",
+      "scope": "Telemetry now parses31 sources, but expected fresh-camera count falls below31 repeatedly. Numeric snapshots and automatic reconnect evidence retained; cause unverified and thresholds unchanged."
+    },
+    "native_corrected_baseline_failure": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/baseline-current-session.json",
+      "status": "failed",
+      "scope": "Requested150s verification failed after54.383s with EXPECTED_CAMERA_COUNTS_NOT_MAINTAINED and exit18. Process graph verified; full_success=false. No crash signal sent."
+    },
+    "rtsp_reconnect_candidate": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/rtsp-reconnect-final-artifacts.json",
+      "status": "passed",
+      "scope": "Exact new development artifact assembled and hashed; source differs only in QML reconnect forwarding, helper bytes unchanged. Actual installed video/recovery acceptance awaits separate native results."
+    },
+    "rtsp_reconnect_packaged_warden": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-packaged-rtsp-reconnect.json",
+      "status": "passed",
+      "tests_passed": 31,
+      "launchagent_recovery_seconds": 9.861,
+      "scope": "Isolated packaged Warden/native launchd fixture only; no installed application lifecycle."
+    },
+    "native_frozen_refusals": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/native-frozen-refusals.json",
+      "status": "passed",
+      "tests_passed": 2,
+      "scope": "Exact candidate Setup on native macOS refused corrupted package and valid package to unwritable Unicode/spaced destination. Selected process birth/parent/session, launchd state, app/receipt/agent/preferences/config ownership and hashes, and cilex handler unchanged. No application/agent/installrecord created at isolated destinations."
+    },
+    "native_representative_playback_export": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/playback-export-current-session.json",
+      "status": "passed",
+      "scope": "One actual earlier current-session application playback and selected10s720pH264 export with both Qt overlays; all150frames decoded/reencoded by bundled FFmpeg. Not exhaustive export or current reconnect candidate acceptance."
+    },
+    "native_reconnect_upgrade": {
+      "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-rtsp-reconnect-reconciled-result.json",
+      "status": "passed",
+      "scope": "Actual exact reconnect-candidate files installed; graph verified; full acceptance false."
+    },
+    "native_reconnect_freshness_failure": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/actual-reconnect-source-freshness-failure.json",
+      "status": "failed",
+      "scope": "Requested150s expected31-feed observation failed49.948s at unchanged freshness thresholds."
+    },
+    "native_reconnect_process_recovery": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/actual-process-recovery-rtsp-reconnect.json",
+      "status": "passed",
+      "scope": "Authorized real installed application2.858s and Warden0.330s process/GUI recovery; old-owned processes gone/no overlap. Video failed/unverified, not full runtime acceptance."
+    },
+    "process_only_rollback_harness": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/process-only-rollback-harness-tests.json",
+      "status": "passed",
+      "tests": 17,
+      "scope": "Fixture-only test harness; process-only mode retains degraded video, exact bindings, independent process/window proof and control-state comparison. Best result remains incomplete exit18. No live test by this workstream."
+    },
+    "native_process_only_rollback": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/actual-process-only-rollback.json",
+      "status": "passed",
+      "scope": "Real scoped post-replacement failure restored prior app/receipt/configuration ownership/startup policy and independent visible graph in13.162s; injected failure retained, no rollback failure. Process-only outcome exit18, full video unverified."
+    },
+    "native_owned_uninstall_resume": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/actual-owned-uninstall-resume.json",
+      "status": "passed",
+      "scope": "Native owned uninstall and completed same-run resume detached owned app/job, preserved tracked Qt preferences and unrelated Labs control hashes/modes/ownership, retained backup. LaunchServices removal remains Unverified."
+    },
+    "native_reinstall": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/actual-reinstall.json",
+      "status": "passed",
+      "scope": "Actual reinstall of exact latest mounted development DMG after owned uninstall/resume. File installation and native graph passed; no new150s video acceptance, no login/reboot proof."
+    },
+    "native_final_stop": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/final-stop.json",
+      "status": "passed",
+      "scope": "Final requested stop after actual reinstall: selected launchd job unloaded, no selected Watchtower/Warden/guardian processes. Installed bundle/receipt and AfterSignIn plist remain. Future login/reboot behavior not observed."
+    },
+    "final_native_handoff": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/final-native-verification.json",
+      "status": "failed",
+      "scope": "Overall acceptance incomplete because sustained31-camera video failed; final requested stopped state passed. Native scoped process/transaction results and remaining MUST gaps summarized without changing artifact bytes."
+    },
+    "native_final_disk_image_cleanup": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/transaction/final-disk-image-cleanup.json",
+      "status": "passed",
+      "scope": "Only the three task-owned installer disk images were ejected. Unrelated simulator disk image left untouched. Application rollback/uninstall backups intentionally retained."
+    },
+    "native_final_stop_recheck": {
+      "path": "docs/verification/2026-10-13-generic-macos-deployment/warden/final-stopped-state-recheck.json",
+      "status": "passed",
+      "scope": "Independent read-only recheck at00:46:31UTC: zero selected paths and still-live recorded process identities, job unloaded, no new cleanup failure; no lifecycle actions."
+    }
+  },
+  "requirement_groups": [
+    {
+      "id": "workflow-and-source-inspection",
+      "spec_sections": [
+        1,
+        2,
+        13
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Separate generic entry; preserve legacy build-local.sh; no station/account/address/credential hardcoding; no publication operations.",
+        "Inspect selected source; support check/build/install/remote-install/build-installer/verify and required option groups."
+      ],
+      "claim_ids": [
+        "1.separate-entry",
+        "1.no-publication",
+        "2.source-inspection",
+        "3.modes-interface",
+        "13.docs-and-deliverables"
+      ],
+      "remaining": "Local interfaces and fixtures exist; complete remote/machine/production workflows are not accepted."
+    },
+    {
+      "id": "bundle-identity-and-application-contracts",
+      "spec_sections": [
+        2,
+        11
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Preserve bundle ID, Qt preferences, cilex registration, backend enrollment, station identity and session-refresh contracts.",
+        "Reject empty identifiers/versions."
+      ],
+      "claim_ids": [
+        "2.bundle-metadata",
+        "2.preferences-deeplink-contracts",
+        "11.configuration-preservation"
+      ],
+      "remaining": "Actual rollback preserved the cilex default handler, Qt preferences and Warden configuration. Complete backend/session compatibility and broader LaunchServices catalog restoration remain unverified."
+    },
+    {
+      "id": "readonly-modes",
+      "spec_sections": [
+        3,
+        5,
+        11
+      ],
+      "status": "passed",
+      "requirements": [
+        "Check, verify and dry-run must not provision, trigger installation dialogs, change settings, register jobs or start/stop apps.",
+        "Detect missing toolchains read-only; use native read-only compatibility/startup inspection."
+      ],
+      "claim_ids": [
+        "3.readonly-modes",
+        "3.stock-bootstrap"
+      ],
+      "remaining": "Pass is scoped to code/fixtures and observed stock assessment on this host; clean-oldest testing is a separate unverified group."
+    },
+    {
+      "id": "stock-and-private-bootstrap",
+      "spec_sections": [
+        3,
+        13
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Bootstrap using system shell/tools on declared minimum without assuming Git, Homebrew, Python, GNU tools or newer Bash.",
+        "Distribute all modules as a versioned bundle and document authorized private-repository acquisition."
+      ],
+      "claim_ids": [
+        "3.stock-bootstrap",
+        "3.clean-oldest-bootstrap",
+        "3.versioned-bootstrap-distribution"
+      ],
+      "remaining": "Historical stock-shell/packaged runtime tests pass on macOS26.6.2; clean macOS14.4 proposed bootstrap baseline remains unverified."
+    },
+    {
+      "id": "noninteractive-and-resume",
+      "spec_sections": [
+        3,
+        5,
+        7,
+        8,
+        11
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Missing noninteractive inputs fail actionably instead of waiting indefinitely; retries and waits bounded.",
+        "Interrupted runs preserve bound private state; uncertain remote outcomes are not blindly replayed."
+      ],
+      "claim_ids": [
+        "3.noninteractive",
+        "3.local-interruption-resume",
+        "5.restart-resume",
+        "8.remote-loss-resume",
+        "11.results-resume"
+      ],
+      "remaining": "Fixtures pass, including durable uninstall; actual dependency restart, remote disconnect and native interrupted transaction recovery remain unverified."
+    },
+    {
+      "id": "compatibility-and-support-claims",
+      "spec_sections": [
+        4
+      ],
+      "status": "passed",
+      "requirements": [
+        "Versioned machine-readable requirements distinguish build/runtime/vendor/experimental and measured/provisional limits.",
+        "Derive runtime floor from selected source/SDK/Qt/all Mach-O components; never equate plist minimum with compatibility.",
+        "Arm64 first; no x86_64/universal2 or silent Rosetta acceptance."
+      ],
+      "claim_ids": [
+        "4.requirements-manifests",
+        "4.minimum-derived",
+        "4.architectures"
+      ],
+      "remaining": "Only inspected/fixture facts pass; no validated supported configuration is advertised and oldest-target runtime remains separate."
+    },
+    {
+      "id": "hardware-workload-and-filesystem",
+      "spec_sections": [
+        4,
+        7,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Assess OS build/APIs/native-vs-translated architecture/CPU/memory/storage/graphics/workload/permissions/filesystem.",
+        "Reserve download, extraction, compile, install and rollback space; prohibit unsafe space overrides."
+      ],
+      "claim_ids": [
+        "4.hardware-space-apis",
+        "4.complete-workload-capacity",
+        "7.paths-ownership-filesystem"
+      ],
+      "remaining": "Native APFS and space fixtures pass; measured camera capacity/hardware decoding and real HFS+/custom Unicode installation are unverified."
+    },
+    {
+      "id": "override-boundaries",
+      "spec_sections": [
+        4,
+        11
+      ],
+      "status": "passed",
+      "requirements": [
+        "Record accepted advisory/unsupported finding IDs.",
+        "Never bypass bad hash/signature/security policy, missing architecture/APIs, insufficient space or missing authorization.",
+        "An override permits an attempt and cannot make failed verification successful."
+      ],
+      "claim_ids": [
+        "4.overrides",
+        "11.results-resume"
+      ],
+      "remaining": "Scoped controller/install/dependency fixtures passed; no unsupported configuration is promoted to supported."
+    },
+    {
+      "id": "language-and-unicode",
+      "spec_sections": [
+        5,
+        7,
+        8
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Use initiating preferred UI language RU or EN with explicit override; remote follows initiator and standalone intended desktop account.",
+        "Messages state problem/consequence/action; handle Unicode/spaces; do not infer keyboard/region/elevated-account language."
+      ],
+      "claim_ids": [
+        "5.language",
+        "5.complete-localization",
+        "5.unicode-spaces"
+      ],
+      "remaining": "Core localization and Unicode fixtures pass; complete detailed diagnostics and alternate-administrator language/path behavior remain unverified."
+    },
+    {
+      "id": "dependency-provision-and-licenses",
+      "spec_sections": [
+        5
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Concrete dependency/license plan; official pinned versions and verified hashes; safe cached reuse and bounded classified failures.",
+        "No downloaded-script piping, root Homebrew or unrelated upgrades; prefer isolated environments.",
+        "Provide accurate manual instructions and offline missing-file lists."
+      ],
+      "claim_ids": [
+        "5.dependency-plan",
+        "5.complete-auto-provision",
+        "5.isolation-retries-cache"
+      ],
+      "remaining": "Pinned Ninja/CMake/PyInstaller paths are implemented; automatic Apple/Qt/GStreamer/Python/pkg-config/FFmpeg provisioning is incomplete and production Python approval is missing."
+    },
+    {
+      "id": "offline-zero-network",
+      "spec_sections": [
+        5,
+        8,
+        9
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Offline mode must make no network requests and list exact missing inputs.",
+        "Final standalone installer works offline without developer tools; backend/camera access remains separate."
+      ],
+      "claim_ids": [
+        "5.offline-no-network",
+        "9.clean-machine-runtime",
+        "9.offline-production-admission"
+      ],
+      "remaining": "Offline dependency/source fixtures pass and SSH is refused; clean final-artifact offline runtime is unverified and production offline admission is blocked."
+    },
+    {
+      "id": "fresh-main-exact-tag-and-secret-inputs",
+      "spec_sections": [
+        6
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Fresh successful main fetch pinned for whole run; exact existing tag and no fallback.",
+        "Offline archives require trusted integrity/provenance and cached code is never labelled latest.",
+        "Masked prompt/selected store/protected FD; no tokens in argv/URLs/history/logs/artifacts/remote payloads and authentication-scoped use only."
+      ],
+      "claim_ids": [
+        "6.fresh-main-exact-tag",
+        "6.offline-source-provenance",
+        "6.secure-github-channels"
+      ],
+      "remaining": "Native authenticated local HTTPS Git fixture passed; actual private GitHub credential-store/authentication operation and fresh-main release build remain unverified."
+    },
+    {
+      "id": "build-environment-and-provenance",
+      "spec_sections": [
+        6,
+        9
+      ],
+      "status": "passed",
+      "requirements": [
+        "Dedicated workspace preserves existing changes; compatible Watchtower/Warden, dependency/toolchain/architecture/target provenance and memory-bound jobs.",
+        "Normalize child environment; redact diagnostics; never use installed Watchtower runtime.",
+        "Freeze/hash helpers separately before artifacts; final hashes follow signing/stapling with no later bundle mutation."
+      ],
+      "claim_ids": [
+        "6.dedicated-normalized-build",
+        "6.helper-provenance",
+        "9.runtime-closure"
+      ],
+      "remaining": "Latest reconnect DevelopmentOnly artifact records a changed QML source snapshot with unchanged helper provenance. Historical complete suite270/269pass1skip and exact embedded verifier42 passed; later test-only rollback changes passed17focused cases, not a new aggregate suite. No production/clean-target acceptance inferred."
+    },
+    {
+      "id": "target-layout-and-authorization",
+      "spec_sections": [
+        7,
+        8,
+        11
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Default intended-user ~/Applications/watchtower.app, explicit machine scope and absolute custom path.",
+        "Resolve intended desktop home under alternate administrator; keep GUI non-root, mutable state outside signed bundles and preserve ownership.",
+        "Move elevated code into protected staging before execution."
+      ],
+      "claim_ids": [
+        "7.per-user-install",
+        "7.machine-alternate-admin",
+        "7.paths-ownership-filesystem",
+        "8.alternate-ssh-desktop"
+      ],
+      "remaining": "Machine scope, shared-owner coordination and protected native alternate-admin authorization are unimplemented and fail closed."
+    },
+    {
+      "id": "safe-transaction-and-extraction",
+      "spec_sections": [
+        7
+      ],
+      "status": "passed",
+      "requirements": [
+        "Installation-specific lock; validate identity/hash/arch/permissions/space before replacement.",
+        "Stage full replacement; capture app/config/startup state; scoped stop/replace/register/start/verify; preserve interruption evidence.",
+        "Reject traversal/escaping links/collisions; preserve contained framework links; never recursively delete caller-selected directory."
+      ],
+      "claim_ids": [
+        "7.lock-stage-replace",
+        "7.safe-extraction",
+        "3.local-interruption-resume",
+        "7.stopped-startup-preservation"
+      ],
+      "remaining": "98 installer fixtures plus native upgrade, process-only rollback, owned uninstall/resume and reinstall passed scoped file/process/control checks. Full video acceptance remains failed/unverified."
+    },
+    {
+      "id": "scope-and-recovery-proof",
+      "spec_sections": [
+        7,
+        10,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Signal only selected path/installation/UID/session/domain/process generation; avoid global process-name termination.",
+        "Rollback restores application/configuration/ownership/startup, verifies actual recovery and preserves original/rollback failures separately."
+      ],
+      "claim_ids": [
+        "7.scoped-processes",
+        "7.rollback",
+        "7.actual-rollback-health",
+        "12.current-native-rollback"
+      ],
+      "remaining": "Native process-scoped crash recovery and actual injected rollback restored files/configuration/ownership/startup and visible process graph. Independent healthy150s video recovery remains unverified."
+    },
+    {
+      "id": "secure-remote-deployment",
+      "spec_sections": [
+        8
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Existing authorized SSH with verified keys/expected identity and explicit login/desktop account/target-local destination.",
+        "Build once; secure transfer; target hash verification and protected bound result; no GitHub token or automatic Remote Login/firewall/auth changes.",
+        "Reconcile connection-loss uncertainty by target/package/options/records without blind reinstall."
+      ],
+      "claim_ids": [
+        "8.ssh-security-bindings",
+        "8.remote-loss-resume",
+        "8.live-remote-install",
+        "8.alternate-ssh-desktop"
+      ],
+      "remaining": "18 fixtures pass; no separate authorized remote Mac credentials/identity provided and alternate-account elevation remains blocked."
+    },
+    {
+      "id": "single-selfcontained-offline-distribution",
+      "spec_sections": [
+        9
+      ],
+      "status": "unverified",
+      "requirements": [
+        "One DMG contains fully bundled Watchtower, Warden/runtime, local setup, uninstall, manifests and licenses.",
+        "Setup installs both products and supervision; drag-copy alone is insufficient.",
+        "Bundle Qt/modules/plugins/QML, GStreamer/plugins/scanner, Python/extensions, FFmpeg/export runtime; use macdeployqt and audit every runtime component.",
+        "Reject build/SDK/Homebrew links; supplement static closure with clean-machine runtime."
+      ],
+      "claim_ids": [
+        "9.selfcontained-dmg",
+        "9.runtime-closure",
+        "9.clean-machine-runtime"
+      ],
+      "remaining": "Latest corrected DevelopmentOnly DMG/bootstrap/archive produced, hashed, checked and installed on this developer Mac. Clean supported Mac offline and complete license/security acceptance remain unverified or blocked."
+    },
+    {
+      "id": "ffmpeg-and-redistribution-notices",
+      "spec_sections": [
+        9
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Preserve approved FFmpeg feature/license profile and required notices.",
+        "Retain per-component license/source-offer coverage for the delivered package."
+      ],
+      "claim_ids": [
+        "9.ffmpeg-profile",
+        "9.license-redistribution"
+      ],
+      "remaining": "Approved FFmpeg fixtures and one actual application720pH264 export with overlays/full150-frame decode passed. Complete distribution license/source-offer review remains unavailable."
+    },
+    {
+      "id": "production-security",
+      "spec_sections": [
+        9
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Inside-out Developer ID signing, hardened runtime/required entitlements, notarization/stapling and final hashes.",
+        "Ad-hoc signatures are development only; no quarantine removal, Gatekeeper/SIP/privacy/trust bypass."
+      ],
+      "claim_ids": [
+        "9.production-signing",
+        "9.quarantine-security",
+        "9.offline-production-admission"
+      ],
+      "remaining": "No Developer ID identity/production approval, complete licenses or security-maintained Python approval; offline security admission implementation is missing."
+    },
+    {
+      "id": "safe-uninstall",
+      "spec_sections": [
+        9,
+        7
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Remove only owned application/startup components, preserve user data by default and never remove shared dependencies.",
+        "Interrupted uninstall must reconcile durable ownership/backup state and avoid touching later installs."
+      ],
+      "claim_ids": [
+        "9.uninstall",
+        "9.uninstall-interruption",
+        "9.native-uninstall-reinstall"
+      ],
+      "remaining": "Native owned uninstall/resume and reinstall passed file/process operations while preserving tracked data/holds and retaining backup; interruption fixtures pass. General LaunchServices unregister remains unverified."
+    },
+    {
+      "id": "darwin-warden-contracts",
+      "spec_sections": [
+        10,
+        11
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Stable non-secret machine identity, appropriate paths/metrics/diagnostics, sleep/clock-resistant hang detection and enrollment compatibility.",
+        "Foreground LaunchAgent with absolute argv/working/log paths, unique installation/account/session and launchd→Warden→executable parentage."
+      ],
+      "claim_ids": [
+        "10.darwin-warden",
+        "10.launchd-parentage",
+        "10.packaged-warden"
+      ],
+      "remaining": "Latest packaged Warden31 checks, verifier42 tests, native graph and actual app/Warden process recovery pass. Sustained31-source video failed; backend/enrollment and physical sleep/lifecycle contracts remain unverified."
+    },
+    {
+      "id": "supervisor-failure-budget",
+      "spec_sections": [
+        10,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "One Warden per intended installation/session, bounded retry/backoff and documented application restart budget.",
+        "Recover Warden/helper failure without orphan/duplicate Watchtower; distinguish maintenance/shutdown; test process reuse and descendants rather than assuming process groups suffice."
+      ],
+      "claim_ids": [
+        "10.failure-recovery",
+        "10.complete-descendant-containment",
+        "12.actual-app-recovery",
+        "7.stopped-startup-preservation"
+      ],
+      "remaining": "Actual app process recovery2.858s within45s and Warden0.330s within60s passed, with old-owned processes gone/no overlap and visible windows. Healthy-video recovery failed/unverified, so complete application recovery is not claimed."
+    },
+    {
+      "id": "after-sign-in-and-pending-session",
+      "spec_sections": [
+        10
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Use intended graphical user domain; no GUI session means next-login registration with pending result.",
+        "Registration alone must remain StartupUnverified.",
+        "Preserve existing disabled and intentional unloaded/stopped startup state."
+      ],
+      "claim_ids": [
+        "10.after-sign-in",
+        "7.stopped-startup-preservation"
+      ],
+      "remaining": "Actual upgrade preserved PendingStoppedStartup. Separate authorized start/stop was verified, but no fresh login or reboot occurred."
+    },
+    {
+      "id": "unattended-reboot-and-power-loss",
+      "spec_sections": [
+        10,
+        12
+      ],
+      "status": "blocked",
+      "requirements": [
+        "Require authorized automatic-login arrangement and matching observed post-boot GUI/healthy operation without manual sign-in.",
+        "Do not disable encryption/change passwords/create accounts/write automatic-login secrets/weaken locks or assume password-free login works.",
+        "Reboot only with explicit authorization and saved-work confirmation; record restart and cold/power-loss coverage separately."
+      ],
+      "claim_ids": [
+        "10.unattended-reboot"
+      ],
+      "remaining": "FileVault On and no automatic-login account; no reboot authorization, no new boot, no cold-start/power-loss proof. No settings changed."
+    },
+    {
+      "id": "sleep-lock-switch-network",
+      "spec_sections": [
+        10,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Test physical sleep/wake, clock changes, locking, user switching and network reconnection without silently altering power/lid policies."
+      ],
+      "claim_ids": [
+        "10.sleep-lock-switch-network"
+      ],
+      "remaining": "Monotonic-time fixtures exist; actual lifecycle scenarios are untested."
+    },
+    {
+      "id": "identities-permissions-and-holds",
+      "spec_sections": [
+        11,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Separate GitHub, SSH, desktop, signing/notarization and backend identities.",
+        "Use native necessary authorization/consent, preserve station credentials/session refresh and never clone station identity.",
+        "Preserve unrelated workers/guards/operator pauses/server holds and never clear test-triggered protective holds."
+      ],
+      "claim_ids": [
+        "6.secure-github-channels",
+        "8.ssh-security-bindings",
+        "11.configuration-preservation",
+        "11.native-consent"
+      ],
+      "remaining": "Native corrupt-package/permission refusals left selected state unchanged; actual rollback/uninstall preserved selected configuration and unrelated Labs control bytes/ownership. Native privacy/Gatekeeper denial, alternate-admin and complete backend/session lifecycle remain unverified."
+    },
+    {
+      "id": "results-evidence-retention",
+      "spec_sections": [
+        11,
+        12
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Versioned JSON/localized summary with separate installation/runtime/GUI-video/backend/security/recovery/startup/rollback/cleanup states, run/target/version/hash/time/overrides/evidence and no secrets.",
+        "Stable exit codes; pending/blocked/unverified requested outcomes never full success.",
+        "Protect resume records against replacement/staleness/cross-installation reuse and bound logs; retain all failed attempts."
+      ],
+      "claim_ids": [
+        "11.results-resume",
+        "11.log-retention",
+        "12.failed-evidence"
+      ],
+      "remaining": "Result/binding/bounded-command-output fixtures pass. Warden logs bounded; complete deployment run/log-retention policy remains unverified."
+    },
+    {
+      "id": "mandatory-native-acceptance",
+      "spec_sections": [
+        12
+      ],
+      "status": "failed",
+      "requirements": [
+        "Demonstrate installed versions/runtime paths, intended Warden parentage/user/session, visible GUI and every expected camera advancing for at least150s.",
+        "Demonstrate representative playback/export, measured app/Warden recovery and no unexpected duplicates with explicit readiness and bounded timeouts.",
+        "Crash/reboot/destructive tests require the designated Mac; preserve failed-run evidence."
+      ],
+      "claim_ids": [
+        "12.real-gui-video150",
+        "12.playback-export",
+        "12.actual-app-recovery",
+        "12.current-native-rollback",
+        "12.failed-evidence"
+      ],
+      "remaining": "Latest31-feed requested150s baseline failed49.948s. Process/visible-window crash recovery, process-only rollback, representative playback/export, uninstall/resume/reinstall and final requested stop passed their scoped checks. Complete runtime acceptance failed."
+    },
+    {
+      "id": "deliverables-and-honest-claims",
+      "spec_sections": [
+        13,
+        1
+      ],
+      "status": "unverified",
+      "requirements": [
+        "Deliver entry/bootstrap/helpers, Darwin Warden/LaunchAgent, versioned manifests, RU/EN messages, offline installer/uninstall, tests/evidence, README and explicit validation matrix.",
+        "Never claim universal compatibility or flawless recovery; report unverified/incomplete work."
+      ],
+      "claim_ids": [
+        "13.docs-and-deliverables"
+      ],
+      "remaining": "Current development DMG/bootstrap/source and native transaction/process evidence exist. Sustained video, production, clean/older-target, actual remote and reboot acceptance remain failed, blocked or unverified. Original frozen matrix retained."
+    }
+  ],
+  "mandatory_test_coverage": [
+    {
+      "scenario": "Stock shell/tools and clean environment",
+      "status": "passed",
+      "scope": "Stock Bash3.2/osascript and normalized environment fixtures on existing developer Mac; not clean machine.",
+      "evidence_refs": [
+        "stock_bootstrap"
+      ]
+    },
+    {
+      "scenario": "Fresh installation without developer tools",
+      "status": "unverified",
+      "scope": "No clean Mac target."
+    },
+    {
+      "scenario": "Offline installation from final distribution artifact",
+      "status": "unverified",
+      "scope": "Historical developer-host DMG use does not establish clean current offline installation."
+    },
+    {
+      "scenario": "Oldest claimed macOS",
+      "status": "unverified",
+      "scope": "Proposed bootstrap14.4 not tested; historical runtime closure floor26.0."
+    },
+    {
+      "scenario": "Each advertised architecture and real hardware decoding",
+      "status": "unverified",
+      "scope": "No validated configurations advertised; native arm64 and VideoToolbox FFmpeg fixture only."
+    },
+    {
+      "scenario": "Russian/English, Unicode/spaces and alternate administrator",
+      "status": "unverified",
+      "scope": "Localization/Unicode fixtures pass; actual alternate-administrator path is blocked."
+    },
+    {
+      "scenario": "Allowed overrides and non-overridable failures",
+      "status": "passed",
+      "scope": "Controller/dependency/transaction fixtures."
+    },
+    {
+      "scenario": "Corrupt downloads/packages and missing dependencies",
+      "status": "passed",
+      "scope": "Fixtures plus exact frozen Setup native corrupt-package refusal without selected lifecycle/settings changes.",
+      "evidence_refs": [
+        "native_frozen_refusals"
+      ]
+    },
+    {
+      "scenario": "Permission/security denial without bypass",
+      "status": "unverified",
+      "scope": "Native frozen Setup unwritable filesystem destination refused with selected installation unchanged. Privacy/production Gatekeeper/alternate-administrator denial remains untested.",
+      "evidence_refs": [
+        "native_frozen_refusals"
+      ]
+    },
+    {
+      "scenario": "Interrupted transfer, unknown remote outcome and safe resume",
+      "status": "unverified",
+      "scope": "18 SSH fixtures pass; no actual remote target."
+    },
+    {
+      "scenario": "Upgrade, rerun, uninstall and rollback",
+      "status": "unverified",
+      "scope": "Native upgrade, process-only rollback, owned uninstall/resume/reinstall and final stop passed file/process/control checks. Healthy-video recovery remains unverified.",
+      "evidence_refs": [
+        "native_reconnect_upgrade",
+        "native_process_only_rollback",
+        "native_owned_uninstall_resume",
+        "native_reinstall",
+        "native_final_stop"
+      ]
+    },
+    {
+      "scenario": "Existing disabled or intentionally stopped startup",
+      "status": "passed",
+      "scope": "Actual mounted-DMG upgrade preserved the unloaded job; disabled and loaded/no-PID edges remain fixtures.",
+      "evidence_refs": [
+        "native_current_upgrade",
+        "installer_latest"
+      ]
+    },
+    {
+      "scenario": "Process reuse, duplicate prevention and orphan cleanup",
+      "status": "passed",
+      "scope": "Latest isolated frozen Warden31 checks and native env-i recovery9.861s/no-overlap/descendant cleanup pass. Actual installed crash acceptance awaits separate native result.",
+      "evidence_refs": [
+        "rtsp_reconnect_packaged_warden",
+        "native_corrected_start"
+      ]
+    },
+    {
+      "scenario": "Sleep/wake and clock changes",
+      "status": "unverified",
+      "scope": "Monotonic-time unit cases only; no physical sleep/wake/clock mutation."
+    },
+    {
+      "scenario": "Preserve configuration, credentials and unrelated worker state",
+      "status": "unverified",
+      "scope": "Native rollback restored selected configuration hashes/ownership/startup; uninstall/resume preserved Qt preference and unrelated Labs control hashes/modes/ownership. Complete backend credentials/session/worker preservation acceptance remains unverified.",
+      "evidence_refs": [
+        "native_process_only_rollback",
+        "native_owned_uninstall_resume"
+      ]
+    },
+    {
+      "scenario": "Visible expected per-source camera progress150s",
+      "status": "failed",
+      "scope": "Actual reconnect candidate failed at49.948s for expected31-source freshness; previous54.383s failure retained. Thresholds unchanged.",
+      "evidence_refs": [
+        "native_reconnect_freshness_failure",
+        "native_corrected_baseline_failure"
+      ]
+    },
+    {
+      "scenario": "Representative playback/export",
+      "status": "passed",
+      "scope": "One actual current-session development candidate playback/720pH264 ten-second export; both Qt overlays; bundled FFmpeg decoded/reencoded150frames. Not exhaustive or new reconnect candidate acceptance.",
+      "evidence_refs": [
+        "native_representative_playback_export"
+      ]
+    },
+    {
+      "scenario": "Measured actual Watchtower and Warden recovery",
+      "status": "unverified",
+      "scope": "Real process/GUI recovery passed app2.858s/Warden0.330s with no overlap and old-owned processes gone. Sustained per-source video after recovery remains failed/unverified.",
+      "evidence_refs": [
+        "native_reconnect_process_recovery",
+        "native_reconnect_freshness_failure"
+      ]
+    },
+    {
+      "scenario": "Post-reboot unattended restart and cold/power-loss start",
+      "status": "blocked",
+      "scope": "FileVault/automatic-login arrangement and no reboot authorization; neither coverage performed."
+    }
+  ],
+  "historical_failures": [
+    {
+      "status": "failed",
+      "id": "runtime.receipt-size",
+      "evidence_ref": "receipt_failure",
+      "corrective_evidence_ref": "receipt_fix",
+      "current_native_retest": "unverified"
+    },
+    {
+      "status": "failed",
+      "id": "guardian.identity-read-during-shutdown",
+      "evidence_path": "docs/verification/2026-10-13-generic-macos-deployment/warden/installed-restart-and-shutdown-diagnosis.json",
+      "correction_evidence_path": "docs/verification/2026-10-13-generic-macos-deployment/warden/checks-shutdown-correction.json",
+      "current_native_retest": "unverified"
+    },
+    {
+      "status": "failed",
+      "id": "historical-packaging-and-cold-handshake-attempts",
+      "evidence_paths": [
+        "docs/verification/2026-10-13-generic-macos-deployment/artifacts/packaging-attempts.json",
+        "docs/verification/2026-10-13-generic-macos-deployment/warden/packaged-launchd-first/result.json"
+      ],
+      "note": "Original failures remain retained alongside later corrected component fixtures."
+    },
+    {
+      "status": "failed",
+      "id": "runtime.historical-log-line-limit",
+      "run_id": "20261013T225710Z-1ed4617c3c739c99",
+      "evidence_ref": "native_current_readiness_failure",
+      "failure_code": "VISIBLE_HEALTHY_BASELINE_NOT_VERIFIED",
+      "telemetry_reason": "VIDEO_TELEMETRY_LINE_LIMIT_EXCEEDED",
+      "crash_attempts": 0,
+      "crash_signals_sent": 0,
+      "correction_status": "Corrected runtime helper now selects bounded current-session records; exact embedded regression passed old and corrected code against retained input.",
+      "retest": "Parser correction passed; actual live freshness failed separately.",
+      "subsequent_stop_evidence_ref": "native_stop_after_readiness_failure",
+      "corrective_evidence_ref": "current_session_embedded_runtime"
+    },
+    {
+      "status": "failed",
+      "id": "runtime.expected-source-counts-not-maintained",
+      "candidate": "artifact-log-session-20261013T230158Z",
+      "evidence_ref": "native_source_freshness_failure",
+      "baseline_evidence_ref": "native_corrected_baseline_failure",
+      "requested_observation_seconds": 150,
+      "observed_seconds": 54.383,
+      "exit_code": 18,
+      "process_state": "ProcessVerified",
+      "crash_signals_sent": 0,
+      "root_cause": "Unverified",
+      "thresholds_changed": false,
+      "correction_or_retest": "unverified"
+    },
+    {
+      "id": "actual-reconnect-candidate-video-freshness",
+      "status": "failed",
+      "evidence": "docs/verification/2026-10-13-generic-macos-deployment/warden/actual-reconnect-source-freshness-failure.json",
+      "summary": "After QML reconnect-forwarding correction, actual31-feed150s acceptance still failed after49.948s. Process recovery success does not erase this failure."
+    }
+  ],
+  "pending_runtime_evidence_updates": [
+    "Sustained150-second healthy advancement of all31 expected feeds remains failed on reconnect candidate",
+    "Healthy-video recovery/rollback remains unverified despite observed file/config/startup/process restoration"
+  ],
+  "summary_counts": {
+    "claims": {
+      "passed": 55,
+      "unverified": 18,
+      "blocked": 8,
+      "failed": 3
+    },
+    "requirement_groups": {
+      "unverified": 18,
+      "passed": 5,
+      "blocked": 6,
+      "failed": 1
+    },
+    "mandatory_test_coverage": {
+      "passed": 6,
+      "unverified": 11,
+      "failed": 1,
+      "blocked": 1
+    }
+  },
+  "previous_candidates": [
+    {
+      "run_id": "artifact-readiness-20261013T224150Z",
+      "source_tree_sha256": "2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019",
+      "helper_tree_sha256": "01120869f0afa3603c04d2cc95a7733158110eea5b0841c57d9afe3db15e0980",
+      "install_helper_sha256": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea",
+      "distribution": "development",
+      "assembly_status": "passed",
+      "final_hashes_status": "passed",
+      "installed_runtime_status": "failed-readiness-precheck",
+      "evidence_basis": "Final development artifact identities, closure/signature checks, frozen helper266-test suite and packaged Warden31-test results are recorded. These do not establish production trust or actual installed runtime acceptance.",
+      "security_admission": "DevelopmentOnly",
+      "notarized": false,
+      "ad_hoc_only": true,
+      "watchtower_version": "1.1.781",
+      "warden_version": "1.5.0",
+      "app_minimum_macos": "26.0.0",
+      "bootstrap_minimum_macos": "14.4.0",
+      "runtime_components": 327,
+      "artifacts": [
+        {
+          "kind": "installer",
+          "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-readiness/CilexWatchtower-1.1.781-arm64-development.dmg",
+          "sha256": "f866c27b0a9271f807cf89b6d82af75f403e1205ec9b9e032ba9a837221558a9",
+          "bytes": 120542917
+        },
+        {
+          "kind": "bootstrap",
+          "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-readiness/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+          "sha256": "a083d35a184c0af994c8501e9416cd9c09a578a61ad35a301b8537ccc0852ee4",
+          "bytes": 20596934
+        }
+      ],
+      "package_archive": {
+        "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-readiness-20261013T224150Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+        "sha256": "95f0e75f2567d4c890829e4c9f59ad210f9dc50654b95c0fd6706606037c2350"
+      },
+      "evidence_path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/readiness-final-artifacts.json",
+      "root_reported_native_upgrade": {
+        "status": "passed",
+        "state": "InstalledWithStoppedStartupPreserved",
+        "evidence_path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-result.json",
+        "scope": "Files installed from the final mounted development DMG. Existing unloaded job stayed unloaded; whole-run acceptance returned21 and full_success=false."
+      },
+      "installation_status": "Installed",
+      "startup_after_upgrade": "PendingStoppedStartup",
+      "native_upgrade_run_id": "20261013T225558Z-1cde4f5adb65b0f7",
+      "native_upgrade_exit_code": 21,
+      "native_upgrade_full_success": false,
+      "mounted_artifact": {
+        "path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/Installer",
+        "dmg_sha256": "f866c27b0a9271f807cf89b6d82af75f403e1205ec9b9e032ba9a837221558a9",
+        "manifest_sha256": "b3cdd678bb5a34708c346395bf8bbed972ca310e368b8191b6502a0484a69db1",
+        "mount_command_exit": 0
+      },
+      "runtime_observations": {
+        "explicit_authorized_start": "ProcessVerified",
+        "application_pid": 43217,
+        "warden_pid": 43201,
+        "guardian_pid": 43216,
+        "unexpected_duplicates": false,
+        "visible_saved_view": "Улица",
+        "visible_camera_images": 31,
+        "visible_empty_cells": 4,
+        "camera_advancement150_seconds": "unverified",
+        "crash_signals_sent": 0,
+        "readiness_failure": "VIDEO_TELEMETRY_LINE_LIMIT_EXCEEDED",
+        "stopped_after_failure": true,
+        "selected_processes_after_stop": 0,
+        "startup_job_after_stop": "unloaded"
+      }
+    },
+    {
+      "run_id": "artifact-log-session-20261013T230158Z",
+      "source_tree_sha256": "2249301ee12974c4c1bdfbf5848fdbbff3bc9f795fd474812e17199f85244019",
+      "helper_tree_sha256": "1aa53e5dc93cbe09b2c5df5270c686dc089dfc6001bf205261b8873dd30ef44b",
+      "install_helper_sha256": "b288ae2bcd68e7fcd43a51c8dc595846265d1abd7a51c86e8b29c746bb82e9ea",
+      "runtime_helper_sha256": "6f35759859b5b59e704e75be1a3cbca5eb10dcdf9c3f2e1f07c6d59ebfe071ad",
+      "distribution": "development",
+      "security_admission": "DevelopmentOnly",
+      "notarized": false,
+      "ad_hoc_only": true,
+      "assembly_status": "passed",
+      "final_hashes_status": "passed",
+      "installed_runtime_status": "failed-expected-source-freshness",
+      "installation_status": "Installed",
+      "startup_after_upgrade": "PendingStoppedStartup",
+      "native_upgrade_run_id": "20261013T230718Z-811e9ce7987c2c3a",
+      "native_upgrade_exit_code": 21,
+      "native_upgrade_full_success": false,
+      "watchtower_version": "1.1.781",
+      "warden_version": "1.5.0",
+      "app_minimum_macos": "26.0.0",
+      "bootstrap_minimum_macos": "14.4.0",
+      "runtime_components": 327,
+      "artifacts": [
+        {
+          "kind": "installer",
+          "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-current-session/CilexWatchtower-1.1.781-arm64-development.dmg",
+          "sha256": "d74c31e64feba38f71052b12c9153064cd8cad28a67b78cc01e9c00ee2973594",
+          "bytes": 120545670
+        },
+        {
+          "kind": "bootstrap",
+          "path": "/Users/romayankin/Downloads/CilexInstallers/1.1.781-development-20261014-current-session/CilexWatchtower-Bootstrap-1.0.0-arm64-development.tar.gz",
+          "sha256": "502e0f42b2add2d6e057ee80676ea052c2b6c04af4557c1c6f87fdbb8a9f552e",
+          "bytes": 20598460
+        }
+      ],
+      "package_archive": {
+        "path": "/Users/romayankin/Library/Caches/CilexWatchtower/Deploy/artifact-log-session-20261013T230158Z/output/CilexWatchtower-1.1.781-arm64-development.tar.gz",
+        "sha256": "8b65062610ef3ed236aa37ce83543a943e40d219b68450753d2146123a1d9fdc"
+      },
+      "manifest_sha256": "8786492799115e599db3c24c467cdb6d7dfcc350d2cb518c26004ad4fe4c99d8",
+      "evidence_path": "docs/verification/2026-10-13-generic-macos-deployment/artifacts/current-session-final-artifacts.json",
+      "mounted_artifact": {
+        "at": "2026-10-13T23:07:17.303205+00:00",
+        "dmg_sha256": "d74c31e64feba38f71052b12c9153064cd8cad28a67b78cc01e9c00ee2973594",
+        "manifest_sha256": "8786492799115e599db3c24c467cdb6d7dfcc350d2cb518c26004ad4fe4c99d8",
+        "mount": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/Installer-current-session"
+      },
+      "change": "Only deployment runtime parser source changed; application source snapshot is unchanged. Repackaged binaries were revalidated; old artifacts/failures retained.",
+      "root_reported_native_upgrade": {
+        "status": "passed",
+        "state": "InstalledWithStoppedStartupPreserved",
+        "evidence_path": "/Users/romayankin/Library/Application Support/CilexWatchtower/DeploymentVerification/2026-10-14-readiness/upgrade-current-session-result.json",
+        "scope": "Corrected mounted development DMG installed; unloaded startup preserved. Exit21/full_success=false."
+      },
+      "runtime_observations": {
+        "explicit_authorized_start": "ProcessVerified",
+        "application_pid": 56287,
+        "warden_pid": 56285,
+        "guardian_pid": 56286,
+        "unexpected_duplicates": false,
+        "telemetry_known": true,
+        "expected_source_count": 31,
+        "requested_observation_seconds": 150,
+        "baseline_observed_seconds": 54.383,
+        "baseline_exit_code": 18,
+        "baseline_failure": "EXPECTED_CAMERA_COUNTS_NOT_MAINTAINED",
+        "camera_advancement150_seconds": "failed",
+        "root_cause": "Unverified",
+        "thresholds_changed": false,
+        "crash_signals_sent": 0,
+        "currently_running": "root reported; native process state also verified in retained stall observation",
+        "final_stopped_state": "pending"
+      }
+    }
+  ],
+  "observed_product_issues": [
+    {
+      "id": "camera-purpose-popup-focus",
+      "status": "unverified",
+      "description": "Parent native UI review reports an off-screen camera Purpose popup/keyboard-focus issue; reproduction and root cause not established. No fix included in this deployment task.",
+      "scope": "Separate product UI issue; no additional implementation or validation claim."
+    }
+  ]
+}

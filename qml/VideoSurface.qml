@@ -447,6 +447,14 @@ Item {
             readonly property bool errored: rtsp.errored
             readonly property string errorText: rtsp.errorText
 
+            // The retry coordinator calls the loaded wrapper, not its child.
+            // Forward RTSP retries so silent stalls recover through the same
+            // bounded ladder as other backends, before the C++ backstop.
+            function reconnect() {
+                if (!root.active || root.url === "") return;
+                rtsp.reconnect();
+            }
+
             RtspVideoSource {
                 warmOnly: root.warmOnly
                 id: rtsp

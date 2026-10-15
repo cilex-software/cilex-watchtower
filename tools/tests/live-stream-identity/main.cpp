@@ -8,6 +8,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QThread>
+#include <QCryptographicHash>
+#include <QUrl>
 #include <functional>
 #include <cstdio>
 
@@ -21,6 +23,15 @@ static void spin(int ms)
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         QThread::msleep(2);
     }
+}
+
+static QJsonObject readiness(const QString &url)
+{
+    const auto clean = QUrl(url).adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment).toEncoded();
+    const QString id = QString::fromLatin1(QCryptographicHash::hash(clean, QCryptographicHash::Sha256).toHex());
+    for (const auto &entry : RtspVideoSource::videoReadiness())
+        if (entry.toObject().value("id").toString() == id) return entry.toObject();
+    return {};
 }
 
 struct Probe {
@@ -91,14 +102,63 @@ int main(int argc, char **argv)
                 qPrintable(name), probe.matches, probe.wrong);
     };
 
+    {
+        // Inspect requested state before processing any decode/build events.
+        // These are synthetic credentials on a loopback-only nonexistent route.
+        Probe pending;
+        const QString url = base + "/pending?fixture-token=hidden#fixture-fragment";
+        QUrl credentialUrl(url);
+        credentialUrl.setUserName("fixture-user");
+        credentialUrl.setPassword("fixture-password");
+        pending.source.setActive(false);
+        pending.source.setUrl(credentialUrl.toString());
+        pending.source.setVideoSink(&pending.sink);
+        result("readiness excludes inactive sources", readiness(url).isEmpty(), pending);
+        pending.source.setActive(true);
+        const QJsonObject before = readiness(url);
+        const QByteArray encoded = QJsonDocument(RtspVideoSource::videoReadiness()).toJson(QJsonDocument::Compact);
+        result("readiness includes pending source without leaking URL data",
+               before.value("frames").toInteger(-1) == 0 && before.value("age_ms").isNull()
+               && before.value("id").toString().size() == 64 && !before.value("decoder").toBool()
+               && !encoded.contains("fixture-") && !encoded.contains("127.0.0.1")
+               && !encoded.contains("pending") && !encoded.contains("rtsp"), pending, {{"readiness", before}});
+        pending.source.setWarmOnly(true);
+        result("readiness excludes warm-only sources", readiness(url).isEmpty(), pending);
+        pending.source.setWarmOnly(false);
+        pending.source.setVideoSink(nullptr);
+        result("readiness excludes sources without video sink", readiness(url).isEmpty(), pending);
+    }
+
     Probe detail;
     detail.begin("red");
     detail.source.setUrl(base + "/red");
     detail.source.setVideoSink(&detail.sink);
     result("initial camera A pixels", detail.awaitFrames(), detail);
+    const QJsonObject first = readiness(base + "/red");
+    spin(450);
+    const QJsonObject second = readiness(base + "/red");
+    result("readiness advances decoded sink frames with recent monotonic age",
+           first.value("frames").toInteger() >= 3
+           && second.value("frames").toInteger() > first.value("frames").toInteger()
+           && second.value("age_ms").isDouble() && second.value("age_ms").toInteger(-1) >= 0
+           && second.value("age_ms").toInteger(9999) < 1000
+           && second.value("decoder").toBool() && !second.value("error").toBool(), detail,
+           {{"before", first}, {"after", second}});
+    // A busy GUI can leave the sink unchanged while streaming threads decode.
+    // Reading readiness must expose that elapsed age without inventing frames.
+    QThread::msleep(80);
+    const QJsonObject undelivered = readiness(base + "/red");
+    result("readiness ages while fresh decoded frames have not reached the sink",
+           undelivered.value("frames").toInteger() == second.value("frames").toInteger()
+           && undelivered.value("age_ms").toInteger() >= second.value("age_ms").toInteger() + 70,
+           detail, {{"before", second}, {"after", undelivered}});
     for (const auto &colour : {QString("green"), QString("red"), QString("blue")}) {
         detail.begin(colour);
         detail.source.setUrl(base + "/" + colour);
+        const auto reset = readiness(base + "/" + colour);
+        result("readiness resets fresh progress on URL change to " + colour,
+               reset.value("frames").toInteger(-1) == 0 && reset.value("age_ms").isNull(), detail,
+               {{"readiness", reset}});
         result("retarget detail to " + colour, detail.awaitFrames(), detail);
     }
 
@@ -111,6 +171,11 @@ int main(int argc, char **argv)
     wallBlue.source.setUrl(base + "/blue");
     wallBlue.source.setVideoSink(&wallBlue.sink);
     const bool adoptedImmediately = wallBlue.source.playing();
+    const QJsonObject cached = readiness(base + "/blue");
+    result("parked cached picture does not establish fresh readiness progress",
+           adoptedImmediately && wallBlue.sink.videoFrame().isValid()
+           && cached.value("frames").toInteger(-1) == 0 && cached.value("age_ms").isNull(), wallBlue,
+           {{"readiness", cached}});
     result("wall reopens camera C from parked pipeline", wallBlue.awaitFrames() && parked > 0 && adoptedImmediately,
            wallBlue, {{"parked_before", parked}, {"immediate_adoption", adoptedImmediately}});
 
