@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-16 — Simple macOS DMG build and installation commands.**
+> `packaging/macos/build-installer.sh` now builds an unsigned Apple silicon DMG
+> with no arguments, discovers Homebrew tools, prepares pinned packaging wheels
+> and LGPL FFmpeg, and builds the local committed source. Local setup and SSH
+> password installation have separate short commands. The guide defines each
+> optional value; fixed architecture and valueless controller switches are removed.
+> The no-argument build produced a DMG requiring macOS 26 or later. Checks passed
+> for all 4,576 package entries, remote-transfer archive extraction, helper code
+> matching its source, native Setup startup/help and both app signatures.
+> Installer fixtures: 299 passed, one skipped; recovery fixtures: 19 passed. Generated output stays
+> local. No installation was performed; a second physical Mac, actual remote
+> password login, graphical installation and startup remain unverified.
+> [Simple build and installation guide](../packaging/macos/generic/README.md).
+
 > **2026-10-16 — macOS installer sources published.**
 > The separate arm64 DMG/Setup workflow includes the package builder, installer,
 > Darwin Warden support, manifests, tests and usage documentation. Generated logs,

@@ -66,7 +66,7 @@ def ssh_options(options):
     if key:
         key = checked_private_file(Path(key).expanduser().absolute())
         flags += ["-o", "IdentitiesOnly=yes", "-i", str(key)]
-    elif not use_agent:
+    elif not use_agent and not options.get('ssh_control_path'):
         fail("remote.authentication", "Select --ssh-identity-file or explicitly --ssh-agent; noninteractive deployment cannot prompt for SSH credentials.", "authentication")
     if use_agent:
         agent = os.environ.get("CILEX_INIT_SSH_AUTH_SOCK") or os.environ.get("SSH_AUTH_SOCK")
@@ -75,6 +75,18 @@ def ssh_options(options):
         env["SSH_AUTH_SOCK"] = agent
     if key and not use_agent:
         flags += ["-o", "IdentityAgent=none"]
+    if options.get('ssh_control_path'):
+        # A password-authenticated OpenSSH master owns this private socket.
+        # Never fall back to a fresh connection if that master disappears.
+        control = Path(options['ssh_control_path']).absolute()
+        parent = control.parent
+        if (control.is_symlink() or parent.is_symlink() or not control.exists()
+                or not stat.S_ISSOCK(control.stat().st_mode)
+                or control.stat().st_uid != os.geteuid()
+                or parent.stat().st_uid != os.geteuid() or parent.stat().st_mode & 0o077):
+            fail('remote.control_socket', 'The authenticated SSH session is missing or unprotected.', 'authentication')
+        flags += ['-o', 'ControlPath=' + str(control), '-o', 'ControlMaster=no',
+                  '-o', 'ProxyCommand=/usr/bin/false']
     return {"host": host, "user": user, "desktop": desktop, "target_id": target_id,
             "flags": flags, "port": port, "env": env}
 
@@ -106,6 +118,21 @@ def probe(remote):
     if not home.startswith("/") or ".." in Path(home).parts:
         fail("remote.home", "Remote login home is not an absolute local path.")
     return {"target_id": fields[0], "uid": int(fields[1]), "user": fields[2], "home": home}
+
+
+def check_compatibility(remote, manifest):
+    """Check the target before transferring or executing its frozen runtime."""
+    from closure import version_tuple
+    reply = ssh(remote, '/usr/bin/uname -m\n/usr/bin/sw_vers -productVersion\n')
+    fields = reply.stdout.strip().splitlines()
+    try:
+        compatible = (len(fields) == 2 and fields[0] == 'arm64'
+                      and version_tuple(fields[1]) >= version_tuple(manifest['minimum_macos']))
+    except (ValueError, KeyError):
+        compatible = False
+    if not compatible:
+        fail('remote.compatibility', 'The target must be an Apple silicon Mac running macOS '
+             + str(manifest.get('minimum_macos', 'unknown')) + ' or later.', 'requirements')
 
 
 def sftp_quote(value):
@@ -201,6 +228,7 @@ def run(options, record):
         manifest = read_manifest(staging)
     if manifest.get("distribution") == "development" and not options.get("allow_development"):
         fail("remote.development", "Development artifact requires explicit --allow-development; production acceptance remains blocked.")
+    check_compatibility(remote, manifest)
     run_id = record.data["run_id"]
     if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{16}", run_id):
         fail("remote.run_id", "Run identifier is invalid.")

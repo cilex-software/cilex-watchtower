@@ -84,7 +84,7 @@ def main():
            'USER': account.pw_name, 'LOGNAME': account.pw_name, 'LANG': 'en_US.UTF-8'}
     common = [str(setup), '--mode', 'install', '--desktop-user', account.pw_name,
               '--scope', 'user', '--startup', 'after-sign-in', '--dependencies', 'offline',
-              '--allow-development', '--noninteractive']
+              '--allow-development', 'yes', '--noninteractive', 'yes']
     rows = []
 
     def attempt(name, package_args, parent_mode, language, expected_id):

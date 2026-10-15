@@ -17,7 +17,7 @@ import stat
 import subprocess
 import time
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 SCHEMA = 1
 EXITS = {"ok": 0, "usage": 2, "requirements": 10, "dependency": 11,
          "authentication": 12, "source": 13, "integrity": 14, "build": 15,

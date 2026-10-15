@@ -21,7 +21,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_readonly_dispatch_cannot_create_journal_or_build(self):
         for mode in deploy.MODES:
-            options = self.options('--mode', mode, '--dry-run')
+            options = self.options('--mode', mode, '--dry-run', 'yes')
             with mock.patch.object(deploy, 'assessment', return_value={}) as assess, mock.patch.object(deploy, 'RunRecord', side_effect=AssertionError('mutation')), mock.patch.object(deploy.build, 'build', side_effect=AssertionError('build')):
                 value, record = deploy.execute(options)
                 self.assertIsNone(record)
@@ -72,7 +72,7 @@ class ControllerTests(unittest.TestCase):
 
     def test_non_arm64_blocked(self):
         for architecture in ('x86_64', 'universal2'):
-            with self.assertRaises(common.DeployError):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
                 self.options('--arch', architecture)
 
     def test_no_success_for_registration(self):
@@ -93,7 +93,7 @@ class ControllerTests(unittest.TestCase):
         installed = {'startup': 'BlockedUnattendedRebootUnverified', 'startup_evidence': startup}
         values = {'hw.optional.arm64': '1', 'sysctl.proc_translated': '0', 'hw.memsize': str(8 * 1024**3), 'hw.ncpu': '4'}
         with mock.patch.object(deploy.platform, 'system', return_value='Darwin'), mock.patch.object(deploy, 'sysctl', side_effect=values.get), mock.patch.object(deploy, 'command', return_value=types.SimpleNamespace(stdout='fixture-build')), mock.patch.object(deploy, 'host_identity', return_value={}), mock.patch.object(deploy.ctypes, 'CDLL'), mock.patch.object(deploy.install, 'resolve_target', return_value=target), mock.patch.object(deploy.install, 'verify', return_value=installed):
-            value = deploy.assessment(self.options('--mode', 'verify', '--dry-run', '--startup', 'unattended-reboot'))
+            value = deploy.assessment(self.options('--mode', 'verify', '--dry-run', 'yes', '--startup', 'unattended-reboot'))
         self.assertEqual(value['states']['startup'], 'BlockedUnattendedRebootUnverified')
         self.assertEqual(value['startup_evidence'], startup)
 

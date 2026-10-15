@@ -3,6 +3,10 @@
   "development": "This is a development artifact. It has no trusted Developer ID distribution signature. This installer does not remove quarantine or bypass macOS security policy.",
   "cancel": "Cancel",
   "install": "Install",
+  "setup_installed": "Cilex Watchtower and Warden are installed for your Mac account. Watchtower is in the Applications folder inside your home folder.",
+  "setup_not_confirmed": "Installation was not confirmed. Read the problem below before trying again.",
+  "setup_checks_pending": "Setup could not confirm all startup and camera checks. Open Watchtower and check your server connection and cameras.",
+  "setup_details": "Details saved on this Mac:",
   "completed": "Requested operation completed. Review the separate verification states in the JSON result.",
   "incomplete": "Requested outcome is incomplete. Review the finding IDs and evidence in the JSON result before retrying.",
   "interrupted": "Operation interrupted; its outcome may be unknown. Reconcile the protected run record before retrying."

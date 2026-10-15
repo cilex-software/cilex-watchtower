@@ -71,6 +71,16 @@ class RemoteTests(unittest.TestCase):
             result=remote.probe(info)
         self.assertEqual(result['home'],'/Users/Оператор с пробелом')
 
+    def test_target_floor_and_apple_silicon_are_checked_before_execution(self):
+        info = remote.ssh_options(self.options)
+        for response, accepted in [('arm64\n26.6.2\n', True), ('arm64\n15.0\n', False),
+                                   ('x86_64\n26.6.2\n', False), ('invalid\n', False)]:
+            with self.subTest(response=response), mock.patch.object(remote, 'ssh', return_value=types.SimpleNamespace(stdout=response)):
+                if accepted:
+                    remote.check_compatibility(info, {'minimum_macos': '26.0'})
+                else:
+                    with self.assertRaises(DeployError): remote.check_compatibility(info, {'minimum_macos': '26.0'})
+
     def test_transfer_never_sends_github_secret(self):
         info=remote.ssh_options(self.options)
         with mock.patch.dict(os.environ,{'GH_TOKEN':'do-not-copy-fixture'}),mock.patch.object(remote,'command') as command:

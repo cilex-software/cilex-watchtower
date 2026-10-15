@@ -17,8 +17,9 @@ for argument in "$@"; do
         --mode) mode=$argument ;;
         --language) language=$argument ;;
         --python) python_path=$argument ;;
+        --dry-run) if [ "$argument" = yes ]; then dry_run=1; fi ;;
+        --ssh-use-agent|--ssh-agent) if [ "$argument" = yes ]; then use_agent=1; fi ;;
     esac
-    case "$argument" in --dry-run) dry_run=1 ;; --ssh-use-agent|--ssh-agent) use_agent=1 ;; esac
     previous=$argument
 done
 if [ "$(/usr/bin/uname -s)" != Darwin ]; then

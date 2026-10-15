@@ -30,14 +30,13 @@ MODES = ('check', 'build', 'install', 'remote-install', 'build-installer', 'veri
 
 
 def parser():
-    p = argparse.ArgumentParser(description='Cilex Watchtower macOS deployment / Развёртывание для macOS')
-    p.add_argument('--version', action='version', version=VERSION)
+    p = argparse.ArgumentParser(add_help=False, description='Cilex Watchtower macOS deployment / Развёртывание для macOS')
     p.add_argument('--mode', choices=MODES, default='check')
     p.add_argument('--repository', default=source.DEFAULT_REPOSITORY)
     p.add_argument('--tag')
     auth = p.add_mutually_exclusive_group()
     auth.add_argument('--gh-token-fd', type=int)
-    auth.add_argument('--gh-token-prompt', action='store_true')
+    auth.add_argument('--gh-token-prompt', choices=('yes', 'no'), default='no')
     auth.add_argument('--gh-keychain-service')
     p.add_argument('--gh-keychain-account')
     p.add_argument('--package')
@@ -51,7 +50,7 @@ def parser():
     p.add_argument('--expected-target-id')
     p.add_argument('--ssh-known-hosts')
     p.add_argument('--ssh-identity-file')
-    p.add_argument('--ssh-use-agent', '--ssh-agent', dest='ssh_agent', action='store_true')
+    p.add_argument('--ssh-use-agent', '--ssh-agent', dest='ssh_agent', choices=('yes', 'no'), default='no')
     p.add_argument('--ssh-port', type=int, default=22)
     p.add_argument('--remote-timeout', type=int, default=600)
     p.add_argument('--startup', choices=('after-sign-in', 'unattended-reboot'), default='after-sign-in')
@@ -60,23 +59,22 @@ def parser():
     p.add_argument('--cache-dir', default=str(Path.home() / 'Library/Caches/CilexWatchtower/Deploy'))
     p.add_argument('--work-dir', default=str(Path.home() / 'Library/Application Support/CilexWatchtower/DeploymentRuns'))
     p.add_argument('--output-dir', default=str(Path.home() / 'Downloads/CilexInstallers'))
-    p.add_argument('--arch', default='arm64')
     p.add_argument('--jobs', type=int)
     p.add_argument('--language', choices=('auto', 'en', 'ru'), default='auto')
     p.add_argument('--accept-findings', default='')
-    p.add_argument('--accept-licenses', action='store_true')
+    p.add_argument('--accept-licenses', choices=('yes', 'no'), default='no')
     p.add_argument('--license-manifest', help='Reviewed component/notice/source mapping for this exact build context')
-    p.add_argument('--noninteractive', action='store_true')
-    p.add_argument('--dry-run', action='store_true')
+    p.add_argument('--noninteractive', choices=('yes', 'no'), default='no')
+    p.add_argument('--dry-run', choices=('yes', 'no'), default='no')
     p.add_argument('--resume', metavar='RUN-ID')
     p.add_argument('--tools-json')
     p.add_argument('--python')
     p.add_argument('--source-archive')
     p.add_argument('--source-sha256')
     p.add_argument('--source-commit')
-    p.add_argument('--source-dirty-tree', action='store_true')
-    p.add_argument('--development', action='store_true')
-    p.add_argument('--allow-development', action='store_true')
+    p.add_argument('--source-dirty-tree', choices=('yes', 'no'), default='no')
+    p.add_argument('--development', choices=('yes', 'no'), default='no')
+    p.add_argument('--allow-development', choices=('yes', 'no'), default='no')
     p.add_argument('--signing-identity')
     p.add_argument('--notary-profile')
     p.add_argument('--deployment-target', default='14.4')
@@ -85,6 +83,7 @@ def parser():
     p.add_argument('--remote-request', help=argparse.SUPPRESS)
     p.add_argument('--remote-run-id', help=argparse.SUPPRESS)
     p.add_argument('--result-file', help=argparse.SUPPRESS)
+    p.add_argument('--ssh-control-path', help=argparse.SUPPRESS)
     return p
 
 
@@ -115,6 +114,10 @@ def text_for(key, language):
 
 def normalize(args):
     options = vars(args).copy()
+    for key in ('gh_token_prompt', 'ssh_agent', 'accept_licenses', 'noninteractive', 'dry_run',
+                'source_dirty_tree', 'development', 'allow_development'):
+        options[key] = options[key] == 'yes'
+    options['arch'] = 'arm64'
     options['language'] = preferred_language(options)
     options['accept_findings'] = sorted(set(x.strip() for x in options['accept_findings'].split(',') if x.strip()))
     options['accepted_findings'] = options['accept_findings']
@@ -351,7 +354,7 @@ def execute(options):
     if platform.system() != 'Darwin':
         raise DeployError('host.macos', 'Build and installation require macOS.', 'requirements')
     # Secret-bearing channels are never serialized or copied to the target.
-    public_options = {k: v for k, v in options.items() if k not in ('resume', 'gh_token_fd', 'gh_token_prompt', 'gh_keychain_service', 'gh_keychain_account', 'remote_request', 'remote_run_id', 'result_file')}
+    public_options = {k: v for k, v in options.items() if k not in ('resume', 'gh_token_fd', 'gh_token_prompt', 'gh_keychain_service', 'gh_keychain_account', 'remote_request', 'remote_run_id', 'result_file', 'ssh_control_path')}
     identity = host_identity()
     if not identity.get('machine_id'):
         raise DeployError('target.identity', 'Stable target identity is unavailable; deployment and resume cannot be safely bound to this Mac.', 'requirements',
@@ -394,7 +397,10 @@ def execute(options):
                     raise DeployError('transaction.space', 'Insufficient storage for downloads, extraction, build, artifacts and reserve; free space before retrying.', 'requirements',
                                       ru='Недостаточно места для загрузки, распаковки, сборки и резерва; освободите место перед повтором.', details={'space_plan': space})
                 plan = dependencies.assess(options)
-                print(json.dumps({'dependency_plan': plan, 'language': options['language']}, ensure_ascii=False), file=sys.stderr)
+                if not options.get('quiet'):
+                    print(json.dumps({'dependency_plan': plan, 'language': options['language']}, ensure_ascii=False), file=sys.stderr)
+                else:
+                    print('Checking build tools and libraries.', flush=True)
                 record.phase('dependencies')
                 resolved = dependencies.resolve(options, record.root)
                 options['tools'], options['dependency_receipts'] = resolved['tools'], resolved['receipts']
@@ -407,6 +413,8 @@ def execute(options):
                 record.save()
                 options['source'], options['helper_root'] = provenance, str(helper_source_root())
                 record.phase('build')
+                if options.get('quiet'):
+                    print('Compiling Watchtower and packaging its libraries. This can take several minutes.', flush=True)
                 built = build.build(tree, options, record.root)
                 package = Path(built['package_root'])
                 options['package_sha256'] = built['sha256']
@@ -416,8 +424,11 @@ def execute(options):
                 value['states']['installation'] = 'ArtifactBuilt'
                 record.phase('built', package=str(package), package_sha256=built['sha256'])
             if options['mode'] == 'build-installer':
+                if options.get('quiet'):
+                    print('Creating and checking the DMG.', flush=True)
                 value.setdefault('artifacts', {})['installer'] = build.build_installer(package, options, record.root)
-                value['artifacts']['bootstrap'] = build.build_bootstrap(package, options, record.root)
+                if options.get('bootstrap', True):
+                    value['artifacts']['bootstrap'] = build.build_bootstrap(package, options, record.root)
             elif options['mode'] == 'install':
                 record.phase('install')
                 merge_result(value, install.run(options, {'package_root': str(package), 'package_sha256': options.get('package_sha256'), 'run_id': record.data['run_id']}))
@@ -464,14 +475,37 @@ def setup_dialog():
     if proc.returncode or proc.stdout.strip() != text_for('install', language):
         return None
     argv = ['--mode', 'install', '--package', str(package), '--package-manifest-sha256', sha256(package / 'artifact-manifest.json'),
-            '--language', language, '--dependencies', 'offline', '--noninteractive']
-    if manifest.get('distribution') == 'development': argv += ['--allow-development']
+            '--language', language, '--dependencies', 'offline', '--noninteractive', 'yes']
+    if manifest.get('distribution') == 'development': argv += ['--allow-development', 'yes']
     return argv
+
+
+def setup_result_message(value, language):
+    """Finder users get an installation result without controller field names."""
+    installed = value.get('states', {}).get('installation') == 'Installed'
+    message = text_for('setup_installed' if installed else 'setup_not_confirmed', language)
+    if installed and value.get('exit_code'):
+        message += '\n\n' + text_for('setup_checks_pending', language)
+    messages = [row.get('message', '') for row in value.get('findings', [])]
+    if value.get('original_failure', {}).get('message'):
+        messages.append(value['original_failure']['message'])
+    if any(messages):
+        message += '\n\n' + '\n'.join(messages)
+    if value.get('evidence'):
+        message += '\n\n' + text_for('setup_details', language) + '\n' + value['evidence'][0]
+    return message
 
 
 def main(argv=None):
     gui = argv is None and len(sys.argv) == 1 and getattr(sys, 'frozen', False)
     language = 'en'
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw == ['help']:
+        parser().print_help()
+        return 0
+    if raw == ['version']:
+        print(VERSION)
+        return 0
     try:
         if gui:
             argv = setup_dialog()
@@ -500,7 +534,7 @@ def main(argv=None):
     if gui:
         script = 'function run(a) { var app=Application.currentApplication(); app.includeStandardAdditions=true; app.displayDialog(a[0], {buttons:["OK"],defaultButton:"OK"}); }'
         command(['/usr/bin/osascript', '-l', 'JavaScript', '-e', script,
-                 text_for('completed' if code == 0 else 'incomplete', language) + '\n' + '\n'.join(k + ': ' + str(v) for k, v in value['states'].items())], timeout=300, check=False)
+                 setup_result_message(value, language)], timeout=300, check=False)
     return code
 
 

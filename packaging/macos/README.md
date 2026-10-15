@@ -1,5 +1,9 @@
 # packaging/macos — how the Mac version lives on GitHub
 
+**For the self-contained internal DMG, use the [installer guide](generic/README.md).**
+From the project folder, run `./packaging/macos/build-installer.sh` with no arguments.
+The rest of this page describes the older thin ZIP workflow.
+
 **Status 2026-08-20: `build-local.sh` is REAL and verified on the Mac.** It
 produces a **thin zip** (`CilexWatchtower-<ver>-macos-arm64.zip`, ~5.6 MB):
 `watchtower.app` + a self-checking `run-macos.sh` + README.txt. Verified

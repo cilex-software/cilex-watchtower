@@ -60,7 +60,7 @@ To mark a review complete, remove all unassigned paths, set `review.status` to
 `review.scope: all-distributed-content`, and set `review.attestation` to
 `all-distributed-components-including-embedded-code`. A complete status with
 missing file mappings is rejected. Production additionally requires
-`--accept-licenses`; an arbitrary `license_review: complete` option is ignored.
+`--accept-licenses yes`; an arbitrary `license_review: complete` option is ignored.
 Development output may remain `unverified` with an explicit exhaustive gap
 report. Production signing stays blocked until recorded coverage is complete.
 

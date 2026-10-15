@@ -41,7 +41,18 @@ The caller validates dependency provenance before invoking the builder. Pinned
 catalog versions and historical local receipts are distinct. An accepted local
 receipt does not validate an unsupported runtime or stale dependency security.
 The builder records executable hashes and actual dependency/toolchain versions.
-No build step installs Homebrew packages or invokes Apple installation dialogs.
+The low-level `build.py` does not install Homebrew packages or invoke Apple
+installation dialogs. The human-facing `build-installer.sh` prepares missing
+Homebrew tools before calling it; `--tools existing` disables those Homebrew
+installs. It records the discovered local inputs, builds the pinned LGPL FFmpeg
+profile and creates an isolated environment from the pinned packaging wheels.
+Its default source is the local committed revision, exported with safe archive
+permissions. Internal builds collect installed notices and retain an incomplete
+redistribution review; they do not claim production licence approval.
+
+Helper version 1.0.1 uses explicit `yes`/`no` values for boolean controller options;
+`help` and `version` are commands. The fixed arm64 architecture is no longer an
+option. The three short shell commands in README.md are the operator interface.
 
 [`LICENSE-COVERAGE.md`](LICENSE-COVERAGE.md) specifies the versioned exhaustive
 component/notice/source mapping accepted through `--license-manifest`. Production
