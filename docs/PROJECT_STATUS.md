@@ -1,5 +1,12 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-19 — Original recognition work assigned exclusively to ChatGPT.**
+> Operator direction replaces the earlier DeepSeek/Gemini allocation for all
+> remaining preparation, annotation/review, implementation, training experiments
+> and evaluation. Preserve prior contributions and evidence. This records
+> ownership only; it does not issue a dataset release or establish new results.
+> [Standing task instruction](../AGENTS.md#original-object-recognition--chatgpt-only-2026-10-19).
+
 > **2026-10-16 — Simple macOS DMG build and installation commands.**
 > `packaging/macos/build-installer.sh` now builds an unsigned Apple silicon DMG
 > with no arguments, discovers Homebrew tools, prepares pinned packaging wheels

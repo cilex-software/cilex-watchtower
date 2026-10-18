@@ -19,3 +19,14 @@ shared history. Verify and report the remote commit after pushing.
 
 This Git authorization does not itself authorize deployment, service restarts,
 messages to others, or other outward-facing actions.
+
+## Original object recognition — ChatGPT only, 2026-10-19
+
+The operator instructed: "I won't use anything but ChatGPT for this task going
+forward." All remaining original human/car/animal recognition work belongs to
+ChatGPT/Codex, including preparation, annotation and review, implementation,
+training experiments, scoring and adoption decisions. Do not assign new work
+to DeepSeek, Gemini/Antigravity, Qwen or other AI providers for this task.
+Preserve existing participant submissions, attribution, datasets, checkpoints
+and evidence. This supersedes the earlier participant allocation; it does not
+change experimental results, data-release gates or production permissions.
