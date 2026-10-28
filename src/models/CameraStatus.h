@@ -28,7 +28,7 @@ public:
         Recording,
         NotRecording,
         RecordingGap,
-        Stalled,        // online + enabled + (effectively continuous) but no recent segment — a real failure
+        Stalled,        // legacy catalogue freshness fault; does not establish stopped capture
         Armed,          // motion-enrolled, idle between motion — NOT a fault
         Disabled,       // recording turned off for the camera — NOT a fault
     };

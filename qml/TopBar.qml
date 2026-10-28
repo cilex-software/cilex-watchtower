@@ -106,7 +106,9 @@ Item {
             // global search
             Rectangle {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 42
                 Layout.maximumWidth: 420
+                clip: true
                 Layout.preferredHeight: 38
                 color: Theme.panel
                 border.width: 1
@@ -127,6 +129,7 @@ Item {
                 }
                 Rectangle {
                     id: kbdBox
+                    visible: parent.width >= 150
                     anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
                     width: kbd.implicitWidth + 12; height: 20
                     color: "transparent"
@@ -174,6 +177,7 @@ Item {
                     id: strip
                     height: 38
                     StatusSummaryChip {
+                        compact: root.width < 1500
                         label: qsTr("Online"); dotColor: Theme.good
                         count: root.cameraModel ? root.cameraModel.onlineCount : 0
                         active: root.statusFilter === "online"
@@ -181,6 +185,7 @@ Item {
                     }
                     Rectangle { width: 1; height: 38; color: Theme.line }
                     StatusSummaryChip {
+                        compact: root.width < 1500
                         label: qsTr("Offline"); dotColor: Theme.bad
                         count: root.cameraModel ? root.cameraModel.offlineCount : 0
                         active: root.statusFilter === "offline"
@@ -188,10 +193,27 @@ Item {
                     }
                     Rectangle { width: 1; height: 38; color: Theme.line }
                     StatusSummaryChip {
+                        compact: root.width < 1500
                         label: qsTr("Not Rec"); dotColor: Theme.accent
                         count: root.cameraModel ? root.cameraModel.notRecordingCount : 0
                         active: root.statusFilter === "notrec"
                         onClicked: root.statusChipClicked("notrec")
+                    }
+                    Rectangle { width: 1; height: 38; color: Theme.line }
+                    StatusSummaryChip {
+                        compact: root.width < 1500
+                        label: qsTr("Archive"); dotColor: Theme.warn
+                        count: root.cameraModel && root.cameraModel.archiveDelayedCount !== undefined ? root.cameraModel.archiveDelayedCount : 0
+                        active: root.statusFilter === "archive"
+                        onClicked: root.statusChipClicked("archive")
+                    }
+                    Rectangle { width: 1; height: 38; color: Theme.line }
+                    StatusSummaryChip {
+                        compact: root.width < 1500
+                        label: qsTr("Status ?"); dotColor: Theme.warn
+                        count: root.cameraModel && root.cameraModel.recordingHealthUnknownCount !== undefined ? root.cameraModel.recordingHealthUnknownCount : 0
+                        active: root.statusFilter === "healthunknown"
+                        onClicked: root.statusChipClicked("healthunknown")
                     }
                 }
             }

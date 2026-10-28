@@ -7,6 +7,7 @@ Rectangle {
     id: root
 
     property string label: ""
+    property bool compact: false
     property int count: 0
     property color dotColor: Theme.ink3
     property bool active: false
@@ -15,7 +16,7 @@ Rectangle {
     signal clicked()
 
     implicitHeight: 38
-    implicitWidth: row.implicitWidth + 28
+    implicitWidth: row.implicitWidth + (compact ? 14 : 28)
     height: 38
     radius: 0
     color: active ? Theme.accentSoft
@@ -32,7 +33,7 @@ Rectangle {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 8
+        spacing: root.compact ? 5 : 8
 
         Rectangle {
             id: dot
@@ -54,9 +55,9 @@ Rectangle {
             text: root.label
             color: root.active ? Theme.accent : Theme.ink3
             font.family: Theme.fontMono
-            font.pixelSize: 11
+            font.pixelSize: root.compact ? 10 : 11
             font.weight: Font.DemiBold
-            font.letterSpacing: 0.88
+            font.letterSpacing: root.compact ? 0.5 : 0.88
             font.capitalization: Font.AllUppercase
         }
 
@@ -66,7 +67,7 @@ Rectangle {
             text: root.count
             color: root.active ? Theme.accent : Theme.ink
             font.family: Theme.fontSans
-            font.pixelSize: 18
+            font.pixelSize: root.compact ? 16 : 18
             font.weight: Font.Bold
             font.letterSpacing: -0.36
         }

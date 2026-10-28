@@ -1,4 +1,5 @@
 #include "CameraModel.h"
+#include "RecordingHealth.h"
 #include <QSet>
 #include "WireTime.h"
 #include "LiveProxy.h"
@@ -52,37 +53,9 @@ quint32 ipSortKey(const QString &ip)
     return key;
 }
 
-// Map cilex-vision's /streams `recording` vocab to a RecState. The backend is now
-// mode-aware: recording | stalled | armed | disabled | offline (+ legacy
-// not_recording | recording_gap). "offline"/unknown -> RecUnknown (the live status
-// already conveys an offline camera).
-//
-// A TOKEN RENAME ON THEIR SIDE TURNS A FLEET FAULT INDICATOR GREEN, SILENTLY, AND
-// IT HAS ALREADY HAPPENED ONCE. Enumerated from their source by AST on 2026-09-23,
-// recording_state() (streams.py:162-209) returns exactly:
-//
-//     armed | disabled | offline | recording | stalled
-//
-// `not_recording` is NOT among them, and their health_summary.py:194 says why:
-// "stalled_main (v1's not_recording, renamed)". So the NotRecording branch below is
-// unreachable from the current wire and notRecordingCount is, in practice, a count
-// of STALLED cameras — correct, and correctly labelled, because a stalled camera is
-// not recording.
-//
-// The hazard is the next rename. `stalled` is the ONLY live input to that count,
-// which is rendered in three places (HealthScreen, OpsSidebar, TopBar). If it were
-// renamed the way not_recording was, every unrecognised token would fall to
-// RecUnknown by the return below, notRecordingCount would read 0, and three
-// surfaces would report all-clear during a real fleet failure. Nothing would log,
-// nothing would throw, and the wall would look healthy. That is "green-by-default
-// for an unknown state", which CLAUDE.md names as the thing it is most explicit
-// about — reached not by a wrong branch but by a silent fallback.
-//
-// So the fallback now SAYS SO, once per unseen token per process. Same alarm as
-// wt::wireInstant for naive timestamps, and the same reasoning: names the TOKEN,
-// never a camera or a payload; not behind a dev hook, because a detector behind a
-// flag nobody sets is a detector nobody has. The legacy branches stay — they cost
-// one comparison and they still decode archived rows correctly.
+// Legacy recording vocabulary remains wire-compatible. A catalogue-derived
+// stalled token does not establish stopped capture (incident evidence read
+// 2026-10-28); the independent v1 health contract owns new fault counters.
 CameraStatus::RecState recStateFrom(const QString &rec)
 {
     if (rec == QLatin1String("recording"))     return CameraStatus::Recording;
@@ -91,14 +64,15 @@ CameraStatus::RecState recStateFrom(const QString &rec)
     if (rec == QLatin1String("disabled"))      return CameraStatus::Disabled;
     if (rec == QLatin1String("not_recording")) return CameraStatus::NotRecording;   // legacy, pre-rename
     if (rec == QLatin1String("recording_gap")) return CameraStatus::RecordingGap;   // legacy, never seen live
+    if (rec == QLatin1String("unknown"))       return CameraStatus::RecUnknown;
     if (rec == QLatin1String("offline"))       return CameraStatus::RecUnknown;     // expected; live status says it
     if (!rec.isEmpty()) {
         static QSet<QString> warned;
         if (!warned.contains(rec)) {
             warned.insert(rec);
             qWarning("[RECVOCAB] /streams sent recording=\"%s\", which this build does not know. "
-                     "It is being counted as UNKNOWN, not as a fault. If cilex-vision renamed a "
-                     "state, the Not-recording counters are now under-reporting.",
+                     "Its legacy state remains UNKNOWN; inspect the recording-health contract "
+                     "before interpreting recording or archive counters.",
                      qUtf8Printable(rec));
         }
     }
@@ -145,6 +119,21 @@ static bool parseAudio(const QJsonObject &o, const QString &ip, bool &supported,
 CameraModel::CameraModel(QObject *parent)
     : QAbstractListModel(parent)
 {
+    auto *healthExpiry = new QTimer(this);
+    healthExpiry->setInterval(1000);
+    connect(healthExpiry, &QTimer::timeout, this, [this]() {
+        bool expired = false;
+        const auto now = QDateTime::currentMSecsSinceEpoch();
+        for (auto it = m_recordingHealth.constBegin(); it != m_recordingHealth.constEnd(); ++it) {
+            const auto until = wt::recordingHealth::instant(it.value().value(QStringLiteral("valid_until")));
+            if (until > 0 && until <= now && !m_expiredHealth.contains(it.key())) {
+                m_expiredHealth.insert(it.key());
+                expired = true;
+            }
+        }
+        if (expired) { ++m_healthRev; emit healthRevChanged(); recompute(true); }
+    });
+    healthExpiry->start();
     // WT_DEMO shows the mock dataset (development only).
     if (qEnvironmentVariableIsSet("WT_DEMO")) {
         m_all = wt::mock::cameras();
@@ -191,6 +180,9 @@ CameraModel::CameraModel(QObject *parent)
             if (m_listUnavailable) { m_listUnavailable = false; emit listUnavailableChanged(); }
             beginResetModel();
             m_all.clear();
+            m_recordingHealth.clear();
+            m_expiredHealth.clear();
+            ++m_healthRev; emit healthRevChanged();
             endResetModel();
             m_groups.clear();
             recompute();
@@ -420,6 +412,8 @@ void CameraModel::fetchCameras()
         // receives the raw direct_rtsp_* fields, so non-admins always get go2rtc.
         const QString liveTransport = QSettings().value(QStringLiteral("video/liveTransport"),
                                                         QStringLiteral("go2rtc")).toString();
+        m_recordingHealth.clear();
+        m_expiredHealth.clear();
         bool sawDirect = false;
         int nHlsSub = 0, nHlsOpt = 0;   // field coverage, logged when it changes
         for (const auto &v : arr) {
@@ -428,6 +422,8 @@ void CameraModel::fetchCameras()
             if (camId.isEmpty())
                 continue;
 
+            m_recordingHealth.insert(camId, o.value(QStringLiteral("recording_health")).toObject());
+            m_expiredHealth.remove(camId);
             wt::CameraData c;
             c.id = camId;                           // identity = backend camera_id
             c.ip = o.value("ip").toString();
@@ -586,6 +582,7 @@ void CameraModel::fetchCameras()
         }
         m_all = out;
         endResetModel();
+        ++m_healthRev; emit healthRevChanged();
         recompute();
         emit groupsChanged();   // group counts derive from the refreshed list
     });
@@ -644,6 +641,7 @@ void CameraModel::pollStatuses()
         applyFunctions(obj.value("functions").toObject());   // business-function state
         const auto arr = obj.value("streams").toArray();
 
+        bool healthChanged = false;
         // Build {camera_id -> {live, recording, lastSegmentAt, group}} from the response.
         struct Incoming { CameraStatus::LiveState live; CameraStatus::RecState rec;
                           QString lastSeg; QString gid; QString gname; qint64 statusSince; qint64 recSince;
@@ -654,6 +652,12 @@ void CameraModel::pollStatuses()
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
             if (camId.isEmpty()) continue;
+            const auto health = o.value(QStringLiteral("recording_health")).toObject();
+            if (m_recordingHealth.value(camId) != health) {
+                m_recordingHealth.insert(camId, health);
+                m_expiredHealth.remove(camId);
+                healthChanged = true;
+            }
             const QString st = o.value("status").toString();
             const auto live = (st == QLatin1String("online"))  ? CameraStatus::Live
                             : (st == QLatin1String("offline")) ? CameraStatus::Offline
@@ -743,6 +747,7 @@ void CameraModel::pollStatuses()
                 emit dataChanged(idx, idx, { GroupIdRole, GroupNameRole });
             }
         }
+        if (healthChanged) { ++m_healthRev; emit healthRevChanged(); recompute(true); }
         if (sinceAdvanced) { ++m_stateRev; emit stateRevChanged(); }
         if (countChanged || groupChanged)
             recompute();   // refresh TopBar counts — only on a genuine live/recording flip
@@ -863,6 +868,7 @@ QVariantMap CameraModel::get(int row) const
     m["timestamp"] = c.timestamp;
     m["lastSeen"] = c.lastSeen;
     m["lastSegmentAt"] = c.lastSegmentAt;
+    m["recordingHealth"] = recordingHealthFor(c.id);
     m["pattern"] = c.pattern;
     m["rtspUrl"] = c.rtspUrl;
     m["rtspSubUrl"] = c.rtspSubUrl;
@@ -887,6 +893,28 @@ QVariantMap CameraModel::cameraByBackendId(const QString &cameraId) const
     return {};
 }
 
+QVariantMap CameraModel::recordingHealthFor(const QString &cameraId) const
+{
+    auto health = wt::recordingHealth::normalize(m_recordingHealth.value(cameraId),
+                                                QDateTime::currentMSecsSinceEpoch());
+    if (health.value(QStringLiteral("version")).toInt() == 0) {
+        for (const auto &camera : m_all) {
+            if (camera.id != cameraId) continue;
+            // Legacy catalogue absence remains visible without asserting a
+            // capture failure. Offline reachability is still independent.
+            if (camera.recording == CameraStatus::Stalled || camera.recording == CameraStatus::NotRecording
+                || camera.recording == CameraStatus::RecordingGap)
+                health[QStringLiteral("archive_state")] = QStringLiteral("delayed");
+            if (camera.recording == CameraStatus::Disabled) {
+                health[QStringLiteral("capture_state")] = QStringLiteral("disabled");
+                health[QStringLiteral("archive_state")] = QStringLiteral("disabled");
+            }
+            break;
+        }
+    }
+    return health;
+}
+
 bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const QString &f) const
 {
     if (groupId == QLatin1String("__selected__")) {       // transient ad-hoc set (Situation-Map "Show live")
@@ -900,15 +928,22 @@ bool CameraModel::matches(const wt::CameraData &c, const QString &groupId, const
     if (f == QLatin1String("online"))    return c.live == CameraStatus::Live;
     if (f == QLatin1String("offline"))   return c.live == CameraStatus::Offline;
     if (f == QLatin1String("degraded"))  return c.live == CameraStatus::Degraded;
-    if (f == QLatin1String("recording")) return c.recording == CameraStatus::Recording;
-    if (f == QLatin1String("notrec"))    return c.recording == CameraStatus::NotRecording
-                                             || c.recording == CameraStatus::Stalled;
+    const auto health = recordingHealthFor(c.id);
+    const auto capture = health.value(QStringLiteral("capture_state")).toString();
+    const auto archive = health.value(QStringLiteral("archive_state")).toString();
+    if (f == QLatin1String("recording")) return capture == QLatin1String("progressing");
+    if (f == QLatin1String("notrec")) return capture == QLatin1String("stopped");
+    if (f == QLatin1String("archive")) return archive == QLatin1String("delayed") || archive == QLatin1String("unavailable");
+    if (f == QLatin1String("recunknown")) return capture == QLatin1String("unknown");
+    if (f == QLatin1String("archiveunknown")) return archive == QLatin1String("unknown");
+    if (f == QLatin1String("healthunknown")) return capture == QLatin1String("unknown") || archive == QLatin1String("unknown");
     if (f == QLatin1String("gap"))       return c.recording == CameraStatus::RecordingGap;
     if (f == QLatin1String("favorites")) return c.favorite;
     if (f == QLatin1String("issues"))
         return c.live == CameraStatus::Offline || c.live == CameraStatus::Degraded
             || c.recording == CameraStatus::NotRecording || c.recording == CameraStatus::RecordingGap
-            || c.recording == CameraStatus::Stalled;
+            || c.recording == CameraStatus::Stalled || capture == QLatin1String("stopped")
+            || archive == QLatin1String("delayed") || archive == QLatin1String("unavailable");
     if (f == QLatin1String("recent"))
         return m_recentCamIds.contains(c.id);
     return true;
@@ -1085,28 +1120,32 @@ void CameraModel::toggleFavoriteById(const QString &cameraId)
     }
 }
 
-void CameraModel::recompute()
+void CameraModel::recompute(bool onlyIfChanged)
 {
+    const QList<int> before {m_online, m_offline, m_degraded, m_recording, m_notRecording,
+                             m_recUnknown, m_gap, m_archiveDelayed, m_archiveUnknown, m_healthUnknown};
     m_online = m_offline = m_degraded = 0;
     m_recording = m_notRecording = m_recUnknown = m_gap = 0;
-
+    m_archiveDelayed = m_archiveUnknown = m_healthUnknown = 0;
     for (const wt::CameraData &c : m_all) {
         switch (c.live) {
-        case CameraStatus::Live:     ++m_online;   break;
-        case CameraStatus::Offline:  ++m_offline;  break;
+        case CameraStatus::Live: ++m_online; break;
+        case CameraStatus::Offline: ++m_offline; break;
         case CameraStatus::Degraded: ++m_degraded; break;
         default: break;
         }
-        switch (c.recording) {
-        case CameraStatus::Recording:    ++m_recording;    break;
-        case CameraStatus::Armed:        ++m_recording;    break;   // recording-on-motion = healthy
-        case CameraStatus::Stalled:      ++m_notRecording; break;   // a real failure → counts as NOT REC
-        case CameraStatus::NotRecording: ++m_notRecording; break;
-        case CameraStatus::RecordingGap: ++m_gap;          break;
-        case CameraStatus::Disabled:     ++m_recUnknown;   break;   // intentionally off, not a fault
-        case CameraStatus::RecUnknown:   ++m_recUnknown;   break;
-        default: break;
-        }
+        const auto health = recordingHealthFor(c.id);
+        const auto capture = health.value(QStringLiteral("capture_state")).toString();
+        const auto archive = health.value(QStringLiteral("archive_state")).toString();
+        if (capture == QLatin1String("progressing")) ++m_recording;
+        else if (capture == QLatin1String("stopped")) ++m_notRecording;
+        else if (capture == QLatin1String("unknown")) ++m_recUnknown;
+        if (archive == QLatin1String("delayed") || archive == QLatin1String("unavailable")) ++m_archiveDelayed;
+        else if (archive == QLatin1String("unknown")) ++m_archiveUnknown;
+        if (capture == QLatin1String("unknown") || archive == QLatin1String("unknown")) ++m_healthUnknown;
+        if (c.recording == CameraStatus::RecordingGap) ++m_gap;
     }
-    emit countsChanged();
+    const QList<int> after {m_online, m_offline, m_degraded, m_recording, m_notRecording,
+                            m_recUnknown, m_gap, m_archiveDelayed, m_archiveUnknown, m_healthUnknown};
+    if (!onlyIfChanged || before != after) emit countsChanged();
 }

@@ -178,6 +178,8 @@ Item {
                         unknownWhy: qsTr("The server never reports a camera as degraded. This is not a count of zero — nothing is measuring it.")
                     }
                     StatCell { lbl: qsTr("Not rec");  value: root.cameraModel ? root.cameraModel.notRecordingCount : 0; valueColor: Theme.warn }
+                    StatCell { lbl: qsTr("Archive delayed"); value: root.cameraModel && root.cameraModel.archiveDelayedCount !== undefined ? root.cameraModel.archiveDelayedCount : 0; valueColor: Theme.warn }
+                    StatCell { lbl: qsTr("Status unknown"); value: root.cameraModel && root.cameraModel.recordingHealthUnknownCount !== undefined ? root.cameraModel.recordingHealthUnknownCount : 0; valueColor: Theme.warn }
                 }
             }
 

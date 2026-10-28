@@ -14,6 +14,9 @@ Item {
     property var cameraModel: null
     // Business-function state (fail-safe: only an explicit enabled:false counts as
     // off). Lets the detail view show a deliberate "switched off" instead of a fault.
+    readonly property var recordingHealth: cameraModel && typeof cameraModel.recordingHealthFor === "function" && camera
+        ? (cameraModel.healthRev, cameraModel.recordingHealthFor(camera.camId))
+        : (camera && camera.recordingHealth ? camera.recordingHealth : ({}))
     readonly property bool recOff:  cameraModel ? (cameraModel.recordingEnabled === false) : false
     readonly property bool liveOff: cameraModel ? (cameraModel.liveViewEnabled === false) : false
     // Tri-state so the toggle OVERRIDES without destroying the binding: -1 follow the
@@ -313,7 +316,7 @@ Item {
                     Row {
                         spacing: 4
                         LiveStatusBadge { state: root.camera ? root.camera.live : CameraStatus.LiveUnknown }
-                        RecordingStatusBadge { state: root.recOff ? CameraStatus.Disabled : (root.camera ? root.camera.recording : CameraStatus.RecUnknown)
+                        RecordingStatusBadge { id: detailRecBadge; health: root.recordingHealth; state: root.recOff ? CameraStatus.Disabled : (root.camera ? root.camera.recording : CameraStatus.RecUnknown)
                             lastSegmentAtMs: (root.camera && root.camera.lastSegmentAt) ? Date.parse(root.camera.lastSegmentAt) : -1
                             lastVmdAtMs: (root.camera && root.camera.motionLastVmdAt) ? Date.parse(root.camera.motionLastVmdAt) : -1 }
                         // Audio-recording state — ear only when the camera CAN record
@@ -482,6 +485,31 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: 1
                 spacing: 0
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.topMargin: 12
+                    spacing: 6
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: detailRecBadge.issueVisible ? detailRecBadge.issueText : detailRecBadge.label
+                        color: detailRecBadge.issueVisible ? detailRecBadge.issueColor : Theme.ink2
+                        font.family: Theme.fontSans; font.pixelSize: 12
+                    }
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: root.recordingHealth && root.recordingHealth.last_available_end
+                            ? qsTr("Last catalogue end: %1").arg(Qt.formatDateTime(new Date(root.recordingHealth.last_available_end), "d MMM HH:mm:ss"))
+                            : qsTr("Last catalogue end: unknown")
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
+                    Text {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        visible: root.recordingHealth && root.recordingHealth.incident_started_at ? true : false
+                        text: visible ? qsTr("Incident started: %1").arg(Qt.formatDateTime(new Date(root.recordingHealth.incident_started_at), "d MMM HH:mm:ss")) : ""
+                        color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
+                }
 
                 // ---- Events — what this camera has seen ----
                 // Replaces the Status/Device fact sheets (operator feedback,

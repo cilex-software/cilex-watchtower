@@ -274,6 +274,9 @@ Item {
     readonly property var arrangedFull: {
         var cells = baseCells;
         if (!cameraModel || _effFilter === "") return cells;
+        // Health-only identity swaps can preserve aggregate counts. Re-evaluate
+        // active filters without disturbing an unfiltered live wall.
+        var healthRev = cameraModel.healthRev;
         var matches = cameraModel.page("", _effFilter, sortMode, 1, Math.max(1, cameraModel.total));
         var allowed = ({});
         for (var i = 0; i < matches.length; i++) allowed[matches[i].camId] = true;
@@ -715,9 +718,13 @@ Item {
         case "offline":   return qsTr("No cameras are offline") + where + " — all good.";
         case "degraded":  return qsTr("No cameras are degraded") + where + ".";
         case "recording": return qsTr("No cameras are recording") + where + ".";
-        case "notrec":    return qsTr("All cameras are recording") + where + " — none stopped.";
+        case "notrec":    return qsTr("No confirmed recording stops") + where + ".";
+        case "archive":   return qsTr("No reported archive delays") + where + ".";
+        case "recunknown": return qsTr("No unknown recording states") + where + ".";
+        case "healthunknown": return qsTr("No unknown recording or archive states") + where + ".";
+        case "archiveunknown": return qsTr("No unknown archive states") + where + ".";
         case "favorites": return qsTr("No starred cameras") + where + " yet. Tap a tile's star to pin it here.";
-        case "issues":    return qsTr("No cameras have issues") + where + " — everything looks healthy.";
+        case "issues":    return qsTr("No reported camera faults") + where + ".";
         default:          return qsTr("No cameras") + where + ".";
         }
     }
@@ -1069,7 +1076,7 @@ Item {
                     label: root.statusFilter === "issues" ? qsTr("Issues") : qsTr("Filter")
                     leadingPlus: root.statusFilter !== "issues"
                     removable: root.statusFilter === "issues"
-                    active: ["offline", "degraded", "recording", "notrec", "favorites", "issues"].indexOf(root.statusFilter) >= 0
+                    active: ["offline", "degraded", "recording", "notrec", "archive", "recunknown", "healthunknown", "archiveunknown", "favorites", "issues"].indexOf(root.statusFilter) >= 0
                     onClicked: root.statusFilterRequested(root.statusFilter === "issues" ? "" : "issues")
                     onRemoved: root.statusFilterRequested("")
                 }

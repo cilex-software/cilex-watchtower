@@ -321,6 +321,10 @@
         <source>← → ESC</source>
         <translation>← → ESC</translation>
     </message>
+    <message>
+        <source>archive delayed</source>
+        <translation>архив отстаёт</translation>
+    </message>
 </context>
 <context>
     <name>CameraTile</name>
@@ -2226,6 +2230,86 @@
         <source>Operational</source>
         <translation>Работает</translation>
     </message>
+    <message>
+        <source>Archive delayed</source>
+        <translation>Архив отстаёт</translation>
+    </message>
+    <message>
+        <source>Archive publication is delayed. Local recording progress is unverified.</source>
+        <translation>Публикация архива задерживается. Продолжение локальной записи не подтверждено.</translation>
+    </message>
+    <message>
+        <source>Archive status</source>
+        <translation>Состояние архива</translation>
+    </message>
+    <message>
+        <source>Archive unavailable</source>
+        <translation>Архив недоступен</translation>
+    </message>
+    <message>
+        <source>Camera is offline. Earlier recordings may still be available.</source>
+        <translation>Камера недоступна. Более ранние записи могут оставаться доступными.</translation>
+    </message>
+    <message>
+        <source>Current in catalogue</source>
+        <translation>Свежие записи в каталоге</translation>
+    </message>
+    <message>
+        <source>Idle</source>
+        <translation>Ожидание</translation>
+    </message>
+    <message>
+        <source>Last catalogue end</source>
+        <translation>Последний фрагмент до</translation>
+    </message>
+    <message>
+        <source>Last fragment start</source>
+        <translation>Начало последнего фрагмента</translation>
+    </message>
+    <message>
+        <source>Motion recording is idle. This does not certify the next motion recording.</source>
+        <translation>Запись по движению ожидает события. Это не подтверждает исправность записи следующего события.</translation>
+    </message>
+    <message>
+        <source>Recorder progress has stopped. Check the recording service; live video does not confirm recording.</source>
+        <translation>Регистратор перестал получать данные для записи. Проверьте службу записи: прямой эфир не подтверждает сохранение видео.</translation>
+    </message>
+    <message>
+        <source>Recorder progress is current. Catalogue freshness does not prove complete, readable footage; verify playback for the required interval.</source>
+        <translation>Регистратор получает данные для записи. Свежие отметки каталога не гарантируют полноту и читаемость архива. Проверьте воспроизведение нужного интервала.</translation>
+    </message>
+    <message>
+        <source>Recording continues</source>
+        <translation>Запись продолжается</translation>
+    </message>
+    <message>
+        <source>Recording continues locally. Archive publication is delayed; recent playback may be unavailable.</source>
+        <translation>Локальная запись продолжается. Публикация архива задерживается; последние записи могут быть недоступны для воспроизведения.</translation>
+    </message>
+    <message>
+        <source>Recording is disabled.</source>
+        <translation>Запись отключена.</translation>
+    </message>
+    <message>
+        <source>Recording status is unknown. Live video and an older catalogue entry do not establish current recording.</source>
+        <translation>Состояние записи неизвестно. Прямой эфир и старый фрагмент в каталоге не подтверждают текущую запись.</translation>
+    </message>
+    <message>
+        <source>Recording stopped</source>
+        <translation>Запись остановлена</translation>
+    </message>
+    <message>
+        <source>Recording unknown</source>
+        <translation>Запись не проверена</translation>
+    </message>
+    <message>
+        <source>Archive unknown</source>
+        <translation>Архив не проверен</translation>
+    </message>
+    <message>
+        <source>Recording continues. Archive status is unknown.</source>
+        <translation>Запись продолжается. Состояние архива неизвестно.</translation>
+    </message>
 </context>
 <context>
     <name>LabsCard</name>
@@ -3972,6 +4056,30 @@
         <source>Add page</source>
         <translation>Добавить страницу</translation>
     </message>
+    <message>
+        <source>No confirmed recording stops</source>
+        <translation>Нет подтверждённых остановок записи</translation>
+    </message>
+    <message>
+        <source>No reported archive delays</source>
+        <translation>Нет сообщений об отставании архива</translation>
+    </message>
+    <message>
+        <source>No reported camera faults</source>
+        <translation>Нет сообщений о неисправностях камер</translation>
+    </message>
+    <message>
+        <source>No unknown recording states</source>
+        <translation>Нет камер с неизвестным состоянием записи</translation>
+    </message>
+    <message>
+        <source>No unknown recording or archive states</source>
+        <translation>Нет камер с неизвестным состоянием записи или архива</translation>
+    </message>
+    <message>
+        <source>No unknown archive states</source>
+        <translation>Нет камер с неизвестным состоянием архива</translation>
+    </message>
 </context>
 <context>
     <name>LiveStatusBadge</name>
@@ -4469,6 +4577,18 @@
         <location filename="../qml/OpsSidebar.qml" line="554"/>
         <source>Acknowledge</source>
         <translation>Подтвердить</translation>
+    </message>
+    <message>
+        <source>Archive delayed</source>
+        <translation>Архив отстаёт</translation>
+    </message>
+    <message>
+        <source>Recording unknown</source>
+        <translation>Запись не проверена</translation>
+    </message>
+    <message>
+        <source>Status unknown</source>
+        <translation>Состояние неизвестно</translation>
     </message>
 </context>
 <context>
@@ -5823,6 +5943,62 @@
         <source>REC ?</source>
         <translation>ЗАП ?</translation>
     </message>
+    <message>
+        <source>%1 min</source>
+        <translation>%1 мин</translation>
+    </message>
+    <message>
+        <source>ARCHIVE DELAY</source>
+        <translation>АРХИВ ОТСТАЁТ</translation>
+    </message>
+    <message>
+        <source>Archive delayed %1 · recording unverified</source>
+        <translation>Архив отстаёт на %1 · запись не проверена</translation>
+    </message>
+    <message>
+        <source>Archive unavailable · recording unverified</source>
+        <translation>Архив недоступен · запись не проверена</translation>
+    </message>
+    <message>
+        <source>REC STOPPED</source>
+        <translation>ЗАПИСЬ ОСТАНОВЛЕНА</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive delayed %1</source>
+        <translation>Запись продолжается · архив отстаёт на %1</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive unavailable</source>
+        <translation>Запись продолжается · архив недоступен</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive unknown</source>
+        <translation>Запись продолжается · состояние архива неизвестно</translation>
+    </message>
+    <message>
+        <source>Recording status unknown</source>
+        <translation>Состояние записи неизвестно</translation>
+    </message>
+    <message>
+        <source>Recording stopped</source>
+        <translation>Запись остановлена</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive delayed</source>
+        <translation>Запись продолжается · архив отстаёт</translation>
+    </message>
+    <message>
+        <source>Archive delayed · recording unverified</source>
+        <translation>Архив отстаёт · запись не проверена</translation>
+    </message>
+    <message>
+        <source>Archive status unknown</source>
+        <translation>Состояние архива неизвестно</translation>
+    </message>
+    <message>
+        <source>ARCHIVE ?</source>
+        <translation>АРХИВ ?</translation>
+    </message>
 </context>
 <context>
     <name>SaveViewModal</name>
@@ -6290,6 +6466,18 @@
         <source>This camera isn&apos;t in a group.</source>
         <translation>Эта камера не входит ни в одну группу.</translation>
     </message>
+    <message>
+        <source>Incident started: %1</source>
+        <translation>Начало инцидента: %1</translation>
+    </message>
+    <message>
+        <source>Last catalogue end: %1</source>
+        <translation>Последний фрагмент в каталоге до: %1</translation>
+    </message>
+    <message>
+        <source>Last catalogue end: unknown</source>
+        <translation>Окончание последнего фрагмента в каталоге неизвестно</translation>
+    </message>
 </context>
 <context>
     <name>StatusBadge</name>
@@ -6613,6 +6801,18 @@
         <location filename="../qml/TopBar.qml" line="369"/>
         <source>Sign out</source>
         <translation>Выйти</translation>
+    </message>
+    <message>
+        <source>Archive</source>
+        <translation>Архив</translation>
+    </message>
+    <message>
+        <source>Rec ?</source>
+        <translation>Запись ?</translation>
+    </message>
+    <message>
+        <source>Status ?</source>
+        <translation>Статус ?</translation>
     </message>
 </context>
 <context>

@@ -1,9 +1,8 @@
 import QtQuick
 import Watchtower
 
-// Maps a CameraStatus.RecState to the badge look. Shown second in the badge
-// stack. "REC" pulses; "NOT REC" / "GAP" use a hollow accent ring so a
-// live-but-not-recording camera never reads as healthy (design §9).
+// Recorder progress and archive availability are separate v1 dimensions.
+// Legacy catalogue states remain warnings, without claiming stopped capture.
 //
 // ARMED additionally reads out motion-EVENT freshness ("ARMED · 4m"): the mode
 // being on says nothing about events actually flowing — a clock-vetoed or
@@ -14,13 +13,46 @@ import Watchtower
 StatusBadge {
     id: badge
     property int state: CameraStatus.RecUnknown
+    property var health: ({})
+    readonly property string captureState: health && health.capture_state ? health.capture_state : "unknown"
+    readonly property string archiveState: health && health.archive_state ? health.archive_state
+        : (state === CameraStatus.Stalled || state === CameraStatus.NotRecording || state === CameraStatus.RecordingGap ? "delayed" : "unknown")
+    readonly property bool captureStopped: captureState === "stopped"
+    readonly property bool captureProgressing: captureState === "progressing"
+    readonly property bool archiveDelayed: archiveState === "delayed" || archiveState === "unavailable"
+    readonly property bool healthDisabled: state === CameraStatus.Disabled || captureState === "disabled"
+    readonly property bool healthIdle: captureState === "idle" || (state === CameraStatus.Armed && !archiveDelayed && captureState === "unknown")
+    readonly property bool issueVisible: !healthDisabled
+        && (captureStopped || archiveDelayed || (!healthIdle && captureState === "unknown") || archiveState === "unknown")
+    readonly property color issueColor: captureStopped ? Theme.bad : Theme.warn
+    readonly property string issueText: {
+        if (captureStopped) return qsTr("Recording stopped");
+        if (archiveDelayed) {
+            var delay = health ? health.archive_delay_s : null;
+            var age = typeof delay === "number" && isFinite(delay) && delay >= 0
+                ? qsTr("%1 min").arg(Math.ceil(delay / 60)) : "";
+            if (captureProgressing) return age !== ""
+                ? qsTr("Recording continues · archive delayed %1").arg(age)
+                : archiveState === "delayed" ? qsTr("Recording continues · archive delayed")
+                : qsTr("Recording continues · archive unavailable");
+            return age !== "" ? qsTr("Archive delayed %1 · recording unverified").arg(age)
+                : archiveState === "delayed" ? qsTr("Archive delayed · recording unverified")
+                : qsTr("Archive unavailable · recording unverified");
+        }
+        if (captureProgressing && archiveState === "unknown") return qsTr("Recording continues · archive unknown");
+        if (captureState === "idle" && archiveState === "unknown") return qsTr("Archive status unknown");
+        return qsTr("Recording status unknown");
+    }
     // ms epoch of the newest motion_* event seen for this camera (-1 = none seen
     // in the loaded feed — shows plain ARMED, no claim either way).
     property double lastMotionAtMs: -1
     // Observed onset of the CURRENT recording state (badge timer, e.g. "REC · 12m").
     // ARMED deliberately keeps its motion-EVENT age instead (more useful there).
     property double stateSinceMs: -1
-    sinceMs: state === CameraStatus.Armed ? -1 : stateSinceMs
+    // Legacy recording_since tracks a catalogue verdict, not capture failure.
+    // Only an explicit health incident onset may be used for capture timing.
+    sinceMs: captureStopped && health && health.incident_started_at
+        ? Date.parse(health.incident_started_at) : -1
 
     property int _nowTick: 0
     Timer {
@@ -53,15 +85,13 @@ StatusBadge {
     property bool motionKnown: false
     property bool motionReady: false
     // Last VERIFIED detection (/streams motion.last_vmd_at, monotone since
-    // 1cc987d). Paired with lastSegmentAtMs it catches the 2026-08-07 P1: a
-    // camera detecting motion every few minutes whose recorder pipeline died
-    // 21-37 h ago. Detection fresh + segments stale is a machine-checkable
-    // contradiction — the operator found 12 such cameras before the UI did.
+    // 1cc987d). A mismatch with the catalogue raises an archive warning;
+    // it does not establish that capture stopped.
     property double lastVmdAtMs: -1
     readonly property bool _deafArmed: state === CameraStatus.Armed && motionKnown && !motionReady
     readonly property double _vmdAgeS: lastVmdAtMs > 0 ? Math.max(0, (Date.now() - lastVmdAtMs) / 1000) : -1
-    // fresh detection (<3 h) while the newest segment is >1 h older than that
-    // detection = the recorder is not writing this camera's footage.
+    // Fresh detection with stale catalogue data is an archive warning; it does
+    // not establish that the local recorder stopped writing.
     readonly property bool _notRecording: state === CameraStatus.Armed
         && lastVmdAtMs > 0 && _vmdAgeS < 10800
         && (lastSegmentAtMs <= 0 || (lastVmdAtMs - lastSegmentAtMs) > 3600000)
@@ -80,12 +110,16 @@ StatusBadge {
     Timer { id: flashOff; interval: 2500; onTriggered: badge._flash = false }
 
     label: {
+        if (healthDisabled) return qsTr("OFF");
+        if (captureStopped) return qsTr("REC STOPPED");
+        if (archiveDelayed) return qsTr("ARCHIVE DELAY");
+        if (captureProgressing) return qsTr("REC");
         switch (state) {
-        case CameraStatus.Recording: return qsTr("REC");
-        case CameraStatus.Stalled: return qsTr("STALLED");
+        case CameraStatus.Recording: return qsTr("REC ?");
+        case CameraStatus.Stalled: return qsTr("ARCHIVE DELAY");
         case CameraStatus.Armed:
             if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
-            if (_notRecording) return "ARMED · " + qsTr("NOT RECORDING");
+            if (_notRecording) return "ARMED · " + qsTr("ARCHIVE DELAY");
             // Below tier 2 the qualifier is dropped, but only the INFORMATIONAL
             // ones — how long it has been armed, how long it has been silent.
             // The two fault qualifiers above keep their words at every tier that
@@ -97,34 +131,20 @@ StatusBadge {
                 ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
             return qsTr("ARMED");
         case CameraStatus.Disabled: return qsTr("OFF");
-        case CameraStatus.NotRecording: return qsTr("NOT REC");
-        case CameraStatus.RecordingGap: return qsTr("GAP");
+        case CameraStatus.NotRecording: return qsTr("REC ?");
+        case CameraStatus.RecordingGap: return qsTr("ARCHIVE DELAY");
         default: return qsTr("REC ?");
         }
     }
-    fg: {
-        switch (state) {
-        case CameraStatus.Recording: return Theme.bad;
-        case CameraStatus.Stalled: return Theme.bad;          // a real failure → red
-        case CameraStatus.NotRecording:
-        case CameraStatus.RecordingGap: return Theme.accent;
-        case CameraStatus.Armed: return (_deafArmed || _notRecording) ? Theme.bad
-            : (_staleArmed || _silentArmed) ? Theme.warn : Theme.ink2;   // deaf → red; eventless/segmentless → amber
-        default: return Theme.ink3;                            // disabled / unknown
-        }
-    }
-    bgColor: {
-        switch (state) {
-        case CameraStatus.Recording:
-        case CameraStatus.Stalled: return Theme.badDim;
-        case CameraStatus.NotRecording:
-        case CameraStatus.RecordingGap: return Theme.accentDim;
-        default: return Theme.line;                            // armed / disabled / unknown
-        }
-    }
+    fg: captureStopped ? Theme.bad : archiveDelayed ? Theme.warn
+        : captureProgressing ? Theme.bad
+        : state === CameraStatus.Armed ? (_deafArmed ? Theme.bad
+            : (_staleArmed || _silentArmed || _notRecording) ? Theme.warn : Theme.ink2)
+        : Theme.ink3
+    bgColor: captureStopped || captureProgressing ? Theme.badDim
+        : archiveDelayed ? Theme.warnDim : Theme.line
     dotColor: fg
-    dotPulse: state === CameraStatus.Recording || _flash
-    // Solid only when actively recording; everything else (incl. the STALLED
-    // failure and motion-ARMED idle) reads as a hollow ring.
-    dotHollow: state !== CameraStatus.Recording && !_flash
+    dotPulse: captureProgressing || _flash
+    // Solid only with fresh recorder progress; other states remain hollow.
+    dotHollow: !captureProgressing && !_flash
 }

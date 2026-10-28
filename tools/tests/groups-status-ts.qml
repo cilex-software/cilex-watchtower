@@ -41,29 +41,44 @@ QtObject {
         // ---- the behaviour that was wrong. Motion 10 min ago; footage timestamp
         //      is a non-empty string nothing can read.
         var fresh = isoAgo(600000);
-        ok(St.notRecordingNow(cam(fresh, "not a date")) === true,
-           "REGRESSION: detecting + unreadable last-segment => NOT RECORDING (was silently false)");
+        ok(St.notRecordingNow(cam(fresh, "not a date")) === false,
+           "unreadable catalogue does not prove stopped capture");
+        ok(St.archiveBroken(cam(fresh, "not a date")) === true,
+           "unreadable catalogue remains an archive warning");
         ok(St.silent(cam(fresh, "not a date")) === true,
            "REGRESSION: unreadable last-segment => silent (was silently false)");
         ok(St.FAULT(cam(fresh, "not a date")) === true,
            "...and it reaches FAULT, so the ring and the facet agree");
 
-        // ---- "" must keep behaving exactly as before: same answers, same reasons
-        ok(St.notRecordingNow(cam(fresh, "")) === true,  "\"\" behaves as it always did");
+        // ---- Absent catalogue data stays visible without asserting capture failure.
+        ok(St.notRecordingNow(cam(fresh, "")) === false, "absent catalogue is not capture failure");
         ok(St.silent(cam(fresh, "")) === true,           "\"\" is still silent");
         ok(St.marker(cam("", "")) === "NO MOTION",       "armed, nothing ever => NO MOTION");
 
-        // ---- and the widening must not paint healthy cameras red
+        // ---- Recent catalogue data still does not establish capture progress.
         var seg = isoAgo(120000);           // footage 2 min old
         ok(St.notRecordingNow(cam(fresh, seg)) === false,
            "recent motion WITH recent footage is not a fault");
         ok(St.silent(cam(fresh, seg)) === false, "recent footage is not silent");
-        ok(St.FAULT(cam(fresh, seg)) === false,  "healthy armed camera stays healthy");
-        ok(St.marker(cam(fresh, seg)) === "",    "healthy armed camera wears no ink");
+        ok(St.FAULT(cam(fresh, seg)) === false,  "legacy armed state does not manufacture a confirmed fault");
+        ok(St.marker(cam(fresh, seg)) === "REC ?", "legacy armed camera has no capture proof");
 
         // ---- an old-but-READABLE segment must still be caught (the 2026-08-07 P1)
-        ok(St.notRecordingNow(cam(fresh, isoAgo(7200000))) === true,
-           "motion 10 min ago, newest footage 2 h ago => still the original P1");
+        ok(St.notRecordingNow(cam(fresh, isoAgo(7200000))) === false,
+           "motion/catalogue discrepancy does not prove stopped capture");
+        ok(St.archiveBroken(cam(fresh, isoAgo(7200000))) === true,
+           "motion/catalogue discrepancy remains visible as archive fault");
+        var confirmed = cam(fresh, seg);
+        confirmed.recordingHealth = {version:1,fresh:true,capture_state:"stopped",archive_state:"current"};
+        ok(St.REC_BROKEN(confirmed), "fresh explicit stop reaches confirmed capture counter");
+        confirmed.recordingHealth.fresh = false;
+        ok(!St.REC_BROKEN(confirmed) && St.unknown(confirmed), "expired stop becomes unknown");
+        confirmed.recording = 4;
+        confirmed.recordingHealth = {version:1,fresh:true,capture_state:"progressing",archive_state:"current"};
+        ok(!St.archiveBroken(confirmed) && !St.REC_BROKEN(confirmed), "fresh v1 supersedes old stalled vocabulary");
+
+        confirmed.recordingHealth.archive_state = "unknown";
+        ok(St.unknown(confirmed) && !St.ok(confirmed), "archive-only unknown never appears healthy");
 
         console.log(fails ? (fails + " FAILED") : "all passed");
         Qt.exit(fails ? 1 : 0);

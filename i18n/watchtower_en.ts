@@ -319,6 +319,10 @@
         <source>← → ESC</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>archive delayed</source>
+        <translation>archive delayed</translation>
+    </message>
 </context>
 <context>
     <name>CameraTile</name>
@@ -2205,6 +2209,86 @@
         <source>Operational</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Archive delayed</source>
+        <translation>Archive delayed</translation>
+    </message>
+    <message>
+        <source>Archive publication is delayed. Local recording progress is unverified.</source>
+        <translation>Archive publication is delayed. Local recording progress is unverified.</translation>
+    </message>
+    <message>
+        <source>Archive status</source>
+        <translation>Archive status</translation>
+    </message>
+    <message>
+        <source>Archive unavailable</source>
+        <translation>Archive unavailable</translation>
+    </message>
+    <message>
+        <source>Camera is offline. Earlier recordings may still be available.</source>
+        <translation>Camera is offline. Earlier recordings may still be available.</translation>
+    </message>
+    <message>
+        <source>Current in catalogue</source>
+        <translation>Current in catalogue</translation>
+    </message>
+    <message>
+        <source>Idle</source>
+        <translation>Idle</translation>
+    </message>
+    <message>
+        <source>Last catalogue end</source>
+        <translation>Last catalogue end</translation>
+    </message>
+    <message>
+        <source>Last fragment start</source>
+        <translation>Last fragment start</translation>
+    </message>
+    <message>
+        <source>Motion recording is idle. This does not certify the next motion recording.</source>
+        <translation>Motion recording is idle. This does not certify the next motion recording.</translation>
+    </message>
+    <message>
+        <source>Recorder progress has stopped. Check the recording service; live video does not confirm recording.</source>
+        <translation>Recorder progress has stopped. Check the recording service; live video does not confirm recording.</translation>
+    </message>
+    <message>
+        <source>Recorder progress is current. Catalogue freshness does not prove complete, readable footage; verify playback for the required interval.</source>
+        <translation>Recorder progress is current. Catalogue freshness does not prove complete, readable footage; verify playback for the required interval.</translation>
+    </message>
+    <message>
+        <source>Recording continues</source>
+        <translation>Recording continues</translation>
+    </message>
+    <message>
+        <source>Recording continues locally. Archive publication is delayed; recent playback may be unavailable.</source>
+        <translation>Recording continues locally. Archive publication is delayed; recent playback may be unavailable.</translation>
+    </message>
+    <message>
+        <source>Recording is disabled.</source>
+        <translation>Recording is disabled.</translation>
+    </message>
+    <message>
+        <source>Recording status is unknown. Live video and an older catalogue entry do not establish current recording.</source>
+        <translation>Recording status is unknown. Live video and an older catalogue entry do not establish current recording.</translation>
+    </message>
+    <message>
+        <source>Recording stopped</source>
+        <translation>Recording stopped</translation>
+    </message>
+    <message>
+        <source>Recording unknown</source>
+        <translation>Recording unknown</translation>
+    </message>
+    <message>
+        <source>Archive unknown</source>
+        <translation>Archive unknown</translation>
+    </message>
+    <message>
+        <source>Recording continues. Archive status is unknown.</source>
+        <translation>Recording continues. Archive status is unknown.</translation>
+    </message>
 </context>
 <context>
     <name>LabsCard</name>
@@ -3822,6 +3906,30 @@
         <source>Add page</source>
         <translation>Add page</translation>
     </message>
+    <message>
+        <source>No confirmed recording stops</source>
+        <translation>No confirmed recording stops</translation>
+    </message>
+    <message>
+        <source>No reported archive delays</source>
+        <translation>No reported archive delays</translation>
+    </message>
+    <message>
+        <source>No reported camera faults</source>
+        <translation>No reported camera faults</translation>
+    </message>
+    <message>
+        <source>No unknown recording states</source>
+        <translation>No unknown recording states</translation>
+    </message>
+    <message>
+        <source>No unknown recording or archive states</source>
+        <translation>No unknown recording or archive states</translation>
+    </message>
+    <message>
+        <source>No unknown archive states</source>
+        <translation>No unknown archive states</translation>
+    </message>
 </context>
 <context>
     <name>LiveStatusBadge</name>
@@ -4311,6 +4419,18 @@
         <location filename="../qml/OpsSidebar.qml" line="554"/>
         <source>Acknowledge</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Archive delayed</source>
+        <translation>Archive delayed</translation>
+    </message>
+    <message>
+        <source>Recording unknown</source>
+        <translation>Recording unknown</translation>
+    </message>
+    <message>
+        <source>Status unknown</source>
+        <translation>Status unknown</translation>
     </message>
 </context>
 <context>
@@ -5652,6 +5772,62 @@
         <source>REC ?</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>%1 min</source>
+        <translation>%1 min</translation>
+    </message>
+    <message>
+        <source>ARCHIVE DELAY</source>
+        <translation>ARCHIVE DELAY</translation>
+    </message>
+    <message>
+        <source>Archive delayed %1 · recording unverified</source>
+        <translation>Archive delayed %1 · recording unverified</translation>
+    </message>
+    <message>
+        <source>Archive unavailable · recording unverified</source>
+        <translation>Archive unavailable · recording unverified</translation>
+    </message>
+    <message>
+        <source>REC STOPPED</source>
+        <translation>REC STOPPED</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive delayed %1</source>
+        <translation>Recording continues · archive delayed %1</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive unavailable</source>
+        <translation>Recording continues · archive unavailable</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive unknown</source>
+        <translation>Recording continues · archive unknown</translation>
+    </message>
+    <message>
+        <source>Recording status unknown</source>
+        <translation>Recording status unknown</translation>
+    </message>
+    <message>
+        <source>Recording stopped</source>
+        <translation>Recording stopped</translation>
+    </message>
+    <message>
+        <source>Recording continues · archive delayed</source>
+        <translation>Recording continues · archive delayed</translation>
+    </message>
+    <message>
+        <source>Archive delayed · recording unverified</source>
+        <translation>Archive delayed · recording unverified</translation>
+    </message>
+    <message>
+        <source>Archive status unknown</source>
+        <translation>Archive status unknown</translation>
+    </message>
+    <message>
+        <source>ARCHIVE ?</source>
+        <translation>ARCHIVE ?</translation>
+    </message>
 </context>
 <context>
     <name>SaveViewModal</name>
@@ -6004,6 +6180,18 @@
         <source>This camera isn&apos;t in a group.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Incident started: %1</source>
+        <translation>Incident started: %1</translation>
+    </message>
+    <message>
+        <source>Last catalogue end: %1</source>
+        <translation>Last catalogue end: %1</translation>
+    </message>
+    <message>
+        <source>Last catalogue end: unknown</source>
+        <translation>Last catalogue end: unknown</translation>
+    </message>
 </context>
 <context>
     <name>StatusBadge</name>
@@ -6323,6 +6511,18 @@
         <location filename="../qml/TopBar.qml" line="369"/>
         <source>Sign out</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Archive</source>
+        <translation>Archive</translation>
+    </message>
+    <message>
+        <source>Rec ?</source>
+        <translation>Rec ?</translation>
+    </message>
+    <message>
+        <source>Status ?</source>
+        <translation>Status ?</translation>
     </message>
 </context>
 <context>

@@ -54,25 +54,33 @@ function ms(iso) {
 }
 
 
-// two independent axes -------------------------------------------------------
-function recBroken(c) { var r = _rec(c); return r === REC.NotRecording || r === REC.Stalled; }
-function detBroken(c) { return !!(c && c.motionKnown === true && c.motionReady === false); }
-// detecting motion recently while the newest footage is older than that
-// detection = the recorder is not writing this camera (the 2026-08-07 P1).
-function notRecordingNow(c) {
+// Capture proof is independent of catalogue freshness. CameraModel supplies
+// normalized v1 health; a missing/stale observation never certifies capture.
+function capture(c) {
+    var h = c && c.recordingHealth;
+    if (h && h.fresh === true) return h.capture_state || "unknown";
+    return _rec(c) === REC.Disabled ? "disabled" : "unknown";
+}
+function archiveMissing(c) {
     if (!c || _rec(c) !== REC.Armed) return false;
-    var v = ms(c.motionLastVmdAt);          // -1 covers the old `!c.motionLastVmdAt` guard
-    var s = ms(c.lastSegmentAt);
+    var v = ms(c.motionLastVmdAt), s = ms(c.lastSegmentAt);
     return v > 0 && (Date.now() - v) < 10800000 && (s <= 0 || (v - s) > 3600000);
 }
-function unknown(c) { return _rec(c) === REC.Unknown; }
+function archiveBroken(c) {
+    var h = c && c.recordingHealth;
+    if (h && h.version === 1) return h.archive_state === "delayed" || h.archive_state === "unavailable";
+    var r = _rec(c);
+    return r === REC.NotRecording || r === REC.Stalled || r === REC.Gap || archiveMissing(c);
+}
+function recBroken(c) { return capture(c) === "stopped"; }
+function detBroken(c) { return !!(c && c.motionKnown === true && c.motionReady === false); }
+function notRecordingNow(c) { return recBroken(c); }
+function archiveUnknown(c) { return !!(c && c.recordingHealth && c.recordingHealth.archive_state === "unknown"); }
+function unknown(c) { return capture(c) === "unknown" || archiveUnknown(c); }
 function offline(c) { return !!(c && (c.live === LIVE.Offline || c.live === LIVE.NoSignal)); }
-
-// REC_BROKEN feeds the "N not recording" readout AND the top-bar pill.
-function REC_BROKEN(c) { return recBroken(c) || notRecordingNow(c); }
+function REC_BROKEN(c) { return recBroken(c); }
 function DET_BROKEN(c) { return detBroken(c); }
-// FAULT feeds the 2px bad ring AND the Faults facet — one predicate, both.
-function FAULT(c) { return REC_BROKEN(c) || DET_BROKEN(c); }
+function FAULT(c) { return REC_BROKEN(c) || DET_BROKEN(c) || archiveBroken(c); }
 
 function silent(c) {
     if (!c || _rec(c) !== REC.Armed) return false;
@@ -82,7 +90,7 @@ function silent(c) {
 function warn(c) {
     if (FAULT(c)) return false;
     var r = _rec(c);
-    return r === REC.Gap || r === REC.Unknown || r === REC.Disabled || offline(c) || silent(c);
+    return unknown(c) || r === REC.Disabled || offline(c) || silent(c);
 }
 function ok(c) { return !FAULT(c) && !warn(c); }
 function unnamed(c) { return !!(c && /\(\d+\.\d+\.\d+\.\d+\)\s*$/.test(String(c.name || ""))); }
@@ -92,37 +100,29 @@ function unnamed(c) { return !!(c && /\(\d+\.\d+\.\d+\.\d+\)\s*$/.test(String(c.
 function marker(c) {
     var r = _rec(c);
     if (offline(c)) return "OFF";
-    if (REC_BROKEN(c)) return r === REC.Stalled ? "STALLED" : "NOT REC";
+    if (REC_BROKEN(c)) return qsTranslate("RecordingStatusBadge", "REC STOPPED");
+    if (archiveBroken(c)) return qsTranslate("RecordingStatusBadge", "ARCHIVE DELAY");
     if (DET_BROKEN(c)) return "NOT READY";
-    if (r === REC.Unknown) return "REC ?";
-    if (r === REC.Disabled) return "OFF";
-    if (r === REC.Gap) return "GAP";
+    if (archiveUnknown(c)) return qsTranslate("RecordingStatusBadge", "ARCHIVE ?");
+    if (r === REC.Disabled || capture(c) === "disabled") return "OFF";
     if (silent(c)) {
         var s = ms(c.lastSegmentAt);
         return s <= 0 ? "NO MOTION" : "SILENT";
     }
+    if (unknown(c)) return "REC ?";
     return "";
 }
-function markerIsFault(c) { return FAULT(c) && !offline(c); }
+function markerIsFault(c) { return (REC_BROKEN(c) || DET_BROKEN(c)) && !offline(c); }
 
-// the compound hover badge keeps what the marker had to drop
 function badgeText(c) {
-    var r = _rec(c), out;
-    if (r === REC.Recording) return "REC";
-    if (r === REC.Stalled) return "STALLED";
-    if (r === REC.Disabled) return "OFF";
-    if (r === REC.NotRecording) return "NOT REC";
-    if (r === REC.Gap) return "GAP";
-    if (r === REC.Unknown) return "REC ?";
-    out = "ARMED";
-    if (notRecordingNow(c)) out += " · NOT RECORDING";
-    if (DET_BROKEN(c)) out += (notRecordingNow(c) ? " + NOT READY" : " · NOT READY");
-    if (out === "ARMED" && silent(c)) {
-        var s = ms(c.lastSegmentAt);
-        out = s <= 0 ? "no motion ever"
-            : "ARMED · silent " + Math.floor((Date.now() - s) / 86400000) + "d";
-    }
-    return out;
+    if (offline(c)) return "OFF";
+    if (REC_BROKEN(c)) return qsTranslate("RecordingStatusBadge", "REC STOPPED");
+    if (archiveBroken(c)) return qsTranslate("RecordingStatusBadge", "ARCHIVE DELAY");
+    if (archiveUnknown(c)) return qsTranslate("RecordingStatusBadge", "ARCHIVE ?");
+    if (capture(c) === "progressing") return "REC";
+    if (capture(c) === "disabled") return "OFF";
+    if (_rec(c) === REC.Armed) return DET_BROKEN(c) ? "ARMED · NOT READY" : "ARMED · REC ?";
+    return "REC ?";
 }
 
 function octet(c) {

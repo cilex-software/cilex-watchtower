@@ -1,5 +1,15 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-28 — Recording progress separated from archive freshness.**
+> Additive v1 capture/archive health, source expiry, required-stream aggregation
+> and separate confirmed-stop/archive/unknown counters are implemented in the
+> client. Linux Qt 6.8.3 Release build passed; loopback integration passed
+> 31 checks EN and 31 RU, contract suite 18 checks, 0 failures; Groups 24 checks,
+> existing obstruction regression 16 checks passed. RU Live/Health/Groups
+> offscreen images were inspected. Native guardstation deployment, backend
+> operational recovery and real footage playback are not established by these
+> fixtures. [Commands, source citations and deployment gates](verification/2026-10-28-recording-health/README.md).
+
 > **2026-10-19 — Original recognition work assigned exclusively to ChatGPT.**
 > Operator direction replaces the earlier DeepSeek/Gemini allocation for all
 > remaining preparation, annotation/review, implementation, training experiments

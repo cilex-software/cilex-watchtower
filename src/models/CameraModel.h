@@ -10,6 +10,7 @@
 #include <QPair>
 #include <QStringList>
 #include <QTimer>
+#include <QJsonObject>
 #include "Types.h"
 #include "CameraStore.h"
 
@@ -31,6 +32,10 @@ class CameraModel : public QAbstractListModel
     Q_PROPERTY(int notRecordingCount READ notRecordingCount NOTIFY countsChanged)
     Q_PROPERTY(int recUnknownCount READ recUnknownCount NOTIFY countsChanged)
     Q_PROPERTY(int recordingGapCount READ recordingGapCount NOTIFY countsChanged)
+    Q_PROPERTY(int archiveDelayedCount READ archiveDelayedCount NOTIFY countsChanged)
+    Q_PROPERTY(int archiveUnknownCount READ archiveUnknownCount NOTIFY countsChanged)
+    Q_PROPERTY(int recordingHealthUnknownCount READ recordingHealthUnknownCount NOTIFY countsChanged)
+    Q_PROPERTY(int healthRev READ healthRev NOTIFY healthRevChanged)
     // True while the first /streams fetch is in flight (auth -> list arrives).
     // Third roster state (booth letter 2026-08-17): "we asked and could not find
     // out" is neither "loading" nor "empty". Without it a /streams 500 rendered
@@ -153,6 +158,11 @@ public:
     int notRecordingCount() const { return m_notRecording; }
     int recUnknownCount() const { return m_recUnknown; }
     int recordingGapCount() const { return m_gap; }
+    int archiveDelayedCount() const { return m_archiveDelayed; }
+    int archiveUnknownCount() const { return m_archiveUnknown; }
+    int recordingHealthUnknownCount() const { return m_healthUnknown; }
+    int healthRev() const { return m_healthRev; }
+    Q_INVOKABLE QVariantMap recordingHealthFor(const QString &cameraId) const;
     bool loading() const { return m_loading; }
     bool listUnavailable() const { return m_listUnavailable; }
 
@@ -186,6 +196,7 @@ public:
 
 signals:
     void countsChanged();
+    void healthRevChanged();
     void groupsChanged();
     void groupCreated(const QString &groupId);
     void loadingChanged();
@@ -195,7 +206,7 @@ signals:
     void directRtspAvailableChanged();
 
 private:
-    void recompute();
+    void recompute(bool onlyIfChanged = false);
     bool matches(const wt::CameraData &c, const QString &groupId, const QString &statusFilter) const;
     QVector<int> filteredSorted(const QString &groupId, const QString &statusFilter,
                                 const QString &sortMode) const;
@@ -232,5 +243,11 @@ private:
     int m_notRecording = 0;
     int m_recUnknown = 0;
     int m_gap = 0;
+    int m_archiveDelayed = 0;
+    int m_archiveUnknown = 0;
+    int m_healthUnknown = 0;
+    int m_healthRev = 0;
+    QHash<QString, QJsonObject> m_recordingHealth;
+    QSet<QString> m_expiredHealth;
     QTimer *m_pollTimer = nullptr;   // periodic /streams refresh (recording + live status)
 };

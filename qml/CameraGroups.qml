@@ -36,6 +36,7 @@ Item {
     Connections {
         target: root.cameraModel
         function onCountsChanged() { root.rev++ }
+        function onHealthRevChanged() { root.rev++ }
         function onGroupsChanged() { root.rev++ }
         function onGroupCreated(groupId) { root.selectedGroup = groupId; root.rev++ }
     }
@@ -56,7 +57,8 @@ Item {
             sig += c.camId + "|" + c.name + "|" + (c.groupId || "") + "|" + c.live + "|" + c.recording
                  + "|" + (c.motionKnown === true) + "|" + (c.motionReady === true)
                  + "|" + String(c.lastSegmentAt || "").slice(0, 13)
-                 + "|" + String(c.motionLastVmdAt || "").slice(0, 13) + "\n";
+                 + "|" + String(c.motionLastVmdAt || "").slice(0, 13)
+                 + "|" + (c.recordingHealth ? c.recordingHealth.capture_state + ":" + c.recordingHealth.archive_state : "unknown") + "\n";
         }
         if (sig !== root._sig) { root._sig = sig; root.fleet = next }
     }
@@ -435,7 +437,7 @@ Item {
                         ARow { n: cons.cUnnamed;   label: qsTr("still unnamed");           dot: Theme.accent; goFacet: "unnamed" }
                         ARow { n: root.nUngrouped; label: qsTr("ungrouped");               dot: Theme.accent }
                         ARow { n: cons.cOffline;   label: qsTr("offline");                 dot: Theme.bad }
-                        ARow { n: cons.cUnknown;   label: qsTr("recording state unknown"); dot: Theme.accent }
+                        ARow { n: cons.cUnknown;   label: qsTr("state unknown"); dot: Theme.accent }
 
                         Item { Layout.fillWidth: true; Layout.preferredHeight: 8 }
                         Item {
@@ -477,6 +479,7 @@ Item {
                                 for (var i = 0; i < root.fleet.length; i++) {
                                     var c = root.fleet[i], r = "", rk = 9;
                                     if (St.REC_BROKEN(c)) { r = qsTr("not recording"); rk = 0 }
+                                    else if (St.archiveBroken(c)) { r = qsTr("archive delayed"); rk = 0 }
                                     else if (St.DET_BROKEN(c)) { r = qsTr("detector not ready"); rk = 1 }
                                     else if (St.offline(c)) { r = qsTr("offline"); rk = 2 }
                                     else if (St.unknown(c)) { r = qsTr("state unknown"); rk = 3 }

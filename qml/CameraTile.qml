@@ -111,7 +111,9 @@ Item {
     property bool audioRecording: false    // audio track recorded (ear vs muted ear)
     property string timestamp: ""
     property string lastSeen: ""
-    property string lastSegmentAt: ""   // ISO of the last recorded segment (for the stalled strip)
+    property var recordingHealth: camModel && typeof camModel.recordingHealthFor === "function"
+        ? (camModel.healthRev, camModel.recordingHealthFor(camId)) : ({})
+    property string lastSegmentAt: ""   // Legacy segment start; never an incident onset.
     // Backend motion-readiness truth (P1 ask-4): known=false = field absent = unknown.
     property bool motionKnown: false
     property bool motionReady: false
@@ -222,7 +224,7 @@ Item {
     // Recording states (not-rec / gap / stalled) are NOT faults when an operator
     // has deliberately switched recording off — only offline/degraded still are.
     readonly property bool isFault: isOffline || isDegraded
-                                    || (!root.recOff && (isNotRec || isGap || isStalled))
+                                    || (!root.recOff && (recBadge.captureStopped || recBadge.archiveDelayed))
 
     readonly property string geom: groupName.toLowerCase().indexOf("park") >= 0 ? "parking"
                                   : (groupName.toLowerCase().indexOf("lob") >= 0 ? "lobby" : "corridor")
@@ -288,8 +290,8 @@ Item {
         border.width: root.gridMode ? 0 : 1
         border.color: root.gridMode ? "transparent"
                       : (hover.hovered ? Theme.accent
-                      : ((root.isOffline || root.isStalled) ? Theme.bad
-                      : ((root.isNotRec || root.isDegraded) ? Theme.accent : Theme.line2)))
+                      : ((root.isOffline || recBadge.captureStopped) ? Theme.bad
+                      : ((recBadge.archiveDelayed || root.isDegraded) ? Theme.warn : Theme.line2)))
 
         // ---- video / fallback ----
         // Placeholder fallback: shown until a live frame arrives (or when the
@@ -568,7 +570,7 @@ Item {
             z: 2
             // Suppressed when Live View is deliberately off (that's not a fault).
             visible: root.isFault && root.liveViewEnabled
-            color: (root.isOffline || root.isStalled) ? Theme.bad : Theme.accent
+            color: (root.isOffline || recBadge.captureStopped) ? Theme.bad : Theme.warn
         }
 
         // ---- header: name/id (left), badge stack (right) ----
@@ -682,6 +684,8 @@ Item {
                     dotColor: Theme.warn; dotHollow: true
                 }
                 RecordingStatusBadge {
+                    id: recBadge
+                    health: root.recordingHealth
                     tier: root.chromeTier
                     state: root.recOff ? CameraStatus.Disabled : root.recording
                     lastMotionAtMs: root.lastMotionAtMs
@@ -706,7 +710,7 @@ Item {
         // ---- inline issue strip (stalled / not-recording / degraded) ----
         Rectangle {
             id: issueStrip
-            visible: root.isDegraded || (!root.recOff && (root.isNotRec || root.isStalled))
+            visible: root.isDegraded || (!root.isOffline && !root.recOff && recBadge.issueVisible)
             // Above the hover action row: their bands nearly touch in short tiles, and
             // the VIEW ISSUE link must never lose clicks to an overlapping panel.
             z: 5
@@ -716,7 +720,7 @@ Item {
             height: 22
             color: Qt.rgba(0, 0, 0, 0.9)
             // The Row inside renders at natural width and Rectangles do not clip
-            // children — at 4x4 density "RECORDING STALLED · since 15:31" painted
+            // children — a long recording-health message at 4x4 density painted
             // past this strip's edge, over the wall background and into the
             // neighbouring tile (operator screenshot, 2026-08-16). Belt: clip.
             // Braces: the message Text below is width-bounded and elides.
@@ -725,7 +729,7 @@ Item {
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                 width: 3
-                color: root.isStalled ? Theme.bad : (root.isNotRec ? Theme.accent : Theme.warnDim)
+                color: recBadge.issueColor
             }
 
             Row {
@@ -737,19 +741,17 @@ Item {
                 Text {
                     id: issueGlyph
                     anchors.verticalCenter: parent.verticalCenter
-                    text: (root.isStalled || root.isNotRec) ? "⚠" : "~"
-                    color: root.isStalled ? Theme.bad : Theme.warn; font.pixelSize: 11
+                    text: root.isDegraded ? "~" : "⚠"
+                    color: recBadge.issueColor; font.pixelSize: 11
                 }
                 Text {
                     id: issueMsg
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.isStalled
-                          ? (qsTr("RECORDING STALLED") + (root.lastSegmentAt !== "" ? "  ·  " + qsTr("since") + " " + Settings.clock(new Date(root.lastSegmentAt).getTime(), false) : ""))
-                          : (root.isNotRec ? qsTr("LIVE, NO RECORDING") : qsTr("STREAM DEGRADED"))
+                    text: root.isDegraded ? qsTr("STREAM DEGRADED") : recBadge.issueText
                     // Bounded to what the strip can actually show once the glyph, the
                     // VIEW ISSUE link, spacings and padding are paid for. ElideMiddle,
-                    // not Right: the tail carries the "since 15:31" timestamp, which is
-                    // the part a guard acts on — cut the label's middle, keep the time.
+                    // not Right: preserve the archive-delay qualifier at the tail when
+                    // dense tiles cannot display the full explanation.
                     width: Math.min(implicitWidth, Math.max(0,
                                root.width - 16 - 20 - issueGlyph.width
                                - (issueLink.visible ? issueLink.width + issueRow.spacing : 0)
@@ -760,7 +762,7 @@ Item {
                 }
                 Text {
                     id: issueLink
-                    visible: root.isNotRec || root.isStalled
+                    visible: recBadge.issueVisible
                     anchors.verticalCenter: parent.verticalCenter
                     text: qsTr("VIEW ISSUE") + " ›"; color: Theme.accent
                     font.family: Theme.fontMono; font.pixelSize: 10
