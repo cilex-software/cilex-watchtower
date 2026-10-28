@@ -1,5 +1,18 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-29 — Station sign-in continuity and real availability pilot.**
+> A real Booth run uploaded 407 genuine observations and imported 17,626 native
+> records. Two identical saved-batch retries each returned 407 duplicates with
+> the same original receipt. The first rollout restored the prior binaries
+> because the saved camera view fell back from 19 feeds to 16; both versions
+> showed that fallback. The original watchdog is running. Its camera group was
+> identified for restoration before retry. An existing fifteen-minute station
+> sign-in expiry is corrected with renewal, bounded retries and isolated
+> operator/logout response handling; 24 fresh native Qt checks passed.
+> Updated station installation and operator history/manual-sync acceptance
+> remain separate pending gates.
+> [Evidence and rollout limits](verification/2026-10-29-camera-availability/README.md).
+
 > **2026-10-29 — Durable camera availability journal.**
 > Availability observations now have a local SQLite journal/outbox, independent
 > source/condition identity, native server catch-up, exact acknowledgements,

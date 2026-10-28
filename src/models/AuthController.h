@@ -1,12 +1,15 @@
 #pragma once
 
 #include <QObject>
+#include <QElapsedTimer>
 #include <QNetworkRequest>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
 
 class QNetworkAccessManager;
+class QNetworkReply;
 
 // Single source of truth for the operator session. Owns the one shared
 // QNetworkAccessManager every backend-talking model uses, so logging in once
@@ -27,6 +30,8 @@ class AuthController : public QObject
     // out of scope by DESIGN ("the PAST is an act by a person") and stay 401/403.
     // Activated by WT_STATION_TOKEN at boot; an operator sign-in always supersedes it.
     Q_PROPERTY(bool stationLive READ stationLive NOTIFY stationLiveChanged)
+    // Expiry marks API information unavailable while preserving a flowing wall.
+    Q_PROPERTY(bool stationSessionCurrent READ stationSessionCurrent NOTIFY stationSessionChanged)
     Q_PROPERTY(QString baseUrl READ baseUrl NOTIFY baseUrlChanged)
     Q_PROPERTY(QString username READ username NOTIFY identityChanged)
     Q_PROPERTY(QString role READ role NOTIFY identityChanged)
@@ -70,6 +75,7 @@ public:
     // consumers that run their own QNetworkAccessManager (e.g. the HLS proxy thread).
     QString token() const { return m_token; }
     bool stationLive() const { return m_stationLive; }
+    bool stationSessionCurrent() const { return m_stationSessionCurrent; }
     QString displaySession() const { return m_displaySession; }
     // Attach the station display header when in station mode (no-op otherwise).
     void decorate(QNetworkRequest &req) const;
@@ -116,6 +122,7 @@ public:
 
 signals:
     void stationLiveChanged();
+    void stationSessionChanged();
     void authenticatedChanged();
     void baseUrlChanged();
     void identityChanged();
@@ -144,8 +151,13 @@ private:
     void clearSession();
     // Login attempts retry on transient network/server-not-ready failures
     // (e.g. the backend still coming up at boot) before surfacing an error.
-    void attemptTokenLogin();
-    void attemptPasswordLogin();
+    void attemptTokenLogin(quint64 generation);
+    void attemptPasswordLogin(quint64 generation);
+    void invalidateAuthRequests();
+    void clearStationSession();
+    void requestStationSession();
+    void resumeStationSession();
+    void expireStationSession();
     // Session continuity for 24/7 stations: schedule a renewal before the
     // token's exp claim, and recover in place from mid-session 401s.
     void armRenewal();
@@ -164,6 +176,18 @@ private:
     QString m_token;
     bool m_stationLive = false;
     QString m_displaySession;
+    QString m_stationToken;             // memory only; never persisted or logged
+    QString m_stationBaseUrl;           // exchange destination fixed at explicit sign-in
+    bool m_stationSessionCurrent = false;
+    qint64 m_stationExpiresMs = 0;
+    int m_stationFailures = 0;
+    QElapsedTimer m_stationRetryClock;
+    qint64 m_stationRetryDelayMs = 0;
+    class QTimer *m_stationRenewTimer = nullptr;
+    class QTimer *m_stationExpiryTimer = nullptr;
+    QPointer<QNetworkReply> m_stationReply;
+    QPointer<QNetworkReply> m_refreshReply;
+    quint64 m_authGeneration = 0;
     QString m_username;
     QString m_role;
     QStringList m_cameraScope;

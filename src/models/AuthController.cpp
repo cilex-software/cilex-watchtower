@@ -20,6 +20,7 @@
 #include <QRegularExpression>
 #include <QUrl>
 #include <QTimer>
+#include <limits>
 
 namespace {
 // A login may be issued while the backend is still coming up (Watchtower and
@@ -40,9 +41,9 @@ static bool serviceCreds(QString &user, QString &pass)
     if (!qEnvironmentVariableIsSet("WT_CV_AUTOLOGIN"))
         return false;
     const auto env = QProcessEnvironment::systemEnvironment();
-    user = env.value("WT_CV_USER", "admin");
-    pass = env.value("WT_CV_PASS", "admin");
-    return true;
+    user = env.value("WT_CV_USER");
+    pass = env.value("WT_CV_PASS");
+    return !user.isEmpty() && !pass.isEmpty();
 }
 
 
@@ -60,13 +61,13 @@ AuthController::AuthController(QObject *parent)
     // failures fall back to the sign-in screen — a dead-quiet wall is the worst
     // outcome (observed 2026-08-03: token expired 11:07, livePipes=0 for an
     // hour with no operator-visible cause).
-    connect(this, &AuthController::loginFailed, this, [this](const QString &why) {
-        if (!m_authenticated)
+    connect(this, &AuthController::loginFailed, this, [this](const QString &) {
+        if (!m_authenticated || m_stationLive)
             return;                     // interactive sign-in failure — not ours
         ++m_reauthFails;
         const qint64 left = m_exp - QDateTime::currentSecsSinceEpoch();
-        qWarning("[AUTH] background re-login failed (#%d, %s) — token has %llds left",
-                 m_reauthFails, qPrintable(why), (long long)left);
+        qWarning("[AUTH] background re-login failed (#%d) — token has %llds left",
+                 m_reauthFails, (long long)left);
         if (m_reauthFails >= 3) {
             qWarning("[AUTH] giving up on background re-login — dropping to sign-in");
             clearSession();
@@ -160,6 +161,7 @@ bool AuthController::decodeClaims(const QString &token, QString &username, QStri
 
 void AuthController::applyToken(const QString &token)
 {
+    clearStationSession();             // a successful operator sign-in wins
     m_token = token;
     QNetworkCookie cookie("access_token", token.toUtf8());
     cookie.setPath("/");
@@ -215,6 +217,8 @@ void AuthController::armRenewal()
 
 void AuthController::renewNow()
 {
+    if (!m_authenticated || m_stationLive)
+        return;
     qInfo("[AUTH] refreshing session (token expires in %llds)",
           (long long)(m_exp - QDateTime::currentSecsSinceEpoch()));
     refreshSession();
@@ -222,12 +226,22 @@ void AuthController::renewNow()
 
 void AuthController::refreshSession()
 {
+    if (!m_authenticated || m_stationLive || m_refreshReply)
+        return;
+    const quint64 generation = m_authGeneration;
     QNetworkRequest req{QUrl(m_baseUrl + "/auth/refresh")};
+    req.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     req.setTransferTimeout(kLoginTimeoutMs);
     req.setRawHeader("Cookie", "access_token=" + m_token.toUtf8());
     QNetworkReply *reply = m_nam->post(req, QByteArray());
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    m_refreshReply = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_authGeneration)
+            return;
+        m_refreshReply.clear();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
         if (code == 200) {
@@ -240,13 +254,9 @@ void AuthController::refreshSession()
                 return;
             }
         }
-        // Log the server's own sentence VERBATIM — the 2026-08-02 00:52 early
-        // rejection was undiagnosable because nobody kept this string. `message ?? detail`
-        // so an SSO rejection logs its sentence rather than the bare enum; the raw body
-        // is still the fallback, which is what made that incident readable at all.
-        const QString detail = wt::serverMessage(raw);
-        qWarning("[AUTH] refresh rejected (HTTP %d): \"%s\"", code,
-                 qPrintable(detail.isEmpty() ? QString::fromUtf8(raw.left(120)) : detail));
+        // An error body can itself contain a bearer token. Keep diagnostics
+        // useful without ever copying server response text into the auth log.
+        qWarning("[AUTH] refresh rejected (HTTP %d)", code);
         if (code == 401) {
             // Past saving: refresh renews, it does not resurrect. Dev boxes may
             // carry service creds (WT_CV_AUTOLOGIN, no longer defaulted anywhere);
@@ -395,11 +405,16 @@ void AuthController::forgetServer(const QString &url)
 
 void AuthController::clearSession()
 {
+    invalidateAuthRequests();
+    clearStationSession();
     m_token.clear();
     m_username.clear();
     m_role.clear();
     m_cameraScope.clear();
     m_exp = 0;
+    m_pendingPassword.clear();
+    m_pendingUser.clear();
+    setBusy(false);
     // Replacing the jar drops the access_token cookie cleanly.
     m_nam->setCookieJar(new QNetworkCookieJar(m_nam));
     QSettings().remove("auth/token");
@@ -410,24 +425,34 @@ void AuthController::clearSession()
 void AuthController::loginWithPassword(const QString &baseUrl, const QString &username,
                                       const QString &password)
 {
+    if (baseUrl != m_baseUrl)
+        clearSession();               // never send a prior station header to a new server
+    else
+        invalidateAuthRequests();
     setError(QString());
     setBaseUrl(baseUrl);
     m_pendingUser = username;
     m_pendingPassword = password;
     setLoginAttempt(0);
     setBusy(true);
-    attemptPasswordLogin();
+    attemptPasswordLogin(m_authGeneration);
 }
 
-void AuthController::attemptPasswordLogin()
+void AuthController::attemptPasswordLogin(quint64 generation)
 {
+    if (generation != m_authGeneration)
+        return;
     QNetworkRequest req{QUrl(m_baseUrl + "/auth/login")};
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setTransferTimeout(kLoginTimeoutMs);
     const QJsonObject body{{"username", m_pendingUser}, {"password", m_pendingPassword}};
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_authGeneration)
+            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw = reply->readAll();
         if (reply->error() == QNetworkReply::NoError && code == 200) {
@@ -435,6 +460,7 @@ void AuthController::attemptPasswordLogin()
             setBusy(false);
             m_pendingPassword.clear();
             if (token.isEmpty()) {
+                resumeStationSession();
                 setError(tr("Login response did not include a token"));
                 emit loginFailed(m_errorString);
                 return;
@@ -455,6 +481,7 @@ void AuthController::attemptPasswordLogin()
         if (code == 401 || code == 403 || code == 400 || code == 423) {
             setBusy(false);
             m_pendingPassword.clear();
+            resumeStationSession();
             // `message ?? detail` (serverMessage above): on the SSO sites `detail` is the
             // raw enum — "SSO_TOKEN_EXPIRED" — and the sentence is in `message`. Reading
             // `detail` alone put that enum on a guard's sign-in screen.
@@ -481,11 +508,12 @@ void AuthController::attemptPasswordLogin()
         // Transient (server not ready / network): retry before giving up.
         setLoginAttempt(m_loginAttempt + 1);
         if (m_loginAttempt < kMaxLoginAttempts) {
-            QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptPasswordLogin(); });
+            QTimer::singleShot(kLoginRetryMs, this, [this, generation]() { attemptPasswordLogin(generation); });
             return;
         }
         setBusy(false);
         m_pendingPassword.clear();
+        resumeStationSession();
         // Only claim unreachability when NOTHING answered. `code == 0` is this repo's
         // convention for no HTTP response at all (transport failure); any other code means
         // the server replied and we simply have no branch for it. Saying "could not reach
@@ -513,6 +541,7 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
         emit loginFailed(m_errorString);
         return;
     }
+    invalidateAuthRequests();
     setError(QString());
     setBaseUrl(baseUrl);
     const QString tok = token.trimmed();
@@ -532,16 +561,22 @@ void AuthController::loginWithToken(const QString &baseUrl, const QString &token
     applyToken(tok);
     setLoginAttempt(0);
     setBusy(true);
-    attemptTokenLogin();
+    attemptTokenLogin(m_authGeneration);
 }
 
-void AuthController::attemptTokenLogin()
+void AuthController::attemptTokenLogin(quint64 generation)
 {
+    if (generation != m_authGeneration)
+        return;
     QNetworkRequest req{QUrl(m_baseUrl + "/auth/me")};
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     req.setTransferTimeout(kLoginTimeoutMs);
     QNetworkReply *reply = m_nam->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_authGeneration)
+            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() == QNetworkReply::NoError && code == 200) {
             setBusy(false);
@@ -560,7 +595,7 @@ void AuthController::attemptTokenLogin()
         // Transient (server not ready / network): retry before giving up.
         setLoginAttempt(m_loginAttempt + 1);
         if (m_loginAttempt < kMaxLoginAttempts) {
-            QTimer::singleShot(kLoginRetryMs, this, [this]() { attemptTokenLogin(); });
+            QTimer::singleShot(kLoginRetryMs, this, [this, generation]() { attemptTokenLogin(generation); });
             return;
         }
         setBusy(false);
@@ -572,44 +607,192 @@ void AuthController::attemptTokenLogin()
 
 void AuthController::decorate(QNetworkRequest &req) const
 {
-    if (m_stationLive && !m_displaySession.isEmpty())
+    const QUrl origin(m_stationBaseUrl), target(req.url());
+    const auto effectivePort = [](const QUrl &url) { return url.port(url.scheme() == QLatin1String("https") ? 443 : 80); };
+    if (m_stationLive && !m_displaySession.isEmpty() && target.scheme() == origin.scheme()
+        && target.host() == origin.host() && effectivePort(target) == effectivePort(origin))
         req.setRawHeader("X-Cilex-Display-Session", m_displaySession.toUtf8());
 }
 
 void AuthController::loginWithStationToken(const QString &baseUrl, const QString &stationToken)
 {
+    const QUrl destination(baseUrl);
+    if (!destination.isValid() || destination.host().isEmpty()
+        || (destination.scheme() != QLatin1String("http") && destination.scheme() != QLatin1String("https"))
+        || !destination.userInfo().isEmpty() || destination.hasQuery() || destination.hasFragment()
+        || stationToken.trimmed().isEmpty()) {
+        setError(tr("Station sign-in settings are invalid"));
+        if (!m_authenticated || m_stationLive) emit loginFailed(m_errorString);
+        return;
+    }
+    if (baseUrl != m_baseUrl)
+        clearSession();
+    else
+        invalidateAuthRequests();
     setError(QString());
     setBaseUrl(baseUrl);
-    QNetworkRequest req{QUrl(m_baseUrl + "/client/stations/display-session")};
+    setBusy(false);
+    m_pendingPassword.clear();
+    m_pendingUser.clear();
+    m_stationBaseUrl = baseUrl;
+    m_stationToken = stationToken;
+    m_stationFailures = 0;
+    m_stationRetryDelayMs = 0;
+    m_stationRetryClock.invalidate();
+    if (!m_stationRenewTimer) {
+        m_stationRenewTimer = new QTimer(this);
+        m_stationRenewTimer->setSingleShot(true);
+        connect(m_stationRenewTimer, &QTimer::timeout, this, &AuthController::requestStationSession);
+        m_stationExpiryTimer = new QTimer(this);
+        m_stationExpiryTimer->setSingleShot(true);
+        connect(m_stationExpiryTimer, &QTimer::timeout, this, &AuthController::expireStationSession);
+    }
+    requestStationSession();
+}
+
+void AuthController::invalidateAuthRequests()
+{
+    ++m_authGeneration;
+    if (m_renewTimer) m_renewTimer->stop();
+    if (m_stationRenewTimer) m_stationRenewTimer->stop();
+    const auto station = m_stationReply;
+    const auto refresh = m_refreshReply;
+    m_stationReply.clear();
+    m_refreshReply.clear();
+    if (station) station->abort();
+    if (refresh) refresh->abort();
+}
+
+void AuthController::clearStationSession()
+{
+    const bool wasStation = m_stationLive;
+    const bool wasCurrent = m_stationSessionCurrent;
+    if (m_stationRenewTimer) m_stationRenewTimer->stop();
+    if (m_stationExpiryTimer) m_stationExpiryTimer->stop();
+    m_stationToken.clear();
+    m_stationBaseUrl.clear();
+    m_displaySession.clear();
+    m_stationExpiresMs = 0;
+    m_stationLive = false;
+    m_stationSessionCurrent = false;
+    m_stationRetryDelayMs = 0;
+    m_stationRetryClock.invalidate();
+    if (wasStation) emit stationLiveChanged();
+    if (wasCurrent) emit stationSessionChanged();
+}
+
+void AuthController::expireStationSession()
+{
+    if (!m_stationLive || !m_stationSessionCurrent)
+        return;
+    m_stationSessionCurrent = false;
+    setError(tr("Station live information is unavailable; existing video is kept"));
+    emit stationSessionChanged();
+    // Keep the roster, surfaces and RTSP pipelines. An unavailable API is not
+    // evidence that a camera stopped, and must never erase a flowing picture.
+}
+
+void AuthController::resumeStationSession()
+{
+    if (!m_stationLive || m_stationToken.isEmpty())
+        return;
+    const qint64 left = m_stationExpiresMs - QDateTime::currentMSecsSinceEpoch();
+    if (left <= 0) expireStationSession();
+    else m_stationExpiryTimer->start(int(qMin<qint64>(left, 86400000)));
+    requestStationSession();
+}
+
+void AuthController::requestStationSession()
+{
+    if (m_busy || m_stationToken.isEmpty() || m_stationBaseUrl != m_baseUrl || m_stationReply)
+        return;
+    // Retry-After uses elapsed time: changing the PC clock cannot bypass it.
+    if (m_stationRetryClock.isValid() && m_stationRetryClock.elapsed() < m_stationRetryDelayMs) {
+        m_stationRenewTimer->start(int(qMin<qint64>(m_stationRetryDelayMs - m_stationRetryClock.elapsed(), 86400000)));
+        return;
+    }
+    const quint64 generation = m_authGeneration;
+    QNetworkRequest req{QUrl(m_stationBaseUrl + "/client/stations/display-session")};
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    req.setRawHeader("X-Cilex-Station-Token", stationToken.toUtf8());
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    req.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    req.setRawHeader("X-Cilex-Station-Token", m_stationToken.toUtf8());
     req.setTransferTimeout(kLoginTimeoutMs);
     QNetworkReply *reply = m_nam->post(req, QByteArrayLiteral("{}"));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    m_stationReply = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_authGeneration)
+            return;
+        m_stationReply.clear();
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QJsonObject o = QJsonDocument::fromJson(reply->readAll()).object();
         const QString tok = o.value("token").toString();
-        if (code != 200 || tok.isEmpty()) {
-            qWarning("[AUTH] station display-session refused: HTTP %d %s", code,
-                     qUtf8Printable(o.value("detail").toString().left(80)));
-            setError(tr("Station credential rejected"));
-            emit loginFailed(m_errorString);
+        auto expires = QDateTime::fromString(o.value("expires_at").toString(), Qt::ISODateWithMs);
+        if (!expires.isValid()) expires = QDateTime::fromString(o.value("expires_at").toString(), Qt::ISODate);
+        const qint64 ttl = expires.toMSecsSinceEpoch() - QDateTime::currentMSecsSinceEpoch();
+        if (code != 200 || tok.isEmpty() || o.value("scope").toString() != QLatin1String("station:live")
+            || !expires.isValid() || ttl <= 0 || ttl > 86400000) {
+            // No server text/body, URL or credential is logged on this path.
+            qWarning("[AUTH] station display-session unavailable (HTTP %d)", code);
+            if (code == 401 || code == 403 || (code >= 300 && code < 500 && code != 429)) {
+                m_stationToken.clear(); // explicit reconfiguration is required after rejection
+                setError(tr("Station credential rejected"));
+                if (o.value("code").toString() == QLatin1String("station_revoked")) expireStationSession();
+                if (!m_authenticated || m_stationLive) emit loginFailed(m_errorString);
+                return;
+            }
+            const int delays[] = {5000, 15000, 30000, 60000};
+            qint64 delay = delays[qMin(m_stationFailures++, 3)];
+            if (code == 429) {
+                const QByteArray retry = reply->rawHeader("Retry-After").trimmed();
+                bool numeric = false;
+                const qint64 seconds = retry.toLongLong(&numeric);
+                if (numeric && seconds >= 0)
+                    delay = qMax(delay, qMin<qint64>(seconds, std::numeric_limits<qint64>::max() / 1000) * 1000);
+                else {
+                    const auto date = QDateTime::fromString(QString::fromLatin1(retry), Qt::RFC2822Date);
+                    if (date.isValid()) delay = qMax(delay, QDateTime::currentDateTimeUtc().msecsTo(date));
+                }
+            }
+            m_stationRetryDelayMs = delay;
+            m_stationRetryClock.start();
+            m_stationRenewTimer->start(int(qMin<qint64>(delay, 86400000)));
+            if (!m_stationLive) setError(tr("Station live information is unavailable"));
             return;
         }
+        if (m_renewTimer) m_renewTimer->stop();
+        m_token.clear();
+        m_exp = 0;
+        const auto previousScope = m_cameraScope;
+        m_cameraScope.clear();
+        for (const auto &camera : o.value("camera_scope").toArray()) m_cameraScope.append(camera.toString());
+        m_nam->setCookieJar(new QNetworkCookieJar(m_nam));
         m_displaySession = tok;
+        const bool wasStation = m_stationLive;
         m_stationLive = true;
+        m_stationSessionCurrent = true;
+        m_stationExpiresMs = expires.toMSecsSinceEpoch();
         m_username = QStringLiteral("station");
         m_role = QStringLiteral("station");
-        qInfo("[AUTH] station display session accepted scope=%s expires=%s",
-              qUtf8Printable(o.value("scope").toString()), qUtf8Printable(o.value("expires_at").toString()));
-        emit stationLiveChanged();
+        m_stationFailures = 0;
+        m_stationRetryDelayMs = 0;
+        m_stationRetryClock.invalidate();
+        setError(QString());
+        m_stationExpiryTimer->start(int(ttl));
+        m_stationRenewTimer->start(int(qMax<qint64>(100, ttl - qBound<qint64>(100LL, ttl / 4, 60000LL))));
+        qInfo("[AUTH] station live session accepted; renewal scheduled");
+        if (!wasStation) { emit stationLiveChanged(); emit tokenChanged(); }
+        if (!wasStation || previousScope != m_cameraScope) emit identityChanged();
+        emit stationSessionChanged();
         setAuthenticated(true);
     });
 }
 
 void AuthController::restoreSession()
 {
+    invalidateAuthRequests();
     QSettings s;
     const QString url = s.value("auth/baseUrl").toString();
     if (!url.isEmpty())
@@ -629,9 +812,16 @@ void AuthController::restoreSession()
     setAuthenticated(true);
 
     // Revalidate in the background to catch server-side revocation.
-    QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/auth/me")});
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    const quint64 generation = m_authGeneration;
+    const QString restoredToken = m_token;
+    QNetworkRequest req{QUrl(m_baseUrl + "/auth/me")};
+    req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation, restoredToken]() {
         reply->deleteLater();
+        if (generation != m_authGeneration || m_token != restoredToken)
+            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401) {
             clearSession();
@@ -647,7 +837,10 @@ void AuthController::noteUnauthorized()
     // and must not drop the wall to sign-in (measured 2026-09-08: the wall lit,
     // then three out-of-scope 401s tore it down within 20 ms).
     if (m_stationLive) {
-        qInfo("[AUTH] 401 in station live mode — out-of-scope surface, session kept");
+        if (!m_stationSessionCurrent || QDateTime::currentMSecsSinceEpoch() >= m_stationExpiresMs) {
+            expireStationSession();
+            requestStationSession();
+        }
         return;
     }
     if (!m_authenticated)

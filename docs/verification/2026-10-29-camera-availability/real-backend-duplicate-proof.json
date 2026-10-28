@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "checked_utc": "2026-10-28T23:06:49.664924+00:00",
+  "batch_id": "313da58d-fb70-4919-8c93-d8b60dfec618",
+  "event_count": 407,
+  "payload_sha256": "050dd4090cabb74dd2adc03ae58384dd4bb55a42620fc9353c6b138871a00eb8",
+  "identical_saved_payload": true,
+  "new_events_created": 0,
+  "database_opened_read_only": true,
+  "results": [
+    {
+      "attempt": 1,
+      "accepted": 0,
+      "duplicates": 407,
+      "server_received_at": "2026-10-28T22:52:03.563382+00:00"
+    },
+    {
+      "attempt": 2,
+      "accepted": 0,
+      "duplicates": 407,
+      "server_received_at": "2026-10-28T22:52:03.563382+00:00"
+    }
+  ],
+  "operator_history_read_back": "not_verified_no_valid_operator_session"
+}

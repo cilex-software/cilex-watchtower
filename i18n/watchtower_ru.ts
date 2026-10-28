@@ -72,6 +72,18 @@
         <source>Station credential rejected</source>
         <translation>Учётные данные станции отклонены</translation>
     </message>
+    <message>
+        <source>Station sign-in settings are invalid</source>
+        <translation>Неверные настройки входа станции</translation>
+    </message>
+    <message>
+        <source>Station live information is unavailable; existing video is kept</source>
+        <translation>Текущие сведения недоступны; открытое видео сохраняется</translation>
+    </message>
+    <message>
+        <source>Station live information is unavailable</source>
+        <translation>Текущие сведения станции недоступны</translation>
+    </message>
 </context>
 <context>
     <name>CameraGroups</name>

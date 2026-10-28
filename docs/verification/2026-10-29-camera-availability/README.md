@@ -45,6 +45,56 @@ because CMake misdecoded the localized MSVC include prefix. Clean compilation
 resolved that fixture failure. Final application/package builds must use fresh
 objects. Earlier failure records are retained outside the repository.
 
+## Real backend pilot and first rollout
+
+The first exact-source package was Watchtower 1.1.789, commit `2622dd9c`,
+with Warden 1.5.0. Its own isolated startup, packaged SQLite WAL/FULL
+commit/reopen and packaged QtMultimedia delivery checks passed.
+
+The brief Booth run committed 407 genuine local observations, received an exact
+full acknowledgement, and imported 17,626 native server records. Read-only
+SQLite inspection found no pending/rejected records and `quick_check=ok`.
+Replaying the identical saved batch twice produced zero accepted new records,
+407 duplicates each time, and the same original server receipt timestamp.
+The database was opened read-only for this replay; no new event identities or
+synthetic incidents were created. See [exact replay results](real-backend-duplicate-proof.json).
+
+This is a real upload and idempotency check. Operator-authenticated history
+read-back, manual sync from the production UI, restart acceptance and a complete
+production three-hour cycle remain separate gates.
+
+The rollout restored the earlier Booth binaries because only 16 feeds returned
+against the previous 19-feed baseline. The restored old version also showed 16
+advancing feeds without playback errors. Its original watchdog task was restored
+enabled/running. Both launches rejected a stale saved view; the prior 19 feeds
+were subsequently matched to their existing saved camera group. The rollout
+result and original backups are retained under
+`C:/wt/availability-rollout-20261029-r2`. Installation remains incomplete until
+the intended camera view and the original video acceptance are restored.
+
+### Station sign-in continuity correction
+
+The rollout exposed an existing unattended sign-in defect: a live-only station
+display session expired after fifteen minutes without renewal. `AuthController`
+now renews it using that station's existing provisioned credential, retains video
+during temporary failures, observes bounded retries/Retry-After, and marks expired
+live information unavailable. It never grants operator/history/ingest privileges
+to the display session. Operator sign-in and logout invalidate old asynchronous
+replies, station headers are restricted to the configured origin, and auth error
+logs no longer copy server response text. Existing operator refresh remains
+separate. No default username/password is tried when service credentials are absent.
+
+The isolated [station-session fixture](../../../tools/tests/station-session/README.md)
+uses the actual authentication controller and a local HTTP server; it covers
+renewal, expiry, temporary failures, rate limits, redirects, scope changes,
+normal operator refresh, logout and delayed-response/cookie races. Production
+sign-in continuity must still be checked after installing the corrected build.
+New status messages have English/Russian translations.
+
+Fresh native Qt run: **24 passed, zero failures**, 34.221 seconds; evidence
+`C:/wt/station-session-final-r2-clean-20261029/results.txt` and `results.xml`.
+Both translation catalogs parsed and contain all three new status messages.
+
 ## Separate deployment gates
 
 Passing fixtures establishes implementation behavior, not unattended station

@@ -72,6 +72,18 @@
         <source>Station credential rejected</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Station sign-in settings are invalid</source>
+        <translation>Station sign-in settings are invalid</translation>
+    </message>
+    <message>
+        <source>Station live information is unavailable; existing video is kept</source>
+        <translation>Station live information is unavailable; existing video is kept</translation>
+    </message>
+    <message>
+        <source>Station live information is unavailable</source>
+        <translation>Station live information is unavailable</translation>
+    </message>
 </context>
 <context>
     <name>CameraGroups</name>
