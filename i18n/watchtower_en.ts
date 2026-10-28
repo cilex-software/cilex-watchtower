@@ -2289,6 +2289,10 @@
         <source>Recording continues. Archive status is unknown.</source>
         <translation>Recording continues. Archive status is unknown.</translation>
     </message>
+    <message><source>Availability log</source><translation>Availability log</translation></message>
+    <message><source>Pending: %1</source><translation>Pending: %1</translation></message>
+    <message><source>History and sync</source><translation>History and sync</translation></message>
+    <message><source>Camera statuses are last known; Vision updates are unavailable.</source><translation>Camera statuses are last known; Vision updates are unavailable.</translation></message>
 </context>
 <context>
     <name>LabsCard</name>
@@ -6898,5 +6902,83 @@
         <source>Choose another camera for this tile</source>
         <translation type="unfinished"></translation>
     </message>
+</context>
+<context>
+    <name>AvailabilityHistory</name>
+    <message><source>All accessible cameras</source><translation>All accessible cameras</translation></message>
+    <message><source>This station</source><translation>This station</translation></message>
+    <message><source>Not recorded</source><translation>Not recorded</translation></message>
+    <message><source>Unknown</source><translation>Unknown</translation></message>
+    <message><source>None</source><translation>None</translation></message>
+    <message><source>Time uncertain</source><translation>Time uncertain</translation></message>
+    <message><source>%1 min</source><translation>%1 min</translation></message>
+    <message><source>%1 h</source><translation>%1 h</translation></message>
+    <message><source>Reported duration: %1 s</source><translation>Reported duration: %1 s</translation></message>
+    <message><source>Observation interrupted; duration unknown</source><translation>Observation interrupted; duration unknown</translation></message>
+    <message><source>Unresolved observation; duration unknown</source><translation>Unresolved observation; duration unknown</translation></message>
+    <message><source>Unobserved interval; duration unknown</source><translation>Unobserved interval; duration unknown</translation></message>
+    <message><source>Duration not measured</source><translation>Duration not measured</translation></message>
+    <message><source>Local log ready</source><translation>Local log ready</translation></message>
+    <message><source>Sending availability log…</source><translation>Sending availability log…</translation></message>
+    <message><source>Station setup required</source><translation>Station setup required</translation></message>
+    <message><source>Server does not support availability sync</source><translation>Server does not support availability sync</translation></message>
+    <message><source>Station authentication required</source><translation>Station authentication required</translation></message>
+    <message><source>Administrator must grant journal access</source><translation>Administrator must grant journal access</translation></message>
+    <message><source>Journal identity conflict; records retained</source><translation>Journal identity conflict; records retained</translation></message>
+    <message><source>Server requested a later retry</source><translation>Server requested a later retry</translation></message>
+    <message><source>Availability logging needs attention</source><translation>Availability logging needs attention</translation></message>
+    <message><source>Availability state unknown</source><translation>Availability state unknown</translation></message>
+    <message><source>Camera connection reported by Vision</source><translation>Camera connection reported by Vision</translation></message>
+    <message><source>Recording catalogue</source><translation>Recording catalogue</translation></message>
+    <message><source>Live video delivery</source><translation>Live video delivery</translation></message>
+    <message><source>Snapshot delivery</source><translation>Snapshot delivery</translation></message>
+    <message><source>Connection to Vision</source><translation>Connection to Vision</translation></message>
+    <message><source>Monitoring coverage</source><translation>Monitoring coverage</translation></message>
+    <message><source>Observed by Vision</source><translation>Observed by Vision</translation></message>
+    <message><source>Vision report received here</source><translation>Vision report received here</translation></message>
+    <message><source>Observed on this station</source><translation>Observed on this station</translation></message>
+    <message><source>Unknown source</source><translation>Unknown source</translation></message>
+    <message><source>Available</source><translation>Available</translation></message>
+    <message><source>Unavailable</source><translation>Unavailable</translation></message>
+    <message><source>Degraded</source><translation>Degraded</translation></message>
+    <message><source>Not monitored</source><translation>Not monitored</translation></message>
+    <message><source>Baseline</source><translation>Baseline</translation></message>
+    <message><source>Problem observed</source><translation>Problem observed</translation></message>
+    <message><source>Recovery observed</source><translation>Recovery observed</translation></message>
+    <message><source>State changed</source><translation>State changed</translation></message>
+    <message><source>Observation gap</source><translation>Observation gap</translation></message>
+    <message><source>Monitoring resumed</source><translation>Monitoring resumed</translation></message>
+    <message><source>Pending upload</source><translation>Pending upload</translation></message>
+    <message><source>Received by Vision</source><translation>Received by Vision</translation></message>
+    <message><source>Rejected; retained locally</source><translation>Rejected; retained locally</translation></message>
+    <message><source>Vision history</source><translation>Vision history</translation></message>
+    <message><source>Delivery unknown</source><translation>Delivery unknown</translation></message>
+    <message><source>Camera availability history</source><translation>Camera availability history</translation></message>
+    <message><source>Close</source><translation>Close</translation></message>
+    <message><source>Sync availability log now</source><translation>Sync availability log now</translation></message>
+    <message><source>Pending: %1 · Oldest: %2</source><translation>Pending: %1 · Oldest: %2</translation></message>
+    <message><source>Last attempt: %1 · Last successful sync: %2</source><translation>Last attempt: %1 · Last successful sync: %2</translation></message>
+    <message><source>Next attempt: %1 · Automatic sync every 3 hours while running</source><translation>Next attempt: %1 · Automatic sync every 3 hours while running</translation></message>
+    <message><source>Sync in progress; observations continue to be saved locally.</source><translation>Sync in progress; observations continue to be saved locally.</translation></message>
+    <message><source>Last 24 hours</source><translation>Last 24 hours</translation></message>
+    <message><source>Last 7 days</source><translation>Last 7 days</translation></message>
+    <message><source>Last 31 days</source><translation>Last 31 days</translation></message>
+    <message><source>Refresh</source><translation>Refresh</translation></message>
+    <message><source>All observation types</source><translation>All observation types</translation></message>
+    <message><source>All sources</source><translation>All sources</translation></message>
+    <message><source>Times use this computer&#x27;s time zone. Reported onset is separate from local observation; gaps do not prove continuous downtime.</source><translation>Times use this computer&#x27;s time zone. Reported onset is separate from local observation; gaps do not prove continuous downtime.</translation></message>
+    <message><source>Observed: %1 · Reported onset: %2</source><translation>Observed: %1 · Reported onset: %2</translation></message>
+    <message><source>Received by Vision: %1</source><translation>Received by Vision: %1</translation></message>
+    <message><source>Observer: %1 · %2 · %3</source><translation>Observer: %1 · %2 · %3</translation></message>
+    <message><source>No observations in this view. Missing history does not mean there were no problems.</source><translation>No observations in this view. Missing history does not mean there were no problems.</translation></message>
+    <message><source>Checking journal access…</source><translation>Checking journal access…</translation></message>
+    <message><source>Local journal storage failed; check free disk space and permissions</source><translation>Local journal storage failed; check free disk space and permissions</translation></message>
+    <message><source>Server reply could not be verified; records retained</source><translation>Server reply could not be verified; records retained</translation></message>
+    <message><source>More records are waiting for the next upload</source><translation>More records are waiting for the next upload</translation></message>
+    <message><source>Some observations could not be saved. Check local storage.</source><translation>Some observations could not be saved. Check local storage.</translation></message>
+    <message><source>Rejected records retained locally: %1</source><translation>Rejected records retained locally: %1</translation></message>
+    <message><source>Records retained for another station or server: %1</source><translation>Records retained for another station or server: %1</translation></message>
+    <message><source>View limited to 1,000 observations. Narrow the camera or time filter.</source><translation>View limited to 1,000 observations. Narrow the camera or time filter.</translation></message>
+    <message><source>Recovery recorded; see the recovery entry</source><translation>Recovery recorded; see the recovery entry</translation></message>
 </context>
 </TS>

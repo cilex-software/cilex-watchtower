@@ -198,7 +198,7 @@ Item {
         // CV's field first (source of truth), derivation only as a fallback.
         var http = lh ? (LiveHttp.liveUrlForUpstream(useMainStream ? "" : hlsSubUrl) || LiveHttp.liveUrlFor(streamUrl)) : "";
         var opt  = (lh && !useMainStream) ? LiveHttp.liveUrlForUpstream(hlsOptUrl) : "";
-        var t = [{ url: streamUrl, badge: q }];
+        var t = [{ url: streamUrl, badge: q, streamVariant: streamUrl === rtspUrl ? "main" : "sub" }];
         if (http) t.push({ url: http, badge: q + "·NET" });
         if (opt)  t.push({ url: opt,  badge: "OPT·NET" });
         return t;
@@ -398,6 +398,7 @@ Item {
                     && (!root.isOffline || root.streamPlaying)
             visible: root.streamPlaying
             sourceComponent: VideoSurface {
+                cameraId: root.camId
                 tiers: root.streamTiers
                 active: root.videoActive
             }
@@ -411,7 +412,7 @@ Item {
         // tile gets a real decode slot or leaves the page.
         Loader {
             active: !base._recycling && root.snapshotMode && root.videoActive
-            sourceComponent: VideoSurface { url: root.streamUrl; active: true; warmOnly: true; visible: false }
+            sourceComponent: VideoSurface { cameraId: root.camId; url: root.streamUrl; active: true; warmOnly: true; visible: false }
         }
 
         // Decode-capped tile: a periodic go2rtc snapshot instead of a live VA-API pipeline,
@@ -450,7 +451,7 @@ Item {
                        // 1 s polling fetched the same cached JPEG ten times (2026-08-17).
             showOctet: false; showStatus: false      // the tile draws its own badges/octet
             showStale: false                         // ...and its own offline treatment, below
-            cam: ({ snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live,
+            cam: ({ camId: root.camId, snapshotUrl: root.snapshotUrl, ip: root.ip, live: root.live,
                     lastSegmentAt: root.lastSegmentAt })
         }
 

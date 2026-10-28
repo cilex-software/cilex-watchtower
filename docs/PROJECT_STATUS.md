@@ -1,5 +1,21 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-29 — Durable camera availability journal.**
+> Availability observations now have a local SQLite journal/outbox, independent
+> source/condition identity, native server catch-up, exact acknowledgements,
+> three-hour automatic sync and authorized manual sync. Health includes scoped
+> English/Russian history. Actual incoming video evidence covers RTSP and
+> QtMultimedia; cached images, hidden surfaces, API failures and observation
+> gaps do not establish camera outages or fabricated recovery durations.
+> Clean Windows build passed; journal 125, HTTP integration 22, UI 12 per
+> language, evidence rules 38, RTSP identity 27 and QtMultimedia HTTP delivery
+> 8 checks passed. Packaging, real server round trip and each station's
+> installation/enablement are separate gates; Office currently requires its
+> administrator to run the local package updater. A production three-hour cycle
+> and reboot recovery are not established by these fixtures.
+> [Guide](features/camera-availability.md) ·
+> [Verification and limits](verification/2026-10-29-camera-availability/README.md).
+
 > **2026-10-28 — Recording progress separated from archive freshness.**
 > Additive v1 capture/archive health, source expiry, required-stream aggregation
 > and separate confirmed-stop/archive/unknown counters are implemented in the

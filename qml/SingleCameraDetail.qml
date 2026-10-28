@@ -63,7 +63,10 @@ Item {
         var main = camera.rtspUrl || "", sub = camera.rtspSubUrl || "";
         var lh = (typeof LiveHttp !== "undefined");
         var t = [];
-        function add(url, badge) { if (url) t.push({ url: url, badge: badge }); }
+        function add(url, badge) {
+            if (url) t.push({ url: url, badge: badge,
+                streamVariant: url === main ? "main" : url === sub ? "sub" : "unknown" });
+        }
         // CV's HLS fields are the source of truth; derivation only as a fallback.
         function net(rtsp, field) { return lh ? (LiveHttp.liveUrlForUpstream(field || "") || LiveHttp.liveUrlFor(rtsp)) : ""; }
         var opt = lh ? LiveHttp.liveUrlForUpstream(camera.hlsOptUrl || "") : "";
@@ -170,6 +173,7 @@ Item {
             // moment its surface has a recent frame. Operator target 2026-09-08: 500 ms.
             // Stamped on camera change (the "open" gesture from the wall), reported once.
             VideoSurface {
+                cameraId: root.camera ? root.camera.camId : ""
                 // Reports against the gesture stamp in Main.openCameraHere (see there).
                 onPlayingChanged: if (playing && typeof win !== "undefined" && win.liveOpenT0 > 0) {
                     console.log("[LIVETIME] playing dt=" + (Date.now() - win.liveOpenT0) + "ms cam=" + (root.camera ? root.camera.ip : "?"));
@@ -194,6 +198,8 @@ Item {
                                             && root.camera.rtspUrl !== root.camera.rtspSubUrl
             VideoSurface {
                 id: hdPromote
+                cameraId: root.camera ? root.camera.camId : ""
+                streamVariant: "main"
                 anchors.fill: parent
                 visible: playing
                 url: (playerArea._wantHd && vsurf.playing) ? root.camera.rtspUrl : ""

@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "supported_schema_versions",
+    "backend_instance_id",
+    "reporter_station_id",
+    "scope_configured",
+    "scope",
+    "limits",
+    "retention"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "supported_schema_versions": {
+      "const": [
+        1
+      ]
+    },
+    "backend_instance_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reporter_station_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scope_configured": {
+      "type": "boolean"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "station_id",
+        "configured",
+        "revision",
+        "site_id",
+        "camera_ids",
+        "allow_station_events"
+      ],
+      "properties": {
+        "station_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "site_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "camera_ids": {
+          "type": "array",
+          "maxItems": 10000,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,64}$"
+          }
+        },
+        "allow_station_events": {
+          "type": "boolean"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_events",
+        "max_body_bytes",
+        "batches_per_minute",
+        "events_per_minute",
+        "max_concurrent_ingest",
+        "statement_timeout_s",
+        "lock_timeout_s",
+        "work_mem_bytes",
+        "pool_acquire_timeout_s",
+        "parallel_query_workers",
+        "transaction_timeout_s"
+      ],
+      "properties": {
+        "max_events": {
+          "const": 500
+        },
+        "max_body_bytes": {
+          "const": 1048576
+        },
+        "batches_per_minute": {
+          "const": 20
+        },
+        "events_per_minute": {
+          "const": 10000
+        },
+        "max_concurrent_ingest": {
+          "const": 4
+        },
+        "statement_timeout_s": {
+          "const": 5
+        },
+        "lock_timeout_s": {
+          "const": 1
+        },
+        "work_mem_bytes": {
+          "const": 1048576
+        },
+        "pool_acquire_timeout_s": {
+          "const": 3
+        },
+        "parallel_query_workers": {
+          "const": 0
+        },
+        "transaction_timeout_s": {
+          "const": 10
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "automatic_deletion"
+      ],
+      "properties": {
+        "mode": {
+          "const": "indefinite"
+        },
+        "automatic_deletion": {
+          "const": false
+        }
+      }
+    }
+  }
+}

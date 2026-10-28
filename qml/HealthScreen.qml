@@ -16,6 +16,8 @@ Item {
     property var cameraModel: null
     property var storageHealth: null
     property var playbackClient: null          // for the playback-subsystem strip
+    property var availabilityService: typeof CameraAvailability !== "undefined" ? CameraAvailability : null
+    readonly property bool backendStatusStale: cameraModel !== null && cameraModel.backendEvidenceFresh === false
 
     signal openLive(var cam)
     signal openPlayback(var cam)
@@ -163,6 +165,13 @@ Item {
             Text { anchors.verticalCenter: parent.verticalCenter; text: b.label; color: b.ghost ? Theme.ink2 : Theme.ink; font.family: Theme.fontSans; font.pixelSize: b.small ? 11 : 12; font.weight: Font.Medium }
         }
         MouseArea { id: bma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: b.clicked() }
+    }
+
+    AvailabilityHistory {
+        id: availabilityHistory
+        parent: QC.Overlay.overlay
+        service: root.availabilityService
+        cameraModel: root.cameraModel
     }
 
     ColumnLayout {
@@ -338,6 +347,35 @@ Item {
                     text: root.playbackClient ? ("· " + root.playbackClient.authFaultDetail) : ""
                     color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 11; elide: Text.ElideRight
                 }
+            }
+        }
+
+        Rectangle {
+            objectName: "availabilityLastKnownNotice"
+            visible: root.backendStatusStale
+            Layout.fillWidth: true
+            implicitHeight: lastKnownNotice.implicitHeight + 16
+            color: Theme.warnDim
+            Text {
+                id: lastKnownNotice
+                anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 18; anchors.rightMargin: 18
+                text: qsTr("Camera statuses are last known; Vision updates are unavailable.")
+                color: Theme.warn; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.Wrap
+            }
+        }
+
+        // Journal activity is independent from current camera/recording status.
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            color: Theme.bg
+            RowLayout {
+                anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18; spacing: 12
+                Text { text: qsTr("Availability log"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.DemiBold }
+                Text { text: availabilityHistory.summary; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; Layout.fillWidth: true; elide: Text.ElideRight }
+                Text { text: qsTr("Pending: %1").arg(root.availabilityService && root.availabilityService.status.pendingCount !== undefined ? root.availabilityService.status.pendingCount : "—"); color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 11 }
+                QC.Button { objectName: "availabilityOpenHistory"; text: qsTr("History and sync"); enabled: root.availabilityService !== null; onClicked: availabilityHistory.open() }
             }
         }
 

@@ -1,0 +1,8 @@
+{
+  "site_id": "00000000-0000-0000-0000-000000000001",
+  "camera_ids": [
+    "hiwatch-fixture-camera-01"
+  ],
+  "allow_station_events": true,
+  "expected_revision": 0
+}

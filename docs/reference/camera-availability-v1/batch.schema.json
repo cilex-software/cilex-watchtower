@@ -1,0 +1,469 @@
+{
+  "$defs": {
+    "AvailabilityEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "local_seq": {
+          "exclusiveMinimum": 0,
+          "maximum": 9223372036854775807,
+          "title": "Local Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "camera_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Camera Id"
+        },
+        "domain": {
+          "enum": [
+            "backend_reachability",
+            "recording_catalogue",
+            "live_delivery",
+            "snapshot_delivery",
+            "backend_connectivity",
+            "monitoring"
+          ],
+          "title": "Domain",
+          "type": "string"
+        },
+        "provenance": {
+          "enum": [
+            "backend_reported_by_client",
+            "client_observed"
+          ],
+          "title": "Provenance",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "degraded",
+            "unknown",
+            "not_monitored"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "transition": {
+          "enum": [
+            "initial",
+            "failure",
+            "recovery",
+            "state_change",
+            "monitoring_gap",
+            "monitoring_resumed"
+          ],
+          "title": "Transition",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "maxLength": 40,
+          "title": "Observed At",
+          "type": "string"
+        },
+        "monotonic_ms": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monotonic Ms"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "related_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Event Id"
+        },
+        "reason_code": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "details": {
+          "$ref": "#/$defs/EventDetails"
+        },
+        "backend_observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendObservation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "event_id",
+        "local_seq",
+        "run_id",
+        "camera_id",
+        "domain",
+        "provenance",
+        "state",
+        "transition",
+        "observed_at",
+        "reason_code"
+      ],
+      "title": "AvailabilityEvent",
+      "type": "object"
+    },
+    "BackendObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "online",
+                "offline",
+                "maintenance",
+                "error",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "recording_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "recording",
+                "stalled",
+                "armed",
+                "offline",
+                "disabled",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recording State"
+        },
+        "status_since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Since"
+        },
+        "recording_since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recording Since"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "last_segment_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Segment At"
+        },
+        "received_locally_at": {
+          "format": "date-time",
+          "maxLength": 40,
+          "title": "Received Locally At",
+          "type": "string"
+        },
+        "upstream_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Event Id"
+        }
+      },
+      "required": [
+        "received_locally_at"
+      ],
+      "title": "BackendObservation",
+      "type": "object"
+    },
+    "EventDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "stream_variant": {
+          "anyOf": [
+            {
+              "enum": [
+                "main",
+                "sub",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stream Variant"
+        },
+        "transport": {
+          "anyOf": [
+            {
+              "enum": [
+                "rtsp",
+                "http",
+                "webrtc",
+                "hls",
+                "tcp",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transport"
+        },
+        "observer_scope": {
+          "anyOf": [
+            {
+              "enum": [
+                "backend",
+                "station",
+                "pipeline",
+                "snapshot_request",
+                "monitoring"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observer Scope"
+        },
+        "pipeline_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline Id"
+        },
+        "consecutive_failures": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Consecutive Failures"
+        },
+        "catalogue_age_ms": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Catalogue Age Ms"
+        },
+        "threshold_ms": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold Ms"
+        },
+        "last_positive_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Positive At"
+        }
+      },
+      "title": "EventDetails",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "backend_instance_id": {
+      "format": "uuid",
+      "title": "Backend Instance Id",
+      "type": "string"
+    },
+    "batch_id": {
+      "format": "uuid",
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "producer_id": {
+      "format": "uuid",
+      "title": "Producer Id",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/AvailabilityEvent"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "backend_instance_id",
+    "batch_id",
+    "producer_id",
+    "events"
+  ],
+  "title": "AvailabilityBatch",
+  "type": "object"
+}

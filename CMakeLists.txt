@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.788
+    VERSION 1.1.789
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -194,6 +194,7 @@ qt_add_qml_module(watchtower
         qml/WpCell.qml
         qml/ExportDrawer.qml
         qml/HealthScreen.qml
+        qml/AvailabilityHistory.qml
         qml/LabsScreen.qml
         qml/LabsStats.qml
         qml/LabsSeg.qml
@@ -221,6 +222,14 @@ qt_add_qml_module(watchtower
         src/models/MockData.cpp
         src/models/CameraModel.h
         src/models/CameraModel.cpp
+        src/models/AvailabilityObservationBus.h
+        src/models/AvailabilityObservationBus.cpp
+        src/models/CameraAvailabilityJournal.h
+        src/models/CameraAvailabilityJournal.cpp
+        src/models/CameraAvailabilityWorker.h
+        src/models/CameraAvailabilityWorker.cpp
+        src/models/CameraAvailabilityService.h
+        src/models/CameraAvailabilityService.cpp
         src/models/Artifacts.h
         src/models/Artifacts.cpp
         src/models/CameraStore.h
@@ -265,6 +274,8 @@ qt_add_qml_module(watchtower
         src/models/LabsLanesItem.cpp
         src/models/RtspVideoSource.h
         src/models/RtspVideoSource.cpp
+        src/models/MediaDeliveryObserver.h
+        src/models/MediaDeliveryObserver.cpp
         src/models/CvImageProvider.h
         src/models/CvImageProvider.cpp
         src/models/SiteMapModel.h

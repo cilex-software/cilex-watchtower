@@ -16,6 +16,8 @@ Item {
     id: root
 
     property string url: ""
+    property string cameraId: "" // canonical backend identity, never inferred from a URL/name/IP
+    property string streamVariant: "unknown"
     property bool active: true   // play when true (e.g. tile visible / on current page)
     property bool warmOnly: false // hold the RTSP session open with no decoder (see RtspVideoSource.h)
     readonly property bool lowLatency: (typeof wtLowLatency !== "undefined" && wtLowLatency)
@@ -377,15 +379,24 @@ Item {
     Component {
         id: qtmmComp
         Item {
-            readonly property bool playing: player.playbackState === MediaPlayer.PlayingState && player.hasVideo
-            readonly property bool errored: player.error !== MediaPlayer.NoError
-            readonly property string errorText: player.errorString
+            readonly property bool playing: qtmmPlayer.playbackState === MediaPlayer.PlayingState && qtmmPlayer.hasVideo
+            readonly property bool errored: qtmmPlayer.error !== MediaPlayer.NoError
+            readonly property string errorText: qtmmPlayer.errorString
 
             MediaPlayer {
-                id: player
+                id: qtmmPlayer
                 source: root.url
                 videoOutput: videoOut
                 onErrorOccurred: (err, str) => console.warn("VideoSurface:", root.url, "-", str)
+            }
+            MediaDeliveryObserver {
+                player: qtmmPlayer
+                videoSink: videoOut.videoSink
+                cameraId: root.cameraId
+                active: root.active
+                warmOnly: root.warmOnly
+                streamVariant: root.currentTier && root.currentTier.streamVariant ? root.currentTier.streamVariant : root.streamVariant
+                transport: root._isHttp(root.url) ? "http" : "rtsp"
             }
 
             // INITIAL connects are serialised through the same global coordinator as
@@ -407,7 +418,7 @@ Item {
                     // Self-guard: the slot may arrive after the tile went inactive,
                     // changed camera, or already started playing.
                     if (root.active && root.url !== "" && !root.playing)
-                        player.play();
+                        qtmmPlayer.play();
                 });
             }
             // Force a fresh pipeline to recover a stall: release the source (async, never
@@ -415,9 +426,9 @@ Item {
             // WT_LEGACY path; the low-latency RtspVideoSource.reconnect() is the real one.
             function reconnect() {
                 if (!root.active || root.url === "") return;
-                player.source = "";
-                player.source = root.url;
-                player.play();
+                qtmmPlayer.source = "";
+                qtmmPlayer.source = root.url;
+                qtmmPlayer.play();
             }
 
             // Start (or resume) on becoming active; do NOT stop on going inactive — a
@@ -435,7 +446,7 @@ Item {
             // a layout shrink (16→4 tiles) destroys 12 surfaces at once — 12 blocking
             // stops freezes the app. Assigning source = "" releases the pipeline
             // asynchronously; the QObject then destructs without waiting.
-            Component.onDestruction: player.source = ""
+            Component.onDestruction: qtmmPlayer.source = ""
         }
     }
 
@@ -459,6 +470,9 @@ Item {
                 warmOnly: root.warmOnly
                 id: rtsp
                 url: root.url
+                cameraId: root.cameraId
+                streamVariant: root.currentTier && root.currentTier.streamVariant ? root.currentTier.streamVariant : root.streamVariant
+                transport: "rtsp"
                 active: root.active
                 videoSink: videoOut.videoSink
                 latencyMs: (typeof wtRtspLatencyMs !== "undefined" && wtRtspLatencyMs > 0)

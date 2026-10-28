@@ -1,0 +1,40 @@
+{
+  "checks": [
+    {
+      "name": "ui_en",
+      "result_file": "C:\\wt\\availability-ui-en-r7-20261029\\results.xml",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "time_s": "0.232",
+      "production_connections": false
+    },
+    {
+      "name": "ui_ru",
+      "result_file": "C:\\wt\\availability-ui-ru-r7-20261029\\results.xml",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "time_s": "0.241",
+      "production_connections": false
+    },
+    {
+      "name": "worker_sync",
+      "result_file": "C:\\wt\\availability-sync-clean-r10-20261029\\results.xml",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "time_s": "9.757",
+      "production_connections": false
+    }
+  ],
+  "wire_validation": "C:\\wt\\availability-wire-validation-20261029-r3.json",
+  "installed_sqlite_proof": "sqlite-installed-booth.json",
+  "linux_checks": "Not run: no authenticated Linux shell available",
+  "final_package_sqlite": "Pending final package",
+  "health_stale_notice_integration": "Passed final clean full application: 32 English and 32 Russian checks; separate 133-camera model fixture 11 checks",
+  "full_application_sha256": "a65eaae7a854dec6d856e81115795248ef3dc5bcc19bb875570551d96cd4588a",
+  "full_application_evidence": ["C:/wt/availability-model-20261029-final-clean", "C:/wt/availability-recording-health-en-20261029-final-clean", "C:/wt/availability-recording-health-ru-20261029-final-clean"],
+  "final_source_http_rerun": "Passed current central-review journal/worker sources: fresh directory plus clean-first; 22 tests",
+  "build_dependency_limitation": "Installed Russian MSVC has incorrectly decoded showIncludes prefix; Ninja C++ header dependencies are zero. Every final C++ object was rebuilt; future source changes require a clean build."
+}

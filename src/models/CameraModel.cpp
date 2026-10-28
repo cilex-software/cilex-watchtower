@@ -1,4 +1,6 @@
 #include "CameraModel.h"
+#include "AvailabilityObservation.h"
+#include "AvailabilityObservationBus.h"
 #include "RecordingHealth.h"
 #include <QSet>
 #include "WireTime.h"
@@ -122,6 +124,8 @@ CameraModel::CameraModel(QObject *parent)
     auto *healthExpiry = new QTimer(this);
     healthExpiry->setInterval(1000);
     connect(healthExpiry, &QTimer::timeout, this, [this]() {
+        if (m_backendEvidenceFresh && m_backendReceiptAge.isValid() && m_backendReceiptAge.elapsed() > 45000)
+            availabilityBackendResult(false, QStringLiteral("backend_observation_expired"));
         bool expired = false;
         const auto now = QDateTime::currentMSecsSinceEpoch();
         for (auto it = m_recordingHealth.constBegin(); it != m_recordingHealth.constEnd(); ++it) {
@@ -157,7 +161,12 @@ CameraModel::CameraModel(QObject *parent)
     m_nam = auth->nam();
     m_baseUrl = auth->baseUrl();
     connect(auth, &AuthController::baseUrlChanged, this,
-            [this, auth]() { m_baseUrl = auth->baseUrl(); });
+            [this, auth]() {
+                availabilityBackendResult(false, QStringLiteral("backend_changed"));
+                ++m_availabilityBackendGeneration;
+                m_availabilityReportedStates.clear();
+                m_baseUrl = auth->baseUrl();
+            });
     // Periodic /streams refresh — industry-standard VMS status cadence so the
     // recording badge + online/offline reflect reality without flooding the
     // backend. Started on authentication, stopped on logout.
@@ -176,6 +185,8 @@ CameraModel::CameraModel(QObject *parent)
             fetchCameras();
             if (!pollDisabled) m_pollTimer->start();
         } else {
+            availabilityBackendResult(false, QStringLiteral("authentication_unavailable"));
+            ++m_availabilityBackendGeneration;
             m_pollTimer->stop();
             if (m_listUnavailable) { m_listUnavailable = false; emit listUnavailableChanged(); }
             beginResetModel();
@@ -202,6 +213,117 @@ void CameraModel::setLoading(bool v)
         return;
     m_loading = v;
     emit loadingChanged();
+}
+
+void CameraModel::availabilityBackendResult(bool success, const QString &reason)
+{
+    const bool requestFailure = reason == QLatin1String("backend_request_failed")
+        || reason == QLatin1String("backend_response_invalid");
+    const QString state = success ? QStringLiteral("available")
+        : requestFailure ? QStringLiteral("degraded") : QStringLiteral("unknown");
+    const QVariantMap details {{QStringLiteral("observer_scope"), QStringLiteral("backend")},
+        {QStringLiteral("transport"), QStringLiteral("http")},
+        {QStringLiteral("threshold_ms"), 45000}};
+    if (m_availabilityConnectivityState != state) {
+        const QString transition = m_availabilityConnectivityState.isEmpty()
+            ? QStringLiteral("initial") : QStringLiteral("state_change");
+        AvailabilityObservationBus::publish(wt::availability::observation({},
+            QStringLiteral("backend_connectivity"), QStringLiteral("client_observed"),
+            state, transition, reason, details));
+        if (!m_availabilityConnectivityState.isEmpty() || !success)
+            AvailabilityObservationBus::publish(wt::availability::observation({},
+                QStringLiteral("monitoring"), QStringLiteral("client_observed"),
+                success ? QStringLiteral("unknown") : QStringLiteral("not_monitored"),
+                success ? QStringLiteral("monitoring_resumed") : QStringLiteral("monitoring_gap"),
+                reason, details));
+        m_availabilityConnectivityState = state;
+    }
+    if (success) m_backendReceiptAge.start();
+    else {
+        m_backendReceiptAge.invalidate();
+        // Last-known UI values remain visible, but cannot close an earlier
+        // condition across missing observation. The next response is a baseline.
+        m_availabilityReportedStates.clear();
+    }
+    if (m_backendEvidenceFresh != success) {
+        m_backendEvidenceFresh = success;
+        emit backendEvidenceFreshChanged();
+    }
+}
+
+void CameraModel::observeBackendCamera(const QJsonObject &camera)
+{
+    const QString cameraId = camera.value(QStringLiteral("camera_id")).toString();
+    if (cameraId.isEmpty()) return;
+    const QString status = camera.value(QStringLiteral("status")).toString();
+    const QString recording = camera.value(QStringLiteral("recording")).toString();
+    QVariantMap backend {{QStringLiteral("received_locally_at"), wt::availability::instant()}};
+    const QStringList statuses {QStringLiteral("online"), QStringLiteral("offline"),
+        QStringLiteral("maintenance"), QStringLiteral("error"), QStringLiteral("unknown")};
+    const QStringList recordings {QStringLiteral("recording"), QStringLiteral("stalled"),
+        QStringLiteral("armed"), QStringLiteral("offline"), QStringLiteral("disabled"), QStringLiteral("unknown")};
+    backend[QStringLiteral("status")] = statuses.contains(status) ? status : QStringLiteral("unknown");
+    backend[QStringLiteral("recording_state")] = recordings.contains(recording) ? recording : QStringLiteral("unknown");
+    const QUuid upstream(camera.value(QStringLiteral("upstream_event_id")).toString());
+    if (!upstream.isNull()) backend[QStringLiteral("upstream_event_id")] = upstream.toString(QUuid::WithoutBraces);
+    for (const auto &key : {QStringLiteral("status_since"), QStringLiteral("recording_since"),
+                            QStringLiteral("last_segment_at")}) {
+        const QByteArray field = key.toUtf8();
+        const QString value = wt::wireInstant(camera.value(key), field.constData());
+        if (wt::recordingHealth::instant(QJsonValue(value)) > 0) backend[key] = value;
+    }
+    const QString lastSeen = wt::wireInstant(camera.value(QStringLiteral("last_seen_at")), "last_seen_at");
+    if (wt::recordingHealth::instant(QJsonValue(lastSeen)) > 0) backend[QStringLiteral("last_seen")] = lastSeen;
+    // Never copy arbitrary backend objects, names, URLs or credentials.
+    const QVariantMap details {{QStringLiteral("observer_scope"), QStringLiteral("backend")},
+        {QStringLiteral("transport"), QStringLiteral("http")}};
+    const auto publish = [&](const QString &domain, const QString &state, const QString &raw,
+                             const QString &effectiveKey) {
+        auto vantage = details;
+        vantage[QStringLiteral("pipeline_id")] = domain;
+        const QString key = cameraId + QLatin1Char('|') + domain;
+        const QString signature = raw + QLatin1Char('|') + state + QLatin1Char('|')
+            + backend.value(effectiveKey).toString();
+        if (m_availabilityReportedStates.value(key) == signature) return;
+        const bool initial = !m_availabilityReportedStates.contains(key);
+        QString transition = initial ? QStringLiteral("initial") : QStringLiteral("state_change");
+        const QString previous = m_availabilityReportedStates.value(key).section(QLatin1Char('|'), 1, 1);
+        if (!initial && (state == QLatin1String("unavailable") || state == QLatin1String("degraded")))
+            transition = QStringLiteral("failure");
+        else if (!initial && state == QLatin1String("available")
+                 && (previous == QLatin1String("unavailable") || previous == QLatin1String("degraded")))
+            transition = QStringLiteral("recovery");
+        const bool intentional = state == QLatin1String("not_monitored");
+        const bool wasIntentional = previous == QLatin1String("not_monitored");
+        if (intentional || wasIntentional)
+            AvailabilityObservationBus::publish(wt::availability::observation(cameraId,
+                QStringLiteral("monitoring"), QStringLiteral("client_observed"),
+                intentional ? QStringLiteral("not_monitored") : QStringLiteral("unknown"),
+                intentional ? QStringLiteral("monitoring_gap") : QStringLiteral("monitoring_resumed"),
+                domain == QLatin1String("recording_catalogue")
+                    ? QStringLiteral("recording_intentionally_unmonitored") : QStringLiteral("camera_maintenance"), vantage));
+        auto event = wt::availability::observation(cameraId, domain,
+            QStringLiteral("backend_reported_by_client"), intentional ? QStringLiteral("unknown") : state, transition,
+            QStringLiteral("backend_status_reported"), vantage);
+        event[QStringLiteral("backend_observation")] = backend;
+        AvailabilityObservationBus::publish(event);
+        m_availabilityReportedStates.insert(key, signature);
+    };
+    publish(QStringLiteral("backend_reachability"), wt::availability::reachability(status),
+            status, QStringLiteral("status_since"));
+    QString catalogueState = wt::availability::catalogue(recording, status, m_recordingEnabled);
+    if (catalogueState != QLatin1String("not_monitored")) {
+        const auto health = wt::recordingHealth::normalize(camera.value(QStringLiteral("recording_health")).toObject(),
+                                                          QDateTime::currentMSecsSinceEpoch());
+        const QString archive = health.value(QStringLiteral("archive_state")).toString();
+        if (archive == QLatin1String("current")) catalogueState = QStringLiteral("available");
+        else if (archive == QLatin1String("delayed")) catalogueState = QStringLiteral("degraded");
+        else if (archive == QLatin1String("unavailable")) catalogueState = QStringLiteral("unavailable");
+        else if (archive == QLatin1String("idle") || archive == QLatin1String("disabled"))
+            catalogueState = QStringLiteral("not_monitored");
+    }
+    publish(QStringLiteral("recording_catalogue"), catalogueState,
+            recording, QStringLiteral("recording_since"));
 }
 
 void CameraModel::setCameraScope(const QStringList &)
@@ -391,18 +513,33 @@ void CameraModel::fetchCameras()
     QNetworkRequest streamsReq{QUrl(m_baseUrl + "/streams")};
     AuthController::instance()->decorate(streamsReq);   // station display header when in station mode
     QNetworkReply *reply = m_nam->get(streamsReq);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    const quint64 generation = m_availabilityBackendGeneration;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_availabilityBackendGeneration) return;
         setLoading(false);
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
+        if (code == 401) {
+            availabilityBackendResult(false, QStringLiteral("authentication_unavailable"));
+            AuthController::instance()->noteUnauthorized(); return;
+        }
         if (reply->error() != QNetworkReply::NoError) {
+            availabilityBackendResult(false, QStringLiteral("backend_request_failed"));
             qWarning() << "Watchtower: /streams fetch failed" << code << reply->errorString();
             if (!m_listUnavailable) { m_listUnavailable = true; emit listUnavailableChanged(); }
             return;   // keep the last-known list — but SAY the list is stale/unknown
         }
         if (m_listUnavailable) { m_listUnavailable = false; emit listUnavailableChanged(); }
-        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        QJsonParseError parseError;
+        const auto document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        const auto obj = document.object();
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()
+            || !obj.value(QStringLiteral("streams")).isArray()) {
+            availabilityBackendResult(false, QStringLiteral("backend_response_invalid"));
+            if (!m_listUnavailable) { m_listUnavailable = true; emit listUnavailableChanged(); }
+            return;
+        }
+        availabilityBackendResult(true, QStringLiteral("backend_response_received"));
         applyFunctions(obj.value("functions").toObject());   // business-function state
         const auto arr = obj.value("streams").toArray();
 
@@ -421,6 +558,8 @@ void CameraModel::fetchCameras()
             const QString camId = o.value("camera_id").toString();
             if (camId.isEmpty())
                 continue;
+
+            observeBackendCamera(o);
 
             m_recordingHealth.insert(camId, o.value(QStringLiteral("recording_health")).toObject());
             m_expiredHealth.remove(camId);
@@ -631,13 +770,27 @@ void CameraModel::pollStatuses()
     QNetworkRequest streamsReq{QUrl(m_baseUrl + "/streams")};
     AuthController::instance()->decorate(streamsReq);   // station display header when in station mode
     QNetworkReply *reply = m_nam->get(streamsReq);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    const quint64 generation = m_availabilityBackendGeneration;
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        if (generation != m_availabilityBackendGeneration) return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
-        if (reply->error() != QNetworkReply::NoError)
+        if (code == 401) {
+            availabilityBackendResult(false, QStringLiteral("authentication_unavailable"));
+            AuthController::instance()->noteUnauthorized(); return;
+        }
+        if (reply->error() != QNetworkReply::NoError) {
+            availabilityBackendResult(false, QStringLiteral("backend_request_failed"));
             return;   // transient — keep the last-known statuses
-        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
+        }
+        QJsonParseError parseError;
+        const auto document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        const auto obj = document.object();
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()
+            || !obj.value(QStringLiteral("streams")).isArray()) {
+            availabilityBackendResult(false, QStringLiteral("backend_response_invalid")); return;
+        }
+        availabilityBackendResult(true, QStringLiteral("backend_response_received"));
         applyFunctions(obj.value("functions").toObject());   // business-function state
         const auto arr = obj.value("streams").toArray();
 
@@ -652,6 +805,7 @@ void CameraModel::pollStatuses()
             const auto o = v.toObject();
             const QString camId = o.value("camera_id").toString();
             if (camId.isEmpty()) continue;
+            observeBackendCamera(o);
             const auto health = o.value(QStringLiteral("recording_health")).toObject();
             if (m_recordingHealth.value(camId) != health) {
                 m_recordingHealth.insert(camId, health);

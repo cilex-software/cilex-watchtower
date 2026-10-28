@@ -2310,6 +2310,10 @@
         <source>Recording continues. Archive status is unknown.</source>
         <translation>Запись продолжается. Состояние архива неизвестно.</translation>
     </message>
+    <message><source>Availability log</source><translation>Журнал доступности</translation></message>
+    <message><source>Pending: %1</source><translation>Ожидают отправки: %1</translation></message>
+    <message><source>History and sync</source><translation>История и отправка</translation></message>
+    <message><source>Camera statuses are last known; Vision updates are unavailable.</source><translation>Показано последнее известное состояние камер; обновления Vision недоступны.</translation></message>
 </context>
 <context>
     <name>LabsCard</name>
@@ -7237,5 +7241,83 @@
     <message><source>Camera visibility updates unavailable; displayed state may be stale.</source><translation>Обновления состояния обзора недоступны; отображаемые сведения могут быть устаревшими.</translation></message>
     <message><source>Invalid camera visibility incident received; displayed state may be stale.</source><translation>Получены некорректные данные о закрытии камеры; отображаемые сведения могут быть устаревшими.</translation></message>
     <message><source>Action was not confirmed. %1</source><translation>Действие не подтверждено. %1</translation></message>
+</context>
+<context>
+    <name>AvailabilityHistory</name>
+    <message><source>All accessible cameras</source><translation>Все доступные камеры</translation></message>
+    <message><source>This station</source><translation>Эта станция</translation></message>
+    <message><source>Not recorded</source><translation>Не записано</translation></message>
+    <message><source>Unknown</source><translation>Неизвестно</translation></message>
+    <message><source>None</source><translation>Нет</translation></message>
+    <message><source>Time uncertain</source><translation>Время неточно</translation></message>
+    <message><source>%1 min</source><translation>%1 мин</translation></message>
+    <message><source>%1 h</source><translation>%1 ч</translation></message>
+    <message><source>Reported duration: %1 s</source><translation>Измеренная длительность: %1 с</translation></message>
+    <message><source>Observation interrupted; duration unknown</source><translation>Наблюдение прервано; длительность неизвестна</translation></message>
+    <message><source>Unresolved observation; duration unknown</source><translation>Нет подтверждённого завершения; длительность неизвестна</translation></message>
+    <message><source>Unobserved interval; duration unknown</source><translation>Промежуток без наблюдения; длительность неизвестна</translation></message>
+    <message><source>Duration not measured</source><translation>Длительность не измерена</translation></message>
+    <message><source>Local log ready</source><translation>Локальный журнал работает</translation></message>
+    <message><source>Sending availability log…</source><translation>Отправка журнала доступности…</translation></message>
+    <message><source>Station setup required</source><translation>Требуется настройка станции</translation></message>
+    <message><source>Server does not support availability sync</source><translation>Сервер не поддерживает синхронизацию журнала</translation></message>
+    <message><source>Station authentication required</source><translation>Требуется подтверждение доступа станции</translation></message>
+    <message><source>Administrator must grant journal access</source><translation>Администратор должен разрешить доступ к журналу</translation></message>
+    <message><source>Journal identity conflict; records retained</source><translation>Конфликт привязки журнала; записи сохранены</translation></message>
+    <message><source>Server requested a later retry</source><translation>Сервер попросил повторить отправку позже</translation></message>
+    <message><source>Availability logging needs attention</source><translation>Нужна проверка журнала доступности</translation></message>
+    <message><source>Availability state unknown</source><translation>Состояние журнала неизвестно</translation></message>
+    <message><source>Camera connection reported by Vision</source><translation>Подключение камеры по данным Vision</translation></message>
+    <message><source>Recording catalogue</source><translation>Каталог записей</translation></message>
+    <message><source>Live video delivery</source><translation>Получение прямого видео</translation></message>
+    <message><source>Snapshot delivery</source><translation>Получение снимков</translation></message>
+    <message><source>Connection to Vision</source><translation>Связь с Vision</translation></message>
+    <message><source>Monitoring coverage</source><translation>Периоды наблюдения</translation></message>
+    <message><source>Observed by Vision</source><translation>Наблюдение на стороне Vision</translation></message>
+    <message><source>Vision report received here</source><translation>Отчёт Vision, полученный станцией</translation></message>
+    <message><source>Observed on this station</source><translation>Наблюдение на этой станции</translation></message>
+    <message><source>Unknown source</source><translation>Источник неизвестен</translation></message>
+    <message><source>Available</source><translation>Доступно</translation></message>
+    <message><source>Unavailable</source><translation>Недоступно</translation></message>
+    <message><source>Degraded</source><translation>С перебоями</translation></message>
+    <message><source>Not monitored</source><translation>Не наблюдается</translation></message>
+    <message><source>Baseline</source><translation>Начальное состояние</translation></message>
+    <message><source>Problem observed</source><translation>Обнаружена проблема</translation></message>
+    <message><source>Recovery observed</source><translation>Наблюдение восстановлено</translation></message>
+    <message><source>State changed</source><translation>Состояние изменилось</translation></message>
+    <message><source>Observation gap</source><translation>Промежуток без наблюдения</translation></message>
+    <message><source>Monitoring resumed</source><translation>Наблюдение возобновлено</translation></message>
+    <message><source>Pending upload</source><translation>Ожидает отправки</translation></message>
+    <message><source>Received by Vision</source><translation>Получено Vision</translation></message>
+    <message><source>Rejected; retained locally</source><translation>Отклонено; сохранено локально</translation></message>
+    <message><source>Vision history</source><translation>История Vision</translation></message>
+    <message><source>Delivery unknown</source><translation>Доставка не подтверждена</translation></message>
+    <message><source>Camera availability history</source><translation>История доступности камер</translation></message>
+    <message><source>Close</source><translation>Закрыть</translation></message>
+    <message><source>Sync availability log now</source><translation>Отправить журнал сейчас</translation></message>
+    <message><source>Pending: %1 · Oldest: %2</source><translation>Ожидают отправки: %1 · Самая ранняя: %2</translation></message>
+    <message><source>Last attempt: %1 · Last successful sync: %2</source><translation>Последняя попытка: %1 · Успешная отправка: %2</translation></message>
+    <message><source>Next attempt: %1 · Automatic sync every 3 hours while running</source><translation>Следующая попытка: %1 · Автоотправка каждые 3 часа во время работы</translation></message>
+    <message><source>Sync in progress; observations continue to be saved locally.</source><translation>Идёт отправка; новые наблюдения сохраняются локально.</translation></message>
+    <message><source>Last 24 hours</source><translation>За 24 часа</translation></message>
+    <message><source>Last 7 days</source><translation>За 7 дней</translation></message>
+    <message><source>Last 31 days</source><translation>За 31 день</translation></message>
+    <message><source>Refresh</source><translation>Обновить</translation></message>
+    <message><source>All observation types</source><translation>Все виды наблюдений</translation></message>
+    <message><source>All sources</source><translation>Все источники</translation></message>
+    <message><source>Times use this computer&#x27;s time zone. Reported onset is separate from local observation; gaps do not prove continuous downtime.</source><translation>Время указано по часовому поясу компьютера. Начало по отчёту показано отдельно от времени наблюдения; пропуск не подтверждает непрерывный простой.</translation></message>
+    <message><source>Observed: %1 · Reported onset: %2</source><translation>Наблюдение: %1 · Начало по отчёту: %2</translation></message>
+    <message><source>Received by Vision: %1</source><translation>Получено Vision: %1</translation></message>
+    <message><source>Observer: %1 · %2 · %3</source><translation>Наблюдатель: %1 · %2 · %3</translation></message>
+    <message><source>No observations in this view. Missing history does not mean there were no problems.</source><translation>Нет наблюдений по выбранным условиям. Отсутствие записей не означает отсутствие проблем.</translation></message>
+    <message><source>Checking journal access…</source><translation>Проверка доступа к журналу…</translation></message>
+    <message><source>Local journal storage failed; check free disk space and permissions</source><translation>Локальный журнал не записывается; проверьте место на диске и разрешения</translation></message>
+    <message><source>Server reply could not be verified; records retained</source><translation>Ответ сервера не подтверждён; записи сохранены</translation></message>
+    <message><source>More records are waiting for the next upload</source><translation>Остальные записи ожидают следующей отправки</translation></message>
+    <message><source>Some observations could not be saved. Check local storage.</source><translation>Часть наблюдений не удалось сохранить. Проверьте локальный диск.</translation></message>
+    <message><source>Rejected records retained locally: %1</source><translation>Отклонённые записи сохранены локально: %1</translation></message>
+    <message><source>Records retained for another station or server: %1</source><translation>Сохранены записи другой станции или сервера: %1</translation></message>
+    <message><source>View limited to 1,000 observations. Narrow the camera or time filter.</source><translation>Показано не более 1000 наблюдений. Уточните камеру или период.</translation></message>
+    <message><source>Recovery recorded; see the recovery entry</source><translation>Восстановление зарегистрировано; см. запись о восстановлении</translation></message>
 </context>
 </TS>

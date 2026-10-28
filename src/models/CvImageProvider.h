@@ -10,6 +10,7 @@
 #include <QString>
 
 #include <atomic>
+#include <memory>
 
 class QThread;
 
@@ -17,6 +18,7 @@ class AuthController;
 class QNetworkAccessManager;
 class QNetworkReply;
 struct SnapPool;                        // per-class client snapshot gate (CvImageProvider.cpp)
+struct SnapshotObservationRegistry;
 
 // Async image provider for AUTHENTICATED backend images. Qt's Image loader can't
 // attach the session cookie, so this fetches with the cookie attached explicitly —
@@ -59,6 +61,7 @@ private:
     // dereferences it → the 2026-07-25 P0 SIGSEGV (reader thread, QObject::deleteLater,
     // 9.5 h uptime). Every exit path in this class goes through finish().
     void finish();
+    void observeSnapshotResult(int status, bool decoded, qint64 ageMs, const QString &source);
     friend class CvImageProvider;
     AuthController *m_auth = nullptr;
     QNetworkAccessManager *m_nam = nullptr;   // the provider's private NAM (GUI-thread affine)
@@ -85,6 +88,10 @@ private:
     quint64 m_seq = 0;                  // ledger identity, printed with the address
     // Written by cancel() on the PIXMAP-READER thread, read on the GUI thread.
     std::atomic<bool> m_cancelled { false };
+    QString m_availabilityCamera;
+    QString m_availabilityPipeline;
+    QString m_availabilityBase;
+    std::shared_ptr<SnapshotObservationRegistry> m_availabilityRegistry;
 };
 
 class CvImageProvider : public QQuickAsyncImageProvider
@@ -97,4 +104,5 @@ public:
 private:
     AuthController *m_auth;
     QNetworkAccessManager *m_nam;       // private pool — see the class note above
+    std::shared_ptr<SnapshotObservationRegistry> m_availabilityRegistry;
 };

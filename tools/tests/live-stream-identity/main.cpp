@@ -1,13 +1,17 @@
 #include "RtspVideoSource.h"
+#include "AvailabilityObservationBus.h"
+#include "AvailabilityObservation.h"
 
 #include <QGuiApplication>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QEvent>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QThread>
+#include <QTimer>
 #include <QCryptographicHash>
 #include <QUrl>
 #include <functional>
@@ -65,6 +69,8 @@ struct Probe {
     }
     void begin(const QString &colour)
     {
+        source.setCameraId(QStringLiteral("fixture-") + colour);
+        source.setStreamVariant(QStringLiteral("sub"));
         expected = colour;
         samples = QJsonArray();
         matches = wrong = 0;
@@ -78,17 +84,74 @@ struct Probe {
     }
 };
 
+static int availabilityStall(const QString &url)
+{
+    if (!qEnvironmentVariableIsSet("WT_STREAM_WATCHDOG_OFF")) return 2;
+    QVideoSink sink;
+    RtspVideoSource source;
+    QElapsedTimer clock; clock.start();
+    QJsonArray events;
+    int available = 0, unavailable = 0;
+    qint64 firstPositive = -1, failureAt = -1, recoveredAt = -1;
+    QObject::connect(AvailabilityObservationBus::instance(), &AvailabilityObservationBus::observationReady,
+        &source, [&](const QVariantMap &event) {
+            if (event.value("camera_id").toString() != QLatin1String("fixture-availability-stall")
+                || event.value("domain").toString() != QLatin1String("live_delivery")) return;
+            events.append(QJsonObject::fromVariantMap(event));
+            if (event.value("state").toString() == QLatin1String("available")) {
+                ++available;
+                if (firstPositive < 0) firstPositive = clock.elapsed();
+                else recoveredAt = clock.elapsed();
+            } else if (event.value("state").toString() == QLatin1String("unavailable")) {
+                ++unavailable;
+                failureAt = clock.elapsed();
+                QTimer::singleShot(0, &source, &RtspVideoSource::reconnect);
+            }
+        });
+    source.setCameraId(QStringLiteral("fixture-availability-stall"));
+    source.setStreamVariant(QStringLiteral("sub"));
+    source.setUrl(url);
+    source.setVideoSink(&sink);
+    while (clock.elapsed() < 85000 && recoveredAt < 0) spin(10);
+    const bool passed = firstPositive >= 0 && unavailable == 1 && available == 2
+        && failureAt - firstPositive >= wt::availability::liveConfirmationMs
+        && recoveredAt > failureAt && recoveredAt - failureAt < 5000;
+    const QJsonObject result {{"passed", passed}, {"first_positive_ms", firstPositive},
+        {"failure_ms", failureAt}, {"recovery_ms", recoveredAt},
+        {"unavailable_events", unavailable}, {"available_events", available},
+        {"threshold_ms", wt::availability::liveConfirmationMs}, {"events", events}};
+    printf("%s\n", QJsonDocument(result).toJson(QJsonDocument::Indented).constData());
+    source.setActive(false);
+    return passed ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
     gst_init(nullptr, nullptr);
-    if (argc != 2) {
-        fprintf(stderr, "usage: live-stream-identity rtsp://127.0.0.1:18554\n");
+    if (argc != 2 && argc != 3) {
+        fprintf(stderr, "usage: live-stream-identity rtsp://127.0.0.1:18554 [--availability-stall]\n");
         return 2;
     }
     const QString base = QString::fromLocal8Bit(argv[1]);
     if (!base.startsWith("rtsp://127.0.0.1:")) return 2;
+    if (argc == 3) {
+        if (QString::fromLocal8Bit(argv[2]) != QLatin1String("--availability-stall")) return 2;
+        return availabilityStall(base + QStringLiteral("/silent-stall"));
+    }
     QJsonArray results;
+    QJsonArray observations;
+    QObject::connect(AvailabilityObservationBus::instance(), &AvailabilityObservationBus::observationReady,
+        &app, [&observations](const QVariantMap &event) { observations.append(QJsonObject::fromVariantMap(event)); });
+    auto observed = [&observations](const QString &camera, const QString &domain, const QString &state, int since = 0) {
+        int count = 0;
+        for (qsizetype i = since; i < observations.size(); ++i) {
+            const auto event = observations.at(i).toObject();
+            if (event.value("camera_id").toString() == camera && event.value("domain").toString() == domain
+                && event.value("state").toString() == state) ++count;
+        }
+        return count;
+    };
     int failures = 0;
     auto result = [&](const QString &name, bool passed, const Probe &probe, QJsonObject extra = {}) {
         extra.insert("name", name);
@@ -111,6 +174,7 @@ int main(int argc, char **argv)
         credentialUrl.setUserName("fixture-user");
         credentialUrl.setPassword("fixture-password");
         pending.source.setActive(false);
+        pending.source.setCameraId(QStringLiteral("fixture-pending"));
         pending.source.setUrl(credentialUrl.toString());
         pending.source.setVideoSink(&pending.sink);
         result("readiness excludes inactive sources", readiness(url).isEmpty(), pending);
@@ -127,6 +191,11 @@ int main(int argc, char **argv)
         pending.source.setWarmOnly(false);
         pending.source.setVideoSink(nullptr);
         result("readiness excludes sources without video sink", readiness(url).isEmpty(), pending);
+        QCoreApplication::sendPostedEvents(&app, QEvent::MetaCall);
+        result("inactive warm-only and no-sink changes never report camera outage",
+               observed("fixture-pending", "live_delivery", "unavailable") == 0
+               && observed("fixture-pending", "live_delivery", "available") == 0
+               && observed("fixture-pending", "monitoring", "not_monitored") >= 1, pending);
     }
 
     Probe detail;
@@ -134,6 +203,9 @@ int main(int argc, char **argv)
     detail.source.setUrl(base + "/red");
     detail.source.setVideoSink(&detail.sink);
     result("initial camera A pixels", detail.awaitFrames(), detail);
+    QCoreApplication::sendPostedEvents(&app, QEvent::MetaCall);
+    result("decoded incoming pixels establish one camera-bound available observation",
+           observed("fixture-red", "live_delivery", "available") == 1, detail);
     const QJsonObject first = readiness(base + "/red");
     spin(450);
     const QJsonObject second = readiness(base + "/red");
@@ -168,10 +240,14 @@ int main(int argc, char **argv)
     const int parked = RtspVideoSource::parkedPipelineCount();
     Probe wallBlue;
     wallBlue.begin("blue");
+    const int beforeAdoption = int(observations.size());
     wallBlue.source.setUrl(base + "/blue");
     wallBlue.source.setVideoSink(&wallBlue.sink);
     const bool adoptedImmediately = wallBlue.source.playing();
     const QJsonObject cached = readiness(base + "/blue");
+    QCoreApplication::sendPostedEvents(&app, QEvent::MetaCall);
+    result("adopted cached sink frame cannot report availability recovery",
+           observed("fixture-blue", "live_delivery", "available", beforeAdoption) == 0, wallBlue);
     result("parked cached picture does not establish fresh readiness progress",
            adoptedImmediately && wallBlue.sink.videoFrame().isValid()
            && cached.value("frames").toInteger(-1) == 0 && cached.value("age_ms").isNull(), wallBlue,
@@ -225,6 +301,17 @@ int main(int argc, char **argv)
     const bool rapidSettled = detail.awaitFrames();
     result("rapid A B C retargets reject every foreign frame", rapidSettled && rapidWrong == 0,
            detail, {{"wrong_frames_during_rapid_changes", rapidWrong}, {"rapid_samples", rapidSamples}});
+    bool safe = true, scoped = true;
+    for (const auto &value : observations) {
+        const auto event = value.toObject();
+        const auto details = event.value("details").toObject();
+        const auto bytes = QJsonDocument(event).toJson(QJsonDocument::Compact);
+        safe = safe && !bytes.contains("fixture-password") && !bytes.contains("fixture-token")
+            && !bytes.contains("127.0.0.1") && !bytes.contains("rtsp://");
+        scoped = scoped && !details.value("pipeline_id").toString().isEmpty()
+            && details.value("observer_scope").toString() == "pipeline";
+    }
+    result("availability evidence is scoped and excludes credentials and URLs", safe && scoped, detail);
 
     const QJsonObject report{{"passed", int(results.size()) - failures}, {"failed", failures},
                              {"tests", results}, {"boundary", "RtspVideoSource public API plus decoded QVideoSink pixels; no product QML navigation"}};

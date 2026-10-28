@@ -1,0 +1,336 @@
+[
+  {
+    "id": "spoofed_station",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        },
+        {
+          "event_id": "88888888-8888-4888-8888-888888888888",
+          "local_seq": 2,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "available",
+          "transition": "recovery",
+          "observed_at": "2026-10-27T12:00:05+03:00",
+          "monotonic_ms": 14000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_received",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          },
+          "duration_ms": 5000,
+          "related_event_id": "44444444-4444-4444-8444-444444444444"
+        }
+      ],
+      "station_id": "22222222-2222-4222-8222-222222222222"
+    }
+  },
+  {
+    "id": "unsupported_version",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 2,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        },
+        {
+          "event_id": "88888888-8888-4888-8888-888888888888",
+          "local_seq": 2,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "available",
+          "transition": "recovery",
+          "observed_at": "2026-10-27T12:00:05+03:00",
+          "monotonic_ms": 14000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_received",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          },
+          "duration_ms": 5000,
+          "related_event_id": "44444444-4444-4444-8444-444444444444"
+        }
+      ]
+    }
+  },
+  {
+    "id": "native_provenance",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "backend_native",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "bool_sequence",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": true,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "naive_time",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T09:00:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "unknown_detail",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "rtsp_url": "rtsp://user:secret@example.invalid/stream"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "unscoped_delivery",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": null,
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "recovery_no_reference",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "live_delivery",
+          "provenance": "client_observed",
+          "state": "available",
+          "transition": "recovery",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "recording_idle_invalid",
+    "expected_status": 422,
+    "request": {
+      "schema_version": 1,
+      "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+      "batch_id": "77777777-7777-4777-8777-777777777777",
+      "producer_id": "33333333-3333-4333-8333-333333333333",
+      "events": [
+        {
+          "event_id": "44444444-4444-4444-8444-444444444444",
+          "local_seq": 1,
+          "run_id": "55555555-5555-4555-8555-555555555555",
+          "camera_id": "hiwatch-fixture-camera-01",
+          "domain": "recording_catalogue",
+          "provenance": "backend_reported_by_client",
+          "state": "unavailable",
+          "transition": "failure",
+          "observed_at": "2026-10-27T12:00:00+03:00",
+          "monotonic_ms": 9000,
+          "condition_id": "66666666-6666-4666-8666-666666666666",
+          "reason_code": "frame_delivery_gap",
+          "details": {
+            "stream_variant": "sub",
+            "transport": "rtsp",
+            "observer_scope": "pipeline",
+            "pipeline_id": "wall-01"
+          },
+          "backend_observation": {
+            "recording_state": "idle",
+            "received_locally_at": "2026-10-27T09:00:00Z"
+          }
+        }
+      ]
+    }
+  }
+]

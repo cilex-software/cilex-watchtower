@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "contract": "../camera-availability-v1.md",
+  "files": {
+    "accepted-response.json": "bb55de4f9316e6e810a5a307e73d4290dd49d65479b5eca3edbfc30dd0e067ff",
+    "ack.schema.json": "be5ff1bd9fd6edd081cc12d4aa17479d1a5d30ddd1be1d5d69cd43cecf763fbd",
+    "batch.schema.json": "7b285244ec69582f940e275e42885da5cfa73fdf094e5671392ef09e20017e2e",
+    "capabilities-response.json": "42beb5f8d752a93b9629389b80d820c522717b317c35951f21968864b0f46b6e",
+    "capabilities.schema.json": "8be3b55c7bb7e5d62333c4289df977168658fc2cade2efe7b86effdfa1414c09",
+    "changes-empty-response.json": "928116243035749e1ccdf1e4bbce4fcd5decadd4bc2179436beb76c5fa734606",
+    "changes.schema.json": "b917fdcf1424596682ff91fe26acaca677cd4c25a732b9cdb8d937ba3cdd25f6",
+    "duplicate-response.json": "b35b1e605b7aedbfc3e72b9b0e7107876bef7a1d54bad37b02ca847249d27553",
+    "error-response-examples.json": "29b961cd4fd1468b6335e61fb4f191bb41a6fb20641dea30cd6d08dd622492e5",
+    "history-event.schema.json": "91031f0f88f7e5b5084fb307a58dc899bd928376f4f9ffdbbc09a2fcf3d3c009",
+    "history.schema.json": "481df61cda478c4ad5409d6e89cc0e6183c895f5f001a697d3295083c3d6b923",
+    "negative-examples.json": "fe54d2b849a5e6cfd13182d0fb5210b61acfeda16a4104a23ca18ecc67d9caa3",
+    "scope.schema.json": "375828e5d79fe33403980dfdc2e4064f562a7624d2b467046dd2bc7dc6639c39",
+    "valid-batch.json": "75e84ae0c4f300039eb0b6c8500a5c105a2ed765632fc660f28ce3aea5b72094",
+    "valid-monitoring-batch.json": "2c50649d0a7440923b14a3701ad20fd3adaa289086387366641c258422020691",
+    "valid-reported-batch.json": "c06cb8d61d17d2c000e0ab0dca0197a0e569832c7e3384e6153f6c567e4e9750",
+    "valid-scope.json": "1e609bb3c4d06195632ed5ff45c6eb685a6f9e4ff4ee4a4757bbe6add66c4f8f"
+  }
+}

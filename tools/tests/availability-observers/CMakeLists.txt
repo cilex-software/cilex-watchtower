@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.21)
+project(watchtower_availability_observer_rules LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(Qt6 REQUIRED COMPONENTS Core)
+add_executable(availability-observer-rules main.cpp)
+target_include_directories(availability-observer-rules PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../../src/models")
+target_link_libraries(availability-observer-rules PRIVATE Qt6::Core)

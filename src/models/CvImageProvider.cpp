@@ -1,6 +1,8 @@
 ﻿#include "CvImageProvider.h"
 #include "AuthController.h"
 #include "StationNam.h"
+#include "AvailabilityObservation.h"
+#include "AvailabilityObservationBus.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -15,6 +17,57 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QMutex>
+#include <QRegularExpression>
+#include <QUrl>
+#include <cmath>
+#include <limits>
+
+// GUI-thread-owned lifecycle fence. A response from a hidden/destroyed or changed
+// thumbnail cannot publish recovery for a retired observer, even if Qt keeps its
+// request alive to retain the displayed image. Missing/expired entries fail closed.
+struct SnapshotObservationRegistry
+{
+    struct Entry { QString camera; bool active = false; int failures = 0; qint64 touched = 0; };
+    QHash<QString, Entry> sessions;
+};
+
+void CvImageResponse::observeSnapshotResult(int status, bool decoded, qint64 ageMs, const QString &source)
+{
+    if (!m_availabilityRegistry || m_availabilityCamera.isEmpty() || m_cancelled
+        || !m_auth || m_auth->baseUrl() != m_availabilityBase) return;
+    auto entry = m_availabilityRegistry->sessions.find(m_availabilityPipeline);
+    if (entry == m_availabilityRegistry->sessions.end() || !entry->active
+        || entry->camera != m_availabilityCamera) return;
+    QString state = wt::availability::snapshot(status, decoded, ageMs, source);
+    QString reason = state == QLatin1String("available") ? QStringLiteral("snapshot_received")
+        : state == QLatin1String("degraded") ? QStringLiteral("snapshot_stale")
+        : state == QLatin1String("unknown") ? QStringLiteral("snapshot_freshness_unknown")
+        : QStringLiteral("snapshot_request_failed");
+    if (status == 401 || status == 403) reason = QStringLiteral("snapshot_authorization_unavailable");
+    else if (status == 0 || status >= 500) reason = QStringLiteral("snapshot_request_unverified");
+    else if (status == 200 && decoded && ageMs < 0) reason = QStringLiteral("snapshot_age_unknown");
+    else if (status == 200 && decoded && state == QLatin1String("unknown"))
+        reason = source == QLatin1String("recording") || source == QLatin1String("archive")
+            || source == QLatin1String("recorded") ? QStringLiteral("snapshot_recorded_fallback")
+                                                 : QStringLiteral("snapshot_source_unknown");
+    if (state == QLatin1String("unavailable")) {
+        entry->failures = qMin(10000, entry->failures + 1);
+        // Match the thumbnail's existing three-failure confirmation/backoff.
+        if (entry->failures < 3) { state = QStringLiteral("unknown"); reason = QStringLiteral("snapshot_failure_unconfirmed"); }
+    } else entry->failures = 0;
+    entry->touched = QDateTime::currentMSecsSinceEpoch();
+    QVariantMap details {{QStringLiteral("observer_scope"), QStringLiteral("snapshot_request")},
+        {QStringLiteral("pipeline_id"), m_availabilityPipeline},
+        {QStringLiteral("stream_variant"), QStringLiteral("unknown")},
+        {QStringLiteral("transport"), QStringLiteral("http")},
+        {QStringLiteral("consecutive_failures"), entry->failures},
+        {QStringLiteral("threshold_ms"), wt::availability::freshSnapshotMs}};
+    if (ageMs >= 0) details[QStringLiteral("catalogue_age_ms")] = ageMs;
+    if (state == QLatin1String("available")) details[QStringLiteral("last_positive_at")] = wt::availability::instant();
+    AvailabilityObservationBus::publish(wt::availability::observation(m_availabilityCamera,
+        QStringLiteral("snapshot_delivery"), QStringLiteral("client_observed"), state,
+        QStringLiteral("state_change"), reason, details));
+}
 
 // The image-response ledger below needs a stack trace, and there is no portable way
 // to take one. `execinfo.h` and `unistd.h` are glibc/POSIX and do not exist under
@@ -407,6 +460,10 @@ void CvImageResponse::start()
     if (m_finished) { imgLedger("LATESTART", this, m_seq); return; }
     if (!m_auth || !m_nam) { releaseSnapshotSlot(); finish(); return; }
     if (m_cancelled) { releaseSnapshotSlot(); finish(); return; }
+    if (m_availabilityBase.isEmpty()) m_availabilityBase = m_auth->baseUrl();
+    if (!m_availabilityCamera.isEmpty() && m_availabilityBase != m_auth->baseUrl()) {
+        releaseSnapshotSlot(); finish(); return;
+    }
     // Governed gate: only /snapshot paths queue, each in its class's pool.
     if (!m_gated && m_path.contains(QLatin1String("/snapshot"))) {
         if (!m_pool)
@@ -488,6 +545,7 @@ void CvImageResponse::start()
         } else if (r->error() == QNetworkReply::OperationCanceledError) {
             m_error = QStringLiteral("cancelled");
         } else if (code == 503 && m_attempt < kMaxSnapshotRetries) {
+            observeSnapshotResult(code, false, -1, {});
             // 503 here is transient, but NOT always for the reason this comment used to
             // give. CV measured 2026-09-23 that the overwhelming majority are
             // "footage not written yet" (1,769 of their requests in 3 h) rather than the
@@ -521,6 +579,13 @@ void CvImageResponse::start()
         } else {
             m_error = QStringLiteral("HTTP %1").arg(code);   // 404 → caller falls back to the live frame
         }
+        bool ageValid = false;
+        const double ageSeconds = r->rawHeader("X-Snapshot-Age-S").toDouble(&ageValid);
+        const qint64 ageMs = ageValid && std::isfinite(ageSeconds) && ageSeconds >= 0
+            && ageSeconds <= double((std::numeric_limits<qint64>::max)() / 1000)
+            ? qint64(ageSeconds * 1000) : -1;
+        observeSnapshotResult(code, !m_image.isNull(), ageMs,
+                              QString::fromLatin1(r->rawHeader("X-Snapshot-Source")).trimmed().toLower());
         r->deleteLater();
         m_reply = nullptr;
         releaseSnapshotSlot();
@@ -537,8 +602,28 @@ void CvImageResponse::start()
 // shared-NAM consumer (EventModel, CameraModel, StorageHealth, SiteMapModel) at
 // once. Constructed on the GUI thread (main.cpp) — matches where start() runs.
 CvImageProvider::CvImageProvider(AuthController *auth)
-    : m_auth(auth), m_nam(new StationNam)
+    : m_auth(auth), m_nam(new StationNam), m_availabilityRegistry(std::make_shared<SnapshotObservationRegistry>())
 {
+    const auto registry = m_availabilityRegistry;
+    QObject::connect(AvailabilityObservationBus::instance(), &AvailabilityObservationBus::observationReady,
+        m_nam, [registry](const QVariantMap &event) {
+            if (event.value(QStringLiteral("domain")) != QLatin1String("monitoring")) return;
+            const auto details = event.value(QStringLiteral("details")).toMap();
+            if (details.value(QStringLiteral("observer_scope")) != QLatin1String("snapshot_request")) return;
+            const QString id = details.value(QStringLiteral("pipeline_id")).toString();
+            if (id.isEmpty()) return;
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+            // Bound retained lifecycle tombstones. Evicted IDs remain denied.
+            for (auto it = registry->sessions.begin(); it != registry->sessions.end();) {
+                if (!it->active && now - it->touched > 15 * 60 * 1000) it = registry->sessions.erase(it);
+                else ++it;
+            }
+            if (!registry->sessions.contains(id) && registry->sessions.size() >= 4096) return;
+            auto &entry = registry->sessions[id];
+            entry.camera = event.value(QStringLiteral("camera_id")).toString();
+            entry.active = event.value(QStringLiteral("transition")) == QLatin1String("monitoring_resumed");
+            entry.touched = now;
+        });
 }
 
 CvImageProvider::~CvImageProvider()
@@ -548,7 +633,26 @@ CvImageProvider::~CvImageProvider()
 
 QQuickImageResponse *CvImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
-    auto *resp = new CvImageResponse(m_auth, m_nam, id, requestedSize);
+    QString path = id;
+    QString camera, pipeline;
+    static const QRegularExpression context(QStringLiteral("^wtavail/([^/]+)/([A-Za-z0-9._:-]{1,64})/(.+)$"));
+    static const QRegularExpression canonical(QStringLiteral("^[A-Za-z0-9._:-]{1,64}$"));
+    static const QRegularExpression snapshotPath(QStringLiteral("(?:^|/)streams/cameras/([^/]+)/snapshot$"));
+    const auto match = context.match(id);
+    if (match.hasMatch()) {
+        path = match.captured(3);
+        const auto endpoint = snapshotPath.match(QUrl(path).path());
+        const QString supplied = QUrl::fromPercentEncoding(match.captured(1).toUtf8());
+        if (canonical.match(supplied).hasMatch() && endpoint.hasMatch()
+            && QUrl::fromPercentEncoding(endpoint.captured(1).toUtf8()) == supplied) {
+            camera = supplied;
+            pipeline = match.captured(2);
+        }
+    }
+    auto *resp = new CvImageResponse(m_auth, m_nam, path, requestedSize);
+    resp->m_availabilityCamera = camera;
+    resp->m_availabilityPipeline = pipeline;
+    resp->m_availabilityRegistry = m_availabilityRegistry;
     resp->m_seq = ++s_respSeq;
     // THIS thread — the pixmap loader's — is the one Qt will delete the response
     // from. Remember it so finish() can hand the object back before emitting; see

@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QDir>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -79,6 +80,8 @@
 #include "models/PtzClient.h"
 #include "models/WatchClient.h"
 #include "models/CameraObstructionController.h"
+#include "models/AvailabilityObservationBus.h"
+#include "models/CameraAvailabilityService.h"
 #include "models/LanguageController.h"
 
 namespace {
@@ -367,6 +370,7 @@ int main(int argc, char *argv[])
         QSettings::setDefaultFormat(QSettings::IniFormat);
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, userPath);
         QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, systemPath);
+        QStandardPaths::setTestModeEnabled(true);
         QSaveFile marker(root + QStringLiteral("/.startup-settings.json"));
         const QByteArray proof = QJsonDocument(QJsonObject{
             {QStringLiteral("pid"), static_cast<double>(QCoreApplication::applicationPid())},
@@ -590,6 +594,7 @@ int main(int argc, char *argv[])
     // before the engine loads so AuthController::instance() is valid when the
     // QML-instantiated models are constructed.
     auto *auth = new AuthController(&app);
+    auto *availabilityBus = AvailabilityObservationBus::instance();
     // BEFORE restoreSession(): that call kicks the first /streams fetch, and
     // CameraModel asks LiveProxy whether go2rtc's RTSP port is reachable the moment
     // the camera list lands. Created later, instance() is still null at exactly that
@@ -654,6 +659,7 @@ int main(int argc, char *argv[])
         });
         stallTimer->start();
     }
+    auto *availability = new CameraAvailabilityService(auth, &app);
     QQmlApplicationEngine engine;
     // Authenticated backend images (event-moment snapshots): image://cvframe/<path>.
     engine.addImageProvider(QStringLiteral("cvframe"), new CvImageProvider(auth));
@@ -665,6 +671,8 @@ int main(int argc, char *argv[])
     // Exposed to QML as a context property (not a module type) so it does not
     // interfere with the qt_add_qml_module type registry.
     engine.rootContext()->setContextProperty("AuthController", auth);
+    engine.rootContext()->setContextProperty("AvailabilityObservations", availabilityBus);
+    engine.rootContext()->setContextProperty("CameraAvailability", availability);
     engine.rootContext()->setContextProperty("CameraObstruction", new CameraObstructionController(auth, &app));
     // Live-over-HTTP loopback proxy (remote-live transport) — app-lifetime, so
     // live surfaces can fall back to it whenever RTSP cannot deliver.

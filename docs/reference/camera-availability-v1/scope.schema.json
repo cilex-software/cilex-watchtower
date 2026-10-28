@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "site_id": {
+      "format": "uuid",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "camera_ids": {
+      "items": {
+        "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+        "type": "string"
+      },
+      "maxItems": 10000,
+      "minItems": 1,
+      "title": "Camera Ids",
+      "type": "array"
+    },
+    "allow_station_events": {
+      "title": "Allow Station Events",
+      "type": "boolean"
+    },
+    "expected_revision": {
+      "maximum": 9223372036854775807,
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "site_id",
+    "camera_ids",
+    "allow_station_events",
+    "expected_revision"
+  ],
+  "title": "ScopeGrant",
+  "type": "object"
+}

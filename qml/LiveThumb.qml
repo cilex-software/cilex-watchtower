@@ -55,7 +55,37 @@ Rectangle {
     // 401 "Host requires authentication" → blank tile. Strip scheme+host (the backend echoes our connect host,
     // so the provider's baseUrl + path resolves to the same URL).
     // (Claim about cilex-vision, written 2026-06-29 and not re-checked since.)
-    readonly property string _provBase: _base === "" ? "" : ("image://cvframe/" + _base.replace(/^[a-z]+:\/\/[^\/]+\//, ""))
+    readonly property string _availabilityCamera: cam && cam.camId ? String(cam.camId) : ""
+    property string _availabilitySession: ""
+    property string _availabilityLoadedCamera: ""
+    property bool _availabilityWatching: false
+    function _availabilityPublish(transition, state) {
+        if (typeof AvailabilityObservations === "undefined") return;
+        AvailabilityObservations.publishObservation({
+            camera_id: _availabilityLoadedCamera, domain: "monitoring", provenance: "client_observed",
+            state: state, transition: transition,
+            reason_code: transition === "monitoring_gap" ? "monitor_stopped" : "monitor_resumed",
+            details: { observer_scope: "snapshot_request", pipeline_id: _availabilitySession,
+                       stream_variant: "unknown", transport: "http" }
+        });
+    }
+    function _availabilityUpdate() {
+        var wanted = active && visible && _base !== "" && _availabilityCamera !== ""
+            && typeof AvailabilityObservations !== "undefined";
+        if (_availabilityWatching && (!wanted || _availabilityLoadedCamera !== _availabilityCamera)) {
+            _availabilityPublish("monitoring_gap", "not_monitored");
+            _availabilityWatching = false;
+        }
+        if (wanted && !_availabilityWatching) {
+            _availabilityLoadedCamera = _availabilityCamera;
+            _availabilitySession = "thumb-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 18);
+            _availabilityWatching = true;
+            _availabilityPublish("monitoring_resumed", "unknown");
+        }
+    }
+    readonly property string _provBase: _base === "" ? "" : ("image://cvframe/"
+        + (_availabilityWatching ? "wtavail/" + encodeURIComponent(_availabilityCamera) + "/" + _availabilitySession + "/" : "")
+        + _base.replace(/^[a-z]+:\/\/[^\/]+\//, ""))
     property int _tick: 0
     property bool _showA: true          // which buffer is on screen
     property bool _everLoaded: false
@@ -129,8 +159,10 @@ Rectangle {
         _loadedBase = _base;
         _reset();
     }
-    onCamChanged: _ensureFor()
-    Component.onCompleted: _ensureFor()
+    onCamChanged: { _availabilityUpdate(); _ensureFor(); }
+    onVisibleChanged: _availabilityUpdate()
+    Component.onCompleted: { _availabilityUpdate(); _ensureFor(); }
+    Component.onDestruction: if (_availabilityWatching) _availabilityPublish("monitoring_gap", "not_monitored")
     // Fire immediately on (re)activation — the repeat Timer's first tick is a full
     // interval away, which added a flat +1 s before a section switch even STARTED
     // filling its thumbs (measured in the 2026-08-02 [NAV]/[EVIMG] trace). Skip
@@ -139,7 +171,10 @@ Rectangle {
     // the client gate's lanes — head-of-line for the healthy 90% (entries with 5
     // episode-cams measured p50 1.1–2.4 s vs 0.2–0.4 s without). Their own 15 s
     // backoff timer keeps retrying; they just don't ride the entry burst.
-    onActiveChanged: if (active && _base !== "" && _errStreak < 3) _refresh()
+    onActiveChanged: {
+        _availabilityUpdate();
+        if (active && visible && _base !== "" && _errStreak < 3) _refresh();
+    }
 
     Image {
         id: imgA

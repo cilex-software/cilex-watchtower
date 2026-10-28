@@ -116,12 +116,16 @@ def main():
                WT_RESTORE_OFF='1', WT_CV_AUTOLOGIN='1', WT_CV_USER='fixture', WT_CV_PASS='fixture',
                WT_NO_STALL_WATCH='1', WT_CV_URL=f'http://127.0.0.1:{server.server_port}',
                WT_TEST_QML=str(Path(__file__).with_name('ui.qml')),
+               WT_SETTINGS_DIR=str(output/'settings'),
+               WT_FLIGHTREC_DIR=str(output/'flightrec'),
+               WT_LANG='ru' if args.russian else 'en',
                XDG_CONFIG_HOME=str(output/'config'), XDG_DATA_HOME=str(output/'data'),
                XDG_CACHE_HOME=str(output/'cache'),
                LD_LIBRARY_PATH=str(args.qt_prefix/'lib'),
                QT_PLUGIN_PATH=str(args.qt_prefix/'plugins'),
                QML2_IMPORT_PATH=str(args.qt_prefix/'qml'),
                QT_QML_IMPORT_PATH=str(args.qt_prefix/'qml'))
+    env['PATH'] = str(args.qt_prefix/'bin') + os.pathsep + env.get('PATH', '')
     if args.russian:
         env['WT_LANG'] = 'ru'
     argv = [str(args.binary.resolve()), '--health-output='+str(output)]
@@ -135,14 +139,17 @@ def main():
         log, code = raw.decode(errors='replace') if isinstance(raw, bytes) else raw, 124
     finally:
         server.shutdown()
-    (output/'ui.log').write_text(log)
-    (output/'requests.json').write_text(json.dumps(requests, indent=2)+'\n')
+    flight_log = output/'flightrec'/'watchtower.log'
+    if flight_log.is_file():
+        log += flight_log.read_text(encoding='utf-8', errors='replace')
+    (output/'ui.log').write_text(log, encoding='utf-8')
+    (output/'requests.json').write_text(json.dumps(requests, indent=2)+'\n', encoding='utf-8')
     summary = dict(started_at_utc=started, argv=argv, exit_code=code,
                    binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                    qt_prefix=str(args.qt_prefix), russian_requested=args.russian,
                    loopback_only=True, real_video_verified=False,
                    guardstation_deployed=False)
-    (output/'run.json').write_text(json.dumps(summary, indent=2)+'\n')
+    (output/'run.json').write_text(json.dumps(summary, indent=2)+'\n', encoding='utf-8')
     for line in log.splitlines():
         if 'RECORDING-HEALTH-' in line or 'Error:' in line or 'Binding loop' in line:
             print(line)

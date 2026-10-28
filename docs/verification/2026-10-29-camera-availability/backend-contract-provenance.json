@@ -1,0 +1,82 @@
+{
+  "repository": "romayankin/cilex-vision",
+  "fetched_at": "2026-10-29",
+  "files": [
+    {
+      "path": "docs/reference/camera-availability-v1/accepted-response.json",
+      "git_blob_sha1": "a0cccc5d2b7f2c13c99d906c9ecf18d8db48c543"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/ack.schema.json",
+      "git_blob_sha1": "12475d29ba349da286dcfaea10b0b0a3147e1e7e"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/batch.schema.json",
+      "git_blob_sha1": "51da97ca11b7bee19d06806a2e2779adadd4b399"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/capabilities-response.json",
+      "git_blob_sha1": "f3126430b8b1123bc6a347a7192ec30df38982a8"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/capabilities.schema.json",
+      "git_blob_sha1": "ed4c2b14521a47d0ac457608f7c5829c2b869342"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/changes-empty-response.json",
+      "git_blob_sha1": "358fe717bf0778efbd7e3b2bd2e9ee0bf6cdf162"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/changes.schema.json",
+      "git_blob_sha1": "2b49fd56f2d12a6b1d1f2b065a04c268ceff96db"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/duplicate-response.json",
+      "git_blob_sha1": "dca67ed6fbf633569a594ab4a06d959e1c2e4bff"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/error-response-examples.json",
+      "git_blob_sha1": "8b83a681030e7e3f23dc39bf63080f20ae149a71"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/history-event.schema.json",
+      "git_blob_sha1": "b80bcfad898dbb5a0d35b59ec0d1c1f059116bf4"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/history.schema.json",
+      "git_blob_sha1": "6ab914cbd42297099dd433bd54b2d5f544997215"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/manifest.json",
+      "git_blob_sha1": "e0ac6db71147f47b4ca8608e376d28b86dd6babb"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/negative-examples.json",
+      "git_blob_sha1": "2852fbd82fe8d7f1e1afb4863a96774ee6295771"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/scope.schema.json",
+      "git_blob_sha1": "99d7e2a854fe48423a2d4edbb9066f3bee506d61"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/valid-batch.json",
+      "git_blob_sha1": "11e47d9914813ab58b5fb2ecefb75fa890f1b371"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/valid-monitoring-batch.json",
+      "git_blob_sha1": "9953b5d4f731bebc8ec48ffef75a03c5571523c7"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/valid-reported-batch.json",
+      "git_blob_sha1": "c393f79dd7fc55edddf099418a026de954b97118"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1/valid-scope.json",
+      "git_blob_sha1": "1faaec1da499c0a1f8b49e76a65e55a9224d43ef"
+    },
+    {
+      "path": "docs/reference/camera-availability-v1.md",
+      "git_blob_sha1": "c30f469a8896336be450f00880469a5f6efab76f"
+    }
+  ]
+}

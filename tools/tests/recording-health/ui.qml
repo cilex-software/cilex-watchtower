@@ -129,6 +129,9 @@ Product.Main {
                     test.check(test.model.archiveDelayedCount===0 && test.model.archiveUnknownCount===1,
                         "unavailable health transport is not a fabricated archive/capture failure");
                     test.check(test.model.recordingHealthFor("expiry").capture_state==="unknown","no stale capture proof retained");
+                    var healthScreens=test.findAll(test.contentItem,"HealthScreen");
+                    test.check(healthScreens.length===1 && healthScreens[0].backendStatusStale===true,
+                        "Health labels retained camera statuses as last known when Vision updates fail");
                     test.finish();
                 }
             } catch(error) {

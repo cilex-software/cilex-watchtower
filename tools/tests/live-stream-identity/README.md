@@ -21,7 +21,9 @@ development packages. `--port` changes the loopback listener.
 When Python GI is unavailable, configure with `-DBUILD_LOCAL_RTSP_FIXTURE=ON`
 to build `live-rtsp-fixture` against `gstreamer-rtsp-server-1.0`. Run it with a
 port argument, for example `live-rtsp-fixture 18554`, and wait for its JSON
-`ready:true` line. It binds only `127.0.0.1` and exits cleanly on SIGTERM/SIGINT.
+`ready:true` line. It binds only `127.0.0.1` and exits cleanly on SIGTERM/SIGINT
+on Unix. Its Windows build has a 90-second deadline; the test controller also
+cleans up its own child process.
 The fixture's x264 encoder is test infrastructure; it is not added to the
 Watchtower distribution or its approved FFmpeg feature profile.
 
@@ -58,8 +60,13 @@ grace prevents test-machine timing from prematurely expiring adoption fixtures.
 
 For a preserved before/after comparison, pass
 `-DWATCHTOWER_SOURCE_DIR=/absolute/directory/with/RtspVideoSource.cpp-and-header`
-to a separate build directory. No production changes or private-field hooks
-are needed for the comparison.
+to a separate build directory. Current availability checks also require the
+matching `AvailabilityObservation*` headers and bus implementation, and the
+observer properties in `RtspVideoSource`. Older snapshots need their historical
+harness. No production changes or private-field hooks are needed.
+
+Availability checks and the separate real 75-second silent-stall run are
+documented in [availability-observers](../availability-observers/README.md).
 
 On the 2026-10-11 host, the missing RTSP server runtime and typelib were fetched
 as Debian packages and extracted under `/tmp/watchtower-live-identity-deps`,

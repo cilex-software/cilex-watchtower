@@ -1,0 +1,72 @@
+[
+  {
+    "status": 401,
+    "body": {
+      "detail": {
+        "code": "station_credential_required",
+        "message": "Use a provisioned station credential.",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "status": 403,
+    "body": {
+      "detail": {
+        "code": "scope_not_configured",
+        "message": "Ask an administrator to configure journal scope.",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "status": 409,
+    "body": {
+      "detail": {
+        "code": "backend_instance_mismatch",
+        "message": "Keep the queued destination identity; rediscover and reconcile.",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "status": 413,
+    "body": {
+      "detail": {
+        "code": "body_limit",
+        "message": "Split records into new immutable batches.",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "status": 422,
+    "body": {
+      "detail": {
+        "code": "invalid_batch",
+        "message": "Retain invalid records for correction.",
+        "retryable": false
+      }
+    }
+  },
+  {
+    "status": 429,
+    "body": {
+      "detail": {
+        "code": "station_rate_limit",
+        "message": "Honor Retry-After and retain pending records.",
+        "retryable": true
+      }
+    }
+  },
+  {
+    "status": 503,
+    "body": {
+      "detail": {
+        "code": "journal_unavailable",
+        "message": "Retry the same immutable identities after backoff.",
+        "retryable": true
+      }
+    }
+  }
+]

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "backend_instance_id": "11111111-1111-4111-8111-111111111111",
+  "batch_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "producer_id": "33333333-3333-4333-8333-333333333333",
+  "events": [
+    {
+      "event_id": "99999999-9999-4999-8999-999999999999",
+      "local_seq": 3,
+      "run_id": "55555555-5555-4555-8555-555555555555",
+      "camera_id": "hiwatch-fixture-camera-01",
+      "domain": "backend_reachability",
+      "provenance": "backend_reported_by_client",
+      "state": "unavailable",
+      "transition": "failure",
+      "observed_at": "2026-10-27T12:00:00+03:00",
+      "monotonic_ms": 9000,
+      "condition_id": "66666666-6666-4666-8666-666666666666",
+      "reason_code": "backend_status_reported",
+      "details": {
+        "transport": "tcp",
+        "observer_scope": "backend"
+      },
+      "backend_observation": {
+        "status": "offline",
+        "status_since": "2026-10-27T11:59:00+03:00",
+        "received_locally_at": "2026-10-27T12:00:00+03:00"
+      }
+    }
+  ]
+}

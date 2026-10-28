@@ -10,6 +10,7 @@
 #include <QPair>
 #include <QStringList>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QJsonObject>
 #include "Types.h"
 #include "CameraStore.h"
@@ -44,6 +45,7 @@ class CameraModel : public QAbstractListModel
     // successful one; the roster itself is kept, so this matters chiefly on
     // cold start, exactly when a station is most likely to be believed.
     Q_PROPERTY(bool listUnavailable READ listUnavailable NOTIFY listUnavailableChanged)
+    Q_PROPERTY(bool backendEvidenceFresh READ backendEvidenceFresh NOTIFY backendEvidenceFreshChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
     // Business-function state from /streams `functions` (fail-safe: true unless the
     // backend explicitly reports enabled:false). Lets the UI show a deliberate
@@ -165,6 +167,7 @@ public:
     Q_INVOKABLE QVariantMap recordingHealthFor(const QString &cameraId) const;
     bool loading() const { return m_loading; }
     bool listUnavailable() const { return m_listUnavailable; }
+    bool backendEvidenceFresh() const { return m_backendEvidenceFresh; }
 
     Q_INVOKABLE void toggleFavorite(int row);
     // Toggle by backend camera_id — the Live Monitor tiles carry the camera_id
@@ -195,6 +198,7 @@ public:
     }
 
 signals:
+    void backendEvidenceFreshChanged();
     void countsChanged();
     void healthRevChanged();
     void groupsChanged();
@@ -216,6 +220,8 @@ private:
     void fetchGroups();        // GET /groups  -> m_groups (definitions for groupList)
     void applyFunctions(const QJsonObject &funcs);  // parse /streams `functions` (fail-safe)
     void setLoading(bool v);
+    void availabilityBackendResult(bool success, const QString &reason);
+    void observeBackendCamera(const QJsonObject &camera);
 
     CameraStore m_store;
     QVector<wt::CameraData> m_all;
@@ -250,4 +256,9 @@ private:
     QHash<QString, QJsonObject> m_recordingHealth;
     QSet<QString> m_expiredHealth;
     QTimer *m_pollTimer = nullptr;   // periodic /streams refresh (recording + live status)
+    bool m_backendEvidenceFresh = false;
+    QElapsedTimer m_backendReceiptAge;
+    QHash<QString, QString> m_availabilityReportedStates;
+    QString m_availabilityConnectivityState;
+    quint64 m_availabilityBackendGeneration = 0;
 };

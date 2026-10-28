@@ -39,6 +39,9 @@ class RtspVideoSource : public QObject
     // a core and ~4 MiB per stream. Used by snapshot-badged tiles (over the decode cap),
     // which otherwise hold nothing and are the cold case a guard meets.
     Q_PROPERTY(bool warmOnly READ warmOnly WRITE setWarmOnly NOTIFY warmOnlyChanged)
+    Q_PROPERTY(QString cameraId READ cameraId WRITE setCameraId NOTIFY observationIdentityChanged)
+    Q_PROPERTY(QString streamVariant READ streamVariant WRITE setStreamVariant NOTIFY observationIdentityChanged)
+    Q_PROPERTY(QString transport READ transport WRITE setTransport NOTIFY observationIdentityChanged)
 
 public:
     explicit RtspVideoSource(QObject *parent = nullptr);
@@ -63,6 +66,12 @@ public:
     Q_INVOKABLE void reconnect();
     bool warmOnly() const { return m_warmOnly; }
     void setWarmOnly(bool v);
+    QString cameraId() const { return m_cameraId; }
+    void setCameraId(const QString &value);
+    QString streamVariant() const { return m_streamVariant; }
+    void setStreamVariant(const QString &value);
+    QString transport() const { return m_transport; }
+    void setTransport(const QString &value);
 
     // Internal: the actual GStreamer pipeline build, invoked (staggered, one at a time)
     // by the global build pump in the .cpp. Don't call directly — go through rebuild(),
@@ -103,6 +112,7 @@ public:
     void noteDecoderBound() { m_decoderBound.store(true); }
 
 signals:
+    void observationIdentityChanged();
     void warmOnlyChanged();
     void urlChanged();
     void activeChanged();
@@ -117,6 +127,11 @@ private:
     void setPlaying(bool p);
     void setErrored(bool e, const QString &msg = {});
     void deliver();   // runs on the GUI thread; consumes m_pendingFrame
+    void observationTick();
+    void updateObservationMonitoring();
+    void closeObservation(const QString &reason);
+    void publishObservation(const QString &state, const QString &reason,
+                            const QString &transition = {});
 
     static GstFlowReturn onNewSample(GstAppSink *sink, gpointer self);
     static gboolean onBus(GstBus *bus, GstMessage *msg, gpointer self);
@@ -146,6 +161,8 @@ private:
     // GUI thread falls — without this, 16 pipelines × 15 fps of unbounded queued frames
     // (~3.7 MB each) balloon RSS to many GB and OOM-kill the app.
     QVideoFrame m_pendingFrame;
+    qint64 m_pendingArrivedMs = -1; // decoded sample arrival; NEVER cached-frame adoption
+    qint64 m_pendingArrivedWallMs = -1; // fences pre-suspend mailboxes on clocks that pause in sleep
     bool m_deliverQueued = false;
     std::mutex m_frameMutex;
     GstAppSink *m_frameSource = nullptr; // non-owning; guarded by m_frameMutex
@@ -170,6 +187,18 @@ private:
     int m_swdAttempts = 0;
     qint64 m_swdNextMs = 0;
     QTimer *m_swd = nullptr;
+    QString m_cameraId;
+    QString m_streamVariant = QStringLiteral("unknown");
+    QString m_transport = QStringLiteral("rtsp");
+    QString m_observerSession;
+    QString m_observationState;
+    bool m_observationMonitoring = false;
+    qint64 m_observationStartedMs = 0;
+    qint64 m_observationLastTickMs = 0;
+    qint64 m_observationLastWallMs = 0;
+    qint64 m_observationPositiveMs = -1;
+    QString m_observationPositiveAt;
+    QTimer *m_observationTimer = nullptr;
 };
 
 // QML-facing hint for the parking lot (2026-09-12): the view switch destroys the wall's tiles

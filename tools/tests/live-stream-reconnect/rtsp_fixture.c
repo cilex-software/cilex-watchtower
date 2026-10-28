@@ -2,7 +2,9 @@
  * sessions use blue pixels and continue. No EOS/error/restart triggers. */
 #include <gst/gst.h>
 #include <gst/rtsp-server/rtsp-server.h>
+#ifdef G_OS_UNIX
 #include <glib-unix.h>
+#endif
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,13 +69,21 @@ int main(int argc, char **argv)
     guint attached = gst_rtsp_server_attach(server, NULL);
     if (!attached) return 1;
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
+#ifdef G_OS_UNIX
     guint term = g_unix_signal_add(SIGTERM, quit, loop);
     guint interrupt = g_unix_signal_add(SIGINT, quit, loop);
+#else
+    guint deadline = g_timeout_add_seconds(90, quit, loop);
+#endif
     printf("{\"ready\":true,\"address\":\"127.0.0.1\",\"port\":%ld}\n", port);
     fflush(stdout);
     g_main_loop_run(loop);
+#ifdef G_OS_UNIX
     if (g_main_context_find_source_by_id(NULL, term)) g_source_remove(term);
     if (g_main_context_find_source_by_id(NULL, interrupt)) g_source_remove(interrupt);
+#else
+    if (g_main_context_find_source_by_id(NULL, deadline)) g_source_remove(deadline);
+#endif
     g_source_remove(attached);
     g_main_loop_unref(loop);
     g_object_unref(server);

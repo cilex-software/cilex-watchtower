@@ -1,4 +1,6 @@
 #include "RtspVideoSource.h"
+#include "AvailabilityObservation.h"
+#include "AvailabilityObservationBus.h"
 
 #include <QVideoSink>
 #include <QVideoFrame>
@@ -11,6 +13,7 @@
 #include <QDebug>
 #include <QUrl>
 #include <QCryptographicHash>
+#include <QUuid>
 #include <QJsonObject>
 #include <cstring>
 #include <thread>
@@ -371,6 +374,7 @@ RtspVideoSource::RtspVideoSource(QObject *parent)
 
 RtspVideoSource::~RtspVideoSource()
 {
+    closeObservation(QStringLiteral("observer_destroyed"));
     // Remove from the alive set FIRST so any in-flight callback bails out
     // before it can call QMetaObject::invokeMethod on us.
     {
@@ -384,6 +388,7 @@ void RtspVideoSource::setUrl(const QString &u)
 {
     if (m_url == u)
         return;
+    if (m_url != u) closeObservation(QStringLiteral("stream_changed"));
     m_url = u;
     const QByteArray identity = QUrl(u).adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery |
                                                 QUrl::RemoveFragment).toEncoded();
@@ -392,6 +397,7 @@ void RtspVideoSource::setUrl(const QString &u)
     m_lastSinkFrameMs = 0;
     emit urlChanged();
     rebuild();
+    updateObservationMonitoring();
 }
 
 void RtspVideoSource::setActive(bool a)
@@ -401,6 +407,7 @@ void RtspVideoSource::setActive(bool a)
     m_active = a;
     emit activeChanged();
     rebuild();
+    updateObservationMonitoring();
 }
 
 void RtspVideoSource::setVideoSink(QVideoSink *s)
@@ -410,6 +417,7 @@ void RtspVideoSource::setVideoSink(QVideoSink *s)
     m_sink = s;
     emit videoSinkChanged();
     rebuild();
+    updateObservationMonitoring();
 }
 
 void RtspVideoSource::setLatencyMs(int ms)
@@ -430,6 +438,119 @@ void RtspVideoSource::setWarmOnly(bool v)
     m_warmOnly = v;
     emit warmOnlyChanged();
     if (m_active && !m_url.isEmpty()) rebuild();   // mode change = different pipeline
+    updateObservationMonitoring();
+}
+
+void RtspVideoSource::setCameraId(const QString &value)
+{
+    if (m_cameraId == value) return;
+    closeObservation(QStringLiteral("camera_changed"));
+    m_cameraId = value;
+    emit observationIdentityChanged();
+    updateObservationMonitoring();
+}
+
+void RtspVideoSource::setStreamVariant(const QString &value)
+{
+    const QString normalized = value == QLatin1String("main") || value == QLatin1String("sub")
+        ? value : QStringLiteral("unknown");
+    if (m_streamVariant == normalized) return;
+    closeObservation(QStringLiteral("stream_changed"));
+    m_streamVariant = normalized;
+    emit observationIdentityChanged();
+    updateObservationMonitoring();
+}
+
+void RtspVideoSource::setTransport(const QString &value)
+{
+    const QString normalized = value == QLatin1String("rtsp") || value == QLatin1String("tcp")
+        ? value : QStringLiteral("unknown");
+    if (m_transport == normalized) return;
+    closeObservation(QStringLiteral("transport_changed"));
+    m_transport = normalized;
+    emit observationIdentityChanged();
+    updateObservationMonitoring();
+}
+
+void RtspVideoSource::publishObservation(const QString &state, const QString &reason,
+                                       const QString &requestedTransition)
+{
+    if (!m_observationMonitoring || m_observationState == state) return;
+    QString transition = requestedTransition;
+    if (transition.isEmpty()) {
+        if (m_observationState.isEmpty()) transition = QStringLiteral("initial");
+        else if (state == QLatin1String("available")
+                 && (m_observationState == QLatin1String("unavailable")
+                     || m_observationState == QLatin1String("degraded")))
+            transition = QStringLiteral("recovery");
+        else if (state == QLatin1String("unavailable") || state == QLatin1String("degraded"))
+            transition = QStringLiteral("failure");
+        else transition = QStringLiteral("state_change");
+    }
+    QVariantMap details {{QStringLiteral("observer_scope"), QStringLiteral("pipeline")},
+        {QStringLiteral("pipeline_id"), m_observerSession},
+        {QStringLiteral("stream_variant"), m_streamVariant},
+        {QStringLiteral("transport"), m_transport},
+        {QStringLiteral("threshold_ms"), wt::availability::liveConfirmationMs}};
+    if (!m_observationPositiveAt.isEmpty())
+        details[QStringLiteral("last_positive_at")] = m_observationPositiveAt;
+    const bool gap = transition == QLatin1String("monitoring_gap")
+        || transition == QLatin1String("monitoring_resumed");
+    auto event = wt::availability::observation(m_cameraId,
+        gap ? QStringLiteral("monitoring") : QStringLiteral("live_delivery"),
+        QStringLiteral("client_observed"), state, transition, reason, details);
+    AvailabilityObservationBus::publish(event);
+    m_observationState = state;
+}
+
+void RtspVideoSource::closeObservation(const QString &reason)
+{
+    if (m_observationMonitoring)
+        publishObservation(QStringLiteral("not_monitored"), reason, QStringLiteral("monitoring_gap"));
+    m_observationMonitoring = false;
+    m_observationState.clear();
+    if (m_observationTimer) m_observationTimer->stop();
+}
+
+void RtspVideoSource::updateObservationMonitoring()
+{
+    const bool monitor = m_active && !m_warmOnly && m_sink && !m_url.isEmpty() && !m_cameraId.isEmpty();
+    if (!monitor) { closeObservation(QStringLiteral("observer_inactive")); return; }
+    if (m_observationMonitoring) return;
+    m_observationMonitoring = true;
+    m_observerSession = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_observationStartedMs = m_observationLastTickMs = steadyMs();
+    m_observationLastWallMs = QDateTime::currentMSecsSinceEpoch();
+    m_observationPositiveMs = -1;
+    m_observationPositiveAt.clear();
+    publishObservation(QStringLiteral("unknown"), QStringLiteral("awaiting_decoded_frame"));
+    if (!m_observationTimer) {
+        m_observationTimer = new QTimer(this);
+        m_observationTimer->setInterval(5000);
+        connect(m_observationTimer, &QTimer::timeout, this, &RtspVideoSource::observationTick);
+    }
+    m_observationTimer->start();
+}
+
+void RtspVideoSource::observationTick()
+{
+    updateObservationMonitoring();
+    if (!m_observationMonitoring) return;
+    const qint64 now = steadyMs();
+    const qint64 wallNow = QDateTime::currentMSecsSinceEpoch();
+    if (wt::availability::observationClockGap(m_observationLastTickMs, now, m_observationLastWallMs, wallNow)) {
+        // A delayed GUI timer/suspend is missing observation, not a camera outage.
+        publishObservation(QStringLiteral("not_monitored"), QStringLiteral("observer_scheduling_gap"),
+                           QStringLiteral("monitoring_gap"));
+        m_observationStartedMs = now;
+        m_observationPositiveMs = -1;
+        publishObservation(QStringLiteral("unknown"), QStringLiteral("observer_resumed"),
+                           QStringLiteral("monitoring_resumed"));
+    }
+    m_observationLastTickMs = now;
+    m_observationLastWallMs = wallNow;
+    if (wt::availability::confirmedMissingFrame(m_observationStartedMs, m_observationPositiveMs, now))
+        publishObservation(QStringLiteral("unavailable"), QStringLiteral("decoded_frame_timeout"));
 }
 
 void RtspVideoSource::reconnect()
@@ -522,6 +643,7 @@ void RtspVideoSource::setErrored(bool e, const QString &msg)
     if (m_errored != e) {
         m_errored = e;
         emit erroredChanged();
+        if (e) publishObservation(QStringLiteral("degraded"), QStringLiteral("pipeline_error"));
     }
 }
 
@@ -1019,6 +1141,8 @@ GstFlowReturn RtspVideoSource::onNewSample(GstAppSink *sink, gpointer self)
                 ++me->m_framesCoalesced;
             }
             me->m_pendingFrame = frame;                 // drop any undelivered older frame
+            me->m_pendingArrivedMs = steadyMs();
+            me->m_pendingArrivedWallMs = QDateTime::currentMSecsSinceEpoch();
             if (!me->m_deliverQueued) { me->m_deliverQueued = true; needPost = true; }
         }
         if (needPost) {
@@ -1036,14 +1160,27 @@ void RtspVideoSource::deliver()
     if (!m_deliveredSinceBuild)
         qInfo("[LIVETIME] first_deliver url=%s", qUtf8Printable(QUrl(m_url).toString(QUrl::RemoveUserInfo).right(40)));
     QVideoFrame frame;
+    qint64 arrivedAt = -1;
+    qint64 arrivedWall = -1;
     {
         std::lock_guard<std::mutex> flock(m_frameMutex);
         frame = m_pendingFrame;
+        arrivedAt = m_pendingArrivedMs;
+        arrivedWall = m_pendingArrivedWallMs;
+        m_pendingArrivedMs = -1;
+        m_pendingArrivedWallMs = -1;
         m_pendingFrame = QVideoFrame();    // release the slot so the buffer can be freed
         m_deliverQueued = false;
     }
     if (!frame.isValid())
         return;
+    observationTick();
+    if (m_observationMonitoring && m_sink && wt::availability::freshDecoded(
+            arrivedAt, steadyMs(), arrivedWall, QDateTime::currentMSecsSinceEpoch())) {
+        m_observationPositiveMs = arrivedAt;
+        m_observationPositiveAt = wt::availability::instant();
+        publishObservation(QStringLiteral("available"), QStringLiteral("decoded_frame_received"));
+    }
     if (m_sink) {
         m_sink->setVideoFrame(frame);
         ++m_sinkFrames;

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(availability_packaged_sqlite_probe LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Sql)
+add_executable(availability-sqlite-smoke sqlite-smoke.cpp)
+target_link_libraries(availability-sqlite-smoke PRIVATE Qt6::Core Qt6::Sql)

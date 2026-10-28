@@ -6,7 +6,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Multimedia)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 set(WATCHTOWER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../src/models" CACHE PATH "Directory holding RtspVideoSource.cpp and .h (can be a preserved before snapshot)")
-add_executable(live-stream-identity main.cpp "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.cpp" "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.h")
+add_executable(live-stream-identity main.cpp "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.cpp" "${WATCHTOWER_SOURCE_DIR}/RtspVideoSource.h"
+    "${WATCHTOWER_SOURCE_DIR}/AvailabilityObservationBus.cpp" "${WATCHTOWER_SOURCE_DIR}/AvailabilityObservationBus.h")
 target_include_directories(live-stream-identity PRIVATE "${WATCHTOWER_SOURCE_DIR}")
 target_link_libraries(live-stream-identity PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Multimedia PkgConfig::GST)
 
