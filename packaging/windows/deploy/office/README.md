@@ -4,6 +4,31 @@ Use this when Office cannot accept a remote administrator login. It updates the
 existing Watchtower and Warden together and checks that the camera wall starts.
 It keeps a backup and automatically restores the old installation if that check fails.
 
+For a prepared **Office update ZIP**, use the short instructions in that package:
+
+1. Sign into Watchtower with its usual camera-app account and confirm the normal
+   camera wall. Keep it open.
+2. Download and extract the whole approved ZIP.
+3. Open **PowerShell as administrator** in the extracted folder and run:
+
+```powershell
+.\Update-Office.cmd
+```
+
+If Office's standard script setting blocks all scripts, the launcher asks before
+using an exception for this update run only. It leaves saved Windows policy settings unchanged and refuses
+to override an organisation-managed restriction. Declining the request stops the
+update. Send the completion message and saved result path to the deployment operator.
+
+Package preparation: after finalising the two scripts and package manifest, run
+`New-OfficeUpdateLauncher.ps1` with `-DistributionPath` and their trusted
+`-EntrySha256`, `-WrapperSha256` and `-ManifestSha256` checksums. Include its
+generated `Update-Office.cmd` in the ZIP. The launcher verifies these files before
+asking permission and again before starting the updater. It does not retry other
+Windows restrictions with an exception.
+
+The following commands are for deployment operators preparing a package manually.
+
 1. Download the approved package and extract it. Keep its trusted **manifest
    SHA-256** value from the deployment instructions.
 2. On Office, sign in as its usual `Админ` user and open **PowerShell as

@@ -59,7 +59,7 @@ Replaying the identical saved batch twice produced zero accepted new records,
 The database was opened read-only for this replay; no new event identities or
 synthetic incidents were created. See [exact replay results](real-backend-duplicate-proof.json).
 
-This is a real upload and idempotency check. Operator-authenticated history
+At that stage, this was a real upload and idempotency check. Operator-authenticated history
 read-back, manual sync from the production UI, restart acceptance and a complete
 production three-hour cycle remain separate gates.
 
@@ -69,7 +69,7 @@ advancing feeds without playback errors. Its original watchdog task was restored
 enabled/running. Both launches rejected a stale saved view; the prior 19 feeds
 were subsequently matched to their existing saved camera group. The rollout
 result and original backups are retained under
-`C:/wt/availability-rollout-20261029-r2`. Installation remains incomplete until
+`C:/wt/availability-rollout-20261029-r2`. Installation then remained incomplete until
 the intended camera view and the original video acceptance are restored.
 
 ### Station sign-in continuity correction
@@ -97,12 +97,91 @@ Both translation catalogs parsed and contain all three new status messages.
 
 ## Separate deployment gates
 
+### October 30 follow-up and storage correction
+
+Watchtower 1.1.790 and Warden 1.5.0 were installed successfully on the Booth
+in rollout `C:/wt/availability-rollout-20261029-r3`. At the October 30 follow-up,
+the running application was a later Warden-owned launch, PID 18264, created
+October 29 15:22:17 UTC; Warden PID 18452 was unchanged. Its seven currently
+selected feeds were advancing without playback errors. This is the current
+operator view, not the earlier 19/21-feed rollout baseline. The cause of the
+intervening launch was not established.
+
+Read-only journal inspection proved genuine production ACK waves at October 29
+15:23, 18:24 and 21:24 UTC. Last success was 21:24:33 UTC, with the next scheduled
+sync at 00:24:37 UTC. There were no rejected/unrecorded events or sync error;
+24,382 events and 52 batches were acknowledged and 25,962 native records imported.
+Pending observations since the last cycle were expected. This establishes the
+production three-hour cadence; reboot, physical sleep and operator manual-sync
+acceptance remain unverified. Evidence is retained under
+`C:/wt/availability-office-followup-20261030`.
+
+The database plus WAL occupied about 232 MB against the former 256 MiB budget.
+The 100 MB WAL allocation contained only about 6.9 MB of current frames; most was
+a reusable high-water tail. The corrected journal closes single-row read cursors,
+sets a 1 MiB WAL reset limit, reclaims space outside transactions without waiting
+for readers, and restores the normal 250 ms write timeout. The default physical
+budget is now 2 GiB. Batch-envelope growth also passes the capacity fence. No
+automatic history purge or schema migration was added.
+
+Fresh native SQLite checks: **156 passed, zero failures**; the independent rerun
+also passed 156. A 4,972,872-byte reusable WAL was reclaimed to zero while saved
+history, pending/rejected records, native cursors and active immutable retry
+bytes remained unchanged. Both incomplete-backfill and fully-backfilled but
+TRUNCATE-busy reader cases refused promptly, then recovered with a durable gap
+after the reader released. Evidence:
+`C:/wt/availability-storage-tests-20261030/{results.txt,independent-review-results.txt}`.
+The fresh worker/journal HTTP integration also passed **22 checks**, zero failures,
+using the changed journal under `C:/wt/availability-storage-sync-20261030`.
+Before replacement, the live journal was opened read-only and copied with the
+SQLite backup API. The copy passed `quick_check`, retaining 52,234 events;
+proof and backup are under `C:/wt/availability-storage-backup-20261030`.
+
+The user confirmed Office's display-session check succeeds, but its saved
+`APP_ENV` does not configure station-token fallback. This does not establish
+unattended app sign-in. Office must show its normal camera wall before updating;
+no Booth credential is copied there. Its 1.1.790 PS1 update was blocked by Windows
+before execution. The Booth test firewall prompt was closed by the user.
+
+The new Office CMD factory pins the entry script, wrapper and manifest before
+consent and again before launch. Only unmanaged effective Restricted policy
+offers a clear one-run child-process exception. Managed Restricted refuses;
+other policies receive one normal attempt without automatic exception or retry.
+No saved policy is changed. Harmless fixture children exercise the actual
+generated CMD, Unicode/special paths and output/exit propagation; no production
+updater, security policy or remote machine is touched by these tests.
+The final launcher suite passed **37 checks under Windows PowerShell 5.1 and
+37 under PowerShell 7.6.5**. Each run exercised both parent engines. A discovered
+PowerShell 7 module-lookup incompatibility was fixed by using trusted Desktop
+module folders inside the launcher's process and its child only. The actual
+child imported Security, ScheduledTasks and CimCmdlets, hashed a harmless file,
+and preserved its output and exact exit status. Reproduce with
+`packaging/windows/deploy/office/test-office-launcher.ps1`; the fixture never
+runs the production updater.
+
+The first publication attempt stopped at two existing Labs process-fixture
+assertions: concurrent Windows appends lost one decoder PID record. A focused
+two-process reproduction lost records in 2,970 of 3,000 rounds. The fixture now
+atomically publishes one PID file per camera; 3,000 rounds lost no records.
+All lifecycle assertions, real child-process checks and timeouts remain intact;
+no Labs product code changed. Evidence: `C:/wt/labs-pid-record-proof-20261030.json`.
+The rerun exposed the same shared-append defect in fixture submission JSON.
+Each submission now publishes a distinct complete JSON file atomically. Two
+concurrent writers retained all 2,000 submissions, including repeat submissions
+for the same camera; live reads saw no partial JSON and malformed published JSON
+still fails. Evidence: `C:/wt/labs-submission-record-proof-20261030.json`.
+The final required pre-commit validation body then passed in full: Labs worker
+422 assertions, B1 40, A4-A6 79/79, object profile 40/40, frame-source process/GOP
+checks and repository invariants. Version 1.1.791 was retained after the failed
+initial attempt; validation was run separately to avoid another version bump.
+Evidence: `C:/wt/availability-storage-required-checks-final-20261030.log`.
+
 Passing fixtures establishes implementation behavior, not unattended station
 acceptance. The final committed package must separately pass isolated startup,
 its own SQLite runtime check, a bounded real backend round trip using genuine
 observations, and station startup/advancing-frame checks after replacement.
-The 180-minute schedule is tested with an injected clock; a full production
-three-hour cycle and reboot recovery are separate observations.
+The 180-minute schedule is tested with an injected clock; the real three-hour
+cadence was subsequently measured above. Reboot recovery is unverified.
 
 Office's administrator share and service manager reject this session's account.
 The user can run an approved local command as Office administrator. Until that

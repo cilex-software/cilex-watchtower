@@ -2,7 +2,9 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
 #include <QSqlError>
@@ -60,6 +62,33 @@ QSqlDatabase journalDb()
     for (const auto &name : QSqlDatabase::connectionNames())
         if (name.startsWith(QStringLiteral("availability-"))) return QSqlDatabase::database(name);
     return {};
+}
+bool fixtureSql(const QSqlDatabase &db, const QString &sql)
+{
+    QSqlQuery query(db);
+    const bool ok = query.exec(sql);
+    query.finish();
+    return ok;
+}
+qint64 fixtureInteger(const QSqlDatabase &db, const QString &sql)
+{
+    QSqlQuery query(db);
+    if (!query.exec(sql) || !query.next()) return -1;
+    const auto value = query.value(0).toLongLong();
+    query.finish();
+    return value;
+}
+bool growFixtureWal(const QSqlDatabase &db)
+{
+    // Repeated updates grow the WAL without growing retained history or the
+    // main database by the same amount. Disable only this disposable fixture's
+    // automatic reclamation to reproduce an existing oversized WAL tail.
+    if (!fixtureSql(db,QStringLiteral("PRAGMA wal_autocheckpoint=0"))
+        || !fixtureSql(db,QStringLiteral("PRAGMA journal_size_limit=-1"))
+        || !fixtureSql(db,QStringLiteral("INSERT INTO metadata(key,value) VALUES ('wal_fixture',randomblob(65536))"))) return false;
+    for (int i=0;i<64;++i)
+        if (!fixtureSql(db,QStringLiteral("UPDATE metadata SET value=randomblob(65536) WHERE key='wal_fixture'"))) return false;
+    return true;
 }
 QJsonObject nativeEvent()
 {
@@ -593,6 +622,172 @@ int main(int argc, char **argv)
         for(auto v:journal.history({}, {}, {},1000)) if(v.toObject().value(QStringLiteral("reason_code")).toString() == QLatin1String("local_logging_interrupted")) durableGap=true;
         check(!restored.isEmpty() && durableGap && journal.error().isEmpty(),
               "first restored unknown commits storage gap and baseline instead of deduplicating rollback");
+    }
+    {
+        CameraAvailabilityJournal journal;
+        const auto path=temporary.filePath(QStringLiteral("reusable-wal-capacity.sqlite"));
+        check(setup(journal,path),"reusable WAL capacity fixture open");
+        auto db=journalDb();
+        check(CameraAvailabilityJournal::DefaultDatabaseByteLimit == 2LL*1024*1024*1024
+              && fixtureInteger(db,QStringLiteral("PRAGMA journal_size_limit")) == 1048576,
+              "named two GiB default and one MiB retained WAL limit configured");
+        const auto initial=journal.observe(observation(QStringLiteral("available")),base,1);
+        const auto poison=journal.observe(observation(QStringLiteral("unavailable"),QStringLiteral("poison")),base,2);
+        const auto acknowledged=journal.prepareBatch(2,1048576,base);
+        check(!initial.isEmpty() && !poison.isEmpty() && journal.applyAck(ackFor(acknowledged),base)
+              && journal.rejectEvents({poison},QStringLiteral("fixture_rejection"),base)
+              && journal.importNative({nativeEvent()},QStringLiteral("retained-native-cursor"),base),
+              "WAL fixture contains acknowledged rejected native and pending history");
+        check(!journal.observe(observation(QStringLiteral("available"),QStringLiteral("pending")),base,3).isEmpty()
+              && !journal.prepareBatch(500,1048576,base).isEmpty(),"WAL fixture retains an immutable active envelope");
+        const auto retry=journal.batchPayload();
+        const auto before=journal.history({}, {}, {},1000);
+        check(growFixtureWal(db) && fixtureSql(db,QStringLiteral("PRAGMA wal_checkpoint(PASSIVE)"))
+              && fixtureSql(db,QStringLiteral("UPDATE metadata SET value='rewound' WHERE key='wal_fixture'"))
+              && QFileInfo(path+QStringLiteral("-wal")).size() > 2*1048576,
+              "fixture reproduces a large reusable WAL tail after checkpoint and reset");
+        const auto retainedWalBytes=QFileInfo(path+QStringLiteral("-wal")).size();
+        check(journal.maintenance(base,0,0,1048576)
+              && QFileInfo(path).size()+QFileInfo(path+QStringLiteral("-wal")).size() < 1048576,
+              "physical capacity reclaims reusable WAL instead of refusing healthy storage");
+        QTextStream(stdout) << "WAL_RECLAIM before=" << retainedWalBytes << " after="
+            << QFileInfo(path+QStringLiteral("-wal")).size() << Qt::endl;
+        check(journal.history({}, {}, {},1000) == before
+              && journal.nativeCursor() == QLatin1String("retained-native-cursor")
+              && !journal.prepareBatch(500,1048576,base).isEmpty() && journal.batchPayload() == retry,
+              "WAL reclamation preserves all delivery states native cursor and exact retry bytes");
+        check(!journal.observe(observation(QStringLiteral("unavailable"),QStringLiteral("pending")),base,4).isEmpty()
+              && journal.status(base).value(QStringLiteral("loggingComplete")).toBool(),
+              "new observations continue after reclaim without a fabricated logging gap");
+        check(fixtureSql(db,QStringLiteral("INSERT INTO metadata(key,value) VALUES ('default_budget_fixture',zeroblob(1100000))"))
+              && !journal.maintenance(base,0,0,1048576) && journal.maintenance(base)
+              && !journal.observe(observation(QStringLiteral("available"),QStringLiteral("pending")),base,5).isEmpty(),
+              "default maintenance restores the same larger budget used by a fresh journal");
+    }
+    {
+        CameraAvailabilityJournal journal;
+        const auto path=temporary.filePath(QStringLiteral("reader-blocked-capacity.sqlite"));
+        check(setup(journal,path),"reader blocked WAL capacity fixture open");
+        const auto failure=journal.observe(observation(QStringLiteral("unavailable")),base,1);
+        check(!failure.isEmpty() && journal.importNative({nativeEvent()},QStringLiteral("reader-original-cursor"),base)
+              && !journal.prepareBatch(500,1048576,base).isEmpty(),"reader fixture has durable history native cursor and retry envelope");
+        const auto retry=journal.batchPayload();
+        const auto before=journal.history({}, {}, {},1000);
+        auto db=journalDb();
+        const auto externalName=QStringLiteral("capacity-reader");
+        {
+            auto reader=QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),externalName);
+            reader.setDatabaseName(path);
+            reader.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));
+            QSqlQuery held(reader);
+            check(reader.open() && held.exec(QStringLiteral("SELECT payload FROM events")) && held.next(),
+                  "separate read-only connection pins the old WAL snapshot");
+            check(growFixtureWal(db) && QFileInfo(path+QStringLiteral("-wal")).size()>2*1048576,
+                  "pinned reader fixture grows WAL beyond a tiny physical budget");
+            QElapsedTimer elapsed;elapsed.start();
+            const bool refused=!journal.maintenance(base,0,0,1048576)
+                && journal.error() == QLatin1String("storage_capacity_exceeded");
+            const auto elapsedMs=elapsed.elapsed();
+            check(refused && elapsedMs<1500,"reader blocked reclamation refuses honestly without waiting for reader release");
+            QTextStream(stdout) << "WAL_READER bytes=" << QFileInfo(path+QStringLiteral("-wal")).size()
+                << " refusal_ms=" << elapsedMs << Qt::endl;
+            check(held.next() && !held.value(0).toByteArray().isEmpty(),
+                  "blocked checkpoint leaves the reader's old snapshot readable");
+            auto next=nativeEvent();next.insert(QStringLiteral("event_id"),QUuid::createUuid().toString(QUuid::WithoutBraces));
+            next.insert(QStringLiteral("local_seq"),2);next.insert(QStringLiteral("position"),2);
+            check(!journal.importNative({next},QStringLiteral("reader-forbidden-cursor"),base)
+                  && journal.error() == QLatin1String("storage_capacity_exceeded")
+                  && journal.nativeCursor() == QLatin1String("reader-original-cursor")
+                  && journal.history({}, {}, {},1000) == before,
+                  "blocked native page cannot change its cursor or retained history");
+            check(journal.observe(observation(QStringLiteral("available")),base.addSecs(1),1001).isEmpty()
+                  && journal.error() == QLatin1String("storage_capacity_exceeded")
+                  && !journal.status(base).value(QStringLiteral("loggingComplete")).toBool(),
+                  "blocked local observation surfaces incomplete logging");
+            check(!journal.prepareBatch(500,1048576,base).isEmpty() && journal.batchPayload() == retry
+                  && fixtureInteger(db,QStringLiteral("PRAGMA busy_timeout")) == 250,
+                  "reader pressure preserves the exact active envelope and normal write timeout");
+            held.finish();reader.close();
+        }
+        QSqlDatabase::removeDatabase(externalName);
+        check(journal.maintenance(base,0,0,1048576) && journal.history({}, {}, {},1000) == before,
+              "reader release reclaims WAL while every history row survives");
+        const auto resumed=journal.observe(observation(QStringLiteral("available")),base.addSecs(2),2001);
+        bool gap=false;
+        for (const auto &row:journal.history({}, {}, {},1000))
+            if (row.toObject().value(QStringLiteral("reason_code")).toString() == QLatin1String("local_logging_interrupted")) gap=true;
+        const auto resumedEvent=eventById(journal,resumed);
+        check(!resumed.isEmpty() && gap
+              && resumedEvent.value(QStringLiteral("transition")).toString() == QLatin1String("initial")
+              && !resumedEvent.contains(QStringLiteral("duration_ms"))
+              && !journal.prepareBatch(500,1048576,base).isEmpty() && journal.batchPayload() == retry,
+              "logging resumes with a durable gap and fresh baseline without changing active retry bytes");
+        auto next=nativeEvent();next.insert(QStringLiteral("event_id"),QUuid::createUuid().toString(QUuid::WithoutBraces));
+        next.insert(QStringLiteral("local_seq"),2);next.insert(QStringLiteral("position"),2);
+        check(journal.importNative({next},QStringLiteral("reader-recovered-cursor"),base)
+              && journal.nativeCursor() == QLatin1String("reader-recovered-cursor"),
+              "native import and cursor commit recover after reader release");
+    }
+    {
+        CameraAvailabilityJournal journal;
+        const auto path=temporary.filePath(QStringLiteral("backfilled-reader-capacity.sqlite"));
+        check(setup(journal,path)
+              && !journal.observe(observation(QStringLiteral("available")),base,1).isEmpty()
+              && !journal.observe(observation(QStringLiteral("unavailable")),base,2).isEmpty(),
+              "fully backfilled reader capacity fixture open");
+        auto db=journalDb();
+        check(growFixtureWal(db),"fully backfilled reader fixture grows retained WAL");
+        const auto before=journal.history({}, {}, {},1000);
+        const auto externalName=QStringLiteral("backfilled-capacity-reader");
+        {
+            auto reader=QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),externalName);
+            reader.setDatabaseName(path);reader.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));
+            QSqlQuery held(reader);
+            check(reader.open() && held.exec(QStringLiteral("SELECT payload FROM events")) && held.next(),
+                  "latest snapshot reader pins WAL before passive checkpoint");
+            QSqlQuery checkpoint(db);
+            check(checkpoint.exec(QStringLiteral("PRAGMA wal_checkpoint(PASSIVE)")) && checkpoint.next()
+                  && checkpoint.value(0).toInt()==0 && checkpoint.value(1).toLongLong()>0
+                  && checkpoint.value(1).toLongLong()==checkpoint.value(2).toLongLong(),
+                  "all WAL frames backfill while latest reader still pins WAL reset");
+            checkpoint.finish();
+            QElapsedTimer elapsed;elapsed.start();
+            const bool refused=!journal.maintenance(base,0,0,1048576)
+                && journal.error()==QLatin1String("storage_capacity_exceeded");
+            const auto elapsedMs=elapsed.elapsed();
+            check(refused && elapsedMs<1500 && fixtureInteger(db,QStringLiteral("PRAGMA busy_timeout"))==250,
+                  "busy truncate returns promptly and restores normal write timeout");
+            QTextStream(stdout) << "WAL_TRUNCATE_BUSY bytes=" << QFileInfo(path+QStringLiteral("-wal")).size()
+                << " refusal_ms=" << elapsedMs << Qt::endl;
+            check(held.next() && !held.value(0).toByteArray().isEmpty() && journal.history({}, {}, {},1000)==before,
+                  "busy truncate preserves reader snapshot and all retained history");
+            held.finish();reader.close();
+        }
+        QSqlDatabase::removeDatabase(externalName);
+        check(journal.maintenance(base,0,0,1048576)
+              && QFileInfo(path+QStringLiteral("-wal")).size()==0 && journal.history({}, {}, {},1000)==before,
+              "fully backfilled WAL truncates safely after last reader releases");
+    }
+    {
+        CameraAvailabilityJournal journal;
+        const auto path=temporary.filePath(QStringLiteral("batch-capacity.sqlite"));
+        check(setup(journal,path),"immutable envelope capacity fixture open");
+        bool generated=true;
+        for (int i=0;i<120;++i)
+            generated=generated && !journal.observe(observation(QStringLiteral("available"),QStringLiteral("batch-%1").arg(i)),base,i).isEmpty();
+        auto db=journalDb();
+        generated=generated && fixtureSql(db,QStringLiteral("INSERT INTO metadata(key,value) VALUES ('batch_capacity_fixture',zeroblob(1100000))"));
+        const auto logicalBytes=fixtureInteger(db,QStringLiteral("PRAGMA page_count"))*fixtureInteger(db,QStringLiteral("PRAGMA page_size"));
+        const auto before=journal.history({}, {}, {},1000);
+        check(generated && journal.maintenance(base,0,0,logicalBytes+65536),"batch fixture has retained events with insufficient envelope headroom");
+        check(journal.prepareBatch(500,1048576,base).isEmpty()
+              && journal.error() == QLatin1String("storage_capacity_exceeded")
+              && journal.status(base).value(QStringLiteral("activeBatchId")).toString().isEmpty()
+              && journal.history({}, {}, {},1000) == before,
+              "envelope capacity refusal keeps every pending event and creates no partial batch");
+        check(journal.maintenance(base) && !journal.prepareBatch(500,1048576,base).isEmpty()
+              && journal.history({}, {}, {},1000) == before,
+              "envelope creation recovers under default budget without changing event identities");
     }
     {
         CameraAvailabilityJournal journal;

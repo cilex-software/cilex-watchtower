@@ -17,6 +17,8 @@
 #include <limits>
 
 namespace {
+constexpr qint64 WalRetentionBytes = 1024 * 1024;
+constexpr qint64 MinimumTransactionReserve = 16384;
 QString uuid() { return QUuid::createUuid().toString(QUuid::WithoutBraces); }
 QString instant(const QDateTime &dt) { return dt.toUTC().toString(Qt::ISODateWithMs); }
 bool isUuid(const QString &s)
@@ -205,6 +207,9 @@ bool CameraAvailabilityJournal::exec(const QString &sql) const
 bool CameraAvailabilityJournal::begin() const
 {
     m_transactionBytes = 0;
+    // Only the journal worker calls this, before BEGIN and before its own read
+    // cursors exist. A retained WAL tail is reusable storage, not more history.
+    if (!reclaimWal()) return false;
     return exec(QStringLiteral("BEGIN IMMEDIATE"));
 }
 bool CameraAvailabilityJournal::commit() const
@@ -222,6 +227,52 @@ void CameraAvailabilityJournal::rollback() const
     QSqlQuery query(m_db);
     query.exec(QStringLiteral("ROLLBACK"));
     m_transactionBytes = 0;
+}
+
+bool CameraAvailabilityJournal::reclaimWal(bool forceCheckpoint) const
+{
+    const auto walBytes = QFileInfo(m_path + QStringLiteral("-wal")).size();
+    const auto bytes = QFileInfo(m_path).size() + walBytes;
+    const bool pressure = walBytes > WalRetentionBytes
+        || bytes + MinimumTransactionReserve > m_capacityBytes;
+    if (!forceCheckpoint && !pressure) return true;
+
+    const auto checkpoint = [this](const QString &mode, bool *complete) {
+        QSqlQuery query(m_db);
+        if (!query.exec(QStringLiteral("PRAGMA wal_checkpoint(%1)").arg(mode))) {
+            const auto code = sqlCode(query.lastError());
+            query.finish();
+            // A reader may defer reclamation. The subsequent physical capacity
+            // fence still refuses growth; no event/cursor has changed here.
+            return code == QLatin1String("sqlite_busy") || fail(code);
+        }
+        if (!query.next()) { query.finish(); return fail(QStringLiteral("sqlite_error")); }
+        if (complete) *complete = query.value(0).toInt() == 0
+            && query.value(1).toLongLong() >= 0
+            && query.value(1).toLongLong() == query.value(2).toLongLong();
+        query.finish();
+        return true;
+    };
+    bool complete = false;
+    if (!checkpoint(QStringLiteral("PASSIVE"), &complete)) return false;
+    if (!pressure || !complete) return true;
+
+    // Do not wait for another reader to release the WAL. SQLite performs the
+    // checkpoint on this worker, never on the GUI thread. Restore the normal
+    // short write-lock timeout on every path after the temporary override.
+    if (!exec(QStringLiteral("PRAGMA busy_timeout=0"))) return false;
+    const bool reclaimed = checkpoint(QStringLiteral("TRUNCATE"), nullptr);
+    const bool restored = exec(QStringLiteral("PRAGMA busy_timeout=250"));
+    return reclaimed && restored;
+}
+
+bool CameraAvailabilityJournal::reserveStorage(qint64 bytes) const
+{
+    const qint64 currentBytes = QFileInfo(m_path).size() + QFileInfo(m_path + QStringLiteral("-wal")).size();
+    if (currentBytes + m_transactionBytes + bytes > m_capacityBytes)
+        return fail(QStringLiteral("storage_capacity_exceeded"), QStringLiteral("capacity_exceeded"));
+    m_transactionBytes += bytes;
+    return true;
 }
 
 void CameraAvailabilityJournal::noteUnrecorded()
@@ -275,6 +326,7 @@ bool CameraAvailabilityJournal::open(const QString &path, const QDateTime &nowUt
         || !exec(QStringLiteral("PRAGMA journal_mode=WAL"))
         || !exec(QStringLiteral("PRAGMA synchronous=FULL"))
         || !exec(QStringLiteral("PRAGMA wal_autocheckpoint=256"))
+        || !exec(QStringLiteral("PRAGMA journal_size_limit=1048576"))
         || !ensureSchema()) return abortOpen();
     QSqlQuery check(m_db);
     if (!check.exec(QStringLiteral("PRAGMA quick_check(1)")) || !check.next()
@@ -284,6 +336,7 @@ bool CameraAvailabilityJournal::open(const QString &path, const QDateTime &nowUt
         check.finish();
         return abortOpen();
     }
+    check.finish();
 #ifndef Q_OS_WIN
     // The application owns the dedicated directory; do not chmod shared parents.
     QFile::setPermissions(m_path, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
@@ -315,6 +368,7 @@ bool CameraAvailabilityJournal::ensureSchema()
     if (!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())
         return fail(sqlCode(version.lastError()));
     const int existing = version.value(0).toInt();
+    version.finish();
     if (existing > SchemaVersion || existing < 0) return fail(QStringLiteral("unsupported_schema"));
     if (existing == SchemaVersion) return true;
     if (!begin()) return false;
@@ -453,12 +507,8 @@ QString CameraAvailabilityJournal::appendEvent(QJsonObject event, const QString 
     // one capacity fence. Reserve transaction growth because WAL pages may not
     // reach the filesystem until commit. Refusal never advances a native cursor.
     const QByteArray payload = compact(event);
-    const qint64 reserve = std::max<qint64>(16384, payload.size() * 2 + 8192);
-    const qint64 currentBytes = QFileInfo(m_path).size() + QFileInfo(m_path + QStringLiteral("-wal")).size();
-    if (currentBytes + m_transactionBytes + reserve > m_capacityBytes) {
-        fail(QStringLiteral("storage_capacity_exceeded"), QStringLiteral("capacity_exceeded")); return {};
-    }
-    m_transactionBytes += reserve;
+    const qint64 reserve = std::max<qint64>(MinimumTransactionReserve, payload.size() * 2 + 8192);
+    if (!reserveStorage(reserve)) return {};
     QSqlQuery query(m_db);
     query.prepare(QStringLiteral("INSERT INTO events(event_id,context_id,local_seq,payload,observed_at,camera_id,domain,"
                                  "provenance,state,transition,condition_key,condition_id,run_id,delivery,native_key) "
@@ -633,11 +683,6 @@ QString CameraAvailabilityJournal::observe(const QJsonObject &observation, const
     static const QSet<QString> transitions { QStringLiteral("initial"), QStringLiteral("failure"), QStringLiteral("recovery"),
         QStringLiteral("state_change"), QStringLiteral("monitoring_gap"), QStringLiteral("monitoring_resumed") };
     clearError();
-    if (QFileInfo(m_path).size() + QFileInfo(m_path + QStringLiteral("-wal")).size() >= m_capacityBytes) {
-        noteUnrecorded();
-        fail(QStringLiteral("storage_capacity_exceeded"), QStringLiteral("capacity_exceeded"));
-        return {};
-    }
     const QString domain = observation.value(QStringLiteral("domain")).toString();
     const QString state = observation.value(QStringLiteral("state")).toString();
     const QString source = observation.value(QStringLiteral("provenance")).toString(QStringLiteral("client_observed"));
@@ -728,6 +773,7 @@ QString CameraAvailabilityJournal::observe(const QJsonObject &observation, const
     if (gap) conditionId.clear();
     QString failureId = hasPrevious ? previous.value(6).toString() : QString();
     QVariant failureMono = hasPrevious ? previous.value(7) : QVariant();
+    previous.finish();
     bool changedReportedIncident = false;
     if (hasPrevious && oldState == state && source == QLatin1String("backend_reported_by_client")) {
         QSqlQuery oldPayload(m_db);
@@ -925,6 +971,11 @@ QJsonObject CameraAvailabilityJournal::prepareBatch(int maxEvents, qint64 maxByt
     }
     envelope.insert(QStringLiteral("events"), events);
     const QByteArray payload = compact(envelope);
+    // Envelopes duplicate immutable event JSON and add membership/index rows.
+    // Refuse the entire transaction before assigning an active batch when that
+    // bounded extra storage cannot fit; the original pending records survive.
+    if (!reserveStorage(std::max<qint64>(MinimumTransactionReserve,
+            payload.size() * 2 + 8192 + ids.size() * 256))) { rollback(); return {}; }
     QSqlQuery batch(m_db);
     batch.prepare(QStringLiteral("INSERT INTO batches(batch_id,context_id,payload,state,created_at) VALUES (?,?,?,'pending',?)"));
     batch.addBindValue(batchId); batch.addBindValue(m_contextId); batch.addBindValue(payload); batch.addBindValue(instant(nowUtc));
@@ -963,6 +1014,7 @@ bool CameraAvailabilityJournal::applyAck(const QJsonObject &ack, const QDateTime
     active.addBindValue(m_contextId);
     if (!active.exec() || !active.next()) return fail(sqlCode(active.lastError()));
     const QString batchId = active.value(0).toString();
+    active.finish();
     if (batchId.isEmpty() || ack.value(QStringLiteral("batch_id")).toString() != batchId)
         return fail(QStringLiteral("mismatched_ack"), QStringLiteral("healthy"));
     QSqlQuery members(m_db);
@@ -1079,11 +1131,14 @@ bool CameraAvailabilityJournal::importNative(const QJsonArray &events, const QSt
         duplicate.addBindValue(id); duplicate.addBindValue(m_contextId);
         if (!duplicate.exec()) { fail(sqlCode(duplicate.lastError())); rollback(); return false; }
         if (duplicate.next()) {
-            if (immutableNative(QJsonDocument::fromJson(duplicate.value(0).toByteArray()).object()) != immutableNative(event)) {
+            const auto existing = QJsonDocument::fromJson(duplicate.value(0).toByteArray()).object();
+            duplicate.finish();
+            if (immutableNative(existing) != immutableNative(event)) {
                 rollback(); return fail(QStringLiteral("native_event_conflict"), QStringLiteral("healthy"));
             }
             continue;
         }
+        duplicate.finish();
         if (appendEvent(event, {}, QStringLiteral("native"), nowUtc, true).isEmpty()) { rollback(); return false; }
     }
     if (!writeContext(QStringLiteral("native_cursor"), nextCursor) || !commit()) { rollback(); return false; }
@@ -1351,9 +1406,7 @@ bool CameraAvailabilityJournal::maintenance(const QDateTime &nowUtc, int retenti
     excess.addBindValue(acknowledgedRowLimit);
     if (acknowledgedRowLimit > 0 && !excess.exec()) { fail(sqlCode(excess.lastError())); rollback(); return false; }
     if ((retentionDays > 0 || acknowledgedRowLimit > 0) && !commit()) return false;
-    // A bounded passive checkpoint never waits for another reader to finish.
-    QSqlQuery checkpoint(m_db);
-    if (!checkpoint.exec(QStringLiteral("PRAGMA wal_checkpoint(PASSIVE)"))) return fail(sqlCode(checkpoint.lastError()));
+    if (!reclaimWal(true)) return false;
     const qint64 bytes = QFileInfo(m_path).size() + QFileInfo(m_path + QStringLiteral("-wal")).size();
     if (bytes > databaseByteLimit) return fail(QStringLiteral("storage_capacity_exceeded"), QStringLiteral("capacity_exceeded"));
     clearError();

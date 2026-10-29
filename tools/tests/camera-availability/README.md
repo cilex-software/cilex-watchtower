@@ -25,6 +25,12 @@ One isolated child exits without destructors after committing a WAL transaction.
 Failed writes remain failures; a later successful commit preserves the observed
 logging-loss counter.
 
+Reusable WAL fixtures preserve history and exact active retry bytes while
+reclaiming the allocated tail. Independent readers exercise incomplete
+checkpoints and fully backfilled but busy truncation, prompt capacity refusal,
+restoration of the normal timeout, and recovery after releasing the reader.
+Batch-envelope allocation is covered by the same physical capacity fence.
+
 Capacity checks cover ordinary observations, native imports and monitoring-run
 boundaries. Native page refusal leaves both events and cursor unchanged. A
 successful write after observation loss commits an explicit gap and a fresh

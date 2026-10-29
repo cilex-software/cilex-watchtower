@@ -43,8 +43,11 @@ grant or rejected credential. Never copy another station's credential.
 
 The database is `availability/availability.sqlite3` under the application's data
 directory. History is retained indefinitely by default. The default local storage
-budget is 256 MiB. Pending/rejected records are not silently removed; storage
+budget is 2 GiB. Reusable SQLite working files are reclaimed before a full-store
+refusal; this does not delete history or queued uploads. Pending/rejected records
+are not silently removed; storage
 failure or capacity exhaustion is shown as incomplete logging and needs attention.
+Indefinite retention describes the deletion policy, not unlimited disk space.
 Do not delete the database to clear an upload problem.
 
 Deployment and real-server acceptance must be checked separately. See the

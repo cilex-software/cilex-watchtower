@@ -16,6 +16,7 @@ public:
     static constexpr qint64 SyncIntervalMs = 180LL * 60 * 1000;
     static constexpr int SchemaVersion = 1;
     static constexpr int DefaultHistoryLimit = 200;
+    static constexpr qint64 DefaultDatabaseByteLimit = 2LL * 1024 * 1024 * 1024;
 
     CameraAvailabilityJournal();
     ~CameraAvailabilityJournal();
@@ -80,7 +81,7 @@ public:
     // events, unresolved conditions or active retry envelopes.
     bool maintenance(const QDateTime &nowUtc, int retentionDays = 0,
                      qint64 acknowledgedRowLimit = 0,
-                     qint64 databaseByteLimit = 256LL * 1024 * 1024);
+                     qint64 databaseByteLimit = DefaultDatabaseByteLimit);
 
     static QJsonObject sanitizedDetails(const QJsonObject &details);
 
@@ -91,6 +92,8 @@ private:
     bool begin() const;
     bool commit() const;
     void rollback() const;
+    bool reclaimWal(bool forceCheckpoint = false) const;
+    bool reserveStorage(qint64 bytes) const;
     QString meta(const QString &key, const QString &fallback = {}) const;
     bool putMeta(const QString &key, const QString &value) const;
     bool loadContext(const QString &key);
@@ -122,5 +125,5 @@ private:
     mutable qint64 m_unrecordedCount = 0;
     mutable qint64 m_transactionBytes = 0;
     bool m_observationLossPending = false;
-    qint64 m_capacityBytes = 256LL * 1024 * 1024;
+    qint64 m_capacityBytes = DefaultDatabaseByteLimit;
 };

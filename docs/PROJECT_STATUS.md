@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-30 — Availability storage recovery and simple Office update launcher.**
+> The Booth's real three-hour uploads succeeded at 15:23, 18:24 and 21:24 UTC
+> on October 29, with no rejected or unrecorded observations at inspection.
+> Its SQLite files were near the previous 256 MiB budget, largely from a retained
+> reusable WAL tail. The journal now reclaims reusable space without deleting
+> history and uses a consistent 2 GiB budget. A fresh native suite and independent
+> rerun each passed 156 checks, including reader locks, cursor rollback and exact
+> retry preservation. Office's camera sign-in check passed; its updater was
+> blocked before execution by Windows script policy. A package-pinned CMD launcher
+> offers explicit local consent for one temporary process only under unmanaged
+> Restricted policy; managed restrictions are preserved. Full package and station
+> deployment remain separate gates.
+> [Verification](verification/2026-10-29-camera-availability/README.md).
+
 > **2026-10-29 — Station sign-in continuity and real availability pilot.**
 > A real Booth run uploaded 407 genuine observations and imported 17,626 native
 > records. Two identical saved-batch retries each returned 407 duplicates with

@@ -3148,7 +3148,7 @@ except Exception:
     _FF = None
 open(os.path.join(_CH, "labs_test_child.py"), "w", encoding="utf-8").write(_tw.dedent(f'''
     """Test doubles for unit processes (tools/tests/labs-worker.py). Written by the tests; not shipped."""
-    import json, logging, os, subprocess, time
+    import json, logging, os, subprocess, time, uuid
     import worker as W
     OUT, PIDS, FFMPEG = {_CH_OUT!r}, {_CH_PIDS!r}, {_FF!r}
     class FileClient:
@@ -3159,9 +3159,12 @@ open(os.path.join(_CH, "labs_test_child.py"), "w", encoding="utf-8").write(_tw.d
             open(dest, "wb").write(b"x" * 100)
             return 100
         def submit(self, u, body):
-            with open(OUT, "a", encoding="utf-8") as f:
+            # Keep concurrent submissions complete and distinct (Windows append probe, 2026-10-30).
+            record = OUT + "." + uuid.uuid4().hex + ".json"
+            with open(record + ".tmp", "w", encoding="utf-8") as f:
                 f.write(json.dumps({{"camera_id": u.camera_id, "failed": bool(body.get("failed")),
                                     "blas": os.environ.get("OPENBLAS_NUM_THREADS"), "pid": os.getpid()}}) + "\\n")
+            os.replace(record + ".tmp", record)
     def client(spec): return FileClient()
     def decode(path, kf, want_chroma, **k): return [None]
     class Plug:
@@ -3182,8 +3185,12 @@ open(os.path.join(_CH, "labs_test_child.py"), "w", encoding="utf-8").write(_tw.d
                 p = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc",
                                       "-f", "null", "-"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL)
-                with open(PIDS, "a", encoding="utf-8") as f:
-                    f.write(f"{{u.camera_id}} {{p.pid}}\\n")
+                # A shared append file lost one writer in 2,970/3,000 synchronized
+                # Windows rounds (2026-10-30 fixture probe). Publish one complete PID per camera.
+                pid_path = PIDS + "." + u.camera_id
+                with open(pid_path + ".tmp", "w", encoding="ascii") as f:
+                    f.write(str(p.pid))
+                os.replace(pid_path + ".tmp", pid_path)
                 p.wait()
                 raise RuntimeError(f"ffmpeg exited {{p.returncode}}")   # what a killed decoder looks like
             for _ in stream:
@@ -3195,16 +3202,12 @@ sys.path.insert(0, _CH)
 _SPEC = {"client": "labs_test_child:client", "plugin": "labs_test_child:plugin", "decode": "labs_test_child:decode",
          "station_check": None}
 def _rows():
-    try:
-        return [_json2.loads(x) for x in open(_CH_OUT, encoding="utf-8")]
-    except FileNotFoundError:
-        return []
+    return [_json2.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+            for path in sorted(glob.glob(_CH_OUT + ".*.json"))]
 def _pid_of(cam):
     try:
-        for line in open(_CH_PIDS, encoding="utf-8"):
-            k, v = line.split()
-            if k == cam:
-                return int(v)
+        with open(_CH_PIDS + "." + cam, encoding="ascii") as f:
+            return int(f.read())
     except FileNotFoundError:
         pass
     return None
