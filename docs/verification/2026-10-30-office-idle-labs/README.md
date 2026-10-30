@@ -62,3 +62,40 @@ verified triggerless XML; missing or contradictory data still refuses.
 No Office task has been disabled or application installed by this development run.
 Actual Office task validation, installation, startup, moving video and recovery
 remain runtime acceptance gates.
+
+## Windows default settings correction
+
+The first idle-startup correction returned `OFFICE_LABS_TASK_UNVERIFIED` on
+Office. Its next read-only check confirmed Ready/enabled, the expected Admin
+SID, Interactive/Limited, one exact `wscript.exe` action, empty working directory
+and zero triggers. Exported XML had one matching principal/action, no triggers,
+and omitted both default `RunLevel` and `Enabled`. Read-only Booth task exports
+and an isolated reproduction confirmed the same normal representation.
+
+The validator wrongly required an explicit enabled XML element. Microsoft's
+[full Task Scheduler schema](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-schema)
+defines that setting as optional with default true. An omitted element now
+requires the independently read task API to contain boolean true. Explicit XML
+booleans must parse correctly and match the typed API value; duplicate, nested,
+invalid or contradictory values still refuse. Principal, action, trigger,
+instance, actor, script pin and control-file checks remain in place.
+
+Task Scheduler may omit or materialize default true after re-enabling. Cleanup
+therefore requires exact canonical XML for every field except the intentionally
+toggled enabled element, plus the original semantic enabled state. It never
+registers or rewrites task XML. The recovery record retains the original XML.
+
+New fixtures reproduce the operator's omitted-default export through disable,
+installation success/failure and restoration, including both omitted and
+materialized true after re-enabling and the inverse serialization change.
+They retain the earlier lifecycle cases and reject changes to any other XML
+field, invalid/contradictory enabled values, foreign or missing principals,
+changed actions and new triggers.
+
+Final checks passed under Windows PowerShell 5.1 and PowerShell 7: wrapper 60,
+managed installation/rollback 34, idle/default-state lifecycle 166 and launcher
+37, totaling **297 per engine**. Independent review reran all four suites under
+both engines. The writer/lifecycle tests use disposable files and in-memory
+Windows capabilities; no real task, policy, service or production process was
+changed. These fixtures do not establish actual Office installation or moving
+video. Application package source and manifest remain unchanged as above.

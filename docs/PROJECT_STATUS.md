@@ -1,5 +1,17 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-30 — Office task XML defaults.**
+> A fresh operator check confirmed Office's idle, enabled analysis task and its
+> exact expected owner/action. Windows omits default `Enabled=true` from its
+> exported XML; the updater incorrectly required that element. The correction
+> accepts the documented default only when the task API independently agrees.
+> Restoration compares every other XML field exactly and the enabled state
+> semantically, allowing Windows to omit or materialize the same default.
+> Wrapper 60, managed rollback 34, idle/default-state 166 and launcher 37
+> checks passed per PowerShell engine, including an independent review.
+> Office installation remains pending; no Booth restart is needed.
+> [Cause, checks and limits](verification/2026-10-30-office-idle-labs/README.md#windows-default-settings-correction).
+
 > **2026-10-30 — Office idle Labs startup barrier.**
 > The operator confirmed the managed startup entry and disabled historical
 > Warden entry; the corrected updater passed that check. Its next refusal was

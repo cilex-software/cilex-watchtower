@@ -29,7 +29,11 @@ try{
         function script:New-FixtureTaskXml($Task){
             $escape=[Security.SecurityElement]
             $enabled=([string][bool]$Task.Settings.Enabled).ToLowerInvariant()
-            return '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><Principals><Principal><UserId>'+$escape::Escape([string]$Task.Principal.UserId)+'</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals><Settings><Enabled>'+$enabled+'</Enabled></Settings><Actions><Exec><Command>'+$escape::Escape([string]$Task.Actions[0].Execute)+'</Command><Arguments>'+$escape::Escape([string]$Task.Actions[0].Arguments)+'</Arguments></Exec></Actions></Task>'
+            $enabledXml='<Enabled>'+$enabled+'</Enabled>';$levelXml='<RunLevel>LeastPrivilege</RunLevel>'
+            # Genuine Windows task exports omit default true/LeastPrivilege;
+            # disabling emits false, and enabling removes it again.
+            if($script:Case.WindowsDefaults){$levelXml='';if($Task.Settings.Enabled){$enabledXml=''}}
+            return '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><Principals><Principal><UserId>'+$escape::Escape([string]$Task.Principal.UserId)+'</UserId><LogonType>InteractiveToken</LogonType>'+$levelXml+'</Principal></Principals><Settings>'+$enabledXml+'</Settings><Actions><Exec><Command>'+$escape::Escape([string]$Task.Actions[0].Execute)+'</Command><Arguments>'+$escape::Escape([string]$Task.Actions[0].Arguments)+'</Arguments></Exec></Actions></Task>'
         }
         function script:Get-OfficeLabsExecutionContext {return Clone-FixtureValue $script:Case.Context}
         function script:Get-OfficeTaskSid {param($Task)if([string]$Task.Principal.UserId -notmatch '^S-1-'){throw 'OFFICE_LABS_TASK_UNVERIFIED'};return [string]$Task.Principal.UserId}
@@ -58,6 +62,9 @@ try{
             if($script:Case.FailRestore){throw 'FIXTURE_RESTORE_FAILURE'}
             $script:Case.Task.Settings.Enabled=$true;$script:Case.Task.State='Ready'
             $script:Case.Xml=New-FixtureTaskXml $script:Case.Task
+            if($script:Case.MaterializeTrueOnEnable){$script:Case.Xml=$script:Case.Xml.Replace('<Settings>','<Settings><Enabled>true</Enabled>')}
+            if($script:Case.OmitTrueOnEnable){$script:Case.Xml=$script:Case.Xml.Replace('<Enabled>true</Enabled>','')}
+            if($script:Case.AlterOtherXmlOnEnable){$script:Case.Xml=$script:Case.Xml.Replace('<Settings>','<Settings><Priority>8</Priority>')}
         }
         function script:Start-ScheduledTask {throw 'FIXTURE_START_FORBIDDEN'}
         function script:Stop-ScheduledTask {throw 'FIXTURE_STOP_FORBIDDEN'}
@@ -88,7 +95,7 @@ try{
         $sid='S-1-5-21-463139321-2945944505-4245986892-1001'
         $identity=[pscustomobject]@{Sid=$sid;Name='WT-OFFICE-01\Fixture';LocalAppData='C:\Fixture\AppData\Local';Profile='C:\Fixture'}
         $task=[pscustomobject]@{TaskName='wt-labs-start';TaskPath='\';State=$(if($Enabled){'Ready'}else{'Disabled'});Settings=[pscustomobject]@{Enabled=$Enabled};Principal=[pscustomobject]@{UserId=$sid;LogonType='Interactive';RunLevel='Limited'};Actions=@([pscustomobject]@{Execute='wscript.exe';Arguments='//B //NoLogo C:\wt-labs\start-labs.vbs';WorkingDirectory=$null});Triggers=@()}
-        $case=[pscustomobject]@{Identity=$identity;Task=$task;Xml='';Tasks=@($task);Instances=0;Rows=@();Context=[pscustomobject]@{Computer='WT-OFFICE-01';CurrentSid=$sid;Session=1;Administrator=$true};Control=[pscustomobject]@{Path='C:\Fixture\AppData\Local\watchtower-labs\control.json';Exists=$true;Sha256=('a'*64)};Pins=[pscustomobject]@{LauncherPath='C:\wt-labs\start-labs.vbs';LauncherSha256='D0CCA421F08A48563A5D05885C8C6776E43E85F410AE46F229D6E3B909014CD0';GuardPath='C:\wt-labs\guard3.ps1';GuardSha256='0422A323ECBE5EB010551B155FB1AF90B915EA8C980DF4D5DD768050C52B4502'};Events=(New-Object 'Collections.Generic.List[string]');Records=(New-Object 'Collections.Generic.List[object]');Lease=$null;PartialDisable=$false;FailPersist=$false;FailRestore=$false;RaceOnPersist=$false;DurablePath=$null}
+        $case=[pscustomobject]@{Identity=$identity;Task=$task;Xml='';Tasks=@($task);Instances=0;Rows=@();Context=[pscustomobject]@{Computer='WT-OFFICE-01';CurrentSid=$sid;Session=1;Administrator=$true};Control=[pscustomobject]@{Path='C:\Fixture\AppData\Local\watchtower-labs\control.json';Exists=$true;Sha256=('a'*64)};Pins=[pscustomobject]@{LauncherPath='C:\wt-labs\start-labs.vbs';LauncherSha256='D0CCA421F08A48563A5D05885C8C6776E43E85F410AE46F229D6E3B909014CD0';GuardPath='C:\wt-labs\guard3.ps1';GuardSha256='0422A323ECBE5EB010551B155FB1AF90B915EA8C980DF4D5DD768050C52B4502'};Events=(New-Object 'Collections.Generic.List[string]');Records=(New-Object 'Collections.Generic.List[object]');Lease=$null;PartialDisable=$false;FailPersist=$false;FailRestore=$false;RaceOnPersist=$false;DurablePath=$null;WindowsDefaults=$false;MaterializeTrueOnEnable=$false;OmitTrueOnEnable=$false;AlterOtherXmlOnEnable=$false}
         & $module {param($Case)$script:Case=$Case;$script:Case.Xml=New-FixtureTaskXml $Case.Task} $case
         return $case
     }
@@ -107,6 +114,7 @@ try{
     function Enter($State,[switch]$WhatIf){& $module {param($s,$p,$w)Enter-OfficeIdleLabs -State $s -PersistRecovery $p -WhatIf:$w} $State $persist ([bool]$WhatIf)}
     function Frozen($State){& $module {param($s)Assert-OfficeIdleLabsFrozen -State $s} $State}
     function Exit-Lease($State,[switch]$WhatIf){& $module {param($s,$p,$w)Exit-OfficeIdleLabs -State $s -PersistRecovery $p -WhatIf:$w} $State $persist ([bool]$WhatIf)}
+    function Definition($Case){& $module {param($Identity)Assert-OfficeLabsTaskDefinition (Get-OfficeLabsTaskSnapshot) $Identity} $Case.Identity}
 
     foreach($outcome in @('success','install-failure')){
         $case=Reset-Case;$state=Plan $case;$before=Json $case.Task;$xmlBefore=$case.Xml;$pinsBefore=Json $case.Pins;$controlBefore=Json $case.Control
@@ -123,6 +131,84 @@ try{
         Assert (-not $state.RestoreNeeded -and @($case.Events|Where-Object{$_ -eq 'Enable'}).Count -eq 1) ($outcome+': enablement is restored once without starting the task')
         Assert ((Json $case.Pins) -ceq $pinsBefore -and (Json $case.Control) -ceq $controlBefore) ($outcome+': launcher/guard pins and existing control remain untouched')
     }
+    foreach($outcome in @('success','install-failure')){
+        $case=Reset-Case;$case.WindowsDefaults=$true;$case.Task.Triggers=$null
+        & $module {$script:Case.Xml=New-FixtureTaskXml $script:Case.Task}
+        $before=Json $case.Task;$xmlBefore=$case.Xml;$pinsBefore=Json $case.Pins;$controlBefore=Json $case.Control
+        Assert ($case.Xml -notmatch '<(?:Enabled|RunLevel)>') ($outcome+': Windows-style original XML omits both defaults')
+        $state=Plan $case;$failure=$null
+        try{
+            $null=Enter $state;$null=Frozen $state
+            Assert ($case.Xml -match '<Enabled>false</Enabled>' -and $case.Xml -notmatch '<RunLevel>') ($outcome+': Windows-style Disable emits explicit false while retaining omitted RunLevel')
+            Assert (-not $case.Task.Settings.Enabled -and $state.RestoreNeeded) ($outcome+': Windows-style launcher remains frozen through mocked install')
+            if($outcome -eq 'install-failure'){throw 'FIXTURE_INSTALL_FAILURE'}
+        }catch{$failure=$_}finally{$null=Exit-Lease $state}
+        Assert (($outcome -eq 'success' -and -not $failure) -or ($outcome -eq 'install-failure' -and $failure.Exception.Message -eq 'FIXTURE_INSTALL_FAILURE')) ($outcome+': Windows-style lifecycle preserves installation outcome')
+        Assert ($case.Xml -ceq $xmlBefore -and $case.Xml -notmatch '<(?:Enabled|RunLevel)>') ($outcome+': Windows-style Enable restores exact full XML with defaults omitted')
+        Assert ((Json $case.Task) -ceq $before -and $case.Task.Settings.Enabled -and $state.Restored -and -not $state.RestoreNeeded) ($outcome+': Windows-style original task enablement and state return exactly')
+        Assert ((Json $case.Pins) -ceq $pinsBefore -and (Json $case.Control) -ceq $controlBefore) ($outcome+': Windows-style lifecycle preserves exact existing control and file pins')
+        Assert (@($case.Events|Where-Object{$_ -eq 'Disable'}).Count -eq 1 -and @($case.Events|Where-Object{$_ -eq 'Enable'}).Count -eq 1) ($outcome+': Windows-style lifecycle performs only one matched Disable and Enable')
+    }
+    foreach($value in @('true','false','1','0')){
+        $expected=$value -in @('true','1');$case=Reset-Case $expected
+        $case.Xml=$case.Xml -replace '<Enabled>[^<]*</Enabled>',('<Enabled>'+$value+'</Enabled>')
+        $checked=Definition $case
+        Assert ($checked.Enabled -eq $expected) ('schema boolean with matching strict API value is accepted: '+$value)
+        $case.Task.Settings.Enabled=-not $expected
+        Reject {Definition $case} ('schema boolean contradicting API is rejected: '+$value)
+        Assert ($case.Events.Count -eq 0) ('contradictory schema boolean is rejected before any mutation: '+$value)
+    }
+    $case=Reset-Case;$case.WindowsDefaults=$true;& $module {$script:Case.Xml=New-FixtureTaskXml $script:Case.Task}
+    $case.Task.Settings.Enabled=$false
+    Reject {Definition $case} 'omitted XML Enabled cannot contradict strict API false'
+    Assert ($case.Events.Count -eq 0) 'omitted-default contradiction is read-only'
+    foreach($value in @('','yes','TRUE','False','2')){
+        $case=Reset-Case;$case.Xml=$case.Xml.Replace('<Enabled>true</Enabled>',('<Enabled>'+$value+'</Enabled>'))
+        Reject {Definition $case} ('invalid schema boolean remains rejected: '+$value)
+    }
+    $case=Reset-Case;$case.Xml=$case.Xml.Replace('<Enabled>true</Enabled>','<Enabled><Other>true</Other></Enabled>')
+    Reject {Definition $case} 'nested content cannot impersonate a simple XML Enabled boolean'
+    $case=Reset-Case;$case.Xml=$case.Xml.Replace('<Enabled>true</Enabled>',"<Enabled>`t 1 `r`n</Enabled>")
+    Assert ((Definition $case).Enabled) 'XML schema whitespace around a matching boolean is accepted'
+    foreach($duplicate in @('<Enabled>true</Enabled><Enabled>true</Enabled>','<Enabled>true</Enabled><Enabled>false</Enabled>')){
+        $case=Reset-Case;$case.Xml=$case.Xml.Replace('<Enabled>true</Enabled>',$duplicate)
+        Reject {Definition $case} 'duplicate XML Enabled elements remain rejected'
+    }
+    foreach($bad in @('missing-principal','foreign-principal','missing-logon','missing-action','foreign-action','xml-trigger')){
+        $case=Reset-Case
+        switch($bad){
+            'missing-principal'{$case.Xml=$case.Xml -replace '<Principals>.*?</Principals>',''}
+            'foreign-principal'{$case.Xml=$case.Xml.Replace('<UserId>'+$case.Identity.Sid+'</UserId>','<UserId>S-1-5-21-9-8-7-1001</UserId>')}
+            'missing-logon'{$case.Xml=$case.Xml.Replace('<LogonType>InteractiveToken</LogonType>','')}
+            'missing-action'{$case.Xml=$case.Xml -replace '<Actions>.*?</Actions>',''}
+            'foreign-action'{$case.Xml=$case.Xml.Replace('<Command>wscript.exe</Command>','<Command>C:\Foreign\wscript.exe</Command>')}
+            'xml-trigger'{$case.Xml=$case.Xml.Replace('<Actions>','<Triggers><TimeTrigger /></Triggers><Actions>')}
+        }
+        Reject {Definition $case} ('default compatibility does not relax ownership/action/trigger validation: '+$bad)
+        Assert ($case.Events.Count -eq 0) ('malformed ownership/action/trigger rejection is read-only: '+$bad)
+    }
+    # Windows may serialize the intentionally toggled Enabled default either
+    # explicitly or by omission. All remaining canonical XML must stay exact.
+    $case=Reset-Case;$case.WindowsDefaults=$true;$case.MaterializeTrueOnEnable=$true
+    & $module {$script:Case.Xml=New-FixtureTaskXml $script:Case.Task}
+    $state=Plan $case;$null=Enter $state;$null=Exit-Lease $state
+    $restoredDefinition=Definition $case
+    Assert ($case.Task.Settings.Enabled -and $state.Restored -and -not $state.RestoreNeeded) 'materialized explicit true restores original enabled semantics'
+    Assert ($restoredDefinition.Definition -ceq $state.OriginalDefinition -and $case.Xml -match '<Enabled>true</Enabled>') 'materialized true changes no canonical XML outside the intentional Enabled node'
+    Assert (@($case.Events|Where-Object{$_ -eq 'Disable'}).Count -eq 1 -and @($case.Events|Where-Object{$_ -eq 'Enable'}).Count -eq 1) 'materialized true needs only one matched Disable and Enable'
+    foreach($lexical in @('true','1')){
+        $case=Reset-Case;$case.OmitTrueOnEnable=$true
+        $case.Xml=$case.Xml.Replace('<Enabled>true</Enabled>',('<Enabled>'+$lexical+'</Enabled>'))
+        $state=Plan $case;$null=Enter $state;$null=Exit-Lease $state
+        $restoredDefinition=Definition $case
+        Assert ($case.Task.Settings.Enabled -and $state.Restored -and -not $state.RestoreNeeded -and $case.Xml -notmatch '<Enabled>') ('enabled default may become omitted after restoring explicit '+$lexical)
+        Assert ($restoredDefinition.Definition -ceq $state.OriginalDefinition) ('omitting restored '+$lexical+' changes no other canonical task XML')
+    }
+    $case=Reset-Case;$case.WindowsDefaults=$true;$case.AlterOtherXmlOnEnable=$true
+    & $module {$script:Case.Xml=New-FixtureTaskXml $script:Case.Task}
+    $state=Plan $case;$null=Enter $state
+    Reject {Exit-Lease $state} 'semantic Enabled compatibility still rejects another XML field changing during restoration'
+    Assert ($case.Task.Settings.Enabled -and $state.RecoveryRequired -and -not $state.Restored) 'changed non-Enabled XML remains truthfully unverified after enablement'
     $case=Reset-Case $false;$state=Plan $case;$before=Json $case.Task
     $null=Enter $state;$null=Frozen $state;$null=Exit-Lease $state
     Assert ((Json $case.Task) -ceq $before -and @($case.Events|Where-Object{$_ -in @('Enable','Disable')}).Count -eq 0) 'originally disabled launcher stays disabled without task mutation'

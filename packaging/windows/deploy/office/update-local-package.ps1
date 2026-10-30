@@ -258,11 +258,19 @@ function Assert-OfficeLabsTaskDefinition($Snapshot,$Identity) {
     $command=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:Command',$ns)
     $arguments=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:Arguments',$ns)
     $working=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:WorkingDirectory',$ns)
-    $enabled=$doc.SelectSingleNode('/t:Task/t:Settings/t:Enabled',$ns)
-    if(-not $user -or -not $logon -or -not $command -or -not $arguments -or -not $enabled -or @($doc.SelectNodes('/t:Task/t:Settings/t:Enabled',$ns)).Count -ne 1){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $enabledNodes=@($doc.SelectNodes('/t:Task/t:Settings/t:Enabled',$ns))
+    if(-not $user -or -not $logon -or -not $command -or -not $arguments -or $enabledNodes.Count -gt 1){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
     $xmlSid=$user.InnerText
     if($xmlSid -notmatch '^S-1-'){$xmlSid=(New-Object Security.Principal.NTAccount $xmlSid).Translate([Security.Principal.SecurityIdentifier]).Value}
-    $xmlEnabled=if($enabled.InnerText -ceq 'true'){$true}elseif($enabled.InnerText -ceq 'false'){$false}else{throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if($enabledNodes.Count -eq 0){
+        # Task Scheduler may omit this schema default; confirm it independently.
+        if(-not $task.Settings.Enabled){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+        $xmlEnabled=$true
+    }else{
+        if($enabledNodes[0].SelectNodes('*').Count -ne 0){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+        try{$xmlEnabled=[Xml.XmlConvert]::ToBoolean($enabledNodes[0].InnerText.Trim([char[]]" `t`r`n"))}
+        catch{throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    }
     if($xmlSid -ne $Identity.Sid -or $logon.InnerText -cne 'InteractiveToken' -or ($level -and $level.InnerText -cne 'LeastPrivilege') -or $command.InnerText -ne [string]$action.Execute -or $arguments.InnerText -cne [string]$action.Arguments -or ($working -and $working.InnerText) -or $xmlEnabled -ne $task.Settings.Enabled){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
     return [pscustomobject]@{Enabled=$xmlEnabled;Definition=(ConvertTo-OfficeLabsXmlSignature $Snapshot.Xml -IgnoreEnabled);Full=(ConvertTo-OfficeLabsXmlSignature $Snapshot.Xml)}
 }
@@ -384,7 +392,9 @@ function Exit-OfficeIdleLabs($State,[scriptblock]$PersistRecovery,[switch]$WhatI
             Enable-ScheduledTask -TaskName 'wt-labs-start' -TaskPath '\' -ErrorAction Stop|Out-Null
         }
         $restored=Assert-OfficeIdleLabsState $State $State.OriginalEnabled
-        if($restored.Full -cne $State.OriginalFullXml){throw 'OFFICE_LABS_TASK_CHANGED'}
+        # Windows may omit or materialize the default Enabled element when
+        # serializing the same state. Every other XML field remains exact.
+        if($restored.Definition -cne $State.OriginalDefinition -or $restored.Enabled -ne $State.OriginalEnabled){throw 'OFFICE_LABS_TASK_CHANGED'}
         $State.RestoreNeeded=$false;$State.Restored=$true;$State.RecoveryRequired=$false;$State.Phase='Restored'
         & $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null
     }catch{
