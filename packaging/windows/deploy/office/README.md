@@ -28,6 +28,12 @@ fix ZIP** into the same folder, replace the update files when asked, then run
 The correction recognises the verified, disabled old startup entry left by the
 earlier installation. Other conflicting or unknown entries still stop the update.
 
+For the known Office setup, the updater can temporarily pause its idle analysis
+startup entry. It first checks that no analysis work or launcher is running.
+It restores the entry afterward without starting analyses or changing any hold.
+Running work or an unfamiliar setup still stops the update. A saved recovery
+record is provided if restoring the startup entry needs attention.
+
 Package preparation: after finalising the two scripts and package manifest, run
 `New-OfficeUpdateLauncher.ps1` with `-DistributionPath` and their trusted
 `-EntrySha256`, `-WrapperSha256` and `-ManifestSha256` checksums. Include its

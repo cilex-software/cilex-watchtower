@@ -1,5 +1,18 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-30 — Office idle Labs startup barrier.**
+> The operator confirmed the managed startup entry and disabled historical
+> Warden entry; the corrected updater passed that check. Its next refusal was
+> a Labs report over sixteen days old with no worker or restart guard running
+> and an enabled `wt-labs-start` task. An exact, idle, triggerless Office task
+> can now be temporarily disabled during the update and restored without
+> starting work. Fresh task identity, file pins and absence of Labs processes
+> across sessions are required; stale status is not treated as fresh.
+> Recovery is recorded before disabling. Office installation remains pending.
+> Wrapper 60, managed transaction 34, idle lifecycle/recovery 106 and consent
+> launcher 37 checks passed per PowerShell engine; independent review passed.
+> [Verification and limits](verification/2026-10-30-office-idle-labs/README.md).
+
 > **2026-10-30 — Office startup selection correction.**
 > Office's approved one-run launcher reached the updater, which refused before
 > file replacement or application stops. The wrapper counted a retained,
@@ -9,7 +22,8 @@
 > managed update/rollback 34 checks passed per PowerShell engine, with an
 > independent rerun. A small correction reuses the unchanged verified 1.1.791
 > application package; Booth needs no restart for this tools-only change.
-> Current Office entries and actual deployment remain unverified.
+> The operator subsequently confirmed both Office entries. Actual deployment
+> remains pending the separate Labs barrier.
 > [Evidence and limits](verification/2026-10-30-office-startup-selection/README.md).
 
 > **2026-10-30 — Availability storage recovery and simple Office update launcher.**

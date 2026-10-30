@@ -31,8 +31,10 @@ adopted or re-enabled.
 Historical evidence: [October 13 final inspection](../2026-10-13-generic-deployment/README.md#final-office-inspection-and-cleanup),
 `C:/wt/generic-office-approved-postcheck-67b1c67126e6/result.json` and its
 `record-and-cleanup-verification.json`. The latter confirms the installation
-marker is current using explicit UTF-8. Current Office task data was requested
-from the operator; historical evidence is not a fresh station inspection.
+marker is current using explicit UTF-8. The operator subsequently confirmed the
+exact managed Running/enabled and legacy Disabled/disabled definitions above.
+The corrected updater passed startup selection, then stopped at the independent
+Labs barrier. Office has not yet been updated by this run.
 
 ## Verification and delivery
 

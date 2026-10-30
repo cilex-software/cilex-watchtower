@@ -5,8 +5,9 @@ Update the existing Office installation from a verified, extracted package.
 .DESCRIPTION
 Run on Office as its signed-in administrator. This uses the generic installer's
 backup, startup/video verification and automatic rollback. -WhatIf is read-only.
-No account, firewall, script-execution policy, automatic sign-in or Labs setting
-is changed. Only the verified Watchtower/Warden installation is updated.
+No account, firewall, script-execution policy, automatic sign-in or Labs hold
+is changed. A verified idle Office Labs startup entry may be temporarily disabled
+and restored without starting it. Only Watchtower/Warden files are updated.
 #>
 [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='Low')]
 param(
@@ -145,11 +146,281 @@ function Assert-OfficeLabsSafe($Identity,[int]$Session,[object[]]$Tasks) {
     if(-not (Test-OfficeLabsBarrier $status $control $workers.Count $canRespawn $workerPid ([DateTime]::UtcNow))){throw 'OFFICE_LABS_PAUSE_AND_DRAIN_REQUIRED'}
 }
 
+function Get-OfficeLabsExecutionContext {
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal=New-Object Security.Principal.WindowsPrincipal $identity
+    return [pscustomobject]@{Computer=$env:COMPUTERNAME;CurrentSid=$identity.User.Value;Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;Administrator=$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)}
+}
+
+function Get-OfficeLabsTasks { return @(Get-ScheduledTask -ErrorAction Stop) }
+
+function Get-OfficeLabsTaskSnapshot {
+    $tasks=@(Get-ScheduledTask -TaskPath '\' -ErrorAction Stop|Where-Object{$_.TaskName -ceq 'wt-labs-start'})
+    if($tasks.Count -ne 1){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    return [pscustomobject]@{Task=$tasks[0];Xml=[string](Export-ScheduledTask -TaskName 'wt-labs-start' -TaskPath '\' -ErrorAction Stop)}
+}
+
+function Get-OfficeLabsTaskInstances {
+    $service=$null;$folder=$null;$task=$null;$instances=$null
+    try{
+        $service=New-Object -ComObject Schedule.Service
+        $service.Connect()
+        $folder=$service.GetFolder('\')
+        $task=$folder.GetTask('wt-labs-start')
+        $instances=$task.GetInstances(0)
+        return [int]$instances.Count
+    }catch{throw 'OFFICE_LABS_INSTANCES_UNVERIFIED'}
+    finally{
+        foreach($item in @($instances,$task,$folder,$service)){
+            if($null -ne $item -and [Runtime.InteropServices.Marshal]::IsComObject($item)){[void][Runtime.InteropServices.Marshal]::ReleaseComObject($item)}
+        }
+    }
+}
+
+function Test-OfficeLabsProcessPlausible([string]$Name,[string]$Path,[string]$CommandLine) {
+    return $Name -match '(?i)^(?:wscript|cscript|cmd|powershell|pwsh|python[^\\/\s]*|ffmpeg)(?:\.exe)?$' -or $Name -match '(?i)(?:labs|run_worker|unit_proc)' -or ($Path+' '+$CommandLine) -match '(?i)(?:[\\/]wt-labs(?:[\\/\s"]|$)|[\\/]watchtower-labs(?:[\\/\s"]|$)|guard[23]\.ps1|start-labs[^\s"]*\.(?:vbs|ps1|cmd)|run_worker\.py|unit_proc\.py|--multiprocessing-fork|multiprocessing\.spawn)'
+}
+
+function Get-OfficeLabsProcessRows {
+    $rows=@()
+    foreach($process in @(Get-CimInstance Win32_Process -ErrorAction Stop)){
+        $name=[string]$process.Name;$path=[string]$process.ExecutablePath;$command=[string]$process.CommandLine
+        if(-not (Test-OfficeLabsProcessPlausible $name $path $command)){continue}
+        $known=$false;$sid=$null
+        try{$owner=Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop;if($owner.ReturnValue -eq 0 -and $owner.Sid){$known=$true;$sid=[string]$owner.Sid}}catch{}
+        $rows+=,[pscustomobject]@{Name=$name;Path=$path;CommandLine=$command;OwnerSid=$sid;OwnerKnown=$known;Session=[int]$process.SessionId;ProcessId=[int]$process.ProcessId;ParentId=[int]$process.ParentProcessId}
+    }
+    return $rows
+}
+
+function Assert-OfficeLabsLocalFile([string]$Path) {
+    if($Path -notmatch '^[A-Za-z]:[\\/]'){throw 'OFFICE_LABS_FILE_UNVERIFIED'}
+    $parent=[IO.Path]::GetFullPath($Path)
+    while($parent){
+        if((Test-Path -LiteralPath $parent) -and ((Get-Item -LiteralPath $parent -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'OFFICE_LABS_FILE_UNVERIFIED'}
+        $next=Split-Path -Parent $parent;if($next -eq $parent){break};$parent=$next
+    }
+}
+
+function Get-OfficeLabsFilePins {
+    foreach($path in @('C:\wt-labs\start-labs.vbs','C:\wt-labs\guard3.ps1')){
+        Assert-OfficeLabsLocalFile $path
+        if(-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Item -LiteralPath $path).Length -gt 1MB){throw 'OFFICE_LABS_FILE_UNVERIFIED'}
+    }
+    return [pscustomobject]@{LauncherPath='C:\wt-labs\start-labs.vbs';LauncherSha256=(Get-FileHash -LiteralPath 'C:\wt-labs\start-labs.vbs' -Algorithm SHA256).Hash;GuardPath='C:\wt-labs\guard3.ps1';GuardSha256=(Get-FileHash -LiteralPath 'C:\wt-labs\guard3.ps1' -Algorithm SHA256).Hash}
+}
+
+function Get-OfficeLabsControlSnapshot($Identity) {
+    $path=Join-Path $Identity.LocalAppData 'watchtower-labs\control.json'
+    Assert-OfficeLabsLocalFile $path
+    $exists=Test-Path -LiteralPath $path
+    $hash=$null
+    if($exists){
+        $item=Get-Item -LiteralPath $path -Force
+        if($item.PSIsContainer -or $item.Length -gt 1MB){throw 'OFFICE_LABS_CONTROL_UNVERIFIED'}
+        $hash=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    }
+    return [pscustomobject]@{Path=$path;Exists=[bool]$exists;Sha256=$hash}
+}
+
+function ConvertTo-OfficeLabsXmlSignature([string]$Xml,[switch]$IgnoreEnabled) {
+    $doc=New-Object Xml.XmlDocument
+    $doc.XmlResolver=$null;$doc.PreserveWhitespace=$false
+    try{$doc.LoadXml($Xml)}catch{throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if($doc.DocumentType){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if($IgnoreEnabled){
+        $ns=New-Object Xml.XmlNamespaceManager $doc.NameTable;$ns.AddNamespace('t',$doc.DocumentElement.NamespaceURI)
+        foreach($node in @($doc.SelectNodes('/t:Task/t:Settings/t:Enabled',$ns))){[void]$node.ParentNode.RemoveChild($node)}
+    }
+    return $doc.OuterXml
+}
+
+function Assert-OfficeLabsTaskDefinition($Snapshot,$Identity) {
+    $task=$Snapshot.Task
+    if(-not $task.PSObject.Properties['Triggers']){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $triggerCount=if($null -eq $task.Triggers){0}else{@($task.Triggers).Count}
+    if($task.TaskName -cne 'wt-labs-start' -or $task.TaskPath -ne '\' -or @($task.Actions).Count -ne 1 -or $triggerCount -ne 0){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if(-not $task.Settings.PSObject.Properties['Enabled'] -or $task.Settings.Enabled -isnot [bool]){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $sid=Get-OfficeTaskSid $task
+    if($sid -ne $Identity.Sid -or [string]$task.Principal.LogonType -cne 'Interactive' -or [string]$task.Principal.RunLevel -cne 'Limited'){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $action=$task.Actions[0]
+    $systemWscript=Join-Path $env:SystemRoot 'System32\wscript.exe'
+    if([string]$action.Execute -notin @('wscript.exe',$systemWscript) -or [string]$action.Arguments -cne '//B //NoLogo C:\wt-labs\start-labs.vbs' -or [string]$action.WorkingDirectory){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $doc=New-Object Xml.XmlDocument;$doc.XmlResolver=$null
+    try{$doc.LoadXml([string]$Snapshot.Xml)}catch{throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if($doc.DocumentType -or $doc.DocumentElement.LocalName -ne 'Task' -or $doc.DocumentElement.NamespaceURI -ne 'http://schemas.microsoft.com/windows/2004/02/mit/task'){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $ns=New-Object Xml.XmlNamespaceManager $doc.NameTable;$ns.AddNamespace('t',$doc.DocumentElement.NamespaceURI)
+    $principals=@($doc.SelectNodes('/t:Task/t:Principals/t:Principal',$ns));$actions=@($doc.SelectNodes('/t:Task/t:Actions/*',$ns));$triggers=@($doc.SelectNodes('/t:Task/t:Triggers/*',$ns))
+    if($principals.Count -ne 1 -or $actions.Count -ne 1 -or $actions[0].LocalName -ne 'Exec' -or $triggers.Count -ne 0){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $user=$doc.SelectSingleNode('/t:Task/t:Principals/t:Principal/t:UserId',$ns)
+    $logon=$doc.SelectSingleNode('/t:Task/t:Principals/t:Principal/t:LogonType',$ns)
+    $level=$doc.SelectSingleNode('/t:Task/t:Principals/t:Principal/t:RunLevel',$ns)
+    $command=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:Command',$ns)
+    $arguments=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:Arguments',$ns)
+    $working=$doc.SelectSingleNode('/t:Task/t:Actions/t:Exec/t:WorkingDirectory',$ns)
+    $enabled=$doc.SelectSingleNode('/t:Task/t:Settings/t:Enabled',$ns)
+    if(-not $user -or -not $logon -or -not $command -or -not $arguments -or -not $enabled -or @($doc.SelectNodes('/t:Task/t:Settings/t:Enabled',$ns)).Count -ne 1){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    $xmlSid=$user.InnerText
+    if($xmlSid -notmatch '^S-1-'){$xmlSid=(New-Object Security.Principal.NTAccount $xmlSid).Translate([Security.Principal.SecurityIdentifier]).Value}
+    $xmlEnabled=if($enabled.InnerText -ceq 'true'){$true}elseif($enabled.InnerText -ceq 'false'){$false}else{throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    if($xmlSid -ne $Identity.Sid -or $logon.InnerText -cne 'InteractiveToken' -or ($level -and $level.InnerText -cne 'LeastPrivilege') -or $command.InnerText -ne [string]$action.Execute -or $arguments.InnerText -cne [string]$action.Arguments -or ($working -and $working.InnerText) -or $xmlEnabled -ne $task.Settings.Enabled){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+    return [pscustomobject]@{Enabled=$xmlEnabled;Definition=(ConvertTo-OfficeLabsXmlSignature $Snapshot.Xml -IgnoreEnabled);Full=(ConvertTo-OfficeLabsXmlSignature $Snapshot.Xml)}
+}
+
+function Assert-OfficeLabsNoActors([object[]]$Rows) {
+    foreach($row in $Rows){
+        $name=[string]$row.Name;$path=[string]$row.Path;$command=[string]$row.CommandLine
+        if(-not (Test-OfficeLabsProcessPlausible $name $path $command)){continue}
+        if(-not $path -or -not $command -or $row.OwnerKnown -isnot [bool] -or -not $row.OwnerKnown -or -not $row.OwnerSid){throw 'OFFICE_LABS_ACTOR_UNVERIFIED'}
+        if($name -match '(?i)^(?:ffmpeg)(?:\.exe)?$' -or $name -match '(?i)(?:labs|run_worker|unit_proc)' -or ($path+' '+$command) -match '(?i)(?:[\\/]wt-labs(?:[\\/\s"]|$)|[\\/]watchtower-labs(?:[\\/\s"]|$)|guard[23]\.ps1|start-labs[^\s"]*\.(?:vbs|ps1|cmd)|run_worker\.py|unit_proc\.py|--multiprocessing-fork|multiprocessing\.spawn)'){throw 'OFFICE_LABS_ACTOR_PRESENT'}
+    }
+}
+
+function Assert-OfficeLabsNoOtherStartup([object[]]$Tasks) {
+    $knownCount=0
+    foreach($task in $Tasks){
+        if($task.TaskName -ceq 'wt-labs-start' -and $task.TaskPath -eq '\'){$knownCount++;continue}
+        $relevant=[string]$task.TaskName -match '(?i)labs'
+        foreach($action in @($task.Actions)){
+            $exe=if($action.PSObject.Properties['Execute']){[string]$action.Execute}else{''}
+            $arguments=if($action.PSObject.Properties['Arguments']){[string]$action.Arguments}else{''}
+            if(($exe+' '+$arguments) -match '(?i)(?:[\\/]wt-labs(?:[\\/\s"]|$)|[\\/]watchtower-labs(?:[\\/\s"]|$)|guard[23]\.ps1|start-labs[^\s"]*\.(?:vbs|ps1|cmd)|run_worker\.py|unit_proc\.py)'){$relevant=$true}
+        }
+        if(-not $relevant){continue}
+        if(-not $task.PSObject.Properties['Settings'] -or -not $task.Settings -or -not $task.Settings.PSObject.Properties['Enabled'] -or $task.Settings.Enabled -isnot [bool]){throw 'OFFICE_LABS_STARTUP_UNVERIFIED'}
+        if($task.Settings.Enabled){throw 'OFFICE_LABS_OTHER_STARTUP_PRESENT'}
+    }
+    if($knownCount -ne 1){throw 'OFFICE_LABS_TASK_UNVERIFIED'}
+}
+
+function Assert-OfficeLabsIdentity($Identity,[switch]$Administrator) {
+    $context=Get-OfficeLabsExecutionContext
+    if($context.Computer -cne 'WT-OFFICE-01' -or $Identity.Sid -ne 'S-1-5-21-463139321-2945944505-4245986892-1001' -or $context.CurrentSid -ne $Identity.Sid -or $context.Session -le 0){throw 'OFFICE_LABS_IDENTITY_UNVERIFIED'}
+    if($Administrator -and -not $context.Administrator){throw 'OFFICE_ELEVATED_ADMINISTRATOR_REQUIRED'}
+}
+
+function Assert-OfficeLabsPins($Pins) {
+    if($Pins.LauncherPath -ne 'C:\wt-labs\start-labs.vbs' -or $Pins.LauncherSha256 -ine 'D0CCA421F08A48563A5D05885C8C6776E43E85F410AE46F229D6E3B909014CD0' -or $Pins.GuardPath -ne 'C:\wt-labs\guard3.ps1' -or $Pins.GuardSha256 -ine '0422A323ECBE5EB010551B155FB1AF90B915EA8C980DF4D5DD768050C52B4502'){throw 'OFFICE_LABS_FILE_UNVERIFIED'}
+}
+
+function Get-OfficeIdleLabsPlan($Identity,[object[]]$Tasks) {
+    Assert-OfficeLabsIdentity $Identity
+    $snapshot=Get-OfficeLabsTaskSnapshot
+    $checked=Assert-OfficeLabsTaskDefinition $snapshot $Identity
+    $expectedState=if($checked.Enabled){'Ready'}else{'Disabled'}
+    if([string]$snapshot.Task.State -cne $expectedState -or (Get-OfficeLabsTaskInstances) -ne 0){throw 'OFFICE_LABS_TASK_NOT_IDLE'}
+    Assert-OfficeLabsNoOtherStartup $Tasks
+    Assert-OfficeLabsNoActors @(Get-OfficeLabsProcessRows)
+    $pins=Get-OfficeLabsFilePins;Assert-OfficeLabsPins $pins
+    $control=Get-OfficeLabsControlSnapshot $Identity
+    return [pscustomobject]@{Identity=$Identity;TaskName='wt-labs-start';TaskPath='\';OriginalXml=[string]$snapshot.Xml;OriginalDefinition=$checked.Definition;OriginalFullXml=$checked.Full;OriginalEnabled=[bool]$checked.Enabled;Control=$control;Pins=$pins;RestoreNeeded=$false;Entered=$false;Restored=$false;RecoveryRequired=$false;Phase='Inspected'}
+}
+
+function Assert-OfficeLabsControlUnchanged($State) {
+    $current=Get-OfficeLabsControlSnapshot $State.Identity
+    if($current.Path -ne $State.Control.Path -or $current.Exists -isnot [bool] -or $current.Exists -ne $State.Control.Exists -or [string]$current.Sha256 -cne [string]$State.Control.Sha256){throw 'OFFICE_LABS_CONTROL_CHANGED'}
+}
+
+function Assert-OfficeIdleLabsState($State,[bool]$Enabled) {
+    Assert-OfficeLabsIdentity $State.Identity
+    $snapshot=Get-OfficeLabsTaskSnapshot
+    $checked=Assert-OfficeLabsTaskDefinition $snapshot $State.Identity
+    $expectedState=if($Enabled){'Ready'}else{'Disabled'}
+    if($checked.Definition -cne $State.OriginalDefinition -or $checked.Enabled -ne $Enabled -or [string]$snapshot.Task.State -cne $expectedState){throw 'OFFICE_LABS_TASK_CHANGED'}
+    if((Get-OfficeLabsTaskInstances) -ne 0){throw 'OFFICE_LABS_TASK_NOT_IDLE'}
+    Assert-OfficeLabsNoOtherStartup @(Get-OfficeLabsTasks)
+    Assert-OfficeLabsNoActors @(Get-OfficeLabsProcessRows)
+    Assert-OfficeLabsPins (Get-OfficeLabsFilePins)
+    Assert-OfficeLabsControlUnchanged $State
+    return $checked
+}
+
+function Get-OfficeLabsRecoveryRecord($State) {
+    return [pscustomobject]@{schemaVersion=1;computer='WT-OFFICE-01';targetSid=$State.Identity.Sid;taskName=$State.TaskName;taskPath=$State.TaskPath;originalXml=$State.OriginalXml;originalDefinition=$State.OriginalDefinition;originalEnabled=$State.OriginalEnabled;control=$State.Control;pins=$State.Pins;restoreNeeded=$State.RestoreNeeded;entered=$State.Entered;restored=$State.Restored;recoveryRequired=$State.RecoveryRequired;phase=$State.Phase;updatedUtc=[DateTime]::UtcNow.ToString('o')}
+}
+
+function Enter-OfficeIdleLabs($State,[scriptblock]$PersistRecovery,[switch]$WhatIf) {
+    $null=Assert-OfficeIdleLabsState $State $State.OriginalEnabled
+    if($WhatIf){return}
+    Assert-OfficeLabsIdentity $State.Identity -Administrator
+    if(-not $PersistRecovery){throw 'OFFICE_LABS_RECOVERY_NOT_SAVED'}
+    if(-not $State.OriginalEnabled){$State.Entered=$true;return}
+    $State.Phase='RestoreRequired';$State.RestoreNeeded=$true
+    try{& $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null}
+    catch{$State.RestoreNeeded=$false;$State.Phase='RecoveryWriteFailed';throw}
+    # Persistence can take time. Refuse a task or process change before mutation.
+    try{$null=Assert-OfficeIdleLabsState $State $State.OriginalEnabled}
+    catch{
+        $State.RestoreNeeded=$false;$State.Phase='FreezeRejected'
+        try{& $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null}catch{}
+        throw
+    }
+    # Record is durable before this call; a partial disable still requires finally restoration.
+    Disable-ScheduledTask -TaskName 'wt-labs-start' -TaskPath '\' -ErrorAction Stop|Out-Null
+    $null=Assert-OfficeIdleLabsState $State $false
+    $State.Entered=$true;$State.Phase='Frozen'
+    & $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null
+}
+
+function Assert-OfficeIdleLabsFrozen($State) {
+    if(-not $State.Entered){throw 'OFFICE_LABS_NOT_FROZEN'}
+    $null=Assert-OfficeIdleLabsState $State $false
+}
+
+function Exit-OfficeIdleLabs($State,[scriptblock]$PersistRecovery,[switch]$WhatIf) {
+    if(-not $State.RestoreNeeded){return}
+    if($WhatIf){return}
+    try{
+        Assert-OfficeLabsIdentity $State.Identity -Administrator
+        $snapshot=Get-OfficeLabsTaskSnapshot
+        $checked=Assert-OfficeLabsTaskDefinition $snapshot $State.Identity
+        if($checked.Definition -cne $State.OriginalDefinition){throw 'OFFICE_LABS_TASK_CHANGED'}
+        # Permit a failed Disable call that left the task exactly as originally captured.
+        # Changed controls, scripts, task definitions or actors require recovery;
+        # enabling a changed startup definition is never an automatic repair.
+        $null=Assert-OfficeIdleLabsState $State ([bool]$checked.Enabled)
+        if($checked.Enabled -ne $State.OriginalEnabled){
+            if(-not $State.OriginalEnabled){throw 'OFFICE_LABS_TASK_CHANGED'}
+            Enable-ScheduledTask -TaskName 'wt-labs-start' -TaskPath '\' -ErrorAction Stop|Out-Null
+        }
+        $restored=Assert-OfficeIdleLabsState $State $State.OriginalEnabled
+        if($restored.Full -cne $State.OriginalFullXml){throw 'OFFICE_LABS_TASK_CHANGED'}
+        $State.RestoreNeeded=$false;$State.Restored=$true;$State.RecoveryRequired=$false;$State.Phase='Restored'
+        & $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null
+    }catch{
+        $State.RestoreNeeded=$true;$State.Restored=$false;$State.RecoveryRequired=$true;$State.Phase='RecoveryRequired'
+        try{& $PersistRecovery (Get-OfficeLabsRecoveryRecord $State)|Out-Null}catch{}
+        throw 'OFFICE_LABS_RECOVERY_REQUIRED'
+    }
+}
+
+function Write-OfficeLabsRecoveryRecord($Record,[string]$Path,$Installer,[string]$Sid) {
+    # Flush a private recovery record before changing the idle task. Atomic
+    # replacements keep the previous complete record if a later write fails.
+    $temporary=$Path+'.new-'+[Guid]::NewGuid().ToString('N')
+    try {
+        $file=[IO.File]::Open($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        $file.Dispose()
+        & $Installer {param($p,$s)Set-WtgPrivateFileAcl $p $s} $temporary $Sid
+        $bytes=(New-Object Text.UTF8Encoding $false).GetBytes(($Record|ConvertTo-Json -Depth 12))
+        $file=[IO.File]::Open($temporary,[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$file.Write($bytes,0,$bytes.Length);$file.Flush($true)}finally{$file.Dispose()}
+        if(Test-Path -LiteralPath $Path){
+            if((Get-Item -LiteralPath $Path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'OFFICE_LABS_RECOVERY_PATH_UNSAFE'}
+            [IO.File]::Replace($temporary,$Path,[Management.Automation.Language.NullString]::Value)
+        }else{[IO.File]::Move($temporary,$Path)}
+    }finally{
+        if(Test-Path -LiteralPath $temporary){Remove-Item -LiteralPath $temporary -Force}
+    }
+}
+
 $runId=[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
 $language=if([Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'ru'){'ru'}else{'en'}
 $result=[ordered]@{schemaVersion=1;runId=$runId;host=$env:COMPUTERNAME;status='Failed';errorCode=$null;watchtowerVersion=$null;wardenVersion=$null;sourceCommit=$null;backup=$null;rebootVerified=$false}
 $code=1
 $resultReserved=$false
+$labsFreeze=$null
+$persistLabsRecovery=$null
 try{
     if($env:OS -ne 'Windows_NT' -or $env:COMPUTERNAME -ne $ExpectedHost){throw 'OFFICE_TARGET_HOST_MISMATCH'}
     $verified=Test-OfficePackageTrust $PackagePath $ManifestSha256
@@ -170,7 +441,13 @@ try{
     $owned=@(& $installer {param($p)Get-WtgOwnedProcesses $p} $plan)
     $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
     if($session -eq 0 -or @($owned|Where-Object{$_.Session -ne $session}).Count){throw 'OFFICE_SIGNED_IN_SESSION_MISMATCH'}
-    Assert-OfficeLabsSafe $identity $session $tasks
+    try{Assert-OfficeLabsSafe $identity $session $tasks}
+    catch{
+        if($_.Exception.Message -cne 'OFFICE_LABS_PAUSE_AND_DRAIN_REQUIRED'){throw}
+        # Only an independently verified idle task can replace stale status as
+        # proof of quiescence. Running or unknown Labs actors remain a refusal.
+        $labsFreeze=Get-OfficeIdleLabsPlan -Identity $identity -Tasks $tasks
+    }
     if(-not $PSCmdlet.ShouldProcess($ExpectedHost,'Update existing Watchtower and Warden from the verified package')){return}
     $principal=New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
     if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'OFFICE_ELEVATED_ADMINISTRATOR_REQUIRED'}
@@ -180,6 +457,17 @@ try{
     [IO.Directory]::CreateDirectory((Split-Path -Parent $ResultPath))|Out-Null
     $reservation=[IO.File]::Open($ResultPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     $reservation.Dispose();$resultReserved=$true
+    if($labsFreeze){
+        $recoveryPath=$ResultPath+'.labs-recovery.json'
+        if(Test-Path -LiteralPath $recoveryPath){throw 'OFFICE_LABS_RECOVERY_ALREADY_EXISTS'}
+        $result.labsRecoveryPath=$recoveryPath
+        $recoveryWriter=${function:Write-OfficeLabsRecoveryRecord}
+        $persistLabsRecovery={param($record)& $recoveryWriter $record $recoveryPath $installer $identity.Sid}.GetNewClosure()
+        Enter-OfficeIdleLabs -State $labsFreeze -PersistRecovery $persistLabsRecovery
+        Assert-OfficeIdleLabsFrozen -State $labsFreeze
+    }
+    Assert-OfficeLabsSafe $identity $session @(Get-ScheduledTask -ErrorAction Stop)
+    if($labsFreeze){Assert-OfficeIdleLabsFrozen -State $labsFreeze}
     $installed=Install-WtgPackage $context $verified.Root
     $result.status='Installed';$result.watchtowerVersion=$installed.Version;$result.wardenVersion=$installed.WardenVersion
     $result.sourceCommit=$installed.SourceCommit;$result.backup=$installed.Backup;$result.startupCheck=$installed.Runtime
@@ -189,6 +477,15 @@ try{
     if($_.Exception.Message -match '^[A-Z][A-Z0-9_]{4,100}$'){$result.errorCode=$_.Exception.Message}
     if($_.Exception.Data.Contains('RollbackVerified')){$result.rollbackVerified=[bool]$_.Exception.Data['RollbackVerified']}
 }finally{
+    if($labsFreeze -and $persistLabsRecovery -and -not $WhatIfPreference){
+        try{
+            Exit-OfficeIdleLabs -State $labsFreeze -PersistRecovery $persistLabsRecovery
+            $result.labsStartupRestored=[bool]$labsFreeze.Restored
+        }catch{
+            if($result.errorCode){$result.installationErrorCode=$result.errorCode}
+            $result.status='RecoveryRequired';$result.errorCode='OFFICE_LABS_STARTUP_RECOVERY_REQUIRED';$result.labsStartupRestored=$false;$code=1
+        }
+    }
     if(-not $WhatIfPreference -and $resultReserved){
         try{[IO.File]::WriteAllText($ResultPath,($result|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding $false))}catch{$code=1;$result.status='ResultNotSaved'}
     }
