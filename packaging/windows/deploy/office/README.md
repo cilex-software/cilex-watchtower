@@ -20,6 +20,14 @@ using an exception for this update run only. It leaves saved Windows policy sett
 to override an organisation-managed restriction. Declining the request stops the
 update. Send the completion message and saved result path to the deployment operator.
 
+If an older package reports `OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS`, the update
+stopped before replacing files. Use the corrected package supplied by the
+deployment operator. For the first 1.1.791 ZIP, extract its approved **startup
+fix ZIP** into the same folder, replace the update files when asked, then run
+`Update-Office.cmd` again. Keep the existing `package` folder and startup settings.
+The correction recognises the verified, disabled old startup entry left by the
+earlier installation. Other conflicting or unknown entries still stop the update.
+
 Package preparation: after finalising the two scripts and package manifest, run
 `New-OfficeUpdateLauncher.ps1` with `-DistributionPath` and their trusted
 `-EntrySha256`, `-WrapperSha256` and `-ManifestSha256` checksums. Include its

@@ -52,10 +52,33 @@ function Get-OfficeTaskSid($Task) {
     return (New-Object Security.Principal.NTAccount $user).Translate([Security.Principal.SecurityIdentifier]).Value
 }
 
+function Test-OfficeInertLegacyTask($Task,$Plan) {
+    # Managed adoption deliberately retains this disabled legacy task for recovery.
+    # Accept only that exact inert form; an unknown or active alternative still blocks.
+    if($Task.TaskName -cne 'wt-warden' -or $Task.TaskPath -ne '\'){return $false}
+    foreach($name in @('Settings','State','Principal')){if(-not $Task.PSObject.Properties[$name] -or $null -eq $Task.$name){return $false}}
+    if(-not $Task.Settings.PSObject.Properties['Enabled'] -or $Task.Settings.Enabled -isnot [bool] -or $Task.Settings.Enabled -or [string]$Task.State -cne 'Disabled'){return $false}
+    foreach($name in @('UserId','LogonType','RunLevel')){if(-not $Task.Principal.PSObject.Properties[$name]){return $false}}
+    if([string]$Task.Principal.LogonType -cne 'Interactive' -or [string]$Task.Principal.RunLevel -cne 'Limited'){return $false}
+    $actions=@($Task.Actions)
+    if($actions.Count -ne 1){return $false}
+    $action=$actions[0]
+    foreach($name in @('Execute','Arguments','WorkingDirectory')){if(-not $action.PSObject.Properties[$name]){return $false}}
+    if([string]$action.Execute -ne (Join-Path $Plan.Directory 'warden\warden.exe') -or [string]$action.Arguments -cne 'run'){return $false}
+    if([string]$action.WorkingDirectory -and [string]$action.WorkingDirectory -ne $Plan.Directory){return $false}
+    return (Get-OfficeTaskSid $Task) -eq $Plan.Identity.Sid
+}
+
 function Get-OfficeStartupSelection($Plan,$Marker,[object[]]$Tasks) {
     $expected=Join-Path $Plan.Directory $(if($Marker){'warden\warden-launcher.exe'}else{'warden\warden.exe'})
     $candidates=@()
+    $inertLegacyCount=0
     foreach($task in $Tasks){
+        if($Marker -and (Test-OfficeInertLegacyTask $task $Plan)){
+            $inertLegacyCount++
+            if($inertLegacyCount -gt 1){throw 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'}
+            continue
+        }
         $actions=@($task.Actions)
         foreach($action in $actions){
             $execute=if($action.PSObject.Properties['Execute']){[string]$action.Execute}else{''}

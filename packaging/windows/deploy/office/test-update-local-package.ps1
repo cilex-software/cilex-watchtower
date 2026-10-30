@@ -13,7 +13,12 @@ $script:passed=0
 function Assert($Value,[string]$Name){if(-not $Value){throw ('FAIL: '+$Name)};$script:passed++}
 function Reject([scriptblock]$Action,[string]$Code){$caught=$false;try{& $Action|Out-Null}catch{if($_.Exception.Message -ne $Code){throw};$caught=$true};Assert $caught $Code}
 function Task([string]$Name,[string]$Exe,[string]$Sid='S-1-5-21-1-2-3-1001'){
-    return [pscustomobject]@{TaskName=$Name;TaskPath='\';Principal=[pscustomobject]@{UserId=$Sid};Settings=[pscustomobject]@{Enabled=$true};Actions=@([pscustomobject]@{Execute=$Exe;Arguments='run'})}
+    return [pscustomobject]@{TaskName=$Name;TaskPath='\';State='Ready';Principal=[pscustomobject]@{UserId=$Sid;LogonType='Interactive';RunLevel='Limited'};Settings=[pscustomobject]@{Enabled=$true};Actions=@([pscustomobject]@{Execute=$Exe;Arguments='run';WorkingDirectory=$null})}
+}
+function InertLegacyTask($Plan){
+    $task=Task 'wt-warden' (Join-Path $Plan.Directory 'warden\warden.exe') $Plan.Identity.Sid
+    $task.Settings.Enabled=$false;$task.State='Disabled'
+    return $task
 }
 $root=Join-Path ([IO.Path]::GetTempPath()) ('cilex-office-wrapper-'+[Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory((Join-Path $root 'helpers'))|Out-Null
@@ -55,6 +60,56 @@ try{
     Reject {Get-OfficeStartupSelection $plan $null @($legacy)} 'OFFICE_STARTUP_DISABLED_REVIEW_REQUIRED'
     $legacy.Settings.Enabled=$true;$legacy.Actions[0].Arguments='run extra'
     Reject {Get-OfficeStartupSelection $plan $null @($legacy)} 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'
+    # The successful generic adoption retained wt-warden disabled. Its inert
+    # historical definition must not be mistaken for a second managed owner.
+    $marker=[pscustomobject]@{}
+    $inert=InertLegacyTask $plan
+    $beforeInert=$inert|ConvertTo-Json -Depth 8 -Compress
+    $selected=Get-OfficeStartupSelection $plan $marker @($managed,$inert)
+    Assert ($selected.TaskName -ceq $plan.TaskName -and -not $selected.AdoptExisting) 'marked task selected beside exact disabled historical task'
+    Assert ((Get-OfficeStartupSelection $plan $marker @($inert,$managed)).TaskName -ceq $plan.TaskName) 'historical task order does not affect selection'
+    Assert (($inert|ConvertTo-Json -Depth 8 -Compress) -ceq $beforeInert) 'disabled historical task is preserved unchanged'
+    $inert.Actions[0].WorkingDirectory=$plan.Directory
+    Assert ((Get-OfficeStartupSelection $plan $marker @($managed,$inert)).TaskName -ceq $plan.TaskName) 'exact installation working directory accepted for historical task'
+    $inert.Actions[0].WorkingDirectory=''
+    Assert ((Get-OfficeStartupSelection $plan $marker @($managed,$inert)).TaskName -ceq $plan.TaskName) 'empty historical working directory accepted'
+    Reject {Get-OfficeStartupSelection $plan $null @($managed,$inert)} 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'
+    Reject {Get-OfficeStartupSelection $plan $marker @($managed,$inert,(InertLegacyTask $plan))} 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'
+    Reject {Get-OfficeStartupSelection $plan $marker @($inert)} 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'
+    $managed.Settings.Enabled=$false
+    Reject {Get-OfficeStartupSelection $plan $marker @($managed,$inert)} 'OFFICE_STARTUP_DISABLED_REVIEW_REQUIRED'
+    $managed.Settings.Enabled=$true
+    $invalidHistorical=@(
+        @{Name='enabled';Change={param($t)$t.Settings.Enabled=$true}},
+        @{Name='running';Change={param($t)$t.State='Running'}},
+        @{Name='ready';Change={param($t)$t.State='Ready'}},
+        @{Name='unknown state';Change={param($t)$t.State='Unknown'}},
+        @{Name='missing state';Change={param($t)$t.PSObject.Properties.Remove('State')}},
+        @{Name='string disabled';Change={param($t)$t.Settings.Enabled='False'}},
+        @{Name='null disabled';Change={param($t)$t.Settings.Enabled=$null}},
+        @{Name='missing disabled';Change={param($t)$t.Settings.PSObject.Properties.Remove('Enabled')}},
+        @{Name='missing settings';Change={param($t)$t.PSObject.Properties.Remove('Settings')}},
+        @{Name='foreign user';Change={param($t)$t.Principal.UserId='S-1-5-21-9-8-7-1001'}},
+        @{Name='different name';Change={param($t)$t.TaskName='wt-warden-other'}},
+        @{Name='nested task';Change={param($t)$t.TaskPath='\Unrelated\'}},
+        @{Name='extra action';Change={param($t)$t.Actions+=,[pscustomobject]@{Execute='cmd.exe';Arguments='';WorkingDirectory=$null}}},
+        @{Name='extra arguments';Change={param($t)$t.Actions[0].Arguments='run extra'}},
+        @{Name='trailing argument whitespace';Change={param($t)$t.Actions[0].Arguments='run '}},
+        @{Name='argument case';Change={param($t)$t.Actions[0].Arguments='RUN'}},
+        @{Name='different executable';Change={param($t)$t.Actions[0].Execute=Join-Path $plan.Directory 'warden\another.exe'}},
+        @{Name='different working directory';Change={param($t)$t.Actions[0].WorkingDirectory='C:\Unrelated'}},
+        @{Name='missing working directory';Change={param($t)$t.Actions[0].PSObject.Properties.Remove('WorkingDirectory')}},
+        @{Name='password logon';Change={param($t)$t.Principal.LogonType='Password'}},
+        @{Name='missing logon';Change={param($t)$t.Principal.PSObject.Properties.Remove('LogonType')}},
+        @{Name='elevated principal';Change={param($t)$t.Principal.RunLevel='Highest'}},
+        @{Name='missing run level';Change={param($t)$t.Principal.PSObject.Properties.Remove('RunLevel')}},
+        @{Name='missing principal';Change={param($t)$t.PSObject.Properties.Remove('Principal')}}
+    )
+    foreach($case in $invalidHistorical){
+        $invalid=InertLegacyTask $plan
+        & $case.Change $invalid
+        Reject {Get-OfficeStartupSelection $plan $marker @($managed,$invalid)} 'OFFICE_STARTUP_OWNERSHIP_AMBIGUOUS'
+    }
     $now=[DateTime]::UtcNow
     $status=[pscustomobject]@{updated_at=$now.ToString('o');pid=123;units=@();current=$null;state='held';server_mode='enabled'}
     $hold=[pscustomobject]@{hold=[pscustomobject]@{why='operator maintenance';by='operator'}}
