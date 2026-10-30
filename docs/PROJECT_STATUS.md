@@ -1,5 +1,21 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-31 — Office shutdown and verified rollback.**
+> Office's update reached the replacement step and returned
+> `INSTALL_PROCESS_RESPAWNED`. Its saved result confirms verified rollback and
+> restored Labs startup. The operator's fresh check shows Watchtower 1.1.779
+> and the normal launcher/native-parent/native-child/application chain, with
+> managed startup running, Labs ready and the legacy entry disabled.
+> The shutdown code used one immediate process recheck, which cannot distinguish
+> delayed child teardown from a genuine restart. A scoped, bounded drain with
+> retained process identities now passes 457 shutdown/Office checks per
+> PowerShell engine, including independent review. Package verification follows.
+> The broader generic fixture passes 127 checks in Windows PowerShell 5.1;
+> its unchanged PowerShell 7 date-parser failure is recorded separately.
+> Office installation is pending. Booth remains on 1.1.791 with healthy video
+> in the October 30 23:13 UTC read-only snapshot; its wall was not restarted.
+> [Evidence and limits](verification/2026-10-31-office-process-drain/README.md).
+
 > **2026-10-30 — Office task XML defaults.**
 > A fresh operator check confirmed Office's idle, enabled analysis task and its
 > exact expected owner/action. Windows omits default `Enabled=true` from its

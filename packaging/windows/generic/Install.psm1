@@ -254,31 +254,185 @@ function Stop-WtgTaskExecution($Plan,[int]$TimeoutSeconds=15) {
         Start-Sleep -Milliseconds 200
     }while($true)
 }
-function Get-WtgOwnedProcesses($Plan) {
+function Get-WtgNativeProcessHandle([int]$ProcessId) {
+    try{return Get-Process -Id $ProcessId -ErrorAction Stop}
+    catch{
+        if($_.FullyQualifiedErrorId -like 'NoProcessFoundForGivenId*'){return $null}
+        throw 'INSTALL_PROCESS_HANDLE_UNVERIFIED'
+    }
+}
+function Assert-WtgNativeProcessIdentity($Handle,$Row) {
+    try{
+        $null=$Handle.Handle
+        $id=$Handle.Id;$created=$Handle.StartTime.ToUniversalTime();$path=$Handle.MainModule.FileName;$session=$Handle.SessionId
+    }catch{throw 'INSTALL_PROCESS_HANDLE_UNVERIFIED'}
+    if($id -ne $Row.ProcessId -or [Math]::Abs(($created-$Row.CreatedUTC).TotalMilliseconds) -gt 1 -or $path -ne $Row.Path -or $session -ne $Row.Session){throw 'INSTALL_PROCESS_CHANGED'}
+}
+function Test-WtgCapturedProcessExited($Captured) {
+    if(-not $Captured.Handle.HasExited){return $false}
+    $observed=Get-WtgNativeProcessHandle $Captured.Row.ProcessId
+    if(-not $observed){return $true}
+    try{
+        $null=$observed.Handle
+        if($observed.Id -ne $Captured.Row.ProcessId -or [Math]::Abs(($observed.StartTime.ToUniversalTime()-$Captured.Row.CreatedUTC).TotalMilliseconds) -gt 1 -or -not $observed.HasExited){throw 'INSTALL_PROCESS_CHANGED'}
+        return $true
+    }finally{$observed.Dispose()}
+}
+function Wait-WtgCapturedProcessExit($Captured,[int]$TimeoutMilliseconds=0) {
+    if(-not $Captured.Handle.HasExited -and -not $Captured.Handle.WaitForExit([Math]::Max(0,$TimeoutMilliseconds))){return $false}
+    return Test-WtgCapturedProcessExited $Captured
+}
+function Get-WtgOwnedProcesses($Plan,[object[]]$CapturedProcesses=@(),[int]$CapturedExitWaitMilliseconds=0,[object[]]$AdmissionRows=@()) {
     $paths=@((Join-Path $Plan.Directory 'watchtower.exe'),(Join-Path $Plan.Directory 'warden\warden.exe'),(Join-Path $Plan.Directory 'warden\warden-launcher.exe'))
     $result=@()
+    $exitWaitClock=[Diagnostics.Stopwatch]::StartNew()
     foreach($p in @(Get-CimInstance Win32_Process -Filter "Name='watchtower.exe' OR Name='warden.exe' OR Name='warden-launcher.exe' OR Name='python.exe' OR Name='pythonw.exe'" -ErrorAction Stop)){
+        $captured=@($CapturedProcesses|Where-Object{$_.Row.ProcessId -eq [int]$p.ProcessId})
+        if($captured.Count){
+            if($captured.Count -ne 1 -or [Math]::Abs(($p.CreationDate.ToUniversalTime()-$captured[0].Row.CreatedUTC).TotalMilliseconds) -gt 1 -or $p.ExecutablePath -ne $captured[0].Row.Path -or [int]$p.SessionId -ne $captured[0].Row.Session){throw 'INSTALL_PROCESS_CHANGED'}
+            # A provider can retain an exited row. The held native handle proves
+            # that exact generation dead without calling its now-invalid owner method.
+            if(Test-WtgCapturedProcessExited $captured[0]){continue}
+        }else{
+            $admitted=@($AdmissionRows|Where-Object{$_.ProcessId -eq [int]$p.ProcessId})
+            if($admitted.Count){
+                if($admitted.Count -ne 1 -or [Math]::Abs(($p.CreationDate.ToUniversalTime()-$admitted[0].CreatedUTC).TotalMilliseconds) -gt 1 -or $p.ExecutablePath -ne $admitted[0].Path -or [int]$p.SessionId -ne $admitted[0].Session){throw 'INSTALL_PROCESS_CHANGED'}
+                $observed=Get-WtgNativeProcessHandle ([int]$p.ProcessId)
+                if(-not $observed){continue}
+                try{
+                    $null=$observed.Handle
+                    if($observed.Id -ne $admitted[0].ProcessId -or [Math]::Abs(($observed.StartTime.ToUniversalTime()-$admitted[0].CreatedUTC).TotalMilliseconds) -gt 1){throw 'INSTALL_PROCESS_CHANGED'}
+                    if($observed.HasExited){continue}
+                    Assert-WtgNativeProcessIdentity $observed $admitted[0]
+                }finally{$observed.Dispose()}
+            }
+        }
         if($p.ExecutablePath -and $p.ExecutablePath -in $paths){
-            $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid -ErrorAction Stop
-            if($owner.ReturnValue -ne 0 -or $owner.Sid -ne $Plan.Identity.Sid -or $p.SessionId -eq 0){throw 'INSTALL_PROCESS_OWNER_OR_SESSION_MISMATCH'}
+            try{$owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid -ErrorAction Stop}
+            catch{
+                $remaining=[int][Math]::Max(0,($CapturedExitWaitMilliseconds-$exitWaitClock.ElapsedMilliseconds))
+                if($captured.Count -eq 1 -and (Wait-WtgCapturedProcessExit $captured[0] $remaining)){continue}
+                throw
+            }
+            if($owner.ReturnValue -ne 0 -or -not $owner.Sid){
+                # The process can finish between the census and GetOwnerSid.
+                $remaining=[int][Math]::Max(0,($CapturedExitWaitMilliseconds-$exitWaitClock.ElapsedMilliseconds))
+                if($captured.Count -eq 1 -and (Wait-WtgCapturedProcessExit $captured[0] $remaining)){continue}
+                throw 'INSTALL_PROCESS_OWNER_OR_SESSION_MISMATCH'
+            }
+            if($owner.Sid -ne $Plan.Identity.Sid -or $p.SessionId -eq 0){throw 'INSTALL_PROCESS_OWNER_OR_SESSION_MISMATCH'}
             $result += [pscustomobject]@{ProcessId=[int]$p.ProcessId;ParentId=[int]$p.ParentProcessId;CreatedUTC=$p.CreationDate.ToUniversalTime();Path=$p.ExecutablePath;Session=[int]$p.SessionId;Sid=$owner.Sid}
         }
         elseif($p.CommandLine -and $p.CommandLine.IndexOf($Plan.Directory,[StringComparison]::OrdinalIgnoreCase) -ge 0){throw 'INSTALL_UNMANAGED_SUPERVISOR_PRESENT'}
     }
     return $result
 }
-function Stop-WtgOwnedProcesses($Plan) {
-    $rows=@(Get-WtgOwnedProcesses $Plan)
-    foreach($p in ($rows|Sort-Object @{Expression={if($_.Path.EndsWith('\warden-launcher.exe',[StringComparison]::OrdinalIgnoreCase)){0}elseif($_.Path.EndsWith('\warden.exe',[StringComparison]::OrdinalIgnoreCase)){1}else{2}}})){
-        try{$handle=Get-Process -Id $p.ProcessId -ErrorAction Stop}catch{continue}
+function Assert-WtgAdmissionCensus([object[]]$AdmissionRows,[object[]]$Rows,[object[]]$CapturedProcesses=@(),[int]$ExitWaitMilliseconds=0) {
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    foreach($admitted in $AdmissionRows){
+        $observed=Get-WtgNativeProcessHandle $admitted.ProcessId
+        if(-not $observed){continue}
+        try{
+            $null=$observed.Handle
+            if($observed.Id -ne $admitted.ProcessId -or [Math]::Abs(($observed.StartTime.ToUniversalTime()-$admitted.CreatedUTC).TotalMilliseconds) -gt 1){throw 'INSTALL_PROCESS_CHANGED'}
+            if($observed.HasExited){continue}
+            try{Assert-WtgNativeProcessIdentity $observed $admitted}
+            catch{
+                $captured=@($CapturedProcesses|Where-Object{$_.Row.ProcessId -eq $admitted.ProcessId})
+                $remaining=[int][Math]::Max(0,($ExitWaitMilliseconds-$clock.ElapsedMilliseconds))
+                if($_.Exception.Message -eq 'INSTALL_PROCESS_HANDLE_UNVERIFIED' -and $captured.Count -eq 1 -and (Wait-WtgCapturedProcessExit $captured[0] $remaining)){continue}
+                throw
+            }
+            if(@($Rows|Where-Object{$_.ProcessId -eq $admitted.ProcessId}).Count -ne 1){throw 'INSTALL_PROCESS_HANDLE_UNVERIFIED'}
+        }finally{$observed.Dispose()}
+    }
+}
+function Get-WtgLiveDrainRows($Plan,[object[]]$CapturedProcesses,[int]$ExitWaitMilliseconds=0,[object[]]$AdmissionRows=@()) {
+    $live=@()
+    $clock=[Diagnostics.Stopwatch]::StartNew()
+    foreach($item in $CapturedProcesses){if($item.Handle.HasExited){$null=Test-WtgCapturedProcessExited $item}}
+    $rows=@(Get-WtgOwnedProcesses $Plan $CapturedProcesses $ExitWaitMilliseconds $AdmissionRows)
+    $remaining=[int][Math]::Max(0,($ExitWaitMilliseconds-$clock.ElapsedMilliseconds))
+    Assert-WtgAdmissionCensus $AdmissionRows $rows $CapturedProcesses $remaining
+    foreach($row in $rows){
+        $captured=@($CapturedProcesses|Where-Object{$_.Row.ProcessId -eq $row.ProcessId})
+        if($captured.Count){
+            if($captured.Count -ne 1 -or $row.CreatedUTC -ne $captured[0].Row.CreatedUTC -or $row.Path -ne $captured[0].Row.Path -or $row.Session -ne $captured[0].Row.Session -or $row.Sid -ne $captured[0].Row.Sid){throw 'INSTALL_PROCESS_CHANGED'}
+            if(-not $captured[0].Handle.HasExited){$live+=,$row}
+            continue
+        }
+        $handle=Get-WtgNativeProcessHandle $row.ProcessId
+        if(-not $handle){continue}
         try{
             $null=$handle.Handle
             if($handle.HasExited){continue}
-            if([Math]::Abs(($handle.StartTime.ToUniversalTime()-$p.CreatedUTC).TotalMilliseconds) -gt 1 -or $handle.MainModule.FileName -ne $p.Path -or $handle.SessionId -ne $p.Session){throw 'INSTALL_PROCESS_CHANGED'}
-            $handle.Kill();if(-not $handle.WaitForExit(15000)){throw 'INSTALL_PROCESS_STOP_TIMEOUT'}
+            Assert-WtgNativeProcessIdentity $handle $row
+            # No post-capture identity is ever adopted into the termination set.
+            throw 'INSTALL_PROCESS_RESPAWNED'
         }finally{$handle.Dispose()}
     }
-    if(@(Get-WtgOwnedProcesses $Plan).Count){throw 'INSTALL_PROCESS_RESPAWNED'}
+    return $live
+}
+function Stop-WtgOwnedProcesses($Plan,[scriptblock]$BeforeStop={},[ValidateRange(0,60000)][int]$TimeoutMilliseconds=15000,$Admission=$null) {
+    $captured=New-Object Collections.Generic.List[object]
+    try{
+        if(-not $Admission){$Admission=[pscustomobject]@{Initialized=$false;Rows=@()}}
+        $reuseAdmission=[bool]$Admission.Initialized
+        # A failed first census/capture must never make recovery admit a new cohort.
+        if(-not $reuseAdmission){$Admission.Initialized=$true;$Admission.Rows=@()}
+        $rows=@(Get-WtgOwnedProcesses $Plan @() 0 @($Admission.Rows))
+        if($reuseAdmission){Assert-WtgAdmissionCensus @($Admission.Rows) $rows}
+        if(@($rows|Select-Object -ExpandProperty Session -Unique).Count -gt 1){throw 'INSTALL_PROCESS_OWNER_OR_SESSION_MISMATCH'}
+        $currentSession=[Diagnostics.Process]::GetCurrentProcess().SessionId
+        if($Plan.Identity.PSObject.Properties['IsCurrent'] -and $Plan.Identity.IsCurrent -and $currentSession -gt 0 -and @($rows|Where-Object{$_.Session -ne $currentSession}).Count){throw 'INSTALL_PROCESS_OWNER_OR_SESSION_MISMATCH'}
+        foreach($row in $rows){
+            $handle=Get-WtgNativeProcessHandle $row.ProcessId
+            if(-not $handle){continue}
+            try{
+                if($reuseAdmission){
+                    $admitted=@($Admission.Rows|Where-Object{$_.ProcessId -eq $row.ProcessId})
+                    if($admitted.Count -eq 0){
+                        $null=$handle.Handle
+                        if($handle.HasExited){continue}
+                        Assert-WtgNativeProcessIdentity $handle $row
+                        throw 'INSTALL_PROCESS_RESPAWNED'
+                    }
+                    if($admitted.Count -ne 1 -or $row.CreatedUTC -ne $admitted[0].CreatedUTC -or $row.Path -ne $admitted[0].Path -or $row.Session -ne $admitted[0].Session -or $row.Sid -ne $admitted[0].Sid){throw 'INSTALL_PROCESS_CHANGED'}
+                }
+                Assert-WtgNativeProcessIdentity $handle $row
+                $captured.Add([pscustomobject]@{Row=$row;Handle=$handle})
+                if(-not $reuseAdmission){$Admission.Rows=@($Admission.Rows)+@([pscustomobject]@{ProcessId=$row.ProcessId;ParentId=$row.ParentId;CreatedUTC=$row.CreatedUTC;Path=$row.Path;Session=$row.Session;Sid=$row.Sid})}
+                $handle=$null
+            }finally{if($handle){$handle.Dispose()}}
+        }
+        # Retain the admitted native identities before the scheduler can tear
+        # down the launcher, its onefile bootloader and its supervisor child.
+        & $BeforeStop
+        $clock=[Diagnostics.Stopwatch]::StartNew()
+        $null=Get-WtgLiveDrainRows $Plan ($captured.ToArray()) $TimeoutMilliseconds @($Admission.Rows)
+        foreach($item in ($captured|Sort-Object @{Expression={if($_.Row.Path.EndsWith('\warden-launcher.exe',[StringComparison]::OrdinalIgnoreCase)){0}elseif($_.Row.Path.EndsWith('\warden.exe',[StringComparison]::OrdinalIgnoreCase)){1}else{2}}})){
+            if($item.Handle.HasExited){continue}
+            try{Assert-WtgNativeProcessIdentity $item.Handle $item.Row}
+            catch{
+                if($_.Exception.Message -ne 'INSTALL_PROCESS_HANDLE_UNVERIFIED'){throw}
+                $remaining=[int][Math]::Max(0,($TimeoutMilliseconds-$clock.ElapsedMilliseconds))
+                if(Wait-WtgCapturedProcessExit $item $remaining){continue}
+                throw
+            }
+            try{$item.Handle.Kill()}catch{if(-not $item.Handle.HasExited){throw 'INSTALL_PROCESS_STOP_FAILED'}}
+            $remaining=[int][Math]::Max(0,($TimeoutMilliseconds-$clock.ElapsedMilliseconds))
+            if(-not $item.Handle.WaitForExit($remaining)){throw 'INSTALL_PROCESS_STOP_TIMEOUT'}
+        }
+        $quiet=0
+        do{
+            $remaining=[int][Math]::Max(0,($TimeoutMilliseconds-$clock.ElapsedMilliseconds))
+            $live=@(Get-WtgLiveDrainRows $Plan ($captured.ToArray()) $remaining @($Admission.Rows))
+            if($live.Count -eq 0 -and @($captured|Where-Object{-not $_.Handle.HasExited}).Count -eq 0){$quiet++}else{$quiet=0}
+            if($quiet -ge 2){return}
+            if($clock.ElapsedMilliseconds -ge $TimeoutMilliseconds){throw 'INSTALL_PROCESS_STOP_TIMEOUT'}
+            Start-Sleep -Milliseconds ([int][Math]::Min(100,[Math]::Max(1,($TimeoutMilliseconds-$clock.ElapsedMilliseconds))))
+        }while($true)
+    }finally{foreach($item in $captured){$item.Handle.Dispose()}}
 }
 function Get-WtgTaskXml($Plan) {
     $tasks=@(Get-ScheduledTask -TaskPath '\' -ErrorAction Stop|Where-Object{$_.TaskName -eq $Plan.TaskName})
@@ -734,24 +888,28 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
     }
     Write-WtgInstallJson (Join-Path $plan.StatePath ($Context.RunId+'.previous-startup.json')) @{managedTaskXml=$oldTask;managedTaskEnabled=$oldTaskEnabled;legacy=$adoption;wasRunning=($app.Count -gt 0)}
     $taskDisabled=$false
+    $shutdown=[pscustomobject]@{OriginalAdmission=[pscustomobject]@{Initialized=$false;Rows=@()};ReplacementAdmission=[pscustomobject]@{Initialized=$false;Rows=@()};StartupAttempted=$false}
     try{
         $beforeReplace={
-            if($adoption){$legacyPlan=$plan.PSObject.Copy();$legacyPlan.TaskName=$adoption.TaskName;$legacyPlan|Add-Member -NotePropertyName AllowLegacyWarden -NotePropertyValue $true;Stop-WtgTaskExecution $legacyPlan}
-            if($oldTask){Stop-WtgTaskExecution $plan}
-            Stop-WtgOwnedProcesses $plan
+            Stop-WtgOwnedProcesses $plan -BeforeStop {
+                if($adoption){$legacyPlan=$plan.PSObject.Copy();$legacyPlan.TaskName=$adoption.TaskName;$legacyPlan|Add-Member -NotePropertyName AllowLegacyWarden -NotePropertyValue $true;Stop-WtgTaskExecution $legacyPlan}
+                if($oldTask){Stop-WtgTaskExecution $plan}
+            } -Admission $shutdown.OriginalAdmission
         }
         $configure={
             $null=Set-WtgWardenConfiguration $Context $plan
             Register-WtgUninstaller $plan $package
             Register-WtgTask $plan
-            if(@(Get-WtgInteractiveSessions $plan).Count -gt 0){Start-ScheduledTask -TaskName $plan.TaskName}
+            if(@(Get-WtgInteractiveSessions $plan).Count -gt 0){$shutdown.StartupAttempted=$true;Start-ScheduledTask -TaskName $plan.TaskName}
         }
         $verify={Test-WtgInstalledStartup $Context $plan -Before $baseline}
         $restore={param($Phase)
             if($Phase -eq 'BeforeFiles'){
-                $task=Get-WtgTaskXml $plan
-                if($task){Stop-WtgTaskExecution $plan}
-                Stop-WtgOwnedProcesses $plan
+                $admission=if($shutdown.StartupAttempted){$shutdown.ReplacementAdmission}else{$shutdown.OriginalAdmission}
+                Stop-WtgOwnedProcesses $plan -BeforeStop {
+                    $task=Get-WtgTaskXml $plan
+                    if($task){Stop-WtgTaskExecution $plan}
+                } -Admission $admission
             }else{
                 Restore-WtgRegistration $plan $registration
                 if($hadConfig){[IO.File]::Copy($configBackup,$plan.ConfigPath,$true);Set-Acl -LiteralPath $plan.ConfigPath -AclObject $configAcl}elseif(Test-Path -LiteralPath $plan.ConfigPath){Remove-Item -LiteralPath $plan.ConfigPath -Force}
@@ -789,8 +947,7 @@ function Uninstall-WtgPackage($Context) {
     [IO.Directory]::CreateDirectory($plan.StatePath)|Out-Null
     $lock=[IO.File]::Open((Join-Path $plan.StatePath 'install.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
     try{
-        if($task){Disable-ScheduledTask -TaskName $plan.TaskName|Out-Null}
-        Stop-WtgOwnedProcesses $plan
+        Stop-WtgOwnedProcesses $plan -BeforeStop {if($task){Stop-WtgTaskExecution $plan}}
         # Delete only unchanged declared payload files. Unknown/changed files and settings survive.
         foreach($f in $marker.files){$path=Resolve-WtgPayloadPath $plan.Directory $f.path;if(Test-Path -LiteralPath $path){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -eq $f.sha256){Remove-Item -LiteralPath $path -Force}else{throw 'UNINSTALL_MODIFIED_FILE_RETAINED'}}}
         if($task){Unregister-ScheduledTask -TaskName $plan.TaskName -Confirm:$false}

@@ -7,6 +7,7 @@ Set-StrictMode -Version 2
 $script:passed=0
 function Assert($Value,[string]$Name){if(-not $Value){throw ('FAIL: '+$Name)};$script:passed++}
 function Json($Value){return ConvertTo-Json -InputObject $Value -Depth 20 -Compress}
+. (Join-Path $PSScriptRoot '..\..\generic\tests\test-owned-process-drain.ps1') -FixtureDefinitionsOnly
 
 $wrapper=Join-Path $PSScriptRoot 'update-local-package.ps1'
 $tokens=$null;$errors=$null
@@ -66,12 +67,7 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
         function script:Register-WtgUninstaller {param($Plan,$Package)$script:Fixture.Registration=[pscustomobject]@{Version=$Package.Manifest.version;FixtureOnly=$true};$script:Fixture.Events.Add('Registration:new')}
         function script:Restore-WtgRegistration {param($Plan,$Snapshot)$script:Fixture.Registration=Copy-FixtureObject $Snapshot;$script:Fixture.Events.Add('Registration:restored')}
         function script:Get-WtgHelperPath {param($Name)if($Name -cne 'StationVideoHealth.psm1'){throw 'FIXTURE_HELPER_FORBIDDEN'};return $script:FixtureVideoModule}
-        function script:Get-WtgOwnedProcesses {param($Plan)return $script:Fixture.Rows}
         function script:Get-WtgInteractiveSessions {param($Plan)return @(1)}
-        function script:Stop-WtgOwnedProcesses {param($Plan)
-            if(@($script:Fixture.Rows).Count){throw 'FIXTURE_TASK_DID_NOT_END_OWNED_TREE'}
-            $script:Fixture.Events.Add('OwnedProcesses:quiescent')
-        }
         function script:Get-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction)
             foreach($task in $script:Fixture.Tasks.Values){if(-not $TaskName -or $task.TaskName -eq $TaskName){$task}}
         }
@@ -86,7 +82,13 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
         }
         function script:Stop-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction)
             Assert-FixtureTask $TaskName;$script:Fixture.Events.Add('Stop:'+$TaskName)
-            $script:Fixture.Tasks[$TaskName].State='Disabled';$script:Fixture.Rows=@()
+            $script:Fixture.Tasks[$TaskName].State='Disabled';$script:Fixture.CallbackCalled=$true
+            # The real scheduler can finish its instance before all descendant
+            # native generations disappear. Keep the CIM rows and old handles;
+            # the actual drain must classify/finish them, not this task double.
+            if($script:Fixture.Processes.ContainsKey(100)){$script:Fixture.Processes[100].Exited=$true}
+            if($script:Fixture.Processes.ContainsKey(101)){$script:Fixture.Processes[101].Exited=$true}
+            if($script:Fixture.Processes.ContainsKey(102)){$script:Fixture.Processes[102].KillRace=$true}
         }
         function script:New-ScheduledTaskAction {param($Execute,$Argument,$WorkingDirectory)return [pscustomobject]@{Execute=$Execute;Arguments=$Argument;WorkingDirectory=$WorkingDirectory}}
         function script:New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel)return [pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
@@ -110,36 +112,32 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
             Assert-FixtureTask $TaskName;$script:Fixture.Events.Add('Start:'+$TaskName)
             $script:Fixture.Tasks[$TaskName].State='Running'
             $created=[DateTime]::UtcNow.AddMinutes(-1);$dir=$script:Fixture.Plan.Directory
-            $script:Fixture.Rows=@(
-                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden-launcher.exe');ProcessId=100;ParentId=1;Session=1;CreatedUTC=$created},
-                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden.exe');ProcessId=101;ParentId=100;Session=1;CreatedUTC=$created.AddSeconds(1)},
-                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden.exe');ProcessId=102;ParentId=101;Session=1;CreatedUTC=$created.AddSeconds(2)},
-                [pscustomobject]@{Path=(Join-Path $dir 'watchtower.exe');ProcessId=103;ParentId=102;Session=1;CreatedUTC=$created.AddSeconds(3)}
+            $rows=@(
+                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden-launcher.exe');ProcessId=100;ParentId=1;Session=1;CreatedUTC=$created;Sid=$script:FixtureIdentity.Sid},
+                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden.exe');ProcessId=101;ParentId=100;Session=1;CreatedUTC=$created.AddSeconds(1);Sid=$script:FixtureIdentity.Sid},
+                [pscustomobject]@{Path=(Join-Path $dir 'warden\warden.exe');ProcessId=102;ParentId=101;Session=1;CreatedUTC=$created.AddSeconds(2);Sid=$script:FixtureIdentity.Sid},
+                [pscustomobject]@{Path=(Join-Path $dir 'watchtower.exe');ProcessId=103;ParentId=102;Session=1;CreatedUTC=$created.AddSeconds(3);Sid=$script:FixtureIdentity.Sid}
             )
+            Set-FixtureDrainRows $rows
         }
         function script:Test-WtgInstalledStartup {param($Context,$Plan,$Before)
-            if(-not $Before -or -not $Before.FixtureOnly -or -not (Test-WtgProcessParentage $Plan $script:Fixture.Rows 1)){throw 'FIXTURE_INVALID_STARTUP_CHAIN'}
+            $rows=@(Get-WtgOwnedProcesses $Plan)
+            if(-not $Before -or -not $Before.FixtureOnly -or -not (Test-WtgProcessParentage $Plan $rows 1) -or @($script:Fixture.Processes.Values|Where-Object{$_.Exited}).Count){throw 'FIXTURE_INVALID_STARTUP_CHAIN'}
             $script:Fixture.Events.Add('Verify:fixture-chain')
             if($script:Fixture.FailVerification){$script:Fixture.FailVerification=$false;throw 'FIXTURE_VERIFY_FAILURE'}
-            return [pscustomobject]@{State='FixtureManagedChainVerified';FixtureOnly=$true;Processes=$script:Fixture.Rows}
+            return [pscustomobject]@{State='FixtureManagedChainVerified';FixtureOnly=$true;Processes=$rows}
         }
         function script:Set-WtgUnattendedStartup {param($Context,$Plan)
             if($Context.StartupMode -cne 'AfterSignIn'){throw 'FIXTURE_UNEXPECTED_AUTOLOGON_REQUEST'}
             return 'AfterSignInConfiguredButUnverified'
         }
-        function script:Get-CimInstance {param($ClassName,$Filter,$ErrorAction)
-            if($ClassName -cne 'Win32_OperatingSystem'){throw 'FIXTURE_UNEXPECTED_CIM_REQUEST'}
-            return [pscustomobject]@{LastBootUpTime=[DateTime]::Now.AddHours(-1)}
-        }
         function script:Start-Process {throw 'FIXTURE_REAL_PROCESS_LAUNCH_FORBIDDEN'}
         function script:Stop-Process {throw 'FIXTURE_REAL_PROCESS_STOP_FORBIDDEN'}
-        function script:Get-Process {throw 'FIXTURE_REAL_PROCESS_ACCESS_FORBIDDEN'}
-        function script:Invoke-CimMethod {throw 'FIXTURE_REAL_CIM_METHOD_FORBIDDEN'}
         function script:Get-Service {throw 'FIXTURE_REAL_SERVICE_ACCESS_FORBIDDEN'}
         function script:Set-ExecutionPolicy {throw 'FIXTURE_SECURITY_CHANGE_FORBIDDEN'}
     } $root $identity $videoModule
 
-    foreach($case in @('success','rollback')){
+    foreach($case in @('success','rollback','before-replace-rollback','new-actor-rollback-refusal')){
         $context=[pscustomobject]@{RunId=('fixture-managed-'+$case);InstallDir=(Join-Path $root ('installed-'+$case));InstallScope='User';TargetUser=$identity.Name;TargetSid=$identity.Sid;StartupMode='AfterSignIn';Language='en';BackendUrl='';OverrideRequirements=@();NonInteractive=$false;PackageManifestSha256=$manifestHash;AdoptExisting=$false;LegacyTaskName=''}
         $plan=Get-WtgInstallPlan $context $identity
         [IO.Directory]::CreateDirectory((Join-Path $plan.Directory 'warden'))|Out-Null
@@ -152,6 +150,13 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
         $managed=[pscustomobject]@{TaskName=$plan.TaskName;TaskPath='\';Principal=[pscustomobject]@{UserId=$identity.Sid;LogonType='Interactive';RunLevel='Limited'};Settings=[pscustomobject]@{Enabled=$true};State='Running';Actions=@([pscustomobject]@{Execute=(Join-Path $plan.Directory 'warden\warden-launcher.exe');Arguments='run';WorkingDirectory=$plan.Directory});Triggers=@('fixture-old-trigger')}
         $legacy=[pscustomobject]@{TaskName='wt-warden';TaskPath='\';Principal=[pscustomobject]@{UserId=$identity.Sid;LogonType='Interactive';RunLevel='Limited'};Settings=[pscustomobject]@{Enabled=$false};State='Disabled';Actions=@([pscustomobject]@{Execute=(Join-Path $plan.Directory 'warden\warden.exe');Arguments='run';WorkingDirectory=$null});Triggers=@('retained-legacy-trigger')}
         $fixture=[pscustomobject]@{Plan=$plan;Tasks=@{};Xml=@{};Rows=@();Events=(New-Object 'Collections.Generic.List[string]');Registration=[pscustomobject]@{Version='1.1.779';FixtureOnly=$true};FailVerification=($case -eq 'rollback');InitialManagedTask=$managed;InitialManagedXml=''}
+        $drainState=New-WtgDrainFixtureState $plan @()
+        foreach($property in $drainState.PSObject.Properties){if(-not $fixture.PSObject.Properties[$property.Name]){$fixture|Add-Member -NotePropertyName $property.Name -NotePropertyValue $property.Value}}
+        $fixture|Add-Member -NotePropertyName BeforeMoveFailureObserved -NotePropertyValue $false
+        $fixture|Add-Member -NotePropertyName CaseRunId -NotePropertyValue $context.RunId
+        if($case -eq 'before-replace-rollback'){$fixture.InjectDrainedQueryError='INSTALL_PROCESS_RESPAWNED'}
+        if($case -eq 'new-actor-rollback-refusal'){$fixture.InjectLiveRootAfterExit=$true}
+        Install-WtgDrainFixtureCapabilities $module $fixture
         $fixture.Tasks[$plan.TaskName]=$managed;$fixture.Tasks['wt-warden']=$legacy
         & $module {param($State)
             $script:Fixture=$State
@@ -161,6 +166,11 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
             $script:Fixture.InitialManagedTask=Copy-FixtureObject $State.Tasks[$State.Plan.TaskName]
             Start-ScheduledTask -TaskName $State.Plan.TaskName
             $script:Fixture.Events.Clear()
+            $script:Fixture.OnDrainedQueryError={
+                $directory=$script:Fixture.Plan.Directory;$parent=Split-Path -Parent $directory
+                $script:Fixture.BeforeMoveFailureObserved=([IO.File]::ReadAllText((Join-Path $directory 'watchtower.exe')).StartsWith('old fixture bytes: ') -and (Test-Path -LiteralPath (Join-Path $parent ('.cilex-stage-'+$script:Fixture.CaseRunId))) -and -not (Test-Path -LiteralPath (Join-Path $parent ('.cilex-backup-'+$script:Fixture.CaseRunId))))
+            }
+            $script:Fixture.OnLiveRootInjected=$script:Fixture.OnDrainedQueryError
         } $fixture
         $legacyBefore=Json $fixture.Tasks['wt-warden'];$legacyXmlBefore=$fixture.Xml['wt-warden']
         $taskXmlBefore=$fixture.Xml[$plan.TaskName];$registrationBefore=Json $fixture.Registration
@@ -185,20 +195,42 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
             Assert (($fixture.Events -join '|') -match ('Disable:'+ [regex]::Escape($plan.TaskName)+'.*Stop:'+ [regex]::Escape($plan.TaskName)+'.*RegisterNew:'+ [regex]::Escape($plan.TaskName)+'.*Start:'+ [regex]::Escape($plan.TaskName))) 'success: only managed startup is stopped, registered and started in order'
             $newMarker=& $module {param($p)Assert-WtgOwnedInstallation $p} $plan
             Assert ($newMarker.version -eq '1.1.791' -and $newMarker.wardenVersion -eq '1.5.0') 'success: owned marker advances with actual transaction'
+        }elseif($case -eq 'new-actor-rollback-refusal'){
+            Assert ($failure -and $failure.Exception.Message -eq 'INSTALL_FAILED_ROLLBACK_UNVERIFIED') 'new actor: actual transaction reports unverified recovery instead of adopting an unknown cohort'
+            Assert ($failure.Exception.Data.Contains('RollbackVerified') -and -not $failure.Exception.Data['RollbackVerified']) 'new actor: recovery is explicitly unverified'
+            Assert ($failure.Exception.Data['InstallFailure'].ErrorCode -eq 'INSTALL_PROCESS_RESPAWNED' -and $failure.Exception.Data['RollbackFailure'].ErrorCode -eq 'INSTALL_PROCESS_RESPAWNED') 'new actor: original refusal and recovery refusal are both retained'
+            Assert ($fixture.LiveRootInjected -and -not $fixture.Processes[999].Exited -and -not(@($fixture.Killed|Where-Object{$_ -like '999|*'}).Count)) 'new actor: unexpected live root is never killed or replaced during recovery'
+            Assert $fixture.BeforeMoveFailureObserved 'new actor: refusal occurs before original files move or replacement startup'
+            Assert (@($fixture.Events|Where-Object{$_ -like 'RegisterNew:*' -or $_ -like 'RegisterRestored:*' -or $_ -like 'Start:*' -or $_ -eq 'Registration:new' -or $_ -eq 'Registration:restored'}).Count -eq 0) 'new actor: refusal never registers, restarts or reconfigures startup or registration'
+            Assert (@($fixture.Events|Where-Object{$_ -like 'Disable:*' -or $_ -like 'Stop:*'}).Count -eq 2) 'new actor: recovery refusal precedes any second task disable or stop'
+            Assert (-not $fixture.Tasks[$plan.TaskName].Settings.Enabled -and $fixture.Tasks[$plan.TaskName].State -eq 'Disabled') 'new actor: stopped owned task is not restarted around an unverified actor'
+            Assert ((Get-FileHash -LiteralPath $plan.ConfigPath -Algorithm SHA256).Hash -eq $configHashBefore -and (Json $fixture.Registration) -ceq $registrationBefore) 'new actor: original configuration and registration are never overwritten'
+            foreach($name in $oldHashes.Keys){Assert ((Get-FileHash -LiteralPath (Join-Path $plan.Directory $name) -Algorithm SHA256).Hash -eq $oldHashes[$name]) ('new actor: original file remains untouched: '+$name)}
+            Assert (-not(Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-backup-'+$context.RunId))) -and -not(Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-failed-'+$context.RunId)))) 'new actor: no original or replacement directory moves during refused recovery'
         }else{
-            Assert ($failure -and $failure.Exception.Message -eq 'FIXTURE_VERIFY_FAILURE') 'rollback: verification failure is reported without replacing original error'
+            $expectedFailure=if($case -eq 'before-replace-rollback'){'INSTALL_PROCESS_RESPAWNED'}else{'FIXTURE_VERIFY_FAILURE'}
+            Assert ($failure -and $failure.Exception.Message -eq $expectedFailure) ($case+': original failure is reported without replacing its error')
             Assert ($failure.Exception.Data.Contains('RollbackVerified') -and $failure.Exception.Data['RollbackVerified']) 'rollback: actual transaction confirms recovery'
             Assert ($fixture.Xml[$plan.TaskName] -ceq $taskXmlBefore) 'rollback: exact old managed task XML returns'
             Assert ($fixture.Tasks[$plan.TaskName].Settings.Enabled -and $fixture.Tasks[$plan.TaskName].State -eq 'Running') 'rollback: prior enabled managed startup is restored and restarted'
             Assert ((Get-FileHash -LiteralPath $plan.ConfigPath -Algorithm SHA256).Hash -eq $configHashBefore) 'rollback: exact original config bytes return'
             Assert ((Json $fixture.Registration) -ceq $registrationBefore) 'rollback: original fixture registration returns'
             foreach($name in $oldHashes.Keys){Assert ((Get-FileHash -LiteralPath (Join-Path $plan.Directory $name) -Algorithm SHA256).Hash -eq $oldHashes[$name]) ('rollback: exact prior file restored: '+$name)}
-            Assert (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-failed-'+$context.RunId+'\watchtower.exe'))) 'rollback: failed payload retained separately'
+            if($case -eq 'before-replace-rollback'){
+                Assert $fixture.BeforeMoveFailureObserved 'before-replace failure occurs with original files in place and verified stage not moved'
+                Assert (-not(Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-failed-'+$context.RunId)))) 'before-replace failure never renames old installation as failed new payload'
+                Assert (-not(Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-backup-'+$context.RunId)))) 'before-replace failure never moves original installation to backup'
+            }else{
+                Assert (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $plan.Directory) ('.cilex-failed-'+$context.RunId+'\watchtower.exe'))) 'rollback: failed payload retained separately'
+            }
             Assert (($fixture.Events -join '|') -match ('RegisterRestored:'+ [regex]::Escape($plan.TaskName)+'.*Enable:'+ [regex]::Escape($plan.TaskName)+'.*Start:'+ [regex]::Escape($plan.TaskName))) 'rollback: original managed task restoration precedes restart'
         }
         Assert ((Json $fixture.Tasks['wt-warden']) -ceq $legacyBefore -and $fixture.Xml['wt-warden'] -ceq $legacyXmlBefore) ($case+': disabled legacy task and XML remain byte-for-byte unchanged')
         Assert (-not(@($fixture.Events|Where-Object{$_ -match ':wt-warden$'}).Count)) ($case+': no capability was invoked against legacy task')
-        Assert (& $module {param($p,$r)Test-WtgProcessParentage $p $r 1} $plan $fixture.Rows) ($case+': resulting app is owned by the complete managed launcher chain')
+        if($case -ne 'new-actor-rollback-refusal'){Assert (& $module {param($p,$r)Test-WtgProcessParentage $p $r 1} $plan $fixture.Rows) ($case+': resulting app is owned by the complete managed launcher chain')}
+        Assert (@($fixture.Opened|Where-Object{-not $_.Disposed}).Count -eq 0) ($case+': every retained native handle is disposed')
+        Assert ($fixture.DeadOwnerCalls -eq 0 -and $fixture.Killed.Count -gt 0) ($case+': actual drain handles stale dead CIM owners and asynchronous descendants')
+        Assert (@($fixture.Rows|Where-Object{$_.Sid -ne $identity.Sid -or $_.Session -ne 1}).Count -eq 0) ($case+': final old or new startup retains the exact intended user and desktop session')
     }
     Write-Output ('Managed Office update: '+$script:passed+' checks passed. Disposable files and in-memory Windows capabilities only.')
 }finally{

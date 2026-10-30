@@ -2,7 +2,7 @@
 
 Use this when Office cannot accept a remote administrator login. It updates the
 existing Watchtower and Warden together and checks that the camera wall starts.
-It keeps a backup and automatically restores the old installation if that check fails.
+It keeps a backup and checks recovery of the old installation if the update fails.
 
 For a prepared **Office update ZIP**, use the short instructions in that package:
 
@@ -22,9 +22,11 @@ update. Send the completion message and saved result path to the deployment oper
 
 For an older 1.1.791 ZIP, use the **latest small fix ZIP** supplied by the
 deployment operator. Extract it into the same folder and replace the update
-files when asked. Keep the existing `package` folder, then run
+files when asked, including files inside `package`. Merge the correction into
+the existing `package` folder and keep its other files, then run
 `Update-Office.cmd` again. The latest correction recognises the retained old
-startup entry and Windows' normal default settings. Conflicting or unknown
+startup entry, Windows' normal default settings and processes finishing
+shutdown. Conflicting or unknown
 entries still stop the update.
 
 For the known Office setup, the updater can temporarily pause its idle analysis
