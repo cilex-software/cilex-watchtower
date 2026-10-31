@@ -1,5 +1,15 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-31 — Windows wizard requirement saved.**
+> The operator wants one guided setup file, similar in experience to the Cilex
+> Vision server installer, for ordinary local/remote installation and updates.
+> Detect and preserve existing settings, prepare dependencies and Warden,
+> handle permissions in the wizard, and verify startup/video automatically.
+> Pasted commands, manual configuration and successive fix ZIPs must not be
+> the normal user flow. The existing GUI is a limited wrapper; a complete
+> wizard and fresh-machine/reboot acceptance remain future work.
+> [Canonical requirements and Office lessons](plans/2026-10-13-generic-windows-deployment-specification.md#17-graphical-wizard-and-office-installation-lessons).
+
 > **2026-10-31 — Office update verified.**
 > Operator result `office-20261030-234331-27c0137b` is `Installed`:
 > Watchtower **1.1.791**, Warden **1.5.0**, current-session startup and moving

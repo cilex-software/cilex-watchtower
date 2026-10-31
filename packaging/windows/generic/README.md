@@ -2,6 +2,10 @@
 
 [`deploy-watchtower.ps1`](../deploy-watchtower.ps1) builds the latest version and installs **Watchtower and Warden**, which keeps Watchtower running. Choose local or remote installation below, or create an installer to share. The script asks for the choices it needs; you do not need to fill in a long list of options.
 
+These instructions describe the current tools. A complete graphical setup
+wizard is planned, with [the requirements saved here](../../../docs/plans/2026-10-13-generic-windows-deployment-specification.md#17-graphical-wizard-and-office-installation-lessons).
+The current setup EXE has limited screens and still uses helper prompts.
+
 ## Before you start
 
 1. Download and extract the repository from GitHub, or use the complete deployment ZIP supplied to you. Keep its folders together; copying only the script will not work.

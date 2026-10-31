@@ -5,6 +5,12 @@ Status: implementation available; acceptance testing is incomplete. See the
 behavior, verification evidence and remaining limits.
 Date: 13 October 2026.
 
+Operator update, 31 October 2026: the normal installation experience MUST be a
+graphical wizard; the command-line interface remains an advanced interface.
+[Section 17](#17-graphical-wizard-and-office-installation-lessons) records the
+required experience and lessons from the successful Office deployment.
+The full wizard is a future implementation task, not a completed feature.
+
 ## 1. Objective and scope
 
 Create a separate deployment script that prepares a Windows build computer,
@@ -588,3 +594,135 @@ documentation only. The operator subsequently authorized implementation and
 specific Office installation/startup tests. Follow the current task's explicit
 permissions and the [verification record](../verification/2026-10-13-generic-deployment/README.md)
 for what was actually attempted and what remains unverified.
+
+## 17. Graphical wizard and Office installation lessons
+
+### 17.1 Operator decision and implementation status
+
+On 31 October 2026, after the Office update was verified, the operator asked
+to retain this experience for generic Windows installations: a simple wizard,
+similar in experience to the Cilex Vision server installer, avoiding manual
+configuration. This is a durable product requirement for future installer work.
+It changes the primary user interface described above; the existing technical,
+integrity, credential and recovery requirements still apply.
+
+The current `generic/installer.nsi` provides directory/install screens, but
+its helpers still use console prompts and may open an external sign-in tool.
+It is not the complete wizard requested here. Office's successful update is
+evidence for its deployment engine, not proof of a fresh-machine wizard.
+This update records requirements only; it does not implement or deploy a wizard.
+
+### 17.2 Normal installation experience
+
+Provide one versioned setup EXE containing Watchtower, Warden and their runtime
+dependencies. Prefer a trusted signed production installer; verify its payload
+and helpers internally. The normal target PC must not require source checkout,
+developer tools, a Qt SDK, Python installation or a GitHub token. Keep building
+latest `main` or an exact tag as an advanced build-computer operation.
+
+The default path is open setup, review the detected choices, Install, Finish.
+Display only screens requiring a real decision; preserve existing choices on
+updates. The wizard MUST support these steps without opening a terminal:
+
+| Step | Required behavior |
+| --- | --- |
+| Destination | Choose **This computer** by default, or **Another computer**. Detect an existing owned installation and offer update/repair. |
+| Checks | Assess OS, memory, disk and required components automatically. Group actionable warnings once, retaining the existing explicit override rules. |
+| Account and folder | Detect the intended desktop user and existing folder. Default new installs to that user's `%LOCALAPPDATA%\Programs\Cilex Watchtower`; custom paths and machine scope are advanced choices. |
+| Server and sign-in | Preserve an existing working server/identity. Ask only for missing information through protected fields and supported enrollment. Offer clearly labeled setup-later when offline. |
+| Startup | Explain **After Windows sign-in** versus **Automatically after restart**. Collect the necessary consent and guide supported sign-in setup inside the flow. |
+| Install and finish | Show essential progress, request UAC only when needed, install both products, verify startup/video and show the actual outcome. |
+
+Use Russian for Russian Windows display language, English otherwise, with a
+language switch. Use short practical messages. Ordinary installation must not
+require copied PowerShell commands, manually entered checksums, edited config
+files/environment variables, task editing or successive repair ZIP overlays.
+Put technical diagnostics behind Details and provide one redacted **Copy support
+summary** action. Keep the existing CLI for advanced use and support.
+
+### 17.3 Accounts, remote installation and permissions
+
+Preserve the selected desktop account across elevation, even when a different
+administrator approves UAC. Install Warden to launch the exact Watchtower in
+that user's interactive desktop, with ordinary application privileges.
+
+For remote installation, collect one computer address and display the verified
+target identity. Infer internal connection/hostname/staging settings where
+possible; users must not fill in duplicate `TargetHost`/`ExpectedHost` fields.
+Explain any custom network path with an example such as
+`\\OFFICE-PC\C$\CilexWatchtower-Deploy`; distinguish temporary transfer from
+the final target-local folder. Use protected administrator credential entry.
+If approved remote access is unavailable, offer the same complete setup file
+for local execution on the target. Do not retry guessed credentials or loosen
+network/security settings to make remote access work.
+
+Handle script-policy restrictions within the wizard's supported execution
+path. When an allowed process-only exception is needed, explain it and obtain
+explicit consent there. Do not require manual policy commands, change saved
+policies or bypass organisation/application-control restrictions. A signature
+alone does not prove every enforced policy will admit the package.
+
+Windows sign-in, application login, station enrollment, remote administration
+and source-repository access are distinct. Label them clearly and never copy
+another station's token. Detect unsupported automatic-sign-in conditions,
+including the Office blank-password account/tool limitation, before claiming
+unattended readiness. Do not set a password or change account policy silently.
+Offer an explicit supported alternative or report setup incomplete; never
+silently downgrade the requested startup mode. Do not reboot automatically.
+
+### 17.4 Engineering lessons that must survive the new interface
+
+- Reuse the verified transactional engine. Stage and validate before downtime,
+  retain recovery information, and preserve settings, station identity, logs,
+  operator pauses/holds and unrelated services or jobs.
+- Retain exact owned process handles before stopping startup. Support the
+  observed launcher → Warden bootloader → Warden child → Watchtower chain and
+  asynchronous teardown. Permit stale exited metadata to settle within a
+  bound. Preserve admitted identities into rollback; new/reused/foreign or
+  unverified live processes must refuse without being adopted or terminated.
+- Interpret documented Task Scheduler XML defaults with independent typed API
+  agreement. Missing `Enabled`/`RunLevel` can mean a documented default;
+  absent, null and false are not interchangeable. Recognise an old disabled
+  startup entry only after verifying that exact definition is inert and owned.
+- Generalize the Office-only idle-Labs startup barrier using verified local
+  ownership and trusted per-install metadata, rather than copying Office's
+  hostnames, accounts, paths or fixed hashes. File-integrity checks remain
+  mandatory. Never treat
+  stale status alone as current proof. Preserve active work/holds; do not start
+  a worker to refresh status. If a verified idle startup entry is paused,
+  persist recovery before mutation and restore its exact enabled state without
+  starting analyses. Unfamiliar or active work needs a safe explained outcome.
+- Preserve Cyrillic names, spaces and encoding. Parse existing key/value
+  configuration without treating Windows path backslashes as escape sequences.
+  Never print raw credential-bearing configuration to diagnose a failure.
+- Package every helper change with its matching manifest and launcher trust
+  data. Keep compiled-application provenance separate from deployment-tool
+  provenance. Deliver a complete update artifact rather than making ordinary
+  users merge helper files or repair trust metadata.
+- Use a validated execution engine and controlled module lookup. The current
+  Windows PowerShell 5.1 route is tested; the existing PowerShell 7 window-proof
+  date-parsing failure must be fixed/tested before adopting that route.
+
+### 17.5 Finish states and acceptance
+
+Finish must distinguish installed versions, current-session startup/video,
+server enrollment, unattended startup pending verification, failure with
+verified recovery, and recovery needing attention. Save and retrieve these
+results automatically, including after remote connection loss. A running
+process or successful file copy alone is not successful deployment. Do not
+claim automatic return after reboot from a configured logon task.
+
+Acceptance requires the guided flow on a clean supported Windows machine,
+offline runtime installation without developer tools, local and remote
+install/update/repair/uninstall, Russian/Cyrillic paths, alternate-admin UAC,
+policy refusal/consent/cancel, interrupted-install recovery, task XML defaults,
+four-process exit/PID reuse, and preservation of credentials/settings/holds.
+Configured online stations must pass stable startup and advancing-video checks;
+offline enrollment/video must remain explicitly deferred. Test reboot/sign-in
+only with the operator's authorization and report that evidence separately.
+
+Measured baseline: [Office's 31 October deployment](../verification/2026-10-31-office-process-drain/README.md#office-deployment-acceptance)
+installed Watchtower 1.1.791 and Warden 1.5.0, passed current-session startup
+and moving-video checks, restored analysis startup and retained the disabled
+legacy task. A complete graphical wizard, fresh-machine/offline installation,
+unattended reboot and extended Office stability remain unverified.

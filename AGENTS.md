@@ -4,6 +4,17 @@ Read `CLAUDE.md` and `docs/PROJECT_STATUS.md` for project conventions,
 verification requirements and current work. Preserve unrelated changes in this
 shared checkout.
 
+## Windows installation experience — operator decision, 2026-10-31
+
+The default generic Windows installation must be a simple graphical wizard,
+using the Cilex Vision server installer as the operator's experience reference.
+Normal installation/update must not require pasted PowerShell commands, manual
+configuration/task/policy edits, checksum entry or successive repair ZIPs.
+Keep scripts and detailed options for advanced use and support. Before future
+Windows installer work, read the [wizard requirements and Office lessons](docs/plans/2026-10-13-generic-windows-deployment-specification.md#17-graphical-wizard-and-office-installation-lessons).
+The current setup wrapper is only a partial GUI; the full wizard remains to be
+implemented. Preserve the verified deployment engine's safety and recovery checks.
+
 ## Completion and publication — standing instruction, 2026-10-12
 
 After completing and verifying a task, immediately commit its changes,
