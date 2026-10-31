@@ -73,7 +73,61 @@ application source. The small correction therefore includes both updated
 package metadata/helper and the outer update files. The previous manifest
 checksum must not be reused for the changed helper.
 
-Office's new installation and current moving video remain acceptance gates.
+## Office deployment acceptance
+
+The operator applied the published small correction to the existing package,
+approved the process-only exception and reviewed the ordinary requirement
+warnings. Run `office-20261030-234331-27c0137b` reported a successful update
+without reboot. Its result is saved on Office at
+`C:\Users\Админ\AppData\Local\Cilex\Deploy\results\office-20261030-234331-27c0137b.json`.
+
+The operator then supplied the selected fields from that saved result and
+fresh file/task checks:
+
+| Check | Observed result |
+| --- | --- |
+| Result | `Installed` |
+| Watchtower / Warden | `1.1.791` / `1.5.0` |
+| Watchtower file version | `1.1.791.0` |
+| Startup | `VerifiedCurrentSession` |
+| Video | `Verified` |
+| Analysis startup restored | `True` |
+| Managed `CilexWatchtower-2C40105CD30C9B6A` | Running, enabled |
+| `wt-labs-start` | Ready, enabled |
+| Legacy `wt-warden` | Disabled, not enabled |
+
+In this exact installer, `Video=Verified` is assigned only after a check with
+expected active video. Its numeric verifier therefore requires advancing
+frames, recently delivered video and zero final stream errors; the separate
+no-active-video success path cannot produce that state in this caller.
+`VerifiedCurrentSession` also records the stable installed process chain and
+the intended owner/session during installation. It does not prove that every
+process identity remained unchanged after the saved check. The operator did
+not separately supply a human visual confirmation.
+
+Package preparation, an independent review and a full disposable revision-4
+overlay check verified the six-file correction and full revision 5. Every
+application/runtime/symbol byte and every other helper remained unchanged.
+The actual pinned CMD refused the Booth before consent or installer entry.
+Both ZIPs and their checksum files match GitHub's reported hashes/sizes, and
+all 14 older release assets were preserved. Evidence is retained at:
+
+- `C:\wt\availability-office-stop-fix-package-result-20261031.json`
+- `C:\wt\office-stop-fix-applycheck-proof-20261031.json`
+- `C:\wt\office-stop-published-proof-20261031.json`
+- `C:\wt\office-success-postcheck-20261031.json` (selected operator evidence)
+
+A fresh Booth read-only check in
+`C:\wt\office-success-booth-readonly-20261031.json` confirms the same
+Watchtower 9264 / parent 10360, version/hash 1.1.791, advancing video, zero
+stream errors and the original Labs control hash. No Booth process was stopped.
+
+Both station updates are accepted on the installation and video evidence.
+Startup following a future reboot and extended Office stability remain
+unverified. The original application source is still `799396a3`; the installed
+correction uses deployment tools `69f7b1c1`. A later documentation-only version
+increment does not rebuild or replace either station's binaries.
+
 No reboot, crash probe, Labs job start, hold removal or saved policy change is
 part of this correction. Booth's separate recovered October 30 crash remains
 unexplained by its retained dump and is not attributed to this shutdown error.

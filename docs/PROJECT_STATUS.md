@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-10-31 — Office update verified.**
+> Operator result `office-20261030-234331-27c0137b` is `Installed`:
+> Watchtower **1.1.791**, Warden **1.5.0**, current-session startup and moving
+> video verified. A fresh file check reports Watchtower **1.1.791.0**.
+> Managed startup is Running/enabled, Labs startup Ready/enabled and the legacy
+> Warden task Disabled; Labs startup restoration succeeded. No reboot occurred.
+> Booth remains on 1.1.791 with advancing video, zero stream errors and its
+> original Labs control file. Its wall was not restarted for this correction.
+> The six-file fix and full revision 5 passed package/application-integrity
+> checks; all four uploaded assets match local hashes and all 14 older assets
+> remain unchanged. Reboot startup and a separate human visual confirmation
+> were not tested/collected; the earlier recovered Booth crash is unexplained.
+> [Deployment evidence and limits](verification/2026-10-31-office-process-drain/README.md#office-deployment-acceptance).
+
 > **2026-10-31 — Office shutdown and verified rollback.**
 > Office's update reached the replacement step and returned
 > `INSTALL_PROCESS_RESPAWNED`. Its saved result confirms verified rollback and
