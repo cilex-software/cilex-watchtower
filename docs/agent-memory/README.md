@@ -1,5 +1,12 @@
 # Agent memory (snapshot mirror)
 
+**Latest Codex restart handoff, 6 November 2026:** read
+[`../handoffs/SESSION_RESTART_2026-11-06.md`](../handoffs/SESSION_RESTART_2026-11-06.md)
+first. It records the remote migration and preserved dirty checkout, archive/
+memory implementation and remaining rollout gates, original-recognition Task04B
+release blocker, analyser work and exact local evidence/recovery paths. Dated
+runtime observations in that handoff are not current health checks.
+
 This directory is a **point-in-time backup** of the AI coding agent's (Claude Code)
 persistent file-based memory for this project. The live memory lives **outside the
 repo** at `~/.claude/projects/<project>/memory/` — which is local-only and not
