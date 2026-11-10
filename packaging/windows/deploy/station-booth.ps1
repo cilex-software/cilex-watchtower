@@ -172,11 +172,27 @@ function Assert-Labs-And-Hold {
 function Assert-Guard-Definition {
     $task = Get-ScheduledTask -TaskPath $taskPath -TaskName $taskName
     [xml]$xml = Export-ScheduledTask -InputObject $task
+    $namespaces = New-Object Xml.XmlNamespaceManager $xml.NameTable
+    $namespaces.AddNamespace('t','http://schemas.microsoft.com/windows/2004/02/mit/task')
+    $principals = @($xml.SelectNodes('/t:Task/t:Principals/t:Principal',$namespaces))
+    if ($principals.Count -ne 1) { throw 'Watchdog task principal is ambiguous' }
+    $levels = @($principals[0].SelectNodes('t:RunLevel',$namespaces))
+    $allLevels = @($principals[0].SelectNodes('*[local-name()="RunLevel"]'))
+    $apiLevel = if ($task.Principal -and $task.Principal.PSObject.Properties['RunLevel']) { $task.Principal.RunLevel } else { $null }
+    $limited = $null -ne $apiLevel -and $apiLevel.GetType().IsEnum -and
+        $apiLevel.GetType().FullName -ceq 'Microsoft.PowerShell.Cmdletization.GeneratedTypes.ScheduledTask.RunLevelEnum' -and
+        [Enum]::IsDefined($apiLevel.GetType(),$apiLevel) -and [string]$apiLevel -ceq 'Limited' -and [int]$apiLevel -eq 0
+    # Windows omits its schema-default LeastPrivilege on export (observed on
+    # this station 2026-11-10). The independently typed task API must agree.
+    $xmlLimited = $levels.Count -eq 0 -or ($levels.Count -eq 1 -and
+        $levels[0].Attributes.Count -eq 0 -and $levels[0].SelectNodes('*').Count -eq 0 -and
+        $levels[0].InnerText -ceq 'LeastPrivilege')
+    $runLevelValid = $limited -and $xmlLimited -and $allLevels.Count -eq $levels.Count
     $user = [string]$xml.Task.Principals.Principal.UserId
     $sid = if ($user -match '^S-1-') { $user } else { ([Security.Principal.NTAccount]::new($user)).Translate([Security.Principal.SecurityIdentifier]).Value }
     $actions = @($task.Actions)
     $expectedAction = $guardBefore.Actions[0]
-    if ($sid -ne $expectedSID -or [string]$xml.Task.Principals.Principal.LogonType -ne 'InteractiveToken' -or [string]$xml.Task.Principals.Principal.RunLevel -ne 'LeastPrivilege' -or $actions.Count -ne 1 -or [string]$actions[0].Execute -ne [string]$expectedAction.Execute -or [string]$actions[0].Arguments -ne [string]$expectedAction.Arguments -or [string]$actions[0].WorkingDirectory -ne [string]$expectedAction.WorkingDirectory -or (Hash $watchdogPath) -ne $runtime.Installed.WatchdogSHA256) { throw 'Watchdog task definition or script changed' }
+    if ($sid -ne $expectedSID -or [string]$xml.Task.Principals.Principal.LogonType -ne 'InteractiveToken' -or -not $runLevelValid -or $actions.Count -ne 1 -or [string]$actions[0].Execute -ne [string]$expectedAction.Execute -or [string]$actions[0].Arguments -ne [string]$expectedAction.Arguments -or [string]$actions[0].WorkingDirectory -ne [string]$expectedAction.WorkingDirectory -or (Hash $watchdogPath) -ne $runtime.Installed.WatchdogSHA256) { throw 'Watchdog task definition or script changed' }
     return $task
 }
 function Assert-Quiescent {

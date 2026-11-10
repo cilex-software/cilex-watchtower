@@ -56,9 +56,46 @@ and all six counts fail, while the normal operator scenario passes 13 QML
 checks. The retained negative-control result is
 `C:\wt\camera-groups-baseline-20261110\result.json`.
 
-The fixed candidate has not yet completed its build/fixture/deployment checks
-at this source checkpoint. Do not describe the production dropdown as repaired
-until the compiled fix passes and the Booth menu/video are inspected.
+Candidate 1.1.799 was built from clean commit
+`8ca6fa735c725f67cea73471e9ad883fc097de82`. Its fresh build and embedded commit
+checks passed. The executable SHA-256 is
+`E3C453EA40479E1F96B8C06393FC700669007ECD696634D04C34EF5D53B44ACC`.
+The initial configure attempt failed because a build-tool environment export
+misdecoded the Cyrillic user-profile path. Restoring the caller's Unicode
+profile paths in the private build process allowed a fresh build to complete.
+The first failed run remains recorded separately.
+
+Both candidate scenarios passed with zero failures, totaling 22 runner checks
+and 54 real QML checks. They include both group menus, station/operator
+transitions, delayed-response loading recovery, group changes through normal
+polling and unchanged camera delegates. The earlier negative control predates
+the added playback/loading cases. The evidence is retained in
+`C:\wt\camera-groups-build-20261110-r2\build-proof.json` and
+`C:\wt\camera-groups-fixed-20261110\result.json`. All fixture processes exited.
+
+Deployment remains pending. Two real Booth windows are open under different
+sign-ins. The supervised station window shows All Cameras; a separate manual
+operator window shows 4стр. The operator has been asked which view to preserve.
+Neither window has been closed for this task. Shared video logs contain mixed
+samples from both windows, so the updater's single-window/video admission must
+pass again after the intended view is confirmed.
+
+The Booth watchdog exports no `RunLevel` XML element while the independent
+Windows task API reports the typed `Limited` value. The deployment adapter now
+accepts this omitted default only with that independent agreement. Explicit
+least privilege remains supported. Conflicting, malformed or ambiguous values
+still fail before any task/process change. The function-only disposable suite
+passed 67 checks in each of Windows PowerShell 5.1 and PowerShell 7. The task
+definition itself was not changed. Deployment-tool provenance is separate from
+the frozen 1.1.799 application build.
+
+The existing disposable deployment suite passed 24 cases and the pure video-log
+suite passed 46 cases in each PowerShell engine. The process-free startup
+monitor suite passed 27 cases. These checks do not replace live acceptance.
+
+An isolated native startup check, protected application replacement, automatic
+rollback checks and final production menu/video inspection remain unfinished.
+Do not describe the Booth dropdown as repaired before those checks pass.
 
 GitHub currently rejects the session's saved access, and the connected branch
 read returned 404. Remote-source freshness and publication remain unverified

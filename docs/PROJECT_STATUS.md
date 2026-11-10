@@ -124,8 +124,12 @@
 > ignored the authorized roster metadata. Station filters now use that metadata;
 > operator definitions and permissions remain unchanged. Menu-only notifications
 > cover account-mode changes without resetting an unchanged camera roster.
-> The old-version regression is reproduced; candidate build and live acceptance
-> are pending. GitHub access is currently unavailable, so publication is pending.
+> The old version reproduces the failure. Candidate 1.1.799 built successfully
+> and passed 22 runner checks plus 54 real QML checks. Deployment is waiting for
+> the operator to choose between two open Booth windows with different sign-ins
+> and views. The watchdog's omitted least-privilege default is handled with an
+> independent Windows API check; 67 disposable checks pass per PowerShell engine.
+> Live startup/menu/video acceptance and GitHub publication remain pending.
 > [Cause, evidence and verification](verification/2026-11-10-station-camera-groups/README.md).
 
 > **2026-10-31 — Windows wizard requirement saved.**
