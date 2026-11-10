@@ -105,6 +105,8 @@ def execute(args, case, root, output, executable):
                 if not (admin or display):
                     status, response = 401, {"code": "fixture_sign_in_required"}
                 else:
+                    if phase == "mode-loading" and display:
+                        time.sleep(0.6)
                     # Make the canonical definitions precede the first operator
                     # roster; this fixture targets station projection, not the
                     # independent canonical-groups notification ordering issue.
@@ -173,7 +175,7 @@ def execute(args, case, root, output, executable):
 
     check("isolated application exited successfully", code == 0)
     summaries = [line for line in log.splitlines() if "[STATION-GROUP-SUMMARY] " in line]
-    check("shipping model and UI assertions completed", bool(summaries) and len(qml_checks) >= (32 if case == "station" else 13))
+    check("shipping model and UI assertions completed", bool(summaries) and len(qml_checks) >= (36 if case == "station" else 14))
     check("all shipping model and UI assertions passed", bool(qml_checks) and all(value["ok"] for value in qml_checks))
     check("settings isolation marker exists", (profile / ".startup-settings.json").is_file())
     check("fixture executable has a watchdog-distinct name", executable.name.lower() != "watchtower.exe")
@@ -185,10 +187,13 @@ def execute(args, case, root, output, executable):
               all(row["station_display"] != row["operator_cookie"] for row in requests if row["path"] == "/streams"))
         check("same-process operator sign-in obtained canonical groups",
               any(row["path"] == "/groups" and row["operator_cookie"] for row in requests))
+        check("a delayed previous station refresh raced the operator transition",
+              any(row["path"] == "/streams" and row["phase"] == "mode-loading" and row["station_display"] for row in requests))
         check("rename/removal was received by normal status polling", any(row["path"] == "/streams" and row["phase"] == "changed" for row in requests))
     else:
         check("operator retains canonical group API access", any(row["path"] == "/groups" and row["operator_cookie"] for row in requests))
     check("no group mutation was attempted", not any(row["path"].startswith("/groups") and row["method"] != "GET" for row in requests))
+    check("inactive playback never opens a media session", not any(row["path"].startswith("/review/") for row in requests))
     result = {"case": case, "exit_code": code, "passed": sum(row["passed"] for row in checks),
               "failed": sum(not row["passed"] for row in checks), "checks": checks, "qml_checks": qml_checks,
               "real_cameras_used": False, "production_settings_used": False, "executable": str(executable),

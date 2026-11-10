@@ -174,6 +174,9 @@ CameraModel::CameraModel(QObject *parent)
                     return;   // ordinary operator token renewal is not a mode change
                 lastStationMode = stationMode;
                 ++m_availabilityBackendGeneration;
+                // Cancel the invalidated full fetch's loading ownership, not
+                // its camera rows; the replacement poll can patch them in place.
+                setLoading(false);
                 m_groups.clear();
                 emit groupsChanged();
                 // identityChanged follows the new cookie/identity, but logout

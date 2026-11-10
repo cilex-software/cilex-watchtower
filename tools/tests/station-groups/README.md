@@ -1,7 +1,7 @@
 # Station camera-group regression
 
 This loopback fixture uses the actual Watchtower `CameraModel`, `LiveMonitor`,
-`CameraGroups` and `GroupSwitcher`. It reproduces a station that can read its
+`WallPlayback`, `CameraGroups` and both `GroupSwitcher` bindings. It reproduces a station that can read its
 camera roster but cannot read the operator-only `/groups` definitions.
 
 Run against an isolated-capable built application:
@@ -29,6 +29,9 @@ must make no `/groups` request; operator counts ignore fleet-wide metadata.
 The station case also signs into an operator account and returns to station
 mode in the same process, checking that the dropdown and editing controls
 change correctly while an unchanged camera roster does not reset its delegates.
+A deliberately delayed previous station refresh proves that discarding its
+response on a mode change clears its old loading state. Playback remains
+inactive with no client or media URLs; no playback session is created.
 
 An unchanged 1.1.791 application should fail the initial station group assertions.
 The repaired application must pass both scenarios. The runner saves selected
