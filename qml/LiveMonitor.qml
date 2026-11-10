@@ -55,8 +55,14 @@ Item {
     // Release a tile's slot when it is torn down (paging/relayout).
     function releaseHd(wasOn) { if (wasOn) hdCount = Math.max(0, hdCount - 1); }
 
-    // qsTr("All cameras") + every backend group, for the header group switcher. Reads
-    // cameraModel.total so it re-evaluates when the roster/groups (re)load.
+    // Group definitions can change without changing the camera roster. Refresh
+    // only the switcher options; do not invalidate the wall's camera delegates.
+    property int groupOptionsRev: 0
+    Connections {
+        target: root.cameraModel
+        function onGroupsChanged() { ++root.groupOptionsRev; }
+    }
+    // qsTr("All cameras") + every backend group, for the header group switcher.
     // The count is groupList()'s `total`, which is computed from OUR roster —
     // never the backend's /groups camera_count, which counts cameras this client
     // cannot see (2026-08-10: /groups said Inside 26 · Снаружи 17 where the
@@ -64,6 +70,7 @@ Item {
     // show. Zero is a real answer and is rendered as one: an empty group used to
     // look identical to a group of 22 until you clicked it.
     readonly property var groupOpts: {
+        groupOptionsRev;
         var out = [{ id: "", name: qsTr("All cameras"), count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency

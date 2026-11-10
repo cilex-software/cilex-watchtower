@@ -115,12 +115,18 @@ Item {
     // The active group's id, for the switcher's highlight ("__custom__" = a hand-picked set,
     // which no row carries — "All cameras" is id "", so "" cannot mean "none").
     property string wallGroupId: "__custom__"
+    property int groupOptionsRev: 0
+    Connections {
+        target: root.cameraModel
+        function onGroupsChanged() { ++root.groupOptionsRev; }
+    }
     // Counts come from groupList()'s `total` — computed from OUR roster, never the
     // backend's /groups camera_count (which counts cameras this client cannot see).
     // A group with 0 cameras cannot be composited into a wall at all, so here the
     // row is shown with its count and made inert rather than silently swallowing
     // the click (operator-reported 2026-08-10: "nothing happens").
     readonly property var groupOpts: {
+        groupOptionsRev;
         var out = [{ id: "", name: qsTr("All cameras"), count: cameraModel ? cameraModel.total : 0 }];
         if (cameraModel) {
             cameraModel.total;   // refresh dependency

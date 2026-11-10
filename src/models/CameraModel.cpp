@@ -167,6 +167,22 @@ CameraModel::CameraModel(QObject *parent)
                 m_availabilityReportedStates.clear();
                 m_baseUrl = auth->baseUrl();
             });
+    connect(auth, &AuthController::identityChanged, this,
+            [this, auth, lastStationMode = auth->stationLive()]() mutable {
+                const bool stationMode = auth->stationLive();
+                if (stationMode == lastStationMode)
+                    return;   // ordinary operator token renewal is not a mode change
+                lastStationMode = stationMode;
+                ++m_availabilityBackendGeneration;
+                m_groups.clear();
+                emit groupsChanged();
+                // identityChanged follows the new cookie/identity, but logout
+                // clears role before lowering authenticated. Do not fetch then.
+                if (auth->authenticated() && !auth->role().isEmpty()) {
+                    fetchGroups();
+                    pollStatuses();   // preserve the wall when roster identities match
+                }
+            });
     // Periodic /streams refresh — industry-standard VMS status cadence so the
     // recording badge + online/offline reflect reality without flooding the
     // backend. Started on authentication, stopped on logout.
@@ -393,8 +409,29 @@ void CameraModel::setCameraGroup(const QString &cameraId, const QString &groupId
 
 QVariantList CameraModel::groupList() const
 {
+    QVector<wt::GroupData> groups = m_groups;
+    if (const auto *auth = AuthController::instance(); auth && auth->stationLive()) {
+        // Station display sessions cannot read /groups (verified 2026-11-10).
+        // Their authorized /streams roster already carries group identity/name;
+        // expose those read-only filters without adding account permissions.
+        groups.clear();
+        QSet<QString> seen;
+        for (const wt::CameraData &camera : m_all) {
+            if (camera.groupId.isEmpty() || seen.contains(camera.groupId))
+                continue;
+            seen.insert(camera.groupId);
+            wt::GroupData group;
+            group.id = camera.groupId;
+            group.name = plainName(camera.groupName.isEmpty() ? camera.groupId : camera.groupName);
+            groups.push_back(group);
+        }
+        std::sort(groups.begin(), groups.end(), [](const wt::GroupData &a, const wt::GroupData &b) {
+            const int names = QString::localeAwareCompare(a.name, b.name);
+            return names != 0 ? names < 0 : a.id < b.id;
+        });
+    }
     QVariantList out;
-    for (const wt::GroupData &g : m_groups) {
+    for (const wt::GroupData &g : groups) {
         QVariantMap m;
         m["id"] = g.id;
         m["name"] = g.name;
@@ -481,11 +518,16 @@ void CameraModel::removeGroup(const QString &id)
 
 void CameraModel::fetchGroups()
 {
-    if (!m_nam)
+    const auto *auth = AuthController::instance();
+    if (!m_nam || (auth && auth->stationLive()))
         return;
+    const quint64 generation = m_availabilityBackendGeneration;
     QNetworkReply *reply = m_nam->get(QNetworkRequest{QUrl(m_baseUrl + "/groups")});
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, generation]() {
         reply->deleteLater();
+        const auto *auth = AuthController::instance();
+        if (generation != m_availabilityBackendGeneration || (auth && auth->stationLive()))
+            return;
         const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (code == 401) { AuthController::instance()->noteUnauthorized(); return; }
         if (reply->error() != QNetworkReply::NoError)

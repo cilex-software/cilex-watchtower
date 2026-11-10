@@ -118,6 +118,16 @@
 > indexed in the handoff. This documentation update is not runtime deployment
 > or operational acceptance.
 
+> **2026-11-10 — Station camera-group menu correction.**
+> Booth station sign-in receives all 133 cameras and six groups in `/streams`,
+> but the separate operator `/groups` route correctly returns 403. The menu
+> ignored the authorized roster metadata. Station filters now use that metadata;
+> operator definitions and permissions remain unchanged. Menu-only notifications
+> cover account-mode changes without resetting an unchanged camera roster.
+> The old-version regression is reproduced; candidate build and live acceptance
+> are pending. GitHub access is currently unavailable, so publication is pending.
+> [Cause, evidence and verification](verification/2026-11-10-station-camera-groups/README.md).
+
 > **2026-10-31 — Windows wizard requirement saved.**
 > The operator wants one guided setup file, similar in experience to the Cilex
 > Vision server installer, for ordinary local/remote installation and updates.
