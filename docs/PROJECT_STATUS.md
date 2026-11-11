@@ -118,18 +118,24 @@
 > indexed in the handoff. This documentation update is not runtime deployment
 > or operational acceptance.
 
-> **2026-11-10 — Station camera-group menu correction.**
+> **2026-11-12 — Booth camera groups restored.**
 > Booth station sign-in receives all 133 cameras and six groups in `/streams`,
 > but the separate operator `/groups` route correctly returns 403. The menu
 > ignored the authorized roster metadata. Station filters now use that metadata;
 > operator definitions and permissions remain unchanged. Menu-only notifications
 > cover account-mode changes without resetting an unchanged camera roster.
-> The old version reproduces the failure. Candidate 1.1.799 built successfully
-> and passed 22 runner checks plus 54 real QML checks. Deployment is waiting for
-> the operator to choose between two open Booth windows with different sign-ins
-> and views. The watchdog's omitted least-privilege default is handled with an
-> independent Windows API check; 67 disposable checks pass per PowerShell engine.
-> Live startup/menu/video acceptance and GitHub publication remain pending.
+> Watchtower 1.1.799 is installed and both station/operator menus show all six
+> groups. The operator chose 4стр with operator sign-in. The original startup
+> task now owns one Warden 1.5.0 and one app, with the selected view visible,
+> seven advancing feeds and the same two offline cells. A 152-second final check
+> passed with zero stream errors. Warden files, its configuration and Labs
+> control retain their original hashes. The helper launch used different saved
+> session/view state; the original task restored the operator session, and the
+> underlying difference remains unexplained. No reboot acceptance was performed.
+> The build passed 22 runner plus 54 real QML checks. The watchdog's omitted
+> least-privilege default has an independent API check and 67 disposable checks
+> per PowerShell engine. GitHub authentication is still rejected, so publication
+> remains pending.
 > [Cause, evidence and verification](verification/2026-11-10-station-camera-groups/README.md).
 
 > **2026-10-31 — Windows wizard requirement saved.**

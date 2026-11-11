@@ -73,12 +73,14 @@ the added playback/loading cases. The evidence is retained in
 `C:\wt\camera-groups-build-20261110-r2\build-proof.json` and
 `C:\wt\camera-groups-fixed-20261110\result.json`. All fixture processes exited.
 
-Deployment remains pending. Two real Booth windows are open under different
-sign-ins. The supervised station window shows All Cameras; a separate manual
-operator window shows 4стр. The operator has been asked which view to preserve.
-Neither window has been closed for this task. Shared video logs contain mixed
-samples from both windows, so the updater's single-window/video admission must
-pass again after the intended view is confirmed.
+Two real Booth windows initially used different sign-ins. Shared video logs
+contained mixed samples, so the updater correctly required one supervised wall
+and fresh video samples. The operator subsequently chose 4стр with operator
+sign-in. The original station window was closed cleanly through the UI while
+the manual operator wall stayed open. Its supervised replacement was observed
+before the extra manual window was closed. A fresh single-process baseline
+verified seven advancing feeds with zero stream errors. Evidence is retained in
+`C:\wt\camera-groups-operator-handover-20261111.json`.
 
 The Booth watchdog exports no `RunLevel` XML element while the independent
 Windows task API reports the typed `Limited` value. The deployment adapter now
@@ -93,12 +95,62 @@ The existing disposable deployment suite passed 24 cases and the pure video-log
 suite passed 46 cases in each PowerShell engine. The process-free startup
 monitor suite passed 27 cases. These checks do not replace live acceptance.
 
-An isolated native startup check, protected application replacement, automatic
-rollback checks and final production menu/video inspection remain unfinished.
-Do not describe the Booth dropdown as repaired before those checks pass.
+## Booth installation and final acceptance
 
-GitHub currently rejects the session's saved access, and the connected branch
-read returned 404. Remote-source freshness and publication remain unverified
-until access is restored. Local repair work continues against the known source.
+The isolated native startup check passed for 40.078 seconds with private settings,
+zero second-chance faults and termination of its own child. Source and packaged
+Warden status checks passed for the unchanged 1.5.0 files. Installed Warden source
+uses CRLF while the repository uses LF; ordinal text comparison confirms that
+line endings are the only difference. Exact installed byte hashes remain pinned
+throughout preparation and installation. The first preparation attempt refused
+that byte difference before creating a run directory. A private helper parameter
+was also renamed to avoid PowerShell's reserved HOME variable before execution.
+
+The reviewed Booth adapter installed the application and symbols, retaining the
+same Warden files. Its result is Success after 152 seconds of supervised startup
+and advancing video. Backup files remain in the run directory. Rollback was not
+exercised during this successful installation.
+
+The helper-launched app opened station sign-in with a stale saved view. It did
+show all six groups, including their expected station counts. This established
+the live station fix, but did not satisfy the requested operator view. No saved
+operator credentials were extracted or copied. Repeating startup through the original verified
+watchdog task restored the operator session. The 4стр dropdown selection then
+restored the original nine-cell arrangement with seven live feeds and the same
+two offline cells. The operator menu also shows all six groups, with its scoped
+counts. The earlier restart check did not establish final sign-in continuity.
+
+The final normal-task chain is watchdog 14580, Python Warden 3536 and Watchtower
+17248 in guard session 1. The final check passed for 152 seconds. Its last
+30-second sample advanced by 2,465 frames with seven decoders, seven lit cells
+and zero stream errors. The task is enabled and Running. Application hash and
+version match the admitted 1.1.799 build. Warden files, Warden configuration and
+Labs control retain their original hashes. The normal-task handover used the
+verified original seven-feed baseline for the requested view, and separately
+verified active video immediately before its scoped stop.
+
+Evidence is under `C:\wt\camera-groups-rollout-20261110-nov11`.
+
+- `preflight.json` and `native-startup.json` record isolated admission.
+- `deployment-result.json` records the protected installation and task restoration.
+- `normal-startup.json` records the task-owned startup and final moving video.
+- `acceptance.json` records final ancestry, hashes and visual menu/view acceptance.
+- `backup` retains the prior application, symbols and unchanged Warden files.
+
+The helper and original task saw different saved session/view state despite the
+same observed user, session and ordinary profile paths. No settings override or
+package identity was found. HKCU and direct guard-hive reads from the inspection
+context agreed with each other but did not explain the task-launched operator
+session. The cause remains unresolved. Future Booth updates must verify the
+original task's startup and the actual sign-in/view, beyond a helper's process
+and frame checks. Reboot startup, extended endurance and a full fresh package or
+exporter installation were not tested. No reboot or security-policy change was
+performed.
+
+GitHub rejected a fresh noninteractive access check on November 12 Moscow time;
+the earlier connected branch read also returned 404. Remote-source freshness and
+publication remain unverified until access is restored. The compiled application
+remains tied to its recorded source commit; later tools/documentation versions
+do not relabel that binary.
 No authentication policy, camera configuration or operating-system security
 setting is changed by this correction.
