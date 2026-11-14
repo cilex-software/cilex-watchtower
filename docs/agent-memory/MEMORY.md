@@ -1,5 +1,13 @@
 # Memory Index
 
+## Operator reboot — 2026-11-14
+
+Start with [the detailed restart handoff](../handoffs/SESSION_RESTART_2026-11-14.md).
+It preserves unfinished recent-X-days purge work and its publisher-coordination
+blocker, verified helper tests and failed admission, the local Codex daemon
+startup workaround, private backups, and the analyser/recognition resume map.
+No purge was executed or enabled; no post-reboot acceptance is claimed.
+
 ➤ **START HERE after a context reset → [session recovery](session-recovery.md)** — full Cilex Watchtower state (P1–P6 done, latest commit, build/verify, backend facts, working agreements) + how to resume.
 
 **Current comparison, 2026-10-04:** [Kimi and Qwen Labs benchmark](kimi-qwen-labs-benchmark.md) — autonomous shared prompt, plain-language task, 100-point scoring, winner rules, checkouts and maximum-capability preference. Earlier prefaces were never pasted. Pasting the current full prompt authorizes immediate implementation, testing, fixes, documentation, commit and normal non-force GitHub push only to the assigned benchmark branch, without START or routine permission requests. No `main`, competitor/other branch, tags, merging or deployment. The private grader/isolation are not ready and do not block development; no equal-clock trial is claimed. These benchmark rules supersede the generic straight-to-main workflow below.

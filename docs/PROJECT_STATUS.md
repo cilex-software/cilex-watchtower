@@ -1,5 +1,14 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-14 — Operator reboot context saved.**
+> Read [the restart handoff](handoffs/SESSION_RESTART_2026-11-14.md) before
+> continuing the emergency recent-footage purge or analyser work. The purge is
+> incomplete, unpublished and execution remains blocked; no footage was deleted.
+> The saved Codex startup workaround bypasses its missing shared-daemon socket;
+> post-reboot behavior must be checked again. Private task-file backups are
+> indexed in the handoff. This documentation update is not runtime deployment
+> or operational acceptance.
+
 > **2026-10-31 — Windows wizard requirement saved.**
 > The operator wants one guided setup file, similar in experience to the Cilex
 > Vision server installer, for ordinary local/remote installation and updates.

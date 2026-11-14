@@ -7,6 +7,14 @@ metadata:
   originSessionId: 07da05e9-981a-465b-aad6-7f1cc1e8c07c
 ---
 
+## Latest restart handoff — 2026-11-14
+
+Read [SESSION_RESTART_2026-11-14.md](../handoffs/SESSION_RESTART_2026-11-14.md)
+first, then its task-specific links. Preserve all dirty worktrees. The emergency
+purge targets the most recent X days and is incomplete; do not execute or enable
+it. Codex startup was restored using daemon_auto_start=false; verify again after
+the operator reboot. Saved observations are not current service health.
+
 **Read this first to restore context.** Cilex Watchtower = a native Ubuntu
 **Qt6/QML/C++ surveillance VMS operator client** (not a browser app), a client of
 the **cilex-vision** platform. Cameras have no storage; footage/events come from
