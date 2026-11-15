@@ -7,10 +7,12 @@ These instructions build an **unsigned installer for internal use on Apple silic
 
 On your Mac, open **Terminal** and paste these two lines:
 
+START OF PROMPT
 ```sh
 cd /Users/romayankin/git/cilex-watchtower
 ./packaging/macos/build-installer.sh
 ```
+END OF PROMPT
 
 The first line opens the project folder on your Mac. If you keep the project
 somewhere else, use that folder's path instead.
@@ -41,42 +43,38 @@ You do not need a signing certificate, an Apple Developer account, or a tool-pat
 
 ## 2. Install on this Mac
 
-After building, run:
+1. Double-click the `.dmg` file.
+2. Drag **Cilex Watchtower** onto the **Applications** folder beside it.
+3. Wait for the copy to finish. If macOS asks for your Mac password, enter it.
+4. Eject the DMG in Finder.
+5. Open **Applications**, then open **Cilex Watchtower**.
+6. On the first launch, click **Open Watchtower** to enable Warden.
 
-```sh
-./packaging/macos/install-local.sh
-```
+Warden keeps Watchtower running, restarts it after a crash and starts it when
+you sign in. It runs for your Mac account. It does not require a separate Setup
+app or a Terminal command. Camera access and your Cilex Vision sign-in are set
+up inside Watchtower.
 
-It uses the newest Watchtower DMG in **Downloads → CilexInstallers**.
-It installs Watchtower and Warden for your Mac account. Warden starts Watchtower
-when you sign in and restarts it if it crashes.
-The application is installed at **your home folder → Applications → watchtower.app**.
-Existing Watchtower settings and station credentials are kept.
-
-You can also install without Terminal:
-
-1. Double-click the DMG file in Finder.
-2. Open **Setup.app** inside it and click **Install**.
-3. Read the result shown by Setup. When finished, eject the installer in Finder.
-
-Use **Setup.app** to install both Watchtower and Warden. Copying `watchtower.app`
-alone does not set up Warden.
+If an older copy was installed by Setup, the first-launch message names that
+copy and asks before switching Warden to the new one. Existing settings and
+station credentials are kept. Cancel leaves the older startup entry unchanged.
 
 Because this is an unsigned internal build, macOS may block it. If you trust the
-installer you built, open **System Settings → Privacy & Security**, find the
+app you built, open **System Settings → Privacy & Security**, find the
 blocked-app message and choose **Open Anyway**, then follow macOS's prompts.
 The scripts do not turn off macOS security protections.
 
-Installed files do not prove that cameras, sign-in or startup work.
-If the result says installation succeeded but checks remain, open Watchtower,
-connect it to your Cilex Vision server and check the cameras. Automatic startup
-is after a user signs in; this installer does not configure automatic login.
+To update, close Watchtower and stop its Warden service before replacing the
+app. Warden deliberately restarts Watchtower while its service is running.
+After replacing the app, open it from Applications again.
 
-If an older installer stops with only a message about unmeasured video-wall
-capacity, use a newly built DMG with Setup version 1.0.2 or later. That was a
-package-location bug: Setup ran a diagnostic check instead of installing.
-The corrected Setup finds its original DMG files even when macOS launches the
-app from an isolated location. Camera capacity is checked after installation.
+**For scripted installation only:** `./packaging/macos/install-local.sh` still
+installs both programs into **your home folder → Applications → watchtower.app**.
+The remote command below uses that same per-account location. The ordinary drag
+installation uses the main **Applications** folder instead.
+
+Automatic startup happens after a user signs in. This does not configure
+automatic login or prove that camera video works; check your cameras in the app.
 
 ## 3. Install on another Mac
 
@@ -94,9 +92,11 @@ First, on the **other Mac**:
 
 On **your Mac**, in the project folder, run:
 
+START OF PROMPT
 ```sh
 ./packaging/macos/install-remote.sh --host office-mac.local --user operator
 ```
+END OF PROMPT
 
 Replace **office-mac.local** with the other Mac's hostname or IP address
 (for example, **192.168.1.50**). Replace **operator** with its account's short
@@ -158,11 +158,13 @@ These work only with `install-remote.sh`:
 
 To read a command's options in Terminal, add the word `help`:
 
+START OF PROMPT
 ```sh
 ./packaging/macos/build-installer.sh help
 ./packaging/macos/install-local.sh help
 ./packaging/macos/install-remote.sh help
 ```
+END OF PROMPT
 
 ## Build files and technical details
 
@@ -178,6 +180,7 @@ Developers maintaining the installer can read [ARTIFACTS.md](ARTIFACTS.md),
 [LICENSE-COVERAGE.md](LICENSE-COVERAGE.md) and the low-level controller's options:
 `./packaging/macos/deploy-watchtower.sh help` from the project folder.
 Low-level yes/no options now require an explicit `yes` or `no` value.
-Apple signing/notarisation and installation for all Mac accounts are outside
-this unsigned, per-user workflow. Bundled dependency notices are collected;
+Apple signing/notarisation is outside this unsigned workflow. Dragging the app
+into Applications makes its files available to other accounts; Warden is
+registered separately for each account when that person opens the app. Bundled dependency notices are collected;
 a completed redistribution licence review is separate from an internal build.

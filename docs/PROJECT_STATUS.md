@@ -1,5 +1,26 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-16 — macOS drag installer implemented; fresh DMG acceptance pending.**
+> The DMG builder now shows Cilex Watchtower and an Applications shortcut, with
+> instructions, an arrow and fixed icon positions. Deployment helpers are hidden;
+> scripted local/remote installation reconstructs and verifies the original
+> package layout. The copied app carries its service registrar and asks once to
+> enable per-user Warden on first launch. An identified older managed copy is
+> switched only after confirmation; failed startup restores its startup entry.
+> Other accounts' processes and diagnostic jobs are excluded from that handoff.
+> Helper version is 1.0.3. The 24 new inert regressions pass; the broader suite
+> excluding installation/native-preferences fixtures runs 235 tests with one skip
+> and no failures. Changed main.cpp compiles natively; the frozen helper reports
+> 1.0.3 and includes first_launch. Recovery tests pass 19/19. Warden tests pass
+> 30/31, with one home-directory lookup error in this runner. The full installer
+> suite's 68 errors have exactly the same names on unchanged HEAD: Directory
+> Services/native-preferences access is unavailable here. Mandatory export still
+> fails with VideoToolbox -12908; native hdiutil creation returns Device not
+> configured. No new application DMG has been accepted or released, and no
+> validation gate was waived. Finder showed the two icon positions in an isolated
+> folder preview; final background/volume presentation remains unverified because
+> subsequent screen capture failed. No installed app or service was changed.
+
 > **2026-11-15 — macOS Setup package discovery corrected.**
 > Finder setup silently selected diagnostic `check` when the package manifest
 > was absent beside the running executable. Its capacity advisory then appeared

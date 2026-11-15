@@ -11,6 +11,7 @@ import plistlib
 import platform
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -72,7 +73,19 @@ def mounted(image):
             entities = plistlib.loads(reply.stdout).get('system-entities', [])
             if not any(row.get('mount-point') == str(mount) for row in entities):
                 raise ValueError('macOS did not mount the installer at the requested location.')
-            yield mount
+            if (mount / '.deployment/artifact-manifest.json').is_file():
+                # Advanced scripts retain the original checked package format.
+                # Do not copy the external Applications shortcut into that format.
+                package = Path(temp).resolve() / 'package'
+                shutil.copytree(mount / '.deployment', package, symlinks=True)
+                shutil.copytree(mount / 'Cilex Watchtower.app', package / 'watchtower.app', symlinks=True)
+                quarantine = install.read_quarantine(image)
+                if quarantine:
+                    install.write_quarantine(package / 'watchtower.app', quarantine)
+                install.read_manifest(package)
+                yield package
+            else:
+                yield mount
         finally:
             subprocess.run(['/usr/bin/hdiutil', 'detach', str(mount)],
                            capture_output=True, timeout=60, check=True, env=clean_env())

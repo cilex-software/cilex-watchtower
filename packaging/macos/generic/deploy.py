@@ -527,6 +527,9 @@ def main(argv=None):
     gui = argv is None and len(sys.argv) == 1 and getattr(sys, 'frozen', False)
     language = 'en'
     raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ['launch-app']:
+        import first_launch
+        return first_launch.main(raw[1:])
     if raw == ['help']:
         parser().print_help()
         return 0

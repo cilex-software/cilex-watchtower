@@ -16,6 +16,8 @@ watchtower.app/Contents/Frameworks/...
 watchtower.app/Contents/PlugIns/gstreamer/...
 watchtower.app/Contents/PlugIns/gstreamer-1.0 -> gstreamer
 watchtower.app/Contents/Helpers/gst-plugin-scanner
+watchtower.app/Contents/Helpers/Setup.app/Contents/MacOS/cilex-setup
+watchtower.app/Contents/Resources/Licenses/
 watchtower.app/Contents/Resources/warden/cilex-warden
 watchtower.app/Contents/Resources/warden/cilex-spawn-gate
 watchtower.app/Contents/Resources/warden/_internal/...
@@ -60,6 +62,31 @@ absent. It checks the original executable against the running executable before
 using that package; normal inventory checks still run before installation.
 Missing package files produce a specific error, never a silent `check` action.
 Source: [Apple Security tool command](https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/security.c).
+
+Helper 1.0.3 presents a drag installer: `Cilex Watchtower.app` and an
+`Applications -> /Applications` shortcut. `.background/install.png` and a
+generated `.DS_Store` provide the instructions, arrow and icon positions.
+The layout writer uses only Python's standard library and the native alias API;
+it does not automate Finder or require a third-party packaging library.
+It creates the background alias on the mounted final filesystem before
+compression. Signature and application inventory checks remain mandatory.
+
+The other original package entries live under `.deployment` in the DMG.
+`easy.mounted` reconstructs the original package layout in a temporary directory
+and validates it before scripted local/remote deployment. The intentional external
+Applications shortcut is never included in the strict payload inventory.
+
+The copied app carries Setup privately inside its bundle. On a normal Finder
+launch, before starting Qt's GUI, it delegates to this embedded helper's
+`launch-app` entry point. The helper validates the copied bundle, registers a
+per-user Warden LaunchAgent after confirmation, then focuses the verified app
+process. Warden launches the original app executable with `WT_UNDER_WARDEN`, so
+the handoff does not recur. Source builds and command-line checks bypass it.
+Launching from the DMG asks the user to copy the app into Applications first.
+An identified older managed installation is switched only after confirmation;
+failed startup restores its prior startup entry. Multiple/foreign entries are
+left untouched. Runtime camera, sign-in, reboot and clean-machine acceptance
+remain separate from this registration.
 
 [`LICENSE-COVERAGE.md`](LICENSE-COVERAGE.md) specifies the versioned exhaustive
 component/notice/source mapping accepted through `--license-manifest`. Production

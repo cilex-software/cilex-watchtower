@@ -10,6 +10,7 @@
 #include <QSGRendererInterface>
 #include <QFontDatabase>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QSettings>
 #include <QStandardPaths>
@@ -58,6 +59,7 @@
                                 //  and has no arena pathology to tune — M1 defect #2)
 #  if defined(Q_OS_MACOS)
 #    include <mach/mach.h>       // task_info RSS for the fatal/hang handlers (M-fix 2026-08-21)
+#    include <mach-o/dyld.h>
 #  endif
 #  include <unistd.h>           // read/write/close/sysconf
 #  include <fcntl.h>            // open, O_RDONLY
@@ -289,6 +291,29 @@ void maybeArmScreenshot(QQmlApplicationEngine &engine)
 
 int main(int argc, char *argv[])
 {
+#if defined(Q_OS_MACOS)
+    // Finder opens the copied app, not a separate installer. The bundled helper
+    // registers this user's Warden service, which launches this same executable.
+    // Source/dev builds and command-line checks have no first-launch helper.
+    if (argc == 1 && !qEnvironmentVariableIsSet("WT_UNDER_WARDEN")) {
+        char executable[4096];
+        uint32_t size = sizeof(executable);
+        if (_NSGetExecutablePath(executable, &size) == 0) {
+            const QString bundle = QFileInfo(QString::fromUtf8(executable)).canonicalPath()
+                                       + QStringLiteral("/../..");
+            const QByteArray helper = QFile::encodeName(bundle + QStringLiteral(
+                "/Contents/Helpers/Setup.app/Contents/MacOS/cilex-setup"));
+            if (QFile::exists(QString::fromUtf8(helper))) {
+                const QByteArray appPath = QFile::encodeName(QDir(bundle).canonicalPath());
+                char *const args[] = {const_cast<char *>(helper.constData()),
+                    const_cast<char *>("launch-app"), const_cast<char *>(appPath.constData()), nullptr};
+                execv(helper.constData(), args);
+                std::perror("Cannot open Cilex Watchtower startup helper");
+                return 1;
+            }
+        }
+    }
+#endif
 #if defined(Q_OS_WIN)
     // 1 ms system timer resolution for this process. The GStreamer jitterbuffer
     // loop spends its life in timed condition waits (booth histogram A: median

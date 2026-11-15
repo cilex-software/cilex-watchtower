@@ -23,7 +23,7 @@ from closure import (ClosureError, audit, contained, inventory, is_macho,
                      parse_macho, sha256, validate_bundle, version_tuple, is_system_load)
 import license_coverage
 
-HELPER_VERSION = '1.0.2'
+HELPER_VERSION = '1.0.3'
 GST_PLUGINS = ('coreelements','app','playback','typefindfunctions','rtsp','rtp',
                'rtpmanager','tcp','udp','videoparsersbad','videoconvertscale',
                'applemedia','isomp4','audioconvert','audioresample','volume')
@@ -234,7 +234,7 @@ def freeze_helpers(helper_root,dest):
     files=[]
     for p in sorted(helper_root.rglob('*')):
         rel=p.relative_to(helper_root)
-        if any(x in ('tests','__pycache__') for x in rel.parts) or not p.is_file() or p.suffix not in ('.py','.json','.sh','.md','.js','.plist'):
+        if any(x in ('tests','__pycache__') for x in rel.parts) or not p.is_file() or p.suffix not in ('.py','.json','.sh','.md','.js','.plist','.png'):
             continue
         if p.is_symlink(): raise BuildError('Deployment helper symlink refused')
         target=dest/rel; target.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(p,target); target.chmod(0o755 if p.stat().st_mode & 0o111 else 0o644)
@@ -425,14 +425,18 @@ def build(source_root, options, run_dir):
     shutil.copy2(package/'helpers/deploy-watchtower.sh',package/'deploy-watchtower.sh')
     (package/'deploy-watchtower.sh').chmod(0o755)
     setup=freeze_setup(package,work,pyi,tools,env,logs,target)
+    # Finder's drag-to-Applications copy must carry its own service registrar.
+    # The separate root Setup remains available to the advanced deployment tools.
+    copy_tree(setup,app/'Contents/Helpers/Setup.app')
     # Python helpers should already be self-contained after PyInstaller. Audit rejects external references.
     licenses=package/'licenses'; copy_tree(Path(tools['licenses_dir']),licenses)
+    copy_tree(licenses,app/'Contents/Resources/Licenses')
     uninstall=package/'Uninstall.command'
     uninstall.write_text('#!/bin/bash\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "$HERE/Setup.app/Contents/MacOS/cilex-setup" --mode uninstall "$@"\n')
     uninstall.chmod(0o755)
     closure=audit(package,source_minimum=target)
     minimum=closure['minimum_macos']
-    for bundle in (app,setup):
+    for bundle in (app,setup,app/'Contents/Helpers/Setup.app'):
         meta=bundle/'Contents/Info.plist'
         with meta.open('rb') as f: d=plistlib.load(f)
         d['LSMinimumSystemVersion']=audit(bundle,source_minimum=target)['minimum_macos']
@@ -495,6 +499,21 @@ def build(source_root, options, run_dir):
     (output/(archive.name+'.sha256')).write_text(result['sha256']+'  '+archive.name+'\n')
     return result
 
+def stage_drag_installer(package, destination, assets):
+    """Keep the transactional payload intact but out of the ordinary Finder UI."""
+    import dmg_layout
+    destination.mkdir()
+    support=destination/'.deployment'; support.mkdir()
+    for item in package.iterdir():
+        target=destination/dmg_layout.APP_NAME if item.name=='watchtower.app' else support/item.name
+        if item.is_dir(): copy_tree(item,target)
+        elif item.is_file() and not item.is_symlink(): shutil.copy2(item,target)
+        else: raise BuildError('Unexpected deployment payload entry: '+item.name)
+    (destination/'Applications').symlink_to('/Applications',target_is_directory=True)
+    (destination/'.background').mkdir()
+    shutil.copyfile(assets/'install.png',destination/'.background/install.png')
+
+
 def build_installer(package_root,options,run_dir):
     package=Path(package_root).resolve(); run_dir=Path(run_dir).resolve()
     manifest=json.loads((package/'artifact-manifest.json').read_text())
@@ -505,7 +524,23 @@ def build_installer(package_root,options,run_dir):
     image=output/('CilexWatchtower-%s-arm64-%s.dmg'%(manifest['version'],manifest['distribution']))
     if image.exists(): raise BuildError('Installer already exists')
     env=normalized_environment(options.get('tools',{}),run_dir,run_dir); logs=run_dir/'installer-logs'
-    run(['/usr/bin/hdiutil','create','-fs','HFS+','-format','UDZO','-volname','Cilex Watchtower Setup','-srcfolder',package,image],run_dir,env,logs,'dmg-create',1200)
+    import dmg_layout
+    stage=run_dir/'dmg-stage'
+    assets=Path(options.get('helper_root',Path(__file__).parent))/'assets'
+    stage_drag_installer(package,stage,assets)
+    writable=run_dir/'installer-writable.dmg'
+    mount=run_dir/'installer-volume'; mount.mkdir()
+    run(['/usr/bin/hdiutil','create','-fs','HFS+','-format','UDRW','-volname','Cilex Watchtower','-srcfolder',stage,writable],run_dir,env,logs,'dmg-create',1200)
+    run(['/usr/bin/hdiutil','attach','-readwrite','-nobrowse','-mountpoint',mount,writable],run_dir,env,logs,'dmg-attach',180)
+    try:
+        dmg_layout.configure(mount)
+        # Changing Finder metadata must never change signed application contents.
+        if inventory(mount/dmg_layout.APP_NAME)!=inventory(package/'watchtower.app'):
+            raise BuildError('Application changed while creating the drag installer')
+        run(['/usr/bin/codesign','--verify','--deep','--strict',mount/dmg_layout.APP_NAME],run_dir,env,logs,'dmg-app-signature',120)
+    finally:
+        run(['/usr/bin/hdiutil','detach',mount],run_dir,env,logs,'dmg-detach',180)
+    run(['/usr/bin/hdiutil','convert',writable,'-format','UDZO','-o',image],run_dir,env,logs,'dmg-compress',1200)
     identity=options.get('signing_identity'); profile=options.get('notary_profile')
     if manifest['distribution']=='production':
         if options.get('dependencies')=='offline': raise BuildError('Offline mode cannot sign/notarize a new production DMG; no request was made')
