@@ -308,9 +308,38 @@ def remote_handler(options):
     return value
 
 
+def setup_package_root(require_manifest=True):
+    """Locate this Setup's package, including Finder's isolated app launch.
+
+    Apple exposes the original location through its stock security tool. Only
+    that mapping is used; never guess another mounted volume or strip quarantine.
+    """
+    executable = Path(sys.executable).resolve()
+    bundle = executable.parents[2]
+    package = bundle.parent
+    marker = 'artifact-manifest.json' if require_manifest else 'helpers'
+    if (package / marker).exists():
+        return package
+    reply = command(['/usr/bin/security', 'translocate-original-path', str(bundle)],
+                    check=False, timeout=15)
+    # security prints one explanation followed by a tab-indented absolute path.
+    paths = [line[1:] for line in reply.stdout.splitlines() if line.startswith('\t/')]
+    if reply.returncode == 0 and len(paths) == 1:
+        original = Path(paths[0])
+        original_executable = original / 'Contents/MacOS' / executable.name
+        if (original.name == bundle.name and original.suffix == '.app'
+                and (original.parent / marker).exists()
+                and original_executable.is_file() and sha256(original_executable) == sha256(executable)):
+            return original.parent.resolve()
+    raise DeployError('package.location',
+        'Setup cannot find the complete installation package. Open the Watchtower DMG and run Setup.app from inside it. Do not copy Setup.app out on its own.',
+        'requirements',
+        ru='Установщик не нашёл полный комплект файлов. Откройте DMG Watchtower и запустите Setup.app внутри него. Не копируйте отдельно только Setup.app.')
+
+
 def helper_source_root():
     if getattr(sys, 'frozen', False):
-        candidate = Path(sys.executable).resolve().parents[3] / 'helpers'
+        candidate = setup_package_root(require_manifest=False) / 'helpers'
         if candidate.is_dir():
             return candidate
     return ROOT
@@ -462,9 +491,7 @@ def setup_dialog():
     """Explicit local setup action when launched from Finder; no elevation."""
     options = vars(parser().parse_args([]))
     language = preferred_language(options, standalone=True)
-    package = Path(sys.executable).resolve().parents[3]
-    if not (package / 'artifact-manifest.json').is_file():
-        return ['--mode', 'check', '--language', language]
+    package = setup_package_root()
     manifest = install.read_manifest(package)
     message = text_for('setup_install', language)
     if manifest.get('distribution') == 'development':

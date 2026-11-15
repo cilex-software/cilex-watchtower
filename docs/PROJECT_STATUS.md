@@ -1,5 +1,23 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-15 — macOS Setup package discovery corrected.**
+> Finder setup silently selected diagnostic `check` when the package manifest
+> was absent beside the running executable. Its capacity advisory then appeared
+> as an installation failure, although installation had never started. Setup
+> 1.0.2 resolves the original app location through Apple's read-only translocation
+> lookup, checks executable identity and retains normal package verification.
+> Missing payload now produces a specific error. Nine new regressions pass;
+> the non-service suite has 210 passes and one skip. The full suite has the same
+> 68 Directory Services/native-preferences errors on unchanged baseline and fixed
+> code in this execution environment. A full rebuild also hit VideoToolbox error
+> -12908, so the corrected installer retains the verified 1.1.797 application
+> unchanged and replaces Setup/helpers only. Finder showed the installation
+> confirmation; the test was cancelled before installation. Image creation used
+> Apple's hybrid/conversion tools after normal creation returned `Device not
+> configured`; generated Finder/resource-fork metadata was removed from the test
+> image, preserving quarantine, before verifying both app signatures. Publication
+> is blocked: Git cannot resolve github.com; the GitHub connector returns 404.
+
 > **2026-11-14 — Operator reboot context saved.**
 > Read [the restart handoff](handoffs/SESSION_RESTART_2026-11-14.md) before
 > continuing the emergency recent-footage purge or analyser work. The purge is

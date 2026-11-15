@@ -54,6 +54,13 @@ Helper version 1.0.1 uses explicit `yes`/`no` values for boolean controller opti
 `help` and `version` are commands. The fixed arm64 architecture is no longer an
 option. The three short shell commands in README.md are the operator interface.
 
+Helper version 1.0.2 resolves Finder app isolation through Apple's read-only
+`security translocate-original-path` command when adjacent package files are
+absent. It checks the original executable against the running executable before
+using that package; normal inventory checks still run before installation.
+Missing package files produce a specific error, never a silent `check` action.
+Source: [Apple Security tool command](https://github.com/apple-oss-distributions/Security/blob/main/SecurityTool/macOS/security.c).
+
 [`LICENSE-COVERAGE.md`](LICENSE-COVERAGE.md) specifies the versioned exhaustive
 component/notice/source mapping accepted through `--license-manifest`. Production
 requires a complete recorded review bound to the separate source/helper and

@@ -72,6 +72,12 @@ If the result says installation succeeded but checks remain, open Watchtower,
 connect it to your Cilex Vision server and check the cameras. Automatic startup
 is after a user signs in; this installer does not configure automatic login.
 
+If an older installer stops with only a message about unmeasured video-wall
+capacity, use a newly built DMG with Setup version 1.0.2 or later. That was a
+package-location bug: Setup ran a diagnostic check instead of installing.
+The corrected Setup finds its original DMG files even when macOS launches the
+app from an isolated location. Camera capacity is checked after installation.
+
 ## 3. Install on another Mac
 
 You run this command on **your Mac**. It sends the installer to the other Mac
