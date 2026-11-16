@@ -2326,6 +2326,78 @@
     <message><source>Pending: %1</source><translation>Ожидают отправки: %1</translation></message>
     <message><source>History and sync</source><translation>История и отправка</translation></message>
     <message><source>Camera statuses are last known; Vision updates are unavailable.</source><translation>Показано последнее известное состояние камер; обновления Vision недоступны.</translation></message>
+    <message>
+        <source>Select all</source>
+        <translation>Выбрать все</translation>
+    </message>
+    <message>
+        <source>Select all results (%1)</source>
+        <translation>Выбрать все результаты (%1)</translation>
+    </message>
+    <message>
+        <source>Search names or IDs…</source>
+        <translation>Поиск по имени или ID…</translation>
+    </message>
+    <message>
+        <source>Search groups…</source>
+        <translation>Поиск групп…</translation>
+    </message>
+    <message>
+        <source>Only</source>
+        <translation>Только</translation>
+    </message>
+    <message>
+        <source>Show only this value</source>
+        <translation>Показать только это значение</translation>
+    </message>
+    <message>
+        <source>Show only matching values</source>
+        <translation>Показать только совпадения</translation>
+    </message>
+    <message>
+        <source>Clear filter</source>
+        <translation>Сбросить фильтр</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Готово</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Сбросить</translation>
+    </message>
+    <message>
+        <source>Clear all column filters</source>
+        <translation>Сбросить все фильтры столбцов</translation>
+    </message>
+    <message>
+        <source>Clear column filters</source>
+        <translation>Сбросить фильтры столбцов</translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 из %2</translation>
+    </message>
+    <message>
+        <source>— (none shown)</source>
+        <translation>— (не указано)</translation>
+    </message>
+    <message>
+        <source>— (no group)</source>
+        <translation>— (без группы)</translation>
+    </message>
+    <message>
+        <source>No values match “%1”.</source>
+        <translation>Нет совпадений для «%1».</translation>
+    </message>
+    <message>
+        <source>ARMED · no motion</source>
+        <translation>ARMED · нет движения</translation>
+    </message>
+    <message>
+        <source>ENTER</source>
+        <translation>ENTER</translation>
+    </message>
 </context>
 <context>
     <name>LabsCard</name>

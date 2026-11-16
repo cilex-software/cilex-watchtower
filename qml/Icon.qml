@@ -85,6 +85,10 @@ Item {
         "motion":   { "p": "M10 6 a2 2 0 1 0 4 0 a2 2 0 1 0 -4 0 M9 12l3-3 3 3-2 3v6 M9 21v-6" },
         "check":    { "p": "M5 12l5 5L20 7", "w": 2 },
         "funnel":   { "p": "M4 5h16l-6 7v6l-4-2v-4z" },
+        "funnelFill": { "p": "M4 5h16l-6 7v6l-4-2v-4z", "f": true },
+        "funnelClear": { "p": "M4 5h16l-6 7v6l-4-2v-4z M15 15l5 5 M20 15l-5 5" },
+        "filterChev": { "p": "M6 9l6 6 6-6", "w": 2 },
+        "filterCheck": { "p": "M5 12l5 5L20 7", "w": 3.2 },
         // Audio recording: an ear (outer helix + inner curve to the lobe).
         "ear":      { "p": "M6.5 8.5 a5.5 5.5 0 1 1 11 0 c0 4.8 -4.8 4.9 -4.8 8.6 a3 3 0 0 1 -6 0 M14.2 8.6 a2.7 2.7 0 0 0 -5.4 0" },
         // Audio recording disabled: the same ear, struck through.

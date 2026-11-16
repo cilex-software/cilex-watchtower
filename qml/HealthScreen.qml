@@ -2,11 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic as QC
 import Watchtower
-import "GroupsStatus.js" as St
+import "HealthFilters.js" as Filters
 
 // Health (S07) — design handoff README §7 + watchtower.html HealthScreen.
-// A full-width strip of 6 stat cards over CameraModel's live counts, a camera
-// table filtered by the active card, and a 380px detail panel. This is a pure
+// A full-width strip of stat cards over CameraModel's live counts, a camera
+// table filtered by the active card and column inclusions, and a 380px detail panel. This is a pure
 // view over CameraModel — camera live/recording status is whatever the store
 // holds (from provisioning import), the same source the rest of the app uses;
 // there is no separate live health feed yet, so we never fabricate durations.
@@ -35,7 +35,10 @@ Item {
     property var sel: null                     // selected camera map -> detail panel
 
     // Storage subsystem health (cilex-vision /health/storage), refreshed while visible.
-    onVisibleChanged: if (visible && storageHealth) storageHealth.refresh()
+    onVisibleChanged: {
+        if (visible && storageHealth) storageHealth.refresh();
+        if (!visible) columnPopup.close();
+    }
     Component.onCompleted: { _refreshRows(); if (storageHealth) storageHealth.refresh() }
     Timer { interval: 30000; running: root.visible && root.storageHealth !== null; repeat: true; onTriggered: root.storageHealth.refresh() }
     // Ticks the "last ok Ns ago" age. The endpoint is cached server-side now, so
@@ -50,18 +53,22 @@ Item {
     // only reassign when content actually changed — countsChanged fires every
     // 15s poll, and a fresh array each time would reset the table's scroll
     // position (the CameraGroups delegate-churn lesson).
-    readonly property var rows: _rows
+    readonly property var rows: viewRows
+    property var colFilters: ({camera: null, group: null, live: null, rec: null, issue: null})
+    readonly property bool anyColumnFilter: Filters.columns.some(function(col) { return colFilters[col] !== null })
+    property var viewRows: []
+    property string _viewRowsSig: "\u0000unset"
+    property int _viewRevision: 0
+    property int _filterDataRevision: 0
     property var _rows: []
     property string _rowsSig: "\u0000unset"
     function _refreshRows() {
-        if (!cameraModel) { _rows = []; _rowsSig = ""; sel = null; return; }
+        if (!cameraModel) { _rows = []; _rowsSig = ""; sel = null; _refreshViewRows(); return; }
         var r = cameraModel.page("", activeFilter, "status", 1, 100000);
         var sig = activeFilter + "\u0001";
         for (var i = 0; i < r.length; i++) {
             var c = r[i];
-            sig += c.camId + "|" + c.name + "|" + c.groupName + "|" + c.live + "|" + c.recording
-                 + "|" + c.lastSeen + "|" + c.lastSegmentAt + "|" + c.motionKnown + "|" + c.motionReady
-                 + "|" + c.motionConfirmed + "|" + c.motionLastVmdAt + "\u0001";
+            sig += rowSignature(c) + "\u0001";
         }
         if (sig !== _rowsSig) { _rowsSig = sig; _rows = r; }
         if (sel) {
@@ -70,7 +77,33 @@ Item {
                 ? cameraModel.cameraByBackendId(selectedId) : null;
             sel = current && current.camId === selectedId ? current : null;
         }
+        ++_filterDataRevision;
+        _refreshViewRows();
     }
+    function rowSignature(c) {
+        return JSON.stringify([c.camId, c.name, c.groupName, c.live, c.recording, c.lastSeen,
+            c.lastSegmentAt, c.motionKnown, c.motionReady, c.motionConfirmed, c.motionLastVmdAt,
+            Filters.keys(c, health(c))]);
+    }
+    function _refreshViewRows() {
+        var next = _rows.filter(function(cam) { return Filters.passes(Filters.keys(cam, health(cam)), colFilters, "") });
+        var sig = JSON.stringify(colFilters) + "\u0001" + next.map(rowSignature).join("\u0001");
+        if (sig === _viewRowsSig) return;
+        var oldY = list.contentY, oldX = list.contentX, oldIndex = Math.max(0, Math.floor((oldY - list.originY) / 52));
+        var anchor = viewRows[oldIndex] ? viewRows[oldIndex].camId : "";
+        var offset = oldY - list.originY - oldIndex * 52;
+        _viewRowsSig = sig; viewRows = next;
+        var revision = ++_viewRevision;
+        Qt.callLater(function() {
+            if (revision !== root._viewRevision) return;
+            list.forceLayout();
+            var index = next.findIndex(function(cam) { return cam.camId === anchor });
+            var y = index >= 0 ? list.originY + index * 52 + offset : oldY;
+            list.contentY = Math.max(list.originY, Math.min(y, list.originY + Math.max(0, list.contentHeight - list.height)));
+            list.contentX = Math.max(0, Math.min(oldX, list.contentWidth - list.width));
+        });
+    }
+    onColFiltersChanged: { _refreshViewRows(); columnPopup.refreshValues() }
     onActiveFilterChanged: _refreshRows()
     onCameraModelChanged: _refreshRows()
     Connections { target: root.cameraModel; function onCountsChanged() { root._refreshRows() } function onHealthRevChanged() { root._refreshRows() } }
@@ -82,6 +115,60 @@ Item {
     readonly property int wSeen: 110
     readonly property int wIssue: 220
     readonly property int wAct: 72
+    readonly property int tableMinimumWidth: 160 + wGroup + wLive + wRec + wSeen + wIssue + wAct + 28
+
+    function columnKeys(column) {
+        // Normalise against the entire known fleet, not a metric/cascade subset.
+        var all = !activeFilter ? _rows : (cameraModel ? cameraModel.page("", "", "status", 1, 100000) : []);
+        var keys = [];
+        all.forEach(function(cam) {
+            var key = Filters.keys(cam, health(cam))[column];
+            if (keys.indexOf(key) < 0) keys.push(key);
+        });
+        return keys;
+    }
+    function setIncluded(column, keys) {
+        var all = columnKeys(column), next = Object.assign({}, colFilters);
+        next[column] = all.length > 0 && all.every(function(key) { return keys.indexOf(key) >= 0 }) ? null : keys;
+        colFilters = next;
+    }
+    function clearColumnFilters() {
+        colFilters = {camera: null, group: null, live: null, rec: null, issue: null};
+        columnPopup.close();
+    }
+    function columnValues(column) {
+        if (!column) return [];
+        var values = [];
+        _rows.forEach(function(cam) {
+            var keys = Filters.keys(cam, health(cam));
+            if (!Filters.passes(keys, colFilters, column)) return;
+            var item = values.find(function(value) { return value.key === keys[column] });
+            if (item) ++item.count;
+            else values.push({key: keys[column], cam: cam, count: 1});
+        });
+        var order = column === "live" ? Filters.liveOrder : column === "rec" ? Filters.recOrder : Filters.issueOrder;
+        if (column === "group") values.sort(function(a, b) {
+            if (!a.key) return 1;
+            if (!b.key) return -1;
+            return a.key.localeCompare(b.key);
+        });
+        else if (column !== "camera") values.sort(function(a, b) { return order.indexOf(a.key) - order.indexOf(b.key) });
+        return values;
+    }
+    function recordingCategoryLabel(key) {
+        if (key === "ARMED · no motion") return qsTr("ARMED · no motion");
+        if (key === "ARMED · NOT READY") return "ARMED · " + qsTranslate("RecordingStatusBadge", "NOT READY");
+        if (key === "ARMED · ARCHIVE DELAY") return "ARMED · " + qsTranslate("RecordingStatusBadge", "ARCHIVE DELAY");
+        return qsTranslate("RecordingStatusBadge", key);
+    }
+    function toggleColumnPopup(column, trigger) {
+        if (columnPopup.visible && columnPopup.column === column) { columnPopup.close(); return; }
+        columnPopup.column = column; columnPopup.trigger = trigger;
+        columnPopup.query = ""; columnPopup.refreshValues(); columnPopup.open();
+        if (columnPopup.hasSearch) searchInput.forceActiveFocus();
+        else columnPopup.forceActiveFocus();
+    }
+    on_FilterDataRevisionChanged: columnPopup.refreshValues()
 
     function liveText(s) {
         switch (s) {
@@ -171,6 +258,265 @@ Item {
             Text { anchors.verticalCenter: parent.verticalCenter; text: b.label; color: b.ghost ? Theme.ink2 : Theme.ink; font.family: Theme.fontSans; font.pixelSize: b.small ? 11 : 12; font.weight: Font.Medium }
         }
         MouseArea { id: bma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: b.clicked() }
+    }
+
+    component FilterCheck: Rectangle {
+        property int checkState: Qt.Unchecked
+        width: 14; height: 14
+        color: checkState === Qt.Unchecked ? "transparent" : Theme.accent
+        border.width: 1
+        border.color: checkState === Qt.Unchecked ? Theme.line2 : Theme.accent
+        Icon { anchors.centerIn: parent; visible: parent.checkState === Qt.Checked; name: "filterCheck"; size: 10; color: Theme.bg }
+        Rectangle { anchors.centerIn: parent; visible: parent.checkState === Qt.PartiallyChecked; width: 8; height: 2; color: Theme.bg }
+    }
+    component FilterTrigger: Item {
+        id: trigger
+        property string column: ""
+        property string label: ""
+        readonly property bool filtered: root.colFilters[column] !== null
+        readonly property bool opened: columnPopup.visible && columnPopup.column === column
+        readonly property real buttonWidth: Math.min(width + 6, triggerLabel.implicitWidth + 5 + (filtered ? 11 : 10) + 12)
+        implicitHeight: 38
+        Rectangle {
+            x: -6; anchors.verticalCenter: parent.verticalCenter
+            width: trigger.buttonWidth; height: 24
+            color: trigger.opened || triggerMouse.containsMouse ? Theme.panel : "transparent"
+            Row {
+                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6; spacing: 5
+                Text {
+                    id: triggerLabel
+                    width: Math.max(0, parent.width - 5 - triggerIcon.width)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: trigger.label; elide: Text.ElideRight
+                    color: trigger.filtered ? Theme.accent : trigger.opened ? Theme.ink : Theme.ink3
+                    font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold
+                    font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
+                }
+                Icon {
+                    id: triggerIcon; anchors.verticalCenter: parent.verticalCenter
+                    name: trigger.filtered ? "funnelFill" : "filterChev"; size: trigger.filtered ? 11 : 10
+                    color: trigger.filtered ? Theme.accent : trigger.opened ? Theme.ink : Theme.ink3
+                }
+            }
+            MouseArea {
+                id: triggerMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                onClicked: root.toggleColumnPopup(trigger.column, triggerMouse.parent)
+            }
+        }
+    }
+
+    QC.Popup {
+        id: columnPopup
+        objectName: "healthColumnPopup"
+        property string column: ""
+        property var trigger: null
+        property string query: ""
+        property var valueRows: []
+        property string valuesSignature: ""
+        readonly property bool hasSearch: column === "camera" || column === "group"
+        readonly property string searchQuery: query.trim().toLowerCase()
+        readonly property var listed: valueRows.filter(function(value) {
+            return !searchQuery || (column === "camera"
+                ? String(value.cam.name).toLowerCase().indexOf(searchQuery) >= 0 || value.key.toLowerCase().indexOf(searchQuery) >= 0
+                : value.key.toLowerCase().indexOf(searchQuery) >= 0);
+        })
+        readonly property int checkedCount: listed.filter(function(value) { return isChecked(value.key) }).length
+        readonly property bool allChecked: listed.length > 0 && checkedCount === listed.length
+        readonly property int totalCount: valueRows.reduce(function(sum, value) { return sum + value.count }, 0)
+        readonly property bool canClear: column !== "" && root.colFilters[column] !== null
+        function refreshValues() {
+            if (!column) return;
+            var values = root.columnValues(column);
+            var signature = column + JSON.stringify(values.map(function(value) { return [value.key, value.count, root.rowSignature(value.cam)] }));
+            if (signature !== valuesSignature) { valuesSignature = signature; valueRows = values; }
+        }
+        function isChecked(key) { return root.colFilters[column] === null || root.colFilters[column].indexOf(key) >= 0 }
+        function includedKeys() { return root.colFilters[column] === null ? root.columnKeys(column) : root.colFilters[column].slice() }
+        function toggleValue(key) {
+            var keys = includedKeys(), index = keys.indexOf(key);
+            if (index >= 0) keys.splice(index, 1); else keys.push(key);
+            root.setIncluded(column, keys);
+        }
+        function toggleListed() {
+            if (!listed.length) return;
+            var keys = includedKeys(), remove = allChecked;
+            listed.forEach(function(value) {
+                var index = keys.indexOf(value.key);
+                if (remove && index >= 0) keys.splice(index, 1);
+                if (!remove && index < 0) keys.push(value.key);
+            });
+            root.setIncluded(column, keys);
+        }
+        function applySearch() {
+            if (!searchQuery || !listed.length) return;
+            root.setIncluded(column, listed.map(function(value) { return value.key }));
+            close();
+        }
+        parent: trigger || tableColumn
+        readonly property real tableLeft: {
+            list.contentX; tableColumn.width;
+            return trigger ? trigger.mapToItem(tableColumn, 0, 0).x : 8;
+        }
+        readonly property real clampedLeft: Math.max(8, Math.min(tableLeft, tableColumn.width - width - 8))
+        x: trigger ? tableColumn.mapToItem(trigger, clampedLeft, 0).x : 8
+        y: trigger ? tableHeader.mapToItem(trigger, 0, tableHeader.height - 1).y : tableHeader.height - 1
+        width: Math.min(column === "camera" ? 300 : column === "group" ? 240 : column === "live" ? 220 : column === "rec" ? 270 : 260,
+                        Math.max(0, tableColumn.width - 16))
+        height: popupBody.implicitHeight
+        padding: 0; focus: true
+        closePolicy: QC.Popup.CloseOnEscape | QC.Popup.CloseOnPressOutsideParent
+        background: Rectangle { color: Theme.panel; border.color: Theme.line2; border.width: 1 }
+        contentItem: Column {
+            id: popupBody; width: columnPopup.width; spacing: 0
+            Item {
+                visible: columnPopup.hasSearch; width: parent.width; height: visible ? 42 : 0
+                Rectangle {
+                    x: 8; y: 8; width: parent.width - 16; height: 30
+                    color: Theme.bg; border.width: 1; border.color: searchInput.activeFocus ? Theme.accent : Theme.line2
+                    Icon { x: 9; anchors.verticalCenter: parent.verticalCenter; name: "search"; size: 13; color: Theme.ink3 }
+                    TextInput {
+                        id: searchInput; objectName: "healthFilterSearch"
+                        x: 30; anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - x - (enterHint.visible ? enterHint.width + 13 : 9)
+                        text: columnPopup.query; onTextEdited: columnPopup.query = text
+                        color: Theme.ink; selectionColor: Theme.accent; selectedTextColor: Theme.bg
+                        font.family: Theme.fontSans; font.pixelSize: 12; clip: true; selectByMouse: true
+                        Keys.onReturnPressed: columnPopup.applySearch()
+                        Keys.onEnterPressed: columnPopup.applySearch()
+                        Text {
+                            anchors.fill: parent; visible: searchInput.text === ""; elide: Text.ElideRight
+                            text: columnPopup.column === "camera" ? qsTr("Search names or IDs…") : qsTr("Search groups…")
+                            color: Theme.ink3; font: searchInput.font
+                        }
+                    }
+                    Rectangle {
+                        id: enterHint; visible: columnPopup.searchQuery !== ""
+                        anchors.right: parent.right; anchors.rightMargin: 5; anchors.verticalCenter: parent.verticalCenter
+                        width: enterText.implicitWidth + 10; height: 18; color: "transparent"; border.width: 1; border.color: Theme.line2
+                        Text { id: enterText; anchors.centerIn: parent; text: qsTr("ENTER"); color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 9 }
+                        MouseArea { id: enterHintMouse; anchors.fill: parent; hoverEnabled: true }
+                        QC.ToolTip.visible: enterHintMouse.containsMouse
+                        QC.ToolTip.text: qsTr("Show only matching values"); QC.ToolTip.delay: 300
+                    }
+                }
+            }
+            Item { width: 1; height: 2 }
+            Rectangle {
+                objectName: "healthFilterSelectAll"; width: parent.width; height: 30
+                color: selectAllMouse.containsMouse ? Theme.panel2 : "transparent"
+                FilterCheck {
+                    x: 10; anchors.verticalCenter: parent.verticalCenter
+                    checkState: columnPopup.allChecked ? Qt.Checked : columnPopup.checkedCount ? Qt.PartiallyChecked : Qt.Unchecked
+                }
+                Text {
+                    x: 34; anchors.verticalCenter: parent.verticalCenter; width: parent.width - x - 10 - (selectCount.visible ? selectCount.width + 10 : 0)
+                    text: columnPopup.searchQuery ? qsTr("Select all results (%1)").arg(columnPopup.listed.length) : qsTr("Select all")
+                    color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 12; font.weight: Font.Medium; elide: Text.ElideRight
+                }
+                Text {
+                    id: selectCount; visible: !columnPopup.searchQuery
+                    anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                    text: columnPopup.totalCount; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                }
+                MouseArea { id: selectAllMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: columnPopup.toggleListed() }
+            }
+            Item { width: parent.width; height: 5; Rectangle { y: 2; width: parent.width; height: 1; color: Theme.line } }
+            ListView {
+                id: valueList; objectName: "healthFilterValues"
+                width: parent.width; height: Math.min(300, contentHeight + topMargin + bottomMargin)
+                topMargin: 2; bottomMargin: 4; clip: true; boundsBehavior: Flickable.StopAtBounds
+                model: columnPopup.listed
+                QC.ScrollBar.vertical: QC.ScrollBar { }
+                delegate: Rectangle {
+                    id: valueRow
+                    required property var modelData
+                    width: valueList.width; height: 28
+                    readonly property bool checked: columnPopup.isChecked(modelData.key)
+                    color: valueMouse.containsMouse || onlyMouse.containsMouse ? Theme.panel2 : "transparent"
+                    MouseArea { id: valueMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: columnPopup.toggleValue(valueRow.modelData.key) }
+                    FilterCheck { x: 10; anchors.verticalCenter: parent.verticalCenter; checkState: valueRow.checked ? Qt.Checked : Qt.Unchecked }
+                    Item {
+                        x: 34; anchors.verticalCenter: parent.verticalCenter; height: 28
+                        width: Math.max(0, parent.width - x - 10 - (onlyButton.visible ? onlyButton.width + 10 : valueCount.visible ? valueCount.width + 10 : 0))
+                        opacity: valueRow.checked ? 1 : 0.6
+                        LiveStatusBadge { anchors.verticalCenter: parent.verticalCenter; visible: columnPopup.column === "live"; state: valueRow.modelData.cam.live }
+                        RecordingStatusBadge {
+                            anchors.verticalCenter: parent.verticalCenter; visible: columnPopup.column === "rec"
+                            state: valueRow.modelData.cam.recording; health: root.health(valueRow.modelData.cam)
+                            motionKnown: valueRow.modelData.cam.motionKnown === true; motionReady: valueRow.modelData.cam.motionReady === true
+                            lastSegmentAtMs: valueRow.modelData.cam.lastSegmentAt ? Date.parse(valueRow.modelData.cam.lastSegmentAt) : -1
+                            lastVmdAtMs: valueRow.modelData.cam.motionLastVmdAt ? Date.parse(valueRow.modelData.cam.motionLastVmdAt) : -1
+                            label: root.recordingCategoryLabel(valueRow.modelData.key)
+                        }
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter; width: parent.width; spacing: 8
+                            visible: columnPopup.column !== "rec" && columnPopup.column !== "live"
+                            Text {
+                                width: columnPopup.column === "camera" ? Math.min(implicitWidth, parent.width * 0.55) : parent.width
+                                text: columnPopup.column === "camera" ? valueRow.modelData.cam.name
+                                    : columnPopup.column === "group" ? (valueRow.modelData.key || qsTr("— (no group)"))
+                                    : valueRow.modelData.key === "—" ? qsTr("— (none shown)") : root.issueText(valueRow.modelData.cam)
+                                color: columnPopup.column === "issue" ? root.issueColor(valueRow.modelData.cam) : Theme.ink
+                                font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight
+                            }
+                            Text {
+                                visible: columnPopup.column === "camera"
+                                width: Math.max(0, parent.width - parent.children[0].width - 8)
+                                text: valueRow.modelData.key; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight
+                            }
+                        }
+                    }
+                    Text {
+                        id: valueCount; visible: columnPopup.column !== "camera" && !onlyButton.visible
+                        anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(18, implicitWidth); horizontalAlignment: Text.AlignRight
+                        text: valueRow.modelData.count; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10
+                    }
+                    Rectangle {
+                        id: onlyButton; objectName: "healthFilterOnly"
+                        visible: valueMouse.containsMouse || onlyMouse.containsMouse
+                        anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                        height: 20; width: onlyText.implicitWidth + 12
+                        color: onlyMouse.containsMouse ? Theme.accentDim : "transparent"; border.width: 1; border.color: Theme.accentDim
+                        Text { id: onlyText; anchors.centerIn: parent; text: qsTr("Only"); color: onlyMouse.containsMouse ? Theme.ink : Theme.accent; font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
+                        MouseArea { id: onlyMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setIncluded(columnPopup.column, [valueRow.modelData.key]) }
+                        QC.ToolTip.visible: onlyMouse.containsMouse
+                        QC.ToolTip.text: qsTr("Show only this value"); QC.ToolTip.delay: 300
+                    }
+                }
+            }
+            Text {
+                visible: columnPopup.listed.length === 0; width: parent.width
+                height: visible ? implicitHeight : 0; topPadding: 10; leftPadding: 10; rightPadding: 10; bottomPadding: 8
+                text: qsTr("No values match “%1”.").arg(columnPopup.query)
+                color: Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 12; wrapMode: Text.Wrap
+            }
+            Rectangle {
+                width: parent.width; height: 40; color: "transparent"
+                Rectangle { width: parent.width; height: 1; color: Theme.line }
+                Rectangle {
+                    id: clearButton; objectName: "healthFilterClear"
+                    x: 8; anchors.verticalCenter: parent.verticalCenter; height: 24; width: clearContents.implicitWidth + 16
+                    color: clearMouse.containsMouse && columnPopup.canClear ? Theme.panel2 : "transparent"
+                    Row {
+                        id: clearContents; anchors.centerIn: parent; spacing: 6
+                        Icon { anchors.verticalCenter: parent.verticalCenter; name: "funnelClear"; size: 11; color: columnPopup.canClear ? Theme.ink2 : Theme.ink3 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Clear filter"); color: columnPopup.canClear ? Theme.ink2 : Theme.ink3; font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
+                    }
+                    MouseArea {
+                        id: clearMouse; anchors.fill: parent; enabled: columnPopup.canClear; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: { var next = Object.assign({}, root.colFilters); next[columnPopup.column] = null; root.colFilters = next; columnPopup.close() }
+                    }
+                }
+                Rectangle {
+                    objectName: "healthFilterDone"; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                    height: 24; width: doneText.implicitWidth + 20
+                    color: doneMouse.containsMouse ? Theme.panel : Theme.bg; border.width: 1; border.color: doneMouse.containsMouse ? Theme.accent : Theme.line2
+                    Text { id: doneText; anchors.centerIn: parent; text: qsTr("Done"); color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 11; font.weight: Font.Medium }
+                    MouseArea { id: doneMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: columnPopup.close() }
+                }
+            }
+        }
     }
 
     AvailabilityHistory {
@@ -394,6 +740,7 @@ Item {
 
             component Card: Item {
                 id: card
+                objectName: "healthMetric-" + key
                 property string key: ""
                 property string label: ""
                 property int value: 0
@@ -497,15 +844,20 @@ Item {
 
             // ---- table ----
             ColumnLayout {
+                id: tableColumn
+                objectName: "healthCameraTable"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 0
 
                 // header
                 Rectangle {
+                    id: tableHeader
+                    objectName: "healthCameraHeader"
                     Layout.fillWidth: true
                     Layout.preferredHeight: 38
                     color: Theme.bg
+                    clip: true
                     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.line2 }
                     component Th: Text {
                         height: 38; verticalAlignment: Text.AlignVCenter
@@ -513,32 +865,77 @@ Item {
                         font.weight: Font.DemiBold; font.letterSpacing: 1.2; font.capitalization: Font.AllUppercase
                     }
                     RowLayout {
-                        anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
-                        Th { text: qsTr("Camera"); Layout.fillWidth: true }
-                        Th { text: qsTr("Group"); Layout.preferredWidth: root.wGroup }
-                        Th { text: qsTr("Live"); Layout.preferredWidth: root.wLive }
-                        Th { text: qsTr("Recording"); Layout.preferredWidth: root.wRec }
+                        x: 14 - list.contentX; width: list.contentWidth - 28; height: parent.height; spacing: 0
+                        Item {
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            z: 2; transform: Translate { x: list.contentX }
+                            Rectangle { x: -14; width: parent.width + 14; height: parent.height - 1; color: Theme.bg }
+                            FilterTrigger {
+                                id: cameraTrigger; objectName: "healthFilterCamera"; column: "camera"; label: qsTr("Camera")
+                                height: parent.height; width: Math.max(0, parent.width - (root.anyColumnFilter ? countReadout.implicitWidth + 10 : 0))
+                            }
+                            Text {
+                                id: countReadout; objectName: "healthFilterCount"; visible: root.anyColumnFilter
+                                x: cameraTrigger.buttonWidth - 6 + 10; anchors.verticalCenter: parent.verticalCenter
+                                text: qsTr("%1 of %2").arg(root.viewRows.length).arg(root._rows.length)
+                                color: Theme.ink2; font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.Medium
+                            }
+                        }
+                        FilterTrigger { objectName: "healthFilterGroup"; column: "group"; label: qsTr("Group"); Layout.preferredWidth: root.wGroup }
+                        FilterTrigger { objectName: "healthFilterLive"; column: "live"; label: qsTr("Live"); Layout.preferredWidth: root.wLive }
+                        FilterTrigger { objectName: "healthFilterRecording"; column: "rec"; label: qsTr("Recording"); Layout.preferredWidth: root.wRec }
                         Th { text: qsTr("Last seen"); Layout.preferredWidth: root.wSeen }
-                        Th { text: qsTr("Recent issue"); Layout.preferredWidth: root.wIssue }
-                        Th { text: ""; Layout.preferredWidth: root.wAct }
+                        FilterTrigger { objectName: "healthFilterIssue"; column: "issue"; label: qsTr("Recent issue"); Layout.preferredWidth: root.wIssue }
+                        Item {
+                            Layout.preferredWidth: root.wAct; Layout.fillHeight: true
+                            TextMetrics {
+                                id: clearMeasure; text: qsTr("Clear").toUpperCase()
+                                font.family: Theme.fontMono; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 1.2
+                            }
+                            Rectangle {
+                                objectName: "healthFilterClearAll"; visible: root.anyColumnFilter
+                                readonly property bool showLabel: clearMeasure.advanceWidth + 26 <= parent.width
+                                x: -6; anchors.verticalCenter: parent.verticalCenter; height: 24
+                                width: showLabel ? clearMeasure.advanceWidth + 26 : 22
+                                color: clearAllMouse.containsMouse ? Theme.panel : "transparent"
+                                Row {
+                                    anchors.centerIn: parent; spacing: 4
+                                    Icon { anchors.verticalCenter: parent.verticalCenter; name: "x"; size: 10; color: Theme.accent }
+                                    Text { visible: parent.parent.showLabel; text: qsTr("Clear").toUpperCase(); color: Theme.accent; font: clearMeasure.font }
+                                }
+                                MouseArea { id: clearAllMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.clearColumnFilters() }
+                                QC.ToolTip.visible: clearAllMouse.containsMouse
+                                QC.ToolTip.text: qsTr("Clear all column filters")
+                                QC.ToolTip.delay: 300
+                            }
+                        }
                     }
                 }
 
                 // rows
                 ListView {
                     id: list
+                    objectName: "healthCameraList"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    model: root.rows
+                    contentWidth: Math.max(width, root.tableMinimumWidth)
+                    flickableDirection: Flickable.AutoFlickDirection
+                    model: root.viewRows
                     boundsBehavior: Flickable.StopAtBounds
                     QC.ScrollBar.vertical: QC.ScrollBar { }
+                    QC.ScrollBar.horizontal: QC.ScrollBar {
+                        objectName: "healthColumnScroll"
+                        policy: list.contentWidth > list.width ? QC.ScrollBar.AlwaysOn : QC.ScrollBar.AlwaysOff
+                        active: list.contentWidth > list.width
+                    }
 
                     delegate: Rectangle {
                         id: rowItem
+                        objectName: "healthRow-" + modelData.camId
                         required property var modelData
                         required property int index
-                        width: ListView.view.width
+                        width: ListView.view.contentWidth
                         height: 52
                         readonly property bool isSel: root.sel && root.sel.camId === modelData.camId
                         color: isSel ? Theme.accentSoft : (rowMa.containsMouse ? Theme.panel : "transparent")
@@ -549,18 +946,26 @@ Item {
                         RowLayout {
                             anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 0
                             // Camera
-                            ColumnLayout {
-                                Layout.fillWidth: true; spacing: 1
-                                Text { text: rowItem.modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Text { text: rowItem.modelData.camId; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+                            Item {
+                                z: 2; transform: Translate { x: list.contentX }
+                                Layout.fillWidth: true; Layout.fillHeight: true
+                                Rectangle {
+                                    x: -14; width: parent.width + 14; height: parent.height - 1
+                                    color: rowItem.isSel ? Qt.tint(Theme.bg, Theme.accentSoft) : rowMa.containsMouse ? Theme.panel : Theme.bg
+                                }
+                                ColumnLayout {
+                                    anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                                    Text { text: rowItem.modelData.name; color: Theme.ink; font.family: Theme.fontSans; font.pixelSize: 13; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Text { text: rowItem.modelData.camId; color: Theme.ink3; font.family: Theme.fontMono; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+                                }
                             }
                             // Group
-                            Text { Layout.preferredWidth: root.wGroup; text: rowItem.modelData.groupName; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
+                            Text { objectName: "healthCellGroup"; Layout.preferredWidth: root.wGroup; text: rowItem.modelData.groupName; color: Theme.ink2; font.family: Theme.fontSans; font.pixelSize: 12; elide: Text.ElideRight }
                             // Live
-                            Item { Layout.preferredWidth: root.wLive; Layout.fillHeight: true
+                            Item { objectName: "healthCellLive"; Layout.preferredWidth: root.wLive; Layout.fillHeight: true
                                 LiveStatusBadge { anchors.verticalCenter: parent.verticalCenter; state: rowItem.modelData.live } }
                             // Recording
-                            Item { Layout.preferredWidth: root.wRec; Layout.fillHeight: true
+                            Item { objectName: "healthCellRecording"; Layout.preferredWidth: root.wRec; Layout.fillHeight: true
                                 RecordingStatusBadge { anchors.verticalCenter: parent.verticalCenter; health: root.health(rowItem.modelData); state: rowItem.modelData.recording
                                     motionKnown: rowItem.modelData.motionKnown === true; motionReady: rowItem.modelData.motionReady === true
                                     lastSegmentAtMs: rowItem.modelData.lastSegmentAt ? Date.parse(rowItem.modelData.lastSegmentAt) : -1
@@ -570,7 +975,7 @@ Item {
                                 text: (rowItem.modelData.live === CameraStatus.Offline || rowItem.modelData.live === CameraStatus.NoSignal)
                                       ? (rowItem.modelData.lastSeen ? rowItem.modelData.lastSeen : "—") : "now" }
                             // Recent issue
-                            Text { Layout.preferredWidth: root.wIssue; color: root.issueColor(rowItem.modelData); font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight; text: root.issueText(rowItem.modelData) }
+                            Text { objectName: "healthCellIssue"; Layout.preferredWidth: root.wIssue; color: root.issueColor(rowItem.modelData); font.family: Theme.fontSans; font.pixelSize: 11; elide: Text.ElideRight; text: root.issueText(rowItem.modelData) }
                             // action
                             Item { Layout.preferredWidth: root.wAct; Layout.fillHeight: true
                                 Btn { anchors.verticalCenter: parent.verticalCenter; small: true; ghost: true; label: qsTr("Open"); onClicked: root.openLive(rowItem.modelData) } }
@@ -579,11 +984,14 @@ Item {
 
                     // empty state
                     EmptyState {
-                        anchors.centerIn: parent
-                        visible: root.rows.length === 0
+                        objectName: "healthFilterEmptyState"
+                        x: list.contentX; y: list.contentY; width: list.width; height: list.height
+                        visible: root.viewRows.length === 0
                         icon: "check"
                         title: qsTr("Nothing here")
                         subtitle: qsTr("No cameras match this filter.")
+                        actionLabel: root.anyColumnFilter ? qsTr("Clear column filters") : ""
+                        onAction: root.clearColumnFilters()
                     }
                 }
             }

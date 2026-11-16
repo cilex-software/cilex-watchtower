@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: "Space Grotesk"; src: url("assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype"); font-weight: 300 700; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Regular.ttf") format("truetype"); font-weight: 400; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-Medium.ttf") format("truetype"); font-weight: 500; }
+@font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-SemiBold.ttf") format("truetype"); font-weight: 600 800; }
+@keyframes wtPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+html, body { margin: 0; height: 100%; background: #1a1816; overflow: auto; }
+* { -webkit-font-smoothing: antialiased; }
+a { color: #e8a13a; } a:hover { color: #f0ece4; }
+input::placeholder { color: #6e6657; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #443f37; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+<div data-screen-label="Health" style="position:relative; width:100%; height:100vh; min-width:1520px; min-height:720px; display:flex; flex-direction:column; background:#1a1816; color:#f0ece4; font-family:'Space Grotesk', sans-serif; overflow:hidden">
+
+  <!-- ===== Title bar ===== -->
+  <div style="height:36px; flex:none; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:0 12px; background:linear-gradient(#252220, #1c1a17); border-bottom:1px solid #000">
+    <div style="width:70px; height:100%; display:flex; align-items:center; flex:none">
+      <span title="Supervised by Cilex Warden" style="margin-left:6px; width:12px; height:12px; display:flex; color:#6e6657; opacity:0.8" style-hover="color:#a89f90">
+        <svg width="12" height="12" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M2 12 C 6 6, 18 6, 22 12 C 18 18, 6 18, 2 12 Z M9.5 12 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"></path></svg>
+      </span>
+    </div>
+    <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.66px; color:#f0ece4">WATCHTOWER</span>
+    <span style="flex:1; font-size:12px; color:#a89f90">· Health</span>
+    <div style="display:flex; gap:8px; align-items:center">
+      <span style="width:14px; height:14px; border-radius:50%; background:#443f37; display:flex; align-items:center; justify-content:center" style-hover="background:#6e6657"><span style="width:6px; height:1.4px; background:#0d0c0b; opacity:0.5"></span></span>
+      <span style="width:14px; height:14px; border-radius:50%; background:#443f37; display:flex; align-items:center; justify-content:center" style-hover="background:#6e6657"><span style="width:6.4px; height:6.4px; box-sizing:border-box; border:1.2px solid #0d0c0b; opacity:0.5"></span></span>
+      <span style="width:14px; height:14px; border-radius:50%; background:#d96649; display:flex; align-items:center; justify-content:center"><svg width="8" height="8" viewBox="0 0 8 8" style="opacity:0.5; stroke:#0d0c0b; stroke-width:1.4"><path d="M1.5 1.5l5 5 M6.5 1.5l-5 5"></path></svg></span>
+    </div>
+  </div>
+
+  <div style="flex:1; display:flex; min-height:0">
+
+    <!-- ===== Navigation rail ===== -->
+    <div style="width:72px; flex:none; box-sizing:border-box; background:#1a1816; border-right:1px solid #34302a; padding-top:12px; display:flex; flex-direction:column">
+      <div style="height:48px; display:flex; align-items:center; justify-content:center"><img src="assets/cilex-logo.png" alt="Cilex" style="width:36px; height:36px; object-fit:contain"></div>
+      <div style="height:12px"></div>
+      <div style="height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#6e6657; cursor:pointer" style-hover="background:#221f1c; color:#a89f90">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M3 4h18v13h-18z M9 20h6 M12 17v3"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">LIVE</span>
+      </div>
+      <div style="height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#6e6657; cursor:pointer" style-hover="background:#221f1c; color:#a89f90">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M12 3l9 5-9 5-9-5 9-5z M3 13l9 5 9-5"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">GROUPS</span>
+      </div>
+      <div style="height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#6e6657; cursor:pointer" style-hover="background:#221f1c; color:#a89f90">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M3 3h7v7h-7z M14 3h7v7h-7z M3 14h7v7h-7z M14 14h7v7h-7z"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">VIEWS</span>
+      </div>
+      <div style="position:relative; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#6e6657; cursor:pointer" style-hover="background:#221f1c; color:#a89f90">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8 M10 21a2 2 0 0 0 4 0"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">EVENTS</span>
+        <span style="position:absolute; top:8px; right:12px; height:16px; min-width:16px; box-sizing:border-box; padding:0 4px; background:#d96649; color:#ffffff; font-family:'JetBrains Mono'; font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center">200</span>
+      </div>
+      <div style="position:relative; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#e8a13a; background:#221f1c; cursor:pointer">
+        <span style="position:absolute; left:0; top:0; bottom:0; width:3px; background:#e8a13a"></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">HEALTH</span>
+      </div>
+      <div style="height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#6e6657; cursor:pointer" style-hover="background:#221f1c; color:#a89f90">
+        <svg width="20" height="20" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M9 3h6 M10 3v6.2L4.6 18.4A1.8 1.8 0 0 0 6.1 21h11.8a1.8 1.8 0 0 0 1.5-2.6L14 9.2V3 M7.2 14.5h9.6"></path></svg>
+        <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:1.08px">LABS</span>
+      </div>
+    </div>
+
+    <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+
+      <!-- ===== Global toolbar ===== -->
+      <div style="height:52px; flex:none; box-sizing:border-box; border-bottom:1px solid #34302a; padding:0 20px; display:flex; align-items:center; gap:16px">
+        <div style="display:flex; align-items:center; flex:none">
+          <div style="display:flex; flex-direction:column; gap:2px">
+            <span style="font-family:'JetBrains Mono'; font-size:10px; letter-spacing:1.6px; color:#6e6657">CILEX VISION</span>
+            <div style="display:flex; align-items:flex-end; gap:8px">
+              <span style="font-size:16px; font-weight:600; letter-spacing:-0.16px; color:#f0ece4; line-height:20px">Watchtower</span>
+              <span style="font-family:'JetBrains Mono'; font-size:10px; letter-spacing:0.8px; color:#6e6657; padding-bottom:3px; white-space:pre">1.1.803  dev</span>
+            </div>
+          </div>
+          <span style="margin-left:18px; width:1px; height:36px; background:#34302a"></span>
+        </div>
+        <div style="flex:1 1 420px; max-width:420px; min-width:42px; height:38px; box-sizing:border-box; background:#221f1c; border:1px solid #443f37; display:flex; align-items:center; padding:0 8px 0 12px; gap:12px; cursor:text" style-hover="border-color:#6e6657">
+          <svg width="14" height="14" viewBox="0 0 24 24" style="flex:none; fill:none; stroke:#6e6657; stroke-width:1.5; stroke-linecap:round"><path d="M4 11 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M21 21l-4.3-4.3"></path></svg>
+          <span style="flex:1; min-width:0; font-size:13px; color:#6e6657; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Search cameras, groups, views, clips, events…</span>
+          <span style="flex:none; height:20px; box-sizing:border-box; padding:0 6px; border:1px solid #443f37; font-family:'JetBrains Mono'; font-size:10px; color:#6e6657; display:flex; align-items:center">CTRL K</span>
+        </div>
+        <div style="flex:none; height:38px; box-sizing:border-box; background:#221f1c; border:1px solid #443f37; display:flex">
+          <div style="display:flex; align-items:baseline; gap:8px; padding:0 14px; cursor:pointer" style-hover="background:#2a2722">
+            <span style="width:7px; height:7px; background:#8eb96b; align-self:center"></span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.88px; color:#6e6657; line-height:36px">ONLINE</span>
+            <span style="font-size:18px; font-weight:700; letter-spacing:-0.36px; color:#f0ece4">131</span>
+          </div>
+          <span style="width:1px; background:#34302a"></span>
+          <div style="display:flex; align-items:baseline; gap:8px; padding:0 14px; cursor:pointer" style-hover="background:#2a2722">
+            <span style="width:7px; height:7px; background:#d96649; align-self:center"></span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.88px; color:#6e6657; line-height:36px">OFFLINE</span>
+            <span style="font-size:18px; font-weight:700; letter-spacing:-0.36px; color:#f0ece4">2</span>
+          </div>
+          <span style="width:1px; background:#34302a"></span>
+          <div style="display:flex; align-items:baseline; gap:8px; padding:0 14px; cursor:pointer" style-hover="background:#2a2722">
+            <span style="width:7px; height:7px; background:#e8a13a; align-self:center"></span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.88px; color:#6e6657; line-height:36px">NOT REC</span>
+            <span style="font-size:18px; font-weight:700; letter-spacing:-0.36px; color:#f0ece4">2</span>
+          </div>
+          <span style="width:1px; background:#34302a"></span>
+          <div style="display:flex; align-items:baseline; gap:8px; padding:0 14px; cursor:pointer" style-hover="background:#2a2722">
+            <span style="width:7px; height:7px; background:#e8a13a; align-self:center"></span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.88px; color:#6e6657; line-height:36px">ARCHIVE</span>
+            <span style="font-size:18px; font-weight:700; letter-spacing:-0.36px; color:#f0ece4">27</span>
+          </div>
+          <span style="width:1px; background:#34302a"></span>
+          <div style="display:flex; align-items:baseline; gap:8px; padding:0 14px; cursor:pointer" style-hover="background:#2a2722">
+            <span style="width:7px; height:7px; background:#e8a13a; align-self:center"></span>
+            <span style="font-family:'JetBrains Mono'; font-size:11px; font-weight:600; letter-spacing:0.88px; color:#6e6657; line-height:36px">STATUS ?</span>
+            <span style="font-size:18px; font-weight:700; letter-spacing:-0.36px; color:#f0ece4">24</span>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="flex:none; height:28px; box-sizing:border-box; padding:0 10px; border:1px solid #443f37; border-radius:3px; display:flex; align-items:center; gap:6px; cursor:pointer" style-hover="background:#2a2722; border-color:#e8a13a">
+          <svg width="11" height="11" viewBox="0 0 24 24" style="fill:none; stroke:#6e6657; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M2 12 C 6 6, 18 6, 22 12 C 18 18, 6 18, 2 12 Z M9.5 12 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"></path></svg>
+          <span style="font-family:'JetBrains Mono'; font-size:10px; font-weight:600; letter-spacing:0.5px; color:#a89f90">Check in</span>
+        </div>
+        <div style="flex:none; display:flex; align-items:center">
+          <span style="width:1px; height:24px; background:#34302a; margin-right:16px"></span>
+          <span style="font-family:'JetBrains Mono'; font-size:12px; color:#a89f90; white-space:pre">20:08 · </span>
+          <span style="font-family:'JetBrains Mono'; font-size:12px; font-weight:600; color:#f0ece4">UTC+3</span>
+        </div>
+        <div style="position:relative; flex:none; width:36px; height:36px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; color:#a89f90; cursor:pointer" style-hover="background:#221f1c; color:#f0ece4; outline:1px solid #443f37; outline-offset:-1px">
+          <svg width="16" height="16" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8 M10 21a2 2 0 0 0 4 0"></path></svg>
+          <span style="position:absolute; top:6px; right:6px; width:8px; height:8px; box-sizing:border-box; background:#d96649; border:2px solid #1a1816"></span>
+        </div>
+        <div style="flex:none; width:34px; height:34px; background:#e8a13a; color:#1a1816; font-family:'JetBrains Mono'; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer">AD</div>
+      </div>
+
+      <!-- ===== Subsystem strip ===== -->
+      <div style="height:32px; flex:none; box-sizing:border-box; border-bottom:1px solid #34302a; padding:0 18px; display:flex; align-items:center; gap:8px">
+        <span style="width:7px; height:7px; border-radius:50%; background:#8eb96b"></span>
+        <span style="font-family:'JetBrains Mono'; font-size:10px; font-weight:600; letter-spacing:1.2px; color:#6e6657">STORAGE SUBSYSTEM</span>
+        <span style="font-size:12px; font-weight:500; color:#a89f90">Operational</span>
+        <span style="width:1px; height:14px; background:#443f37"></span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#8eb96b"></span>
+        <span style="font-family:'JetBrains Mono'; font-size:10px; font-weight:600; letter-spacing:1.2px; color:#6e6657">PLAYBACK</span>
+        <span style="font-size:12px; font-weight:500; color:#a89f90">Operational</span>
+      </div>
+
+      <!-- ===== Availability log ===== -->
+      <div style="height:44px; flex:none; padding:0 18px; display:flex; align-items:center; gap:12px">
+        <span style="font-size:12px; font-weight:600; color:#f0ece4">Availability log</span>
+        <span style="flex:1; min-width:0; font-size:12px; color:#a89f90; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Station setup required</span>
+        <span style="font-family:'JetBrains Mono'; font-size:11px; color:#a89f90">Pending: 2690</span>
+        <span style="height:40px; min-width:100px; box-sizing:border-box; padding:0 8px; background:#333333; color:#f0ece4; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#3d3d3d">History and sync</span>
+      </div>
+
+      <!-- ===== Summary metrics ===== -->
+      <div style="height:96px; flex:none; box-sizing:border-box; border-bottom:1px solid #34302a; display:flex; position:relative; z-index:5">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="9">
+          <div onClick="{{ m.onClick }}" onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" style="position:relative; flex:1 1 0; min-width:0; background:{{ m.bg }}; border-right:{{ m.border }}; cursor:{{ m.cursor }}">
+            <sc-if value="{{ m.active }}"><span style="position:absolute; left:0; right:0; top:0; height:3px; background:#e8a13a"></span></sc-if>
+            <div style="padding:{{ m.padTop }}px 8px 0 18px; display:flex; flex-direction:column; gap:8px">
+              <span style="font-size:32px; font-weight:700; letter-spacing:-1px; line-height:41px; color:{{ m.color }}">{{ m.value }}</span>
+              <span style="font-family:'JetBrains Mono'; font-size:10px; font-weight:600; letter-spacing:1.4px; text-transform:uppercase; color:#6e6657; line-height:13px">{{ m.label }}</span>
+            </div>
+            <sc-if value="{{ m.showTip }}">
+              <div style="position:absolute; top:calc(100% - 6px); left:14px; width:260px; background:#221f1c; border:1px solid #443f37; padding:8px 10px; font-size:12px; line-height:1.35; color:#a89f90; z-index:30; text-wrap:pretty">{{ m.why }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- ===== Table + details ===== -->
+      <div style="flex:1; min-height:0; display:flex">
+
+        <div ref="{{ tableRef }}" style="position:relative; flex:1; min-width:0; display:flex; flex-direction:column">
+
+          <!-- header -->
+          <div onMouseEnter="{{ hdrEnter }}" onMouseLeave="{{ hdrLeave }}" style="height:38px; flex:none; box-sizing:border-box; border-bottom:1px solid #443f37; padding:0 14px; display:flex; align-items:center; font-family:'JetBrains Mono'; font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:#6e6657">
+            <div style="flex:1; min-width:180px; display:flex; align-items:center; gap:10px">
+              <div onClick="{{ h.camera.onClick }}" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:{{ h.camera.color }}; background:{{ h.camera.bg }}" style-hover="background:#221f1c">
+                <span>Camera</span>
+                <sc-if value="{{ h.camera.idle }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" style="opacity:{{ h.camera.iconOpacity }}; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M6 9l6 6 6-6"></path></svg></sc-if>
+                <sc-if value="{{ h.camera.active }}"><svg width="11" height="11" viewBox="0 0 24 24" style="fill:currentColor; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z"></path></svg></sc-if>
+              </div>
+              <sc-if value="{{ anyCol }}"><span style="font-weight:500; letter-spacing:0; text-transform:none; color:#a89f90; white-space:nowrap">{{ countText }}</span></sc-if>
+            </div>
+            <div style="width:150px; flex:none">
+              <div onClick="{{ h.group.onClick }}" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:{{ h.group.color }}; background:{{ h.group.bg }}" style-hover="background:#221f1c">
+                <span>Group</span>
+                <sc-if value="{{ h.group.idle }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" style="opacity:{{ h.group.iconOpacity }}; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M6 9l6 6 6-6"></path></svg></sc-if>
+                <sc-if value="{{ h.group.active }}"><svg width="11" height="11" viewBox="0 0 24 24" style="fill:currentColor; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z"></path></svg></sc-if>
+              </div>
+            </div>
+            <div style="width:110px; flex:none">
+              <div onClick="{{ h.live.onClick }}" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:{{ h.live.color }}; background:{{ h.live.bg }}" style-hover="background:#221f1c">
+                <span>Live</span>
+                <sc-if value="{{ h.live.idle }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" style="opacity:{{ h.live.iconOpacity }}; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M6 9l6 6 6-6"></path></svg></sc-if>
+                <sc-if value="{{ h.live.active }}"><svg width="11" height="11" viewBox="0 0 24 24" style="fill:currentColor; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z"></path></svg></sc-if>
+              </div>
+            </div>
+            <div style="width:170px; flex:none">
+              <div onClick="{{ h.rec.onClick }}" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:{{ h.rec.color }}; background:{{ h.rec.bg }}" style-hover="background:#221f1c">
+                <span>Recording</span>
+                <sc-if value="{{ h.rec.idle }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" style="opacity:{{ h.rec.iconOpacity }}; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M6 9l6 6 6-6"></path></svg></sc-if>
+                <sc-if value="{{ h.rec.active }}"><svg width="11" height="11" viewBox="0 0 24 24" style="fill:currentColor; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z"></path></svg></sc-if>
+              </div>
+            </div>
+            <div style="width:110px; flex:none">Last seen</div>
+            <div style="width:220px; flex:none">
+              <div onClick="{{ h.issue.onClick }}" style="display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:{{ h.issue.color }}; background:{{ h.issue.bg }}" style-hover="background:#221f1c">
+                <span>Recent issue</span>
+                <sc-if value="{{ h.issue.idle }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" style="opacity:{{ h.issue.iconOpacity }}; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M6 9l6 6 6-6"></path></svg></sc-if>
+                <sc-if value="{{ h.issue.active }}"><svg width="11" height="11" viewBox="0 0 24 24" style="fill:currentColor; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z"></path></svg></sc-if>
+              </div>
+            </div>
+            <div style="width:72px; flex:none">
+              <sc-if value="{{ anyCol }}">
+                <div onClick="{{ clearAll }}" title="Clear all column filters" style="display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 6px; margin-left:-6px; cursor:pointer; color:#e8a13a" style-hover="background:#221f1c">
+                  <svg width="10" height="10" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round"><path d="M6 6l12 12 M18 6L6 18"></path></svg>
+                  <span>Clear</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- rows -->
+          <div style="flex:1; min-height:0; overflow-y:auto; position:relative">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="15">
+              <div onClick="{{ r.onSelect }}" style="height:52px; box-sizing:border-box; border-bottom:1px solid #34302a; padding:0 14px; display:flex; align-items:center; cursor:pointer; background:{{ r.bg }}" style-hover="background:#221f1c">
+                <div style="flex:1; min-width:180px; display:flex; flex-direction:column; gap:1px">
+                  <span style="font-size:13px; font-weight:600; color:#f0ece4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:17px">{{ r.name }}</span>
+                  <span style="font-family:'JetBrains Mono'; font-size:10px; color:#6e6657; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:13px">{{ r.id }}</span>
+                </div>
+                <span style="width:150px; flex:none; font-size:12px; color:#a89f90; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.group }}</span>
+                <div style="width:110px; flex:none; display:flex">
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; background:{{ r.lb.bg }}; white-space:nowrap">
+                    <span style="width:{{ r.lb.ds }}px; height:{{ r.lb.ds }}px; box-sizing:border-box; flex:none; background:{{ r.lb.dbg }}; border:{{ r.lb.dbd }}"></span>
+                    <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:0.54px; line-height:1; color:{{ r.lb.fg }}">{{ r.lb.label }}</span>
+                  </span>
+                </div>
+                <div style="width:170px; flex:none; display:flex">
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; background:{{ r.rb.bg }}; white-space:nowrap">
+                    <sc-if value="{{ r.rb.pulse }}">{{ pulseDot }}</sc-if>
+                    <sc-if value="{{ r.rb.still }}" hint-placeholder-val="{{ true }}"><span style="width:{{ r.rb.ds }}px; height:{{ r.rb.ds }}px; box-sizing:border-box; flex:none; background:{{ r.rb.dbg }}; border:{{ r.rb.dbd }}"></span></sc-if>
+                    <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:0.54px; line-height:1; color:{{ r.rb.fg }}">{{ r.rb.label }}</span>
+                  </span>
+                </div>
+                <span style="width:110px; flex:none; font-family:'JetBrains Mono'; font-size:12px; color:#a89f90; white-space:nowrap">{{ r.seen }}</span>
+                <span style="width:220px; flex:none; font-size:11px; color:{{ r.issueColor }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.issue }}</span>
+                <div style="width:72px; flex:none; display:flex">
+                  <span onClick="{{ r.onOpen }}" style="height:24px; padding:0 8px; display:flex; align-items:center; font-size:11px; font-weight:500; color:#a89f90" style-hover="background:#221f1c">Open</span>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ isEmpty }}">
+              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center">
+                <div style="width:420px; max-width:calc(100% - 48px); display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center">
+                  <svg width="32" height="32" viewBox="0 0 24 24" style="fill:none; stroke:#6e6657; stroke-width:2; stroke-linecap:round; stroke-linejoin:round"><path d="M5 12l5 5L20 7"></path></svg>
+                  <span style="font-size:16px; font-weight:600; color:#f0ece4">Nothing here</span>
+                  <span style="font-size:13px; line-height:1.35; color:#6e6657">No cameras match this filter.</span>
+                  <sc-if value="{{ anyCol }}">
+                    <span onClick="{{ clearAll }}" style="height:34px; box-sizing:border-box; padding:0 14px; border:1px solid #443f37; display:flex; align-items:center; font-size:12px; font-weight:500; color:#f0ece4; cursor:pointer" style-hover="background:#221f1c; border-color:#e8a13a">Clear column filters</span>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- filter popover -->
+          <sc-if value="{{ popOpen }}">
+            <div onClick="{{ popCancel }}" style="position:fixed; inset:0; z-index:40"></div>
+            <div style="position:absolute; top:37px; left:{{ pop.left }}px; width:{{ pop.width }}px; z-index:41; background:#221f1c; border:1px solid #443f37; box-shadow:0 10px 28px rgba(0,0,0,0.45); display:flex; flex-direction:column; font-family:'Space Grotesk', sans-serif">
+              <sc-if value="{{ pop.hasSearch }}">
+                <div style="padding:8px 8px 4px">
+                  <div style="height:30px; box-sizing:border-box; border:1px solid #443f37; background:#1a1816; display:flex; align-items:center; gap:8px; padding:0 5px 0 9px" style-focus-within="border-color:#e8a13a">
+                    <svg width="13" height="13" viewBox="0 0 24 24" style="flex:none; fill:none; stroke:#6e6657; stroke-width:1.5; stroke-linecap:round"><path d="M4 11 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M21 21l-4.3-4.3"></path></svg>
+                    <input ref="{{ searchRef }}" value="{{ pop.q }}" onChange="{{ pop.onQ }}" onKeyDown="{{ pop.onKey }}" placeholder="{{ pop.ph }}" style="flex:1; min-width:0; height:100%; background:transparent; border:0; outline:0; padding:0; color:#f0ece4; font-family:'Space Grotesk', sans-serif; font-size:12px">
+                    <sc-if value="{{ pop.hasQ }}">
+                      <span title="Show only matching values" style="flex:none; height:18px; box-sizing:border-box; padding:0 5px; border:1px solid #443f37; font-family:'JetBrains Mono'; font-size:9px; color:#6e6657; display:flex; align-items:center">ENTER</span>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+              <div onClick="{{ pop.toggleAll }}" style="height:30px; padding:0 10px; display:flex; align-items:center; gap:10px; cursor:pointer; margin-top:2px" style-hover="background:#2a2722">
+                <span style="width:14px; height:14px; box-sizing:border-box; flex:none; display:flex; align-items:center; justify-content:center; border:1px solid {{ pop.all.cbBorder }}; background:{{ pop.all.cbBg }}">
+                  <sc-if value="{{ pop.all.checked }}"><svg width="10" height="10" viewBox="0 0 24 24" style="fill:none; stroke:#1a1816; stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round"><path d="M5 12l5 5L20 7"></path></svg></sc-if>
+                  <sc-if value="{{ pop.all.mixed }}"><span style="width:8px; height:2px; background:#1a1816"></span></sc-if>
+                </span>
+                <span style="flex:1; font-size:12px; font-weight:500; color:#f0ece4">{{ pop.allLabel }}</span>
+                <sc-if value="{{ pop.showCounts }}"><span style="font-family:'JetBrains Mono'; font-size:10px; color:#6e6657">{{ pop.allCount }}</span></sc-if>
+              </div>
+              <div style="height:1px; background:#34302a; margin:2px 0"></div>
+              <div style="max-height:300px; overflow-y:auto; padding:2px 0 4px">
+                <sc-for list="{{ pop.values }}" as="v" hint-placeholder-count="5">
+                  <div onClick="{{ v.toggle }}" onMouseEnter="{{ v.enter }}" style="height:28px; padding:0 10px; display:flex; align-items:center; gap:10px; cursor:pointer; background:{{ v.bg }}">
+                    <span style="width:14px; height:14px; box-sizing:border-box; flex:none; display:flex; align-items:center; justify-content:center; border:1px solid {{ v.cbBorder }}; background:{{ v.cbBg }}">
+                      <sc-if value="{{ v.checked }}"><svg width="10" height="10" viewBox="0 0 24 24" style="fill:none; stroke:#1a1816; stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round"><path d="M5 12l5 5L20 7"></path></svg></sc-if>
+                    </span>
+                    <div style="flex:1; min-width:0; display:flex; align-items:center; gap:8px; opacity:{{ v.opacity }}">
+                      <sc-if value="{{ v.isBadge }}">
+                        <span style="display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; background:{{ v.b.bg }}; white-space:nowrap; flex:none">
+                          <span style="width:{{ v.b.ds }}px; height:{{ v.b.ds }}px; box-sizing:border-box; flex:none; background:{{ v.b.dbg }}; border:{{ v.b.dbd }}"></span>
+                          <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:0.54px; line-height:1; color:{{ v.b.fg }}">{{ v.label }}</span>
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ v.isText }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-size:12px; color:{{ v.color }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0">{{ v.label }}</span>
+                      </sc-if>
+                      <sc-if value="{{ v.hasSub }}">
+                        <span style="font-family:'JetBrains Mono'; font-size:10px; color:#6e6657; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0">{{ v.sub }}</span>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{ v.showOnly }}">
+                      <span onClick="{{ v.only }}" title="Show only this value" style="flex:none; height:20px; padding:0 6px; display:flex; align-items:center; font-size:11px; font-weight:500; color:#e8a13a; border:1px solid #5a3f15" style-hover="background:#5a3f15; color:#f0ece4">Only</span>
+                    </sc-if>
+                    <sc-if value="{{ v.showCount }}">
+                      <span style="flex:none; font-family:'JetBrains Mono'; font-size:10px; color:#6e6657; min-width:18px; text-align:right">{{ v.count }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ pop.noMatch }}">
+                  <div style="padding:10px 10px 8px; font-size:12px; color:#6e6657">No values match “{{ pop.q }}”.</div>
+                </sc-if>
+              </div>
+              <div style="height:40px; box-sizing:border-box; border-top:1px solid #34302a; padding:0 8px; display:flex; align-items:center; gap:6px">
+                <span onClick="{{ pop.clear }}" style="height:24px; padding:0 8px; display:flex; align-items:center; gap:6px; font-size:11px; font-weight:500; color:{{ pop.clearColor }}; cursor:{{ pop.clearCursor }}" style-hover="background:#2a2722">
+                  <svg width="11" height="11" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linejoin:round"><path d="M4 5h16l-6 7v6l-4-2v-4z M15 15l5 5 M20 15l-5 5"></path></svg>
+                  Clear filter
+                </span>
+                <span style="flex:1"></span>
+                <sc-if value="{{ pop.instant }}" hint-placeholder-val="{{ true }}">
+                  <span onClick="{{ popCancel }}" style="height:24px; box-sizing:border-box; padding:0 10px; border:1px solid #443f37; background:#1a1816; display:flex; align-items:center; font-size:11px; font-weight:500; color:#f0ece4; cursor:pointer" style-hover="background:#221f1c; border-color:#e8a13a">Done</span>
+                </sc-if>
+                <sc-if value="{{ pop.okMode }}">
+                  <span onClick="{{ popCancel }}" style="height:24px; padding:0 10px; display:flex; align-items:center; font-size:11px; font-weight:500; color:#a89f90; cursor:pointer" style-hover="background:#2a2722">Cancel</span>
+                  <span onClick="{{ pop.ok }}" style="height:24px; box-sizing:border-box; padding:0 14px; border:1px solid {{ pop.okBorder }}; background:#1a1816; display:flex; align-items:center; font-size:11px; font-weight:600; color:{{ pop.okColor }}; cursor:{{ pop.okCursor }}" style-hover="background:#221f1c">OK</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- ===== Details panel ===== -->
+        <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+          <div style="width:380px; flex:none; box-sizing:border-box; background:#221f1c; border-left:1px solid #34302a; display:flex; flex-direction:column; min-height:0">
+            <div style="height:56px; flex:none; box-sizing:border-box; border-bottom:1px solid #34302a; padding:0 10px 0 16px; display:flex; align-items:center; gap:8px">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:1px">
+                <span style="font-size:14px; font-weight:600; color:#f0ece4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:18px">{{ sel.name }}</span>
+                <span style="font-family:'JetBrains Mono'; font-size:11px; color:#6e6657; white-space:pre; overflow:hidden; text-overflow:ellipsis; line-height:15px">{{ sel.sub }}</span>
+              </div>
+              <span onClick="{{ closeSel }}" title="Close" style="width:30px; height:30px; box-sizing:border-box; flex:none; display:flex; align-items:center; justify-content:center; color:#a89f90; border:1px solid transparent; cursor:pointer" style-hover="color:#f0ece4; background:#2a2722; border-color:#443f37">
+                <svg width="14" height="14" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round"><path d="M6 6l12 12 M18 6L6 18"></path></svg>
+              </span>
+            </div>
+            <div style="flex:1; min-height:0; overflow-y:auto">
+              <div style="margin:14px 14px 0; aspect-ratio:16 / 9; position:relative; background:#000; overflow:hidden">
+                <sc-if value="{{ sel.online }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:absolute; inset:0; background:#181612">
+                    <svg viewBox="0 0 200 120" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.18; fill:none; stroke:#ffffff; stroke-width:0.4"><rect x="20" y="50" width="40" height="60"></rect><rect x="140" y="40" width="40" height="70"></rect><line x1="0" y1="100" x2="200" y2="100"></line></svg>
+                    <span style="position:absolute; left:8px; bottom:6px; font-family:'JetBrains Mono'; font-size:9px; letter-spacing:0.9px; color:rgba(255,255,255,0.35)">{{ sel.id }}</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ sel.offline }}">
+                  <div style="position:absolute; inset:0; background:#0a0d11; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px">
+                    <svg width="28" height="28" viewBox="0 0 24 24" style="fill:none; stroke:#d96649; stroke-width:1.5; stroke-linecap:round"><path d="M4 12 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M6.3 6.3l11.4 11.4"></path></svg>
+                    <span style="font-family:'JetBrains Mono'; font-size:13px; letter-spacing:1.3px; color:#d96649">NO SIGNAL</span>
+                    <span style="font-family:'JetBrains Mono'; font-size:10px; color:#6e6657">last seen {{ sel.seen }}</span>
+                  </div>
+                </sc-if>
+                <div style="position:absolute; top:6px; left:6px; display:flex; gap:4px">
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; background:{{ sel.lb.bg }}; white-space:nowrap">
+                    <span style="width:{{ sel.lb.ds }}px; height:{{ sel.lb.ds }}px; box-sizing:border-box; flex:none; background:{{ sel.lb.dbg }}; border:{{ sel.lb.dbd }}"></span>
+                    <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:0.54px; line-height:1; color:{{ sel.lb.fg }}">{{ sel.lb.label }}</span>
+                  </span>
+                  <span style="display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px; background:{{ sel.rb.bg }}; white-space:nowrap">
+                    <sc-if value="{{ sel.rb.pulse }}">{{ pulseDot }}</sc-if>
+                    <sc-if value="{{ sel.rb.still }}" hint-placeholder-val="{{ true }}"><span style="width:{{ sel.rb.ds }}px; height:{{ sel.rb.ds }}px; box-sizing:border-box; flex:none; background:{{ sel.rb.dbg }}; border:{{ sel.rb.dbd }}"></span></sc-if>
+                    <span style="font-family:'JetBrains Mono'; font-size:9px; font-weight:600; letter-spacing:0.54px; line-height:1; color:{{ sel.rb.fg }}">{{ sel.rb.label }}</span>
+                  </span>
+                </div>
+              </div>
+              <div style="margin:12px 14px 0; position:relative; background:#1a1816; padding:10px 12px">
+                <span style="position:absolute; left:0; top:0; bottom:0; width:3px; background:{{ sel.calloutColor }}"></span>
+                <div style="font-size:12px; line-height:1.35; color:#a89f90; text-wrap:pretty">{{ sel.callout }}</div>
+              </div>
+              <div style="height:8px"></div>
+              <sc-for list="{{ sel.facts }}" as="f" hint-placeholder-count="9">
+                <div style="margin-top:6px; padding:0 14px; display:flex; align-items:center; gap:8px; line-height:16px">
+                  <span style="flex:1; font-size:12px; color:#6e6657">{{ f.k }}</span>
+                  <span style="font-family:'JetBrains Mono'; font-size:11px; color:#f0ece4; text-align:right; white-space:nowrap">{{ f.v }}</span>
+                </div>
+              </sc-for>
+              <div style="margin:14px; display:flex; flex-wrap:wrap; gap:6px">
+                <span style="height:34px; box-sizing:border-box; padding:0 12px; border:1px solid #443f37; background:#1a1816; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#f0ece4; cursor:pointer" style-hover="background:#221f1c; border-color:#e8a13a">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M3 4h18v13h-18z M9 20h6 M12 17v3"></path></svg>
+                  Open live
+                </span>
+                <span style="height:34px; box-sizing:border-box; padding:0 12px; border:1px solid #443f37; background:#1a1816; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#f0ece4; cursor:pointer" style-hover="background:#221f1c; border-color:#e8a13a">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M8.87 5.29 A 7.4 7.4 0 1 0 15.47 5.47"></path><path d="M11.94 3.59 L16.46 3.62 L14.48 7.32 Z M10.3 8.4 L16.0 12 L10.3 15.6 Z" style="fill:currentColor; stroke:none"></path></svg>
+                  Playback
+                </span>
+                <span style="height:34px; box-sizing:border-box; padding:0 13px; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#a89f90; cursor:pointer" style-hover="background:#221f1c">
+                  <svg width="13" height="13" viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8 M10 21a2 2 0 0 0 4 0"></path></svg>
+                  Events
+                </span>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;applyMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Instant&quot;,&quot;OK / Cancel&quot;],&quot;default&quot;:&quot;Instant&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Column filters&quot;},&quot;filterIcons&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Always&quot;,&quot;On hover&quot;],&quot;default&quot;:&quot;Always&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Column filters&quot;},&quot;showCounts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Column filters&quot;}}">
+class Component extends DCLogic {
+  C = { bg: '#1a1816', panel: '#221f1c', panel2: '#2a2722', line: '#34302a', line2: '#443f37', ink: '#f0ece4', ink2: '#a89f90', ink3: '#6e6657', accent: '#e8a13a', warnDim: '#5a3f15', accentSoft: 'rgba(232,161,58,0.08)', bad: '#d96649', badDim: '#4a2218', good: '#8eb96b', goodDim: '#2a4015' };
+  COLS = {
+    camera: { title: 'Camera', search: true, w: 300, ph: 'Search names or IDs…', key: c => c.name },
+    group: { title: 'Group', search: true, w: 240, ph: 'Search groups…', key: c => c.group },
+    live: { title: 'Live', w: 220, badge: true, key: c => c.lb.label, order: ['OFFLINE', 'NO SIGNAL', 'DEGRADED', 'LOADING', 'UNKNOWN', 'LIVE'] },
+    rec: { title: 'Recording', w: 270, badge: true, key: c => c.rb.label, order: ['REC STOPPED', 'ARMED · NOT READY', 'ARCHIVE DELAY', 'ARMED · ARCHIVE DELAY', 'REC ?', 'ARMED · no motion ever', 'ARMED', 'REC', 'OFF'] },
+    issue: { title: 'Recent issue', w: 260, key: c => c.issue, order: ['No signal', 'Recording stopped', 'Motion detector not ready', 'Archive delayed', 'Archive unavailable', 'Status unknown', 'Stream degraded', '—'] }
+  };
+  tableRef = React.createRef();
+  searchRef = React.createRef();
+  cams = this.build();
+  state = { metric: '', sel: 'hiwatch-50e538da3642', filters: { camera: null, group: null, live: null, rec: null, issue: null }, pop: null, hoverVal: -1, hoverMetric: null, hdrHover: false };
+  pulseDot = React.createElement('span', { style: { width: 6, height: 6, flex: 'none', background: '#d96649', animation: 'wtPulse 1.6s ease-in-out infinite' } });
+
+  hash(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
+  badge(label, fg, bg, hollow, pulse) {
+    return { label, fg, bg, ds: hollow ? 7 : 6, dbg: hollow ? 'transparent' : fg, dbd: hollow ? `1.5px solid ${fg}` : 'none', pulse: !!pulse, still: !pulse };
+  }
+
+  build() {
+    const C = this.C, cams = [];
+    const add = (name, group) => cams.push({ name, group });
+    const street = { 1: 5, 2: 3, 3: 3, 5: 2, 6: 2 }, secs = { 1: 3, 2: 3, 3: 3, 4: 2, 5: 3, 6: 3 };
+    for (let b = 1; b <= 6; b++) {
+      for (let i = 1; i <= (street[b] || 0); i++) add(`${b} Улица ${i}`, 'Улица');
+      if (b > 1) for (let i = 1; i <= 3; i++) add(`${b} Двор ${i}`, 'Двор');
+      for (let s = 1; s <= secs[b]; s++) {
+        const g4 = b === 4 && s === 1;
+        add(`${b}.${s} Вход`, g4 ? '4стр' : 'Entrances');
+        add(`${b}.${s} Крыша`, g4 ? '4стр' : 'Крыша');
+        if (!(b === 1 && s === 2)) add(`${b}.${s} Лифт`, g4 ? '4стр' : 'Лифты');
+        add(`${b}.${s}.1 Холл`, g4 ? '4стр' : 'Внутри');
+        if (!(b === 1 && s === 1)) add(`${b}.${s}.3 Холл`, g4 ? '4стр' : 'Внутри');
+        add(`${b}.${s}.6 Холл`, g4 ? '4стр' : 'Внутри');
+      }
+    }
+    for (let i = 1; cams.length < 133; i++) add(`КПП ${i}`, 'КПП');
+    const ids = { '4.1 Крыша': 'hiwatch-083bc14effd4', '4.1.6 Холл': 'hiwatch-50e538da379a', '1 Улица 1': 'hiwatch-083bc14f003b', '1 Улица 2': 'hiwatch-083bc1df39ec', '1 Улица 3': 'hiwatch-083bc14efff9', '1 Улица 4': 'hiwatch-083bc14effc4', '1 Улица 5': 'hiwatch-083bc14effdc', '1.1 Вход': 'hiwatch-849459c4f007', '1.1 Крыша': 'hiwatch-083bc14effbe', '1.1 Лифт': 'hiwatch-04eecd5eaf14', '1.1.1 Холл': 'hiwatch-04eecdd45079', '1.1.6 Холл': 'hiwatch-50e538da379d', '1.2 Вход': 'cam-192-168-1-246', '1.2 Крыша': 'hiwatch-083bc1df3a4b', '1.2.1 Холл': 'hiwatch-04eecdd44b2d', '6.2.6 Холл': 'hiwatch-50e538da3642' };
+    const fixed = { '4.1 Крыша': 'stopped', '4.1.6 Холл': 'stopped', '1 Улица 1': 'rec', '1 Улица 2': 'rec', '1 Улица 3': 'rec', '1 Улица 4': 'rec', '1 Улица 5': 'rec', '1.1 Вход': 'rec', '1.1 Крыша': 'noMotion', '1.1 Лифт': 'armed', '1.1.1 Холл': 'armed', '1.1.6 Холл': 'armArch', '1.2 Вход': 'rec', '1.2 Крыша': 'noMotion', '1.2.1 Холл': 'armed', '6.2.6 Холл': 'armArch' };
+    cams.forEach(c => { c.h = this.hash(c.name); c.st = fixed[c.name]; });
+    const cand = cams.filter(c => !c.st).sort((a, b) => a.h - b.h);
+    cand.forEach((c, i) => {
+      if (i < 27) c.st = 'archDelay';
+      else if (i < 51) c.st = 'recUnknown';
+      else if (i < 53) c.st = 'notReady';
+      else if (i < 56) c.st = 'armArch';
+      else if (c.name.includes('Крыша')) c.st = c.h % 2 ? 'noMotion' : 'armed';
+      else c.st = c.h % 5 < 2 ? 'armed' : 'rec';
+    });
+    const p = n => String(n).padStart(2, '0');
+    const t = (day, hr, mn, sc) => `${day}, ${p(hr)}:${p(mn)}:${p(sc)}`;
+    const today = 'Mon 16 Nov';
+    cams.forEach(c => {
+      const h = c.h, idle = 'Motion recording is idle. This does not certify the next motion recording.';
+      c.id = ids[c.name] || (h % 11 === 0 ? `cam-192-168-1-${20 + (h % 230)}` : 'hiwatch-' + (h.toString(16).padStart(8, '0') + this.hash(c.name + '#').toString(16).padStart(8, '0')).slice(0, 12));
+      c.offline = c.st === 'stopped';
+      c.lb = c.offline ? this.badge('OFFLINE', C.bad, C.badDim) : this.badge('LIVE', C.good, C.goodDim);
+      c.seen = c.offline ? (c.name === '4.1 Крыша' ? '26 Oct 22:52' : '26 Oct 22:48') : 'now';
+      c.issue = '—'; c.issueColor = C.ink3; c.calloutColor = C.ink3; c.motion = null;
+      const vmd = t(today, 8 + (h % 11), (h >> 3) % 60, (h >> 7) % 60);
+      switch (c.st) {
+        case 'stopped':
+          c.rb = this.badge('REC STOPPED', C.bad, C.badDim, true); c.issue = 'No signal'; c.issueColor = C.bad; c.calloutColor = C.bad;
+          c.recText = 'Recording stopped'; c.arch = 'Idle'; c.catEnd = t('Mon 26 Oct', 22, c.name === '4.1 Крыша' ? 52 : 48, 10); c.frag = t('Mon 26 Oct', 22, c.name === '4.1 Крыша' ? 51 : 47, 44);
+          c.callout = 'Camera is offline. Earlier recordings may still be available.'; break;
+        case 'rec':
+          c.rb = this.badge('REC', C.bad, C.badDim, false, true); c.recText = 'Recording continues'; c.arch = 'Current in catalogue';
+          c.catEnd = t(today, 20, 7, h % 60); c.frag = t(today, 20, 5 + (h % 3), (h >> 5) % 60);
+          c.callout = 'Recorder progress is current. Catalogue freshness does not prove complete, readable footage; verify playback for the required interval.'; break;
+        case 'armed':
+          c.rb = this.badge('ARMED', C.ink2, C.line, true); c.recText = 'Motion armed'; c.arch = 'Idle'; c.catEnd = '—'; c.frag = '—';
+          c.motion = ['Verified', vmd]; c.callout = idle; break;
+        case 'noMotion':
+          c.rb = this.badge('ARMED · no motion ever', C.accent, C.line, true); c.recText = 'Motion armed'; c.arch = 'Idle'; c.catEnd = '—'; c.frag = '—';
+          c.motion = ['Ready, never verified', '—']; c.callout = idle; break;
+        case 'armArch':
+          c.rb = this.badge('ARMED · ARCHIVE DELAY', C.accent, C.line, true); c.recText = 'Motion armed'; c.arch = 'Idle'; c.catEnd = '—'; c.frag = '—';
+          c.motion = ['Verified', c.name === '6.2.6 Холл' ? 'Mon 16 Nov, 18:57:35' : vmd]; c.callout = idle; break;
+        case 'notReady':
+          c.rb = this.badge('ARMED · NOT READY', C.bad, C.line, true); c.issue = 'Motion detector not ready'; c.issueColor = C.accent; c.calloutColor = C.accent;
+          c.recText = 'Motion armed'; c.arch = 'Idle'; c.catEnd = '—'; c.frag = '—'; c.motion = ['Not ready', '—']; c.callout = idle; break;
+        case 'archDelay':
+          c.rb = this.badge('ARCHIVE DELAY', C.accent, C.warnDim, true); c.issue = 'Archive delayed'; c.issueColor = C.accent; c.calloutColor = C.accent;
+          c.recText = 'Recording continues'; c.arch = 'Archive delayed'; c.catEnd = t(today, 19, 10 + (h % 45), (h >> 4) % 60); c.frag = t(today, 20, 6 + (h % 2), (h >> 6) % 60);
+          c.callout = 'Recording continues locally. Archive publication is delayed; recent playback may be unavailable.'; break;
+        default:
+          c.rb = this.badge('REC ?', C.ink3, C.line, true); c.issue = 'Status unknown'; c.issueColor = C.accent; c.calloutColor = C.accent;
+          c.recText = 'Unknown'; c.arch = 'Current in catalogue'; c.catEnd = t(today, 11 + (h % 6), (h >> 3) % 60, (h >> 9) % 60); c.frag = '—';
+          c.callout = 'Recording status is unknown. Live video and an older catalogue entry do not establish current recording.';
+      }
+    });
+    cams.sort((a, b) => (a.offline !== b.offline) ? (a.offline ? -1 : 1) : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    this.byName = {}; cams.forEach(c => { this.byName[c.name] = c; });
+    return cams;
+  }
+
+  metricPass(c, m) {
+    switch (m) {
+      case 'online': return !c.offline;
+      case 'offline': return c.offline;
+      case 'notrec': return c.st === 'stopped';
+      case 'archive': return c.st === 'archDelay';
+      case 'recunknown': return c.st === 'recUnknown';
+      case 'archiveunknown': return false;
+      default: return true;
+    }
+  }
+  passes(c, except, filters) {
+    for (const col in this.COLS) {
+      if (col === except || !filters[col]) continue;
+      if (!filters[col].includes(this.COLS[col].key(c))) return false;
+    }
+    return true;
+  }
+  allKeys(col) {
+    const def = this.COLS[col], seen = new Set();
+    this.cams.forEach(c => seen.add(def.key(c)));
+    let keys = [...seen];
+    if (def.order) keys.sort((a, b) => (def.order.indexOf(a) + 1 || 99) - (def.order.indexOf(b) + 1 || 99));
+    else if (col === 'group') keys.sort((a, b) => a.localeCompare(b, 'ru'));
+    return keys;
+  }
+
+  componentDidMount() {
+    this._key = e => { if (e.key === 'Escape' && this.state.pop) this.closePop(); };
+    document.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this._key); }
+
+  instant() { return (this.props.applyMode ?? 'Instant') === 'Instant'; }
+  openPop(col, e) {
+    if (this.state.pop && this.state.pop.col === col) { this.closePop(); return; }
+    const r = e.currentTarget.getBoundingClientRect(), cr = this.tableRef.current.getBoundingClientRect();
+    const w = this.COLS[col].w;
+    const left = Math.max(8, Math.min(r.left - cr.left, cr.width - w - 8));
+    const f = this.state.filters[col];
+    this.setState({ pop: { col, left, w, draft: f ? [...f] : null, q: '' }, hoverVal: -1 }, () => {
+      if (this.searchRef.current) this.searchRef.current.focus();
+    });
+  }
+  closePop() { this.setState({ pop: null, hoverVal: -1 }); }
+  commit(col, set) {
+    const all = this.allKeys(col);
+    const val = all.every(k => set.has(k)) ? null : [...set];
+    this.setState(s => ({ filters: { ...s.filters, [col]: val } }));
+  }
+  setDraft(set) {
+    const pop = this.state.pop;
+    this.setState({ pop: { ...pop, draft: [...set] } });
+    if (this.instant()) this.commit(pop.col, set);
+  }
+  draftSet() {
+    const pop = this.state.pop;
+    return pop.draft ? new Set(pop.draft) : new Set(this.allKeys(pop.col));
+  }
+
+  popVals() {
+    const { pop, filters, metric, hoverVal } = this.state, C = this.C;
+    const col = pop.col, def = this.COLS[col];
+    const draft = this.draftSet();
+    const counts = new Map();
+    this.cams.forEach(c => { if (this.metricPass(c, metric) && this.passes(c, col, filters)) { const k = def.key(c); counts.set(k, (counts.get(k) || 0) + 1); } });
+    let listed = this.allKeys(col).filter(k => counts.has(k));
+    const q = pop.q.trim().toLowerCase();
+    if (q) listed = listed.filter(k => k.toLowerCase().includes(q) || (col === 'camera' && this.byName[k].id.toLowerCase().includes(q)));
+    const showCounts = this.props.showCounts ?? true;
+    const sample = {}; this.cams.forEach(c => { const k = def.key(c); if (!sample[k]) sample[k] = c; });
+    const values = listed.map((k, i) => {
+      const on = draft.has(k), c = sample[k];
+      return {
+        label: k === '—' ? '— (none shown)' : k,
+        checked: on, cbBg: on ? C.accent : 'transparent', cbBorder: on ? C.accent : C.line2,
+        bg: hoverVal === i ? C.panel2 : 'transparent', opacity: on ? 1 : 0.6,
+        isBadge: !!def.badge, isText: !def.badge,
+        b: col === 'live' ? c.lb : c.rb,
+        color: col === 'issue' ? (k === '—' ? C.ink3 : c.issueColor) : C.ink,
+        hasSub: col === 'camera', sub: col === 'camera' ? c.id : '',
+        count: counts.get(k), showCount: showCounts && col !== 'camera' && hoverVal !== i,
+        showOnly: hoverVal === i,
+        enter: () => this.setState({ hoverVal: i }),
+        toggle: () => { const s = this.draftSet(); s.has(k) ? s.delete(k) : s.add(k); this.setDraft(s); },
+        only: e => { e.stopPropagation(); this.setDraft(new Set([k])); }
+      };
+    });
+    const nOn = listed.filter(k => draft.has(k)).length;
+    const allOn = listed.length > 0 && nOn === listed.length, none = nOn === 0;
+    const full = this.allKeys(col).every(k => draft.has(k));
+    const canClear = !!filters[col] || !full;
+    const okEnabled = draft.size > 0;
+    return {
+      left: pop.left, width: pop.w, hasSearch: !!def.search, q: pop.q, hasQ: !!q, ph: def.ph,
+      onQ: e => this.setState({ pop: { ...this.state.pop, q: e.target.value }, hoverVal: -1 }),
+      onKey: e => {
+        if (e.key === 'Enter' && q && listed.length) { this.commit(col, new Set(listed)); this.closePop(); }
+      },
+      all: { checked: allOn, mixed: !allOn && !none, cbBg: none ? 'transparent' : C.accent, cbBorder: none ? C.line2 : C.accent },
+      allLabel: q ? `Select all results (${listed.length})` : 'Select all',
+      allCount: listed.reduce((n, k) => n + counts.get(k), 0), showCounts: showCounts && !q,
+      toggleAll: () => { const s = this.draftSet(); listed.forEach(k => allOn ? s.delete(k) : s.add(k)); this.setDraft(s); },
+      values, noMatch: listed.length === 0,
+      clearColor: canClear ? C.ink2 : C.ink3, clearCursor: canClear ? 'pointer' : 'default',
+      clear: () => { if (!canClear) return; this.setState(s => ({ filters: { ...s.filters, [col]: null } })); this.closePop(); },
+      instant: this.instant(), okMode: !this.instant(),
+      okBorder: okEnabled ? C.accent : C.line2, okColor: okEnabled ? C.accent : C.ink3, okCursor: okEnabled ? 'pointer' : 'default',
+      ok: () => { if (!okEnabled) return; this.commit(col, draft); this.closePop(); }
+    };
+  }
+
+  renderVals() {
+    const C = this.C, { metric, sel, filters, pop, hoverMetric, hdrHover } = this.state;
+    const hoverIcons = (this.props.filterIcons ?? 'Always') === 'On hover';
+    const cnt = f => this.cams.filter(f).length;
+    const mdefs = [
+      { key: '', label: 'Visible', value: this.cams.length, color: C.ink },
+      { key: 'online', label: 'Online', value: cnt(c => !c.offline), color: C.good },
+      { key: 'offline', label: 'Offline', value: cnt(c => c.offline), color: C.bad },
+      { key: 'degraded', label: 'Degraded', unknown: true, why: 'The server never reports a camera as degraded. This is not a count of zero — nothing is measuring it.' },
+      { key: 'notrec', label: 'Recording stopped', value: cnt(c => c.st === 'stopped'), color: C.bad },
+      { key: 'archive', label: 'Archive delayed', value: cnt(c => c.st === 'archDelay'), color: C.accent },
+      { key: 'recunknown', label: 'Recording unknown', value: cnt(c => c.st === 'recUnknown'), color: C.accent },
+      { key: 'archiveunknown', label: 'Archive unknown', value: 0, color: C.accent },
+      { key: 'gap', label: 'Recent gaps', unknown: true, why: 'The server does not report recording gaps. This is not a count of zero — nothing is measuring it.' }
+    ];
+    const metrics = mdefs.map((m, i) => {
+      const active = !m.unknown && metric === m.key, hov = hoverMetric === m.key;
+      return {
+        label: m.label, value: m.unknown ? '—' : m.value, color: m.unknown ? C.ink3 : m.color,
+        bg: (active || (hov && !m.unknown)) ? C.panel : C.bg, border: i < 8 ? `1px solid ${C.line}` : 'none',
+        active, padTop: active ? 15 : 18, cursor: m.unknown ? 'default' : 'pointer',
+        showTip: m.unknown && hov, why: m.why || '',
+        onClick: () => { if (m.unknown) return; this.setState({ metric: m.key, sel: null }); },
+        onEnter: () => this.setState({ hoverMetric: m.key }),
+        onLeave: () => this.setState({ hoverMetric: null })
+      };
+    });
+    const h = {};
+    Object.keys(this.COLS).forEach(col => {
+      const active = !!filters[col], open = !!pop && pop.col === col;
+      h[col] = {
+        active, idle: !active, color: active ? C.accent : open ? C.ink : C.ink3, bg: open ? C.panel : 'transparent',
+        iconOpacity: (!hoverIcons || hdrHover || open) ? 1 : 0,
+        onClick: e => this.openPop(col, e)
+      };
+    });
+    const base = this.cams.filter(c => this.metricPass(c, metric));
+    const list = base.filter(c => this.passes(c, null, filters));
+    const anyCol = Object.values(filters).some(Boolean);
+    const rows = list.map(c => ({
+      name: c.name, id: c.id, group: c.group, lb: c.lb, rb: c.rb, seen: c.seen, issue: c.issue, issueColor: c.issueColor,
+      bg: sel === c.id ? C.accentSoft : 'transparent',
+      onSelect: () => this.setState({ sel: c.id }),
+      onOpen: e => e.stopPropagation()
+    }));
+    const sc = this.cams.find(c => c.id === sel);
+    let selV = null;
+    if (sc) {
+      const facts = [
+        { k: 'Live status', v: sc.offline ? 'Offline' : 'Live' },
+        { k: 'Recording status', v: sc.recText },
+        { k: 'Last seen', v: sc.seen },
+        { k: 'Archive status', v: sc.arch },
+        { k: 'Last catalogue end', v: sc.catEnd },
+        { k: 'Last fragment start', v: sc.frag }
+      ];
+      if (sc.motion) facts.push({ k: 'Motion detector', v: sc.motion[0] }, { k: 'Last verified motion', v: sc.motion[1] });
+      facts.push({ k: 'Group', v: sc.group });
+      selV = { name: sc.name, id: sc.id, sub: `${sc.id}  ·  ${sc.group}`, online: !sc.offline, offline: sc.offline, seen: sc.seen, lb: sc.lb, rb: sc.rb, callout: sc.callout, calloutColor: sc.calloutColor, facts };
+    }
+    return {
+      metrics, h, rows, anyCol, isEmpty: rows.length === 0,
+      countText: `${list.length} of ${base.length}`,
+      clearAll: () => this.setState({ filters: { camera: null, group: null, live: null, rec: null, issue: null }, pop: null }),
+      hdrEnter: () => this.setState({ hdrHover: true }), hdrLeave: () => this.setState({ hdrHover: false }),
+      tableRef: this.tableRef, searchRef: this.searchRef, pulseDot: this.pulseDot,
+      popOpen: !!pop, pop: pop ? this.popVals() : {}, popCancel: () => this.closePop(),
+      hasSel: !!selV, sel: selV || {}, closeSel: () => this.setState({ sel: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

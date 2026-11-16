@@ -1,5 +1,25 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-16 — Health table column filters implemented and screenshot-verified.**
+> Camera, Group, Live, Recording and Recent issue headers open native checklist
+> popups with cascading counts, search/Enter, tri-state Select all, Only and
+> clearing. Inclusion filters AND with metric cards, use stable camera/category
+> keys, preserve selection and retain scroll across unchanged polls; empty
+> results offer Clear column filters. EN/RU copy and icon-only RU clear are
+> included. Recording badges are unchanged; category parity is tested against
+> them, including fresh v1 health precedence from the incoming idle fix.
+> Canonical selection refresh is retained; combined idle/selection regressions
+> pass 22/22. Narrow tables pin Camera/count and scroll the fixed-width remaining
+> columns, keeping menus inside the table beside the existing 380 px details.
+> Eight complete native Qt Quick Test runs cover 1440×900 and 1200×900, details
+> open/closed, EN/RU: 128 cases including setup/cleanup, zero failures, with
+> two real 15-second background polls in every run. Actual project Qt 6.11.1
+> QML/JS cache generation passes. Screenshots use production QML with synthetic
+> cameras and inert services; no live fleet, installed app or service was changed.
+> A full application/DMG build and Windows/Linux native checks were not run.
+> New categories stay excluded under an existing inclusion filter until selected
+> or the filter is cleared. [Checklist and screenshots](verification/2026-11-16-health-column-filters/README.md).
+
 > **2026-11-16 — Fresh idle health takes precedence over legacy recording badges.**
 > A fresh idle observation could still display `REC ?` or `ARCHIVE DELAY` from an
 > older catalogue state. The badge now uses fresh v1 idle/unknown truth, while
