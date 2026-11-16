@@ -64,12 +64,24 @@ class DragInstallerTests(unittest.TestCase):
         raw = dmg_layout.store_bytes(b'fixture-alias-on-final-volume')
         layout = read_layout(raw)
         self.assertEqual(layout['.', b'icvl'], b'icnv')
-        self.assertEqual(struct.unpack('>4I', layout[dmg_layout.APP_NAME, b'Iloc'])[:2], (170, 220))
-        self.assertEqual(struct.unpack('>4I', layout['Applications', b'Iloc'])[:2], (510, 220))
+        self.assertEqual(struct.unpack('>4I', layout[dmg_layout.APP_NAME, b'Iloc'])[:2], (190, 282))
+        self.assertEqual(struct.unpack('>4I', layout['Applications', b'Iloc'])[:2], (570, 282))
         self.assertEqual(layout['.', b'icvp']['backgroundImageAlias'], b'fixture-alias-on-final-volume')
-        self.assertEqual(layout['.', b'icvp']['iconSize'], 112)
-        self.assertFalse(layout['.', b'bwsp']['ShowToolbar'])
-        self.assertEqual(layout['.', b'bwsp']['WindowBounds'], '{{200, 160}, {680, 420}}')
+        self.assertEqual(layout['.', b'icvp']['iconSize'], 160)
+        for flag in ('ShowToolbar', 'ShowStatusBar', 'ShowPathbar', 'ShowTabView', 'ShowSidebar'):
+            self.assertFalse(layout['.', b'bwsp'][flag])
+        self.assertEqual(layout['.', b'bwsp']['WindowBounds'], '{{200, 160}, {760, 568}}')
+        self.assertEqual(layout['.', b'bwsp']['SidebarWidth'], 180)
+        for channel, value in zip(('Red', 'Green', 'Blue'), (242, 240, 233)):
+            self.assertEqual(layout['.', b'icvp']['backgroundColor' + channel], value / 255)
+        # Include icon and label extents, not only icon centres: neither axis
+        # may need scrolling in the saved window's content area.
+        for name in (dmg_layout.APP_NAME, 'Applications'):
+            x, y = struct.unpack('>4I', layout[name, b'Iloc'])[:2]
+            self.assertGreater(x - 110, 0)
+            self.assertLess(x + 110, 760)
+            self.assertGreater(y - 80, 120)
+            self.assertLess(y + 80 + 40, 480)
         self.assertNotIn(b'/Users/', raw)
 
     def test_oversized_background_alias_cannot_overrun_leaf(self):
@@ -94,6 +106,8 @@ class DragInstallerTests(unittest.TestCase):
         self.assertEqual(os.readlink(stage / 'Applications'), '/Applications')
         self.assertEqual(build.inventory(stage / dmg_layout.APP_NAME), build.inventory(package / 'watchtower.app'))
         self.assertTrue((stage / '.deployment/helpers/fixture.py').is_file())
+        self.assertEqual((stage / '.background/install.tiff').read_bytes(),
+                         (Path(build.__file__).parent / 'assets/install.tiff').read_bytes())
         self.assertEqual(build.inventory(package), before)
 
     def test_new_image_reconstructs_original_package_for_scripts_and_preserves_old_format(self):

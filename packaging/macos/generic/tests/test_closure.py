@@ -103,9 +103,12 @@ class ClosureTests(unittest.TestCase):
         import shutil
         source=self.root/'source/generic';source.mkdir(parents=True)
         (source/'deploy.py').write_text('print("controller")\n')
+        (source/'assets').mkdir()
+        (source/'assets/install.tiff').write_bytes(b'fixture Retina artwork')
         entry=source.parent/'deploy-watchtower.sh';entry.write_text('#!/bin/bash\n');entry.chmod(0o755)
         first=self.root/'first/generic';first.parent.mkdir()
         original=freeze_helpers(source,first)
+        self.assertEqual((first/'assets/install.tiff').read_bytes(),b'fixture Retina artwork')
         shutil.copy2(entry,first.parent/entry.name)
         second=self.root/'second';second.mkdir()
         repeated=freeze_helpers(first,second/'generic')

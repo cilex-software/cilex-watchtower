@@ -12,6 +12,12 @@ import plistlib
 import struct
 
 APP_NAME = 'Cilex Watchtower.app'
+# Allow chrome around the 760 x 480 point artwork. On Tahoe (2026-11-17),
+# Finder retained global path/status bars despite the saved false flags.
+WINDOW_SIZE = (760, 568)
+ICON_SIZE = 160
+ICON_POSITIONS = {'Applications': (570, 282), APP_NAME: (190, 282)}
+BACKGROUND = '.background/install.tiff'
 
 
 def finder_alias(path):
@@ -20,15 +26,15 @@ def finder_alias(path):
     handle = ctypes.c_void_p()
     core.FSPathMakeRef.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p]
     core.FSPathMakeRef.restype = ctypes.c_int32
-    core.FSNewAliasMinimal.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
-    core.FSNewAliasMinimal.restype = ctypes.c_int32
+    core.FSNewAlias.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    core.FSNewAlias.restype = ctypes.c_int32
     core.GetHandleSize.argtypes = [ctypes.c_void_p]
     core.GetHandleSize.restype = ctypes.c_ssize_t
     core.HLock.argtypes = [ctypes.c_void_p]
     core.DisposeHandle.argtypes = [ctypes.c_void_p]
     if core.FSPathMakeRef(os.fsencode(Path(path).resolve()), ref, None) != 0:
         raise ValueError('Cannot locate the Finder background on the mounted DMG')
-    if core.FSNewAliasMinimal(ref, ctypes.byref(handle)) != 0 or not handle.value:
+    if core.FSNewAlias(None, ref, ctypes.byref(handle)) != 0 or not handle.value:
         raise ValueError('Cannot create the Finder background alias')
     try:
         core.HLock(handle)
@@ -41,11 +47,13 @@ def finder_alias(path):
 
 
 def store_bytes(alias):
-    window = {'WindowBounds': '{{200, 160}, {680, 420}}', 'ShowToolbar': False,
+    window = {'WindowBounds': '{{200, 160}, {%d, %d}}' % WINDOW_SIZE, 'ShowToolbar': False,
               'ShowStatusBar': False, 'ShowSidebar': False, 'ContainerShowSidebar': False,
-              'ShowPathbar': False, 'ShowTabView': False, 'PreviewPaneVisibility': False}
+              'ShowPathbar': False, 'ShowTabView': False, 'PreviewPaneVisibility': False,
+              'SidebarWidth': 180}
     icons = {'viewOptionsVersion': 1, 'backgroundType': 2, 'backgroundImageAlias': alias,
-             'iconSize': 112.0, 'textSize': 14.0, 'labelOnBottom': True,
+             'backgroundColorRed': 242 / 255, 'backgroundColorGreen': 240 / 255, 'backgroundColorBlue': 233 / 255,
+             'iconSize': float(ICON_SIZE), 'textSize': 14.0, 'labelOnBottom': True,
              'arrangeBy': 'none', 'gridSpacing': 100.0, 'gridOffsetX': 0.0, 'gridOffsetY': 0.0,
              'scrollPositionX': 0.0, 'scrollPositionY': 0.0,
              'showIconPreview': False, 'showItemInfo': False}
@@ -59,8 +67,8 @@ def store_bytes(alias):
     record('.', b'icvl', b'type', b'icnv')
     blob('.', b'icvp', plistlib.dumps(icons, fmt=plistlib.FMT_BINARY))
     record('.', b'vSrn', b'long', struct.pack('>I', 1))
-    for name, x in (('Applications', 510), (APP_NAME, 170)):
-        blob(name, b'Iloc', struct.pack('>4I', x, 220, 0xffffffff, 0xffff0000))
+    for name, (x, y) in ICON_POSITIONS.items():
+        blob(name, b'Iloc', struct.pack('>4I', x, y, 0xffffffff, 0xffff0000))
     leaf = struct.pack('>II', 0, len(records)) + b''.join(records)
     if len(leaf) > 4096:
         raise ValueError('Finder layout exceeds its fixed leaf page')
@@ -87,4 +95,4 @@ def store_bytes(alias):
 
 def configure(volume):
     volume = Path(volume)
-    (volume / '.DS_Store').write_bytes(store_bytes(finder_alias(volume / '.background/install.png')))
+    (volume / '.DS_Store').write_bytes(store_bytes(finder_alias(volume / BACKGROUND)))

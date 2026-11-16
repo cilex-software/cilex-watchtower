@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-17 — macOS DMG presentation branded and verified in Finder.**
+> Native icons are 160 points, with a drag arrow, paired icon cards and a muted
+> Cilex logo watermark. The committed dual-resolution TIFF is generated from an
+> editable SVG; normal builds need no artwork tool. Complete Finder view settings
+> and a full mounted-volume alias replace the incomplete presentation metadata.
+> The 760×568 window fits the complete artwork even with this Mac's global
+> path/status bars enabled; the final native accessibility tree has no scroll
+> bars. Finder's own status-bar icon-size slider remains under user preferences.
+> A separate updated DMG preserves the existing 1.1.810 signed app and deployment
+> payload exactly. Signature, DMG checksum and native visual checks pass; the
+> 24 drag-installer regressions pass. No installed app or service was changed,
+> and no application recompile or hardware-export validation was performed.
+> [Verified image, checks and packaging limits](verification/2026-11-17-macos-dmg-presentation/README.md).
+
 > **2026-11-17 — Booth rebuilt and relaunched under Warden.**
 > GitHub access was restored and origin now names `cilex-software/cilex-watchtower`.
 > Upstream had reached 1.1.805; the four completed local repairs were retained

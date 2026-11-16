@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="760" height="480" viewBox="0 0 760 480">
+  <!-- The unchanged source logo is composited at low opacity as a watermark. -->
+  <rect width="760" height="480" fill="#f2f0e9"/>
+  <image x="170" y="92" width="420" height="420" opacity="0.12" xlink:href="../../../../assets/images/cilex-logo.png"/>
+  <g font-family="Helvetica Neue" text-anchor="middle">
+    <text x="380" y="66" font-size="34" font-weight="600" fill="#282722">Cilex Watchtower</text>
+    <text x="380" y="102" font-size="16" fill="#69665d">Drag the app into Applications</text>
+  </g>
+  <!-- Native Finder icons and filenames occupy these two cards. -->
+  <g fill="#ffffff" fill-opacity="0.78" stroke="#dedbd1" stroke-width="1">
+    <rect x="72" y="178" width="236" height="236" rx="20"/>
+    <rect x="452" y="178" width="236" height="236" rx="20"/>
+  </g>
+  <path d="M342 282h72m-13-13 13 13-13 13" fill="none" stroke="#968456" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M72 440h616" stroke="#d8d4c8"/>
+  <text x="380" y="464" text-anchor="middle" font-family="Helvetica Neue" font-size="13" fill="#777267">Then open Cilex Watchtower from Applications.</text>
+</svg>

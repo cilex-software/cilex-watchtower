@@ -234,7 +234,7 @@ def freeze_helpers(helper_root,dest):
     files=[]
     for p in sorted(helper_root.rglob('*')):
         rel=p.relative_to(helper_root)
-        if any(x in ('tests','__pycache__') for x in rel.parts) or not p.is_file() or p.suffix not in ('.py','.json','.sh','.md','.js','.plist','.png'):
+        if any(x in ('tests','__pycache__') for x in rel.parts) or not p.is_file() or p.suffix not in ('.py','.json','.sh','.md','.js','.plist','.png','.tiff'):
             continue
         if p.is_symlink(): raise BuildError('Deployment helper symlink refused')
         target=dest/rel; target.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(p,target); target.chmod(0o755 if p.stat().st_mode & 0o111 else 0o644)
@@ -516,7 +516,7 @@ def stage_drag_installer(package, destination, assets):
         else: raise BuildError('Unexpected deployment payload entry: '+item.name)
     (destination/'Applications').symlink_to('/Applications',target_is_directory=True)
     (destination/'.background').mkdir()
-    shutil.copyfile(assets/'install.png',destination/'.background/install.png')
+    shutil.copyfile(assets/'install.tiff',destination/'.background/install.tiff')
 
 
 def build_installer(package_root,options,run_dir):
