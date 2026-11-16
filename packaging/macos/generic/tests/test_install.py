@@ -420,6 +420,84 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(result["cleanup"], "FailureEvidenceRetained")
         self.assertTrue(Path(result["evidence"][0]).exists())
 
+    def test_finder_update_stops_job_before_swap_and_keeps_backend_and_settings(self):
+        target, manifest, package = self.transaction_fixture()
+        url = 'https://fixture-backend.invalid'
+        target['agent'].write_bytes(plistlib.dumps(install.launchagent(target, manifest, {'backend_url': url})))
+        preferences = target['home'] / 'Library/Preferences/com.cilex-vision.Watchtower.plist'
+        preferences.parent.mkdir()
+        raw = plistlib.dumps({'auth/token': 'inert fixture credential', 'view': 'fixture'})
+        preferences.write_bytes(raw)
+        before = {'loaded': True, 'disabled': False, 'disabled_explicit': False,
+                  'gui_session': True, 'pid': 101}
+        order = []
+        def execute(argv, **kw):
+            order.append(argv[1])
+        def wait(t, m, running):
+            order.append('running' if running else 'stopped')
+            self.assertEqual((target['path'] / 'Contents/payload').read_text(),
+                             'new-version' if running else 'old-version')
+            return {'state': 'ProcessVerified', 'processes': []}
+        with mock.patch.object(install, 'job_state', return_value=before), \
+             mock.patch.object(install, 'assert_job_process'), \
+             mock.patch.object(install, 'process_snapshot', return_value=[]), \
+             mock.patch.object(install, 'execute', side_effect=execute), \
+             mock.patch.object(install, 'wait_processes', side_effect=wait), \
+             mock.patch.object(install, 'register_bundle'):
+            result = install.transaction(package, manifest, target,
+                {'_finder_update': True, 'backend_url': url},
+                {'security_admission': 'DevelopmentOnly', 'run_id': 'fixture-finder-update'})
+        self.assertEqual(result['installation'], 'Installed')
+        self.assertEqual(order, ['bootout', 'stopped', 'bootstrap', 'running'])
+        self.assertEqual(preferences.read_bytes(), raw)
+        self.assertIn('WT_WARDEN_BACKEND_URL=' + url,
+                      plistlib.loads(target['agent'].read_bytes())['ProgramArguments'])
+
+    def test_finder_update_start_failure_restores_running_old_copy(self):
+        target, manifest, package = self.transaction_fixture()
+        raw_agent = target['agent'].read_bytes()
+        before = {'loaded': True, 'disabled': False, 'disabled_explicit': False,
+                  'gui_session': True, 'pid': 101}
+        starts = []
+        def wait(t, m, running):
+            if running:
+                starts.append((target['path'] / 'Contents/payload').read_text())
+                if starts == ['new-version']:
+                    raise install.InstallError('fixture.startup', 'replacement did not start')
+            return {'state': 'ProcessVerified', 'processes': []}
+        with mock.patch.object(install, 'job_state', return_value=before), \
+             mock.patch.object(install, 'assert_job_process'), \
+             mock.patch.object(install, 'process_snapshot', return_value=[]), \
+             mock.patch.object(install, 'selected_processes', return_value=[{'pid': 100}]), \
+             mock.patch.object(install, 'execute') as execute, \
+             mock.patch.object(install, 'wait_processes', side_effect=wait), \
+             mock.patch.object(install, 'register_bundle'):
+            result = install.transaction(package, manifest, target, {'_finder_update': True},
+                {'security_admission': 'DevelopmentOnly', 'run_id': 'fixture-finder-rollback'})
+        self.assertEqual(result['installation'], 'Failed')
+        self.assertEqual(result['original_failure']['finding'], 'fixture.startup')
+        self.assertEqual(result['rollback'], 'FilesAndProcessStateRestored_RuntimeUnverified')
+        self.assertEqual(starts, ['new-version', 'old-version'])
+        self.assertEqual(target['agent'].read_bytes(), raw_agent)
+        self.assertEqual([call.args[0][1] for call in execute.call_args_list],
+                         ['bootout', 'bootstrap', 'bootout', 'bootstrap'])
+
+    def test_finder_update_recheck_failure_never_stops_unchanged_service(self):
+        target, manifest, package = self.transaction_fixture()
+        before = {'loaded': True, 'disabled': False, 'disabled_explicit': False,
+                  'gui_session': True, 'pid': 101}
+        with mock.patch.object(install, 'assert_authorized', side_effect=[None,
+                install.InstallError('update.other_user', 'another account started')]), \
+             mock.patch.object(install, 'job_state', return_value=before), \
+             mock.patch.object(install, 'assert_job_process'), \
+             mock.patch.object(install, 'selected_processes', return_value=[]), \
+             mock.patch.object(install, 'execute') as execute:
+            with self.assertRaises(install.InstallError):
+                install.transaction(package, manifest, target, {'_finder_update': True},
+                    {'security_admission': 'DevelopmentOnly', 'run_id': 'fixture-finder-recheck'})
+        execute.assert_not_called()
+        self.assertEqual((target['path'] / 'Contents/payload').read_text(), 'old-version')
+
     def test_rollback_failure_does_not_hide_original_error(self):
         target, manifest, package = self.transaction_fixture()
         target["agent"].unlink()  # First registration, not an intentionally unloaded job.

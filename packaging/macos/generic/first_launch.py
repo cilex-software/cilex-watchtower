@@ -1,10 +1,11 @@
-"""Finder entry point for a copied app. No app copying or administrator access.
+"""Finder entry point for a copied app or the updater in a mounted DMG.
 
 All writes are in the signed-in user's Library. The existing deployment engine
-still owns scripted installation; this path only registers its LaunchAgent.
+owns app replacement; the installed-app path only registers its LaunchAgent.
 """
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import os
 from pathlib import Path
@@ -151,7 +152,8 @@ def activate(target):
     command(['/usr/bin/osascript', '-l', 'JavaScript', '-e', script, str(rows[0]['pid'])], timeout=15)
 
 
-def launch(target):
+@contextlib.contextmanager
+def launch_lock(target):
     # One Finder launch/migration at a time, including two different app copies.
     state_dir = private_dir(target['home'] / 'Library/Application Support/CilexWatchtower/FinderLaunch')
     lock = state_dir / 'launch.lock'
@@ -161,6 +163,13 @@ def launch(target):
                 or os.fstat(fd).st_mode & 0o077):
             raise ValueError('The Watchtower startup lock has unexpected ownership.')
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
+def launch(target):
+    with launch_lock(target):
         existing = agent_bytes(target)
         others = other_installations(target)
         if existing and others:
@@ -220,20 +229,21 @@ def launch(target):
             start_service(target)
         activate(target)
         return 0
-    finally:
-        os.close(fd)
 
 
 def main(argv):
     try:
         if len(argv) != 1:
             raise ValueError('Open Cilex Watchtower from Applications.')
-        target = target_for(argv[0])
+        app = Path(argv[0])
         if getattr(sys, 'frozen', False):
-            expected = target['path'] / 'Contents/Helpers/Setup.app/Contents/MacOS/cilex-setup'
+            expected = app / 'Contents/Helpers/Setup.app/Contents/MacOS/cilex-setup'
             if Path(sys.executable).resolve() != expected.resolve():
                 raise ValueError('Open the copied Watchtower app from Applications.')
-        return launch(target)
+        if app.parent not in (Path('/Applications'), Path.home() / 'Applications'):
+            import finder_update
+            return finder_update.main(app)
+        return launch(target_for(app))
     except Exception as error:
         dialog('Watchtower could not be opened.\n\n' + str(error))
         return 1

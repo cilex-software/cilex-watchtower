@@ -73,9 +73,25 @@ app you built, open **System Settings → Privacy & Security**, find the
 blocked-app message and choose **Open Anyway**, then follow macOS's prompts.
 The scripts do not turn off macOS security protections.
 
-To update, close Watchtower and stop its Warden service before replacing the
-app. Warden deliberately restarts Watchtower while its service is running.
-After replacing the app, open it from Applications again.
+### Update an existing installation
+
+1. Open the **new DMG**.
+2. **Double-click Cilex Watchtower inside the DMG**. Do not drag it over the running app.
+3. Check the old/new versions and Applications path in the message, then click **Update**.
+4. Wait. The updater stops Warden as a service, waits for Watchtower to close,
+   replaces the app, and opens it again. Your settings and sign-in are kept.
+5. When the completion message appears, eject the DMG.
+
+**Cancel** leaves the app and Warden unchanged. If replacement or startup fails
+inside the installation transaction, the installer attempts to restore the old
+app and startup state and reports the result. It keeps a recovery copy.
+
+Use the Mac account that owns the installed app. If another account is using
+that same copy, they must close it and stop their Warden first. If the app belongs
+to an administrator or more than one copy is installed, the updater explains the
+problem and does not choose a different destination. It never asks you to run
+Terminal commands or disables macOS security. This update flow requires a DMG
+built with deployment helper **1.0.5 or newer**; older DMGs only support copying.
 
 **For scripted installation only:** `./packaging/macos/install-local.sh` still
 installs both programs into **your home folder → Applications → watchtower.app**.

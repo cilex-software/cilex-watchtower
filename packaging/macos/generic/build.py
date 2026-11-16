@@ -23,7 +23,7 @@ from closure import (ClosureError, audit, contained, inventory, is_macho,
                      parse_macho, sha256, validate_bundle, version_tuple, is_system_load)
 import license_coverage
 
-HELPER_VERSION = '1.0.4'
+HELPER_VERSION = '1.0.5'
 GST_PLUGINS = ('coreelements','app','playback','typefindfunctions','rtsp','rtp',
                'rtpmanager','tcp','udp','videoparsersbad','videoconvertscale',
                'applemedia','isomp4','audioconvert','audioresample','volume')

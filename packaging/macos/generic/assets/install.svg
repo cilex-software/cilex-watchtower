@@ -13,5 +13,5 @@
   </g>
   <path d="M342 282h72m-13-13 13 13-13 13" fill="none" stroke="#968456" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M72 440h616" stroke="#d8d4c8"/>
-  <text x="380" y="464" text-anchor="middle" font-family="Helvetica Neue" font-size="13" fill="#777267">Then open Cilex Watchtower from Applications.</text>
+  <text x="380" y="464" text-anchor="middle" font-family="Helvetica Neue" font-size="13" fill="#777267">First install: open from Applications. Updating: double-click the app here.</text>
 </svg>

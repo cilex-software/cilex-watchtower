@@ -1,5 +1,21 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-17 — DMG double-click Update implemented; fresh DMG pending.**
+> The owner-selected flow shows versions/destination and asks Update/Cancel,
+> then reuses the transactional installer to stop the exact Warden LaunchAgent,
+> wait for the wall to exit, replace its bundle and restart/activate it. Settings
+> and backend URL are retained; replacement/startup failure inside the transaction
+> attempts rollback. Fresh installation keeps drag-to-Applications. A narrow
+> user-owned Applications update exception adds no elevation or machine install.
+> Helper 1.0.5 compiles, contains the new updater and passes native signature
+> verification. Isolated tests cover consent, identity, service order, rollback
+> and unchanged settings; 357 cases run with 356 passes and one APFS skip, using
+> a fixture account because Directory Services is unavailable here. One native
+> preferences integration check remains unavailable. No installed app/service
+> was changed; native end-to-end update acceptance remains pending. No new DMG:
+> the required VideoToolbox export gate fails with compression-session -12908.
+> [Implementation, verification and delivery limits](verification/2026-11-17-macos-dmg-update/README.md).
+
 > **2026-11-17 — macOS DMG presentation branded and verified in Finder.**
 > Native icons are 160 points, with a drag arrow, paired icon cards and a muted
 > Cilex logo watermark. The committed dual-resolution TIFF is generated from an

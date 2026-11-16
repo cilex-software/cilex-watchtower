@@ -942,18 +942,49 @@ def startup_assessment(target, options):
             "startup_evidence": evidence}
 
 
+def finder_update_destination(target):
+    """A Finder-owned app may be updated in macOS's standard admin folder.
+
+    This does not grant machine installation or elevation. Require the stock
+    root:admin directory, an existing protected app owned by this user, and
+    actual write access. Never permit a fresh install through this exception.
+    """
+    path = target['path']
+    if path.parent != Path('/Applications') or path != path.resolve() or not path.is_dir():
+        return False
+    parent, app = path.parent.stat(), path.stat()
+    return (parent.st_uid == 0 and parent.st_gid == 80
+            and stat.S_IMODE(parent.st_mode) in (0o755, 0o775)
+            and app.st_uid == target['uid'] and not app.st_mode & 0o022
+            and os.access(path.parent, os.W_OK) and os.access(path, os.W_OK))
+
+
+def assert_no_other_users(target):
+    paths = {str(target['path'] / relative) for relative in (
+        'Contents/MacOS/watchtower', 'Contents/Resources/warden/cilex-warden')}
+    if any(row['uid'] != target['uid'] and row['path'] in paths for row in process_snapshot()):
+        fail('update.other_user', 'Another Mac account is using this Watchtower copy. Ask them to quit Watchtower and stop their Warden before updating; their service was not changed.')
+
+
 def assert_authorized(target, options):
     # Until a signed, immutable Authorization Services helper exists, elevation is
     # deliberately unavailable. Never execute this Python module through sudo.
     if options.get("scope") == "machine" or os.geteuid() == 0 or os.geteuid() != target["uid"]:
         fail("authorization.helper", "Alternate-administrator installation needs a protected native authorization helper, which is not implemented; run per-user installation as the desktop account.")
+    if options.get('_finder_update'):
+        app = target['path'].stat()
+        if app.st_uid != target['uid'] or app.st_mode & 0o022:
+            fail('authorization.update_owner', 'This app must be owned by your Mac account to use Update. Ask its administrator to replace it; no service was changed.')
     parent = target["path"].parent
     while not parent.exists() and parent != parent.parent:
         parent = parent.parent
-    if parent.stat().st_uid != target["uid"] or parent.stat().st_mode & 0o022:
+    finder_update = options.get('_finder_update') and finder_update_destination(target)
+    if not finder_update and (parent.stat().st_uid != target["uid"] or parent.stat().st_mode & 0o022):
         fail("authorization.destination", "Destination must be owned by the desktop account and protected from other accounts; shared or machine installation requires the protected authorization helper.")
     if not os.access(parent, os.W_OK):
         fail("authorization.destination", "Destination is not writable; use per-user scope or an authorized protected installer.")
+    if options.get('_finder_update'):
+        assert_no_other_users(target)
     if options.get("startup", "after-sign-in") not in ("after-sign-in", "unattended-reboot"):
         fail("startup.mode", "Unknown startup mode.")
 
@@ -1073,9 +1104,12 @@ def app_fingerprint(path):
 
 
 def requested_transaction(options):
-    return {"scope": options.get("scope", "user"), "startup": options.get("startup", "after-sign-in"),
+    value = {"scope": options.get("scope", "user"), "startup": options.get("startup", "after-sign-in"),
             "backend_url": options.get("backend_url"), "allow_development": bool(options.get("allow_development")),
             "observe_seconds": options.get("observe_seconds", 0), "expected_cameras": options.get("expected_cameras")}
+    if options.get('_finder_update'):
+        value['finder_update'] = True
+    return value
 
 
 def pending_startup(before, had_agent):
@@ -1450,6 +1484,9 @@ def transaction(package_root, manifest, target, options, context):
                  "resumed_evidence": context.get("resumed_evidence", []),
                  "agent_mode": stat.S_IMODE(target["agent"].stat().st_mode) if target["agent"].exists() else None}
         state["recovery_space"] = require_recovery_space(target, staging, state)
+        if options.get('_finder_update'):
+            # Failure here must not enter rollback and stop an unchanged job.
+            assert_authorized(target, options)
         atomic_json(record_path, state)
         replaced = False
         try:
