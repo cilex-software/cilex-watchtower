@@ -67,8 +67,12 @@ observed before/after result.
 |---|---|---|
 | `entitlements.plist` | M4, only if the operator buys signing ($99/yr) | an entitlements file for an unsigned app is an invented artifact |
 | `warden/install-macos.sh` + launchd plist | M3 | Warden-on-mac needs a Mac to shape it against; a stub would be a placeholder, which this repo bans |
-| `.icns` icon | M4 | cosmetic; macdeployqt ships a default |
 | `macos-latest` release | the first real `-Publish` | an empty release is noise pretending to be an artifact |
+
+The macOS app icon is `watchtower.icns`, converted from the original
+`assets/images/cilex-logo.png`. CMake copies it into the app's
+`Contents/Resources` folder and sets `CFBundleIconFile` in `Info.plist`.
+Both macOS build commands include it before the app is signed and packaged.
 
 ## Secrets rule (unchanged, restated for this platform)
 

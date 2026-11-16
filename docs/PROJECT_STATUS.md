@@ -1,5 +1,18 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-16 — Cilex logo configured as the macOS application icon.**
+> Finder showed the generic app icon because the macOS bundle had neither an
+> icon resource nor `CFBundleIconFile`. The supplied yellow logo matches the
+> existing `assets/images/cilex-logo.png` exactly. `packaging/macos/watchtower.icns`
+> now contains five icon sizes, and the Apple-only CMake configuration copies it
+> into `Contents/Resources` and declares it in the generated app plist before
+> signing/packaging. Native icon extraction succeeds; the decoded 512 px image
+> matches every RGBA pixel of the original. Actual project CMake configuration
+> and its icon resource build pass in an isolated temporary build directory;
+> the generated plist and copied icon match. No app was installed or started,
+> and no existing DMG was modified. A fresh DMG build is still required to
+> deliver the icon; full application/DMG acceptance was not rerun for this change.
+
 > **2026-11-16 — Build scripts check committed inputs and reuse verified output.**
 > macOS DMG/thin ZIP, Windows local/Warden/generic/station and Linux app/Qt SDK
 > build entry points now share successful-build records. Normal local builds

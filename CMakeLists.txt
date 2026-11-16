@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(watchtower
-    VERSION 1.1.802
+    VERSION 1.1.803
     DESCRIPTION "Watchtower — lightweight native VMS operator client"
     LANGUAGES CXX)
 
@@ -384,14 +384,16 @@ if(WIN32)
         COMMENT "windeployqt + GStreamer bundling (packaging/windows/deploy.ps1)")
 endif()
 
-# macOS packaging (scaffold, 2026-08-16). Inert off-APPLE. NEVER CONFIGURED ON A
-# MAC YET — M0 of docs/plans/mac-port/ is the first run. Version flows from
-# PROJECT_VERSION into the bundle, so Info.plist.in never joins the bump-hook
-# file set. Bundle id is provisional until the operator confirms at M4.
+# macOS bundle metadata and Finder/Dock icon. Version flows from PROJECT_VERSION
+# into the bundle, so Info.plist.in never joins the bump-hook file set.
 if(APPLE)
+    set(WATCHTOWER_MACOS_ICON "${CMAKE_CURRENT_SOURCE_DIR}/packaging/macos/watchtower.icns")
+    set_source_files_properties("${WATCHTOWER_MACOS_ICON}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    target_sources(watchtower PRIVATE "${WATCHTOWER_MACOS_ICON}")
     set_target_properties(watchtower PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in"
+        MACOSX_BUNDLE_ICON_FILE "watchtower.icns"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.cilexvision.watchtower"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")

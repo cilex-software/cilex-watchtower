@@ -17,6 +17,7 @@
     <key>CFBundleExecutable</key>             <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
     <key>CFBundleIdentifier</key>             <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
     <key>CFBundleInfoDictionaryVersion</key>  <string>6.0</string>
+    <key>CFBundleIconFile</key>               <string>${MACOSX_BUNDLE_ICON_FILE}</string>
     <key>CFBundleName</key>                   <string>Cilex Watchtower</string>
     <key>CFBundleDisplayName</key>            <string>Cilex Watchtower</string>
     <key>CFBundlePackageType</key>            <string>APPL</string>
