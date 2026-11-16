@@ -28,6 +28,13 @@ Publish only completed task changes. Follow the repository's checks and
 version hooks, preserve unrelated or unfinished work, and never force-push
 shared history. Verify and report the remote commit after pushing.
 
+The owner reaffirmed this on **2026-11-17**: committing and pushing are part of
+finishing every task; the owner must not have to remind the agent. Complete this
+delivery autonomously. If a real network, authentication or repository failure
+blocks publication, report that exact failure and the local commit instead of
+claiming it was pushed. Keep unrelated private work, raw logs and disposable
+build outputs out of task commits.
+
 This Git authorization does not itself authorize deployment, service restarts,
 messages to others, or other outward-facing actions.
 

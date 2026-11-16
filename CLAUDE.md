@@ -14,6 +14,11 @@ or publication restrictions below. A later explicit local-only, no-push, or
 different-branch task instruction overrides this default for that task.
 Deployments, service restarts and messages still need their own authorization.
 
+Reaffirmed by the owner on **2026-11-17**: commit and push after every finished
+task without a reminder. A blocked push must be reported with its actual failure;
+a local commit is not verified remote delivery. See `AGENTS.md` for the standing
+instruction and task-scope exclusions.
+
 ## Orientation
 
 - `docs/PROJECT_STATUS.md` — current status + roadmap. **The shared brain.**
