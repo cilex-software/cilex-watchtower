@@ -86,12 +86,20 @@ The scripts do not turn off macOS security protections.
 inside the installation transaction, the installer attempts to restore the old
 app and startup state and reports the result. It keeps a recovery copy.
 
-Use the Mac account that owns the installed app. If another account is using
-that same copy, they must close it and stop their Warden first. If the app belongs
-to an administrator or more than one copy is installed, the updater explains the
-problem and does not choose a different destination. It never asks you to run
-Terminal commands or disables macOS security. This update flow requires a DMG
-built with deployment helper **1.0.5 or newer**; older DMGs only support copying.
+Use the Mac account that owns the installed app. The updater selects the copy
+managed by your verified running Warden service, even if an older inactive copy
+remains elsewhere. If Warden is stopped, a single registered copy is selected.
+Older copies are left untouched. The confirmation shows the exact update path.
+If another account is using that same copy, they must close it and stop their
+Warden first. If the app belongs to an administrator or more than one managed
+copy is equally eligible, the updater explains the problem and lists the paths.
+It never asks you to run Terminal commands or disables macOS security.
+Build a new DMG to include deployment helper **1.0.6**, which handles older
+inactive copies. Helper 1.0.5 introduced Update; earlier helpers only support copying.
+
+Opening the DMG only opens a Finder window. It does not run the updater or stop
+Warden. Double-click its app, then click **Update** to begin the service stop and
+replacement. **Cancel** keeps Watchtower running.
 
 **For scripted installation only:** `./packaging/macos/install-local.sh` still
 installs both programs into **your home folder → Applications → watchtower.app**.

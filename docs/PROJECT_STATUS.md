@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-17 — DMG updater selects the Warden-managed app among older copies.**
+> Read-only inspection found the running 1.1.803 app in shared Applications and
+> an inactive 1.1.800 copy in the user's Applications folder. Helper 1.0.5 rejected
+> both merely because two paths existed. Helper 1.0.6 now validates the complete
+> startup registration and prefers the exact verified running Warden, then a
+> single registered copy when no running job is observed. Genuine ambiguity
+> lists eligible paths. Older copies are left untouched. Service shutdown still
+> follows the app's Update confirmation; mounting the DMG performs no shutdown.
+> The new regression reproduces the published failure and passes with the fix;
+> all 28 updater cases pass. Generic fixtures run 365 cases with 364 passes and
+> one APFS skip, with the documented Directory Services fixture limitation.
+> Native replacement and fresh DMG delivery remain pending; no installed app
+> or service was changed. [Cause, tests and limits](verification/2026-11-17-macos-update-target/README.md).
+
 > **2026-11-17 — DMG double-click Update implemented; fresh DMG pending.**
 > The owner-selected flow shows versions/destination and asks Update/Cancel,
 > then reuses the transactional installer to stop the exact Warden LaunchAgent,

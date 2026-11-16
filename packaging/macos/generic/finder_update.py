@@ -88,11 +88,17 @@ def application_dirs():
 
 
 def installed_target():
-    """No newest-file guessing or migration: update one identifiable installed copy."""
+    """Prefer the verified running Warden, then one owned startup registration.
+
+    Older inactive copies may remain after switching from Setup to Finder's
+    Applications install. Their presence is not ambiguity about the active app.
+    Never choose by modification time or version, or delete/migrate another copy.
+    """
     parents = application_dirs()
     paths = {parent / name for parent in parents for name in (APP_NAME, 'watchtower.app')
              if (parent / name).exists() or (parent / name).is_symlink()}
     agents = Path.home() / 'Library/LaunchAgents'
+    registered, running = set(), set()
     for entry in agents.glob('com.cilexvision.watchtower.*.plist'):
         if not re.fullmatch(r'com\.cilexvision\.watchtower\.[0-9a-f]{24}\.plist', entry.name):
             continue
@@ -110,12 +116,28 @@ def installed_target():
         target = install.resolve_target({'install_dir': str(path)})
         if path.parent not in parents or entry != target['agent']:
             raise ValueError('An existing Watchtower copy needs inspection before updating. No service was changed.')
+        # Validate the entire owned configuration, not just its filename/path.
+        install.validate_existing(target, first_launch.MANIFEST)
+        state = install.job_state(target)
+        if state['loaded'] and state.get('pid'):
+            install.assert_job_process(target, first_launch.MANIFEST, state)
+            running.add(path)
+        registered.add(path)
         paths.add(path)
     if not paths:
         return None
-    if len(paths) != 1:
-        raise ValueError('More than one Watchtower copy is installed. Keep one copy in Applications, then try again. No service was changed.')
-    return first_launch.target_for(paths.pop())
+    if len(running) == 1:
+        selected = next(iter(running))
+    elif not running and len(registered) == 1:
+        selected = next(iter(registered))
+    elif len(paths) == 1:
+        selected = next(iter(paths))
+    else:
+        detail = '\n'.join(str(path) for path in sorted(running or registered or paths))
+        raise ValueError('More than one Watchtower installation could be updated. '
+                         'The updater cannot identify a single Warden-managed copy. '
+                         'No service was changed.\n\n' + detail)
+    return first_launch.target_for(selected)
 
 
 def update_options(target, manifest):

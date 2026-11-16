@@ -1,5 +1,6 @@
 """Inert updater acceptance: temporary bundles and mocked launchd/native UI only."""
 import contextlib
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -276,6 +277,107 @@ class DestinationTests(unittest.TestCase):
             install.assert_authorized(target, {'_finder_update': True})
             with self.assertRaises(install.InstallError):
                 install.assert_authorized(target, {'_finder_update': True, 'scope': 'machine'})
+
+
+class CandidateSelectionTests(unittest.TestCase):
+    """Real temporary plists, exact identities; no launchctl or application starts."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='Cilex multiple copies ')
+        self.addCleanup(self.temp.cleanup)
+        self.home = Path(self.temp.name).resolve()
+        self.dirs = (self.home / 'SharedApplications', self.home / 'Applications')
+        self.current = self.dirs[0] / update.APP_NAME
+        self.old = self.dirs[1] / 'watchtower.app'
+        for path in (self.current, self.old):
+            (path / 'Contents').mkdir(parents=True)
+            (path / 'Contents/Info.plist').write_bytes(plistlib.dumps({
+                'CFBundleIdentifier': install.BUNDLE_ID,
+                'CFBundleShortVersionString': '1.0.0'}))
+        self.states, self.rows = {}, []
+        self.patchers = [
+            mock.patch.object(update, 'application_dirs', return_value=self.dirs),
+            mock.patch.object(Path, 'home', return_value=self.home),
+            mock.patch.object(install, 'resolve_target', side_effect=self.resolve),
+            mock.patch.object(install, 'job_state', side_effect=lambda t: self.states[str(t['path'])]),
+            mock.patch.object(install, 'process_snapshot', side_effect=lambda: self.rows),
+            mock.patch.object(install, 'execute', side_effect=AssertionError('Selection must never signal launchd')),
+            mock.patch.object(first_launch, 'target_for', side_effect=lambda p: self.resolve({'install_dir': str(p)})),
+        ]
+        for patcher in self.patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def resolve(self, options):
+        path = Path(options.get('install_dir', self.old))
+        uid = os.geteuid()
+        identity = hashlib.sha256((str(path) + '\0' + str(uid)).encode()).hexdigest()[:24]
+        label = 'com.cilexvision.watchtower.' + identity
+        return {'path': path, 'uid': uid, 'gid': os.getegid(), 'user': 'fixture',
+                'home': self.home, 'id': identity, 'label': label, 'domain': 'gui/' + str(uid),
+                'agent': self.home / 'Library/LaunchAgents' / (label + '.plist')}
+
+    def register(self, path, pid=None):
+        target = self.resolve({'install_dir': str(path)})
+        target['agent'].parent.mkdir(parents=True, exist_ok=True)
+        target['agent'].write_bytes(plistlib.dumps(install.launchagent(target, first_launch.MANIFEST, {})))
+        target['agent'].chmod(0o600)
+        self.states[str(path)] = {'loaded': pid is not None, 'pid': pid,
+                                 'disabled': False, 'disabled_explicit': False, 'gui_session': True}
+        if pid is not None:
+            self.rows.append({'pid': pid, 'ppid': 1, 'uid': target['uid'],
+                              'path': str(path / 'Contents/Resources/warden/cilex-warden')})
+        return target
+
+    def test_running_registered_copy_wins_over_inactive_old_copy(self):
+        self.register(self.current, 101)
+        self.assertEqual(update.installed_target()['path'], self.current)
+        self.assertTrue(self.old.is_dir())
+        self.assertEqual(len(self.rows), 1)
+
+    def test_single_stopped_registration_wins_over_unregistered_copy(self):
+        self.register(self.current)
+        self.assertEqual(update.installed_target()['path'], self.current)
+
+    def test_verified_running_copy_wins_over_another_stopped_registration(self):
+        self.register(self.current, 101)
+        self.register(self.old)
+        self.assertEqual(update.installed_target()['path'], self.current)
+
+    def test_two_running_jobs_are_ambiguous_and_list_exact_paths(self):
+        self.register(self.current, 101)
+        self.register(self.old, 102)
+        with self.assertRaises(ValueError) as failure:
+            update.installed_target()
+        for path in (self.current, self.old):
+            self.assertIn(str(path), str(failure.exception))
+
+    def test_two_stopped_registrations_remain_ambiguous(self):
+        self.register(self.current)
+        self.register(self.old)
+        with self.assertRaisesRegex(ValueError, 'cannot identify a single'):
+            update.installed_target()
+
+    def test_injected_startup_environment_cannot_select_a_copy(self):
+        target = self.register(self.current, 101)
+        job = plistlib.loads(target['agent'].read_bytes())
+        job['ProgramArguments'].insert(2, 'DYLD_INSERT_LIBRARIES=/fixture/foreign.dylib')
+        target['agent'].write_bytes(plistlib.dumps(job))
+        with self.assertRaises(install.InstallError) as failure:
+            update.installed_target()
+        self.assertEqual(failure.exception.finding, 'startup.ownership')
+
+    def test_reused_pid_or_foreign_account_cannot_select_a_running_copy(self):
+        self.register(self.current, 101)
+        self.rows[0]['uid'] += 1
+        with self.assertRaises(install.InstallError) as failure:
+            update.installed_target()
+        self.assertEqual(failure.exception.finding, 'runtime.job_identity')
+
+    def test_job_pid_must_be_the_matching_warden_not_another_copy(self):
+        self.register(self.current, 101)
+        self.rows[0]['path'] = str(self.old / 'Contents/Resources/warden/cilex-warden')
+        with self.assertRaises(install.InstallError):
+            update.installed_target()
 
 
 if __name__ == '__main__': unittest.main()
