@@ -54,7 +54,7 @@ Item {
     property var _rows: []
     property string _rowsSig: "\u0000unset"
     function _refreshRows() {
-        if (!cameraModel) { _rows = []; _rowsSig = ""; return; }
+        if (!cameraModel) { _rows = []; _rowsSig = ""; sel = null; return; }
         var r = cameraModel.page("", activeFilter, "status", 1, 100000);
         var sig = activeFilter + "\u0001";
         for (var i = 0; i < r.length; i++) {
@@ -64,6 +64,12 @@ Item {
                  + "|" + c.motionConfirmed + "|" + c.motionLastVmdAt + "\u0001";
         }
         if (sig !== _rowsSig) { _rowsSig = sig; _rows = r; }
+        if (sel) {
+            var selectedId = sel.camId;
+            var current = selectedId && typeof cameraModel.cameraByBackendId === "function"
+                ? cameraModel.cameraByBackendId(selectedId) : null;
+            sel = current && current.camId === selectedId ? current : null;
+        }
     }
     onActiveFilterChanged: _refreshRows()
     onCameraModelChanged: _refreshRows()

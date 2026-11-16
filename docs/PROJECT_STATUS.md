@@ -1,5 +1,19 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-16 — Fresh idle health takes precedence over legacy recording badges.**
+> A fresh idle observation could still display `REC ?` or `ARCHIVE DELAY` from an
+> older catalogue state. The badge now uses fresh v1 idle/unknown truth, while
+> preserving actual stopped/delayed observations and motion-readiness warnings.
+> Motion-event age/silence information is retained, and NOT READY keeps its fault
+> color even when the legacy state is Recording. Health's selected camera is
+> refreshed by exact backend ID and cleared when that identity disappears.
+> Actual Qt 6.8.3 component regressions pass 22/22; the same harness reproduces
+> 15 failures against the published 1.1.803 files.
+> CTest passes, and the synthetic offscreen screen was inspected. Native Mac and
+> Booth packaging, installation and visual acceptance remain pending; this does
+> not establish the installed Mac binary's provenance or server/media health.
+> [Evidence, preserved failures and rollout boundary](handoffs/RECORDING-IDLE-DISPLAY-20261116.md).
+
 > **2026-11-16 — Cilex logo configured as the macOS application icon.**
 > Finder showed the generic app icon because the macOS bundle had neither an
 > icon resource nor `CFBundleIconFile`. The supplied yellow logo matches the

@@ -14,14 +14,16 @@ StatusBadge {
     id: badge
     property int state: CameraStatus.RecUnknown
     property var health: ({})
+    readonly property bool freshHealth: health && health.version === 1 && health.fresh === true
     readonly property string captureState: health && health.capture_state ? health.capture_state : "unknown"
+    readonly property bool motionArmed: freshHealth ? captureState === "idle" : state === CameraStatus.Armed
     readonly property string archiveState: health && health.archive_state ? health.archive_state
         : (state === CameraStatus.Stalled || state === CameraStatus.NotRecording || state === CameraStatus.RecordingGap ? "delayed" : "unknown")
     readonly property bool captureStopped: captureState === "stopped"
     readonly property bool captureProgressing: captureState === "progressing"
     readonly property bool archiveDelayed: archiveState === "delayed" || archiveState === "unavailable"
-    readonly property bool healthDisabled: state === CameraStatus.Disabled || captureState === "disabled"
-    readonly property bool healthIdle: captureState === "idle" || (state === CameraStatus.Armed && !archiveDelayed && captureState === "unknown")
+    readonly property bool healthDisabled: captureState === "disabled" || (!freshHealth && state === CameraStatus.Disabled)
+    readonly property bool healthIdle: captureState === "idle" || (!freshHealth && state === CameraStatus.Armed && !archiveDelayed && captureState === "unknown")
     readonly property bool issueVisible: !healthDisabled
         && (captureStopped || archiveDelayed || (!healthIdle && captureState === "unknown") || archiveState === "unknown")
     readonly property color issueColor: captureStopped ? Theme.bad : Theme.warn
@@ -57,7 +59,7 @@ StatusBadge {
     property int _nowTick: 0
     Timer {
         interval: 30000; repeat: true
-        running: badge.visible && badge.state === CameraStatus.Armed && badge.lastMotionAtMs > 0
+        running: badge.visible && badge.motionArmed && badge.lastMotionAtMs > 0
         onTriggered: badge._nowTick++
     }
     readonly property real _ageS: {
@@ -88,48 +90,50 @@ StatusBadge {
     // 1cc987d). A mismatch with the catalogue raises an archive warning;
     // it does not establish that capture stopped.
     property double lastVmdAtMs: -1
-    readonly property bool _deafArmed: state === CameraStatus.Armed && motionKnown && !motionReady
+    readonly property bool _deafArmed: motionArmed && motionKnown && !motionReady
     readonly property double _vmdAgeS: lastVmdAtMs > 0 ? Math.max(0, (Date.now() - lastVmdAtMs) / 1000) : -1
     // Fresh detection with stale catalogue data is an archive warning; it does
     // not establish that the local recorder stopped writing.
-    readonly property bool _notRecording: state === CameraStatus.Armed
+    readonly property bool _notRecording: !freshHealth && motionArmed
         && lastVmdAtMs > 0 && _vmdAgeS < 10800
         && (lastSegmentAtMs <= 0 || (lastVmdAtMs - lastSegmentAtMs) > 3600000)
     readonly property double _segAgeS: lastSegmentAtMs > 0 ? Math.max(0, (Date.now() - lastSegmentAtMs) / 1000) : -1
-    readonly property bool _silentArmed: state === CameraStatus.Armed && lastMotionAtMs <= 0
+    readonly property bool _silentArmed: motionArmed && lastMotionAtMs <= 0
                                          && (_segAgeS < 0 || _segAgeS > 86400)
     readonly property string _silentAge: _segAgeS < 0 ? ""
         : _segAgeS >= 86400 ? Math.floor(_segAgeS / 86400) + qsTr("d")
         : Math.floor(_segAgeS / 3600) + qsTr("h")
-    readonly property bool _staleArmed: state === CameraStatus.Armed && _ageS > 86400
+    readonly property bool _staleArmed: motionArmed && _ageS > 86400
 
     // A fresh event just registered — pulse the dot for a beat so "events are
     // flowing NOW" is visible without reading the age.
     property bool _flash: false
-    onLastMotionAtMsChanged: if (state === CameraStatus.Armed && lastMotionAtMs > 0) { _flash = true; flashOff.restart(); }
+    onLastMotionAtMsChanged: if (motionArmed && lastMotionAtMs > 0) { _flash = true; flashOff.restart(); }
     Timer { id: flashOff; interval: 2500; onTriggered: badge._flash = false }
+
+    function armedLabel() {
+        if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
+        if (_notRecording) return "ARMED · " + qsTr("ARCHIVE DELAY");
+        if (tier < 2) return qsTr("ARMED");
+        if (_age !== "") return qsTr("ARMED · ") + _age;
+        if (_silentArmed) return qsTr("ARMED · ") + (_silentAge !== ""
+            ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
+        return qsTr("ARMED");
+    }
 
     label: {
         if (healthDisabled) return qsTr("OFF");
         if (captureStopped) return qsTr("REC STOPPED");
         if (archiveDelayed) return qsTr("ARCHIVE DELAY");
         if (captureProgressing) return qsTr("REC");
+        if (freshHealth) {
+            if (captureState === "idle") return armedLabel();
+            return qsTr("REC ?");
+        }
         switch (state) {
         case CameraStatus.Recording: return qsTr("REC ?");
         case CameraStatus.Stalled: return qsTr("ARCHIVE DELAY");
-        case CameraStatus.Armed:
-            if (_deafArmed) return "ARMED · " + qsTr("NOT READY");
-            if (_notRecording) return "ARMED · " + qsTr("ARCHIVE DELAY");
-            // Below tier 2 the qualifier is dropped, but only the INFORMATIONAL
-            // ones — how long it has been armed, how long it has been silent.
-            // The two fault qualifiers above keep their words at every tier that
-            // has words at all: "armed but not recording" is not something an
-            // operator should have to infer from a colour.
-            if (tier < 2) return qsTr("ARMED");
-            if (_age !== "") return qsTr("ARMED · ") + _age;
-            if (_silentArmed) return qsTr("ARMED · ") + (_silentAge !== ""
-                ? qsTr("silent %1").arg(_silentAge) : qsTr("no motion ever"));
-            return qsTr("ARMED");
+        case CameraStatus.Armed: return armedLabel();
         case CameraStatus.Disabled: return qsTr("OFF");
         case CameraStatus.NotRecording: return qsTr("REC ?");
         case CameraStatus.RecordingGap: return qsTr("ARCHIVE DELAY");
@@ -138,7 +142,7 @@ StatusBadge {
     }
     fg: captureStopped ? Theme.bad : archiveDelayed ? Theme.warn
         : captureProgressing ? Theme.bad
-        : state === CameraStatus.Armed ? (_deafArmed ? Theme.bad
+        : motionArmed ? (_deafArmed ? Theme.bad
             : (_staleArmed || _silentArmed || _notRecording) ? Theme.warn : Theme.ink2)
         : Theme.ink3
     bgColor: captureStopped || captureProgressing ? Theme.badDim
