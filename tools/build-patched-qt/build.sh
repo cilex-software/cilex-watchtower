@@ -12,25 +12,49 @@
 #   rollback : ./run.sh                       (SDK prefix, unchanged on disk)
 #
 # Outputs: $PREFIX (default ~/Qt/6.12.0-patched-beta1), plus REVISIONS,
-# ARTIFACTS.sha256 and BUILDIDS.txt next to this script.
+# ARTIFACTS.sha256 and BUILDIDS.txt in the printed build-evidence folder.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 WORK="${QTPATCH_WORK:-$HOME/qtpatch-work}"
 PREFIX="${QTPATCH_PREFIX:-$HOME/Qt/6.12.0-patched-beta1}"
 SDK="${QTPATCH_SDK:-$HOME/Qt/6.12.0/gcc_64}"
+WORK=$(python3 -c 'from pathlib import Path;import sys;print(Path(sys.argv[1]).expanduser().absolute())' "$WORK")
+PREFIX=$(python3 -c 'from pathlib import Path;import sys;print(Path(sys.argv[1]).expanduser().absolute())' "$PREFIX")
+SDK=$(python3 -c 'from pathlib import Path;import sys;print(Path(sys.argv[1]).expanduser().absolute())' "$SDK")
 TAG=v6.12.0-beta1
 JOBS="${QTPATCH_JOBS:-$(nproc)}"
 MODULES=(qtbase qtshadertools qtdeclarative qtwayland qtmultimedia)
+UPDATE=yes
+REBUILD=ask
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --update) UPDATE="$2"; shift 2 ;;
+        --rebuild) REBUILD="$2"; shift 2 ;;
+        *) echo "Unknown build option: $1" >&2; exit 1 ;;
+    esac
+done
+. "$REPO/packaging/build-state.sh"
+SETTINGS=$(python3 -c 'import json,sys;print(json.dumps({"sdk":sys.argv[1],"tag":sys.argv[2]}))' "$SDK" "$TAG")
+cilex_build_prepare linux-qt "$REPO" --update "$UPDATE" --rebuild "$REBUILD" --settings "$SETTINGS" --candidate "$PREFIX/lib/libQt6Core.so.6.12.0"
+[ "$CILEX_BUILD_ENABLED" = true ] || exit 0
+REPO="$CILEX_BUILD_SOURCE"
+PATCH_TOOLS="$REPO/tools/build-patched-qt"
+SYSROOT_ENV="$WORK/dev-sysroot/env.sh"
+# Never reset/discard edits in an existing external Qt source workspace.
+mkdir -p "$WORK"
+WORK=$(mktemp -d "$WORK/committed-build.XXXXXX")
+HERE="$WORK/evidence"
+mkdir -p "$HERE"
 
 mkdir -p "$WORK" "$PREFIX"
 cd "$WORK"
 
 # Root-free dev sysroot (make-dev-sysroot.sh) — headers/.pc/symlinks for the
 # system runtime libs; lets the stack build without sudo.
-if [[ -f "$WORK/dev-sysroot/env.sh" ]]; then
+if [[ -f "$SYSROOT_ENV" ]]; then
     # shellcheck disable=SC1091
-    source "$WORK/dev-sysroot/env.sh"
+    source "$SYSROOT_ENV"
     echo "using dev sysroot: $QTPATCH_DEV_SYSROOT"
 fi
 
@@ -42,7 +66,7 @@ for m in "${MODULES[@]}"; do
     if [[ ! -d "$m" ]]; then
         git clone --quiet --filter=blob:none "https://github.com/qt/$m.git" "$m"
     fi
-    git -C "$m" fetch --quiet origin "refs/tags/$TAG:refs/tags/$TAG" || true
+    git -C "$m" fetch --quiet origin "refs/tags/$TAG:refs/tags/$TAG"
     git -C "$m" checkout --quiet "$TAG"
     echo "$m: $(git -C "$m" rev-parse HEAD) ($TAG)" >> "$HERE/REVISIONS"
 done
@@ -140,7 +164,7 @@ module qtwayland
 echo "== apply patch series to qtmultimedia =="
 git -C qtmultimedia checkout -- .
 git -C qtmultimedia apply --verbose "$REPO/third_party/qt-patches/6.12/0001-qffmpegvideobuffer-commit-swframe-on-success.patch"
-python3 "$HERE/apply-anchored.py" "$WORK/qtmultimedia"
+python3 "$PATCH_TOOLS/apply-anchored.py" "$WORK/qtmultimedia"
 
 module qtmultimedia -DFFMPEG_DIR="$WORK/ffprefix" -DINPUT_ffmpeg=ON
 
@@ -162,3 +186,5 @@ for f in "$PREFIX"/lib/libQt6Multimedia.so.6.12.0 "$PREFIX"/plugins/multimedia/l
     [[ -e "$f" ]] && echo "$f $(readelf -n "$f" | awk '/Build ID/{print $3}')" >> "$HERE/BUILDIDS.txt"
 done
 echo "DONE prefix=$PREFIX"
+echo "Build evidence: $HERE"
+cilex_build_record --output binary "$PREFIX/lib/libQt6Core.so.6.12.0" --output sdk "$PREFIX"

@@ -355,6 +355,8 @@ function New-WtgBootstrapBundle {
         Copy-WtgBuildFile (Join-Path $script:WtgBuildRoot $name) (Join-Path $generic $name)
     }
     Copy-WtgBuildFile (Join-Path $script:WtgBuildRoot '..\deploy-watchtower.ps1') (Join-Path $bundle 'packaging\windows\deploy-watchtower.ps1')
+    Copy-WtgBuildFile (Join-Path $script:WtgBuildRoot '..\BuildState.psm1') (Join-Path $bundle 'packaging\windows\BuildState.psm1')
+    Copy-WtgBuildFile (Join-Path $script:WtgBuildRoot '..\..\build_state.py') (Join-Path $bundle 'packaging\build_state.py')
     foreach ($name in @('isolated-startup.py','verify-warden.py','StationVideoHealth.psm1')) {
         Copy-WtgBuildFile (Join-Path $script:WtgBuildRoot ('..\deploy\'+$name)) (Join-Path $bundle ('packaging\windows\deploy\'+$name))
     }

@@ -9,6 +9,10 @@ import re
 import secrets
 import shutil
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import build_state
 
 import build
 import dependencies
@@ -152,9 +156,6 @@ def run(args, cache, output):
     translated = command(['/usr/sbin/sysctl', '-in', 'sysctl.proc_translated'], check=False, timeout=10)
     if translated.stdout.strip() == '1':
         raise ValueError('Turn off Open using Rosetta for Terminal, reopen Terminal, then try again.')
-    toolchain = dependencies.inspect_toolchain({})
-    if toolchain['state'] != 'present':
-        raise ValueError('Apple build tools are missing. Run xcode-select --install, finish the Apple installer, then try again.')
     cache = private_dir(cache)
     import fcntl
     lock = os.open(cache / 'build.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -163,12 +164,19 @@ def run(args, cache, output):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise ValueError('Another installer build is already running. Let it finish before starting another.')
-        return locked_run(args, cache, output, toolchain)
+        return locked_run(args, cache, output, None)
     finally:
         os.close(lock)
 
 
 def locked_run(args, cache, output, toolchain):
+    plan = build_state.prepare(REPOSITORY, 'macos-dmg', revision=args.revision,
+        update=args.update == 'yes', rebuild=args.rebuild, settings={'distribution': 'development', 'arch': 'arm64'})
+    if not plan['build']:
+        return 0
+    toolchain = toolchain or dependencies.inspect_toolchain({})
+    if toolchain.get('state') != 'present' and 'developer_dir' not in toolchain:
+        raise ValueError('Apple build tools are missing. Run xcode-select --install, finish the Apple installer, then try again.')
     run_name = utc().replace('-', '').replace(':', '') + '-' + secrets.token_hex(4)
     preparation = private_dir(cache / 'builds' / run_name)
     brew = homebrew()
@@ -182,11 +190,13 @@ def locked_run(args, cache, output, toolchain):
                    work_dir=str(cache / 'runs'),
                    output_dir=str(output.expanduser().absolute() / run_name), quiet=True, bootstrap=False)
     # Pin the local committed source; a checkout already has GitHub authorization.
-    commit = command(['/usr/bin/git', 'rev-parse', '--verify', '--end-of-options', args.revision + '^{commit}'], cwd=REPOSITORY).stdout.strip()
+    commit = plan['commit']
     archive = preparation / 'source.tar.gz'
     command(['/usr/bin/git', '-c', 'tar.umask=0022', 'archive', '--format=tar.gz', '--output=' + str(archive), commit], cwd=REPOSITORY, timeout=120)
-    print('Building committed source ' + commit[:12] + '. Uncommitted app edits are excluded.', flush=True)
+    print('Building version ' + plan['version'] + ' from committed source.', flush=True)
     options.update(source_archive=str(archive), source_sha256=sha256(archive), source_commit=commit)
+    options['_build_state_plan'] = plan
+    options['helper_root'] = str(Path(plan['source']) / 'packaging/macos/generic')
     python, _ = dependencies.provision_python(tools['python'], dependencies.catalog()['packages'], options, preparation)
     tools['python'] = python
     binary, notices = ffmpeg(cache, options, tools, args.jobs)
@@ -204,6 +214,6 @@ def locked_run(args, cache, output, toolchain):
         print('\nDMG ready: ' + installer)
         manifest = read_json(Path(value['artifacts']['package_root']) / 'artifact-manifest.json')
         print('Requires an Apple silicon Mac with macOS ' + manifest['minimum_macos'] + ' or later.')
-        print('Double-click that file, then open Setup.app to install it.')
+        print('Open the DMG and drag Cilex Watchtower into Applications.')
         print('This is an unsigned internal build for Apple silicon. macOS may ask you to allow it.')
     return code

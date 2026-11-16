@@ -1,5 +1,28 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-16 — Build scripts check committed inputs and reuse verified output.**
+> macOS DMG/thin ZIP, Windows local/Warden/generic/station and Linux app/Qt SDK
+> build entry points now share successful-build records. Normal local builds
+> report remote file differences and local edits, safely fast-forward clean
+> checkouts, and build committed code in separate source folders. Local edits are
+> excluded and preserved, per the operator's choice. Divergence or failed remote
+> checks stop; explicitly selected revisions remain pinned. Same-code builds
+> show full output paths and require explicit consent to compile again; default
+> noninteractive operation reuses intact matching output. Missing/changed output
+> is never treated as usable. Fresh successful builds print full binary/package
+> paths and save records outside Git. Cached Warden can be copied into a new
+> Windows package without recompiling. Requested install/update modes retain
+> their existing deployment and verification gates. Helper version is 1.0.4.
+> Verification: 33 shared-behavior tests pass, including real temporary Git
+> remotes, the PowerShell wrapper/Warden reuse, and a fake-compiler Linux entry
+> fixture. The macOS non-service suite runs 237 tests with one skip and no
+> failures. All changed shell and nine PowerShell files parse. An isolated frozen
+> macOS helper reports 1.0.4 and includes the shared module. Windows native build,
+> Windows PowerShell 5.1 runtime and a native Linux app/SDK build remain untested
+> on this Mac. No application DMG was built or accepted for this task; no native
+> validation gate was waived, and no installed app or service was changed.
+> [Build behavior and entry points](../packaging/BUILDING.md).
+
 > **2026-11-16 — macOS drag installer implemented; fresh DMG acceptance pending.**
 > The DMG builder now shows Cilex Watchtower and an Applications shortcut, with
 > instructions, an arrow and fixed icon positions. Deployment helpers are hidden;

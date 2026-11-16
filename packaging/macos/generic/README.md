@@ -20,10 +20,19 @@ somewhere else, use that folder's path instead.
 **There are no required build options.** The script finds the build tools,
 installs missing Homebrew packages, builds Watchtower and creates a `.dmg` file.
 The first build takes longer because it downloads and prepares tools.
-It builds the current **committed** code in this checkout. Commit any application
-changes you want included before building. It does not fetch newer GitHub code.
+It first checks GitHub for new committed code and reports the changed files.
+It also lists local edits and new local files. Those edits are **not included**;
+commit changes you want included before building. A clean checkout is updated
+safely. If you have local edits, the script keeps them and builds the fetched
+committed code in a separate folder. It never commits or stashes your edits.
 
-When it finishes, it prints **DMG ready:** followed by the file's full path.
+If the same code already has a successful DMG, the script prints its full path
+and the binary's full path, then asks whether to rebuild. Press Return or answer
+**no** to use the existing file. Answer **yes** only if you accept that no new
+committed code will be added. Missing or changed output is not reused.
+
+When a new build finishes, it prints the binary's full path and **DMG ready:**
+followed by the DMG's full path.
 The file is inside **Downloads → CilexInstallers**, in a new folder for this build.
 A DMG is the installer file you can copy to another Mac.
 
@@ -134,8 +143,10 @@ Every option takes a value. There are no on/off switches without values.
 | --- | --- | --- |
 | `--output-dir` | Folder in which to save a new build folder. For example, `--output-dir /Users/romayankin/Desktop/Installers`. | `~/Downloads/CilexInstallers`; `~` means your home folder. |
 | `--jobs` | Number of compilation jobs, from 1 to 64. For example, `--jobs 2` reduces memory use. | Chosen from available memory and CPU count. |
-| `--revision` | A commit, branch or tag already present in your local Git checkout. For example, `--revision main`. It does not download it. | `HEAD`, meaning your checkout's current commit. |
+| `--revision` | A commit, branch or tag already present locally. An explicitly selected revision stays selected. | `HEAD`: use the current branch's committed code, updated from its remote when safe. |
 | `--tools` | `install` installs missing Homebrew build packages; `existing` stops if a tool is missing. Packaging tools and the video export tool may still be downloaded into the private build cache. | `install` |
+| `--update` | `yes` checks the remote; `no` explicitly builds local committed code without checking GitHub. A failed remote check stops the build. | `yes` |
+| `--rebuild` | `ask` asks before rebuilding unchanged code; `yes` explicitly accepts that no new committed code will be added; `no` keeps an intact existing build or stops if its output is missing or changed. New committed code still builds normally. | `ask`; without an interactive terminal, an unchanged build is skipped. |
 
 ### Installation options
 
@@ -172,6 +183,11 @@ Build tools and temporary files stay under your home folder's
 `Library/Caches/CilexWatchtower`. Installation results stay under
 `Library/Application Support/CilexWatchtower/DeploymentRuns`.
 These generated files are local output, not source files to commit to Git.
+Successful-build records and clean source copies also stay in
+`Library/Caches/CilexWatchtower/BuildState`. The records let the next run find an
+existing installer even if it was saved in a different output folder.
+
+See [the shared build behavior](../../BUILDING.md) for the other platforms.
 
 The older `build-local.sh` makes a different ZIP package. Use **build-installer.sh**
 for the DMG described here.

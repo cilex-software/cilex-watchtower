@@ -35,6 +35,8 @@ def parser(action):
         p.add_argument('--jobs', type=int, help='Parallel compile jobs, 1 through 64; default: choose for available memory')
         p.add_argument('--revision', default='HEAD', help='Local Git commit, branch or tag to build; default: HEAD (current commit)')
         p.add_argument('--tools', choices=('install', 'existing'), default='install', help='Install missing Homebrew tools or use existing ones only; default: install')
+        p.add_argument('--update', choices=('yes', 'no'), default='yes', help='Check and safely pull new remote code, or explicitly use local committed code; default: yes')
+        p.add_argument('--rebuild', choices=('ask', 'yes', 'no'), default='ask', help='Ask before rebuilding unchanged code, explicitly accept, or use the existing build; default: ask')
     elif action in ('install-local', 'install-remote'):
         p.add_argument('--installer', type=Path, help='DMG file; default: newest build in ~/Downloads/CilexInstallers')
         p.add_argument('--development', choices=('yes', 'no'), default='yes', help='Allow the unsigned internal build; default: yes')
@@ -181,7 +183,10 @@ def password_session(host, user, port):
 def show_outcome(value, record):
     state = value.get('states', {}).get('installation')
     if value.get('mode') in ('build', 'build-installer'):
-        print('Installer created.' if value.get('exit_code') == 0 else 'Build stopped. No installer was completed.')
+        if value.get('build_reused') and value.get('exit_code') == 0:
+            print('Existing verified build used. Nothing was recompiled.')
+        else:
+            print('Installer created.' if value.get('exit_code') == 0 else 'Build stopped. No installer was completed.')
     elif state == 'Installed':
         print('Cilex Watchtower is installed. Its startup and camera checks may still need attention.')
     else:
@@ -192,7 +197,8 @@ def show_outcome(value, record):
     if isinstance(failure, dict) and failure.get('message'):
         print(failure['message'])
     if record:
-        print('Run ID: ' + record.data['run_id'])
+        if value.get('exit_code') or value.get('mode') not in ('build', 'build-installer'):
+            print('Run ID: ' + record.data['run_id'])
         print('Details saved on this Mac: ' + str(record.root / 'result.json'))
     return value.get('exit_code', 1)
 

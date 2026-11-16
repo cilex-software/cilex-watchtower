@@ -22,7 +22,9 @@ param(
     [string]$BoothFlightRecorderPath = '',
     [string]$OfficeFlightRecorderPath = '',
     [ValidateRange(1,4)][int]$BuildJobs = 4,
-    [ValidateRange(120,3600)][int]$JobTimeoutSeconds = 1200
+    [ValidateRange(120,3600)][int]$JobTimeoutSeconds = 1200,
+    [ValidateSet('Yes','No')][string]$UpdateSource='Yes',
+    [ValidateSet('Ask','Yes','No')][string]$Rebuild='Ask'
 )
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'Run this script on the Windows Security Booth.' }
@@ -219,8 +221,9 @@ try {
     $environment=& $env:ComSpec /d /c ('"'+$vcvars+'" >nul 2>&1 && set')
     if($LASTEXITCODE-ne 0){throw 'MSVC environment setup failed.'}
     foreach($line in $environment){if($line-match '^([^=]+)=(.*)$'){[Environment]::SetEnvironmentVariable($matches[1],$matches[2],'Process')}};$environment=$null
-    $null=Native git @('-C',$Repository,'fetch','origin') 'fetch'
-    $commit=Native git @('-C',$Repository,'rev-parse',($SourceRef+'^{commit}')) 'source-revision';$summary.Commit=$commit
+    Import-Module (Join-Path $PSScriptRoot '../BuildState.psm1')
+    $buildPlan=Start-CilexBuild -Repository $Repository -BuildProfile 'windows-station' -Revision $SourceRef -Update $UpdateSource -Rebuild $Rebuild -Python $PythonPath -Snapshot No -Settings @{QtRoot=$QtRoot;GStreamerRoot=$GStreamerRoot;Configuration='RelWithDebInfo'}
+    $commit=$buildPlan.commit;$summary.Commit=$commit
     $null=Native git @('-C',$Repository,'worktree','add','--detach',$source,$commit) 'source-worktree'
     if(Native git @('-C',$source,'status','--porcelain') 'source-clean'){throw 'Build source is not clean.'}
     $startupSource=Get-Content -LiteralPath (Join-Path $source 'src\main.cpp') -Raw -Encoding UTF8
@@ -230,7 +233,8 @@ try {
     $version=[regex]::Match((Get-Content -LiteralPath (Join-Path $source 'CMakeLists.txt') -Raw),'VERSION\s+(\d+\.\d+\.\d+)').Groups[1].Value
     $wardenVersion=[regex]::Match((Get-Content -LiteralPath (Join-Path $source 'warden\warden.py') -Raw),'(?m)^WARDEN_VERSION\s*=\s*"([^"]+)"').Groups[1].Value
     if(-not $version-or -not $wardenVersion){throw 'Source version is missing.'};$summary.AppVersion=$version;$summary.WardenVersion=$wardenVersion
-    Write-Output ('Building Watchtower '+$version+' from '+$commit.Substring(0,8)+'.')
+    Write-Output ('Selected Watchtower version '+$version+' (committed source).')
+    if($buildPlan.build){
     Push-Location $source
     try{$null=Native cmake @('--preset','windows',('-DPKG_CONFIG_EXECUTABLE='+$PkgConfig.Replace('\','/'))) 'configure';$null=Native cmake @('--build','build-windows','--parallel',[string]$BuildJobs) 'build'}finally{Pop-Location}
     $exe=Join-Path $source 'build-windows\watchtower.exe';$pdb=Join-Path $source 'build-windows\watchtower.pdb';Need $exe;Need $pdb
@@ -244,6 +248,14 @@ try {
         $proof=Native $PythonPath @('-B',(Join-Path $PSScriptRoot 'verify-warden.py'),'--exe',$candidate,'--source',$wardenSource) 'warden-built-match'|ConvertFrom-Json
         if(-not $proof.matches){throw 'Built Warden does not match pinned source.'}
     }
+    }else{
+        $exe=$buildPlan.existing.metadata.exe;$pdb=$buildPlan.existing.metadata.pdb
+        $candidate=$buildPlan.existing.metadata.warden
+        $wardenSource=Join-Path $source 'warden\warden.py'
+        $proof=Native $PythonPath @('-B',(Join-Path $PSScriptRoot 'verify-warden.py'),'--exe',$candidate,'--source',$wardenSource) 'warden-cached-match'|ConvertFrom-Json
+        if(-not $proof.matches){throw 'Cached Warden does not match committed source.'}
+    }
+    $compiledCommit=if($buildPlan.build){$commit}else{$buildPlan.existing.commit}
     # Import comparisons refuse a runtime-library upgrade this app-only transaction cannot cover.
     $importScript=Join-Path $run 'check-imports.py'
     $python=@'
@@ -287,9 +299,13 @@ print(json.dumps({'added':added}));sys.exit(bool(added))
     $exeStatus=Status-Probe $candidate @('status') $wardenVersion
     $preflight=[ordered]@{Passed=$true;NativeSettingsIsolated=$startup.NativeSettingsIsolated;SHA256=(File-Hash $exe);Version=$version+'.0';WardenSourceStatusPassed=$sourceStatus;WardenExeStatusPassed=$exeStatus;WardenVersion=$wardenVersion;WardenSourceSHA256=(File-Hash $wardenSource);WardenExeSHA256=(File-Hash $candidate)}
     $preflightPath=Join-Path $run 'preflight.json';Save-Json $preflight $preflightPath
-    $base=[ordered]@{Commit=$commit;AppVersion=$version+'.0';AppPath=$exe;AppSHA256=(File-Hash $exe);PdbPath=$pdb;PdbSHA256=(File-Hash $pdb);WardenSourcePath=$wardenSource;WardenSourceSHA256=(File-Hash $wardenSource);WardenExePath=$candidate;WardenExeSHA256=(File-Hash $candidate);WardenVersion=$wardenVersion;WardenSourceMatchRecord=$proof;PreflightPath=$preflightPath;StartupMonitorPath=$monitorPath;StartupMonitorSHA256=(File-Hash $monitorPath)}
+    $base=[ordered]@{Commit=$compiledCommit;AppVersion=$version+'.0';AppPath=$exe;AppSHA256=(File-Hash $exe);PdbPath=$pdb;PdbSHA256=(File-Hash $pdb);WardenSourcePath=$wardenSource;WardenSourceSHA256=(File-Hash $wardenSource);WardenExePath=$candidate;WardenExeSHA256=(File-Hash $candidate);WardenVersion=$wardenVersion;WardenSourceMatchRecord=$proof;PreflightPath=$preflightPath;StartupMonitorPath=$monitorPath;StartupMonitorSHA256=(File-Hash $monitorPath)}
     Save-Json $base (Join-Path $run 'build-manifest.json')
     if(Native git @('-C',$source,'status','--porcelain') 'source-final-clean'){throw 'Build unexpectedly modified source.'}
+    if($buildPlan.build){
+        Complete-CilexBuild -Plan $buildPlan -Outputs @{binary=$exe;symbols=$pdb;warden=$candidate} -Metadata @{exe=$exe;pdb=$pdb;warden=$candidate}
+    }else{[IO.File]::Delete($buildPlan.PlanPath)}
+    Write-Output ('Binary: '+[IO.Path]::GetFullPath($exe))
     if($BuildOnly){$summary.Status='BuildVerified';Write-Output ('Build and checks passed: Watchtower '+$version+'. No installed files changed.');return}
     Write-Output 'Build and startup checks passed. Preparing station backups and updates.'
     if('Office'-in $Targets){

@@ -93,7 +93,11 @@ Assert 'offline source never called latest main' (-not $record.FetchedMain -and 
 Assert 'source checkout is detached' ((Git @('-C',$record.Path,'rev-parse','--abbrev-ref','HEAD')).StdOut.Trim() -eq 'HEAD')
 $run=Join-Path $WorkRoot 'dirty-run';$null=New-Item -ItemType Directory -Path $run;$ctx.RunDir=$run
 [IO.File]::WriteAllText((Join-Path $fixture 'user-note.txt'),'retain me',[Text.Encoding]::ASCII)
-Refuses 'dirty source refused' {Get-WtgSource -Context $ctx -SourceDirectory $fixture -SourceCommit $sha}
+[IO.File]::WriteAllText((Join-Path $fixture 'CMakeLists.txt'),'project(watchtower VERSION 0.0.0 LANGUAGES CXX)',[Text.Encoding]::ASCII)
+$record=Get-WtgSource -Context $ctx -SourceDirectory $fixture -SourceCommit $sha
+Assert 'local tracked edit excluded' ($record.Version -eq '9.8.7')
+Assert 'untracked source excluded' (-not (Test-Path -LiteralPath (Join-Path $record.Path 'user-note.txt')))
+Assert 'local tracked edit preserved' ([IO.File]::ReadAllText((Join-Path $fixture 'CMakeLists.txt')).Contains('0.0.0'))
 Assert 'user file preserved' ([IO.File]::ReadAllText((Join-Path $fixture 'user-note.txt')) -eq 'retain me')
 Assert 'fixture HEAD preserved' ((Git @('-C',$fixture,'rev-parse','HEAD')).StdOut.Trim() -eq $sha)
 $run=Join-Path $WorkRoot 'no-source';$null=New-Item -ItemType Directory -Path $run;$ctx.RunDir=$run

@@ -27,7 +27,38 @@ cd "$(dirname "$0")/../.."
 
 BUILD=build-macos
 PUBLISH=0
-[ "${1:-}" = "-Publish" ] && PUBLISH=1
+UPDATE=yes
+REBUILD=ask
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -Publish) PUBLISH=1; shift ;;
+    --update) UPDATE="$2"; shift 2 ;;
+    --rebuild) REBUILD="$2"; shift 2 ;;
+    *) echo "Unknown build option: $1" >&2; exit 1 ;;
+  esac
+done
+. packaging/build-state.sh
+publish_macos_build() {
+    local zip_path="$1" version="$2" commit="$3"
+    gh release delete macos-latest --yes 2>/dev/null || true
+    git push --delete origin macos-latest 2>/dev/null || true
+    gh release create macos-latest "$zip_path" --prerelease --target "$commit" \
+        --title "macOS rolling build $version" \
+        --notes "Local build of version $version. Unsigned, arm64-only; target needs Homebrew Qt, Qt Multimedia and GStreamer."
+    echo "==> published macos-latest ($version)"
+}
+cilex_build_prepare macos-thin "$(pwd)" --update "$UPDATE" --rebuild "$REBUILD"
+if [ "$CILEX_BUILD_ENABLED" != true ]; then
+  if [ "$PUBLISH" = 1 ]; then
+    CACHED_ZIP=$("$CILEX_BUILD_PYTHON" -c 'import json,sys;p=json.load(open(sys.argv[1]));print(next(r["path"] for r in p["existing"]["outputs"] if r["role"]=="archive"))' "$CILEX_BUILD_PLAN")
+    CACHED_VERSION=$("$CILEX_BUILD_PYTHON" -I -B "$CILEX_BUILD_GUARD" value --plan "$CILEX_BUILD_PLAN" --field version)
+    CACHED_COMMIT=$("$CILEX_BUILD_PYTHON" -c 'import json,sys;print(json.load(open(sys.argv[1]))["existing"]["commit"])' "$CILEX_BUILD_PLAN")
+    publish_macos_build "$CACHED_ZIP" "$CACHED_VERSION" "$CACHED_COMMIT"
+  fi
+  exit 0
+fi
+BUILD="$CILEX_BUILD_SOURCE/build-macos"
+cd "$CILEX_BUILD_SOURCE"
 
 [ "$(uname -m)" = "arm64" ] || { echo "FATAL: this script builds arm64 on Apple Silicon only"; exit 1; }
 
@@ -115,7 +146,7 @@ cp "$FFMPEG_BIN" "$APP/Contents/MacOS/ffmpeg"
 chmod +x "$APP/Contents/MacOS/ffmpeg"
 echo "== bundled ffmpeg $FFMPEG_VERSION (LGPL, $(du -h "$FFMPEG_BIN" | cut -f1)) =="
 
-VERSION=$(sed -n 's/^ *VERSION \([0-9.]*\) *$/\1/p' CMakeLists.txt | head -1)
+VERSION=$("$CILEX_BUILD_PYTHON" -I -B "$CILEX_BUILD_GUARD" value --plan "$CILEX_BUILD_PLAN" --field version)
 SHA=$(git rev-parse --short=8 HEAD)
 NAME="CilexWatchtower-$VERSION-macos-arm64"
 STAGE="$BUILD/dist/$NAME"
@@ -230,14 +261,10 @@ rm -f "$ZIP"
 echo "==> $ZIP  ($(du -h "$ZIP" | cut -f1 | tr -d ' '))"
 echo "    contents: watchtower.app + run-macos.sh + README.txt"
 echo "    target needs: Apple Silicon + brew qt, qtmultimedia, gstreamer"
+cilex_build_record --output binary "$APP/Contents/MacOS/watchtower" --output bundle "$APP" --output archive "$ZIP"
 
 if [ "$PUBLISH" = 1 ]; then
     # Rolling prerelease, same semantics windows-latest has: delete + recreate.
     # No CI exists to race against; the only publisher is whoever runs this.
-    gh release delete macos-latest --yes 2>/dev/null || true
-    git push --delete origin macos-latest 2>/dev/null || true
-    gh release create macos-latest "$ZIP" --prerelease \
-        --title "macOS rolling build $VERSION" \
-        --notes "Local build from $SHA. Unsigned, arm64-only; target needs \`brew install qt qtmultimedia gstreamer\` (see packaging/macos/README.md)."
-    echo "==> published macos-latest ($VERSION)"
+    publish_macos_build "$ZIP" "$VERSION" "$CILEX_BUILD_COMMIT"
 fi

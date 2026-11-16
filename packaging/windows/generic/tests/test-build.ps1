@@ -96,6 +96,8 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $bootstrapRoot 'packaging\windows\generic\README.md')) 'Detailed guide missing from standalone bootstrap.'
     Assert-True (Test-Path -LiteralPath (Join-Path $bootstrapRoot 'packaging\windows\generic\warden-launcher.cpp')) 'Native launcher source missing from bootstrap.'
     Assert-True (Test-Path -LiteralPath (Join-Path $bootstrapRoot 'packaging\windows\generic\tests\launcher-fixture.cpp')) 'Native launcher fixture missing from bootstrap.'
+    Assert-True (Test-Path -LiteralPath (Join-Path $bootstrapRoot 'packaging\windows\BuildState.psm1')) 'Build reuse wrapper missing from bootstrap.'
+    Assert-True (Test-Path -LiteralPath (Join-Path $bootstrapRoot 'packaging\build_state.py')) 'Committed-source/build reuse check missing from bootstrap.'
     $bootstrapManifest=Get-Content -LiteralPath (Join-Path $bootstrapRoot 'bootstrap-manifest.json') -Raw | ConvertFrom-Json
     foreach ($entry in $bootstrapManifest.files) {
         if ((Get-WtgSha256 (Join-Path $bootstrapRoot $entry.path)) -ne $entry.sha256) { throw 'Bootstrap content differs from its manifest.' }

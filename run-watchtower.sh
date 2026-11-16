@@ -54,9 +54,15 @@ if [[ ! -d "$QT/lib" ]]; then
 fi
 
 if [[ ! -x "$BUILD/watchtower" ]]; then
-    echo "watchtower missing in $BUILD — configuring + building against $QT …" >&2
-    cmake -S "$DIR" -B "$BUILD" -G Ninja -DCMAKE_PREFIX_PATH="$QT" -DCMAKE_BUILD_TYPE=Release
-    cmake --build "$BUILD" -j"$(nproc)"
+    echo "watchtower missing in $BUILD — checking committed source and existing builds …" >&2
+    BUILD_RESULT=$(mktemp -t cilex-linux-binary.XXXXXX)
+    trap 'rm -f "$BUILD_RESULT"' EXIT
+    WT_BUILD_RESULT="$BUILD_RESULT" WT_BUILD_DIR="$BUILD" WT_QT_PREFIX="$QT" "$DIR/packaging/linux/build-local.sh"
+    BINARY=$(cat "$BUILD_RESULT")
+    rm -f "$BUILD_RESULT"
+    trap - EXIT
+else
+    BINARY="$BUILD/watchtower"
 fi
 
 # Cap glibc malloc arenas. The app runs ~73 threads (≈8 GStreamer/Qt threads per live pipeline);
@@ -68,4 +74,4 @@ export LD_LIBRARY_PATH="$QT/lib:${LD_LIBRARY_PATH:-}"
 export QT_PLUGIN_PATH="$QT/plugins"
 export QML_IMPORT_PATH="$QT/qml"
 export QML2_IMPORT_PATH="$QT/qml"
-exec "$BUILD/watchtower" "$@"
+exec "$BINARY" "$@"

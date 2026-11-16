@@ -6,6 +6,24 @@ These instructions describe the current tools. A complete graphical setup
 wizard is planned, with [the requirements saved here](../../../docs/plans/2026-10-13-generic-windows-deployment-specification.md#17-graphical-wizard-and-office-installation-lessons).
 The current setup EXE has limited screens and still uses helper prompts.
 
+## Existing builds and local edits
+
+Builds use committed code only. Local source edits are listed and excluded;
+they are not automatically committed or stashed. New committed inputs are
+compared with previous successful builds. An intact matching package is shown
+by its full binary/package paths and reused unless you explicitly choose to
+rebuild. Rebuilding unchanged code requires confirmation that no new committed
+code will be added. Use `-Rebuild Yes` to accept this explicitly, `-Rebuild No`
+to avoid it, or the default `-Rebuild Ask` for the normal prompt. Noninteractive
+operation skips a matching build by default. Missing or changed output is never
+silently reused.
+
+Install and RemoteInstall still perform the installation you requested using
+the verified package. Skipping compilation does not cancel those explicit
+operations. Build-only modes do not install or restart Watchtower.
+
+See [shared build behavior](../../BUILDING.md) for all platform entry points.
+
 ## Before you start
 
 1. Download and extract the repository from GitHub, or use the complete deployment ZIP supplied to you. Keep its folders together; copying only the script will not work.

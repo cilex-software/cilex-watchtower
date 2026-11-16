@@ -23,7 +23,7 @@ from closure import (ClosureError, audit, contained, inventory, is_macho,
                      parse_macho, sha256, validate_bundle, version_tuple, is_system_load)
 import license_coverage
 
-HELPER_VERSION = '1.0.3'
+HELPER_VERSION = '1.0.4'
 GST_PLUGINS = ('coreelements','app','playback','typefindfunctions','rtsp','rtp',
                'rtpmanager','tcp','udp','videoparsersbad','videoconvertscale',
                'applemedia','isomp4','audioconvert','audioresample','volume')
@@ -244,6 +244,11 @@ def freeze_helpers(helper_root,dest):
         shutil.copyfile(entry,dest/'deploy-watchtower.sh');(dest/'deploy-watchtower.sh').chmod(0o755)
         files=[item for item in files if item['path']!='deploy-watchtower.sh']
         files.append({'path':'deploy-watchtower.sh','sha256':sha256(dest/'deploy-watchtower.sh')})
+    state=helper_root.parents[1]/'build_state.py'
+    if state.is_file():
+        shutil.copyfile(state,dest/'build_state.py')
+        files=[item for item in files if item['path']!='build_state.py']
+        files.append({'path':'build_state.py','sha256':sha256(dest/'build_state.py')})
     files.sort(key=lambda item:item['path'])
     if not (dest/'deploy.py').is_file(): raise BuildError('Frozen deployment controller is missing')
     import hashlib

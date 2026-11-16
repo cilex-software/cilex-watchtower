@@ -17,6 +17,8 @@ import time
 import urllib.parse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+import build_state
 from common import (DeployError, EXITS, VERSION, RunRecord, atomic_json, command,
                     digest, helper_hash, host_identity, private_dir, read_json,
                     redact, result, sha256, utc)
@@ -60,6 +62,7 @@ def parser():
     p.add_argument('--work-dir', default=str(Path.home() / 'Library/Application Support/CilexWatchtower/DeploymentRuns'))
     p.add_argument('--output-dir', default=str(Path.home() / 'Downloads/CilexInstallers'))
     p.add_argument('--jobs', type=int)
+    p.add_argument('--rebuild', choices=('ask', 'yes', 'no'), default='ask')
     p.add_argument('--language', choices=('auto', 'en', 'ru'), default='auto')
     p.add_argument('--accept-findings', default='')
     p.add_argument('--accept-licenses', choices=('yes', 'no'), default='no')
@@ -419,6 +422,11 @@ def execute(options):
         else:
             if options['package']:
                 package = package_root(options, record)
+                if options['mode'] == 'build-installer':
+                    options['helper_root'] = str(helper_source_root())
+                    packaged = read_json(package / 'artifact-manifest.json')
+                    print('Packaging existing compiled version '+packaged['version']+'. No source update or compilation is requested.', flush=True)
+                    print('Existing binary: '+str(package / 'watchtower.app/Contents/MacOS/watchtower'), flush=True)
             else:
                 import dependencies
                 space = build_space(options)
@@ -440,25 +448,54 @@ def execute(options):
                 tree, provenance = source.obtain(options, record.root, git=options['tools'].get('git', '/usr/bin/git'), log=record.root / 'source.log')
                 record.data['source_provenance_sha256'] = sha256(provenance_path)
                 record.save()
-                options['source'], options['helper_root'] = provenance, str(helper_source_root())
+                options['source'] = provenance
+                options['helper_root'] = options.get('helper_root') or str(tree / 'packaging/macos/generic')
+                if not (Path(options['helper_root']) / 'deploy.py').is_file():
+                    raise DeployError('source.helpers', 'Selected committed source lacks the packaging helpers.', 'source')
+                if provenance.get('uncommitted_changes'):
+                    raise DeployError('source.uncommitted', 'Build committed code only; local source edits are excluded.', 'source')
+                state_plan = options.get('_build_state_plan')
+                if not state_plan:
+                    version = re.search(r'project\s*\(\s*watchtower\s+VERSION\s+([0-9.]+)', (tree / 'CMakeLists.txt').read_text()).group(1)
+                    state_plan = build_state.prepare_pinned(
+                        provenance['tree_sha256'], provenance['commit'], version,
+                        'macos-package-' + options['mode'],
+                        {'development': options['development'], 'signing_identity': options.get('signing_identity'),
+                         'notary_profile': options.get('notary_profile')},
+                        rebuild=options.get('rebuild', 'ask'))
+                cached = state_plan['existing']['metadata'] if not state_plan['build'] else None
                 record.phase('build')
                 if options.get('quiet'):
-                    print('Compiling Watchtower and packaging its libraries. This can take several minutes.', flush=True)
-                built = build.build(tree, options, record.root)
+                    print('Using the existing verified build.' if cached else 'Compiling Watchtower and packaging its libraries. This can take several minutes.', flush=True)
+                if cached:
+                    value['build_reused'] = True
+                    built = dict(cached['built'])
+                    built['manifest'] = install.read_manifest(built['package_root'])
+                else:
+                    built = build.build(tree, options, record.root)
                 package = Path(built['package_root'])
                 options['package_sha256'] = built['sha256']
                 value['artifacts'] = {k: v for k, v in built.items() if k != 'manifest'}
-                value['source'] = provenance
+                value['source'] = built['manifest'].get('source', provenance) if cached else provenance
+                if cached: value['selected_source'] = provenance
                 value['versions'] = {'watchtower': built['manifest']['version'], 'warden': built['manifest']['warden_version']}
                 value['states']['installation'] = 'ArtifactBuilt'
                 record.phase('built', package=str(package), package_sha256=built['sha256'])
             if options['mode'] == 'build-installer':
                 if options.get('quiet'):
-                    print('Creating and checking the DMG.', flush=True)
-                value.setdefault('artifacts', {})['installer'] = build.build_installer(package, options, record.root)
+                    print('Using the existing verified DMG.' if not options['package'] and cached else 'Creating and checking the DMG.', flush=True)
+                value.setdefault('artifacts', {})['installer'] = cached['installer'] if not options['package'] and cached else build.build_installer(package, options, record.root)
                 if options.get('bootstrap', True):
                     value['artifacts']['bootstrap'] = build.build_bootstrap(package, options, record.root)
-            elif options['mode'] == 'install':
+            if not options['package'] and state_plan['build']:
+                outputs = [('binary', package / 'watchtower.app/Contents/MacOS/watchtower'),
+                           ('package', built['package']), ('bundle', package)]
+                if value.get('artifacts', {}).get('installer'):
+                    outputs.append(('installer', value['artifacts']['installer']['installer']))
+                build_state.record_success(state_plan, outputs, metadata={
+                    'built': {key: val for key, val in built.items() if key != 'manifest'},
+                    'installer': value.get('artifacts', {}).get('installer')})
+            if options['mode'] == 'install':
                 record.phase('install')
                 merge_result(value, install.run(options, {'package_root': str(package), 'package_sha256': options.get('package_sha256'), 'run_id': record.data['run_id']}))
                 if value['states']['installation'] == 'Installed' and not value.get('runtime_observation'):

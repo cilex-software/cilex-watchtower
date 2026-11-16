@@ -34,7 +34,8 @@ param(
     [switch]$AdoptExisting,[string]$LegacyTaskName,
     [switch]$ConsentUnattended,[string]$AutologonPath,
     [switch]$VerifyOnly,[string]$ResumeRunId,[switch]$ConfirmNoManualSignIn,
-    [switch]$DeferEnrollment
+    [switch]$DeferEnrollment,
+    [ValidateSet('Ask','Yes','No')][string]$Rebuild='Ask'
 )
 $ErrorActionPreference='Stop'
 if([Console]::IsOutputRedirected){[Console]::OutputEncoding=New-Object Text.UTF8Encoding $false}
@@ -188,16 +189,31 @@ try {
             $exitCode=12
             $source=Get-WtgSource -Context $context -GhToken $GhToken -SourceDirectory $SourceDirectory -SourceCommit $SourceCommit -SourceBundle $SourceBundle -SourceSha256 $SourceSha256
             $result.Source=$source
-            Import-Module (Join-Path $moduleRoot 'Build.psm1') -DisableNameChecking
-            Write-WtgMessage $context Building
+            # Package the helpers from the selected clean commit as well as the app.
+            Import-Module (Join-Path $source.Path 'packaging/windows/generic/Build.psm1') -DisableNameChecking -Force
+            Import-Module (Join-Path $PSScriptRoot 'BuildState.psm1')
+            $buildProfile=if($Mode -eq 'BuildInstaller'){'windows-generic-installer'}else{'windows-generic-package'}
+            $buildPlan=Start-CilexBuild -Repository $source.Path -BuildProfile $buildProfile -Revision $source.Commit -Update No -Rebuild $Rebuild -Python $context.Tools.Python -Git $context.Tools.Git -NonInteractive:$NonInteractive -Snapshot No -Settings @{SigningThumbprint=$SigningThumbprint;QtRoot=$context.Tools.QtRoot;GStreamerRoot=$context.Tools.GStreamerRoot}
             $exitCode=13
-            $artifact=Build-WtgArtifact -Context $context -Source $source
+            if($buildPlan.build){
+                Write-WtgMessage $context Building
+                $artifact=Build-WtgArtifact -Context $context -Source $source
+            }else{
+                Write-Host 'Using the existing verified package. No compilation will run.'
+                $artifact=$buildPlan.existing.metadata.build
+                $null=Test-WtgArtifact $artifact.PackagePath
+            }
             $result.Build=$artifact;$PackagePath=$artifact.PackagePath
             $context.PackageManifestSha256=Get-WtgSha256 (Join-Path $PackagePath 'manifest.json')
             if($Mode -eq 'BuildInstaller'){
-                Write-WtgMessage $context Packaging
-                $result.Installer=New-WtgInstaller -Context $context -PackagePath $PackagePath
+                if($buildPlan.build){Write-WtgMessage $context Packaging}
+                $result.Installer=if($buildPlan.build){New-WtgInstaller -Context $context -PackagePath $PackagePath}else{$buildPlan.existing.metadata.installer}
             }
+            if($buildPlan.build){
+                $outputs=@{binary=(Join-Path $PackagePath 'payload/watchtower.exe');package=$PackagePath}
+                if($result.Installer){$outputs.installer=$result.Installer.Path}
+                Complete-CilexBuild -Plan $buildPlan -Outputs $outputs -Metadata @{build=$artifact;installer=$result.Installer}
+            }else{[IO.File]::Delete($buildPlan.PlanPath)}
         }
         if($Mode -in @('Install','RemoteInstall')){
             Write-WtgMessage $context Installing

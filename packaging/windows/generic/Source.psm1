@@ -135,7 +135,10 @@ function Get-WtgSource {
             $sourceInput=[IO.Path]::GetFullPath($SourceDirectory)
             if(-not (Test-Path -LiteralPath $sourceInput -PathType Container)){throw 'Supplied source directory is missing.'}
             $dirty=Invoke-WtgGit $Context $session @('-C',$sourceInput,'status','--porcelain','--untracked-files=normal') 'source-input-status'
-            if($dirty.StdOut.Trim()){throw 'Supplied source checkout has uncommitted changes. Use a clean checkout or Git bundle.'}
+            if($dirty.StdOut.Trim()){
+                Write-Host 'Local changes are present and EXCLUDED. Only the committed source will be bundled:'
+                Write-Host $dirty.StdOut.Trim()
+            }else{Write-Host 'Local changes: none. Building committed code only.'}
             $head=Invoke-WtgGit $Context $session @('-C',$sourceInput,'rev-parse','HEAD') 'source-input-head'
             if($head.StdOut.Trim() -ne $SourceCommit){throw 'Supplied source HEAD differs from SourceCommit.'}
             $bundle=Join-Path $Context.RunDir 'provided-source.bundle'
@@ -190,6 +193,7 @@ function Get-WtgSource {
         $version=[regex]::Match([IO.File]::ReadAllText($cmake),'(?s)project\(watchtower\s+VERSION\s+(\d+\.\d+\.\d+)')
         if(-not $version.Success){throw 'Watchtower version is missing from the selected source.'}
         $record=[pscustomobject]@{Path=$source;Commit=$commit;Tag=$Context.Tag;Repository=$Context.Repository;Version=$version.Groups[1].Value;FetchedMain=([bool](-not $Context.Tag -and -not ($SourceDirectory -or $SourceBundle)));Offline=$offline}
+        if($record.FetchedMain){Write-Host 'Remote main was fetched successfully; comparing it with existing successful builds.'}
         Write-WtgJson -Path (Join-Path $Context.RunDir 'source.json') -Value $record
         return $record
     }finally{

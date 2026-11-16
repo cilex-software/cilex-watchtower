@@ -28,17 +28,31 @@ param(
     [switch]$Publish,
     [string]$QtRoot  = "C:\Qt\6.12.0\msvc2022_64",
     [string]$GstRoot = "C:\gstreamer\1.0\msvc_x86_64",
-    [string]$Tag     = "windows-latest"
+    [string]$Tag     = "windows-latest",
+    [ValidateSet('Yes','No')][string]$UpdateSource='Yes',
+    [ValidateSet('Ask','Yes','No')][string]$Rebuild='Ask'
 )
 $ErrorActionPreference = "Stop"
-$repo = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-Set-Location $repo
-
-# Pristine-tree guard (same safety property as the team script): artifacts must
-# describe a COMMIT, never a dirty working tree.
-$dirty = git status --porcelain
-if ($dirty) { throw "working tree is dirty - commit or stash first (artifacts must map to a sha)" }
-$sha = (git rev-parse --short HEAD).Trim()
+$repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+Import-Module (Join-Path $PSScriptRoot 'BuildState.psm1')
+function Publish-CilexWindowsBuild($Installer,$Portable,$Symbols,[string]$Commit,[string]$Version){
+    gh release delete $Tag --yes --cleanup-tag 2>$null
+    gh release create $Tag $Installer $Portable $Symbols --prerelease --target $Commit `
+        --title "Windows local build $Version" `
+        --notes "Built locally by packaging/windows/build-local.ps1 from committed source (Actions-free path)."
+    if($LASTEXITCODE -ne 0){throw 'Release publication failed.'}
+    Write-Host "==> Published. Verify: gh release view $Tag"
+}
+$plan=Start-CilexBuild -Repository $repo -BuildProfile 'windows-local' -Update $UpdateSource -Rebuild $Rebuild -Settings @{QtRoot=$QtRoot;GstRoot=$GstRoot;Configuration='RelWithDebInfo'}
+if(-not $plan.build){
+    if($Publish){
+        Set-Location $repo
+        $paths=@{};foreach($row in $plan.existing.outputs){$paths[$row.role]=$row.path}
+        Publish-CilexWindowsBuild $paths.installer $paths.archive $paths.symbols $plan.existing.commit $plan.version
+    }
+    [IO.File]::Delete($plan.PlanPath);return
+}
+Set-Location $plan.source
 
 # MSVC env (vcvars) if not already in a developer shell.
 if (-not $env:VCToolsInstallDir) {
@@ -53,18 +67,22 @@ $env:QT_ROOT_DIR = $QtRoot
 $env:GSTREAMER_ROOT = $GstRoot
 $env:PKG_CONFIG_PATH = Join-Path $GstRoot "lib\pkgconfig"
 
-Write-Host "==> Configure + build ($sha, RelWithDebInfo)"
+Write-Host "==> Configure + build (version $($plan.version), RelWithDebInfo)"
 cmake --preset windows
+if($LASTEXITCODE -ne 0){throw 'CMake configure failed.'}
 cmake --build build-windows
+if($LASTEXITCODE -ne 0){throw 'Compilation failed.'}
 
 Write-Host "==> Deploy runtime (windeployqt + GStreamer subset)"
 pwsh packaging/windows/deploy.ps1 `
     -ExePath (Resolve-Path build-windows/watchtower.exe).Path `
     -QmlDir (Resolve-Path qml).Path `
     -GstRuntime $env:GSTREAMER_ROOT
+if($LASTEXITCODE -ne 0){throw 'Runtime packaging failed.'}
 
 Write-Host "==> warden.exe (CW-16)"
-pwsh packaging/windows/build-warden.ps1 -Dist build-windows/dist
+pwsh packaging/windows/build-warden.ps1 -Dist build-windows/dist -UpdateSource No -Rebuild $Rebuild
+if($LASTEXITCODE -ne 0){throw 'Warden build failed.'}
 
 Write-Host "==> Stage watchtower.pdb (CW-17 - a dump without its PDB is garbage)"
 $pdb = Get-ChildItem build-windows -Filter watchtower.pdb -Recurse | Select-Object -First 1
@@ -74,26 +92,23 @@ Copy-Item $pdb.FullName watchtower.pdb -Force
 Write-Host "==> Installer (NSIS)"
 Push-Location packaging/windows
 makensis installer.nsi
+if($LASTEXITCODE -ne 0){throw 'Installer build failed.'}
 Pop-Location
 
 Compress-Archive -Path build-windows/dist/* -DestinationPath watchtower-windows-portable.zip -Force
 Compress-Archive -Path watchtower.pdb -DestinationPath watchtower-pdb.zip -Force
-$installer = Get-ChildItem packaging/windows/CilexWatchtower-*-setup.exe | Select-Object -First 1
+$installer = Get-Item -LiteralPath (Join-Path 'packaging/windows' ('CilexWatchtower-'+$plan.version+'-setup.exe'))
+Complete-CilexBuild -Plan $plan -Outputs @{binary=(Join-Path $plan.source 'build-windows/dist/watchtower.exe');installer=$installer.FullName;archive=(Join-Path $plan.source 'watchtower-windows-portable.zip');symbols=(Join-Path $plan.source 'watchtower-pdb.zip')}
 
 Write-Host ""
-Write-Host "==> Built from ${sha}:"
+Write-Host "==> Built version $($plan.version):"
 Write-Host "    $($installer.FullName)"
-Write-Host "    watchtower-windows-portable.zip  (incl. warden\warden.exe)"
-Write-Host "    watchtower-pdb.zip"
+Write-Host "    $([IO.Path]::GetFullPath('watchtower-windows-portable.zip'))"
+Write-Host "    $([IO.Path]::GetFullPath('watchtower-pdb.zip'))"
 
 if ($Publish) {
     # Same shape as CI's rolling release: delete + recreate the tag with all
     # three assets. gh only needs `repo` scope; zero Actions involvement.
     Write-Host "==> Publishing to release '$Tag'"
-    gh release delete $Tag --yes --cleanup-tag 2>$null
-    gh release create $Tag $installer.FullName watchtower-windows-portable.zip watchtower-pdb.zip `
-        --prerelease --target (git rev-parse HEAD) `
-        --title "Windows local build ($sha)" `
-        --notes "Built locally by packaging/windows/build-local.ps1 from $sha (Actions-free path)."
-    Write-Host "==> Published. Verify: gh release view $Tag"
+    Publish-CilexWindowsBuild $installer.FullName ([IO.Path]::GetFullPath('watchtower-windows-portable.zip')) ([IO.Path]::GetFullPath('watchtower-pdb.zip')) $plan.commit $plan.version
 }

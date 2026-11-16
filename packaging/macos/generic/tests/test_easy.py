@@ -17,6 +17,12 @@ from common import DeployError
 
 
 class EasyTests(unittest.TestCase):
+    def test_reused_build_does_not_claim_a_new_installer_was_created(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            easy.show_outcome({'mode': 'build-installer', 'exit_code': 0, 'build_reused': True}, None)
+        self.assertIn('Nothing was recompiled', output.getvalue())
+        self.assertNotIn('Installer created', output.getvalue())
+
     def test_remote_needs_only_host_and_username(self):
         args = easy.parser('install-remote').parse_args(['--host', 'office.local', '--user', 'operator'])
         self.assertEqual(args.port, 22)
