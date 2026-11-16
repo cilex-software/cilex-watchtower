@@ -1,5 +1,17 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-17 — Booth rebuilt and relaunched under Warden.**
+> GitHub access was restored and origin now names `cilex-software/cilex-watchtower`.
+> Upstream had reached 1.1.805; the four completed local repairs were retained
+> and renumbered to 1.1.806–809. The Booth now runs **1.1.809 / 6f0cff76** with
+> unchanged Warden **1.5.0**, operator sign-in and the selected **Улица** view.
+> Fresh Windows compilation, private startup, group regressions and all eight
+> Health UI configurations passed. Deployment verified one supervised app for
+> **155 seconds**, **20 advancing feeds** and **zero stream errors**. The existing
+> recovery task is enabled/running; settings, Warden files and Labs control were
+> preserved. The build remains unsigned; no security settings or reboot changed.
+> [Build, acceptance and limits](verification/2026-11-17-booth-latest-build/README.md).
+
 > **2026-11-16 — Health table column filters implemented and screenshot-verified.**
 > Camera, Group, Live, Recording and Recent issue headers open native checklist
 > popups with cascading counts, search/Enter, tri-state Select all, Only and
