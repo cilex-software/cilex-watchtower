@@ -23,7 +23,7 @@ from closure import (ClosureError, audit, contained, inventory, is_macho,
                      parse_macho, sha256, validate_bundle, version_tuple, is_system_load)
 import license_coverage
 
-HELPER_VERSION = '1.0.6'
+HELPER_VERSION = '1.0.7'
 GST_PLUGINS = ('coreelements','app','playback','typefindfunctions','rtsp','rtp',
                'rtpmanager','tcp','udp','videoparsersbad','videoconvertscale',
                'applemedia','isomp4','audioconvert','audioresample','volume')
@@ -272,21 +272,25 @@ def sign_bundle(app,identity,env,logs,name,entitlements=None):
     run(args+[app],app.parent,env,logs,name+'-outer',120)
     run(['/usr/bin/codesign','--verify','--deep','--strict',app],app.parent,env,logs,name+'-verify',120)
 
-def freeze_setup(package, work, pyi, tools, env, logs, target):
+def freeze_setup(package, work, pyi, tools, env, logs, target, entry='deploy.py'):
     # Use PyInstaller's BUNDLE layout transform even with its console bootloader.
     # A hand-moved onedir executable detects .app and expects Contents/Frameworks;
     # BUNDLE also safely relocates dotted Python directories for code signing.
+    if entry not in ('deploy.py', 'recovery.py'):
+        raise BuildError('Unknown frozen helper entry point')
     helpers=package/'helpers';spec=pyi/'cilex-setup.spec'
-    metadata=dict(CFBundleName='Cilex Watchtower Setup',CFBundleVersion=HELPER_VERSION,
+    name = 'Cilex Watchtower Recovery' if entry == 'recovery.py' else 'Cilex Watchtower Setup'
+    identifier = 'com.cilexvision.watchtower.recovery' if entry == 'recovery.py' else 'com.cilexvision.watchtower.setup'
+    metadata=dict(CFBundleName=name,CFBundleVersion=HELPER_VERSION,
                   CFBundleShortVersionString=HELPER_VERSION,LSMinimumSystemVersion=target,
                   LSBackgroundOnly=False)
     datas=[(str(helpers/name),name) for name in ('manifests','i18n')]+[(str(helpers/'git-askpass.sh'),'.')]
-    spec.write_text('a = Analysis('+repr([str(helpers/'deploy.py')])+', pathex='+repr([str(helpers)])+
+    spec.write_text('a = Analysis('+repr([str(helpers/entry)])+', pathex='+repr([str(helpers)])+
         ', datas='+repr(datas)+", hiddenimports=['dependencies', 'runtime'])\n"+
         'pyz = PYZ(a.pure)\n'+
         "exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='cilex-setup', console=True, target_arch='arm64', strip=False, upx=False)\n"+
         "coll = COLLECT(exe, a.binaries, a.datas, name='cilex-setup', strip=False, upx=False)\n"+
-        "app = BUNDLE(coll, name='Setup.app', bundle_identifier='com.cilexvision.watchtower.setup', version="+repr(HELPER_VERSION)+', info_plist='+repr(metadata)+')\n')
+        "app = BUNDLE(coll, name='Setup.app', bundle_identifier="+repr(identifier)+", version="+repr(HELPER_VERSION)+', info_plist='+repr(metadata)+')\n')
     run([tools['python'],'-I','-m','PyInstaller','--noconfirm','--clean',
          '--distpath',pyi/'setup-dist','--workpath',pyi/'setup-work',spec],work,env,logs,'setup-freeze',1800)
     setup=package/'Setup.app';copy_tree(pyi/'setup-dist/Setup.app',setup)

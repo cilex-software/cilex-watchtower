@@ -38,6 +38,7 @@ class FinderUpdateTests(unittest.TestCase):
         self.lock = mock.patch.object(first_launch, 'launch_lock', side_effect=lambda _: contextlib.nullcontext()).start()
         self.prepare = mock.patch.object(update, 'update_options', return_value={
             'allow_development': True, '_finder_update': True}).start()
+        self.recovery = mock.patch.object(update, 'recover_interrupted', return_value=False).start()
         self.package = mock.patch.object(update, 'package_from_volume',
             side_effect=lambda _: contextlib.nullcontext(self.volume / '.deployment')).start()
         self.run = mock.patch.object(install, 'run', return_value={'installation': 'Installed'}).start()
@@ -56,6 +57,13 @@ class FinderUpdateTests(unittest.TestCase):
         message = self.ui.call_args.args[0]
         for part in ('1.0.0', '1.2.3', str(self.target['path']), 'stop Warden', 'unsigned internal'):
             self.assertIn(part, message)
+
+    def test_interrupted_update_is_handled_before_a_new_replacement(self):
+        self.recovery.return_value = True
+        self.assertEqual(update.update(self.volume), 0)
+        self.prepare.assert_not_called()
+        self.run.assert_not_called()
+        self.package.assert_not_called()
 
     def test_confirm_runs_transaction_before_restart_and_activation(self):
         order = []

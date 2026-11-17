@@ -1,5 +1,22 @@
 # Cilex Watchtower — Project Status
 
+> **2026-11-17 — Update launchd handoff and protected graphical recovery hardened.**
+> The owner's update installed 1.1.814, failed at launchctl startup and retained
+> the verified 1.1.803 backup after a rollback PID-identity rejection. Later native
+> checks show the job absent; a teardown/startup race is consistent with this,
+> but the old wrapper discarded the rejection text, preventing a unique diagnosis.
+> Helper 1.0.7 waits for job removal, bounds transient bootstrap retries, waits
+> out stale/launcher PIDs without signalling unknown processes, and retains real
+> redacted command diagnostics. GUI-domain query errors no longer imply absence.
+> Interrupted updates offer restoration through the original protected transaction.
+> A standalone signed/closure-checked recovery app is available in Downloads;
+> its real native prompt correctly names 1.1.803 and Cancel leaves the journal
+> and both versions unchanged. Both helpers compile and pass signature checks.
+> Fixtures run 391 cases: 390 pass, one APFS skip, with the documented account
+> fixture/native-preferences limitation. Native Restore/update acceptance remains
+> pending; no installed app/service was changed and no fresh DMG was built.
+> [Observed failure, recovery artifact and verification](verification/2026-11-17-macos-update-launchd/README.md).
+
 > **2026-11-17 — DMG updater selects the Warden-managed app among older copies.**
 > Read-only inspection found the running 1.1.803 app in shared Applications and
 > an inactive 1.1.800 copy in the user's Applications folder. Helper 1.0.5 rejected

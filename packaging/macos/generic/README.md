@@ -101,6 +101,17 @@ Opening the DMG only opens a Finder window. It does not run the updater or stop
 Warden. Double-click its app, then click **Update** to begin the service stop and
 replacement. **Cancel** keeps Watchtower running.
 
+If an earlier update failed, a new installer built with helper **1.0.7** offers
+**Restore Previous Version** before attempting another update. Click it to put
+back the verified old app, settings and startup state. The failed new app is kept
+for inspection. After restoration, open the app inside the DMG again to retry
+**Update**. Cancel leaves both versions and the recovery record unchanged.
+
+The installer waits for launchd to remove Warden's job before replacing the app.
+If launchd is still finishing teardown, startup retries are limited to 30 seconds.
+A failure message includes the actual operation, exit code and macOS error text;
+the recovery record retains that diagnostic too.
+
 **For scripted installation only:** `./packaging/macos/install-local.sh` still
 installs both programs into **your home folder → Applications → watchtower.app**.
 The remote command below uses that same per-account location. The ordinary drag

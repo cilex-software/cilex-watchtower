@@ -35,9 +35,9 @@ def text(en, ru):
     return ru if language() == 'ru' else en
 
 
-def dialog(message, confirm=False):
+def dialog(message, confirm=False, action=None):
     # Arguments are data, including paths and button labels; no script interpolation.
-    button = text('Update', 'Обновить') if confirm else 'OK'
+    button = (action or text('Update', 'Обновить')) if confirm else 'OK'
     script = '''function run(a) {
       var app=Application.currentApplication(); app.includeStandardAdditions=true;
       try { return app.displayDialog(a[0], {withTitle:'Cilex Watchtower',
@@ -175,6 +175,92 @@ def package_from_volume(volume):
         yield package
 
 
+def interrupted_update(target):
+    """Read the owned journal; a new DMG must not bypass an unfinished update."""
+    paths = sorted(target['support'].glob('*.json'))
+    if len(paths) > 1000:
+        raise ValueError('Too many installation records; inspect them before recovery.')
+    unfinished = []
+    for path in paths:
+        if path.name in ('receipt.json', 'uninstall-result.json'):
+            continue
+        record = install.checked_private_file(path)
+        if record.stat().st_size > 8 * 1024**2:
+            raise ValueError('An installation record is too large to inspect safely.')
+        state = json.loads(record.read_text())
+        expected = {'schema_version': install.SCHEMA, 'installation_id': target['id'],
+                    'target_uid': target['uid'], 'install_dir': str(target['path']), 'run_id': path.stem}
+        if any(state.get(key) != value for key, value in expected.items()):
+            raise ValueError('An installation record has a different identity; no recovery was attempted.')
+        if state.get('phase') not in ('installed', 'rolled_back_runtime_unverified', 'uninstalled'):
+            unfinished.append((record, state))
+    if not unfinished:
+        return None
+    if len(unfinished) != 1:
+        raise ValueError('Several interrupted operations need inspection; no recovery was attempted.')
+    return unfinished[0]
+
+
+def recover_interrupted(target):
+    """Offer restoration through the original bound transaction, never a blind copy."""
+    found = interrupted_update(target)
+    if found is None:
+        return False
+    record, state = found
+    manifest = state.get('previous_manifest', {})
+    if not state.get('previous_application') or manifest.get('app') != 'watchtower.app':
+        raise ValueError('The interrupted operation has no identified previous app to restore.')
+    staging = Path(state.get('staging', ''))
+    if (staging.parent != target['path'].parent or not staging.name.startswith('.cilex-deploy-')
+            or staging.is_symlink() or not staging.is_dir()
+            or staging.stat().st_uid != target['uid'] or staging.stat().st_mode & 0o077):
+        raise ValueError('The recovery folder is not the protected folder recorded for this app.')
+    previous = staging / 'previous.app'
+    if previous.is_symlink() or not previous.is_dir() or install.app_fingerprint(previous) != state.get('previous_app_sha256'):
+        raise ValueError('The previous app backup does not match its recorded fingerprint.')
+    options = update_options(target, manifest)
+    options['resume'] = state['run_id']
+    if install.digest(install.requested_transaction(options)) != state.get('options_sha256'):
+        raise ValueError('The interrupted update used different options; preserve its record for inspection.')
+    with (previous / 'Contents/Info.plist').open('rb') as stream:
+        version = plistlib.load(stream).get('CFBundleShortVersionString', '?')
+    message = text(
+        'The previous update did not finish. Restore Cilex Watchtower {version} and its previous startup state?\n\n{path}\n\nYour settings will be restored from this update’s protected backup. The failed replacement will be kept for inspection.',
+        'Предыдущее обновление не завершено. Восстановить Cilex Watchtower {version} и прежнее состояние запуска?\n\n{path}\n\nНастройки будут восстановлены из защищённой копии этой операции. Неудачная новая версия останется для проверки.').format(version=version, path=target['path'])
+    if not dialog(message, confirm=True, action=text('Restore Previous Version', 'Восстановить прежнюю версию')):
+        return True
+    # The engine binds recovery to the original replacement fingerprint/package,
+    # even when this helper came from a newer DMG. Retain both versions on disk.
+    candidates = [target['path'], staging / 'failed.app'] + sorted(staging.glob('interrupted-replacement-*.app'))
+    if len(candidates) > 34:
+        raise ValueError('Too many retained replacements; inspect the recovery folder before retrying.')
+    replacement = next((path for path in candidates if not path.is_symlink() and path.is_dir()
+                        and install.app_fingerprint(path) == state.get('replacement_app_sha256')), None)
+    if replacement is None:
+        raise ValueError('The recorded replacement cannot be identified for safe recovery.')
+    with tempfile.TemporaryDirectory(prefix='cilex-recovery-') as temp:
+        package = Path(temp).resolve()
+        shutil.copytree(replacement, package / manifest['app'], symlinks=True)
+        install.execute(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(previous)], timeout=120)
+        admission = install.security_check(package, manifest, options)
+        with install.installation_lock(target):
+            install.assert_authorized(target, options)
+            if install.digest(json.loads(install.checked_private_file(record).read_text())) != install.digest(state):
+                raise ValueError('The recovery record changed while the dialog was open; retry recovery.')
+            install.reject_other_incomplete_transactions(target, state['run_id'])
+            result = install.reconcile_transaction(target, manifest, options, {
+                'run_id': state['run_id'], 'package_sha256': state.get('package_sha256'),
+                'package_root': str(package), 'security_admission': admission}, record)
+    if not result or result.get('rollback') != 'FilesAndProcessStateRestored_RuntimeUnverified':
+        failure = (result or {}).get('rollback_failure') or (result or {}).get('reason') or 'Recovery did not finish.'
+        raise ValueError(str(failure) + '\nDetails: ' + str(record))
+    if state['before']['loaded'] and state.get('previous_processes'):
+        first_launch.activate(target)
+    dialog(text('The previous Watchtower version and startup state were restored. Open the app inside the DMG again when you want to retry Update.',
+                'Прежняя версия Watchtower и состояние запуска восстановлены. Для повторного обновления снова откройте приложение внутри DMG.'))
+    return True
+
+
 def update(volume):
     target = installed_target()
     if target is None:
@@ -183,6 +269,8 @@ def update(volume):
         return 0
     # Share the normal Finder-launch lock, including consent and final activation.
     with first_launch.launch_lock(target):
+        if recover_interrupted(target):
+            return 0
         manifest = json.loads((volume / '.deployment/artifact-manifest.json').read_text())
         options = update_options(target, manifest)
         with (target['path'] / 'Contents/Info.plist').open('rb') as stream:

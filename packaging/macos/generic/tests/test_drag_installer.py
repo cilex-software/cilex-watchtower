@@ -287,7 +287,11 @@ class ServiceHandoffTests(unittest.TestCase):
         self.state = {'loaded': True, 'pid': 42, 'disabled': False}
         self.jobs = mock.patch.object(install, 'job_state', return_value=self.state).start()
         self.identity = mock.patch.object(install, 'assert_job_process').start()
-        self.commands = mock.patch.object(install, 'execute').start()
+        def command(argv, **kwargs):
+            if argv[1] == 'bootout':
+                self.state.update(loaded=False, pid=None)
+            return types.SimpleNamespace(returncode=0, stdout='', stderr='')
+        self.commands = mock.patch.object(install, 'execute', side_effect=command).start()
         self.wait_patch = mock.patch.object(launch, 'wait_user_processes')
         self.wait = self.wait_patch.start()
         self.addCleanup(mock.patch.stopall)
@@ -308,7 +312,7 @@ class ServiceHandoffTests(unittest.TestCase):
     def test_unloaded_service_is_bootstrapped(self):
         self.state.update(loaded=False, pid=None)
         launch.start_service(self.target)
-        self.commands.assert_called_once_with(['/bin/launchctl', 'bootstrap', 'gui/501', '/fixture/agent.plist'])
+        self.commands.assert_called_once_with(['/bin/launchctl', 'bootstrap', 'gui/501', '/fixture/agent.plist'], check=False)
 
     def test_foreign_loaded_job_is_not_enabled_started_or_stopped(self):
         self.identity.side_effect = ValueError('fixture identity mismatch')

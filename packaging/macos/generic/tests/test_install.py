@@ -25,6 +25,12 @@ class InstallerTests(unittest.TestCase):
         self.root = Path(self.temporary.name).resolve()
         self.preference_cache = mock.patch.object(install, "preferences_cache", return_value={}).start()
         self.registration = mock.patch.object(install, "registration_snapshot", return_value={"state": "Absent", "bundle_identifier": None, "application_path": None}).start()
+        # Transaction fixtures model settled launchd operations. Teardown/start
+        # transitions themselves are exercised by test_launchd_lifecycle.py.
+        mock.patch.object(install, 'wait_job_unloaded').start()
+        mock.patch.object(install, 'settled_job_state', side_effect=lambda t, m: install.job_state(t)).start()
+        mock.patch.object(install, 'bootstrap_job', side_effect=lambda t, m:
+                          install.execute(['/bin/launchctl', 'bootstrap', t['domain'], str(t['agent'])])).start()
         self.addCleanup(mock.patch.stopall)
 
     def tearDown(self):

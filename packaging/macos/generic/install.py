@@ -57,7 +57,7 @@ _RU = {
 
 
 class InstallError(DeployError):
-    def __init__(self, finding, message):
+    def __init__(self, finding, message, details=None):
         category = finding.split(".", 1)[0]
         code = {"package": "integrity", "archive": "integrity", "bundle": "integrity",
                 "security": "security", "authorization": "authorization", "runtime": "verification",
@@ -68,11 +68,11 @@ class InstallError(DeployError):
                 ru = "Проверка целостности или безопасности не пройдена (" + finding + "); установка остановлена. Получите корректный пакет и повторите проверку."
             else:
                 ru = "Операция не выполнена (" + finding + "); успешный результат не подтверждён. Проверьте права, состояние установки и сохранённые свидетельства."
-        super().__init__(finding, message, code=code, ru=ru)
+        super().__init__(finding, message, code=code, ru=ru, details=details)
 
 
-def fail(finding, message):
-    raise InstallError(finding, message)
+def fail(finding, message, details=None):
+    raise InstallError(finding, message, details=details)
 
 
 def sha256(path):
@@ -318,8 +318,27 @@ def execute(argv, timeout=30, check=True):
     except (OSError, subprocess.TimeoutExpired) as error:
         fail("command.failed", "Required local operation failed: " + Path(argv[0]).name + " (" + type(error).__name__ + ")")
     if check and result.returncode:
-        fail("command.failed", "Required local operation failed: " + Path(argv[0]).name + "; inspect protected diagnostics.")
+        raise command_failure(argv, result)
     return result
+
+
+def command_failure(argv, reply):
+    from common import redact
+    operation = ' '.join(str(part) for part in argv[:2]) if Path(argv[0]).name == 'launchctl' else Path(argv[0]).name
+    diagnostic = redact(getattr(reply, 'stderr', '').strip())[-2048:]
+    message = 'Required local operation failed: ' + operation + ' (exit ' + str(reply.returncode) + ').'
+    if diagnostic:
+        message += '\n' + diagnostic
+    return InstallError('command.failed', message, details={
+        'program': Path(argv[0]).name, 'operation': str(argv[1]) if len(argv) > 1 else '',
+        'exit': reply.returncode, 'diagnostic': diagnostic})
+
+
+def failure_record(error, fallback):
+    value = {'finding': getattr(error, 'finding', fallback), 'message': str(error)}
+    if getattr(error, 'details', None):
+        value['details'] = error.details
+    return value
 
 
 def version_tuple(value):
@@ -605,12 +624,73 @@ def selected_processes(target, manifest):
 def job_state(target):
     service = target["domain"] + "/" + target["label"]
     live = execute(["/bin/launchctl", "print", service], check=False)
+    domain = execute(["/bin/launchctl", "print", target["domain"]], check=False)
+    # An inaccessible GUI domain is unknown, not an unloaded/disabled job.
+    if domain.returncode:
+        raise command_failure(['/bin/launchctl', 'print', target['domain']], domain)
     disabled = execute(["/bin/launchctl", "print-disabled", target["domain"]], check=False)
+    if disabled.returncode:
+        raise command_failure(['/bin/launchctl', 'print-disabled', target['domain']], disabled)
+    if live.returncode and 'Could not find service' not in getattr(live, 'stderr', ''):
+        raise command_failure(['/bin/launchctl', 'print', service], live)
     match = re.search(r'"' + re.escape(target["label"]) + r'"\s*=>\s*(true|false)', disabled.stdout)
     pid = re.search(r"^\s*pid = (\d+)\s*$", live.stdout, re.MULTILINE)
     return {"loaded": live.returncode == 0, "disabled": match.group(1) == "true" if match else False,
             "disabled_explicit": bool(match), "pid": int(pid.group(1)) if pid else None,
-            "gui_session": execute(["/bin/launchctl", "print", target["domain"]], check=False).returncode == 0}
+            "gui_session": True}
+
+
+def wait_job_unloaded(target, timeout=30):
+    """Process exit alone does not prove launchd has released the job label."""
+    deadline = time.monotonic() + timeout
+    while job_state(target)['loaded']:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            fail('startup.unload_timeout', 'Warden processes exited, but launchd has not removed the selected job. The app was not replaced; wait before retrying.')
+        time.sleep(min(.2, remaining))
+
+
+def settled_job_state(target, manifest, timeout=10):
+    """Wait out a stale PID or the owned env launcher; never stop an unknown PID."""
+    deadline = time.monotonic() + timeout
+    while True:
+        state = job_state(target)
+        if not state['loaded'] or not state.get('pid'):
+            return state
+        rows = [row for row in process_snapshot() if row['pid'] == state['pid']]
+        pending = not rows or (len(rows) == 1 and rows[0]['uid'] == target['uid']
+                               and rows[0]['ppid'] == 1 and rows[0]['path'] == '/usr/bin/env')
+        if not pending:
+            assert_job_process(target, manifest, state)
+            return state
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            fail('startup.identity_timeout', 'The selected launchd job still reports an exiting or starting process. No unverified process was stopped; its app backup was retained.')
+        time.sleep(min(.2, remaining))
+
+
+def bootstrap_job(target, manifest, timeout=30):
+    """Bound retries for launchd's teardown window, without booting out other jobs."""
+    argv = ['/bin/launchctl', 'bootstrap', target['domain'], str(target['agent'])]
+    deadline = time.monotonic() + timeout
+    attempts = []
+    while True:
+        reply = execute(argv, check=False)
+        if reply.returncode == 0:
+            return
+        error = command_failure(argv, reply)
+        attempts.append(error.details)
+        if reply.returncode not in (5, 36, 37) or time.monotonic() >= deadline:
+            error.details = dict(error.details, attempts=attempts)
+            raise error
+        state = settled_job_state(target, manifest, timeout=min(10, max(.1, deadline-time.monotonic())))
+        if state['loaded']:
+            # A failed bootstrap may already have registered the owned service.
+            # Only the existing process verifier can establish successful start.
+            assert_job_process(target, manifest, state)
+            wait_processes(target, manifest, True, timeout=max(.1, deadline-time.monotonic()))
+            return
+        time.sleep(min(.5, max(0, deadline-time.monotonic())))
 
 
 def assert_job_process(target, manifest, state):
@@ -1234,7 +1314,7 @@ def reconcile_transaction(target, manifest, options, context, record_path):
         fail("resume.startup_record", "Recorded prior startup state is incomplete; do not guess at recovery.")
     if before["loaded"] and not before.get("pid"):
         return resume_unknown(target, record_path, "The original startup job was loaded without a Warden process; automatic recovery cannot safely distinguish intentional maintenance from startup failure.", state)
-    current_job = job_state(target)
+    current_job = settled_job_state(target, manifest)
     if (current_job["disabled"], current_job["disabled_explicit"]) != (before["disabled"], before["disabled_explicit"]):
         return resume_unknown(target, record_path, "Startup enabled/disabled state changed since interruption; preserve the operator's current choice.", state)
     expected_agent_hash = hashlib.sha256(plistlib.dumps(launchagent(target, manifest, options))).hexdigest()
@@ -1356,6 +1436,7 @@ def reconcile_transaction(target, manifest, options, context, record_path):
             assert_job_process(target, manifest, current_job)
             execute(["/bin/launchctl", "bootout", target["domain"] + "/" + target["label"]])
             wait_processes(target, manifest, False)
+            wait_job_unloaded(target)
             if prior_manifest.get("_executable") != manifest.get("_executable"):
                 wait_processes(target, prior_manifest, False)
         elif selected_processes(target, manifest) or selected_processes(target, prior_manifest):
@@ -1373,7 +1454,7 @@ def reconcile_transaction(target, manifest, options, context, record_path):
                 destination.unlink(missing_ok=True)
         restore_configuration(target, staging, state["configuration"])
         if before["loaded"]:
-            execute(["/bin/launchctl", "bootstrap", target["domain"], str(target["agent"])])
+            bootstrap_job(target, prior_manifest)
             if state.get("previous_processes"):
                 result["rollback_process_evidence"] = wait_processes(target, prior_manifest, True)
         after = job_state(target)
@@ -1387,7 +1468,7 @@ def reconcile_transaction(target, manifest, options, context, record_path):
         state["phase"] = "rolled_back_runtime_unverified"
     except BaseException as error:
         result["rollback"] = "Failed"
-        result["rollback_failure"] = {"finding": getattr(error, "finding", "rollback.error"), "message": str(error)}
+        result["rollback_failure"] = failure_record(error, "rollback.error")
         state["phase"] = "rollback_failed"
     result["evidence"].append(str(record_path))
     state["result"] = result
@@ -1495,6 +1576,7 @@ def transaction(package_root, manifest, target, options, context):
             if before["loaded"]:
                 execute(["/bin/launchctl", "bootout", target["domain"] + "/" + target["label"]])
                 wait_processes(target, prior_manifest, False)
+                wait_job_unloaded(target)
             if target["path"].exists():
                 os.rename(target["path"], backup_app)
             os.rename(staged_app, target["path"])
@@ -1510,7 +1592,7 @@ def transaction(package_root, manifest, target, options, context):
             register_bundle(target["path"])
             preserve_registered_default(state, result)
             if pending is None:
-                execute(["/bin/launchctl", "bootstrap", target["domain"], str(target["agent"])])
+                bootstrap_job(target, manifest)
                 evidence = wait_processes(target, manifest, True)
                 result["runtime_health"] = evidence["state"]
                 result["process_evidence"] = evidence
@@ -1532,18 +1614,19 @@ def transaction(package_root, manifest, target, options, context):
             atomic_json(record_path, state)
             return result
         except BaseException as original:
-            state["original_failure"] = {"finding": getattr(original, "finding", "interrupted"), "message": str(original)}
+            state["original_failure"] = failure_record(original, "interrupted")
             state["phase"] = "rollback_requested"
             atomic_json(record_path, state)
             result["installation"] = "Failed"
             result["original_failure"] = state["original_failure"]
             try:
                 require_recovery_space(target, staging, state)
-                current = job_state(target)
+                current = settled_job_state(target, manifest)
                 if current["loaded"]:
                     assert_job_process(target, manifest, current)
                     execute(["/bin/launchctl", "bootout", target["domain"] + "/" + target["label"]])
                     wait_processes(target, manifest, False)
+                    wait_job_unloaded(target)
                 if replaced and target["path"].exists():
                     os.rename(target["path"], staging / "failed.app")
                 if backup_app.exists():
@@ -1560,7 +1643,7 @@ def transaction(package_root, manifest, target, options, context):
                     atomic_bytes(receipt_path, old_receipt)
                 restore_configuration(target, staging, state["configuration"])
                 if before["loaded"]:
-                    execute(["/bin/launchctl", "bootstrap", target["domain"], str(target["agent"])])
+                    bootstrap_job(target, prior_manifest)
                     if old_processes:
                         recovered = wait_processes(target, prior_manifest, True)
                         result["rollback_process_evidence"] = recovered
@@ -1574,7 +1657,7 @@ def transaction(package_root, manifest, target, options, context):
                 state["phase"] = "rolled_back_runtime_unverified"
             except BaseException as rollback_error:
                 result["rollback"] = "Failed"
-                result["rollback_failure"] = {"finding": getattr(rollback_error, "finding", "rollback.error"), "message": str(rollback_error)}
+                result["rollback_failure"] = failure_record(rollback_error, "rollback.error")
                 state["phase"] = "rollback_failed"
             result["cleanup"] = "FailureEvidenceRetained"
             result["evidence"].append(str(record_path))
@@ -1709,6 +1792,7 @@ def continue_uninstall(target, options, context, record_path, state, resumed):
             atomic_json(record_path, state)
             execute(["/bin/launchctl", "bootout", target["domain"] + "/" + target["label"]])
             wait_processes(target, manifest, False)
+            wait_job_unloaded(target)
         if selected_processes(target, manifest):
             fail("uninstall.processes", "Selected processes remain; uninstall did not detach their application.")
         if current_hash is not None:

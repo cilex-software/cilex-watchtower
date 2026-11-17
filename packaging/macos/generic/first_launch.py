@@ -121,6 +121,7 @@ def stop_service(target):
     if before['loaded']:
         install.execute(['/bin/launchctl', 'bootout', target['domain'] + '/' + target['label']])
     wait_user_processes(target, running=False)
+    install.wait_job_unloaded(target)
 
 
 def start_service(target):
@@ -131,7 +132,7 @@ def start_service(target):
         # Opening the app is an explicit start, unlike background installer checks.
         install.execute(['/bin/launchctl', 'enable', service])
     if not state['loaded']:
-        install.execute(['/bin/launchctl', 'bootstrap', target['domain'], str(target['agent'])])
+        install.bootstrap_job(target, MANIFEST)
     elif not state['pid']:
         install.execute(['/bin/launchctl', 'kickstart', service])
     wait_user_processes(target, running=True)
