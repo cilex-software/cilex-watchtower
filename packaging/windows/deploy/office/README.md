@@ -59,8 +59,8 @@ cd "$env:USERPROFILE\Downloads"
 ```
 
 Watchtower briefly closes during the update. The script prints the location of
-a small result file; send that file's contents back to the deployment operator.
-It contains versions and the outcome, without passwords or tokens.
+a small result file. Send this file to the deployment operator. It records the
+package version, outcome and failure details, without passwords, tokens or raw logs.
 
 The script keeps the existing server connection, sign-in settings and Labs
 holds. It does not reboot Windows or change security settings. If Labs is doing

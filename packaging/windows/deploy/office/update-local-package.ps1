@@ -20,6 +20,20 @@ param(
 Set-StrictMode -Version 2
 $ErrorActionPreference='Stop'
 
+function Set-OfficeUpdateFailure($Result,[Management.Automation.ErrorRecord]$Record) {
+    $exception=$Record.Exception
+    $Result.errorCode='OFFICE_UPDATE_FAILED'
+    if($exception.Message -cmatch '^[A-Z][A-Z0-9_]{4,100}$'){$Result.errorCode=$exception.Message}
+    $data=$exception.Data
+    if($data.Contains('RollbackVerified')){$Result.rollbackVerified=[bool]$data['RollbackVerified']}
+    if($data.Contains('InstallFailure')){
+        $Result.diagnostics=[ordered]@{install=($data['InstallFailure']|Select-Object ErrorCode,ExceptionType,Script,Line)}
+        if($data.Contains('RollbackFailure')){
+            $Result.diagnostics.rollback=$data['RollbackFailure']|Select-Object ErrorCode,ExceptionType,Script,Line
+        }
+    }
+}
+
 function Write-OfficeUpdateProgress([string]$Stage,[string]$Language) {
     $languageIndex = [int]($Language -eq 'ru')
     if($Stage -eq 'RestoringPreviousVersion'){
@@ -470,6 +484,13 @@ try{
     Import-Module (Join-Path $helpers 'Common.psm1') -Force
     $installer=Import-Module (Join-Path $helpers 'Install.psm1') -Force -PassThru
     $package=Test-WtgPackage $verified.Root $ManifestSha256
+    $result.package=[ordered]@{
+        watchtowerVersion=$package.Manifest.version
+        wardenVersion=$package.Manifest.wardenVersion
+        sourceCommit=$package.Manifest.sourceCommit
+        manifestSha256=$package.ManifestSha256
+        watchtowerSha256=($package.Manifest.files|Where-Object path -EQ 'watchtower.exe').sha256
+    }
     if(-not $WhatIfPreference){Write-OfficeUpdateProgress 'CheckingOffice' $language}
     $identity=Resolve-WtgTargetIdentity
     $plan=Get-WtgInstallPlan ([pscustomobject]@{InstallDir=$InstallDir;InstallScope='User'}) $identity
@@ -518,9 +539,7 @@ try{
     $result.sourceCommit=$installed.SourceCommit;$result.backup=$installed.Backup;$result.startupCheck=$installed.Runtime
     $code=0
 }catch{
-    $result.errorCode='OFFICE_UPDATE_FAILED'
-    if($_.Exception.Message -match '^[A-Z][A-Z0-9_]{4,100}$'){$result.errorCode=$_.Exception.Message}
-    if($_.Exception.Data.Contains('RollbackVerified')){$result.rollbackVerified=[bool]$_.Exception.Data['RollbackVerified']}
+    Set-OfficeUpdateFailure $result $_
 }finally{
     if($code -eq 0){
         try { Write-OfficeUpdateProgress 'Finishing' $language }

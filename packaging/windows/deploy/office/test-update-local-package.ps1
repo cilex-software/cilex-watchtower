@@ -23,6 +23,45 @@ function InertLegacyTask($Plan){
 $root=Join-Path ([IO.Path]::GetTempPath()) ('cilex-office-wrapper-'+[Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory((Join-Path $root 'helpers'))|Out-Null
 try{
+    $privateDetail='private fixture error detail'
+    $installDiagnostic=[pscustomobject][ordered]@{
+        ErrorCode='INSTALL_OPERATION_FAILED'
+        ExceptionType='System.IO.IOException'
+        Script='Install.psm1'
+        Line=642
+        RawMessage=$privateDetail
+    }
+    $installFailure=[IO.IOException]::new($privateDetail)
+    $installFailure.Data['InstallFailure']=$installDiagnostic
+    $installFailure.Data['RollbackVerified']=$true
+    $installRecord=[Management.Automation.ErrorRecord]::new($installFailure,'FixtureInstall',[Management.Automation.ErrorCategory]::ReadError,$privateDetail)
+    $result=[ordered]@{errorCode=$null}
+    Set-OfficeUpdateFailure $result $installRecord
+    $serialized=$result|ConvertTo-Json -Depth 6 -Compress
+    $reported=$serialized|ConvertFrom-Json
+    Assert ($reported.errorCode -ceq 'OFFICE_UPDATE_FAILED' -and $reported.rollbackVerified -ceq $true) 'uncoded failure and verified rollback are reported'
+    Assert (($reported.diagnostics.PSObject.Properties.Name -join ',') -ceq 'install') 'verified recovery contains only the available install diagnostic'
+    Assert (($reported.diagnostics.install.PSObject.Properties.Name -join ',') -ceq 'ErrorCode,ExceptionType,Script,Line') 'diagnostic exposes only the four safe fields'
+    Assert ($reported.diagnostics.install.ErrorCode -ceq 'INSTALL_OPERATION_FAILED' -and $reported.diagnostics.install.ExceptionType -ceq 'System.IO.IOException' -and $reported.diagnostics.install.Script -ceq 'Install.psm1' -and $reported.diagnostics.install.Line -eq 642) 'install diagnostic retains code, type and source location'
+    Assert (-not $serialized.Contains($privateDetail)) 'raw exception text, target object and extra diagnostic data are excluded'
+
+    $rollbackFailure=[InvalidOperationException]::new('INSTALL_FAILED_ROLLBACK_UNVERIFIED')
+    $rollbackFailure.Data['InstallFailure']=$installDiagnostic
+    $rollbackFailure.Data['RollbackFailure']=[pscustomobject]@{ErrorCode='INSTALL_PROCESS_RESPAWNED';ExceptionType='System.Management.Automation.RuntimeException';Script='Install.psm1';Line=371}
+    $rollbackFailure.Data['RollbackVerified']=$false
+    $rollbackRecord=[Management.Automation.ErrorRecord]::new($rollbackFailure,'FixtureRollback',[Management.Automation.ErrorCategory]::InvalidOperation,$null)
+    $result=[ordered]@{errorCode=$null}
+    Set-OfficeUpdateFailure $result $rollbackRecord
+    $reported=($result|ConvertTo-Json -Depth 6 -Compress)|ConvertFrom-Json
+    Assert ($reported.errorCode -ceq 'INSTALL_FAILED_ROLLBACK_UNVERIFIED' -and $reported.rollbackVerified -ceq $false) 'controlled failure code and unverified rollback are reported'
+    Assert (($reported.diagnostics.PSObject.Properties.Name -join ',') -ceq 'install,rollback' -and $reported.diagnostics.rollback.ErrorCode -ceq 'INSTALL_PROCESS_RESPAWNED' -and $reported.diagnostics.rollback.Line -eq 371) 'unverified recovery preserves both diagnostics in order'
+
+    $preflightFailure=[InvalidOperationException]::new('OFFICE_TARGET_HOST_MISMATCH')
+    $preflightRecord=[Management.Automation.ErrorRecord]::new($preflightFailure,'FixturePreflight',[Management.Automation.ErrorCategory]::InvalidOperation,$null)
+    $result=[ordered]@{errorCode=$null}
+    Set-OfficeUpdateFailure $result $preflightRecord
+    Assert ($result.errorCode -ceq 'OFFICE_TARGET_HOST_MISMATCH' -and -not $result.Contains('diagnostics') -and -not $result.Contains('rollbackVerified')) 'preflight failure keeps its code without inventing transaction evidence'
+
     $entries=@()
     foreach($name in @('Common.psm1','Install.psm1','Requirements.psm1','requirements.json','StationVideoHealth.psm1')){
         $file=Join-Path (Join-Path $root 'helpers') $name
