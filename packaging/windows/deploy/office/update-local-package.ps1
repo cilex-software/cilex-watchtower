@@ -20,6 +20,34 @@ param(
 Set-StrictMode -Version 2
 $ErrorActionPreference='Stop'
 
+function Write-OfficeUpdateProgress([string]$Stage,[string]$Language) {
+    $languageIndex = [int]($Language -eq 'ru')
+    if($Stage -eq 'RestoringPreviousVersion'){
+        Write-Host (@('Restoring the previous version and checking it...', 'Восстанавливаем предыдущую версию и проверяем её...')[$languageIndex])
+        return
+    }
+    $steps = [ordered]@{
+        CheckingPackage       = @('Checking the update package', 'Проверка пакета обновления')
+        CheckingOffice        = @('Checking the Office installation', 'Проверка текущей установки')
+        CheckingRequirements  = @('Checking Windows requirements', 'Проверка требований Windows')
+        CheckingVideo         = @('Checking the current camera feeds', 'Проверка текущего видео с камер')
+        StagingFiles          = @('Preparing and checking the new files', 'Подготовка и проверка новых файлов')
+        ReplacingFiles        = @('Updating the files. The camera wall will close briefly.', 'Обновление файлов. Окно с камерами ненадолго закроется.')
+        StartingWatchtower    = @('Starting Watchtower', 'Запуск Watchtower')
+        VerifyingVideo        = @('Checking startup and video. Keep this window open for a few minutes.', 'Проверка запуска и видео. Оставьте это окно открытым на несколько минут.')
+        Finishing             = @('Finishing the update and saving the result', 'Завершение обновления и сохранение результата')
+    }
+    if($Stage -eq 'Complete'){
+        Write-Host ('[{0}] {1}' -f ('#' * $steps.Count), @('Update complete', 'Обновление завершено')[$languageIndex])
+        return
+    }
+    $index = [array]::IndexOf([object[]]@($steps.Keys), $Stage)
+    if($index -ge 0){
+        $bar = ('#' * $index) + '>' + ('-' * ($steps.Count - $index - 1))
+        Write-Host ('[{0}] {1}' -f $bar, $steps[$Stage][$languageIndex])
+    }
+}
+
 function Test-OfficePackageTrust([string]$Directory,[string]$TrustedHash) {
     if(-not [IO.Path]::IsPathRooted($Directory) -or $Directory.StartsWith('\\')){throw 'OFFICE_PACKAGE_LOCAL_DIRECTORY_REQUIRED'}
     $root=[IO.Path]::GetFullPath($Directory).TrimEnd('\')
@@ -432,12 +460,17 @@ $resultReserved=$false
 $labsFreeze=$null
 $persistLabsRecovery=$null
 try{
+    if(-not $WhatIfPreference){
+        Write-Host $(if($language -eq 'ru'){'Cilex Watchtower | Обновление для офиса'}else{'Cilex Watchtower | Office update'})
+        Write-OfficeUpdateProgress 'CheckingPackage' $language
+    }
     if($env:OS -ne 'Windows_NT' -or $env:COMPUTERNAME -ne $ExpectedHost){throw 'OFFICE_TARGET_HOST_MISMATCH'}
     $verified=Test-OfficePackageTrust $PackagePath $ManifestSha256
     $helpers=Join-Path $verified.Root 'helpers'
     Import-Module (Join-Path $helpers 'Common.psm1') -Force
     $installer=Import-Module (Join-Path $helpers 'Install.psm1') -Force -PassThru
     $package=Test-WtgPackage $verified.Root $ManifestSha256
+    if(-not $WhatIfPreference){Write-OfficeUpdateProgress 'CheckingOffice' $language}
     $identity=Resolve-WtgTargetIdentity
     $plan=Get-WtgInstallPlan ([pscustomobject]@{InstallDir=$InstallDir;InstallScope='User'}) $identity
     if(-not (Test-Path -LiteralPath (Join-Path $plan.Directory 'watchtower.exe') -PathType Leaf)){throw 'OFFICE_EXISTING_INSTALLATION_REQUIRED'}
@@ -478,6 +511,8 @@ try{
     }
     Assert-OfficeLabsSafe $identity $session @(Get-ScheduledTask -ErrorAction Stop)
     if($labsFreeze){Assert-OfficeIdleLabsFrozen -State $labsFreeze}
+    $progressWriter=${function:Write-OfficeUpdateProgress}
+    $context | Add-Member -NotePropertyName InstallProgress -NotePropertyValue ({param($stage) & $progressWriter $stage $language}.GetNewClosure())
     $installed=Install-WtgPackage $context $verified.Root
     $result.status='Installed';$result.watchtowerVersion=$installed.Version;$result.wardenVersion=$installed.WardenVersion
     $result.sourceCommit=$installed.SourceCommit;$result.backup=$installed.Backup;$result.startupCheck=$installed.Runtime
@@ -487,6 +522,11 @@ try{
     if($_.Exception.Message -match '^[A-Z][A-Z0-9_]{4,100}$'){$result.errorCode=$_.Exception.Message}
     if($_.Exception.Data.Contains('RollbackVerified')){$result.rollbackVerified=[bool]$_.Exception.Data['RollbackVerified']}
 }finally{
+    if($code -eq 0){
+        try { Write-OfficeUpdateProgress 'Finishing' $language }
+        catch { # Restoring Labs and saving the report must run even if the console is gone.
+        }
+    }
     if($labsFreeze -and $persistLabsRecovery -and -not $WhatIfPreference){
         try{
             Exit-OfficeIdleLabs -State $labsFreeze -PersistRecovery $persistLabsRecovery
@@ -501,7 +541,27 @@ try{
     }
 }
 if($WhatIfPreference){if($result.status -eq 'Failed'){Write-Output ('Office check blocked: '+$result.errorCode);exit 1};return}
-if($code -eq 0){Write-Host $(if($language -eq 'ru'){'Watchtower и Warden обновлены. Перезагрузка не выполнялась.'}else{'Watchtower and Warden were updated. Windows was not restarted.'})}
-else{Write-Host $(if($language -eq 'ru'){'Обновление не завершено. Код: '+$result.errorCode}else{'Update did not complete. Code: '+$result.errorCode})}
-if($ResultPath){Write-Host $ResultPath}
+if($code -eq 0){
+    Write-OfficeUpdateProgress 'Complete' $language
+    Write-Host ('Watchtower {0} | Warden {1}' -f $result.watchtowerVersion, $result.wardenVersion)
+    if($result.startupCheck -and $result.startupCheck.Video -eq 'Verified'){
+        Write-Host $(if($language -eq 'ru'){'Видео с камер проверено.'}else{'Camera video verified.'})
+    }else{
+        Write-Host $(if($language -eq 'ru'){'Проверка видео с камер ещё не завершена.'}else{'Camera video verification is pending.'})
+    }
+}elseif($result.status -eq 'ResultNotSaved'){
+    Write-Host $(if($language -eq 'ru'){'Не удалось сохранить отчёт. Проверьте состояние Watchtower перед повторной попыткой.'}else{'The report could not be saved. Check Watchtower before retrying.'})
+}elseif($result.status -eq 'RecoveryRequired'){
+    Write-Host $(if($language -eq 'ru'){'Требуется восстановить запуск Labs.'}else{'Labs startup needs recovery.'})
+}elseif($result.errorCode -eq 'INSTALL_CANCELLED'){
+    Write-Host $(if($language -eq 'ru'){'Обновление отменено.'}else{'Update cancelled.'})
+}elseif($result.Contains('rollbackVerified') -and $result.rollbackVerified){
+    Write-Host $(if($language -eq 'ru'){'Обновление остановлено. Предыдущая версия восстановлена.'}else{'Update stopped. The previous version was restored.'})
+}else{
+    Write-Host $(if($language -eq 'ru'){'Обновление не завершено.'}else{'Update did not complete.'})
+}
+if($code -ne 0 -and $result.errorCode){Write-Host $(if($language -eq 'ru'){'Код: '+$result.errorCode}else{'Code: '+$result.errorCode})}
+if($resultReserved -and $result.status -ne 'ResultNotSaved'){
+    Write-Host $(if($language -eq 'ru'){'Отчёт: '+$ResultPath}else{'Report: '+$ResultPath})
+}
 exit $code

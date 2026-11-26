@@ -9,16 +9,19 @@ For a prepared **Office update ZIP**, use the short instructions in that package
 1. Sign into Watchtower with its usual camera-app account and confirm the normal
    camera wall. Keep it open.
 2. Download and extract the whole approved ZIP.
-3. Open **PowerShell as administrator** in the extracted folder and run:
-
-```powershell
-.\Update-Office.cmd
-```
+3. In the extracted folder, right-click `Update-Office.cmd` and choose
+   **Run as administrator**. Select **Show more options** if needed.
 
 If Office's standard script setting blocks all scripts, the launcher asks before
 using an exception for this update run only. It leaves saved Windows policy settings unchanged and refuses
 to override an organisation-managed restriction. Declining the request stops the
 update. Send the completion message and saved result path to the deployment operator.
+
+Review the Windows warnings when they appear. To accept them, type uppercase
+`YES` and press Enter. Pressing Enter alone cancels the update. The progress bar
+shows the current step. Keep the window open during startup and video checks,
+which can take a few minutes. The final message shows the installed version or
+explains whether the update stopped and the previous version was restored.
 
 For an older 1.1.791 ZIP, use the **latest small fix ZIP** supplied by the
 deployment operator. Extract it into the same folder and replace the update

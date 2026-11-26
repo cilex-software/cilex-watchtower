@@ -4,6 +4,14 @@ Set-StrictMode -Version 2
 function Get-WtgOption($Context,[string]$Name,$Default=$null) {
     $p=$Context.PSObject.Properties[$Name]; if($p){return $p.Value}; return $Default
 }
+function Write-WtgInstallProgress($Context,[string]$Stage) {
+    $report = Get-WtgOption $Context 'InstallProgress'
+    if($report -is [scriptblock]){
+        try { & $report $Stage | Out-Null }
+        catch { # A display failure must not interrupt installation or recovery.
+        }
+    }
+}
 function Get-WtgHelperPath([string]$Name) {
     if($Name -notmatch '^[A-Za-z0-9_.-]+$'){throw 'INSTALL_HELPER_NAME_INVALID'}
     $path=Join-Path $PSScriptRoot $Name
@@ -740,7 +748,7 @@ function Confirm-WtgTargetRequirements($Context,$Plan) {
     if($blocked.Count){throw 'INSTALL_REQUIREMENTS_BLOCKED'}
     if($pending.Count){
         if(@($pending|Where-Object{-not $_.CanOverride}).Count -or (Get-WtgOption $Context 'NonInteractive' $false)){throw 'INSTALL_REQUIREMENTS_ACCEPTANCE_REQUIRED'}
-        $prompt=Get-WtgInstallText (Get-WtgOption $Context 'Language' 'en') 'Continue with these limitations? Type YES or press Enter to cancel' 'Продолжить с указанными ограничениями? Введите YES или нажмите Enter для отмены'
+        $prompt=Get-WtgInstallText (Get-WtgOption $Context 'Language' 'en') 'Type uppercase YES and press Enter to accept these warnings. Press Enter alone to cancel' 'Чтобы принять эти предупреждения, введите YES заглавными латинскими буквами и нажмите Enter. Для отмены нажмите только Enter'
         if((Read-Host $prompt) -cne 'YES'){throw 'INSTALL_CANCELLED'}
         $Context|Add-Member -NotePropertyName OverrideRequirements -NotePropertyValue (@($accepted)+@($pending.Id)) -Force
     }
@@ -857,6 +865,7 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
     $plan=Get-WtgInstallPlan $Context $identity
     if($plan.Scope -eq 'Machine'){Assert-WtgMachineParent $plan.Directory}
     if((Get-WtgOption $Context 'ExpectedHost' '') -and $env:COMPUTERNAME -ne $Context.ExpectedHost){throw 'TARGET_HOST_MISMATCH'}
+    Write-WtgInstallProgress $Context 'CheckingRequirements'
     $findings=Confirm-WtgTargetRequirements $Context $plan
     $packageRoot=Expand-WtgInstallInput $Context $PackagePath
     $package=Test-WtgPackage $packageRoot (Get-WtgOption $Context 'PackageManifestSha256' '')
@@ -880,6 +889,7 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
     $configAcl=$null;$configDirectoryAcl=$null
     if($hadConfig){$configAcl=Get-Acl -LiteralPath $plan.ConfigPath;[IO.File]::Copy($plan.ConfigPath,$configBackup,$false)}
     if(Test-Path -LiteralPath (Split-Path -Parent $plan.ConfigPath)){$configDirectoryAcl=Get-Acl -LiteralPath (Split-Path -Parent $plan.ConfigPath)}
+    Write-WtgInstallProgress $Context 'CheckingVideo'
     $baseline=$null;$app=@(Get-WtgOwnedProcesses $plan|Where-Object{$_.Path -eq (Join-Path $plan.Directory 'watchtower.exe')})
     if($app.Count){
         $vm=Get-WtgHelperPath 'StationVideoHealth.psm1';Import-Module $vm -Force
@@ -891,6 +901,7 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
     $shutdown=[pscustomobject]@{OriginalAdmission=[pscustomobject]@{Initialized=$false;Rows=@()};ReplacementAdmission=[pscustomobject]@{Initialized=$false;Rows=@()};StartupAttempted=$false}
     try{
         $beforeReplace={
+            Write-WtgInstallProgress $Context 'ReplacingFiles'
             Stop-WtgOwnedProcesses $plan -BeforeStop {
                 if($adoption){$legacyPlan=$plan.PSObject.Copy();$legacyPlan.TaskName=$adoption.TaskName;$legacyPlan|Add-Member -NotePropertyName AllowLegacyWarden -NotePropertyValue $true;Stop-WtgTaskExecution $legacyPlan}
                 if($oldTask){Stop-WtgTaskExecution $plan}
@@ -900,11 +911,16 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
             $null=Set-WtgWardenConfiguration $Context $plan
             Register-WtgUninstaller $plan $package
             Register-WtgTask $plan
+            Write-WtgInstallProgress $Context 'StartingWatchtower'
             if(@(Get-WtgInteractiveSessions $plan).Count -gt 0){$shutdown.StartupAttempted=$true;Start-ScheduledTask -TaskName $plan.TaskName}
         }
-        $verify={Test-WtgInstalledStartup $Context $plan -Before $baseline}
+        $verify={
+            Write-WtgInstallProgress $Context 'VerifyingVideo'
+            Test-WtgInstalledStartup $Context $plan -Before $baseline
+        }
         $restore={param($Phase)
             if($Phase -eq 'BeforeFiles'){
+                Write-WtgInstallProgress $Context 'RestoringPreviousVersion'
                 $admission=if($shutdown.StartupAttempted){$shutdown.ReplacementAdmission}else{$shutdown.OriginalAdmission}
                 Stop-WtgOwnedProcesses $plan -BeforeStop {
                     $task=Get-WtgTaskXml $plan
@@ -919,6 +935,7 @@ function Install-WtgPackage($Context,[string]$PackagePath) {
                 if($adoption){Register-ScheduledTask -TaskName $adoption.TaskName -Xml $adoption.Xml -Force|Out-Null;Set-WtgRestoredTaskEnabled $adoption.TaskName $adoption.Enabled;if($adoption.Enabled -and $app.Count -gt 0 -and @(Get-WtgInteractiveSessions $plan).Count){Start-ScheduledTask -TaskName $adoption.TaskName;$legacyPlan=$plan.PSObject.Copy();$legacyPlan|Add-Member -NotePropertyName AllowLegacyWarden -NotePropertyValue $true;$null=Test-WtgInstalledStartup $Context $legacyPlan -Before $baseline}}
             }
         }
+        Write-WtgInstallProgress $Context 'StagingFiles'
         $tx=Invoke-WtgDirectoryTransaction $package $plan $Context.RunId $configure $verify $restore $beforeReplace
         if($adoption){Write-WtgInstallJson (Join-Path $plan.StatePath ($Context.RunId+'.adoption.json')) @{taskName=$adoption.TaskName;xml=$adoption.Xml;backup=$tx.Backup}}
         $startupError=$null

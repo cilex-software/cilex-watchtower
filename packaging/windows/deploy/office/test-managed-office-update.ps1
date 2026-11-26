@@ -56,7 +56,10 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
             return '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><Principals><Principal><UserId>'+$escape::Escape([string]$Task.Principal.UserId)+'</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals><Settings><Enabled>'+([string][bool]$Task.Settings.Enabled).ToLowerInvariant()+'</Enabled></Settings><Actions><Exec><Command>'+$escape::Escape([string]$Task.Actions[0].Execute)+'</Command><Arguments>'+$escape::Escape([string]$Task.Actions[0].Arguments)+'</Arguments><WorkingDirectory>'+$escape::Escape([string]$Task.Actions[0].WorkingDirectory)+'</WorkingDirectory></Exec></Actions></Task>'
         }
         function script:Resolve-WtgTargetIdentity {return $script:FixtureIdentity}
-        function script:Confirm-WtgTargetRequirements {param($Context,$Plan)return @([pscustomobject]@{Id='fixture';State='PASS'})}
+        function script:Confirm-WtgTargetRequirements {param($Context,$Plan)
+            $script:Fixture.Events.Add('Requirements:fixture-only')
+            return @([pscustomobject]@{Id='fixture';State='PASS'})
+        }
         function script:Test-WtgElevation {return $true}
         function script:Install-WtgRuntimePrerequisites {$script:Fixture.Events.Add('Prerequisites:fixture-only')}
         function script:Set-WtgPrivateAcl {param($Path,$Sid,[switch]$Machine)Assert-FixturePath $Path}
@@ -66,7 +69,11 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
         function script:Get-WtgRegistrationSnapshot {param($Plan)return Copy-FixtureObject $script:Fixture.Registration}
         function script:Register-WtgUninstaller {param($Plan,$Package)$script:Fixture.Registration=[pscustomobject]@{Version=$Package.Manifest.version;FixtureOnly=$true};$script:Fixture.Events.Add('Registration:new')}
         function script:Restore-WtgRegistration {param($Plan,$Snapshot)$script:Fixture.Registration=Copy-FixtureObject $Snapshot;$script:Fixture.Events.Add('Registration:restored')}
-        function script:Get-WtgHelperPath {param($Name)if($Name -cne 'StationVideoHealth.psm1'){throw 'FIXTURE_HELPER_FORBIDDEN'};return $script:FixtureVideoModule}
+        function script:Get-WtgHelperPath {param($Name)
+            if($Name -cne 'StationVideoHealth.psm1'){throw 'FIXTURE_HELPER_FORBIDDEN'}
+            $script:Fixture.Events.Add('VideoBaseline:fixture-only')
+            return $script:FixtureVideoModule
+        }
         function script:Get-WtgInteractiveSessions {param($Plan)return @(1)}
         function script:Get-ScheduledTask {param($TaskName,$TaskPath,$ErrorAction)
             foreach($task in $script:Fixture.Tasks.Values){if(-not $TaskName -or $task.TaskName -eq $TaskName){$task}}
@@ -183,10 +190,37 @@ Export-ModuleMember -Function Get-StationVideoSnapshot,Assert-StationVideoBaseli
         $context.AdoptExisting=$selection.AdoptExisting;$context.LegacyTaskName=$selection.TaskName
         Assert ($null -eq (& $module {param($c,$p)Get-WtgLegacyAdoption $c $p} $context $plan)) ($case+': managed selection cannot enter legacy adoption')
         Assert (& $module {param($p,$r)Test-WtgProcessParentage $p $r 1} $plan $fixture.Rows) ($case+': existing launcher and both Wardens own the app')
+        if($case -in @('success','rollback')){
+            $progressEvents=$fixture.Events
+            $failRecoveryDisplay=$case -eq 'rollback'
+            $recordProgress={
+                param([string]$Stage)
+                $progressEvents.Add('Progress:'+$Stage)
+                if($failRecoveryDisplay -and $Stage -ceq 'RestoringPreviousVersion'){throw 'FIXTURE_RECOVERY_DISPLAY_FAILED'}
+                'fixture progress output'
+            }.GetNewClosure()
+            $context|Add-Member -NotePropertyName InstallProgress -NotePropertyValue $recordProgress
+        }
         $result=$null;$failure=$null
         try{$result=Install-WtgPackage $context $packageRoot}catch{$failure=$_}
+        if($case -in @('success','rollback')){
+            $expectedStages=@('CheckingRequirements','CheckingVideo','StagingFiles','ReplacingFiles','StartingWatchtower','VerifyingVideo')
+            if($case -eq 'rollback'){$expectedStages+='RestoringPreviousVersion'}
+            $stages=@($fixture.Events|Where-Object {$_ -like 'Progress:*'}|ForEach-Object {$_ -replace '^Progress:'})
+            Assert (($stages -join '|') -ceq ($expectedStages -join '|')) ($case+': progress records each stage in order')
+            $events=$fixture.Events
+            Assert ($events.IndexOf('Progress:CheckingRequirements') -lt $events.IndexOf('Requirements:fixture-only')) ($case+': requirements progress precedes the requirements check')
+            Assert ($events.IndexOf('Progress:CheckingVideo') -lt $events.IndexOf('VideoBaseline:fixture-only')) ($case+': baseline progress precedes the video check')
+            Assert ($events.IndexOf('Progress:ReplacingFiles') -lt $events.IndexOf('RegisterNew:'+$plan.TaskName)) ($case+': replacement progress precedes registration of the new version')
+            Assert ($events.IndexOf('Progress:StartingWatchtower') -lt $events.IndexOf('Start:'+$plan.TaskName)) ($case+': startup progress precedes startup')
+            Assert ($events.IndexOf('Start:'+$plan.TaskName) -lt $events.IndexOf('Progress:VerifyingVideo') -and $events.IndexOf('Progress:VerifyingVideo') -lt $events.IndexOf('Verify:fixture-chain')) ($case+': verification progress occurs after startup and before verification')
+            if($case -eq 'rollback'){
+                Assert ($events.IndexOf('Verify:fixture-chain') -lt $events.IndexOf('Progress:RestoringPreviousVersion') -and $events.IndexOf('Progress:RestoringPreviousVersion') -lt $events.IndexOf('RegisterRestored:'+$plan.TaskName)) 'rollback: recovery progress follows failed verification and precedes restoration'
+            }
+        }
         if($case -eq 'success'){
             if($failure){throw $failure}
+            Assert (@($result).Count -eq 1) 'success: callback output does not enter the installer result'
             Assert ($result.Version -eq '1.1.791' -and $result.WardenVersion -eq '1.5.0') 'success: real managed orchestrator reports new versions'
             Assert ($result.Runtime.FixtureOnly -and $result.Runtime.State -eq 'FixtureManagedChainVerified') 'success: fixture-only startup validates actual managed parentage'
             Assert (Test-Path -LiteralPath (Join-Path $result.Backup 'retained-old-file.txt')) 'success: complete prior directory remains in backup'
