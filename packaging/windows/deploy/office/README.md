@@ -12,6 +12,11 @@ For a prepared **Office update ZIP**, use the short instructions in that package
 3. In the extracted folder, right-click `Update-Office.cmd` and choose
    **Run as administrator**. Select **Show more options** if needed.
 
+The updater checks the running Watchtower and shows its verified installation
+folder. Keep that copy open during the first checks. `C:\wt-labs` is shared
+with Labs. A Watchtower installation there needs its own folder before this
+updater can safely replace it.
+
 If Office's standard script setting blocks all scripts, the launcher asks before
 using an exception for this update run only. It leaves saved Windows policy settings unchanged and refuses
 to override an organisation-managed restriction. Declining the request stops the
@@ -72,7 +77,7 @@ resolve the reported condition. Do not disable protections or remove Labs holds.
 | `-PackagePath 'C:\Downloads\Cilex-package'` | Required: the extracted folder containing `manifest.json`, `helpers` and `payload`. |
 | `-ManifestSha256 '…'` | Required: the trusted SHA-256 of `manifest.json`, supplied with the approved package. |
 | `-WhatIf` | Optional: check the package and existing setup without changing anything. Add it to the command above. |
-| `-InstallDir 'D:\Apps\Cilex Watchtower'` | Optional: only if Office's existing installation uses another folder. |
+| `-InstallDir 'D:\Apps\Cilex Watchtower'` | Optional: select an existing installation. It must match the running Watchtower when one is open. |
 | `-ResultPath 'C:\Users\Админ\Desktop\office-update.json'` | Optional: save the result to a new file here instead of the default result folder. |
 | `-ExpectedHost 'OFFICE-PC'` | Optional: only for an approved Office computer with a different name. Default: `WT-OFFICE-01`. |
 

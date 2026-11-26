@@ -20,9 +20,36 @@ function InertLegacyTask($Plan){
     $task.Settings.Enabled=$false;$task.State='Disabled'
     return $task
 }
+function Get-WtgInstallPlan($Context,$Identity){
+    $directory=$Context.InstallDir
+    if(-not $directory){$directory=Join-Path $Identity.LocalAppData 'Programs\Cilex Watchtower'}
+    return [pscustomobject]@{Directory=[IO.Path]::GetFullPath($directory).TrimEnd('\','/');Identity=$Identity}
+}
+function Wall([string]$Path,[int]$ProcessId=1001){
+    return [pscustomobject]@{ExecutablePath=$Path;ProcessId=$ProcessId}
+}
 $root=Join-Path ([IO.Path]::GetTempPath()) ('cilex-office-wrapper-'+[Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory((Join-Path $root 'helpers'))|Out-Null
 try{
+    $identity=[pscustomobject]@{LocalAppData=(Join-Path $root 'AppData\Local');Sid='S-1-5-21-1-2-3-1001'}
+    $defaultDirectory=Join-Path $identity.LocalAppData 'Programs\Cilex Watchtower'
+    $separateDirectory=Join-Path $root 'Separate Watchtower'
+    $nestedDirectory='C:\wt-labs\Cilex Watchtower'
+    $active=Wall (Join-Path $nestedDirectory 'watchtower.exe')
+    Assert ((Resolve-OfficeInstallPlan $identity '' @()).Directory -eq $defaultDirectory) 'no running wall retains the normal installation folder'
+    Assert ((Resolve-OfficeInstallPlan $identity $separateDirectory @()).Directory -eq $separateDirectory) 'no running wall permits a requested dedicated folder'
+    Assert ((Resolve-OfficeInstallPlan $identity '' @($active)).Directory -eq $nestedDirectory) 'running wall supplies its own dedicated installation folder'
+    Assert ((Resolve-OfficeInstallPlan $identity ($nestedDirectory+'\') @($active)).Directory -eq $nestedDirectory) 'requested and running folders are compared after normalization'
+    Reject {Resolve-OfficeInstallPlan $identity $separateDirectory @($active)} 'OFFICE_ACTIVE_INSTALLATION_MISMATCH'
+    Reject {Resolve-OfficeInstallPlan $identity '' @($active,(Wall (Join-Path $defaultDirectory 'watchtower.exe') 1002))} 'OFFICE_ACTIVE_INSTALLATION_AMBIGUOUS'
+    Reject {Resolve-OfficeInstallPlan $identity '' @((Wall ''))} 'OFFICE_ACTIVE_INSTALLATION_UNVERIFIED'
+    Reject {Resolve-OfficeInstallPlan $identity 'C:\WT-LABS\' @()} 'OFFICE_SHARED_LABS_DIRECTORY'
+    Reject {Resolve-OfficeInstallPlan $identity '' @((Wall 'C:\wt-labs\watchtower.exe'))} 'OFFICE_SHARED_LABS_DIRECTORY'
+    $sharedDirectory=Join-Path $root 'Shared Labs'
+    [IO.Directory]::CreateDirectory($sharedDirectory)|Out-Null
+    [IO.File]::WriteAllText((Join-Path $sharedDirectory 'start-labs.vbs'),'fixture marker; never executed')
+    Reject {Resolve-OfficeInstallPlan $identity $sharedDirectory @()} 'OFFICE_SHARED_LABS_DIRECTORY'
+
     $privateDetail='private fixture error detail'
     $installDiagnostic=[pscustomobject][ordered]@{
         ErrorCode='INSTALL_OPERATION_FAILED'

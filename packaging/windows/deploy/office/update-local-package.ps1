@@ -95,6 +95,28 @@ function Get-OfficeTaskSid($Task) {
     return (New-Object Security.Principal.NTAccount $user).Translate([Security.Principal.SecurityIdentifier]).Value
 }
 
+function Resolve-OfficeInstallPlan($Identity,[string]$RequestedDirectory,[object[]]$WallProcesses) {
+    $walls=@($WallProcesses)
+    if($walls.Count -gt 1){throw 'OFFICE_ACTIVE_INSTALLATION_AMBIGUOUS'}
+    $directory=$RequestedDirectory
+    $activePath=$null
+    if($walls.Count -eq 1){
+        $activePath=[string]$walls[0].ExecutablePath
+        if($activePath -notmatch '^[A-Za-z]:[\\/]' -or [IO.Path]::GetFileName($activePath) -ne 'watchtower.exe'){
+            throw 'OFFICE_ACTIVE_INSTALLATION_UNVERIFIED'
+        }
+        if(-not $directory){$directory=Split-Path -Parent $activePath}
+    }
+    $plan=Get-WtgInstallPlan ([pscustomobject]@{InstallDir=$directory;InstallScope='User'}) $Identity
+    if($plan.Directory -eq 'C:\wt-labs' -or (Test-Path -LiteralPath (Join-Path $plan.Directory 'start-labs.vbs')) -or (Test-Path -LiteralPath (Join-Path $plan.Directory 'guard3.ps1'))){
+        throw 'OFFICE_SHARED_LABS_DIRECTORY'
+    }
+    if($activePath -and $activePath -ne (Join-Path $plan.Directory 'watchtower.exe')){
+        throw 'OFFICE_ACTIVE_INSTALLATION_MISMATCH'
+    }
+    return $plan
+}
+
 function Test-OfficeInertLegacyTask($Task,$Plan) {
     # Managed adoption deliberately retains this disabled legacy task for recovery.
     # Accept only that exact inert form; an unknown or active alternative still blocks.
@@ -493,7 +515,10 @@ try{
     }
     if(-not $WhatIfPreference){Write-OfficeUpdateProgress 'CheckingOffice' $language}
     $identity=Resolve-WtgTargetIdentity
-    $plan=Get-WtgInstallPlan ([pscustomobject]@{InstallDir=$InstallDir;InstallScope='User'}) $identity
+    $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
+    if($session -eq 0){throw 'OFFICE_SIGNED_IN_SESSION_MISMATCH'}
+    $walls=@(Get-CimInstance Win32_Process -Filter "Name='watchtower.exe' AND SessionId=$session" -ErrorAction Stop)
+    $plan=Resolve-OfficeInstallPlan $identity $InstallDir $walls
     if(-not (Test-Path -LiteralPath (Join-Path $plan.Directory 'watchtower.exe') -PathType Leaf)){throw 'OFFICE_EXISTING_INSTALLATION_REQUIRED'}
     $markerPath=Join-Path $plan.Directory '.cilex-install.json'
     $marker=if(Test-Path -LiteralPath $markerPath){& $installer {param($p)Assert-WtgOwnedInstallation $p} $plan}else{$null}
@@ -503,8 +528,10 @@ try{
     if($selection.AdoptExisting){$null=& $installer {param($c,$p)Get-WtgLegacyAdoption $c $p} $context $plan}
     else{$null=& $installer {param($p)Get-WtgTaskXml $p} $plan}
     $owned=@(& $installer {param($p)Get-WtgOwnedProcesses $p} $plan)
-    $session=[Diagnostics.Process]::GetCurrentProcess().SessionId
-    if($session -eq 0 -or @($owned|Where-Object{$_.Session -ne $session}).Count){throw 'OFFICE_SIGNED_IN_SESSION_MISMATCH'}
+    if(@($owned|Where-Object{$_.Session -ne $session}).Count){throw 'OFFICE_SIGNED_IN_SESSION_MISMATCH'}
+    if($walls.Count -and -not @($owned|Where-Object Path -eq (Join-Path $plan.Directory 'watchtower.exe')).Count){throw 'OFFICE_ACTIVE_INSTALLATION_UNVERIFIED'}
+    $result.installDirectory=$plan.Directory
+    if(-not $WhatIfPreference){Write-Host $(if($language -eq 'ru'){'Папка Watchtower: '+$plan.Directory}else{'Watchtower folder: '+$plan.Directory})}
     try{Assert-OfficeLabsSafe $identity $session $tasks}
     catch{
         if($_.Exception.Message -cne 'OFFICE_LABS_PAUSE_AND_DRAIN_REQUIRED'){throw}
@@ -574,6 +601,8 @@ if($code -eq 0){
     Write-Host $(if($language -eq 'ru'){'Требуется восстановить запуск Labs.'}else{'Labs startup needs recovery.'})
 }elseif($result.errorCode -eq 'INSTALL_CANCELLED'){
     Write-Host $(if($language -eq 'ru'){'Обновление отменено.'}else{'Update cancelled.'})
+}elseif($result.errorCode -eq 'OFFICE_SHARED_LABS_DIRECTORY'){
+    Write-Host $(if($language -eq 'ru'){'Выбрана общая папка Labs. Для обновления нужна отдельная установка Watchtower.'}else{'The selected folder is shared with Labs. The update needs a separate Watchtower installation.'})
 }elseif($result.Contains('rollbackVerified') -and $result.rollbackVerified){
     Write-Host $(if($language -eq 'ru'){'Обновление остановлено. Предыдущая версия восстановлена.'}else{'Update stopped. The previous version was restored.'})
 }else{
