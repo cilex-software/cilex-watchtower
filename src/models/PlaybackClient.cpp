@@ -1206,29 +1206,7 @@ void PlaybackClient::createExport(const QString &cameraId, const QString &wallSt
     if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, destPath, post]() {
-        reply->deleteLater();
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
-        // 422 = High requested over a span that has aged to the standard sub (the
-        // grey-out/confirm race). Surface the backend's explanation; the operator
-        // can re-export at Standard quality.
-        if (code == 422) {
-            const QString detail = wt::localisedServerError(obj);
-            emit exportFailed(QString(), detail.isEmpty()
-                ? QStringLiteral("High-quality export needs the high-res original, which has aged to standard storage for part of this selection. Export at Standard quality instead.")
-                : detail);
-            return;
-        }
-        const QString jobId = obj.value("job_id").toString();
-        if (jobId.isEmpty()) {
-            emit exportFailed(QString(), "Export request rejected.");
-            return;
-        }
-        m_exportDest.insert(jobId, destPath);
-        if (!post.isEmpty()) m_exportPost.insert(jobId, post);   // client compression/overlays
-        emit exportStarted(jobId);
-        setExportState(QStringLiteral("preparing"), -1, tr("Queued on the server"));
-        QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
+        finishExportRequest(reply, destPath, post);
     });
 }
 
@@ -1253,22 +1231,45 @@ void PlaybackClient::createMosaicExport(const QString &sessionId, const QString 
     if (!purpose.isEmpty()) body.insert("purpose", purpose);
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, destPath]() {
-        reply->deleteLater();
-        const int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if (code != 200) {
-            emit exportFailed(QString(), code == 404
-                ? QStringLiteral("Combined-grid export isn't available yet (backend E2 pending).")
-                : QStringLiteral("Combined-grid export rejected (%1).").arg(code));
-            return;
-        }
-        const auto obj = QJsonDocument::fromJson(reply->readAll()).object();
-        const QString jobId = obj.value("job_id").toString();
-        if (jobId.isEmpty()) { emit exportFailed(QString(), "Combined-grid export rejected."); return; }
+        finishExportRequest(reply, destPath, {});
+    });
+}
+
+void PlaybackClient::finishExportRequest(QNetworkReply *reply, const QString &destPath,
+                                         const QVariantMap &post)
+{
+    reply->deleteLater();
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const auto networkError = reply->error();
+    const bool accepted = status >= 200 && status < 300;
+    const auto body = QJsonDocument::fromJson(reply->readAll()).object();
+    const QString jobId = body.value("job_id").toString();
+    if (accepted && networkError == QNetworkReply::NoError && !jobId.trimmed().isEmpty()) {
         m_exportDest.insert(jobId, destPath);
+        if (!post.isEmpty()) m_exportPost.insert(jobId, post);   // client compression/overlays
         emit exportStarted(jobId);
         setExportState(QStringLiteral("preparing"), -1, tr("Queued on the server"));
         QTimer::singleShot(1500, this, [this, jobId]() { pollExport(jobId); });
-    });
+        return;
+    }
+
+    qWarning("[EXPORT] create failed http_status=%d network_error=%d", status, int(networkError));
+    if (status == 401)
+        AuthController::instance()->noteUnauthorized();
+
+    QString detail;
+    if (status == 0 || (accepted && networkError != QNetworkReply::NoError)) {
+        detail = tr("The server did not return a complete response to the export request.");
+    } else if (accepted) {
+        detail = tr("The server accepted the export request but returned no export job ID.");
+    } else if (status == 403 && body.value("code").toString() == QLatin1String("role_not_authorized")) {
+        detail = tr("Sign in as an Operator or Administrator to export clips.");
+    } else {
+        detail = wt::localisedServerError(body);
+        if (detail.isEmpty())
+            detail = tr("The server rejected the export request (HTTP %1).").arg(status);
+    }
+    emit exportFailed(QString(), detail);
 }
 
 void PlaybackClient::fetchExports()

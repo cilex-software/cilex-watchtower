@@ -5075,14 +5075,33 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/models/PlaybackClient.cpp" line="1230"/>
-        <location filename="../src/models/PlaybackClient.cpp" line="1269"/>
-        <location filename="../src/models/PlaybackClient.cpp" line="1325"/>
+        <location filename="../src/models/PlaybackClient.cpp" line="1251"/>
+        <location filename="../src/models/PlaybackClient.cpp" line="1326"/>
         <source>Queued on the server</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/models/PlaybackClient.cpp" line="1324"/>
+        <location filename="../src/models/PlaybackClient.cpp" line="1262"/>
+        <source>The server did not return a complete response to the export request.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/PlaybackClient.cpp" line="1264"/>
+        <source>The server accepted the export request but returned no export job ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/PlaybackClient.cpp" line="1266"/>
+        <source>Sign in as an Operator or Administrator to export clips.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/PlaybackClient.cpp" line="1270"/>
+        <source>The server rejected the export request (HTTP %1).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/models/PlaybackClient.cpp" line="1325"/>
         <source>Building the clip on the server</source>
         <translation type="unfinished"></translation>
     </message>

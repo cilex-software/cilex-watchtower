@@ -11,6 +11,7 @@
 #include <QtQml/qqmlregistration.h>
 
 class QNetworkAccessManager;
+class QNetworkReply;
 class HlsProxy;
 class QThread;
 
@@ -244,7 +245,7 @@ private:
     // Raise the "not responding" banner if `reply` is STILL in flight after
     // s_apiAnnounceMs, without cancelling it. Announcing and giving up are two
     // different deadlines; see the note in the .cpp.
-    void armUnresponsiveAnnounce(class QNetworkReply *reply);
+    void armUnresponsiveAnnounce(QNetworkReply *reply);
     void applyAuthCookie();
     void setAuthFault(bool v, const QString &detail);   // mirror the access_token into our private NAM's jar
     void fetchStreams();
@@ -254,6 +255,7 @@ private:
                         const QString &wallEndIso, bool hevcCapable, int attempt,
                         const QString &tag);
     void flushPendingSessions();
+    void finishExportRequest(QNetworkReply *reply, const QString &destPath, const QVariantMap &post);
     void downloadExport(const QString &jobId, const QString &url, const QString &destPath);
 
     QNetworkAccessManager *m_nam;
